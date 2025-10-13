@@ -191,32 +191,32 @@ SR_CHAN_DICT:
     - 2lss_m_1tau_onZ_3j
     - 2lss_m_1tau_onZ_4j
     - 2lss_m_1tau_onZ_5j
-    - 2lss_m_1tau_onZ_6j
+    - 2lss_m_1tau_onZ_7j
     - 2lss_p_1tau_onZ_3j
     - 2lss_p_1tau_onZ_4j
     - 2lss_p_1tau_onZ_5j
-    - 2lss_p_1tau_onZ_6j
+    - 2lss_p_1tau_onZ_7j
   2lss_1tau_offZ:
     - 2lss_m_1tau_offZ_3j
     - 2lss_m_1tau_offZ_4j
     - 2lss_m_1tau_offZ_5j
-    - 2lss_m_1tau_offZ_6j
+    - 2lss_m_1tau_offZ_7j
     - 2lss_p_1tau_offZ_3j
     - 2lss_p_1tau_offZ_4j
     - 2lss_p_1tau_offZ_5j
-    - 2lss_p_1tau_offZ_6j
+    - 2lss_p_1tau_offZ_7j
   2los_onZ_1tau:
-    - 2los_onZ_1tau_5j
+    - 2los_onZ_1tau_6j
   3l_1tau_1b:
     - 3l_1tau_1b_2j
     - 3l_1tau_1b_3j
     - 3l_1tau_1b_4j
-    - 3l_1tau_1b_5j
+    - 3l_1tau_1b_6j
   3l_1tau_2b:
     - 3l_1tau_2b_2j
     - 3l_1tau_2b_3j
     - 3l_1tau_2b_4j
-    - 3l_1tau_2b_5j
+    - 3l_1tau_2b_6j
 CR_GRP_MAP:
   Data:
     color: black
