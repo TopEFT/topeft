@@ -60,28 +60,25 @@ allowing you to toggle signal and control regions from the command line.
 
    ```bash
    python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-       --options configs/fullR2_run.yml \
-       --summary-verbosity full
+       --options configs/fullR2_run.yml
    ```
 
 3. Switch to the signal-region (SR) profile by pointing to the same YAML bundle
-   and selecting the `sr` preset.  The `--log-tasks` toggle expands the
-   histogram submission summary to one line per task:
+   and appending `:sr` to select the preset:
 
    ```bash
    python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-       --options configs/fullR2_run.yml \
-       --options-profile sr \
-       --executor futures \
-       --summary-verbosity full \
-       --log-tasks
+       --options configs/fullR2_run.yml:sr
    ```
 
 Both commands emit verbose task summaries before execution so you can confirm
-the samples, regions, and histograms that will be processed.  You can still run
-without YAML by calling the scripts in `analysis/topeft_run2/examples/`, but the
-config-based approach keeps SR/CR toggles, output names, and executor settings
-in a single place.
+the samples, regions, and histograms that will be processed.  When `--options`
+is present the YAML file becomes the single source of truth—CLI flags such as
+`--executor` or `--summary-verbosity` are ignored, so embed any overrides
+directly in the configuration or drop `--options` for ad-hoc command-line runs.
+You can still run without YAML by calling the scripts in
+`analysis/topeft_run2/examples/`, but the config-based approach keeps SR/CR
+toggles, output names, and executor settings in a single place.
 
 #### Supported metadata scenarios
 
@@ -96,8 +93,9 @@ but the YAML and CLI entry points can target additional scenarios defined in
   control regions.
 
 Channel activation is controlled entirely by these scenario selections.  Scenarios
-can be combined by passing `--scenario` multiple times or by copying the relevant
-blocks in your YAML profile.  Detailed instructions for running each bundle
+can be combined by copying the relevant blocks in your YAML profile or—when
+running without `--options`—by passing `--scenario` multiple times on the CLI.
+Detailed instructions for running each bundle
 individually and mixing them in YAML are provided in the
 [Run 2 metadata scenarios guide](docs/run2_scenarios.md).  For a guided
 walkthrough of the Run 2 workflow—including environment setup, metadata

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Demonstrates running run_analysis.py with a YAML metadata file.
-# The YAML file provides most options, while a couple of CLI flags override
-# specific values to showcase the precedence rules.
+# The YAML file now owns the configuration; CLI flags are ignored whenever a
+# YAML path is provided, so adjust the options directly in the file.
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
@@ -17,6 +17,4 @@ if [[ ! -f "${EXAMPLE_ROOT}" ]]; then
   wget -nc "http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/${EXAMPLE_ROOT}"
 fi
 
-python run_analysis.py --options "${YAML_OPTIONS}" \
-  --outname yaml_overrides_example \
-  --executor futures
+python run_analysis.py --options "${YAML_OPTIONS}"
