@@ -48,7 +48,6 @@ class PreparedSamples:
     json_files: Tuple[str, ...]
     prefix: str
     scenario_names: Tuple[str, ...]
-    channel_features: Tuple[str, ...]
     treename: str
     weight_variations: Tuple[str, ...]
     variable_names: Tuple[str, ...]
@@ -124,7 +123,6 @@ def prepare_samples(
     *,
     metadata_path: Optional[str] = None,
     prefix: str = "",
-    channel_features: Optional[Iterable[str]] = None,
     variables: Optional[Iterable[str]] = None,
 ) -> PreparedSamples:
     """Resolve sample JSONs and metadata into a quickstart configuration bundle.
@@ -143,10 +141,6 @@ def prepare_samples(
     prefix:
         Redirector prefix prepended to each file path.  This can be used to point
         to XRootD endpoints such as ``root://cmsxrootd.fnal.gov/``.
-    channel_features:
-        Optional iterable with metadata feature tags (for example
-        ``"requires_tau"``) that should be activated in addition to the scenario
-        definition.
     variables:
         Optional iterable of histogram variable names to keep.  When omitted all
         variables advertised in the metadata are retained.
@@ -188,17 +182,14 @@ def prepare_samples(
     if not scenario_names:
         scenario_names = [DEFAULT_SCENARIO_NAME]
 
-    feature_tags = unique_preserving_order(normalize_sequence(channel_features))
-
     channel_helper = ChannelMetadataHelper(channels_metadata)
     channel_planner = ChannelPlanner(
         channel_helper,
         skip_sr=False,
         skip_cr=False,
         scenario_names=scenario_names,
-        required_features=feature_tags,
     )
-    channel_planner.resolve_groups()  # validate that scenarios and features exist
+    channel_planner.resolve_groups()  # validate that the requested scenarios exist
 
     return PreparedSamples(
         metadata=metadata,
@@ -207,7 +198,6 @@ def prepare_samples(
         json_files=tuple(str(path) for path in json_inputs),
         prefix=prefix,
         scenario_names=tuple(scenario_names),
-        channel_features=tuple(feature_tags),
         treename=treename,
         weight_variations=weight_variations,
         variable_names=variable_names,
@@ -221,7 +211,6 @@ def run_quickstart(
     scenario: Iterable[str] | str = DEFAULT_SCENARIO_NAME,
     metadata_path: Optional[str] = None,
     prefix: str = "",
-    channel_features: Optional[Iterable[str]] = None,
     variables: Optional[Iterable[str]] = _DEFAULT_VARIABLES,
     executor: str = "futures",
     nworkers: int = 1,
@@ -249,7 +238,6 @@ def run_quickstart(
         scenario=scenario,
         metadata_path=metadata_path,
         prefix=prefix,
-        channel_features=channel_features,
         variables=variables,
     )
 
@@ -285,7 +273,6 @@ def run_quickstart(
         skip_sr=config.skip_sr,
         skip_cr=config.skip_cr,
         scenario_names=config.scenario_names,
-        required_features=prepared.channel_features,
     )
 
     histogram_planner = HistogramPlanner(
