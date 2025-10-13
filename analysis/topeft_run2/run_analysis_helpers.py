@@ -313,7 +313,6 @@ class RunConfig:
     do_systs: bool = False
     split_lep_flavor: bool = False
     scenario_names: List[str] = field(default_factory=list)
-    channel_feature_tags: List[str] = field(default_factory=list)
     skip_sr: bool = False
     skip_cr: bool = False
     do_np: bool = False
@@ -356,7 +355,6 @@ class RunConfigBuilder:
             "do_systs": ("do_systs", coerce_bool),
             "split_lep_flavor": ("split_lep_flavor", coerce_bool),
             "scenarios": ("scenario_names", normalize_sequence),
-            "channel_features": ("channel_feature_tags", normalize_sequence),
             "skip_sr": ("skip_sr", coerce_bool),
             "skip_cr": ("skip_cr", coerce_bool),
             "do_np": ("do_np", coerce_bool),
@@ -443,7 +441,6 @@ class RunConfigBuilder:
             "do_systs": "do_systs",
             "split_lep_flavor": "split_lep_flavor",
             "scenarios": "scenarios",
-            "channel_features": "channel_features",
             "skip_sr": "skip_sr",
             "skip_cr": "skip_cr",
             "do_np": "do_np",
@@ -468,7 +465,6 @@ class RunConfigBuilder:
         config.scenario_names = unique_preserving_order(config.scenario_names)
         if not config.scenario_names:
             config.scenario_names = ["TOP_22_006"]
-        config.channel_feature_tags = unique_preserving_order(config.channel_feature_tags)
         config.wc_list = unique_preserving_order(config.wc_list)
         return config
 

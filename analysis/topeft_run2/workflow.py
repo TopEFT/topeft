@@ -964,7 +964,6 @@ def run_workflow(config: RunConfig) -> None:
         skip_sr=config.skip_sr,
         skip_cr=config.skip_cr,
         scenario_names=config.scenario_names,
-        required_features=config.channel_feature_tags,
     )
 
     var_defs = metadata.get("variables")
