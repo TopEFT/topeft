@@ -96,10 +96,13 @@ but the YAML and CLI entry points can target additional scenarios defined in
   control regions.
 
 Scenarios can be combined by passing `--scenario` multiple times or by copying
-the relevant blocks in your YAML profile.  For a guided walkthrough of the Run 2
-workflow—including environment setup, metadata bundles, and extended examples—see
-the [TOP-22-006 quickstart guide](docs/quickstart_top22_006.md) and the
-[Run 2 quickstart overview](docs/quickstart_run2.md).
+the relevant blocks in your YAML profile.  Detailed instructions for running each
+bundle individually, mixing them in YAML, and layering feature tags are provided
+in the [Run 2 metadata scenarios guide](docs/run2_scenarios.md).  For a guided
+walkthrough of the Run 2 workflow—including environment setup, metadata
+bundles, and extended examples—see the [TOP-22-006 quickstart
+guide](docs/quickstart_top22_006.md) and the [Run 2 quickstart
+overview](docs/quickstart_run2.md).
 
 Additional reference material for the module structure and configuration helpers
 is available in the [analysis processing primer](docs/analysis_processing.md) and
