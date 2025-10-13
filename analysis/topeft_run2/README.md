@@ -55,6 +55,14 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 * `run_analysis.py`:
     - Provides the CLI entrypoint for the Run 2 Coffea workflow. The heavy lifting now lives in ``analysis.topeft_run2.workflow`` where the ``RunWorkflow`` class orchestrates channel planning, histogram scheduling, and executor setup.
+    - YAML-driven presets live in ``analysis/topeft_run2/configs/``.  The ``fullR2_run.yml`` profile mirrors the historic ``fullR2_run.sh`` wrapper and includes both control-region (``default``) and signal-region (``sr``) option bundles.  Launch the control-region pass with::
+
+        python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+            --options configs/fullR2_run.yml \
+            --summary-verbosity full
+
+      Switch to the signal-region preset by appending ``--options-profile sr`` and, if desired, ``--log-tasks`` for a verbose per-histogram submission trace.
+    - Metadata scenarios from ``topeft/params/metadata.yml`` can be selected via ``--scenario`` (defaults to ``TOP_22_006``).  Additional bundles include ``tau_analysis`` for the tau-enriched categories and ``fwd_analysis`` for the forward-jet study.  The arguments may be repeated to combine scenarios, and feature tags such as ``--channel-feature requires_tau`` can be layered on top.
     - Python API example::
 
         from topeft.analysis import run_workflow
@@ -66,7 +74,15 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - A step-by-step walkthrough of the command-line interface, including the
       default metadata bundles and example invocations that mirror
       ``fullR2_run.sh``, is available in the
-      [TOP-22-006 quickstart guide](../docs/quickstart_top22_006.md).
+      [TOP-22-006 quickstart guide](../docs/quickstart_top22_006.md).  See also
+      the [Run 2 quickstart overview](../docs/quickstart_run2.md), the
+      [analysis processing primer](../docs/analysis_processing.md), and the
+      [YAML configuration guide](../docs/run_analysis_configuration.md) for
+      deeper dives into the helper modules and configuration schema.  For a
+      minimal end-to-end smoke test, run ``python -m topeft.quickstart`` with a
+      JSON from ``input_samples/sample_jsons/``—the helper resolves your samples
+      and dispatches a lightweight futures job before returning the recorded
+      ``RunConfig`` instance.
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights

@@ -42,25 +42,80 @@ pip install -e .
 Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The next time you want to use it, all you have to do is to activate the environment via `conda activate coffea-env`. 
 
 
-### To run an example job 
+### To run an example job
 
-First `cd` into `analysis/topeft_run2` and run the `run_analysis.py` script, passing it the path to your config file or json file. In this example we'll process a single root file locally, using a json file that is already set up.
-```
-cd analysis/topeft_run2
-wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
-python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures
+The Run 2 workflow now ships with YAML presets under
+`analysis/topeft_run2/configs/`.  They mirror the historic shell scripts while
+allowing you to toggle signal and control regions from the command line.
 
-```
-Executable examples for both the CLI-only and YAML-metadata workflows are provided in `analysis/topeft_run2/examples/`:
+1. `cd` into `analysis/topeft_run2` and resolve the example input:
+
+   ```bash
+   cd analysis/topeft_run2
+   wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
+   ```
+
+2. Launch the control-region (CR) pass of the reinterpretation with the shared
+   YAML configuration:
+
+   ```bash
+   python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+       --options configs/fullR2_run.yml \
+       --summary-verbosity full
+   ```
+
+3. Switch to the signal-region (SR) profile by pointing to the same YAML bundle
+   and selecting the `sr` preset.  The `--log-tasks` toggle expands the
+   histogram submission summary to one line per task:
+
+   ```bash
+   python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+       --options configs/fullR2_run.yml \
+       --options-profile sr \
+       --summary-verbosity full \
+       --log-tasks
+   ```
+
+Both commands emit verbose task summaries before execution so you can confirm
+the samples, regions, and histograms that will be processed.  You can still run
+without YAML by calling the scripts in `analysis/topeft_run2/examples/`, but the
+config-based approach keeps SR/CR toggles, output names, and executor settings
+in a single place.
+
+#### Supported metadata scenarios
+
+The default metadata bundle matches the TOP-22-006 reinterpretation categories,
+but the YAML and CLI entry points can target additional scenarios defined in
+`topeft/params/metadata.yml`:
+
+- `TOP_22_006` – Baseline Run 2 reinterpretation with the shared control suite.
+- `tau_analysis` – Adds the tau-enriched signal/control regions and feature
+  flags needed for the dedicated tau study.
+- `fwd_analysis` – Enables the forward-jet categories while reusing the common
+  control regions.
+
+Scenarios can be combined by passing `--scenario` multiple times or by copying
+the relevant blocks in your YAML profile.  For a guided walkthrough of the Run 2
+workflow—including environment setup, metadata bundles, and extended examples—see
+the [TOP-22-006 quickstart guide](docs/quickstart_top22_006.md) and the
+[Run 2 quickstart overview](docs/quickstart_run2.md).
+
+Additional reference material for the module structure and configuration helpers
+is available in the [analysis processing primer](docs/analysis_processing.md) and
+the [YAML configuration guide](docs/run_analysis_configuration.md).
+
+If you prefer a minimal smoke test before running the full configuration,
+consider the quickstart helper:
 
 ```bash
-./analysis/topeft_run2/examples/run_with_cli.sh
-./analysis/topeft_run2/examples/run_with_yaml.sh
+python -m topeft.quickstart input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+    --prefix root://cmsxrootd.fnal.gov/ \
+    --output quickstart-output
 ```
-The YAML script uses `analysis/topeft_run2/examples/yaml_metadata_example.yaml` to supply configuration values that mirror the refactored options loader.
-If you would like a guided walkthrough of the Run 2 workflow—including the
-required environment, metadata bundles, and example commands—see the
-[TOP-22-006 quickstart guide](docs/quickstart_top22_006.md).
+
+The helper resolves your samples, validates the requested scenario, and launches
+a short futures-based run.  Detailed explanations of each switch are covered in
+[docs/quickstart_run2.md](docs/quickstart_run2.md).
 To make use of distributed resources, the `work queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
 conda activate coffea-env
