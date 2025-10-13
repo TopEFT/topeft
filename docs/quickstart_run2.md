@@ -128,7 +128,12 @@ misconfigurations are caught early.
 
     Launching ``python run_analysis.py --options configs/fullR2_run_tau_fwd.yml``
     keeps the validation fast while aligning the configuration with the
-    quickstart dry run.
+    quickstart dry run.  To activate an alternate profile defined in the same
+    YAML, append the desired name after a colon—for example,
+    ``--options configs/fullR2_run.yml:sr`` selects the signal-region preset.
+    Remember that once ``--options`` is provided, command-line flags are ignored
+    in favour of the YAML contents, so bake any overrides into the file before
+    submitting the run.
 
 ### Systematic toggles
 

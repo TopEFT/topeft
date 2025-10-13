@@ -14,6 +14,12 @@ Each section starts from a clean checkout of the repository with the editable
 recommended environment setup).  The commands shown below assume that you are in
 ``analysis/topeft_run2`` unless otherwise noted.
 
+!!! important
+    Once ``--options`` is supplied the YAML file becomes authoritative.  Append
+    ``:profile`` to select a preset (for example ``configs/fullR2_run.yml:sr``)
+    and edit the YAML directly to enable additional scenarios.  Drop
+    ``--options`` entirely if you need to experiment with ad-hoc CLI flags.
+
 !!! note
     The ``--channel-feature`` flag has been retired.  Use the scenarios below—on
     their own or in combination—to activate the tau, forward, and off-Z
@@ -30,10 +36,10 @@ YAML profile.  To launch the full control-region job from the preset YAML, run:
 python run_analysis.py --options configs/fullR2_run.yml
 ```
 
-Switch to the signal-region profile by passing ``--options-profile sr``:
+Switch to the signal-region profile by appending ``:sr`` to the YAML path:
 
 ```bash
-python run_analysis.py --options configs/fullR2_run.yml --options-profile sr
+python run_analysis.py --options configs/fullR2_run.yml:sr
 ```
 
 You can reach the same configuration from the quickstart helper with:
@@ -49,13 +55,10 @@ python -m topeft.quickstart \
 
 The ``tau_analysis`` bundle adds the dedicated signal and control regions needed
 by the tau reinterpretation.  When using ``run_analysis.py`` with the preset
-YAML, supply the scenario on the command line:
-
-```bash
-python run_analysis.py \
-    --options configs/fullR2_run.yml \
-    --scenario tau_analysis
-```
+YAML, edit the configuration to include ``tau_analysis`` in the ``scenarios``
+list (for example by copying ``configs/fullR2_run.yml`` to
+``configs/fullR2_run_tau.yml`` and updating the defaults).  After the edit, run
+``python run_analysis.py --options configs/fullR2_run_tau.yml``.
 
 From the quickstart helper the equivalent command is:
 
@@ -69,14 +72,9 @@ python -m topeft.quickstart \
 ### Forward-jet workflow
 
 The ``fwd_analysis`` bundle activates the forward-jet categories while reusing
-the shared Run 2 control regions.  To run the YAML preset with forward
-categories enabled:
-
-```bash
-python run_analysis.py \
-    --options configs/fullR2_run.yml \
-    --scenario fwd_analysis
-```
+the shared Run 2 control regions.  Update your YAML preset to list
+``fwd_analysis`` under ``scenarios`` (or create a dedicated profile) before
+launching ``python run_analysis.py --options <your_yaml>``.
 
 And the matching quickstart invocation is:
 
@@ -112,17 +110,17 @@ scenario:
 ```
 
 YAML values merge with the base profile when the file is passed through
-``--options``.  Anything provided on the CLI still takes precedence over the
-combined configuration.
+``--options``.  CLI flags are ignored in this mode, so bake any additional
+overrides into the file before launching the workflow.
 
-### Command-line overrides
+### Command-line runs without YAML
 
-You can request the same combination directly on the command line.  Each time
-``--scenario`` is provided the value is appended to the active set:
+You can request the same combination directly on the command line by dropping
+``--options``.  Each time ``--scenario`` is provided the value is appended to the
+active set:
 
 ```bash
 python run_analysis.py \
-    --options configs/fullR2_run.yml \
     --scenario TOP_22_006 \
     --scenario tau_analysis \
     --scenario fwd_analysis

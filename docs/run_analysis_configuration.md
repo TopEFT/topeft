@@ -18,23 +18,27 @@ root::
 
     python analysis/topeft_run2/run_analysis.py \
         input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-        --options analysis/topeft_run2/examples/options.yml \
-        --options-profile sr
+        --options analysis/topeft_run2/examples/options.yml:sr
 
 1. **Argument parsing** – :func:`analysis.topeft_run2.run_analysis.build_parser`
    defines the CLI options that downstream helpers understand.  The parser keeps
    backwards compatibility with the historical ``jsonFiles`` positional argument
-   while advertising the new ``--options`` and ``--options-profile`` knobs.
+   while advertising the YAML-driven ``--options`` knob, which accepts either
+   ``path.yml`` or ``path.yml:profile`` when you need a specific preset.
 2. **YAML overrides** – :class:`analysis.topeft_run2.run_analysis_helpers.RunConfigBuilder`
    reads the options file (if provided) before evaluating CLI values.  The YAML
    supports three blocks:
 
    * ``defaults`` – baseline values that are always applied.
-   * ``profiles`` – named overlays that can be enabled via ``--options-profile``
+   * ``profiles`` – named overlays that can be enabled via ``path.yml:profile``
      or automatically when only one profile exists.
    * Top-level keys – additional overrides that do not fit in the two sections
      above.  They are merged last so that ad-hoc experiments can live next to
      reusable defaults.
+
+   When an options file is supplied, the YAML becomes the single source of truth.
+   Drop ``--options`` if you need to experiment with ad-hoc CLI flags; otherwise
+   bake the desired configuration into the file before launching the workflow.
 
 3. **Configuration normalization** – the builder converts all inputs into a
    :class:`analysis.topeft_run2.run_analysis_helpers.RunConfig` dataclass.  The
@@ -139,6 +143,7 @@ switching executors once the run is ready to scale beyond the local machine.
   paths were provided.  Always invoke ``run_analysis.py`` from the repository
   root or supply absolute paths.
 
-With these pieces in place you can mix and match quickstart presets, YAML
-profiles, and CLI overrides while keeping the run history compact and
-shareable.
+With these pieces in place you can mix and match quickstart presets and YAML
+profiles while keeping the run history compact and shareable.  When you need to
+experiment with CLI overrides, drop ``--options`` so the command-line values are
+honoured for that run.

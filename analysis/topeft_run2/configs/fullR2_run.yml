@@ -2,9 +2,9 @@
 #
 # The `defaults` section captures shared options, while individual profiles
 # enumerate the overrides needed for a specific job type.  Select a profile at
-# runtime with `python run_analysis.py --options this_file.yml --options-profile cr`.
-# Command-line arguments still take precedence over both the defaults and the
-# profile entries, matching the behavior of `fullR2_run.sh`.
+# runtime with `python run_analysis.py --options this_file.yml:cr`.
+# Command-line arguments are ignored whenever a YAML file is supplied, so embed
+# any tweaks directly in the configuration before launching the workflow.
 ---
 defaults:
   # Common EFT configuration shared across SR/CR jobs.

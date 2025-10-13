@@ -116,14 +116,18 @@ from analysis.topeft_run2.workflow import run_workflow
 parser = build_parser()
 args = parser.parse_args([
     "input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json",
-    "--options", "analysis/topeft_run2/examples/options.yml",
+    "--options", "analysis/topeft_run2/examples/options.yml:sr",
 ])
 
 builder = RunConfigBuilder()
-config = builder.build(args, options_path=args.options, options_profile=args.options_profile)
+config = builder.build(args, options_spec=args.options)
 run_workflow(config=config)
 ```
 
 The ``config`` returned here is the same structure used by the quickstart
 utilities.  Persisting it (for example via ``dataclasses.asdict``) provides a
 compact audit trail that complements the stored output pickle.
+
+When ``--options`` is present the YAML file becomes authoritative—CLI flags are
+ignored so that the captured configuration remains reproducible.  Drop the
+argument entirely for ad-hoc runs driven purely from the command line.

@@ -58,11 +58,10 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - YAML-driven presets live in ``analysis/topeft_run2/configs/``.  The ``fullR2_run.yml`` profile mirrors the historic ``fullR2_run.sh`` wrapper and includes both control-region (``default``) and signal-region (``sr``) option bundles.  Launch the control-region pass with::
 
         python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-            --options configs/fullR2_run.yml \
-            --summary-verbosity full
+            --options configs/fullR2_run.yml
 
-      Switch to the signal-region preset by appending ``--options-profile sr`` and, if desired, ``--log-tasks`` for a verbose per-histogram submission trace.
-    - Metadata scenarios from ``topeft/params/metadata.yml`` can be selected via ``--scenario`` (defaults to ``TOP_22_006``).  Additional bundles include ``tau_analysis`` for the tau-enriched categories and ``fwd_analysis`` for the forward-jet study.  Repeat the argument to combine scenarios when you want the tau, forward, and off-Z variations active in the same run.
+      Switch to the signal-region preset by appending ``:sr`` to the YAML path (``--options configs/fullR2_run.yml:sr``).  When ``--options`` is present the YAML file becomes the single source of truth—embed any extra overrides (for example executor choices or log verbosity) directly in the configuration or drop ``--options`` for an ad-hoc CLI run.
+    - Metadata scenarios from ``topeft/params/metadata.yml`` can be selected via ``--scenario`` when running without YAML (defaults to ``TOP_22_006``).  Additional bundles include ``tau_analysis`` for the tau-enriched categories and ``fwd_analysis`` for the forward-jet study.  Repeat the argument to combine scenarios on CLI-only runs or edit your YAML presets to keep the combinations version-controlled.
     - Python API example::
 
         from topeft.analysis import run_workflow
@@ -95,9 +94,9 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
           python run_analysis.py --options configs/fullR2_run.yml
 
       By default this launches the control-region job (matching the script).
-      Add `--options-profile sr` to switch to the signal-region inputs, or pass
-      any other command-line flag to override the YAML values (for example,
-      `--skip-cr` or `--outname refact_250901_c1_custom`).
+      Append `:sr` to the YAML path to switch to the signal-region inputs.  CLI
+      flags are ignored once `--options` is provided, so adjust the YAML before
+      launching if you need different executors, output names, or toggles.
 
 
 ### Scripts for finding, comparing and plotting yields from histograms (from the processor)

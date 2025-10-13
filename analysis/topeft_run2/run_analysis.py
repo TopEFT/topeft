@@ -187,16 +187,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--options",
         default=None,
-        help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence",
-    )
-    parser.add_argument(
-        "--options-profile",
-        dest="options_profile",
-        default=None,
         help=(
-            "Named profile inside the --options YAML file to merge after any shared"
-            " defaults. When omitted, the YAML's 'default_profile' value is used"
-            " if present."
+            "YAML file that specifies command-line options. Accepts either"
+            " 'path.yml' for the default profile or 'path.yml:profile' to select"
+            " a specific profile. When provided, CLI flags are ignored in favour"
+            " of the YAML configuration."
         ),
     )
     return parser
@@ -210,7 +205,6 @@ def main(argv: Sequence[str] | None = None) -> None:
     config = config_builder.build(
         args,
         getattr(args, "options", None),
-        getattr(args, "options_profile", None),
     )
     run_workflow(config)
 

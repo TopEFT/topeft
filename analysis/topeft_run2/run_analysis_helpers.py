@@ -333,8 +333,7 @@ class RunConfigBuilder:
     def build(
         self,
         args: "argparse.Namespace",
-        options_path: Optional[str],
-        options_profile: Optional[str] = None,
+        options_spec: Optional[str],
     ) -> RunConfig:
         config = RunConfig()
 
@@ -374,6 +373,28 @@ class RunConfigBuilder:
                 coerced = coercer(value)
                 setattr(config, field_name, coerced)
 
+        options_path: Optional[str] = None
+        selected_profile: Optional[str] = None
+        if options_spec:
+            spec = str(options_spec).strip()
+            path_candidate = spec
+            profile_candidate: Optional[str] = None
+            if ":" in spec:
+                path_part, profile_part = spec.rsplit(":", 1)
+                interpret_as_profile = False
+                if profile_part:
+                    base_path = Path(path_part)
+                    lower_path = path_part.lower()
+                    if base_path.exists() or lower_path.endswith((".yml", ".yaml")):
+                        interpret_as_profile = True
+                elif path_part:
+                    interpret_as_profile = True
+                if interpret_as_profile:
+                    path_candidate = path_part
+                    profile_candidate = profile_part or None
+            options_path = path_candidate
+            selected_profile = profile_candidate
+
         if options_path:
             if yaml is None:
                 raise ImportError("PyYAML is required to load options from a file")
@@ -389,7 +410,6 @@ class RunConfigBuilder:
                     raise TypeError("'defaults' in options YAML must be a mapping")
                 yaml_sections.append(defaults_section)
 
-            selected_profile: Optional[str] = options_profile
             profiles_section = options.get("profiles")
             if profiles_section is not None:
                 if not isinstance(profiles_section, Mapping):
@@ -425,42 +445,45 @@ class RunConfigBuilder:
             for section in yaml_sections:
                 _apply_source(section)
 
-        cli_attr_map = {
-            "jsonFiles": "jsonFiles",
-            "prefix": "prefix",
-            "executor": "executor",
-            "test": "test",
-            "pretend": "pretend",
-            "nworkers": "nworkers",
-            "chunksize": "chunksize",
-            "nchunks": "nchunks",
-            "outname": "outname",
-            "outpath": "outpath",
-            "treename": "treename",
-            "do_errors": "do_errors",
-            "do_systs": "do_systs",
-            "split_lep_flavor": "split_lep_flavor",
-            "scenarios": "scenarios",
-            "skip_sr": "skip_sr",
-            "skip_cr": "skip_cr",
-            "do_np": "do_np",
-            "do_renormfact_envelope": "do_renormfact_envelope",
-            "wc_list": "wc_list",
-            "ecut": "ecut",
-            "port": "port",
-        }
+        if options_path is None:
+            cli_attr_map = {
+                "jsonFiles": "jsonFiles",
+                "prefix": "prefix",
+                "executor": "executor",
+                "test": "test",
+                "pretend": "pretend",
+                "nworkers": "nworkers",
+                "chunksize": "chunksize",
+                "nchunks": "nchunks",
+                "outname": "outname",
+                "outpath": "outpath",
+                "treename": "treename",
+                "do_errors": "do_errors",
+                "do_systs": "do_systs",
+                "split_lep_flavor": "split_lep_flavor",
+                "scenarios": "scenarios",
+                "skip_sr": "skip_sr",
+                "skip_cr": "skip_cr",
+                "do_np": "do_np",
+                "do_renormfact_envelope": "do_renormfact_envelope",
+                "wc_list": "wc_list",
+                "ecut": "ecut",
+                "port": "port",
+            }
 
-        defaults = self.defaults
-        cli_values: Dict[str, Any] = {}
-        for key, attr_name in cli_attr_map.items():
-            if not hasattr(args, attr_name):
-                continue
-            current_value = getattr(args, attr_name)
-            default_value = getattr(defaults, attr_name, None) if defaults is not None else None
-            if current_value != default_value:
-                cli_values[key] = current_value
+            defaults = self.defaults
+            cli_values: Dict[str, Any] = {}
+            for key, attr_name in cli_attr_map.items():
+                if not hasattr(args, attr_name):
+                    continue
+                current_value = getattr(args, attr_name)
+                default_value = (
+                    getattr(defaults, attr_name, None) if defaults is not None else None
+                )
+                if current_value != default_value:
+                    cli_values[key] = current_value
 
-        _apply_source(cli_values)
+            _apply_source(cli_values)
 
         config.scenario_names = unique_preserving_order(config.scenario_names)
         if not config.scenario_names:

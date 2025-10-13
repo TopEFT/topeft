@@ -76,19 +76,20 @@ scenarios declared in ``topeft/params/metadata.yml``.
    over the background configuration.
 
 3. To launch the signal-region job, reuse the same YAML but select the `sr`
-   profile:
+   profile by appending it after a colon:
 
    ```bash
-   python run_analysis.py --options configs/fullR2_run.yml --options-profile sr
+   python run_analysis.py --options configs/fullR2_run.yml:sr
    ```
 
    The SR profile keeps the shared defaults while swapping in the signal and
    data metadata bundles and disabling the control regions.
 
-4. Add any other command-line flags as needed.  Arguments supplied directly on
-   the CLI (for example `--executor work_queue` or `--outname my_test_run`) take
-   precedence over the YAML values, making it straightforward to adapt the
-   quickstart to your local environment.
+4. Adjust any additional options directly inside the YAML file.  Once
+   ``--options`` is provided, command-line flags (such as ``--executor`` or
+   ``--outname``) are ignored so that the captured configuration remains
+   reproducible.  Drop ``--options`` entirely if you need a one-off CLI-driven
+   run.
 
 ## Next steps {#top22-quickstart-next-steps}
 
@@ -97,25 +98,10 @@ scenarios declared in ``topeft/params/metadata.yml``.
     quickly.  When you are ready to exercise the tau, forward, or off-Z focused
     reinterpretation categories, follow the
     [Run 2 metadata scenarios guide](run2_scenarios.md) and extend the preset
-    with additional ``--scenario`` flags:
-
-    ```bash
-    python run_analysis.py \
-        --options configs/fullR2_run.yml \
-        --scenario tau_analysis
-    ```
-
-    Swap in ``fwd_analysis`` to validate the forward-jet categories.  Because the
-    ``TOP_22_006`` bundle already carries the refined off-Z splitting, combining
-    both options keeps the tau, forward, and off-Z variations active before
-    submitting longer jobs:
-
-    ```bash
-    python run_analysis.py \
-        --options configs/fullR2_run.yml \
-        --scenario tau_analysis \
-        --scenario fwd_analysis
-    ```
+    before launching the workflow.  Because CLI flags are ignored when
+    ``--options`` is present, edit the YAML directly (or drop ``--options`` for a
+    one-off command-line run such as ``python run_analysis.py \
+    input.json --scenario tau_analysis``).
 
     When you want to track the combination in version control, clone the preset
     into a dedicated YAML override so the workflow stays reproducible.  Copy
