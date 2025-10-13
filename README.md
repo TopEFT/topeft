@@ -72,6 +72,7 @@ allowing you to toggle signal and control regions from the command line.
    python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
        --options configs/fullR2_run.yml \
        --options-profile sr \
+       --executor futures \
        --summary-verbosity full \
        --log-tasks
    ```
