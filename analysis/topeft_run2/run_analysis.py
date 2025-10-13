@@ -109,6 +109,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Split up categories by lepton flavor",
     )
     parser.add_argument(
+        "--summary-verbosity",
+        choices=["none", "brief", "full"],
+        default="brief",
+        help=(
+            "Control the histogram summary emitted before task submission. "
+            "'none' disables the summary, 'brief' prints a table, and "
+            "'full' also includes a structured dump."
+        ),
+    )
+    parser.add_argument(
         "--scenario",
         dest="scenarios",
         action="append",
