@@ -1,0 +1,19 @@
+site_name: TopEFT documentation
+site_description: Developer and quickstart guides for the TopEFT Run 2 analysis workflow.
+docs_dir: docs
+theme:
+  name: readthedocs
+nav:
+  - Quickstarts:
+      - Run 2 quickstart pipeline: quickstart_run2.md
+      - TOP-22-006 script walkthrough: quickstart_top22_006.md
+  - Analysis Workflow:
+      - Run analysis configuration flow: run_analysis_configuration.md
+      - Workflow and processor reference: analysis_processing.md
+markdown_extensions:
+  - admonition
+  - def_list
+  - toc:
+      permalink: true
+plugins:
+  - search
