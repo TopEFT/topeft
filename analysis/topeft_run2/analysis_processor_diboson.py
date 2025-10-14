@@ -350,7 +350,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             tau["isVLoose"] = tauSelection.isVLooseTau(vs_jet)
             tau["isLoose"] = tauSelection.isLooseTau(vs_jet)
             tau["iseTight"] = tauSelection.iseTightTau(vs_e)
-            tau["ismTight"] = tauSelection.ismTightTau(vs_mu)
+            tau["ismTight"] = ak.values_astype(tauSelection.ismTightTau(vs_mu), np.int8)
             tau["isPres"] = tauSelection.isPresTau(
                 tau.pt,
                 tau.eta,

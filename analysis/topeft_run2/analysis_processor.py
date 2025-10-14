@@ -216,6 +216,21 @@ class AnalysisProcessor(processor.ProcessorABC):
             is_run3 = True
         is_run2 = not is_run3
 
+        def _log_tau_flag_counts(label, flag_arrays):
+            if len(events) == 0:
+                return
+            counts = []
+            for name, array in flag_arrays.items():
+                if array is None:
+                    continue
+                try:
+                    mask = ak.fill_none(array > 0, False)
+                except TypeError:
+                    mask = ak.fill_none(array, False)
+                counts.append(f"{name}={int(ak.sum(mask))}")
+            if counts:
+                print(f"[TauSelectionDebug] {label}: " + ", ".join(counts))
+
         run_era = None
         if isData:
             if is_run3:
@@ -415,7 +430,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             tau["isVLoose"] = tauSelection.isVLooseTau(vs_jet)
             tau["isLoose"] = tauSelection.isLooseTau(vs_jet)
             tau["iseTight"] = tauSelection.iseTightTau(vs_e)
-            tau["ismTight"] = tauSelection.ismTightTau(vs_mu)
+            tau["ismTight"] = ak.values_astype(tauSelection.ismTightTau(vs_mu), np.int8)
             tau["isPresVLoose"] = tauSelection.isPresTau(
                 tau.pt,
                 tau.eta,
@@ -442,9 +457,28 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
+            _log_tau_flag_counts(
+                "tau_h_presel",
+                {
+                    "isVLoose": tau["isVLoose"],
+                    "isLoose": tau["isLoose"],
+                    "ismTight": tau["ismTight"],
+                    "isPresVLoose": tau["isPresVLoose"],
+                    "isPresLoose": tau["isPresLoose"],
+                    "isPres": tau["isPres"],
+                    "isClean": tau["isClean"],
+                    "isGood": tau["isGood"],
+                },
+            )
             tau = tau[tau.isGood]
 
             tau['DMflag'] = ((tau.decayMode==0) | (tau.decayMode==1) | (tau.decayMode==10) | (tau.decayMode==11))
+            _log_tau_flag_counts(
+                "tau_h_dmflag",
+                {
+                    "DMflag": tau['DMflag'],
+                },
+            )
             tau = tau[tau['DMflag']]
 
             tau_vloose = tau
@@ -469,6 +503,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             no_tau_mask = (nLtau == 0)
 
             tau0 = ak.where(tau_L_mask, tau0_loose, tau0_vloose)
+
+            _log_tau_flag_counts(
+                "tau_h_event_masks",
+                {
+                    "tau_F_mask": tau_F_mask,
+                    "tau_L_mask": tau_L_mask,
+                    "no_tau_mask": no_tau_mask,
+                },
+            )
 
             if not isData:
                 AttachTauSF(events, tau_loose, year=year, vsJetWP="Loose")
@@ -508,12 +551,26 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
             tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
+            _log_tau_flag_counts(
+                "tau_standard_presel",
+                {
+                    "isPres": tau["isPres"],
+                    "isClean": tau["isClean"],
+                    "isGood": tau["isGood"],
+                },
+            )
             tau = tau[tau.isGood] # use these to clean jets
             if is_run2:
                 vs_jet_tight = tau.idDeepTau2017v2p1VSjet
             else:
                 vs_jet_tight = tau.idDeepTau2018v2p5VSjet
             tau["isTight"] = tauSelection.isVLooseTau(vs_jet_tight) # use these to veto
+            _log_tau_flag_counts(
+                "tau_standard_posttight",
+                {
+                    "isTight": tau["isTight"],
+                },
+            )
 
         ######### Systematics ###########
 

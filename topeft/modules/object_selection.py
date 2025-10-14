@@ -15,6 +15,10 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 ### These functions have been synchronized with ttH ###
 
+RUN2_VSMU_TIGHT_BIT = 3
+RUN3_VSMU_TIGHT_THRESHOLD = 4
+
+
 class run2TauSelection:
     def __init__(self):
         pass
@@ -31,13 +35,15 @@ class run2TauSelection:
         if vsJetWP not in wp_bit_map:
             raise ValueError(f"Unsupported DeepTau VSjet working point '{vsJetWP}' for Run 2")
 
+        muon_tight_mask = self.ismTightTau(idDeepTauVSmu) > 0
+
         base_mask = (
             (pt > minpt)
             & (abs(eta) < get_te_param("eta_t_cut"))
             & (abs(dxy) < get_te_param("dxy_tau_cut"))
             & (abs(dz) < get_te_param("dz_tau_cut"))
             & (((idDeepTauVSe >> 1) & 1) == 1)
-            & (((idDeepTauVSmu >> 1) & 1) == 1)
+            & muon_tight_mask
         )
         vsjet_mask = (((idDeepTauVSjet >> wp_bit_map[vsJetWP]) & 1) == 1)
         return base_mask & vsjet_mask
@@ -64,7 +70,7 @@ class run2TauSelection:
         return (idDeepTauVSe>>1 & 1)
 
     def ismTightTau(self, idDeepTauVSmu):
-        return (idDeepTauVSmu>>1 & 1)
+        return (idDeepTauVSmu>>RUN2_VSMU_TIGHT_BIT & 1)
 
 class run3TauSelection:
     def __init__(self):
@@ -82,13 +88,15 @@ class run3TauSelection:
         if vsJetWP not in wp_thresholds:
             raise ValueError(f"Unsupported DeepTau VSjet working point '{vsJetWP}' for Run 3")
 
+        muon_tight_mask = self.ismTightTau(idDeepTauVSmu) > 0
+
         base_mask = (
             (pt > minpt)
             & (abs(eta) < get_te_param("eta_t_cut"))
             & (abs(dxy) < get_te_param("dxy_tau_cut"))
             & (abs(dz) < get_te_param("dz_tau_cut"))
             & (idDeepTauVSe >= 2)
-            & (idDeepTauVSmu >= 2)
+            & muon_tight_mask
         )
         vsjet_mask = idDeepTauVSjet >= wp_thresholds[vsJetWP]
         return base_mask & vsjet_mask
@@ -115,7 +123,8 @@ class run3TauSelection:
         return (idDeepTauVSe >= 2)
 
     def ismTightTau(self, idDeepTauVSmu):
-        return (idDeepTauVSmu >= 2)
+        tight_mask = (idDeepTauVSmu >= RUN3_VSMU_TIGHT_THRESHOLD)
+        return ak.values_astype(tight_mask, np.int8)
 
 def lepJetBTagAdder(leptons, btagger="btagDeepFlavB", dummyValue=-99.):
     #is_matched = (leptons.jetIdx > -1) & (leptons.jetIdx < ak.num(jets))
