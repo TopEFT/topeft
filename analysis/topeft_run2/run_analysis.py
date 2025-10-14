@@ -189,6 +189,15 @@ if __name__ == "__main__":
         default=None,
         help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence",
     )
+    parser.add_argument(
+        "--analysis-mode",
+        choices=["standard", "taufitter"],
+        default="standard",
+        help=(
+            "Select the analysis workflow configuration. Use 'standard' for the default behaviour "
+            "or 'taufitter' to enable tau fitter specific handling."
+        ),
+    )
 
     args = parser.parse_args()
     jsonFiles = args.jsonFiles
@@ -217,6 +226,7 @@ if __name__ == "__main__":
     ecut = args.ecut
     port = args.port
     hist_list = args.hist_list
+    analysis_mode = args.analysis_mode
 
     if args.options:
         import yaml
@@ -247,6 +257,7 @@ if __name__ == "__main__":
         hist_list = ops.pop("hist_list",hist_list)
         port = ops.pop("port",port)
         ecut = ops.pop("ecut",ecut)
+        analysis_mode = ops.pop("analysis_mode", analysis_mode)
 
     # Check if we have valid options
     if executor not in LST_OF_KNOWN_EXECUTORS:
@@ -521,7 +532,8 @@ if __name__ == "__main__":
         offZ_split=offZ_split,
         tau_h_analysis=tau_h_analysis,
         fwd_analysis=fwd_analysis,
-        useRun3MVA=useRun3MVA
+        useRun3MVA=useRun3MVA,
+        tau_run_mode=analysis_mode
     )
 
     if executor in ["work_queue", "taskvine"]:
