@@ -69,7 +69,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.fwd_analysis = fwd_analysis
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
         self.tau_run_mode = tau_run_mode
-        self._tau_wp_checked = False
+        # self._tau_wp_checked = False
 
         self._hist_axis_map = {}
         self._hist_sumw2_axis_mapping = {}
@@ -473,18 +473,18 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not isData:
                 AttachTauSF(events, tau_loose, year=year, vsJetWP="Loose")
 
-            if (not self._tau_wp_checked) and len(events) > 0:
-                n_tau_vloose = int(ak.sum(tau_F_mask))
-                n_tau_loose = int(ak.sum(tau_L_mask))
-                n_tau_vloose_only = int(ak.sum(tau_F_mask & ~tau_L_mask))
-                print(
-                    f"\n\n\n\n\n\n\n\n\n[Tau WP check - {self.tau_run_mode}] Events with >=1 VLoose tau: {ak.to_list(n_tau_vloose)};\n>=1 Loose tau: {ak.to_list(n_tau_loose)};\nVLoose-only: {ak.to_list(n_tau_vloose_only)}\n\n\n\n\n\n\n\n\n"
-                )
-                if self.tau_run_mode == "standard":
-                    masks_identical = bool(ak.all(tau_F_mask == tau_L_mask)) if len(events) > 0 else False
-                    if masks_identical and (n_tau_vloose > 0 or n_tau_loose > 0):
-                        raise AssertionError("Ftau and Ttau masks are identical; check tau WP separation")
-                self._tau_wp_checked = True
+            # if (not self._tau_wp_checked) and len(events) > 0:
+            #     n_tau_vloose = int(ak.sum(tau_F_mask))
+            #     n_tau_loose = int(ak.sum(tau_L_mask))
+            #     n_tau_vloose_only = int(ak.sum(tau_F_mask & ~tau_L_mask))
+            #     print(
+            #         f"\n\n\n\n\n\n\n\n\n[Tau WP check - {self.tau_run_mode}] Events with >=1 VLoose tau: {ak.to_list(n_tau_vloose)};\n>=1 Loose tau: {ak.to_list(n_tau_loose)};\nVLoose-only: {ak.to_list(n_tau_vloose_only)}\n\n\n\n\n\n\n\n\n"
+            #     )
+            #     if self.tau_run_mode == "standard":
+            #         masks_identical = bool(ak.all(tau_F_mask == tau_L_mask)) if len(events) > 0 else False
+            #         if masks_identical and (n_tau_vloose > 0 or n_tau_loose > 0):
+            #             raise AssertionError("Ftau and Ttau masks are identical; check tau WP separation")
+            #     self._tau_wp_checked = True
 
         else:
             if is_run2:
