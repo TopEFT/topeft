@@ -59,7 +59,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True, tau_run_mode="standard"):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -68,6 +68,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
+        self.tau_run_mode = tau_run_mode
         self._tau_wp_checked = False
 
         self._hist_axis_map = {}

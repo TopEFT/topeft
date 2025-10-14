@@ -20,7 +20,10 @@ OPTIONS="--hist-list cr --skip-sr --do-systs --wc-list ctG -o $OUT_NAME --tau_h_
 
 echo "OUT_NAME:" $OUT_NAME
 
+# Capture any additional arguments to forward to run_analysis.py (e.g., --analysis-mode)
+EXTRA_ARGS=("$@")
+
 # Run the processor over all Run2 samples
-RUN_COMMAND="time python run_analysis.py $CFGS $OPTIONS"
-printf "\nRunning the following command:\n$RUN_COMMAND\n\n"
-$RUN_COMMAND
+RUN_CMD=(python run_analysis.py $CFGS $OPTIONS "${EXTRA_ARGS[@]}")
+printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
+time "${RUN_CMD[@]}"
