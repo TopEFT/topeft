@@ -349,16 +349,20 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     eft_err = np.sqrt(eft.variances(flow=(flow=='show')))/np.sum(eft.values(flow=(flow=='show')))
     if flow=='show': eft_err = eft_err[1:]
     norm = np.sum(sm.values()) / np.sum(eft.values())
+    if args.abs: norm = 1
     if not args.central: (eft/sm * norm).plot1d(yerr=eft_err, ax=rax, flow=flow, ls='--')
 
     eft_start_norm = np.sum(eft.values(flow=True)[()]) #/ sm_scale
+    if args.abs: norm = 1
     if 'fixed' in args.fin2:
         eb3 = ax2.errorbar([1], eft_start_norm / np.sum(sm.values(flow=True)), xerr=0.05, linestyle='--')
 
     if args.private and wc and not args.skip and not args.central: #FIXME
         eft = hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt)
         norm = np.sum(sm.values()) / np.sum(eft.values())
+        if args.abs: norm = 1
         (eft/sm * norm).plot1d(yerr=False, ax=rax, flow=flow, ls='--')
+    if args.abs: norm = 1
 
     #ax = plt.gca()
     if density:
