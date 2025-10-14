@@ -6,6 +6,7 @@
 from coffea import lookup_tools
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
+from topeft.modules.object_selection import RUN2_VSMU_TIGHT_BIT, RUN3_VSMU_TIGHT_THRESHOLD
 import numpy as np
 import awkward as ak
 import scipy
@@ -832,6 +833,44 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
     gen  = taus.genPartFlav
     mass = taus.mass
 
+    is_run2 = year.startswith("201")
+    is_run3 = not is_run2
+
+    stored_muon_mask = None
+    if "ismTight" in ak.fields(taus):
+        stored_muon_mask = ak.fill_none(taus["ismTight"] > 0, False)
+
+    muon_wp_expected = None
+    muon_wp_source = None
+    tau_fields = ak.fields(taus)
+    if is_run2 and "idDeepTau2017v2p1VSmu" in tau_fields:
+        muon_wp_source = "DeepTau2017v2p1VSmu"
+        muon_wp_expected = ak.fill_none(
+            ((taus.idDeepTau2017v2p1VSmu >> RUN2_VSMU_TIGHT_BIT) & 1) > 0,
+            False,
+        )
+    elif is_run3 and "idDeepTau2018v2p5VSmu" in tau_fields:
+        muon_wp_source = "DeepTau2018v2p5VSmu"
+        muon_wp_expected = ak.fill_none(
+            taus.idDeepTau2018v2p5VSmu >= RUN3_VSMU_TIGHT_THRESHOLD,
+            False,
+        )
+    elif is_run2:
+        raise AssertionError(
+            "Run 2 tau collection missing DeepTau2017v2p1VSmu for Tight VSμ validation."
+        )
+    elif is_run3:
+        raise AssertionError(
+            "Run 3 tau collection missing DeepTau2018v2p5VSmu for Tight VSμ validation."
+        )
+
+    if (stored_muon_mask is not None) and (muon_wp_expected is not None):
+        mismatch_mask = ak.flatten(stored_muon_mask != muon_wp_expected)
+        if ak.any(mismatch_mask):
+            raise AssertionError(
+                f"Tau ismTight mask does not match Tight VSμ definition from {muon_wp_source}."
+            )
+
     DT_sf_list = []
     DT_up_list = []
     DT_do_list = []
@@ -842,11 +881,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
     flat_dm = ak.flatten(ak.fill_none(dm,0))
     flat_gen = ak.flatten(ak.fill_none(gen,0))
     flat_eta = ak.flatten(ak.fill_none(eta,0))
-    is_run2 = False
-    if year.startswith("201"):
-        is_run2 = True
-
-    is_run3 = not is_run2
+    # is_run2 and is_run3 defined above
 
     ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
     if is_run2:
@@ -866,6 +901,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
         fake_elec_sf = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}'](np.abs(eta)), 1)
         fake_elec_sf_up = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}_up'](np.abs(eta)), 1)
         fake_elec_sf_down = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}_down'](np.abs(eta)), 1)
+        # TauPOG muon fake SFs are provided for the Tight VSμ working point.
         whereFlag = ((pt>20) & (pt<205) & ((gen==2)|(gen==4))  & (taus["ismTight"]>0))
         fake_muon_sf = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}'](np.abs(eta)), 1)
         fake_muon_sf_up = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_up'](np.abs(eta)), 1)
