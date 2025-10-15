@@ -12,6 +12,7 @@ import os
 import copy
 import datetime
 import argparse
+import json
 import math
 from cycler import cycler
 
@@ -30,14 +31,103 @@ from scipy.optimize import curve_fit
 from  numpy.linalg import eig
 from scipy.odr import *
 
+from topeft.modules.paths import topeft_path
 from topeft.modules.yield_tools import YieldTools
 import topcoffea.modules.utils as utils
 
 yt = YieldTools()
 
 
-Ftau = ["2los_ee_1tau_Ftau_2j", "2los_em_1tau_Ftau_2j", "2los_mm_1tau_Ftau_2j", "2los_ee_1tau_Ftau_3j", "2los_em_1tau_Ftau_3j", "2los_mm_1tau_Ftau_3j", "2los_ee_1tau_Ftau_4j", "2los_em_1tau_Ftau_4j", "2los_mm_1tau_Ftau_4j"]
-Ttau = ["2los_ee_1tau_Ttau_2j", "2los_em_1tau_Ttau_2j", "2los_mm_1tau_Ttau_2j", "2los_ee_1tau_Ttau_3j", "2los_em_1tau_Ttau_3j", "2los_mm_1tau_Ttau_3j", "2los_ee_1tau_Ttau_4j", "2los_em_1tau_Ttau_4j", "2los_mm_1tau_Ttau_4j"]
+def _extract_jet_suffix(jet_label):
+    jet_digits = "".join(ch for ch in jet_label if ch.isdigit())
+    if not jet_digits:
+        raise RuntimeError(
+            f"Unable to determine jet multiplicity from label '{jet_label}' in tau channel configuration."
+        )
+    return f"{jet_digits}j"
+
+
+def _insert_flavor(base_name, flavor):
+    if "_" not in base_name:
+        return f"{base_name}_{flavor}"
+    prefix, remainder = base_name.split("_", 1)
+    return f"{prefix}_{flavor}_{remainder}"
+
+
+def load_tau_control_channels(channels_json_path=None):
+    """Build the Ftau and Ttau channel lists from the channel configuration JSON."""
+
+    json_path = channels_json_path or topeft_path("channels/ch_lst.json")
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(
+            f"Tau channel configuration JSON not found at '{json_path}'."
+        )
+
+    with open(json_path, "r") as ch_json:
+        try:
+            channel_config = json.load(ch_json)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"Failed to parse tau channel configuration at '{json_path}': {exc}."
+            ) from exc
+
+    try:
+        tau_controls = channel_config["TAU_CH_LST_CR"]["2los_1tau"]
+    except KeyError as exc:
+        missing_key = exc.args[0] if exc.args else "TAU_CH_LST_CR"
+        if missing_key == "TAU_CH_LST_CR":
+            missing_path = "TAU_CH_LST_CR"
+        else:
+            missing_path = f"TAU_CH_LST_CR -> {missing_key}"
+        raise RuntimeError(
+            "The tau control-region definition is missing from the channel configuration. "
+            f"Expected to find '{missing_path}' in '{json_path}'."
+        ) from exc
+
+    required_fields = ["lep_chan_lst", "lep_flav_lst", "jet_lst"]
+    for field in required_fields:
+        if field not in tau_controls:
+            raise RuntimeError(
+                f"Tau control-region definition in '{json_path}' is missing the '{field}' field."
+            )
+
+    lep_chans = tau_controls["lep_chan_lst"]
+    lep_flavs = tau_controls["lep_flav_lst"]
+    jet_bins = tau_controls["jet_lst"]
+
+    if not lep_chans or not lep_flavs or not jet_bins:
+        raise RuntimeError(
+            "Tau control-region configuration must define non-empty channel, flavor, and jet lists."
+        )
+
+    ftau_channels = []
+    ttau_channels = []
+
+    for chan_def in lep_chans:
+        if not chan_def:
+            continue
+        base_name = chan_def[0]
+        if base_name.endswith("_Ftau"):
+            target_list = ftau_channels
+        elif base_name.endswith("_Ttau"):
+            target_list = ttau_channels
+        else:
+            raise RuntimeError(
+                f"Unexpected tau control channel name '{base_name}'. "
+                "Expected names ending with '_Ftau' or '_Ttau'."
+            )
+
+        for flavor in lep_flavs:
+            for jet_label in jet_bins:
+                channel_name = f"{_insert_flavor(base_name, flavor)}_{_extract_jet_suffix(jet_label)}"
+                target_list.append(channel_name)
+
+    if not ftau_channels or not ttau_channels:
+        raise RuntimeError(
+            "Failed to build Ftau/Ttau channel lists from the tau control-region configuration."
+        )
+
+    return ftau_channels, ttau_channels
 
 #CR_GRP_MAP = {
 #    "DY" : [],
@@ -210,7 +300,7 @@ def unwrap(hist, flow=True):
     errs = np.sqrt(vars_)
     return vals, errs
 
-def getPoints(dict_of_hists):
+def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     # Construct list of MC samples
     mc_wl = []
     mc_bl = ["data"]
@@ -244,10 +334,10 @@ def getPoints(dict_of_hists):
 
 
     # Integrate to get the categories we want
-    mc_fake     = hist_mc.integrate("channel", Ftau)
-    mc_tight    = hist_mc.integrate("channel", Ttau)
-    data_fake     = hist_data.integrate("channel", Ftau)
-    data_tight    = hist_data.integrate("channel", Ttau)
+    mc_fake     = hist_mc.integrate("channel", ftau_channels)
+    mc_tight    = hist_mc.integrate("channel", ttau_channels)
+    data_fake     = hist_data.integrate("channel", ftau_channels)
+    data_tight    = hist_data.integrate("channel", ttau_channels)
   
     mc_fake     = group_bins(mc_fake,CR_GRP_MAP,"process",drop_unspecified=True)
     mc_tight    = group_bins(mc_tight,CR_GRP_MAP,"process",drop_unspecified=True)
@@ -360,6 +450,24 @@ def main():
     # Set up the command line parser
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
+    parser.add_argument(
+        "--channels-json",
+        default=None,
+        help=(
+            "Optional path to a channel configuration JSON file."
+            " Defaults to topeft/channels/ch_lst.json."
+        ),
+    )
+    parser.add_argument(
+        "--dump-channels",
+        nargs="?",
+        const="-",
+        metavar="OUTPUT",
+        help=(
+            "Dump the resolved Ftau/Ttau channel lists to stdout or the specified file."
+            " The script continues after dumping."
+        ),
+    )
     args = parser.parse_args()
 
     # Whether or not to unit norm the plots
@@ -374,9 +482,21 @@ def main():
     #save_dir_path = os.path.join(save_dir_path,outdir_name)
     #os.mkdir(save_dir_path)
 
+    ftau_channels, ttau_channels = load_tau_control_channels(args.channels_json)
+
+    if args.dump_channels is not None:
+        dump_payload = {"Ftau": ftau_channels, "Ttau": ttau_channels}
+        if args.dump_channels in ("-", ""):
+            json.dump(dump_payload, sys.stdout, indent=2)
+            sys.stdout.write("\n")
+        else:
+            with open(args.dump_channels, "w") as dump_file:
+                json.dump(dump_payload, dump_file, indent=2)
+            print(f"Tau channel lists written to {args.dump_channels}")
+
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
-    x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict)
+    x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict, ftau_channels, ttau_channels)
 
     y_data = np.array(y_data, dtype=float).flatten()
     y_mc   = np.array(y_mc, dtype=float).flatten()
