@@ -1,9 +1,11 @@
+import math
 import pathlib
 import sys
 
-import hist
-import numpy as np
 import pytest
+
+hist = pytest.importorskip("hist")
+np = pytest.importorskip("numpy")
 
 from topcoffea.modules.histEFT import HistEFT
 
@@ -88,3 +90,41 @@ def test_group_bins_raises_for_unknown_sources(group_fn):
             axis_name="process",
             drop_unspecified=True,
         )
+
+
+def _toy_histogram_arrays():
+    n_steps = int(
+        (tau.TAU_PT_BIN_DIVIDERS[-1] - tau.TAU_PT_BIN_START) / tau.TAU_PT_BIN_STEP
+    )
+    length = 2 + n_steps
+    fake_vals = np.zeros(length)
+    tight_vals = np.zeros(length)
+    fake_errs = np.zeros(length)
+    tight_errs = np.zeros(length)
+
+    fake_vals[2] = 100.0
+    tight_vals[2] = 50.0
+    fake_errs[2] = 10.0
+    tight_errs[2] = 5.0
+
+    return fake_vals, fake_errs, tight_vals, tight_errs
+
+
+def test_compute_fake_rates_quadrature_matches_manual():
+    fake_vals, fake_errs, tight_vals, tight_errs = _toy_histogram_arrays()
+    ratios, errors = tau.compute_fake_rates(
+        fake_vals,
+        fake_errs,
+        tight_vals,
+        tight_errs,
+    )
+
+    assert len(ratios) == len(tau.TAU_PT_BIN_DIVIDERS)
+    assert len(errors) == len(tau.TAU_PT_BIN_DIVIDERS)
+
+    manual_error = math.sqrt((5.0 / 100.0) ** 2 + (50.0 * 10.0 / (100.0 ** 2)) ** 2)
+
+    assert ratios[0] == pytest.approx(0.5)
+    assert errors[0] == pytest.approx(manual_error)
+    assert np.allclose(ratios[1:], 0.0)
+    assert np.allclose(errors[1:], 0.0)

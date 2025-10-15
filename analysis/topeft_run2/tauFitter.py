@@ -1,5 +1,11 @@
 ##############################################################
 # Script for creating the fake tau scale factors
+#
+# Statistical and systematic uncertainties on the fake-rate points are
+# combined in quadrature, matching the expectation for uncorrelated
+# sources and avoiding the overly conservative behaviour of the
+# historical linear addition.
+#
 # To use, run command python tauFitter.py -f /path/to/pkl/file
 # pkl file should have CRs listed below and have all other
 # corrections aside from fake tau SFs
@@ -310,6 +316,97 @@ def unwrap(hist, flow=True):
     errs = np.sqrt(vars_)
     return vals, errs
 
+TAU_PT_BIN_START = 20
+TAU_PT_BIN_STEP = 10
+TAU_PT_BIN_DIVIDERS = [30, 40, 50, 60, 80, 100, 200]
+
+
+def _accumulate_error(total, value):
+    return total + value * value
+
+
+def _finalize_error(total):
+    return math.sqrt(total)
+
+
+def _combine_ratio_uncertainty(num, num_err, den, den_err):
+    if den == 0.0:
+        return 0.0
+    return math.sqrt((num_err / den) ** 2 + (num * den_err / (den ** 2)) ** 2)
+
+
+def _combine_ratio_uncertainty_array(num, num_err, den, den_err):
+    num = np.asarray(num, dtype=float)
+    num_err = np.asarray(num_err, dtype=float)
+    den = np.asarray(den, dtype=float)
+    den_err = np.asarray(den_err, dtype=float)
+
+    result = np.empty_like(num, dtype=float)
+    result.fill(np.inf)
+    valid = den != 0.0
+    if not np.any(valid):
+        return result
+
+    result[valid] = np.sqrt(
+        (num_err[valid] / den[valid]) ** 2
+        + (num[valid] * den_err[valid] / (den[valid] ** 2)) ** 2
+    )
+    return result
+
+
+def compute_fake_rates(
+    fake_vals,
+    fake_errs,
+    tight_vals,
+    tight_errs,
+    start_index=2,
+    bin_start=TAU_PT_BIN_START,
+    bin_step=TAU_PT_BIN_STEP,
+    bin_dividers=TAU_PT_BIN_DIVIDERS,
+):
+    fake_vals = np.asarray(fake_vals, dtype=float)
+    fake_errs = np.asarray(fake_errs, dtype=float)
+    tight_vals = np.asarray(tight_vals, dtype=float)
+    tight_errs = np.asarray(tight_errs, dtype=float)
+
+    x = bin_start
+    fake_sum = 0.0
+    tight_sum = 0.0
+    fake_err_total = 0.0
+    tight_err_total = 0.0
+    ratios = []
+    errors = []
+
+    for index in range(start_index, len(fake_vals)):
+        fake_sum += fake_vals[index]
+        tight_sum += tight_vals[index]
+        fake_err_total = _accumulate_error(fake_err_total, fake_errs[index])
+        tight_err_total = _accumulate_error(tight_err_total, tight_errs[index])
+        x += bin_step
+        if x in bin_dividers:
+            if fake_sum != 0.0:
+                fake_err = _finalize_error(fake_err_total)
+                tight_err = _finalize_error(tight_err_total)
+                ratio = tight_sum / fake_sum
+                ratio_err = _combine_ratio_uncertainty(
+                    tight_sum, tight_err, fake_sum, fake_err
+                )
+            else:
+                ratio = 0.0
+                ratio_err = 0.0
+            ratios.append(ratio)
+            if ratio != 0.0 and (ratio + ratio_err) / ratio < 1.02:
+                errors.append(1.02 * ratio - ratio)
+            else:
+                errors.append(ratio_err)
+            fake_sum = 0.0
+            tight_sum = 0.0
+            fake_err_total = 0.0
+            tight_err_total = 0.0
+
+    return np.array(ratios, dtype=float), np.array(errors, dtype=float)
+
+
 def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     # Construct list of MC samples
     mc_wl = []
@@ -365,14 +462,14 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     for key, vals in mc_fake_view.items():
         proc = key[0]
         chan = key[1]
-        mc_fake_e = sqrt_list(vals)
-        mc_fake_vals = vals
+        mc_fake_e = np.asarray(sqrt_list(vals), dtype=float)
+        mc_fake_vals = np.asarray(vals, dtype=float)
 
     for key, vals in mc_tight_view.items():
         proc = key[0]
         chan = key[1]
-        mc_tight_e = sqrt_list(vals)
-        mc_tight_vals = vals
+        mc_tight_e = np.asarray(sqrt_list(vals), dtype=float)
+        mc_tight_vals = np.asarray(vals, dtype=float)
 
 
     data_fake_view = data_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
@@ -380,80 +477,32 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     for key, vals in data_fake_view.items():
         proc = key[0]
         chan = key[1]
-        data_fake_e = sqrt_list(vals)
-        data_fake_vals = vals
+        data_fake_e = np.asarray(sqrt_list(vals), dtype=float)
+        data_fake_vals = np.asarray(vals, dtype=float)
 
     for key, vals in data_tight_view.items():
         proc = key[0]
         chan = key[1]
-        data_tight_e = sqrt_list(vals)
-        data_tight_vals = vals
+        data_tight_e = np.asarray(sqrt_list(vals), dtype=float)
+        data_tight_vals = np.asarray(vals, dtype=float)
 
-    mc_x = [20, 30, 40, 50, 60, 80, 100]
-    mc_y = []
-    mc_e = []
-    x = 20
-    bin_div = [30, 40, 50, 60, 80, 100, 200]
-    fake = 0
-    tight = 0
-    f_err = 0
-    t_err = 0
-    for index in range(2, len(mc_fake_vals)):
-        fake  += mc_fake_vals[index]
-        tight += mc_tight_vals[index]
-        f_err += mc_fake_e[index]
-        t_err += mc_tight_e[index]
-        x += 10
-        if x in bin_div:
-            if fake != 0.0:
-                y = tight/fake
-                y_err = t_err/fake + tight*f_err/(fake*fake)
-            else:
-                y = 0.0
-                y_err = 0.0
-            mc_y.append(y)
-            if (y+y_err)/y < 1.02:
-                mc_e.append(1.02*y-y)
-            else:
-                mc_e.append(y_err)
-            fake = 0.0
-            tight = 0.0
-            f_err = 0.0
-            t_err = 0.0
-    data_x = [20, 30, 40, 50, 60, 80, 100]
-    data_y = []
-    data_e = []
-    x = 20
-    fake = 0.0
-    tight = 0.0
-    for index in range(2, len(data_fake_vals)):
-        fake  += data_fake_vals[index]
-        tight += data_tight_vals[index]
-        f_err += data_fake_e[index]
-        t_err += data_tight_e[index]
-        x += 10
-        if x in bin_div:
-            if fake != 0.0:
-                y = tight/fake
-                print("check t/f: ", y)
-                y_err =t_err/fake + tight*f_err/(fake*fake)
-            else:
-                y = 0.0
-                y_err =0.0
-            data_y.append(y)
-            if y != 0.0:
-                if (y + y_err) / y < 1.02:
-                    data_e.append(1.02 * y - y)
-                else:
-                    data_e.append(y_err)
-            else:
-                data_e.append(0.0)
-        
-            fake = 0.0
-            tight = 0.0
-            f_err = 0.0
-            t_err = 0.0
-    return np.array(mc_x), np.array(mc_y), np.array(mc_e), np.array(data_x), np.array(data_y), np.array(data_e)
+    mc_y, mc_e = compute_fake_rates(
+        mc_fake_vals,
+        mc_fake_e,
+        mc_tight_vals,
+        mc_tight_e,
+    )
+    data_y, data_e = compute_fake_rates(
+        data_fake_vals,
+        data_fake_e,
+        data_tight_vals,
+        data_tight_e,
+    )
+
+    mc_x = np.array([TAU_PT_BIN_START] + TAU_PT_BIN_DIVIDERS[:-1], dtype=float)
+    data_x = np.array([TAU_PT_BIN_START] + TAU_PT_BIN_DIVIDERS[:-1], dtype=float)
+
+    return mc_x, mc_y, mc_e, data_x, data_y, data_e
 
 def main():
 
@@ -506,7 +555,11 @@ def main():
 
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
-    x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict, ftau_channels, ttau_channels)
+    x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(
+        hin_dict,
+        ftau_channels,
+        ttau_channels,
+    )
 
     y_data = np.array(y_data, dtype=float).flatten()
     y_mc   = np.array(y_mc, dtype=float).flatten()
@@ -518,7 +571,12 @@ def main():
     print("fr data = ", y_data)
     print("fr mc = ", y_mc)
     SF = y_data/y_mc
-    SF_e = yerr_data/y_mc + y_data*yerr_mc/(y_mc**2)
+    SF_e = _combine_ratio_uncertainty_array(
+        y_data,
+        yerr_data,
+        y_mc,
+        yerr_mc,
+    )
         
     SF_e = np.where(SF_e <= 0, 1e-3, SF_e)
     print('SF',SF)
