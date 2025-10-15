@@ -128,3 +128,44 @@ def test_compute_fake_rates_quadrature_matches_manual():
     assert errors[0] == pytest.approx(manual_error)
     assert np.allclose(ratios[1:], 0.0)
     assert np.allclose(errors[1:], 0.0)
+
+
+def _make_tau_histogram(channels):
+    return hist.Hist(
+        hist.axis.StrCategory(["ttH"], name="process"),
+        hist.axis.StrCategory(channels, name="channel"),
+        hist.axis.StrCategory(["nominal"], name="systematic"),
+        hist.axis.Regular(3, 20, 50, name="tau0pt"),
+    )
+
+
+def test_validate_histogram_axes_raises_when_axes_missing():
+    histogram = hist.Hist(
+        hist.axis.StrCategory(["ttH"], name="process"),
+        hist.axis.Regular(3, 20, 50, name="tau0pt"),
+    )
+
+    with pytest.raises(RuntimeError, match="missing required axes"):
+        tau._validate_histogram_axes(
+            histogram,
+            tau._TAU_HISTOGRAM_REQUIRED_AXES,
+            "tau0pt",
+        )
+
+
+def test_validate_tau_channel_coverage_reports_missing_bins():
+    histogram = _make_tau_histogram(["2los_ee_1tau_Ftau_2j"])
+
+    with pytest.raises(RuntimeError) as exc_info:
+        tau._validate_tau_channel_coverage(
+            histogram,
+            "channel",
+            ["2los_ee_1tau_Ftau_2j", "2los_em_1tau_Ftau_2j"],
+            ["2los_ee_1tau_Ttau_2j"],
+            "tau0pt",
+        )
+
+    message = str(exc_info.value)
+    assert "Missing bins summary" in message
+    assert "2los_em_1tau_Ftau_2j" in message
+    assert "2los_ee_1tau_Ttau_2j" in message

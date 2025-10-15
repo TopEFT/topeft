@@ -19,6 +19,7 @@ import copy
 import datetime
 import argparse
 import json
+import logging
 import math
 from collections import OrderedDict
 from cycler import cycler
@@ -43,6 +44,11 @@ from topeft.modules.yield_tools import YieldTools
 import topcoffea.modules.utils as utils
 
 yt = YieldTools()
+
+
+LOGGER = logging.getLogger(__name__)
+
+_TAU_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0pt")
 
 
 def _extract_jet_suffix(jet_label):
@@ -407,6 +413,78 @@ def compute_fake_rates(
     return np.array(ratios, dtype=float), np.array(errors, dtype=float)
 
 
+def _validate_histogram_axes(histogram, expected_axes, hist_name):
+    """Ensure the histogram contains the expected axes for the tau fake-rate workflow."""
+
+    present_axes = {axis.name for axis in histogram.axes}
+    missing_axes = [axis for axis in expected_axes if axis not in present_axes]
+
+    if missing_axes:
+        available = ", ".join(sorted(present_axes)) if present_axes else "<none>"
+        summary = (
+            f"The '{hist_name}' histogram is missing required axes: {', '.join(missing_axes)}. "
+            f"Available axes: {available}. "
+            "Regenerate the histogram pickle with these axes enabled before running tauFitter."
+        )
+        LOGGER.error(summary)
+        raise RuntimeError(summary)
+
+
+def _validate_tau_channel_coverage(
+    histogram,
+    channel_axis_name,
+    ftau_channels,
+    ttau_channels,
+    hist_name,
+):
+    """Verify that all Ftau/Ttau channels are present in the histogram's channel axis."""
+
+    channel_axis = None
+    for axis in histogram.axes:
+        if axis.name == channel_axis_name:
+            channel_axis = axis
+            break
+
+    if channel_axis is None:
+        raise RuntimeError(
+            f"Histogram '{hist_name}' does not define a '{channel_axis_name}' axis."
+        )
+
+    available_channels = {str(category) for category in channel_axis}
+
+    missing_summary = {
+        "Ftau": sorted(
+            {channel for channel in ftau_channels if channel not in available_channels}
+        ),
+        "Ttau": sorted(
+            {channel for channel in ttau_channels if channel not in available_channels}
+        ),
+    }
+
+    missing_lines = [
+        f"  {label}: {', '.join(channels)}"
+        for label, channels in missing_summary.items()
+        if channels
+    ]
+
+    if missing_lines:
+        summary_lines = [
+            f"The '{hist_name}' histogram is missing required tau control-region categories.",
+            "Missing bins summary:",
+            *missing_lines,
+            "Available channel bins: "
+            + (
+                ", ".join(sorted(available_channels))
+                if available_channels
+                else "<none>"
+            ),
+            "Regenerate the histogram pickle with complete Ftau/Ttau coverage before rerunning tauFitter.",
+        ]
+        summary = "\n".join(summary_lines)
+        LOGGER.error(summary)
+        raise RuntimeError(summary)
+
+
 def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     # Construct list of MC samples
     mc_wl = []
@@ -436,8 +514,19 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
             CR_GRP_MAP["Ttbar"].append(proc_name)
 
     var_name = "tau0pt"
-    hist_mc = dict_of_hists[var_name].remove("process",samples_to_rm_from_mc_hist)
-    hist_data = dict_of_hists[var_name].remove("process",samples_to_rm_from_data_hist)
+    tau_hist = dict_of_hists[var_name]
+
+    _validate_histogram_axes(tau_hist, _TAU_HISTOGRAM_REQUIRED_AXES, var_name)
+    _validate_tau_channel_coverage(
+        tau_hist,
+        "channel",
+        ftau_channels,
+        ttau_channels,
+        var_name,
+    )
+
+    hist_mc = tau_hist.remove("process",samples_to_rm_from_mc_hist)
+    hist_data = tau_hist.remove("process",samples_to_rm_from_data_hist)
 
 
     # Integrate to get the categories we want
