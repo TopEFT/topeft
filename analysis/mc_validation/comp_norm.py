@@ -362,7 +362,6 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         norm = np.sum(sm.values()) / np.sum(eft.values())
         if args.abs: norm = 1
         (eft/sm * norm).plot1d(yerr=False, ax=rax, flow=flow, ls='--')
-    if args.abs: norm = 1
 
     #ax = plt.gca()
     if density:
@@ -378,7 +377,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         var_label = var_label.split('_')[0]
     else:
         var_label = var_label.split('pt')[0]
-    if norm == 1: rax.set_ylabel(r'$\frac{dN_{\rm{EFT}}}{d p_{\rm{T}}} / \frac{dN_{\rm{ref}}}{d p_{\rm{T}}}$')
+    if args.abs: rax.set_ylabel(r'$\frac{dN_{\rm{EFT}}}{d p_{\rm{T}}} / \frac{dN_{\rm{ref}}}{d p_{\rm{T}}}$')
     else: rax.set_ylabel(r'$(\frac{1}{N_{\rm{EFT}}} \frac{dN_{\rm{EFT}}}{d p_{\rm{T}}}) / (\frac{1}{N_{\rm{ref}}} \frac{dN_{\rm{ref}}}{d p_{\rm{T}}})$')
     #else: rax.set_ylabel(r'$(\frac{1}{N_{\rm{EFT}}} \frac{dN_{\rm{EFT}}}{d p_{\rm{T}} \gamma}) / (\frac{1}{N_{\rm{SM}}} \frac{dN_{\rm{SM}}}{d p_{\rm{T}} \gamma})$')
     plt.sca(ax)
