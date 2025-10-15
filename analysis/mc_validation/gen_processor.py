@@ -339,7 +339,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht_clean = ak.sum(genjet_clean.pt,axis=-1)
 
         tops_pt = gen_top.sum().pt
-        tX      = gen_top.sum() + gen_bos.sum()[:,0]
+        tX      = gen_top.sum() + ak.firsts(gen_bos)
         #tX      = gen_top[:,0:1].sum() + gen_bos[:,0]#.sum()
 
         # Pt of the t(t)X system
