@@ -74,7 +74,7 @@ args  = parser.parse_args()
 fin1   = args.fin1
 fin2   = args.fin2
 
-assert args.private != args.central, 'Please use either `--private` OR `--central`, not both'
+assert not args.private or not args.central, 'Please use either `--private` OR `--central`, not both'
 
 with gzip.open(fin1) as fin1:
     hin = pickle.load(fin1)
