@@ -3,6 +3,7 @@ import os
 import copy
 import datetime
 import argparse
+from collections import OrderedDict
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -156,39 +157,37 @@ def populate_group_map(samples, pattern_map):
             # raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
     return out
 
-def group(h: HistEFT, oldname: str, newname: str, grouping: dict[str, list[str]]):
-    hnew = HistEFT(
-        hist.axis.StrCategory(grouping, name=newname),
-        *(ax for ax in h.axes if ax.name != oldname),
-        wc_names=h.wc_names,
-    )
-    for i, indices in enumerate(grouping.values()):
-        ind = [c for c in indices if c in h.axes[0]]
-        hnew.view(flow=True)[i] = h[{oldname: ind}][{oldname: sum}].view(flow=True)
+def _ensure_list(values):
+    if isinstance(values, str):
+        return [values]
+    return list(values)
 
-    return hnew
+
 # Group bins in a hist, returns a new hist
-def group_bins(histo,bin_map,axis_name="process",drop_unspecified=False):
+def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 
-    bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
+    bin_map_copy = copy.deepcopy(bin_map)  # Don't want to edit the original
+    normalized_map = OrderedDict(
+        (group, _ensure_list(bins)) for group, bins in bin_map_copy.items()
+    )
 
-    # Construct the map of bins to remap
-    bins_to_remap_lst = []
-    for grp_name,bins_in_grp in bin_map.items():
-        bins_to_remap_lst.extend(bins_in_grp)
+    axis_categories = list(histo.axes[axis_name])
+    axis_category_set = set(axis_categories)
+
     if not drop_unspecified:
-        for bin_name in yt.get_cat_lables(histo,axis_name):
-            if bin_name not in bins_to_remap_lst:
-                bin_map[bin_name] = bin_name
-    bin_map = {m:bin_map[m] for m in bin_map if any(a in list(histo.axes[axis_name]) for a in bin_map[m])}
+        specified = {item for bins in normalized_map.values() for item in bins}
+        for category in axis_categories:
+            if category not in specified:
+                normalized_map.setdefault(category, [category])
 
-    # Remap the bins
-    old_ax = histo.axes[axis_name]
-    #new_ax = hist.axis.StrCategory([], name=old_ax.name, label=old_ax.label, growth=True)
-    new_histo = group(histo, axis_name, axis_name, bin_map)
-    #new_histo = histo.group(axis_name, bin_map)
+    requested = {item for bins in normalized_map.values() for item in bins}
+    missing = sorted(requested - axis_category_set)
+    if missing:
+        raise ValueError(
+            f"Requested {axis_name} bins not found in histogram: {', '.join(missing)}"
+        )
 
-    return new_histo
+    return histo.group(axis_name, normalized_map)
 
 
 ######### Functions for getting info from the systematics json #########

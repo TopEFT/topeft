@@ -14,6 +14,7 @@ import datetime
 import argparse
 import json
 import math
+from collections import OrderedDict
 from cycler import cycler
 
 #from coffea import hist
@@ -259,27 +260,36 @@ def group_bins_original(histo,bin_map,axis_name="sample",drop_unspecified=True):
 
     return new_histo
 
+def _ensure_list(values):
+    if isinstance(values, str):
+        return [values]
+    return list(values)
+
+
 def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
-    bin_map = copy.deepcopy(bin_map)  # Avoid editing original
+    bin_map_copy = copy.deepcopy(bin_map)  # Avoid editing original
+    normalized_map = OrderedDict(
+        (group, _ensure_list(categories))
+        for group, categories in bin_map_copy.items()
+    )
 
-    axis_cats = list(histo.axes[axis_name])
-
-    # Build new bin_map that only contains categories that exist in the hist
-    new_bin_map = {}
-    for grp_name, cat_list in bin_map.items():
-        filtered = [c for c in cat_list if c in axis_cats]  # Only keep existing categories
-        if filtered:
-            new_bin_map[grp_name] = filtered
+    axis_categories = list(histo.axes[axis_name])
+    axis_category_set = set(axis_categories)
 
     if not drop_unspecified:
-        specified_cats = [c for lst in new_bin_map.values() for c in lst]
-        for cat in axis_cats:
-            if cat not in specified_cats:
-                new_bin_map[cat] = [cat]
+        specified = {item for bins in normalized_map.values() for item in bins}
+        for category in axis_categories:
+            if category not in specified:
+                normalized_map.setdefault(category, [category])
 
-    new_histo = histo.group(axis_name, new_bin_map)
+    requested = {item for bins in normalized_map.values() for item in bins}
+    missing = sorted(requested - axis_category_set)
+    if missing:
+        raise ValueError(
+            f"Requested {axis_name} bins not found in histogram: {', '.join(missing)}"
+        )
 
-    return new_histo
+    return histo.group(axis_name, normalized_map)
 
 def unwrap(hist, flow=True):
     """
