@@ -341,7 +341,8 @@ def _combine_ratio_uncertainty_array(num, num_err, den, den_err):
     den = np.asarray(den, dtype=float)
     den_err = np.asarray(den_err, dtype=float)
 
-    result = np.zeros_like(num, dtype=float)
+    result = np.empty_like(num, dtype=float)
+    result.fill(np.inf)
     valid = den != 0.0
     if not np.any(valid):
         return result
