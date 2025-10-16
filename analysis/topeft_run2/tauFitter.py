@@ -579,16 +579,22 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     mc_group_map = OrderedDict((("Ttbar", []),))
     data_group_map = OrderedDict((("Data", []),))
 
-    for process in mc_fake.axes["process"]:
-        process_name = str(process)
-        if process_name.startswith("data"):
-            continue
-        mc_group_map["Ttbar"].append(process_name)
+    def _append_process(target_list, process_name):
+        if process_name not in target_list:
+            target_list.append(process_name)
 
-    for process in data_fake.axes["process"]:
-        process_name = str(process)
-        if process_name.startswith("data"):
-            data_group_map["Data"].append(process_name)
+    for hist in (mc_fake, mc_tight):
+        for process in hist.axes["process"]:
+            process_name = str(process)
+            if process_name.startswith("data"):
+                continue
+            _append_process(mc_group_map["Ttbar"], process_name)
+
+    for hist in (data_fake, data_tight):
+        for process in hist.axes["process"]:
+            process_name = str(process)
+            if process_name.startswith("data"):
+                _append_process(data_group_map["Data"], process_name)
 
     print("mc_group_map = ", mc_group_map)
     print("data_group_map = ", data_group_map)
