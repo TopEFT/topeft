@@ -519,14 +519,6 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     print("samples to rm from data hist = ", samples_to_rm_from_data_hist)
     print("\n\n\n\n\n")
 
-    for proc_name in all_samples:
-        if "data" in proc_name:
-            CR_GRP_MAP["Data"].append(proc_name)
-        #elif "TTTo" in proc_name:
-        #    CR_GRP_MAP["Ttbar"].append(proc_name)
-        else:
-            CR_GRP_MAP["Ttbar"].append(proc_name)
-
     var_name = "tau0pt"
     tau_hist = dict_of_hists[var_name]
 
@@ -551,6 +543,27 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
 
     hist_mc = tau_hist.remove("process",samples_to_rm_from_mc_hist)
     hist_data = tau_hist.remove("process",samples_to_rm_from_data_hist)
+
+    # Build fresh grouping maps derived from the current histogram contents so we only
+    # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
+    # MC map free of any ``data{year}`` entries while the data map only keeps those
+    # ``data{year}`` labels.
+    mc_group_map = OrderedDict((("Ttbar", []),))
+    data_group_map = OrderedDict((("Data", []),))
+
+    for process in hist_mc.axes["process"]:
+        process_name = str(process)
+        if process_name.startswith("data"):
+            continue
+        mc_group_map["Ttbar"].append(process_name)
+
+    for process in hist_data.axes["process"]:
+        process_name = str(process)
+        if process_name.startswith("data"):
+            data_group_map["Data"].append(process_name)
+
+    print("mc_group_map = ", mc_group_map)
+    print("data_group_map = ", data_group_map)
 
     print("AFTERREMOVAL\nhist_mc axes = ", [ax.name for ax in hist_mc.axes])
     for ax in hist_mc.axes:
@@ -580,10 +593,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         print(f"  {ax.name}: {[str(cat) for cat in ax]}")
     print("\n\n\n\n\n")
   
-    mc_fake     = group_bins(mc_fake,CR_GRP_MAP,"process",drop_unspecified=True)
-    mc_tight    = group_bins(mc_tight,CR_GRP_MAP,"process",drop_unspecified=True)
-    data_fake   = group_bins(data_fake,CR_GRP_MAP,"process",drop_unspecified=True)
-    data_tight  = group_bins(data_tight,CR_GRP_MAP,"process",drop_unspecified=True)
+    mc_fake     = group_bins(mc_fake,mc_group_map,"process",drop_unspecified=True)
+    mc_tight    = group_bins(mc_tight,mc_group_map,"process",drop_unspecified=True)
+    data_fake   = group_bins(data_fake,data_group_map,"process",drop_unspecified=True)
+    data_tight  = group_bins(data_tight,data_group_map,"process",drop_unspecified=True)
 
     mc_fake     = mc_fake.integrate("systematic","nominal")
     mc_tight    = mc_tight.integrate("systematic","nominal")
