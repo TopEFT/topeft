@@ -15,6 +15,7 @@ nav:
       - Sample metadata reference: sample_metadata_reference.md
       - Run analysis configuration flow: run_analysis_configuration.md
       - Workflow and processor reference: analysis_processing.md
+      - Remote environment maintenance: environment_packaging.md
 markdown_extensions:
   - admonition
   - def_list

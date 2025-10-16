@@ -39,6 +39,7 @@ DEFAULT_MODULES: Dict[str, object] = {
         ],
     },
     "pip": [
+        "topeft",
         "topcoffea",
         "coffea==2025.7.3",
         "awkward==2.8.7",
@@ -47,6 +48,7 @@ DEFAULT_MODULES: Dict[str, object] = {
 
 PIP_LOCAL_TO_WATCH: Dict[str, Sequence[str]] = {
     "topcoffea": ("topcoffea", "setup.py"),
+    "topeft": ("topeft", "setup.py"),
 }
 
 

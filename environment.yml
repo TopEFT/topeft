@@ -3,12 +3,15 @@ channels:
   - conda-forge
 dependencies:
   - conda-forge::python=3.13
-  - awkward=2.8.7
-  - coffea=2025.7
-  - numpy
-  - ndcctools
+  - pip
   - conda-pack
-  - dill
+  - ndcctools>=7.14.11
   - xrootd
+  - setuptools>=72
+  - numpy
+  - dill
   - git
   - pyyaml
+  - pip:
+      - coffea==2025.7.3
+      - awkward==2.8.7
