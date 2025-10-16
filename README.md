@@ -48,16 +48,30 @@ Now all of the dependencies have been installed and the `topeft` repository is r
 
 The packaged archive produced by `python -m topcoffea.modules.remote_environment` is uploaded automatically when runs target the TaskVine executor. Launching a distributed job therefore becomes:
 
-1. Configure the workflow with TaskVine enabled (for example, selecting the Run 2 control preset):
+1. Enable TaskVine in the YAML profile before launching the run.  Open
+   `analysis/topeft_run2/configs/fullR2_run.yml` and set the profile you plan
+   to execute to use the TaskVine backend:
+
+   ```yaml
+   profiles:
+     cr:
+       # ...existing options...
+       executor: taskvine
+   ```
+
+   (When you prefer to keep both backends handy, copy the file to a new name
+   such as `fullR2_run_taskvine.yml` and adjust the `executor` there.)
+
+2. Configure the workflow with TaskVine enabled (for example, selecting the
+   Run 2 control preset):
 
    ```bash
    python run_analysis.py \
        ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-       --options configs/fullR2_run.yml \
-       --executor taskvine
+       --options configs/fullR2_run.yml
    ```
 
-2. Start one or more workers that match the manager name advertised by the run. A minimal local worker looks like:
+3. Start one or more workers that match the manager name advertised by the run. A minimal local worker looks like:
 
    ```bash
    vine_worker --cores 1 --memory 8000 --disk 8000 -M ${USER}-taskvine-coffea

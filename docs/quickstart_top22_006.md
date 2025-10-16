@@ -67,28 +67,43 @@ scenarios declared in ``topeft/params/metadata.yml``.
    cd analysis/topeft_run2
    ```
 
-2. To reproduce the control-region job (the default profile), run:
+2. Enable TaskVine in the YAML profile before launching the run.  Edit
+   ``configs/fullR2_run.yml`` and set the profile you plan to execute to use the
+   TaskVine backend:
 
-   ```bash
-   python run_analysis.py --options configs/fullR2_run.yml --executor taskvine
+   ```yaml
+   profiles:
+     cr:
+       # ...existing options...
+       executor: taskvine
    ```
 
-   This executes the workflow with the shared defaults plus the `cr` profile,
+   When you want to preserve both backends, copy the file to a new name (for
+   example ``fullR2_run_taskvine.yml``) and adjust the ``executor`` there so the
+   original futures-based profile stays available for local tests.
+
+3. To reproduce the control-region job (the default profile), run:
+
+   ```bash
+   python run_analysis.py --options configs/fullR2_run.yml
+   ```
+
+   This executes the workflow with the shared defaults plus the ``cr`` profile,
    which skips all SR categories, splits lepton flavors, and runs a short test
    over the background configuration.  TaskVine will automatically upload the
    packaged environment if the helper tarball is present.
 
-3. To launch the signal-region job, reuse the same YAML but select the `sr`
+4. To launch the signal-region job, reuse the same YAML but select the ``sr``
    profile by appending it after a colon:
 
    ```bash
-   python run_analysis.py --options configs/fullR2_run.yml:sr --executor taskvine
+   python run_analysis.py --options configs/fullR2_run.yml:sr
    ```
 
    The SR profile keeps the shared defaults while swapping in the signal and
    data metadata bundles and disabling the control regions.
 
-4. Adjust any additional options directly inside the YAML file.  Once
+5. Adjust any additional options directly inside the YAML file.  Once
    ``--options`` is provided, command-line flags (such as ``--executor`` or
    ``--outname``) are ignored so that the captured configuration remains
    reproducible.  Drop ``--options`` entirely if you need a one-off CLI-driven
