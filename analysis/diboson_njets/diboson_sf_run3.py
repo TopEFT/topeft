@@ -106,10 +106,10 @@ def get_yields_in_bins(
             
     return yields
 
-def make_diboson_sf_json(bins, scale_factors, year):
+def make_diboson_sf_json(bins, scale_factors, year, output_dir="."):
     if len(bins) != len(scale_factors) + 1:
         raise ValueError("Number of scale factors must be one less than number of bin edges.")
-    
+
     key_name = f"dibosonSF_njets_{year}"
     sf_json = {
         key_name: {
@@ -117,9 +117,86 @@ def make_diboson_sf_json(bins, scale_factors, year):
             for i in range(len(scale_factors))
         }
     }
-    with open(f"diboson_sf_{year}.json", "w") as f:
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"diboson_sf_{year}.json")
+    with open(output_path, "w") as f:
         json.dump(sf_json, f, indent=2)
-    print(f"Scaling factors saved to diboson_sf_{year}.json")
+    print(f"Scaling factors saved to {output_path}")
+
+
+def compute_linear_fit(bin_centers, scale_factors):
+    if not bin_centers:
+        return None, []
+
+    coeffs = np.polyfit(bin_centers, scale_factors, deg=1)
+    slope, intercept = coeffs
+    fitted_values = np.polyval(coeffs, bin_centers)
+    fitted_values_list = np.atleast_1d(fitted_values).tolist()
+    fit_coefficients = {"slope": float(slope), "intercept": float(intercept)}
+    return fit_coefficients, fitted_values_list
+
+
+def save_linear_fit_coefficients(year, fit_coefficients, output_dir="."):
+    if not fit_coefficients:
+        return
+
+    os.makedirs(output_dir, exist_ok=True)
+    fit_coeff_path = os.path.join(output_dir, f"diboson_sf_{year}_linear_fit.json")
+    with open(fit_coeff_path, "w") as f:
+        json.dump(fit_coefficients, f, indent=2)
+    print(
+        "Saved linear fit coefficients to "
+        f"{fit_coeff_path}: slope = {fit_coefficients['slope']:.6f}, "
+        f"intercept = {fit_coefficients['intercept']:.6f}"
+    )
+
+
+def save_scale_factor_plot(
+    year,
+    channel,
+    bin_centers,
+    scale_factors,
+    fitted_values,
+    output_dir=".",
+):
+    if not bin_centers or not scale_factors:
+        print("No bin centers or scale factors available for plotting; skipping plot generation.")
+        return
+
+    try:
+        import matplotlib.pyplot as plt  # Guarded import to keep unpickling working
+    except ImportError:
+        print("matplotlib not available; skipping plot generation.")
+        return
+
+    os.makedirs(output_dir, exist_ok=True)
+    fig, ax = plt.subplots()
+    scale_factor_array = np.asarray(scale_factors, dtype=float)
+    yerr = np.zeros_like(scale_factor_array)
+    ax.errorbar(
+        bin_centers,
+        scale_factor_array,
+        yerr=yerr,
+        fmt="o",
+        label="Scale factors",
+    )
+    if fitted_values:
+        fitted_array = np.asarray(fitted_values, dtype=float)
+        ax.plot(
+            bin_centers,
+            fitted_array,
+            label="Linear fit",
+            linestyle="-",
+            marker="",
+        )
+    ax.set_xlabel("N_{jets} bin center")
+    ax.set_ylabel("Scale factor")
+    ax.set_title(f"Diboson scale factors ({year}, {channel})")
+    ax.legend()
+    plot_path = os.path.join(output_dir, f"diboson_sf_{year}.png")
+    fig.savefig(plot_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved scale factor plot to {plot_path}")
 
 def process_year(
     pkl_path,
@@ -219,60 +296,7 @@ def process_year(
     # Calculate bin centers for plotting and fitting
     bin_centers = [(bins[i] + bins[i + 1]) / 2 for i in range(len(bins) - 1)]
 
-    # Perform a linear fit of the scale factors vs. bin centers
-    if bin_centers:
-        coeffs = np.polyfit(bin_centers, scale_factors, deg=1)
-        slope, intercept = coeffs
-        fitted_values = np.polyval(coeffs, bin_centers)
-        print(
-            f"Linear fit coefficients for {year}: "
-            f"slope = {slope:.6f}, intercept = {intercept:.6f}"
-        )
-
-        fit_coefficients = {"slope": float(slope), "intercept": float(intercept)}
-        fit_coeff_path = f"diboson_sf_{year}_linear_fit.json"
-        with open(fit_coeff_path, "w") as f:
-            json.dump(fit_coefficients, f, indent=2)
-        print(f"Saved linear fit coefficients to {fit_coeff_path}")
-    else:
-        coeffs = None
-        fitted_values = []
-        fit_coefficients = None
-
-    # Plot the scale factors and the fitted line if matplotlib is available
-    try:
-        import matplotlib.pyplot as plt  # Guarded import to keep unpickling working
-    except ImportError:
-        plt = None
-
-    if plt is not None and coeffs is not None:
-        fig, ax = plt.subplots()
-        ax.errorbar(
-            bin_centers,
-            scale_factors,
-            yerr=np.zeros_like(scale_factors, dtype=float),
-            fmt="o",
-            label="Scale factors",
-        )
-        ax.plot(
-            bin_centers,
-            fitted_values,
-            label="Linear fit",
-            linestyle="-",
-            marker="",
-        )
-        ax.set_xlabel("N_{jets} bin center")
-        ax.set_ylabel("Scale factor")
-        ax.set_title(f"Diboson scale factors ({year}, {channel})")
-        ax.legend()
-        plot_path = f"diboson_sf_{year}.png"
-        fig.savefig(plot_path, dpi=300, bbox_inches="tight")
-        plt.close(fig)
-        print(f"Saved scale factor plot to {plot_path}")
-    elif plt is None:
-        print("matplotlib not available; skipping plot generation.")
-
-    make_diboson_sf_json(bins, scale_factors, year=year)
+    fit_coefficients, fitted_values = compute_linear_fit(bin_centers, scale_factors)
 
     # Output
     print(f"Results for {year}:")
@@ -321,6 +345,11 @@ def main():
             "shared input file containing multiple years."
         ),
     )
+    parser.add_argument(
+        "--output-dir",
+        default=".",
+        help="Directory where per-year outputs (JSON, plots) will be written.",
+    )
     args = parser.parse_args()
 
     years = list(args.year)
@@ -366,6 +395,7 @@ def main():
     cached_inputs = {}
 
     results = {}
+    summary = {}
     for year, pkl_path in zip(years, pkl_paths):
         try:
             year_axis = args.year_axis if shared_pkl_for_years else None
@@ -378,8 +408,55 @@ def main():
                 cache=cached_inputs,
                 year_axis=year_axis,
             )
+            year_output_dir = os.path.join(args.output_dir, str(year))
+            make_diboson_sf_json(
+                bins,
+                results[year]["scale_factors"],
+                year=year,
+                output_dir=year_output_dir,
+            )
+            save_linear_fit_coefficients(
+                year,
+                results[year]["fit_coefficients"],
+                output_dir=year_output_dir,
+            )
+            save_scale_factor_plot(
+                year,
+                args.channel,
+                results[year]["bin_centers"],
+                results[year]["scale_factors"],
+                results[year]["fitted_values"],
+                output_dir=year_output_dir,
+            )
+
+            sf_values = results[year]["scale_factors"]
+            mean_sf = float(np.mean(sf_values)) if sf_values else float("nan")
+            fit_coefficients = results[year]["fit_coefficients"] or {}
+            summary[year] = {
+                "mean_scale_factor": mean_sf,
+                "slope": fit_coefficients.get("slope"),
+                "intercept": fit_coefficients.get("intercept"),
+            }
         except KeyError as exc:
             parser.error(str(exc))
+
+    if summary:
+        print("\nSummary of scale factor results:")
+        header = f"{'Year':<8}{'Mean SF':>12}{'Slope':>12}{'Intercept':>14}"
+        print(header)
+        print("-" * len(header))
+        for year in years:
+            year_summary = summary.get(year, {})
+            mean_sf = year_summary.get("mean_scale_factor")
+            slope = year_summary.get("slope")
+            intercept = year_summary.get("intercept")
+            if mean_sf is None or (isinstance(mean_sf, float) and np.isnan(mean_sf)):
+                mean_sf_str = "n/a"
+            else:
+                mean_sf_str = f"{mean_sf:.6f}"
+            slope_str = "n/a" if slope is None else f"{slope:.6f}"
+            intercept_str = "n/a" if intercept is None else f"{intercept:.6f}"
+            print(f"{year:<8}{mean_sf_str:>12}{slope_str:>12}{intercept_str:>14}")
 
     return results
 
