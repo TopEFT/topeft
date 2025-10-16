@@ -1,4 +1,8 @@
-# Running Topcoffea with Work Queue
+# Running Topcoffea with Work Queue (legacy)
+
+> **Note**
+>
+> TaskVine is now the recommended distributed executor for `topeft`. The TaskVine setup flow—including the environment packaging helper and worker submission command—is documented in the main [README](README.md). The steps below are preserved for sites that still require Work Queue.
 
 The script [run_analysis.py](https://github.com/TopEFT/topeft/blob/refactoring/analysis/topeft_run2/run_analysis.py) sets up topcoffea to run as a Work Queue
 application. Work Queue itself is a framework for building large scale
@@ -42,7 +46,7 @@ environment for topcoffea:
 ```sh
 # you may choose other python version, e.g. 3.8
 conda env create -f environment.yml
-conda activate topcoffea-env
+conda activate coffea202507
 
 # install topcoffea via pip. We install it in editable mode to ease the test of
 # changes in development. From the root directory of the topcoffea repository:
@@ -58,7 +62,7 @@ The same steps can be followed for `topeft` (i.e. clone the repo, `cd` into it, 
 **NOTE**
 
 If your python environments do not work after the step `conda activate
-topcoffea-env`, for example, if `python` immediately fails because it cannot
+coffea202507`, for example, if `python` immediately fails because it cannot
 find module, then your conda installation may be in conflict with a previous
 setup. Most problems like this are solved by typing:
 
@@ -85,7 +89,7 @@ which files of events to process. One small configuration to test is:
 
 
 ```sh
-conda activate topcoffea-env
+conda activate coffea202507
 cd analysis/topeft_run2
 
 ## optional: initialize your proxy credentials to access the needed xrootd files.
@@ -108,7 +112,7 @@ Work Queue manager named after your user id, and the worker uses this name to
 find the address of the manager. In some other terminal, run:
 
 ```sh
-conda activate topcoffea-env
+conda activate coffea202507
 work_queue_worker -dall --cores 1 --memory 8000 --disk 8000 -M ${USER}-workqueue-coffea
 ```
 
@@ -130,7 +134,7 @@ the work submited to the worker.
 In a similar way, we can launch workers using a campus cluster that has HTCondor:
 
 ```sh
-conda activate topcoffea-env
+conda activate coffea202507
 condor_submit_workers --cores 4 --memory 16000 --disk 16000 -M ${USER}-workqueue-coffea 10
 ```
 
@@ -160,7 +164,7 @@ factory.json
 ```sh
 # Remember to replace USER in the manager-name of the configuration file with
 # your user id.
-conda activate topcoffea-env
+conda activate coffea202507
 work_queue_factory -Tcondor -Cfactory.json
 ```
 
@@ -178,7 +182,7 @@ output. These are documented in the `executor_args` dictionary in
 called `stats.log`, which can be plotted using:
 
 ```sh
-conda activate topcoffea-env
+conda activate coffea202507
 work_queue_graph_log -Tpng stats.log
 ```
 

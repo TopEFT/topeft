@@ -85,7 +85,7 @@ run the full job:
 
 ```bash
 python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --metadata configs/metadata_dev.yml --executor futures
+    --metadata configs/metadata_dev.yml --executor taskvine
 ```
 
 ### Metadata scenarios
