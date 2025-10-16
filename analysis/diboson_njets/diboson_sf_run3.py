@@ -40,23 +40,42 @@ def get_yields_in_bins(
         print(f"  {ax.name}: {list(ax)}")
 
     available_axes = {ax.name for ax in h.axes}
+    required_axes = {"process", "channel"}
+    missing_required = sorted(required_axes - available_axes)
+
+    if missing_required:
+        missing_str = ", ".join(missing_required)
+        raise KeyError(
+            f"Histogram '{hist_name}' is missing required axis/axes: {missing_str}. "
+            f"Available axes: {sorted(available_axes)}"
+        )
+
+    optional_slices = {}
+    if extra_slices:
+        missing_optional = sorted(set(extra_slices) - available_axes)
+        if missing_optional:
+            print(
+                "Warning: ignoring extra_slices axes not present on histogram "
+                f"'{hist_name}': {missing_optional}"
+            )
+        optional_slices = {
+            key: extra_slices[key]
+            for key in extra_slices
+            if key in available_axes
+        }
 
     for proc in proc_list:
         yields[proc] = []
 
         try:
-            selection = {"process": proc, "channel": channel_name}
-            if extra_slices:
-                selection.update(extra_slices)
-
-            filtered_selection = {
-                key: selection[key]
-                for key in selection
-                if key in available_axes
+            selection = {
+                "process": proc,
+                "channel": channel_name,
+                **optional_slices,
             }
 
             # Slice to process, channel, and any optional axes (e.g., year)
-            h_sel = h[filtered_selection]
+            h_sel = h[selection]
 
             # #If "l0eta" is not the only axis, integrate over the others
             # for ax in h_sel.axes:
