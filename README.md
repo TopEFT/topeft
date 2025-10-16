@@ -26,9 +26,9 @@ The topeft directory is set up to be installed as a python package. First clone 
 ```
 git clone https://github.com/TopEFT/topeft.git
 cd topeft
-unset PYTHONPATH # To avoid conflicts.  
+unset PYTHONPATH # To avoid conflicts.
 conda env create -f environment.yml
-conda activate coffea-env
+conda activate coffea202507
 pip install -e .
 ```
 The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`. 
@@ -37,10 +37,35 @@ The `topcoffea` package upon which this analysis also depends is not yet availab
 cd /your/favorite/directory
 git clone https://github.com/TopEFT/topcoffea.git
 cd topcoffea
-pip install -e .  
+pip install -e .
+cd ../topeft
+python -m topcoffea.modules.remote_environment
 ```
-Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The next time you want to use it, all you have to do is to activate the environment via `conda activate coffea-env`. 
+Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The packaged environment targets the Coffea 2025.7 release and can be re-generated at any time with `python -m topcoffea.modules.remote_environment`. The next time you want to use the project, activate the environment via `conda activate coffea202507`.
 
+
+### TaskVine distributed execution
+
+The packaged archive produced by `python -m topcoffea.modules.remote_environment` is uploaded automatically when runs target the TaskVine executor. Launching a distributed job therefore becomes:
+
+1. Configure the workflow with TaskVine enabled (for example, selecting the Run 2 control preset):
+
+   ```bash
+   python run_analysis.py \
+       ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+       --options configs/fullR2_run.yml \
+       --executor taskvine
+   ```
+
+2. Start one or more workers that match the manager name advertised by the run. A minimal local worker looks like:
+
+   ```bash
+   vine_worker --cores 1 --memory 8000 --disk 8000 -M ${USER}-taskvine-coffea
+   ```
+
+   For HTCondor-backed pools, `condor_submit_workers` and other submission helpers ship with TaskVine; point them at the same manager string. Refer to the [remote environment maintenance guide](docs/environment_packaging.md) for details on rebuilding the tarball whenever dependencies change.
+
+Work Queue remains supported for legacy deployments. The historic configuration guide is preserved in [README_WORKQUEUE.md](README_WORKQUEUE.md).
 
 ### To run an example job
 
@@ -136,7 +161,7 @@ metadata bundle kept alongside your analysis configs:
 
 ```bash
 python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --metadata configs/metadata_myteam.yml --executor futures --nworkers 1 --chunksize 128000
+    --metadata configs/metadata_myteam.yml --executor taskvine --nworkers 1 --chunksize 128000
 ```
 
 The [metadata configuration guide](docs/run_analysis_configuration.md#metadata-configuration)
@@ -162,13 +187,11 @@ python -m topeft.quickstart input_samples/sample_jsons/test_samples/UL17_private
 
 The helper resolves your samples, validates the requested scenario, and launches
 a short futures-based run.  Detailed explanations of each switch are covered in
-[docs/quickstart_run2.md](docs/quickstart_run2.md).
-To make use of distributed resources, the `work queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
-```
-conda activate coffea-env
-condor_submit_workers -M ${USER}-work_queue-coffea -t 900 --cores 12 --memory 48000 --disk 100000 10
-```
-The workers will terminate themselves after 15 minutes of inactivity. More details on the work queue executor can be found [here](https://github.com/TopEFT/topeft/blob/master/README_WORKQUEUE.md).
+[docs/quickstart_run2.md](docs/quickstart_run2.md).  When you are ready to scale
+out, switch to the TaskVine executor described above so the packaged environment
+can be reused across distributed resources.  The legacy Work Queue workflow is
+still documented in [README_WORKQUEUE.md](README_WORKQUEUE.md) for historical
+setups that require it.
 
 
 ## How to contribute

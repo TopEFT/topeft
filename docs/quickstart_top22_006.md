@@ -16,8 +16,10 @@ Before running the workflow you will need:
 
    ```bash
    conda env create -f environment.yml
-   conda activate coffea-env
+   conda activate coffea202507
    ```
+
+   The packaged environment tracks the Coffea 2025.7 release. Rebuild the TaskVine archive after dependency changes with `python -m topcoffea.modules.remote_environment` so remote workers stay in sync.
 
 2. **The editable `topeft` and `topcoffea` packages.**  From the repository
    root install the local modules with:
@@ -68,18 +70,19 @@ scenarios declared in ``topeft/params/metadata.yml``.
 2. To reproduce the control-region job (the default profile), run:
 
    ```bash
-   python run_analysis.py --options configs/fullR2_run.yml
+   python run_analysis.py --options configs/fullR2_run.yml --executor taskvine
    ```
 
    This executes the workflow with the shared defaults plus the `cr` profile,
    which skips all SR categories, splits lepton flavors, and runs a short test
-   over the background configuration.
+   over the background configuration.  TaskVine will automatically upload the
+   packaged environment if the helper tarball is present.
 
 3. To launch the signal-region job, reuse the same YAML but select the `sr`
    profile by appending it after a colon:
 
    ```bash
-   python run_analysis.py --options configs/fullR2_run.yml:sr
+   python run_analysis.py --options configs/fullR2_run.yml:sr --executor taskvine
    ```
 
    The SR profile keeps the shared defaults while swapping in the signal and
@@ -97,7 +100,7 @@ scenarios declared in ``topeft/params/metadata.yml``.
    ``configs/metadata_dev.yml`` run::
 
        python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-           --metadata configs/metadata_dev.yml --executor futures --nworkers 1
+           --metadata configs/metadata_dev.yml --executor taskvine --nworkers 1
 
 ## Next steps {#top22-quickstart-next-steps}
 
