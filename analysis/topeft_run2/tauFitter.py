@@ -563,10 +563,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     print("\n\n\n\n\n")
 
     # Integrate to get the categories we want
-    mc_fake     = hist_mc.integrate("channel", ftau_channels)
-    mc_tight    = hist_mc.integrate("channel", ttau_channels)
-    data_fake     = hist_data.integrate("channel", ftau_channels)
-    data_tight    = hist_data.integrate("channel", ttau_channels)
+    mc_fake     = hist_mc.integrate("channel", ftau_channels)[{"channel": sum}]
+    mc_tight    = hist_mc.integrate("channel", ttau_channels)[{"channel": sum}]
+    data_fake   = hist_data.integrate("channel", ftau_channels)[{"channel": sum}]
+    data_tight  = hist_data.integrate("channel", ttau_channels)[{"channel": sum}]
 
     print("AFTERINTEGRATE\nmc_fake axes = ", [ax.name for ax in mc_fake.axes])
     for ax in mc_fake.axes:
@@ -595,32 +595,67 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
 
     mc_fake_view = mc_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
     mc_tight_view = mc_tight.view()
+    mc_fake_vals_map = {}
+    mc_fake_err_map = {}
+    mc_tight_vals_map = {}
+    mc_tight_err_map = {}
     for key, vals in mc_fake_view.items():
-        proc = key[0]
-        chan = key[1]
-        mc_fake_e = np.asarray(sqrt_list(vals), dtype=float)
-        mc_fake_vals = np.asarray(vals, dtype=float)
+        proc = key[0] if isinstance(key, tuple) else key
+        mc_fake_err_map[proc] = np.asarray(sqrt_list(vals), dtype=float)
+        mc_fake_vals_map[proc] = np.asarray(vals, dtype=float)
 
     for key, vals in mc_tight_view.items():
-        proc = key[0]
-        chan = key[1]
-        mc_tight_e = np.asarray(sqrt_list(vals), dtype=float)
-        mc_tight_vals = np.asarray(vals, dtype=float)
+        proc = key[0] if isinstance(key, tuple) else key
+        mc_tight_err_map[proc] = np.asarray(sqrt_list(vals), dtype=float)
+        mc_tight_vals_map[proc] = np.asarray(vals, dtype=float)
 
+    if mc_fake_vals_map.keys() != mc_tight_vals_map.keys():
+        raise RuntimeError(
+            "Inconsistent MC processes found between fake and tight histograms: "
+            f"{sorted(mc_fake_vals_map)} vs {sorted(mc_tight_vals_map)}"
+        )
+    if len(mc_fake_vals_map) != 1:
+        raise RuntimeError(
+            "Expected a single MC process after grouping; found "
+            f"{sorted(mc_fake_vals_map)}."
+        )
+    mc_proc = next(iter(mc_fake_vals_map))
+    mc_fake_e = mc_fake_err_map[mc_proc]
+    mc_fake_vals = mc_fake_vals_map[mc_proc]
+    mc_tight_e = mc_tight_err_map[mc_proc]
+    mc_tight_vals = mc_tight_vals_map[mc_proc]
 
     data_fake_view = data_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
     data_tight_view = data_tight.view()
+    data_fake_vals_map = {}
+    data_fake_err_map = {}
+    data_tight_vals_map = {}
+    data_tight_err_map = {}
     for key, vals in data_fake_view.items():
-        proc = key[0]
-        chan = key[1]
-        data_fake_e = np.asarray(sqrt_list(vals), dtype=float)
-        data_fake_vals = np.asarray(vals, dtype=float)
+        proc = key[0] if isinstance(key, tuple) else key
+        data_fake_err_map[proc] = np.asarray(sqrt_list(vals), dtype=float)
+        data_fake_vals_map[proc] = np.asarray(vals, dtype=float)
 
     for key, vals in data_tight_view.items():
-        proc = key[0]
-        chan = key[1]
-        data_tight_e = np.asarray(sqrt_list(vals), dtype=float)
-        data_tight_vals = np.asarray(vals, dtype=float)
+        proc = key[0] if isinstance(key, tuple) else key
+        data_tight_err_map[proc] = np.asarray(sqrt_list(vals), dtype=float)
+        data_tight_vals_map[proc] = np.asarray(vals, dtype=float)
+
+    if data_fake_vals_map.keys() != data_tight_vals_map.keys():
+        raise RuntimeError(
+            "Inconsistent data processes found between fake and tight histograms: "
+            f"{sorted(data_fake_vals_map)} vs {sorted(data_tight_vals_map)}"
+        )
+    if len(data_fake_vals_map) != 1:
+        raise RuntimeError(
+            "Expected a single data process after grouping; found "
+            f"{sorted(data_fake_vals_map)}."
+        )
+    data_proc = next(iter(data_fake_vals_map))
+    data_fake_e = data_fake_err_map[data_proc]
+    data_fake_vals = data_fake_vals_map[data_proc]
+    data_tight_e = data_tight_err_map[data_proc]
+    data_tight_vals = data_tight_vals_map[data_proc]
 
     mc_y, mc_e = compute_fake_rates(
         mc_fake_vals,
