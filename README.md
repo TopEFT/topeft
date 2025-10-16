@@ -50,7 +50,8 @@ The packaged archive produced by `python -m topcoffea.modules.remote_environment
 
 1. Enable TaskVine in the YAML profile before launching the run.  Open
    `analysis/topeft_run2/configs/fullR2_run.yml` and set the profile you plan
-   to execute to use the TaskVine backend:
+   to execute to use the TaskVine backend (the preset defaults to
+   `executor: futures` for local smoke tests):
 
    ```yaml
    profiles:

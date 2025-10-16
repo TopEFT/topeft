@@ -69,7 +69,8 @@ scenarios declared in ``topeft/params/metadata.yml``.
 
 2. Enable TaskVine in the YAML profile before launching the run.  Edit
    ``configs/fullR2_run.yml`` and set the profile you plan to execute to use the
-   TaskVine backend:
+   TaskVine backend (the preset keeps ``executor: futures`` for local smoke
+   tests by default):
 
    ```yaml
    profiles:
