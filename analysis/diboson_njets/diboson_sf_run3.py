@@ -4,22 +4,34 @@
 
         Run the following command:
         python diboson_sf_run3.py --pkl {/path/to/np.pkl.gz} -y {year}
+
+        Multiple years can be processed at once by repeating the arguments, e.g.:
+        python diboson_sf_run3.py --pkl year_{year}.pkl.gz -y 2022 2023
 '''
 
 import argparse
-import pickle
 import gzip
+import json
+import os
+import pickle
+
 import numpy as np
 import hist
 import boost_histogram as bh
 import awkward as ak
-import json
 
 def load_pkl_file(pkl_file):
     with gzip.open(pkl_file, "rb") as f:
         return pickle.load(f)
 
-def get_yields_in_bins(hin_dict, proc_list, bins, hist_name, channel_name):
+def get_yields_in_bins(
+    hin_dict,
+    proc_list,
+    bins,
+    hist_name,
+    channel_name,
+    extra_slices=None,
+):
     h = hin_dict[hist_name]
     yields = {}
 
@@ -27,12 +39,24 @@ def get_yields_in_bins(hin_dict, proc_list, bins, hist_name, channel_name):
     for ax in h.axes:
         print(f"  {ax.name}: {list(ax)}")
 
+    available_axes = {ax.name for ax in h.axes}
+
     for proc in proc_list:
         yields[proc] = []
 
         try:
-        # Slice to process and channel
-            h_sel = h[{"process": proc, "channel": channel_name}]
+            selection = {"process": proc, "channel": channel_name}
+            if extra_slices:
+                selection.update(extra_slices)
+
+            filtered_selection = {
+                key: selection[key]
+                for key in selection
+                if key in available_axes
+            }
+
+            # Slice to process, channel, and any optional axes (e.g., year)
+            h_sel = h[filtered_selection]
 
             # #If "l0eta" is not the only axis, integrate over the others
             # for ax in h_sel.axes:
@@ -80,106 +104,222 @@ def make_diboson_sf_json(bins, scale_factors, year):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pkl", help="Path to the input pkl.gz file")
+    parser.add_argument(
+        "--pkl",
+        nargs="+",
+        required=True,
+        help=(
+            "Path(s) to the input pkl.gz file. Provide one path per year, a single "
+            "template containing '{year}' to be expanded for each year, or a single "
+            "file that contains histograms for all requested years."
+        ),
+    )
     parser.add_argument("--hist-name", default="njets", help="Histogram name")
     parser.add_argument("--channel", default="3l_CR", help="Channel name")
-    parser.add_argument("-y", "--year", default="2022", help = "The year of the sample")
+    parser.add_argument(
+        "-y",
+        "--year",
+        nargs="+",
+        default=["2022"],
+        help="One or more data-taking years to process",
+    )
+    parser.add_argument(
+        "--year-axis",
+        default="year",
+        help=(
+            "Histogram axis name to use when selecting a specific year from a "
+            "shared input file containing multiple years."
+        ),
+    )
     args = parser.parse_args()
 
-    bins = list(range(0, 7))
-    hin_dict = load_pkl_file(args.pkl)
+    years = list(args.year)
 
-    h = hin_dict[args.hist_name]
-    proc_list = list(h.axes["process"])
+    if not years:
+        parser.error("At least one year must be provided via -y/--year.")
 
-    yields = get_yields_in_bins(hin_dict, proc_list, bins, hist_name=args.hist_name, channel_name=args.channel)
+    shared_pkl_for_years = False
 
-    diboson = []
-    data = []
-    other = []
-    
-    for proc, vals in yields.items():
-        if proc.startswith("flip"):
-            continue  # Skip flip samples
-        #print("\n\nProcessing proc:", proc) #, vals)
-        if proc.startswith("WZTo") or proc.startswith("ZZTo") or proc.startswith("WWTo"):
-            #print("  Adding to diboson")
-            if not diboson:
-                diboson = [val for val, _ in vals]
-            else:
-                diboson = [x + val for x, (val, _) in zip(diboson, vals)]
-        elif "data" in proc:
-            #print("  Adding to data")
-            data = [val for val, _ in vals]
+    if len(args.pkl) == 1:
+        pkl_arg = args.pkl[0]
+        if "{year}" in pkl_arg:
+            pkl_paths = [pkl_arg.format(year=year) for year in years]
+            missing_paths = [path for path in pkl_paths if not os.path.exists(path)]
+            if missing_paths:
+                parser.error(
+                    "The following expanded --pkl paths do not exist: "
+                    + ", ".join(missing_paths)
+                )
+        elif len(years) == 1:
+            pkl_paths = [pkl_arg]
         else:
-            #print("  Adding to other")
-            if not other:
-                other = [val for val, _ in vals]
-            else:
-                other = [x + val for x, (val, _) in zip(other, vals)]
-
-    # Compute (data - other) / diboson
-    scale_factors = []
-    for d, o, f in zip(data, other, diboson):
-        if f != 0:
-            sf = (d - o) / f
-        else:
-            sf = float(0)  # or 0, or raise an error
-        scale_factors.append(sf)
-
-    # Calculate bin centers for plotting and fitting
-    bin_centers = [(bins[i] + bins[i + 1]) / 2 for i in range(len(bins) - 1)]
-
-    # Perform a linear fit of the scale factors vs. bin centers
-    if bin_centers:
-        coeffs = np.polyfit(bin_centers, scale_factors, deg=1)
-        slope, intercept = coeffs
-        fitted_values = np.polyval(coeffs, bin_centers)
-        print(f"Linear fit coefficients: slope = {slope:.6f}, intercept = {intercept:.6f}")
-
-        fit_coefficients = {"slope": float(slope), "intercept": float(intercept)}
-        fit_coeff_path = f"diboson_sf_{args.year}_linear_fit.json"
-        with open(fit_coeff_path, "w") as f:
-            json.dump(fit_coefficients, f, indent=2)
-        print(f"Saved linear fit coefficients to {fit_coeff_path}")
+            if not os.path.exists(pkl_arg):
+                parser.error(f"Shared --pkl file not found: {pkl_arg}")
+            pkl_paths = [pkl_arg] * len(years)
+            shared_pkl_for_years = True
+    elif len(args.pkl) == len(years):
+        pkl_paths = args.pkl
     else:
-        coeffs = None
-        fitted_values = []
-
-    # Plot the scale factors and the fitted line if matplotlib is available
-    try:
-        import matplotlib.pyplot as plt  # Guarded import to keep unpickling working
-    except ImportError:
-        plt = None
-
-    if plt is not None and coeffs is not None:
-        fig, ax = plt.subplots()
-        ax.errorbar(
-            bin_centers,
-            scale_factors,
-            yerr=np.zeros_like(scale_factors, dtype=float),
-            fmt="o",
-            label="Scale factors",
+        parser.error(
+            "Number of --pkl paths must match the number of years unless a template is used."
         )
-        ax.plot(bin_centers, fitted_values, label="Linear fit", linestyle="-", marker="")
-        ax.set_xlabel("N_{jets} bin center")
-        ax.set_ylabel("Scale factor")
-        ax.set_title(f"Diboson scale factors ({args.year}, {args.channel})")
-        ax.legend()
-        plot_path = f"diboson_sf_{args.year}.png"
-        fig.savefig(plot_path, dpi=300, bbox_inches="tight")
-        plt.close(fig)
-        print(f"Saved scale factor plot to {plot_path}")
-    elif plt is None:
-        print("matplotlib not available; skipping plot generation.")
 
-    make_diboson_sf_json(bins, scale_factors, year=args.year)
+    if not shared_pkl_for_years:
+        missing_paths = [path for path in pkl_paths if not os.path.exists(path)]
+        if missing_paths:
+            parser.error(
+                "The following --pkl paths do not exist: " + ", ".join(missing_paths)
+            )
 
-    # Output
-    print("diboson =", diboson)
-    print("data  =", data)
-    print("other =", other)
-    print("SFs   =", scale_factors)
+    bins = list(range(0, 7))
+
+    cached_inputs = {}
+
+    for year, pkl_path in zip(years, pkl_paths):
+        if pkl_path in cached_inputs:
+            hin_dict = cached_inputs[pkl_path]
+        else:
+            hin_dict = load_pkl_file(pkl_path)
+            cached_inputs[pkl_path] = hin_dict
+
+        h = hin_dict[args.hist_name]
+        proc_list = list(h.axes["process"])
+
+        year_selection = {}
+        if shared_pkl_for_years:
+            available_axes = {ax.name for ax in h.axes}
+            if args.year_axis not in available_axes:
+                parser.error(
+                    "A shared --pkl file was provided, but histogram "
+                    f"'{args.hist_name}' does not contain the '{args.year_axis}' axis. "
+                    f"Available axes: {sorted(available_axes)}"
+                )
+
+            year_axis = h.axes[args.year_axis]
+            axis_values = list(year_axis)
+            target_value = None
+
+            if year in axis_values:
+                target_value = year
+            else:
+                for candidate in axis_values:
+                    try:
+                        converted = type(candidate)(year)
+                        if candidate == converted:
+                            target_value = converted
+                            break
+                    except Exception:
+                        continue
+
+            if target_value is None:
+                parser.error(
+                    f"Year '{year}' not found on axis '{args.year_axis}' in histogram "
+                    f"'{args.hist_name}'. Available values: {axis_values}"
+                )
+
+            year_selection = {args.year_axis: target_value}
+
+        yields = get_yields_in_bins(
+            hin_dict,
+            proc_list,
+            bins,
+            hist_name=args.hist_name,
+            channel_name=args.channel,
+            extra_slices=year_selection,
+        )
+
+        diboson = []
+        data = []
+        other = []
+
+        for proc, vals in yields.items():
+            if proc.startswith("flip"):
+                continue  # Skip flip samples
+            if proc.startswith("WZTo") or proc.startswith("ZZTo") or proc.startswith("WWTo"):
+                if not diboson:
+                    diboson = [val for val, _ in vals]
+                else:
+                    diboson = [x + val for x, (val, _) in zip(diboson, vals)]
+            elif "data" in proc:
+                data = [val for val, _ in vals]
+            else:
+                if not other:
+                    other = [val for val, _ in vals]
+                else:
+                    other = [x + val for x, (val, _) in zip(other, vals)]
+
+        # Compute (data - other) / diboson
+        scale_factors = []
+        for d, o, f in zip(data, other, diboson):
+            if f != 0:
+                sf = (d - o) / f
+            else:
+                sf = float(0)  # or 0, or raise an error
+            scale_factors.append(sf)
+
+        # Calculate bin centers for plotting and fitting
+        bin_centers = [(bins[i] + bins[i + 1]) / 2 for i in range(len(bins) - 1)]
+
+        # Perform a linear fit of the scale factors vs. bin centers
+        if bin_centers:
+            coeffs = np.polyfit(bin_centers, scale_factors, deg=1)
+            slope, intercept = coeffs
+            fitted_values = np.polyval(coeffs, bin_centers)
+            print(
+                f"Linear fit coefficients for {year}: "
+                f"slope = {slope:.6f}, intercept = {intercept:.6f}"
+            )
+
+            fit_coefficients = {"slope": float(slope), "intercept": float(intercept)}
+            fit_coeff_path = f"diboson_sf_{year}_linear_fit.json"
+            with open(fit_coeff_path, "w") as f:
+                json.dump(fit_coefficients, f, indent=2)
+            print(f"Saved linear fit coefficients to {fit_coeff_path}")
+        else:
+            coeffs = None
+            fitted_values = []
+
+        # Plot the scale factors and the fitted line if matplotlib is available
+        try:
+            import matplotlib.pyplot as plt  # Guarded import to keep unpickling working
+        except ImportError:
+            plt = None
+
+        if plt is not None and coeffs is not None:
+            fig, ax = plt.subplots()
+            ax.errorbar(
+                bin_centers,
+                scale_factors,
+                yerr=np.zeros_like(scale_factors, dtype=float),
+                fmt="o",
+                label="Scale factors",
+            )
+            ax.plot(
+                bin_centers,
+                fitted_values,
+                label="Linear fit",
+                linestyle="-",
+                marker="",
+            )
+            ax.set_xlabel("N_{jets} bin center")
+            ax.set_ylabel("Scale factor")
+            ax.set_title(f"Diboson scale factors ({year}, {args.channel})")
+            ax.legend()
+            plot_path = f"diboson_sf_{year}.png"
+            fig.savefig(plot_path, dpi=300, bbox_inches="tight")
+            plt.close(fig)
+            print(f"Saved scale factor plot to {plot_path}")
+        elif plt is None:
+            print("matplotlib not available; skipping plot generation.")
+
+        make_diboson_sf_json(bins, scale_factors, year=year)
+
+        # Output
+        print(f"Results for {year}:")
+        print("diboson =", diboson)
+        print("data  =", data)
+        print("other =", other)
+        print("SFs   =", scale_factors)
 
 
 
