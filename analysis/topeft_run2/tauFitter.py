@@ -288,6 +288,13 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
     axis_categories = list(histo.axes[axis_name])
     axis_category_set = set(axis_categories)
 
+    print("\n\n\n\n\n")
+    print("histo axes = ", [ax.name for ax in histo.axes])
+    for ax in histo.axes:
+        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
+    print("axis_categories = ", axis_categories)
+    print("\n\n\n\n\n")
+
     if not drop_unspecified:
         specified = {item for bins in normalized_map.values() for item in bins}
         for category in axis_categories:
