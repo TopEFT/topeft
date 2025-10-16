@@ -544,27 +544,6 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     hist_mc = tau_hist.remove("process",samples_to_rm_from_mc_hist)
     hist_data = tau_hist.remove("process",samples_to_rm_from_data_hist)
 
-    # Build fresh grouping maps derived from the current histogram contents so we only
-    # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
-    # MC map free of any ``data{year}`` entries while the data map only keeps those
-    # ``data{year}`` labels.
-    mc_group_map = OrderedDict((("Ttbar", []),))
-    data_group_map = OrderedDict((("Data", []),))
-
-    for process in hist_mc.axes["process"]:
-        process_name = str(process)
-        if process_name.startswith("data"):
-            continue
-        mc_group_map["Ttbar"].append(process_name)
-
-    for process in hist_data.axes["process"]:
-        process_name = str(process)
-        if process_name.startswith("data"):
-            data_group_map["Data"].append(process_name)
-
-    print("mc_group_map = ", mc_group_map)
-    print("data_group_map = ", data_group_map)
-
     print("AFTERREMOVAL\nhist_mc axes = ", [ax.name for ax in hist_mc.axes])
     for ax in hist_mc.axes:
         print(f"  {ax.name}: {[str(cat) for cat in ax]}")
@@ -592,7 +571,34 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     for ax in data_tight.axes:
         print(f"  {ax.name}: {[str(cat) for cat in ax]}")
     print("\n\n\n\n\n")
-  
+
+    # Build fresh grouping maps derived from the current histogram contents so we only
+    # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
+    # MC map free of any ``data{year}`` entries while the data map only keeps those
+    # ``data{year}`` labels.
+    mc_group_map = OrderedDict((("Ttbar", []),))
+    data_group_map = OrderedDict((("Data", []),))
+
+    def _append_process(target_list, process_name):
+        if process_name not in target_list:
+            target_list.append(process_name)
+
+    for hist in (mc_fake, mc_tight):
+        for process in hist.axes["process"]:
+            process_name = str(process)
+            if process_name.startswith("data"):
+                continue
+            _append_process(mc_group_map["Ttbar"], process_name)
+
+    for hist in (data_fake, data_tight):
+        for process in hist.axes["process"]:
+            process_name = str(process)
+            if process_name.startswith("data"):
+                _append_process(data_group_map["Data"], process_name)
+
+    print("mc_group_map = ", mc_group_map)
+    print("data_group_map = ", data_group_map)
+
     mc_fake     = group_bins(mc_fake,mc_group_map,"process",drop_unspecified=True)
     mc_tight    = group_bins(mc_tight,mc_group_map,"process",drop_unspecified=True)
     data_fake   = group_bins(data_fake,data_group_map,"process",drop_unspecified=True)
