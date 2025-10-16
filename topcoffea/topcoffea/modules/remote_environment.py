@@ -24,6 +24,7 @@ from typing import Dict, Iterable, Mapping, Optional, Sequence
 logger = logging.getLogger(__name__)
 
 ENV_DIR_CACHE = Path.cwd() / "topeft-envs"
+REPO_ROOT = Path(__file__).resolve().parents[3]
 PY_VERSION = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
 DEFAULT_MODULES: Dict[str, object] = {
@@ -39,6 +40,7 @@ DEFAULT_MODULES: Dict[str, object] = {
         ],
     },
     "pip": [
+        "topeft",
         "topcoffea",
         "coffea==2025.7.3",
         "awkward==2.8.7",
@@ -47,6 +49,11 @@ DEFAULT_MODULES: Dict[str, object] = {
 
 PIP_LOCAL_TO_WATCH: Dict[str, Sequence[str]] = {
     "topcoffea": ("topcoffea", "setup.py"),
+    "topeft": ("topeft", "setup.py"),
+}
+
+DEFAULT_LOCAL_EDITABLES: Dict[str, Path] = {
+    "topeft": REPO_ROOT,
 }
 
 
@@ -167,6 +174,37 @@ def _find_local_pip() -> Dict[str, str]:
         pkg, _version, location = line.split()
         path_of[pkg] = location
     return path_of
+
+
+def _default_local_editable(pkg: str) -> Optional[str]:
+    path = DEFAULT_LOCAL_EDITABLES.get(pkg)
+    if path:
+        return str(path)
+    return None
+
+
+def _augment_editable_paths(
+    pip_paths: Mapping[str, str],
+    watch_paths: Mapping[str, Sequence[str]],
+) -> Dict[str, str]:
+    augmented: Dict[str, str] = dict(pip_paths)
+    for pkg in watch_paths:
+        if pkg not in augmented:
+            local_path = _default_local_editable(pkg)
+            if local_path:
+                augmented[pkg] = local_path
+    return augmented
+
+
+def _apply_editable_spec(spec: Dict[str, object], pip_paths: Mapping[str, str]) -> None:
+    if "pip" not in spec:
+        return
+
+    pip_requirements = spec["pip"]  # type: ignore[index]
+    for index, requirement in enumerate(pip_requirements):
+        package = re.split(r"[=<>!].*$", requirement)[0].lstrip()
+        if package in pip_paths:
+            pip_requirements[index] = f"-e {pip_paths[package]}"
 
 
 def _commits_local_pip(
@@ -291,10 +329,11 @@ def get_environment(
     ENV_DIR_CACHE.mkdir(parents=True, exist_ok=True)
 
     spec, pip_local_watch = _spec_with_overrides(extra_conda, extra_pip, extra_pip_local)
+    pip_paths = _augment_editable_paths(_find_local_pip(), pip_local_watch)
+    _apply_editable_spec(spec, pip_paths)
 
     packages_hash = hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()[0:8]
 
-    pip_paths = _find_local_pip()
     pip_commits = _commits_local_pip(pip_paths, pip_local_watch)
     pip_check = _compute_commit(pip_paths.keys(), pip_commits)
 
