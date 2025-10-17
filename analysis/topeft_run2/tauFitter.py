@@ -876,8 +876,44 @@ def main():
         y_mc,
         yerr_mc,
     )
-        
+
     SF_e = np.where(SF_e <= 0, 1e-3, SF_e)
+
+    raw_x_data = x_data.copy()
+
+    valid = (
+        np.isfinite(SF)
+        & np.isfinite(SF_e)
+        & (SF_e > 0)
+        & np.isfinite(raw_x_data)
+        & np.isfinite(y_mc)
+        & (y_mc > 0)
+        & np.isfinite(y_data)
+    )
+
+    if not np.all(valid):
+        dropped_bins = raw_x_data[~valid]
+        if dropped_bins.size:
+            LOGGER.warning(
+                "Dropping %d tau pT bin(s) from fit due to invalid scale factors: %s",
+                dropped_bins.size,
+                ", ".join(str(bin_edge) for bin_edge in dropped_bins),
+            )
+
+    SF = SF[valid]
+    SF_e = SF_e[valid]
+    x_data = x_data[valid]
+    y_data = y_data[valid]
+    y_mc = y_mc[valid]
+    yerr_data = yerr_data[valid]
+    yerr_mc = yerr_mc[valid]
+
+    if SF.size < 2:
+        raise RuntimeError(
+            "Insufficient valid tau fake-rate points for fitting: "
+            f"only {SF.size} bin(s) remain after filtering."
+        )
+
     print('SF',SF)
     print('sfERR',SF_e)
     print('x',x_data)
