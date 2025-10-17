@@ -27,6 +27,19 @@ from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 import yaml
 
+
+YEAR_TOKEN_MAP = {
+    "2016": "UL16",
+    "2016APV": "UL16APV",
+    "2017": "UL17",
+    "2018": "UL18",
+    "2022": "2022",
+    "2022EE": "2022EE",
+    "2023": "2023",
+    "2023BPix": "2023BPix",
+}
+RUN3_YEAR_TOKENS = {"2022", "2022EE", "2023", "2023BPix"}
+
 with open(topeft_path("params/cr_sr_plots_metadata.yml")) as f:
     _META = yaml.safe_load(f)
 
@@ -46,6 +59,87 @@ FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.
 WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
 LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
 PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
+
+
+def _tokenize_label(label):
+    parts = []
+    normalized = label.replace("-", "_")
+    for chunk in normalized.split("_"):
+        if chunk:
+            parts.append(chunk)
+    if normalized:
+        parts.append(normalized)
+    if label and label not in parts:
+        parts.append(label)
+    return parts
+
+
+def _matches_year_token(label, token):
+    if token is None:
+        return True
+    if label.endswith(token):
+        return True
+    for chunk in _tokenize_label(label):
+        if chunk == token:
+            return True
+        if chunk.endswith(token):
+            return True
+    return False
+
+
+def _get_year_token_and_blacklist(year):
+    if year is None:
+        return None, set()
+    if year not in YEAR_TOKEN_MAP:
+        raise Exception(f"Error: Unknown year \"{year}\".")
+    token = YEAR_TOKEN_MAP[year]
+    blacklist = set()
+    if year == "2016":
+        blacklist.add(YEAR_TOKEN_MAP["2016APV"])
+    elif year == "2016APV":
+        blacklist.add(YEAR_TOKEN_MAP["2016"])
+    if token in RUN3_YEAR_TOKENS:
+        blacklist.update(RUN3_YEAR_TOKENS - {token})
+    return token, blacklist
+
+
+def _filter_samples_by_year(
+    samples,
+    year,
+    sample_kind,
+    required_substrings=None,
+):
+    year_token, blacklist = _get_year_token_and_blacklist(year)
+    out = []
+    for label in samples:
+        is_data = label.lower().startswith("data")
+        if sample_kind == "data" and not is_data:
+            continue
+        if sample_kind == "mc" and is_data:
+            continue
+        if required_substrings and any(sub not in label for sub in required_substrings):
+            continue
+        if not _matches_year_token(label, year_token):
+            if year_token is None:
+                pass
+            else:
+                continue
+        if any(_matches_year_token(label, bad) for bad in blacklist):
+            continue
+        out.append(label)
+    return out
+
+
+def _warn_on_mismatched_years(selected, year, sample_kind):
+    if not selected or year is None:
+        return
+    desired_token, _ = _get_year_token_and_blacklist(year)
+    other_tokens = set(YEAR_TOKEN_MAP.values()) - {desired_token}
+    leftovers = [lab for lab in selected if any(_matches_year_token(lab, other) for other in other_tokens)]
+    if leftovers:
+        print(
+            f"Warning: {sample_kind} selection for year '{year}' still contains samples tagged with other years: {leftovers}"
+        )
 
 # This script takes an input pkl file that should have both data and background MC included.
 # Use the -y option to specify a year, if no year is specified, all years will be included.
@@ -885,28 +979,10 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref,var='lj0pt',err_p=None,er
 # By default, will make plots that show all systematics in the pkl file
 def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
-    # If selecting a year, append that year to the wight list
-    sig_wl = ["private"]
-    if year is None: pass
-    elif year == "2017":
-        sig_wl.append("UL17")
-    elif year == "2018":
-        sig_wl.append("UL18")
-    elif year == "2016":
-        sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
-    elif year == "2022":
-        sig_wl.append("2022")
-    elif year == "2022EE":
-        sig_wl.append("2022EE")
-    elif year == "2023":
-        sig_wl.append("2023")
-    elif year == "2023BPix":
-        sig_wl.append("2023BPix")
-    else: raise Exception
-
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
     all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    sig_sample_lst = _filter_samples_by_year(all_samples, year, "mc", required_substrings=["private"])
+    _warn_on_mismatched_years(sig_sample_lst, year, "signal")
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
     for sample_name in all_samples:
@@ -1026,48 +1102,22 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
 # Wrapper function to loop over all SR categories and make plots for all variables
 def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
 
-    # Construct list of MC samples
-    mc_wl = []
-    mc_bl = ["data"]
-    data_wl = ["data"]
-    data_bl = []
-    if year is None:
-        pass # Don't think we actually need to do anything here?
-    elif year == "2017":
-        mc_wl.append("UL17")
-        data_wl.append("UL17")
-    elif year == "2018":
-        mc_wl.append("UL18")
-        data_wl.append("UL18")
-    elif year == "2016":
-        mc_wl.append("UL16")
-        mc_bl.append("UL16APV")
-        data_wl.append("UL16")
-        data_bl.append("UL16APV")
-    elif year == "2016APV":
-        mc_wl.append("UL16APV")
-        data_wl.append("UL16APV")
-    elif year == "2022":
-        mc_wl.append("2022")
-        data_wl.append("2022")
-    elif year == "2022EE":
-        mc_wl.append("2022EE")
-        data_wl.append("2022EE")
-    elif year == "2023":
-        mc_wl.append("2023")
-        data_wl.append("2023")
-    elif year == "2023BPix":
-        mc_wl.append("2023BPix")
-        data_wl.append("2023BPix")
-    else:
-        raise Exception(f"Error: Unknown year \"{year}\".")
-
+    if year is not None:
+        year_token, _ = _get_year_token_and_blacklist(year)
+        example_mc = f"TTJets_central{year_token}"
+        example_data = f"data{year_token}"
+        print(
+            f"\nSelecting MC/data samples for year '{year}' via year-token '{year_token}'. "
+            f"Sample names are expected to include the token as a suffix (e.g. '{example_mc}' or '{example_data}')."
+        )
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="lj0pt")
-    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    mc_sample_lst = _filter_samples_by_year(all_samples, year, "mc")
+    data_sample_lst = _filter_samples_by_year(all_samples, year, "data")
+    _warn_on_mismatched_years(mc_sample_lst, year, "MC")
+    _warn_on_mismatched_years(data_sample_lst, year, "data")
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
@@ -1173,28 +1223,10 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
 # By default, will make two sets of plots: One with process overlay, one with channel overlay
 def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True):
 
-    # If selecting a year, append that year to the wight list
-    sig_wl = ["private"]
-    if year is None: pass
-    elif year == "2017":
-        sig_wl.append("UL17")
-    elif year == "2018":
-        sig_wl.append("UL18")
-    elif year == "2016":
-        sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
-    elif year == "2022":
-        sig_wl.append("2022")
-    elif year == "2022EE":
-        sig_wl.append("2022EE")
-    elif year == "2023":
-        sig_wl.append("2023")
-    elif year == "2023BPix":
-        sig_wl.append("2023BPix")
-    else: raise Exception
-
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
     all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    sig_sample_lst = _filter_samples_by_year(all_samples, year, "mc", required_substrings=["private"])
+    _warn_on_mismatched_years(sig_sample_lst, year, "signal")
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
     for sample_name in all_samples:
@@ -1305,51 +1337,30 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 # The input hist should include both the data and MC
 def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_path):
 
-    # Construct list of MC samples
-    mc_wl = []
-    mc_bl = ["data"]
-    data_wl = ["data"]
-    data_bl = []
-    if year is None:
-        pass # Don't think we actually need to do anything here?
-    elif year == "2017":
-        mc_wl.append("UL17")
-        data_wl.append("UL17")
-    elif year == "2018":
-        mc_wl.append("UL18")
-        data_wl.append("UL18")
-    elif year == "2016":
-        mc_wl.append("UL16")
-        mc_bl.append("UL16APV")
-        data_wl.append("UL16")
-        data_bl.append("UL16APV")
-    elif year == "2016APV":
-        mc_wl.append("UL16APV")
-        data_wl.append("UL16APV")
-    elif year == "2022":
-        mc_wl.append("2022")
-        data_wl.append("2022")
-    elif year == "2022EE":
-        mc_wl.append("2022EE")
-        data_wl.append("2022EE")
-    elif year == "2023":
-        mc_wl.append("2023")
-        data_wl.append("2023")
-    elif year == "2023BPix":
-        mc_wl.append("2023BPix")
-        data_wl.append("2023BPix")
-    else:
-        raise Exception(f"Error: Unknown year \"{year}\".")
-
+    if year is not None:
+        year_token, _ = _get_year_token_and_blacklist(year)
+        example_mc = f"TTJets_central{year_token}"
+        example_data = f"data{year_token}"
+        print(
+            f"\nSelecting MC/data samples for year '{year}' via year-token '{year_token}'. "
+            f"Sample names are expected to include the token as a suffix (e.g. '{example_mc}' or '{example_data}')."
+        )
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"process")
-    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    mc_sample_lst = _filter_samples_by_year(all_samples, year, "mc")
+    data_sample_lst = _filter_samples_by_year(all_samples, year, "data")
+    _warn_on_mismatched_years(mc_sample_lst, year, "MC")
+    _warn_on_mismatched_years(data_sample_lst, year, "data")
 
     #print("dict_of_hists", dict_of_hists)
-    print("\n\nAll samples:",all_samples, "data"+year in all_samples)
+    data_label_check = f"data{year}" if year else None
+    print("\n\nAll samples:",all_samples, end="")
+    if data_label_check:
+        print(f" (contains {data_label_check}: {data_label_check in all_samples})")
+    else:
+        print()
     print("\nMC samples:",mc_sample_lst)
     print("\nData samples:",data_sample_lst)
 
@@ -1536,7 +1547,12 @@ def main():
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
     parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
-    parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
+    parser.add_argument(
+        "-y",
+        "--year",
+        default=None,
+        help="The year of the sample. Sample names are expected to end with tokens such as UL18, 2022EE, or 2023BPix.",
+    )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip syst errs in plots, only relevant for CR plots right now")
     args = parser.parse_args()
