@@ -239,6 +239,35 @@ def sqrt_list(numbers):
     return flat.reshape(arr.shape).tolist()
 
 
+def _fold_tau_overflow(array):
+    arr = np.array(array, dtype=float, copy=True)
+    if arr.ndim == 0:
+        return arr
+
+    trim_slice = [slice(None)] * arr.ndim
+    trim_slice[-1] = slice(1, None)
+    trimmed = arr[tuple(trim_slice)]
+
+    if trimmed.shape[-1] == 0:
+        return trimmed.copy()
+
+    overflow_slice = [slice(None)] * trimmed.ndim
+    overflow_slice[-1] = slice(-1, None)
+    overflow = trimmed[tuple(overflow_slice)]
+
+    physical_slice = [slice(None)] * trimmed.ndim
+    physical_slice[-1] = slice(None, -1)
+    physical = trimmed[tuple(physical_slice)].copy()
+
+    if physical.shape[-1] == 0:
+        return physical
+
+    last_physical = [slice(None)] * physical.ndim
+    last_physical[-1] = slice(-1, None)
+    physical[tuple(last_physical)] += overflow
+    return physical
+
+
 def linear(x,a,b):
     return b*x+a
 
@@ -686,21 +715,23 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
             "MC and data tau pt axes define different native edges."
         )
 
-    mc_fake_view = mc_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
-    mc_tight_view = mc_tight.view()
+    mc_fake_view = mc_fake.view(flow=True)  # dictionary: keys are SparseHistTuple, values are arrays
+    mc_tight_view = mc_tight.view(flow=True)
     mc_fake_vals_map = {}
     mc_fake_err_map = {}
     mc_tight_vals_map = {}
     mc_tight_err_map = {}
     for key, vals in mc_fake_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        mc_fake_err_map[proc] = np.asarray(sqrt_list(vals), dtype=float)
-        mc_fake_vals_map[proc] = np.asarray(vals, dtype=float)
+        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        mc_fake_vals_map[proc] = folded_vals
+        mc_fake_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     for key, vals in mc_tight_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        mc_tight_err_map[proc] = np.asarray(sqrt_list(vals), dtype=float)
-        mc_tight_vals_map[proc] = np.asarray(vals, dtype=float)
+        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        mc_tight_vals_map[proc] = folded_vals
+        mc_tight_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     if mc_fake_vals_map.keys() != mc_tight_vals_map.keys():
         raise RuntimeError(
@@ -718,21 +749,23 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     mc_tight_e = mc_tight_err_map[mc_proc]
     mc_tight_vals = mc_tight_vals_map[mc_proc]
 
-    data_fake_view = data_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
-    data_tight_view = data_tight.view()
+    data_fake_view = data_fake.view(flow=True)  # dictionary: keys are SparseHistTuple, values are arrays
+    data_tight_view = data_tight.view(flow=True)
     data_fake_vals_map = {}
     data_fake_err_map = {}
     data_tight_vals_map = {}
     data_tight_err_map = {}
     for key, vals in data_fake_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        data_fake_err_map[proc] = np.asarray(sqrt_list(vals), dtype=float)
-        data_fake_vals_map[proc] = np.asarray(vals, dtype=float)
+        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        data_fake_vals_map[proc] = folded_vals
+        data_fake_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     for key, vals in data_tight_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        data_tight_err_map[proc] = np.asarray(sqrt_list(vals), dtype=float)
-        data_tight_vals_map[proc] = np.asarray(vals, dtype=float)
+        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        data_tight_vals_map[proc] = folded_vals
+        data_tight_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     if data_fake_vals_map.keys() != data_tight_vals_map.keys():
         raise RuntimeError(
