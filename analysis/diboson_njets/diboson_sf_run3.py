@@ -14,6 +14,7 @@ import gzip
 import json
 import os
 import pickle
+import re
 
 import numpy as np
 import hist
@@ -24,6 +25,45 @@ def load_pkl_file(pkl_file):
     with gzip.open(pkl_file, "rb") as f:
         return pickle.load(f)
 
+ALL_YEARS_SENTINEL = "all"
+
+
+def _derive_process_subset_for_year(proc_list, year):
+    """Return processes whose names encode the requested year."""
+
+    year_str = str(year)
+    # Require the year digits to appear as a standalone number (not part of a
+    # longer integer) but allow alphabetic suffixes such as "2022EE" or
+    # "2023BPix".
+    pattern = re.compile(rf"(?<!\\d){re.escape(year_str)}(?!\\d)")
+    matches = {proc for proc in proc_list if pattern.search(str(proc))}
+
+    if matches:
+        return matches
+
+    # Fall back to a simple substring search if the conservative regex above
+    # did not find any matches so that unexpected naming conventions are still
+    # handled gracefully.
+    fallback_matches = {proc for proc in proc_list if year_str in str(proc)}
+    return fallback_matches
+
+
+def _map_year_tokens_to_processes(proc_list):
+    """Return a mapping of discovered year tokens to matching process names."""
+
+    # Match a four-digit Run 3 year optionally followed by an alphabetic era
+    # designator (e.g., "2022EE", "2023BPix"). Keep the suffix attached to
+    # preserve distinct data-taking periods while still catching plain years
+    # such as "2022".
+    pattern = re.compile(r"(?<!\\d)(20\\d{2}(?:[A-Za-z]+)?)(?!\\d)")
+    matches = {}
+    for proc in proc_list:
+        proc_str = str(proc)
+        for token in pattern.findall(proc_str):
+            matches.setdefault(token, set()).add(proc_str)
+    return matches
+
+
 def get_yields_in_bins(
     hin_dict,
     proc_list,
@@ -31,6 +71,7 @@ def get_yields_in_bins(
     hist_name,
     channel_name,
     extra_slices=None,
+    process_whitelist=None,
 ):
     h = hin_dict[hist_name]
     yields = {}
@@ -64,7 +105,13 @@ def get_yields_in_bins(
             if key in available_axes
         }
 
+    whitelist_set = None
+    if process_whitelist is not None:
+        whitelist_set = set(process_whitelist)
+
     for proc in proc_list:
+        if whitelist_set is not None and proc not in whitelist_set:
+            continue
         yields[proc] = []
 
         try:
@@ -77,10 +124,12 @@ def get_yields_in_bins(
             # Slice to process, channel, and any optional axes (e.g., year)
             h_sel = h[selection]
 
-            # #If "l0eta" is not the only axis, integrate over the others
-            # for ax in h_sel.axes:
-            #     if ax.name != "njets":
-            #         h_sel = h_sel.integrate(ax.name)
+            # Integrate over any remaining axes except the histogram axis itself so
+            # that, e.g., shared Run 3 pickles without a year axis sum over all
+            # relevant categories instead of returning per-axis slices.
+            for ax in list(h_sel.axes):
+                if ax.name != hist_name:
+                    h_sel = h_sel.integrate(ax.name)
             axis = h_sel.axes[hist_name]
             view = h_sel.view(flow=False)
             edges = axis.edges
@@ -206,7 +255,7 @@ def process_year(
     bins,
     *,
     cache=None,
-    year_axis=None,
+    allowed_years=None,
 ):
     """Process a single year and return scale-factor and fit information."""
 
@@ -221,39 +270,27 @@ def process_year(
     h = hin_dict[hist_name]
     proc_list = list(h.axes["process"])
 
-    year_selection = {}
-    if year_axis is not None:
-        available_axes = {ax.name for ax in h.axes}
-        if year_axis not in available_axes:
-            raise KeyError(
-                "A shared --pkl file was provided, but histogram "
-                f"'{hist_name}' does not contain the '{year_axis}' axis. "
-                f"Available axes: {sorted(available_axes)}"
-            )
+    year_str = str(year)
+    whitelist_set = None
 
-        year_axis_obj = h.axes[year_axis]
-        axis_values = list(year_axis_obj)
-        target_value = None
-
-        if year in axis_values:
-            target_value = year
+    if allowed_years:
+        allowed_tokens = {str(token) for token in allowed_years}
+        if year_str.lower() != ALL_YEARS_SENTINEL:
+            filter_tokens = {year_str}
         else:
-            for candidate in axis_values:
-                try:
-                    converted = type(candidate)(year)
-                    if candidate == converted:
-                        target_value = converted
-                        break
-                except Exception:
-                    continue
+            filter_tokens = allowed_tokens
 
-        if target_value is None:
+        whitelist_set = set()
+        for token in filter_tokens:
+            derived = _derive_process_subset_for_year(proc_list, token)
+            if derived:
+                whitelist_set.update(derived)
+
+        if not whitelist_set:
             raise KeyError(
-                f"Year '{year}' not found on axis '{year_axis}' in histogram "
-                f"'{hist_name}'. Available values: {axis_values}"
+                "No processes remain after filtering for requested year(s) "
+                f"'{', '.join(sorted(filter_tokens))}'."
             )
-
-        year_selection = {year_axis: target_value}
 
     yields = get_yields_in_bins(
         hin_dict,
@@ -261,7 +298,8 @@ def process_year(
         bins,
         hist_name=hist_name,
         channel_name=channel,
-        extra_slices=year_selection,
+        extra_slices=None,
+        process_whitelist=whitelist_set,
     )
 
     diboson = []
@@ -325,7 +363,11 @@ def main():
         help=(
             "Path(s) to the input pkl.gz file. Provide one path per year, a single "
             "template containing '{year}' to be expanded for each year, or a single "
-            "file that contains histograms for all requested years."
+            "file that contains histograms for all requested years. When a shared "
+            "file is used, the script filters the process axis for names encoding "
+            "each requested year (e.g. tokens like 'central2023' or 'central2022EE'). "
+            "Passing '--year all' with a shared file automatically processes every "
+            "discovered year and also writes a combined entry that sums them."
         ),
     )
     parser.add_argument("--hist-name", default="njets", help="Histogram name")
@@ -335,14 +377,10 @@ def main():
         "--year",
         nargs="+",
         default=["2022"],
-        help="One or more data-taking years to process",
-    )
-    parser.add_argument(
-        "--year-axis",
-        default="year",
         help=(
-            "Histogram axis name to use when selecting a specific year from a "
-            "shared input file containing multiple years."
+            "One or more data-taking years to process. With a shared file, using "
+            "'all' causes the script to discover every year token embedded in the "
+            "process names and to include a combined result that sums them."
         ),
     )
     parser.add_argument(
@@ -352,16 +390,27 @@ def main():
     )
     args = parser.parse_args()
 
-    years = list(args.year)
+    years = [str(year) for year in args.year]
 
     if not years:
         parser.error("At least one year must be provided via -y/--year.")
 
+    has_all_years = any(year.lower() == ALL_YEARS_SENTINEL for year in years)
+    requested_specific_years = [
+        year for year in years if year.lower() != ALL_YEARS_SENTINEL
+    ]
+
     shared_pkl_for_years = False
+    year_process_map = {}
 
     if len(args.pkl) == 1:
         pkl_arg = args.pkl[0]
         if "{year}" in pkl_arg:
+            if has_all_years:
+                parser.error(
+                    "--year all cannot be used with a template --pkl path. Provide "
+                    "a shared pickle containing all years instead."
+                )
             pkl_paths = [pkl_arg.format(year=year) for year in years]
             missing_paths = [path for path in pkl_paths if not os.path.exists(path)]
             if missing_paths:
@@ -371,6 +420,8 @@ def main():
                 )
         elif len(years) == 1:
             pkl_paths = [pkl_arg]
+            if has_all_years:
+                shared_pkl_for_years = True
         else:
             if not os.path.exists(pkl_arg):
                 parser.error(f"Shared --pkl file not found: {pkl_arg}")
@@ -383,6 +434,84 @@ def main():
             "Number of --pkl paths must match the number of years unless a template is used."
         )
 
+    bins = list(range(0, 7))
+
+    cached_inputs = {}
+
+    if shared_pkl_for_years:
+        sample_path = pkl_paths[0]
+        if sample_path in cached_inputs:
+            sample_dict = cached_inputs[sample_path]
+        else:
+            sample_dict = load_pkl_file(sample_path)
+            cached_inputs[sample_path] = sample_dict
+
+        try:
+            sample_hist = sample_dict[args.hist_name]
+        except KeyError:
+            parser.error(
+                f"Histogram '{args.hist_name}' not found in shared pickle '{sample_path}'."
+            )
+
+        try:
+            process_values = list(sample_hist.axes["process"])
+        except KeyError:
+            parser.error(
+                f"Histogram '{args.hist_name}' in shared pickle '{sample_path}' "
+                "is missing the 'process' axis required for scale factors."
+            )
+        token_map = _map_year_tokens_to_processes(process_values)
+        discovered_years = sorted(token_map)
+        if discovered_years:
+            year_process_map = {
+                str(year_token): sorted(process_set)
+                for year_token, process_set in token_map.items()
+            }
+            print(
+                "Discovered years embedded in process names: "
+                + ", ".join(discovered_years)
+            )
+        else:
+            print(
+                "No embedded year tokens detected on the process axis of the shared "
+                "file; all processes will be treated as combined."
+            )
+
+        if has_all_years and years == [ALL_YEARS_SENTINEL] and discovered_years:
+            years = discovered_years + [ALL_YEARS_SENTINEL]
+            pkl_paths = [sample_path] * len(years)
+            print(
+                "Automatically expanding '--year all' to process each discovered "
+                f"year: {', '.join(discovered_years)}"
+            )
+            requested_specific_years = [
+                year for year in years if year.lower() != ALL_YEARS_SENTINEL
+            ]
+
+        if discovered_years:
+            missing = [
+                year for year in requested_specific_years if year not in year_process_map
+            ]
+            if missing:
+                parser.error(
+                    "The shared --pkl file does not contain processes encoding the "
+                    "requested year(s): " + ", ".join(missing)
+                )
+        else:
+            if requested_specific_years:
+                parser.error(
+                    "The shared --pkl file does not embed year tokens in the process "
+                    "names, so specific years cannot be selected."
+                )
+
+    has_all_years = any(year.lower() == ALL_YEARS_SENTINEL for year in years)
+
+    if has_all_years and not shared_pkl_for_years:
+        parser.error(
+            "--year all requires providing a single shared --pkl file that contains "
+            "all years."
+        )
+
     if not shared_pkl_for_years:
         missing_paths = [path for path in pkl_paths if not os.path.exists(path)]
         if missing_paths:
@@ -390,15 +519,26 @@ def main():
                 "The following --pkl paths do not exist: " + ", ".join(missing_paths)
             )
 
-    bins = list(range(0, 7))
-
-    cached_inputs = {}
-
     results = {}
     summary = {}
     for year, pkl_path in zip(years, pkl_paths):
         try:
-            year_axis = args.year_axis if shared_pkl_for_years else None
+            allowed_years = None
+
+            if shared_pkl_for_years:
+                if str(year).lower() != ALL_YEARS_SENTINEL:
+                    if year_process_map and str(year) not in year_process_map:
+                        parser.error(
+                            "No processes encoding the requested year '"
+                            f"{year}' were found in the shared file."
+                        )
+                    allowed_years = [year]
+                else:
+                    if requested_specific_years:
+                        allowed_years = requested_specific_years
+                    elif year_process_map:
+                        allowed_years = sorted(year_process_map)
+
             results[year] = process_year(
                 pkl_path,
                 year,
@@ -406,7 +546,7 @@ def main():
                 args.channel,
                 bins,
                 cache=cached_inputs,
-                year_axis=year_axis,
+                allowed_years=allowed_years,
             )
             year_output_dir = os.path.join(args.output_dir, str(year))
             make_diboson_sf_json(
