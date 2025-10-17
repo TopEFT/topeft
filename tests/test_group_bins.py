@@ -112,7 +112,7 @@ def _toy_histogram_arrays():
 
 def test_compute_fake_rates_quadrature_matches_manual():
     fake_vals, fake_errs, tight_vals, tight_errs = _toy_histogram_arrays()
-    ratios, errors = tau.compute_fake_rates(
+    ratios, errors, summary = tau.compute_fake_rates(
         fake_vals,
         fake_errs,
         tight_vals,
@@ -121,11 +121,14 @@ def test_compute_fake_rates_quadrature_matches_manual():
 
     assert len(ratios) == len(tau.TAU_PT_BIN_DIVIDERS)
     assert len(errors) == len(tau.TAU_PT_BIN_DIVIDERS)
+    assert len(summary) == len(tau.TAU_PT_BIN_DIVIDERS)
 
     manual_error = math.sqrt((5.0 / 100.0) ** 2 + (50.0 * 10.0 / (100.0 ** 2)) ** 2)
 
     assert ratios[0] == pytest.approx(0.5)
     assert errors[0] == pytest.approx(manual_error)
+    assert summary[0]["tight_sum"] == pytest.approx(50.0)
+    assert summary[0]["fake_sum"] == pytest.approx(100.0)
     assert np.allclose(ratios[1:], 0.0)
     assert np.allclose(errors[1:], 0.0)
 
