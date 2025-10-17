@@ -293,7 +293,16 @@ def _print_yield_table(title, bin_labels, yields, errors):
     header = f"{'Tau pT bin':<16}{'Yield':>14}{'Stat. err':>14}"
     print(header)
     print("-" * len(header))
-    for label, value, err in zip(bin_labels, yields, errors):
+    values = np.asarray(yields, dtype=float).reshape(-1)
+    errs = np.asarray(errors, dtype=float).reshape(-1)
+
+    if len(values) != len(bin_labels) or len(errs) != len(bin_labels):
+        raise RuntimeError(
+            "Yield table inputs have mismatched shapes: "
+            f"{len(bin_labels)} bin labels, {len(values)} yields, {len(errs)} errors."
+        )
+
+    for label, value, err in zip(bin_labels, values, errs):
         print(f"{label:<16}{value:14.2f}{err:14.2f}")
 
 
