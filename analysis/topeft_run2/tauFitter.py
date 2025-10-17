@@ -268,6 +268,110 @@ def _fold_tau_overflow(array):
     return physical
 
 
+def _format_bin_edge(edge):
+    if math.isinf(edge):
+        return "∞"
+    if float(edge).is_integer():
+        return f"{int(edge)}"
+    return f"{edge:.2f}".rstrip("0").rstrip(".")
+
+
+def _format_bin_label(edges, start_index, stop_index):
+    left = _format_bin_edge(edges[start_index])
+    right_edge = edges[stop_index] if stop_index < len(edges) else math.inf
+    right = _format_bin_edge(right_edge)
+    return f"[{left}, {right})"
+
+
+def _print_section_header(title):
+    print(f"\n{title}")
+    print("=" * len(title))
+
+
+def _print_yield_table(title, bin_labels, yields, errors):
+    _print_section_header(title)
+    header = f"{'Tau pT bin':<16}{'Yield':>14}{'Stat. err':>14}"
+    print(header)
+    print("-" * len(header))
+    for label, value, err in zip(bin_labels, yields, errors):
+        print(f"{label:<16}{value:14.2f}{err:14.2f}")
+
+
+def _print_regroup_summary(title, bin_labels, mc_summary, data_summary):
+    _print_section_header(title)
+    header = (
+        f"{'Tau pT bin':<16}"
+        f"{'MC fake sum':>14}{'MC fake err':>14}"
+        f"{'MC tight sum':>15}{'MC tight err':>15}"
+        f"{'Data fake sum':>16}{'Data fake err':>16}"
+        f"{'Data tight sum':>17}{'Data tight err':>17}"
+    )
+    print(header)
+    print("-" * len(header))
+    for label, mc_info, data_info in zip(bin_labels, mc_summary, data_summary):
+        print(
+            f"{label:<16}"
+            f"{mc_info['fake_sum']:14.2f}{mc_info['fake_err']:14.2f}"
+            f"{mc_info['tight_sum']:15.2f}{mc_info['tight_err']:15.2f}"
+            f"{data_info['fake_sum']:16.2f}{data_info['fake_err']:16.2f}"
+            f"{data_info['tight_sum']:17.2f}{data_info['tight_err']:17.2f}"
+        )
+
+
+def _print_fake_rate_table(title, bin_labels, mc_rates, mc_errors, data_rates, data_errors):
+    _print_section_header(title)
+    header = f"{'Tau pT bin':<16}{'MC FR':>12}{'MC err':>12}{'Data FR':>12}{'Data err':>12}"
+    print(header)
+    print("-" * len(header))
+    for label, mc_val, mc_err, data_val, data_err in zip(
+        bin_labels, mc_rates, mc_errors, data_rates, data_errors
+    ):
+        print(
+            f"{label:<16}"
+            f"{mc_val:12.4f}{mc_err:12.4f}"
+            f"{data_val:12.4f}{data_err:12.4f}"
+        )
+
+
+def _print_scale_factor_table(title, bin_labels, scale_factors, errors):
+    _print_section_header(title)
+    header = f"{'Tau pT bin':<16}{'Scale factor':>14}{'Uncertainty':>14}"
+    print(header)
+    print("-" * len(header))
+    for label, value, err in zip(bin_labels, scale_factors, errors):
+        print(f"{label:<16}{value:14.4f}{err:14.4f}")
+
+
+def _print_fit_summary(
+    c0,
+    c1,
+    parameter_errors,
+    bin_labels,
+    pt_reference,
+    nominal_sf,
+    sf_up,
+    sf_down,
+):
+    _print_section_header("Scale-factor fit summary")
+    param_header = f"{'Parameter':<12}{'Value':>14}{'Uncertainty':>14}"
+    print(param_header)
+    print("-" * len(param_header))
+    print(f"{'c0':<12}{c0:14.6f}{parameter_errors[0]:14.6f}")
+    print(f"{'c1':<12}{c1:14.6f}{parameter_errors[1]:14.6f}")
+
+    print("\nPer-bin fitted values")
+    print("---------------------")
+    value_header = f"{'Tau pT bin':<16}{'pT ref [GeV]':>14}{'Fitted SF':>14}{'SF_up':>14}{'SF_down':>14}"
+    print(value_header)
+    print("-" * len(value_header))
+    for label, pt, nom, up_val, down_val in zip(
+        bin_labels, pt_reference, nominal_sf, sf_up, sf_down
+    ):
+        print(
+            f"{label:<16}{pt:14.2f}{nom:14.6f}{up_val:14.6f}{down_val:14.6f}"
+        )
+
+
 def linear(x,a,b):
     return b*x+a
 
@@ -472,15 +576,35 @@ def compute_fake_rates(
     fake_errs,
     tight_vals,
     tight_errs,
-    regroup_slices,
+    regroup_slices=None,
 ):
     fake_vals = np.asarray(fake_vals, dtype=float)
     fake_errs = np.asarray(fake_errs, dtype=float)
     tight_vals = np.asarray(tight_vals, dtype=float)
     tight_errs = np.asarray(tight_errs, dtype=float)
 
+    if regroup_slices is None:
+        n_bins = fake_vals.shape[-1]
+        expected_physical_bins = len(TAU_PT_BIN_EDGES) - 1
+
+        # When histogram arrays are materialized with flow=True, the first and
+        # last entries correspond to underflow/overflow bins.  Skip these
+        # implicit bins as long as the array length matches the known tau-pT
+        # configuration with the additional flow entries.  Fall back to using
+        # the full array for unexpected lengths so we do not silently drop data
+        # if the histogram definition changes.
+        has_flow_bins = n_bins == expected_physical_bins + 2
+
+        start_index = 1 if has_flow_bins else 0
+        stop_index = n_bins - 1 if has_flow_bins else n_bins
+
+        regroup_slices = [
+            (index, index + 1) for index in range(start_index, stop_index)
+        ]
+
     ratios = []
     errors = []
+    summary = []
 
     for start, stop in regroup_slices:
         fake_slice = slice(start, stop)
@@ -509,7 +633,21 @@ def compute_fake_rates(
         else:
             errors.append(ratio_err)
 
-    return np.array(ratios, dtype=float), np.array(errors, dtype=float)
+        summary.append(
+            {
+                "slice": (start, stop),
+                "fake_sum": fake_sum,
+                "fake_err": fake_err_total,
+                "tight_sum": tight_sum,
+                "tight_err": tight_err_total,
+            }
+        )
+
+    return (
+        np.array(ratios, dtype=float),
+        np.array(errors, dtype=float),
+        summary,
+    )
 
 
 def _validate_histogram_axes(histogram, expected_axes, hist_name):
@@ -615,11 +753,6 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
 
     var_name = "tau0pt"
     tau_hist = dict_of_hists[var_name]
-
-    # print("\n\n\n\n\n")
-    # print("BEFORE: tau_hist axes = ", [ax.name for ax in tau_hist.axes])
-    for ax in tau_hist.axes:
-        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
 
     _validate_histogram_axes(tau_hist, _TAU_HISTOGRAM_REQUIRED_AXES, var_name)
     _validate_tau_channel_coverage(
@@ -783,14 +916,14 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     data_tight_e = data_tight_err_map[data_proc]
     data_tight_vals = data_tight_vals_map[data_proc]
 
-    mc_y, mc_e = compute_fake_rates(
+    mc_y, mc_e, mc_regroup_summary = compute_fake_rates(
         mc_fake_vals,
         mc_fake_e,
         mc_tight_vals,
         mc_tight_e,
         regroup_slices,
     )
-    data_y, data_e = compute_fake_rates(
+    data_y, data_e, data_regroup_summary = compute_fake_rates(
         data_fake_vals,
         data_fake_e,
         data_tight_vals,
@@ -801,7 +934,29 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     mc_x = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
     data_x = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
 
-    return mc_x, mc_y, mc_e, data_x, data_y, data_e
+    native_bin_labels = [
+        _format_bin_label(tau_pt_edges, index, index + 1)
+        for index in range(len(tau_pt_edges) - 1)
+    ]
+    regroup_labels = [
+        _format_bin_label(tau_pt_edges, start, stop)
+        for start, stop in (entry["slice"] for entry in mc_regroup_summary)
+    ]
+
+    stage_details = {
+        "native_bin_labels": native_bin_labels,
+        "native_yields": {
+            "MC fake": (mc_fake_vals, mc_fake_e),
+            "MC tight": (mc_tight_vals, mc_tight_e),
+            "Data fake": (data_fake_vals, data_fake_e),
+            "Data tight": (data_tight_vals, data_tight_e),
+        },
+        "regroup_labels": regroup_labels,
+        "mc_regroup_summary": mc_regroup_summary,
+        "data_regroup_summary": data_regroup_summary,
+    }
+
+    return mc_x, mc_y, mc_e, data_x, data_y, data_e, stage_details
 
 def main():
 
@@ -854,10 +1009,34 @@ def main():
 
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
-    x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(
+    x_mc, y_mc, yerr_mc, x_data, y_data, yerr_data, stage_details = getPoints(
         hin_dict,
         ftau_channels,
         ttau_channels,
+    )
+
+    for label, (values, errors) in stage_details["native_yields"].items():
+        _print_yield_table(
+            f"{label} yields (native bins)",
+            stage_details["native_bin_labels"],
+            values,
+            errors,
+        )
+
+    _print_regroup_summary(
+        "Regrouped fake-rate inputs",
+        stage_details["regroup_labels"],
+        stage_details["mc_regroup_summary"],
+        stage_details["data_regroup_summary"],
+    )
+
+    _print_fake_rate_table(
+        "Fake rates by tau pT bin",
+        stage_details["regroup_labels"],
+        np.asarray(y_mc, dtype=float).flatten(),
+        np.asarray(yerr_mc, dtype=float).flatten(),
+        np.asarray(y_data, dtype=float).flatten(),
+        np.asarray(yerr_data, dtype=float).flatten(),
     )
 
     y_data = np.array(y_data, dtype=float).flatten()
@@ -865,29 +1044,7 @@ def main():
     yerr_data = np.array(yerr_data, dtype=float).flatten()
     yerr_mc   = np.array(yerr_mc, dtype=float).flatten()
     x_data    = np.array(x_data, dtype=float).flatten()
-
-    print("\n\nTau fake-rate points:")
-    print("----------------------")
-    print(f" Tau pT bin edges: {TAU_PT_BIN_EDGES}")
-    print("y_mc:", list(y_mc))
-    print("y_data:", list(y_data))
-    print("yerr_mc:", list(yerr_mc))
-    print("yerr_data:", list(yerr_data))
-    print("x_data:", list(x_data))
-    print("----------------------")
-    print("")
-
-    def _format_vector(label, values):
-        formatted = np.array2string(
-            np.asarray(values, dtype=float),
-            precision=6,
-            floatmode="fixed",
-            separator=", ",
-        )
-        print(f"{label:<8}= {formatted}")
-
-    _format_vector("fr data", y_data)
-    _format_vector("fr mc", y_mc)
+    regroup_labels = np.array(stage_details["regroup_labels"], dtype=object)
 
     SF = np.divide(
         y_data,
@@ -941,6 +1098,7 @@ def main():
     y_mc = y_mc[valid]
     yerr_data = yerr_data[valid]
     yerr_mc = yerr_mc[valid]
+    regroup_labels = regroup_labels[valid]
 
     if SF.size < 2:
         raise RuntimeError(
@@ -948,52 +1106,20 @@ def main():
             f"only {SF.size} bin(s) remain after filtering."
         )
 
-    print('SF',SF)
-    print('sfERR',SF_e)
-    print('x',x_data)
+    _print_scale_factor_table(
+        "Scale factors (data/MC)",
+        regroup_labels,
+        SF,
+        SF_e,
+    )
 
-    #fitting...
-    c0,c1,cov = SF_fit(SF,SF_e,x_data)
-    print(c0)
-    print(c1)
-    print(cov)
-
+    c0, c1, cov = SF_fit(SF, SF_e, x_data)
 
     eigenvalues, eigenvectors = eig(cov)
-    print('eige',eigenvalues,eigenvectors)
-    #eval y using fit:
-    y_fit = c1*x_data+c0
-
     lv0 = np.sqrt(abs(eigenvalues.dot(eigenvectors[0])))
     lv1 = np.sqrt(abs(eigenvalues.dot(eigenvectors[1])))
-    #systunc_up = (1 + lv0)*c0 + (1 + lv1)*c1*x_data
-    #systunc_dn = (1 - lv0)*c0 + (1 - lv1)*c1*x_data
-    ##systunc_1st_up =  (c0 + lv0) + c1*x_data
-    ##systunc_1st_dn =  (c0 - lv0) + c1*x_data
-    ##systunc_2nd_up =  c0 + (c1 + lv1)*x_data
-    ##systunc_2nd_dn =  c0 + (c1 - lv1)*x_data
-    l0 =  eigenvalues[0]
-    l1 =  eigenvalues[1]
-    v00 = eigenvectors[0][0]
-    v01 = eigenvectors[0][1]
-    v10 = eigenvectors[1][0]
-    v11 = eigenvectors[1][1]
-    print(l0,l1,v00,v01,v10,v11)
     perr = np.sqrt(np.diag(cov))
-    print(perr)
-    print(lv0,lv1)
-    systunc_1st_up = c0 + np.sqrt(l0)*v00   +  (c1 + np.sqrt(l0)*v01)*x_data
-    systunc_1st_dn = c0 - np.sqrt(l0)*v00   +  (c1 - np.sqrt(l0)*v01)*x_data
-    systunc_2nd_up = c0 + np.sqrt(l1)*v10   +  (c1 + np.sqrt(l1)*v11)*x_data
-    systunc_2nd_dn = c0 - np.sqrt(l1)*v10   +  (c1 - np.sqrt(l1)*v11)*x_data
-    print('           c0,c1')
-    print('nom',c0,c1)
-    print('up1',c0 + np.sqrt(l0)*v00,(c1 + np.sqrt(l0)*v01))
-    print('up2',c0 + np.sqrt(l1)*v10,(c1 + np.sqrt(l0)*v01))
-    #c0 = 1.16534
-    #c1 = -0.0017
-    c2 = (c1 + np.sqrt(l0)*v01)
-    c3 = np.sqrt(l0)*v00+c0
+
     if report_pt_values.size == 0:
         report_pt_values = x_data
 
@@ -1001,16 +1127,16 @@ def main():
     sf_up = (1 + lv0) * c0 + (1 + lv1) * c1 * report_pt_values
     sf_down = (1 - lv0) * c0 + (1 - lv1) * c1 * report_pt_values
 
-    header = f"{'pT [GeV]':>9}  {'SF':>10}  {'SF_up':>10}  {'SF_down':>10}"
-    print(header)
-    print("-" * len(header))
-    for pt, nom, up_val, down_val in zip(report_pt_values, nominal_sf, sf_up, sf_down):
-        print(
-            f"{pt:9.0f}  "
-            f"{nom:10.6f}  "
-            f"{up_val:10.6f}  "
-            f"{down_val:10.6f}"
-        )
+    _print_fit_summary(
+        c0,
+        c1,
+        perr,
+        regroup_labels,
+        report_pt_values,
+        nominal_sf,
+        sf_up,
+        sf_down,
+    )
 
 if __name__ == "__main__":
     main()
