@@ -584,8 +584,16 @@ def compute_fake_rates(
     tight_errs = np.asarray(tight_errs, dtype=float)
 
     if regroup_slices is None:
+        last_index = fake_vals.shape[-1]
+        if last_index >= 3:
+            start_index = 1
+            stop_index = last_index - 1
+        else:
+            start_index = 0
+            stop_index = last_index
+
         regroup_slices = [
-            (index, index + 1) for index in range(fake_vals.shape[-1])
+            (index, index + 1) for index in range(start_index, stop_index)
         ]
 
     ratios = []
