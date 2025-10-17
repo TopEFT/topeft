@@ -315,11 +315,11 @@ def _ensure_list(values):
 
 
 def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
-    #print("\n\n\n\n\n")
-    print("INGROUPBINS\nhisto axes = ", [ax.name for ax in histo.axes])
-    for ax in histo.axes:
-        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    print("\n\n\n\n\n")
+    # print("\n\n\n\n\n")
+    # print("INGROUPBINS\nhisto axes = ", [ax.name for ax in histo.axes])
+    # for ax in histo.axes:
+    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
+    # print("\n\n\n\n\n")
     bin_map_copy = copy.deepcopy(bin_map)  # Avoid editing original
     normalized_map = OrderedDict(
         (group, _ensure_list(categories))
@@ -598,10 +598,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
 
-    print("\n\n\n\n\n")
-    print("all samples = ", all_samples)
-    print("mc samples = ", mc_sample_lst)
-    print("data samples = ", data_sample_lst)
+    # print("\n\n\n\n\n")
+    # print("all samples = ", all_samples)
+    # print("mc samples = ", mc_sample_lst)
+    # print("data samples = ", data_sample_lst)
 
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
@@ -609,15 +609,15 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
 
-    print("samples to rm from mc hist = ", samples_to_rm_from_mc_hist)
-    print("samples to rm from data hist = ", samples_to_rm_from_data_hist)
-    print("\n\n\n\n\n")
+    # print("samples to rm from mc hist = ", samples_to_rm_from_mc_hist)
+    # print("samples to rm from data hist = ", samples_to_rm_from_data_hist)
+    # print("\n\n\n\n\n")
 
     var_name = "tau0pt"
     tau_hist = dict_of_hists[var_name]
 
-    print("\n\n\n\n\n")
-    print("BEFORE: tau_hist axes = ", [ax.name for ax in tau_hist.axes])
+    # print("\n\n\n\n\n")
+    # print("BEFORE: tau_hist axes = ", [ax.name for ax in tau_hist.axes])
     for ax in tau_hist.axes:
         print(f"  {ax.name}: {[str(cat) for cat in ax]}")
 
@@ -630,21 +630,21 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         var_name,
     )
 
-    print("AFTER: tau_hist axes = ", [ax.name for ax in tau_hist.axes])
-    for ax in tau_hist.axes:
-        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    print("\n\n\n\n\n")
+    # print("AFTER: tau_hist axes = ", [ax.name for ax in tau_hist.axes])
+    # for ax in tau_hist.axes:
+    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
+    # print("\n\n\n\n\n")
 
     hist_mc = tau_hist.remove("process",samples_to_rm_from_mc_hist)
     hist_data = tau_hist.remove("process",samples_to_rm_from_data_hist)
 
-    print("AFTERREMOVAL\nhist_mc axes = ", [ax.name for ax in hist_mc.axes])
-    for ax in hist_mc.axes:
-        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    print("\nhist_data axes = ", [ax.name for ax in hist_data.axes])
-    for ax in hist_data.axes:
-        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    print("\n\n\n\n\n")
+    # print("AFTERREMOVAL\nhist_mc axes = ", [ax.name for ax in hist_mc.axes])
+    # for ax in hist_mc.axes:
+    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
+    # print("\nhist_data axes = ", [ax.name for ax in hist_data.axes])
+    # for ax in hist_data.axes:
+    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
+    # print("\n\n\n\n\n")
 
     # Integrate to get the categories we want
     mc_fake     = hist_mc.integrate("channel", ftau_channels)[{"channel": sum}]
@@ -652,19 +652,19 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     data_fake   = hist_data.integrate("channel", ftau_channels)[{"channel": sum}]
     data_tight  = hist_data.integrate("channel", ttau_channels)[{"channel": sum}]
 
-    print("AFTERINTEGRATE\nmc_fake axes = ", [ax.name for ax in mc_fake.axes])
-    for ax in mc_fake.axes:
-        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    print("\nmc_tight axes = ", [ax.name for ax in mc_tight.axes])
-    for ax in mc_tight.axes:
-        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    print("\ndata_fake axes = ", [ax.name for ax in data_fake.axes])
-    for ax in data_fake.axes:
-        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    print("\ndata_tight axes = ", [ax.name for ax in data_tight.axes])
-    for ax in data_tight.axes:
-        print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    print("\n\n\n\n\n")
+    # print("AFTERINTEGRATE\nmc_fake axes = ", [ax.name for ax in mc_fake.axes])
+    # for ax in mc_fake.axes:
+    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
+    # print("\nmc_tight axes = ", [ax.name for ax in mc_tight.axes])
+    # for ax in mc_tight.axes:
+    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
+    # print("\ndata_fake axes = ", [ax.name for ax in data_fake.axes])
+    # for ax in data_fake.axes:
+    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
+    # print("\ndata_tight axes = ", [ax.name for ax in data_tight.axes])
+    # for ax in data_tight.axes:
+    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
+    # print("\n\n\n\n\n")
 
     # Build fresh grouping maps derived from the current histogram contents so we only
     # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
@@ -690,8 +690,8 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
             if process_name.startswith("data"):
                 _append_process(data_group_map["Data"], process_name)
 
-    print("mc_group_map = ", mc_group_map)
-    print("data_group_map = ", data_group_map)
+    # print("mc_group_map = ", mc_group_map)
+    # print("data_group_map = ", data_group_map)
 
     mc_fake     = group_bins(mc_fake,mc_group_map,"process",drop_unspecified=True)
     mc_tight    = group_bins(mc_tight,mc_group_map,"process",drop_unspecified=True)
@@ -866,6 +866,16 @@ def main():
     yerr_mc   = np.array(yerr_mc, dtype=float).flatten()
     x_data    = np.array(x_data, dtype=float).flatten()
 
+    print("\n\nTau fake-rate points:")
+    print("----------------------")
+    print(f" Tau pT bin edges: {TAU_PT_BIN_EDGES}")
+    print("y_mc:", list(y_mc))
+    print("y_data:", list(y_data))
+    print("yerr_mc:", list(yerr_mc))
+    print("yerr_data:", list(yerr_data))
+    print("x_data:", list(x_data))
+    print("----------------------")
+    print("")
 
     def _format_vector(label, values):
         formatted = np.array2string(
