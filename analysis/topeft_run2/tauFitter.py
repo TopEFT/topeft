@@ -227,9 +227,16 @@ CR_GRP_MAP_full = {
 #    return [math.sqrt(num) for num in numbers]
 
 def sqrt_list(numbers):
-    arr = np.array(numbers.flatten())
-    arr = np.clip(arr, 0, None)
-    return arr.tolist()
+    arr = np.asarray(numbers)
+    if arr.dtype.kind in "fc":
+        arr = arr.copy()
+    else:
+        arr = arr.astype(float)
+
+    flat = arr.reshape(-1)
+    np.clip(flat, 0, None, out=flat)
+    np.sqrt(flat, out=flat)
+    return flat.reshape(arr.shape).tolist()
 
 
 def linear(x,a,b):
