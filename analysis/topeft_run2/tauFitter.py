@@ -244,23 +244,28 @@ def _fold_tau_overflow(array):
     if arr.ndim == 0:
         return arr
 
-    length = arr.shape[-1]
-    if length == 0:
-        return arr
+    trim_slice = [slice(None)] * arr.ndim
+    trim_slice[-1] = slice(1, None)
+    trimmed = arr[tuple(trim_slice)]
 
-    if length < 3:
-        tail_slice = [slice(None)] * arr.ndim
-        tail_slice[-1] = slice(1, None)
-        return arr[tuple(tail_slice)].copy()
+    if trimmed.shape[-1] == 0:
+        return trimmed.copy()
 
-    overflow = np.take(arr, length - 1, axis=-1)
-    last_bin = [slice(None)] * arr.ndim
-    last_bin[-1] = length - 2
-    arr[tuple(last_bin)] += overflow
+    overflow_slice = [slice(None)] * trimmed.ndim
+    overflow_slice[-1] = slice(-1, None)
+    overflow = trimmed[tuple(overflow_slice)]
 
-    physical_slice = [slice(None)] * arr.ndim
-    physical_slice[-1] = slice(1, length - 1)
-    return arr[tuple(physical_slice)].copy()
+    physical_slice = [slice(None)] * trimmed.ndim
+    physical_slice[-1] = slice(None, -1)
+    physical = trimmed[tuple(physical_slice)].copy()
+
+    if physical.shape[-1] == 0:
+        return physical
+
+    last_physical = [slice(None)] * physical.ndim
+    last_physical[-1] = slice(-1, None)
+    physical[tuple(last_physical)] += overflow
+    return physical
 
 
 def linear(x,a,b):
