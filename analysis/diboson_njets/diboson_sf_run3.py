@@ -60,35 +60,6 @@ def _map_year_tokens_to_processes(proc_list):
     return matches
 
 
-def _normalize_process_whitelist(proc_list, process_whitelist):
-    """Expand whitelist items that look like year tokens into process names."""
-
-    if process_whitelist is None:
-        return None
-
-    normalized = set()
-    proc_lookup = {str(proc): proc for proc in proc_list}
-
-    for item in process_whitelist:
-        if item is None:
-            continue
-
-        item_str = str(item)
-
-        if item_str in proc_lookup:
-            normalized.add(proc_lookup[item_str])
-            continue
-
-        derived = _derive_process_subset_for_year(proc_list, item_str)
-        if derived:
-            normalized.update(derived)
-
-    if not normalized:
-        return set()
-
-    return normalized
-
-
 def get_yields_in_bins(
     hin_dict,
     proc_list,
@@ -280,7 +251,7 @@ def process_year(
     bins,
     *,
     cache=None,
-    process_whitelist=None,
+    allowed_years=None,
 ):
     """Process a single year and return scale-factor and fit information."""
 
@@ -295,23 +266,27 @@ def process_year(
     h = hin_dict[hist_name]
     proc_list = list(h.axes["process"])
 
-    effective_whitelist = _normalize_process_whitelist(proc_list, process_whitelist)
-
     year_str = str(year)
-    if year_str.lower() != ALL_YEARS_SENTINEL:
-        derived_whitelist = _derive_process_subset_for_year(proc_list, year)
-        if derived_whitelist and effective_whitelist is None:
-            effective_whitelist = set(derived_whitelist)
-        elif effective_whitelist is not None and derived_whitelist:
-            effective_whitelist = {
-                proc for proc in effective_whitelist if proc in derived_whitelist
-            }
+    whitelist_set = None
 
-    if effective_whitelist is not None and not effective_whitelist:
-        raise KeyError(
-            "No processes remain after applying the provided whitelist for year "
-            f"'{year}'."
-        )
+    if allowed_years:
+        allowed_tokens = {str(token) for token in allowed_years}
+        if year_str.lower() != ALL_YEARS_SENTINEL:
+            filter_tokens = {year_str}
+        else:
+            filter_tokens = allowed_tokens
+
+        whitelist_set = set()
+        for token in filter_tokens:
+            derived = _derive_process_subset_for_year(proc_list, token)
+            if derived:
+                whitelist_set.update(derived)
+
+        if not whitelist_set:
+            raise KeyError(
+                "No processes remain after filtering for requested year(s) "
+                f"'{', '.join(sorted(filter_tokens))}'."
+            )
 
     yields = get_yields_in_bins(
         hin_dict,
@@ -320,7 +295,7 @@ def process_year(
         hist_name=hist_name,
         channel_name=channel,
         extra_slices=None,
-        process_whitelist=effective_whitelist,
+        process_whitelist=whitelist_set,
     )
 
     diboson = []
@@ -544,28 +519,21 @@ def main():
     summary = {}
     for year, pkl_path in zip(years, pkl_paths):
         try:
-            process_whitelist = None
+            allowed_years = None
 
-            if (
-                shared_pkl_for_years
-                and str(year).lower() != ALL_YEARS_SENTINEL
-            ):
-                process_whitelist = year_process_map.get(str(year), [])
-                if not process_whitelist:
-                    parser.error(
-                        "No processes encoding the requested year '"
-                        f"{year}' were found in the shared file."
-                    )
-            elif (
-                shared_pkl_for_years
-                and str(year).lower() == ALL_YEARS_SENTINEL
-                and requested_specific_years
-            ):
-                combined_processes = set()
-                for year_token in requested_specific_years:
-                    combined_processes.update(year_process_map.get(year_token, []))
-                if combined_processes:
-                    process_whitelist = sorted(combined_processes)
+            if shared_pkl_for_years:
+                if str(year).lower() != ALL_YEARS_SENTINEL:
+                    if year_process_map and str(year) not in year_process_map:
+                        parser.error(
+                            "No processes encoding the requested year '"
+                            f"{year}' were found in the shared file."
+                        )
+                    allowed_years = [year]
+                else:
+                    if requested_specific_years:
+                        allowed_years = requested_specific_years
+                    elif year_process_map:
+                        allowed_years = sorted(year_process_map)
 
             results[year] = process_year(
                 pkl_path,
@@ -574,7 +542,7 @@ def main():
                 args.channel,
                 bins,
                 cache=cached_inputs,
-                process_whitelist=process_whitelist,
+                allowed_years=allowed_years,
             )
             year_output_dir = os.path.join(args.output_dir, str(year))
             make_diboson_sf_json(
