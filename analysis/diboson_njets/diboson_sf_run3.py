@@ -51,7 +51,11 @@ def _derive_process_subset_for_year(proc_list, year):
 def _map_year_tokens_to_processes(proc_list):
     """Return a mapping of discovered year tokens to matching process names."""
 
-    pattern = re.compile(r"(?<!\\d)(20\\d{2})(?!\\d)")
+    # Match a four-digit Run 3 year optionally followed by an alphabetic era
+    # designator (e.g., "2022EE", "2023BPix"). Keep the suffix attached to
+    # preserve distinct data-taking periods while still catching plain years
+    # such as "2022".
+    pattern = re.compile(r"(?<!\\d)(20\\d{2}(?:[A-Za-z]+)?)(?!\\d)")
     matches = {}
     for proc in proc_list:
         proc_str = str(proc)
