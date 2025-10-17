@@ -584,13 +584,19 @@ def compute_fake_rates(
     tight_errs = np.asarray(tight_errs, dtype=float)
 
     if regroup_slices is None:
-        last_index = fake_vals.shape[-1]
-        if last_index >= 3:
-            start_index = 1
-            stop_index = last_index - 1
-        else:
-            start_index = 0
-            stop_index = last_index
+        n_bins = fake_vals.shape[-1]
+        expected_physical_bins = len(TAU_PT_BIN_EDGES) - 1
+
+        # When histogram arrays are materialized with flow=True, the first and
+        # last entries correspond to underflow/overflow bins.  Skip these
+        # implicit bins as long as the array length matches the known tau-pT
+        # configuration with the additional flow entries.  Fall back to using
+        # the full array for unexpected lengths so we do not silently drop data
+        # if the histogram definition changes.
+        has_flow_bins = n_bins == expected_physical_bins + 2
+
+        start_index = 1 if has_flow_bins else 0
+        stop_index = n_bins - 1 if has_flow_bins else n_bins
 
         regroup_slices = [
             (index, index + 1) for index in range(start_index, stop_index)
