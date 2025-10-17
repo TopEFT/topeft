@@ -723,21 +723,15 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     mc_tight_err_map = {}
     for key, vals in mc_fake_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        mc_fake_err_map[proc] = _fold_tau_overflow(
-            np.asarray(sqrt_list(vals), dtype=float)
-        )
-        mc_fake_vals_map[proc] = _fold_tau_overflow(
-            np.asarray(vals, dtype=float)
-        )
+        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        mc_fake_vals_map[proc] = folded_vals
+        mc_fake_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     for key, vals in mc_tight_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        mc_tight_err_map[proc] = _fold_tau_overflow(
-            np.asarray(sqrt_list(vals), dtype=float)
-        )
-        mc_tight_vals_map[proc] = _fold_tau_overflow(
-            np.asarray(vals, dtype=float)
-        )
+        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        mc_tight_vals_map[proc] = folded_vals
+        mc_tight_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     if mc_fake_vals_map.keys() != mc_tight_vals_map.keys():
         raise RuntimeError(
@@ -763,21 +757,15 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     data_tight_err_map = {}
     for key, vals in data_fake_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        data_fake_err_map[proc] = _fold_tau_overflow(
-            np.asarray(sqrt_list(vals), dtype=float)
-        )
-        data_fake_vals_map[proc] = _fold_tau_overflow(
-            np.asarray(vals, dtype=float)
-        )
+        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        data_fake_vals_map[proc] = folded_vals
+        data_fake_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     for key, vals in data_tight_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        data_tight_err_map[proc] = _fold_tau_overflow(
-            np.asarray(sqrt_list(vals), dtype=float)
-        )
-        data_tight_vals_map[proc] = _fold_tau_overflow(
-            np.asarray(vals, dtype=float)
-        )
+        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        data_tight_vals_map[proc] = folded_vals
+        data_tight_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     if data_fake_vals_map.keys() != data_tight_vals_map.keys():
         raise RuntimeError(
