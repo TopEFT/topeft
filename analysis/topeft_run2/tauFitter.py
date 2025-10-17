@@ -11,7 +11,7 @@
 # corrections aside from fake tau SFs
 # output is in the form of linear fit y = mx+b
 # where m and b are in numerical form, y is the SF, and x is the tau pt
-# pt bins are from [20, 30], [30, 40], [40, 50], [50, 60], [60, 80], [80, 100], [100, 200]
+# tau fake-rate fits use regrouped pt edges [20, 30, 40, 50, 60, 80, 100, 200]
 
 import numpy as np
 import os
@@ -334,17 +334,83 @@ def unwrap(hist, flow=True):
     errs = np.sqrt(vars_)
     return vals, errs
 
-TAU_PT_BIN_START = 20
-TAU_PT_BIN_STEP = 10
-TAU_PT_BIN_DIVIDERS = [30, 40, 50, 60, 80, 100, 200]
+TAU_PT_BIN_EDGES = [20, 30, 40, 50, 60, 80, 100, 200]
 
 
-def _accumulate_error(total, value):
-    return total + value * value
+def _extract_tau_pt_edges(axis):
+    if axis.name != "tau0pt":
+        raise RuntimeError(
+            f"Tau pt regrouping requested for unexpected axis '{axis.name}'."
+        )
+
+    try:
+        native_edges = np.asarray(axis.edges, dtype=float)
+    except AttributeError:
+        pattern = re.compile(r"[-+]?\d*\.?\d+")
+        boundaries = []
+        for category in axis:
+            matches = pattern.findall(str(category))
+            if len(matches) < 2:
+                raise RuntimeError(
+                    "Unable to parse tau pt bin edges from axis label "
+                    f"'{category}'."
+                )
+            lower, upper = map(float, matches[:2])
+            if not boundaries:
+                boundaries.append(lower)
+            elif not np.isclose(boundaries[-1], lower):
+                raise RuntimeError(
+                    "Tau pt axis labels are not contiguous: expected lower edge "
+                    f"{boundaries[-1]} but found {lower}."
+                )
+            boundaries.append(upper)
+        native_edges = np.asarray(boundaries, dtype=float)
+
+    if native_edges.ndim != 1 or native_edges.size < 2:
+        raise RuntimeError("Tau pt axis does not define a valid edge array.")
+
+    if not np.all(np.diff(native_edges) > 0):
+        raise RuntimeError("Tau pt axis edges must be strictly increasing.")
+
+    return native_edges
 
 
+def _resolve_tau_pt_bins(axis, target_edges):
+    """Validate and translate regrouping edges for the tau pt axis."""
+
+    if len(target_edges) < 2:
+        raise RuntimeError("Tau pt regrouping requires at least two edge values.")
+
+    native_edges = _extract_tau_pt_edges(axis)
+
+    regroup_slices = []
+    for left, right in zip(target_edges[:-1], target_edges[1:]):
+        left_idx = np.where(np.isclose(native_edges, left))[0]
+        right_idx = np.where(np.isclose(native_edges, right))[0]
+        if left_idx.size == 0:
+            raise RuntimeError(
+                "Requested tau pt regrouping edge {0} GeV does not match a native "
+                "histogram boundary.".format(left)
+            )
+        if right_idx.size == 0:
+            raise RuntimeError(
+                "Requested tau pt regrouping edge {0} GeV does not match a native "
+                "histogram boundary.".format(right)
+            )
+
+        start = int(left_idx[0])
+        stop = int(right_idx[0])
+        if stop <= start:
+            raise RuntimeError(
+                "Tau pt regrouping edges {0} and {1} do not form a valid bin.".format(
+                    left, right
+                )
+            )
+        regroup_slices.append((start, stop))
+
+    return native_edges, regroup_slices
 def _finalize_error(total):
-    return math.sqrt(total)
+    return math.sqrt(total) if total > 0.0 else 0.0
 
 
 def _combine_ratio_uncertainty(num, num_err, den, den_err):
@@ -377,50 +443,42 @@ def compute_fake_rates(
     fake_errs,
     tight_vals,
     tight_errs,
-    start_index=2,
-    bin_start=TAU_PT_BIN_START,
-    bin_step=TAU_PT_BIN_STEP,
-    bin_dividers=TAU_PT_BIN_DIVIDERS,
+    regroup_slices,
 ):
     fake_vals = np.asarray(fake_vals, dtype=float)
     fake_errs = np.asarray(fake_errs, dtype=float)
     tight_vals = np.asarray(tight_vals, dtype=float)
     tight_errs = np.asarray(tight_errs, dtype=float)
 
-    x = bin_start
-    fake_sum = 0.0
-    tight_sum = 0.0
-    fake_err_total = 0.0
-    tight_err_total = 0.0
     ratios = []
     errors = []
 
-    for index in range(start_index, len(fake_vals)):
-        fake_sum += fake_vals[index]
-        tight_sum += tight_vals[index]
-        fake_err_total = _accumulate_error(fake_err_total, fake_errs[index])
-        tight_err_total = _accumulate_error(tight_err_total, tight_errs[index])
-        x += bin_step
-        if x in bin_dividers:
-            if fake_sum != 0.0:
-                fake_err = _finalize_error(fake_err_total)
-                tight_err = _finalize_error(tight_err_total)
-                ratio = tight_sum / fake_sum
-                ratio_err = _combine_ratio_uncertainty(
-                    tight_sum, tight_err, fake_sum, fake_err
-                )
-            else:
-                ratio = 0.0
-                ratio_err = 0.0
-            ratios.append(ratio)
-            if ratio != 0.0 and (ratio + ratio_err) / ratio < 1.02:
-                errors.append(1.02 * ratio - ratio)
-            else:
-                errors.append(ratio_err)
-            fake_sum = 0.0
-            tight_sum = 0.0
-            fake_err_total = 0.0
-            tight_err_total = 0.0
+    for start, stop in regroup_slices:
+        fake_slice = slice(start, stop)
+        fake_sum = float(np.sum(fake_vals[fake_slice]))
+        tight_sum = float(np.sum(tight_vals[fake_slice]))
+
+        fake_err_total = _finalize_error(
+            np.sum(fake_errs[fake_slice] ** 2, dtype=float)
+        )
+        tight_err_total = _finalize_error(
+            np.sum(tight_errs[fake_slice] ** 2, dtype=float)
+        )
+
+        if fake_sum != 0.0:
+            ratio = tight_sum / fake_sum
+            ratio_err = _combine_ratio_uncertainty(
+                tight_sum, tight_err_total, fake_sum, fake_err_total
+            )
+        else:
+            ratio = 0.0
+            ratio_err = 0.0
+
+        ratios.append(ratio)
+        if ratio != 0.0 and (ratio + ratio_err) / ratio < 1.02:
+            errors.append(1.02 * ratio - ratio)
+        else:
+            errors.append(ratio_err)
 
     return np.array(ratios, dtype=float), np.array(errors, dtype=float)
 
@@ -617,6 +675,17 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
 
     data_tight  = data_tight.integrate("systematic","nominal")
 
+    tau_pt_edges, regroup_slices = _resolve_tau_pt_bins(
+        mc_fake.axes["tau0pt"],
+        TAU_PT_BIN_EDGES,
+    )
+
+    data_tau_pt_edges = _extract_tau_pt_edges(data_fake.axes["tau0pt"])
+    if not np.allclose(tau_pt_edges, data_tau_pt_edges):
+        raise RuntimeError(
+            "MC and data tau pt axes define different native edges."
+        )
+
     mc_fake_view = mc_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
     mc_tight_view = mc_tight.view()
     mc_fake_vals_map = {}
@@ -686,16 +755,18 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         mc_fake_e,
         mc_tight_vals,
         mc_tight_e,
+        regroup_slices,
     )
     data_y, data_e = compute_fake_rates(
         data_fake_vals,
         data_fake_e,
         data_tight_vals,
         data_tight_e,
+        regroup_slices,
     )
 
-    mc_x = np.array([TAU_PT_BIN_START] + TAU_PT_BIN_DIVIDERS[:-1], dtype=float)
-    data_x = np.array([TAU_PT_BIN_START] + TAU_PT_BIN_DIVIDERS[:-1], dtype=float)
+    mc_x = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
+    data_x = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
 
     return mc_x, mc_y, mc_e, data_x, data_y, data_e
 
