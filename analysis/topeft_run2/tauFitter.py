@@ -867,9 +867,24 @@ def main():
     x_data    = np.array(x_data, dtype=float).flatten()
 
 
-    print("fr data = ", y_data)
-    print("fr mc = ", y_mc)
-    SF = y_data/y_mc
+    def _format_vector(label, values):
+        formatted = np.array2string(
+            np.asarray(values, dtype=float),
+            precision=6,
+            floatmode="fixed",
+            separator=", ",
+        )
+        print(f"{label:<8}= {formatted}")
+
+    _format_vector("fr data", y_data)
+    _format_vector("fr mc", y_mc)
+
+    SF = np.divide(
+        y_data,
+        y_mc,
+        out=np.full_like(y_data, np.nan, dtype=float),
+        where=np.asarray(y_mc) != 0,
+    )
     SF_e = _combine_ratio_uncertainty_array(
         y_data,
         yerr_data,
@@ -899,6 +914,15 @@ def main():
                 dropped_bins.size,
                 ", ".join(str(bin_edge) for bin_edge in dropped_bins),
             )
+
+    report_pt_values = raw_x_data.copy()
+    if report_pt_values.size == 0:
+        report_pt_values = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
+    elif report_pt_values.size != len(TAU_PT_BIN_EDGES) - 1:
+        alt_pt_values = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
+        if alt_pt_values.size == report_pt_values.size:
+            report_pt_values = alt_pt_values
+    report_pt_values = report_pt_values[valid]
 
     SF = SF[valid]
     SF_e = SF_e[valid]
@@ -960,11 +984,23 @@ def main():
     #c1 = -0.0017
     c2 = (c1 + np.sqrt(l0)*v01)
     c3 = np.sqrt(l0)*v00+c0
-    bin_div = [30, 40, 50, 60, 80, 100, 200]
-    for p in bin_div:
-        print(p, " SF= ", c1*(p)+c0)
-        print(p, " SFup = ", (1 + lv0)*c0 + (1 + lv1)*c1*p)
-        print(p, " SFdown = ", (1 - lv0)*c0 + (1 - lv1)*c1*p)
+    if report_pt_values.size == 0:
+        report_pt_values = x_data
+
+    nominal_sf = c1 * report_pt_values + c0
+    sf_up = (1 + lv0) * c0 + (1 + lv1) * c1 * report_pt_values
+    sf_down = (1 - lv0) * c0 + (1 - lv1) * c1 * report_pt_values
+
+    header = f"{'pT [GeV]':>9}  {'SF':>10}  {'SF_up':>10}  {'SF_down':>10}"
+    print(header)
+    print("-" * len(header))
+    for pt, nom, up_val, down_val in zip(report_pt_values, nominal_sf, sf_up, sf_down):
+        print(
+            f"{pt:9.0f}  "
+            f"{nom:10.6f}  "
+            f"{up_val:10.6f}  "
+            f"{down_val:10.6f}"
+        )
 
 if __name__ == "__main__":
     main()
