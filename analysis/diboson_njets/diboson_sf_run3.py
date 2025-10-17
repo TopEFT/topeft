@@ -60,6 +60,35 @@ def _map_year_tokens_to_processes(proc_list):
     return matches
 
 
+def _normalize_process_whitelist(proc_list, process_whitelist):
+    """Expand whitelist items that look like year tokens into process names."""
+
+    if process_whitelist is None:
+        return None
+
+    normalized = set()
+    proc_lookup = {str(proc): proc for proc in proc_list}
+
+    for item in process_whitelist:
+        if item is None:
+            continue
+
+        item_str = str(item)
+
+        if item_str in proc_lookup:
+            normalized.add(proc_lookup[item_str])
+            continue
+
+        derived = _derive_process_subset_for_year(proc_list, item_str)
+        if derived:
+            normalized.update(derived)
+
+    if not normalized:
+        return set()
+
+    return normalized
+
+
 def get_yields_in_bins(
     hin_dict,
     proc_list,
@@ -266,10 +295,7 @@ def process_year(
     h = hin_dict[hist_name]
     proc_list = list(h.axes["process"])
 
-    effective_whitelist = None
-    if process_whitelist is not None:
-        whitelist_set = set(process_whitelist)
-        effective_whitelist = {proc for proc in proc_list if proc in whitelist_set}
+    effective_whitelist = _normalize_process_whitelist(proc_list, process_whitelist)
 
     year_str = str(year)
     if year_str.lower() != ALL_YEARS_SENTINEL:
@@ -391,6 +417,9 @@ def main():
         parser.error("At least one year must be provided via -y/--year.")
 
     has_all_years = any(year.lower() == ALL_YEARS_SENTINEL for year in years)
+    requested_specific_years = [
+        year for year in years if year.lower() != ALL_YEARS_SENTINEL
+    ]
 
     shared_pkl_for_years = False
     year_process_map = {}
@@ -476,11 +505,11 @@ def main():
                 "Automatically expanding '--year all' to process each discovered "
                 f"year: {', '.join(discovered_years)}"
             )
-
-        if discovered_years:
             requested_specific_years = [
                 year for year in years if year.lower() != ALL_YEARS_SENTINEL
             ]
+
+        if discovered_years:
             missing = [
                 year for year in requested_specific_years if year not in year_process_map
             ]
@@ -490,9 +519,6 @@ def main():
                     "requested year(s): " + ", ".join(missing)
                 )
         else:
-            requested_specific_years = [
-                year for year in years if year.lower() != ALL_YEARS_SENTINEL
-            ]
             if requested_specific_years:
                 parser.error(
                     "The shared --pkl file does not embed year tokens in the process "
@@ -530,6 +556,16 @@ def main():
                         "No processes encoding the requested year '"
                         f"{year}' were found in the shared file."
                     )
+            elif (
+                shared_pkl_for_years
+                and str(year).lower() == ALL_YEARS_SENTINEL
+                and requested_specific_years
+            ):
+                combined_processes = set()
+                for year_token in requested_specific_years:
+                    combined_processes.update(year_process_map.get(year_token, []))
+                if combined_processes:
+                    process_whitelist = sorted(combined_processes)
 
             results[year] = process_year(
                 pkl_path,
