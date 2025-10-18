@@ -311,7 +311,11 @@ def _extract_tau_counts(histogram, expected_bins):
     values = np.asarray(working_hist.values(flow=True), dtype=float)
     variances = working_hist.variances(flow=True)
     if variances is None:
-        variances = np.zeros_like(values, dtype=float)
+        # HistEFT objects backed by Double storage do not track sumw².  Fall back to
+        # Poisson-like uncertainties so statistical errors remain non-zero in that
+        # configuration.  Clip negative values (which can arise from weighted MC) to
+        # zero before treating them as variances.
+        variances = np.maximum(values, 0.0)
     else:
         variances = np.asarray(variances, dtype=float)
 
