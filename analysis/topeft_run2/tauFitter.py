@@ -239,10 +239,56 @@ def sqrt_list(numbers):
     return flat.reshape(arr.shape).tolist()
 
 
-def _fold_tau_overflow(array):
+def _strip_tau_flow(array, expected_bins):
+    arr = np.asarray(array, dtype=float)
+    if arr.size == 0:
+        return np.zeros(expected_bins, dtype=float)
+
+    squeezed = np.squeeze(arr)
+    if squeezed.ndim != 1:
+        raise RuntimeError(
+            "Unexpected tau flow array shape "
+            f"{arr.shape}; unable to resolve a 1D tau-pt spectrum."
+        )
+
+    if squeezed.size == expected_bins:
+        return squeezed.astype(float, copy=True)
+
+    if squeezed.size == expected_bins + 2:
+        if expected_bins <= 0:
+            raise RuntimeError(
+                "Cannot strip tau flow information when no physical bins are expected."
+            )
+
+        physical = squeezed[1:-1].astype(float, copy=True)
+        if physical.size != expected_bins:
+            raise RuntimeError(
+                "Failed to extract the expected number of tau-pt bins after removing "
+                "under/overflow entries."
+            )
+
+        if physical.size:
+            physical[-1] += squeezed[-1]
+        elif squeezed[-1] != 0:
+            raise RuntimeError(
+                "Encountered non-zero overflow content with no physical tau-pt bins."
+            )
+        return physical
+
+    raise RuntimeError(
+        "Unexpected tau flow array length "
+        f"{squeezed.size}; expected {expected_bins} (trimmed) or "
+        f"{expected_bins + 2} (with flow entries)."
+    )
+
+
+def _fold_tau_overflow(array, expected_bins=None):
     arr = np.array(array, dtype=float, copy=True)
     if arr.ndim == 0:
         return arr
+
+    if expected_bins is not None:
+        return _strip_tau_flow(arr, expected_bins)
 
     trim_slice = [slice(None)] * arr.ndim
     trim_slice[-1] = slice(1, None)
@@ -850,6 +896,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         mc_fake.axes["tau0pt"],
         TAU_PT_BIN_EDGES,
     )
+    expected_bins = len(tau_pt_edges) - 1
 
     data_tau_pt_edges = _extract_tau_pt_edges(data_fake.axes["tau0pt"])
     if not np.allclose(tau_pt_edges, data_tau_pt_edges):
@@ -865,13 +912,17 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     mc_tight_err_map = {}
     for key, vals in mc_fake_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        folded_vals = _fold_tau_overflow(
+            np.asarray(vals, dtype=float), expected_bins=expected_bins
+        )
         mc_fake_vals_map[proc] = folded_vals
         mc_fake_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     for key, vals in mc_tight_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        folded_vals = _fold_tau_overflow(
+            np.asarray(vals, dtype=float), expected_bins=expected_bins
+        )
         mc_tight_vals_map[proc] = folded_vals
         mc_tight_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
@@ -899,13 +950,17 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     data_tight_err_map = {}
     for key, vals in data_fake_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        folded_vals = _fold_tau_overflow(
+            np.asarray(vals, dtype=float), expected_bins=expected_bins
+        )
         data_fake_vals_map[proc] = folded_vals
         data_fake_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
     for key, vals in data_tight_view.items():
         proc = key[0] if isinstance(key, tuple) else key
-        folded_vals = _fold_tau_overflow(np.asarray(vals, dtype=float))
+        folded_vals = _fold_tau_overflow(
+            np.asarray(vals, dtype=float), expected_bins=expected_bins
+        )
         data_tight_vals_map[proc] = folded_vals
         data_tight_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
 
