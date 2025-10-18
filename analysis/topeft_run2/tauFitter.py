@@ -285,8 +285,15 @@ def _strip_tau_flow(array, expected_bins):
 def _fold_tau_overflow(array, expected_bins=None):
     arr = np.array(array, dtype=float, copy=True)
 
-    if arr.ndim > 1 and arr.shape[-1] == 1:
-        arr = arr.sum(axis=-1)
+    if arr.ndim > 1:
+        if arr.shape[-1] == 5:
+            arr = arr[..., 1:-1]
+
+        if arr.shape[-1] == 3:
+            arr = arr[..., 0]
+
+        if arr.shape[-1] == 1:
+            arr = arr.sum(axis=-1)
 
     if arr.ndim == 0:
         return arr
@@ -528,6 +535,13 @@ def unwrap(hist, flow=True):
 
 TAU_PT_BIN_EDGES = [20, 30, 40, 50, 60, 80, 100, 200]
 
+TAU_PT_BIN_START = TAU_PT_BIN_EDGES[0]
+TAU_PT_BIN_STEP = 10
+TAU_PT_BIN_DIVIDERS = [
+    TAU_PT_BIN_START + TAU_PT_BIN_STEP * (index + 1)
+    for index in range(len(TAU_PT_BIN_EDGES) - 1)
+]
+
 
 def _extract_tau_pt_edges(axis):
     if axis.name != "tau0pt":
@@ -646,19 +660,17 @@ def compute_fake_rates(
         n_bins = fake_vals.shape[-1]
         expected_physical_bins = len(TAU_PT_BIN_EDGES) - 1
 
-        # When histogram arrays are materialized with flow=True, the first and
-        # last entries correspond to underflow/overflow bins.  Skip these
-        # implicit bins as long as the array length matches the known tau-pT
-        # configuration with the additional flow entries.  Fall back to using
-        # the full array for unexpected lengths so we do not silently drop data
-        # if the histogram definition changes.
         has_flow_bins = n_bins == expected_physical_bins + 2
+        if has_flow_bins:
+            first_index = 2
+        else:
+            first_index = 0
 
-        start_index = 1 if has_flow_bins else 0
-        stop_index = n_bins - 1 if has_flow_bins else n_bins
+        stop_index = min(n_bins, first_index + expected_physical_bins)
 
         regroup_slices = [
-            (index, index + 1) for index in range(start_index, stop_index)
+            (index, index + 1)
+            for index in range(first_index, stop_index)
         ]
 
     ratios = []
@@ -895,25 +907,6 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     data_fake   = data_fake.integrate("systematic","nominal")
 
     data_tight  = data_tight.integrate("systematic","nominal")
-
-    def _integrate_quadratic_axis(histogram):
-        """Collapse the quadratic term axis when present.
-
-        Some histogram pickles may retain an auxiliary ``quadratic_term`` axis
-        after the systematic integration.  These additional dimensions are not
-        physical and prevent the tau spectrum arrays from appearing 1D.  When
-        encountered, integrate over the axis so downstream routines only see
-        the tau-pt bins (plus potential flow entries).
-        """
-
-        if any(ax.name == "quadratic_term" for ax in histogram.axes):
-            return histogram.integrate("quadratic_term")
-        return histogram
-
-    mc_fake = _integrate_quadratic_axis(mc_fake)
-    mc_tight = _integrate_quadratic_axis(mc_tight)
-    data_fake = _integrate_quadratic_axis(data_fake)
-    data_tight = _integrate_quadratic_axis(data_tight)
 
     tau_pt_edges, regroup_slices = _resolve_tau_pt_bins(
         mc_fake.axes["tau0pt"],
