@@ -112,6 +112,7 @@ def get_yields_in_bins(
     for proc in proc_list:
         if whitelist_set is not None and proc not in whitelist_set:
             continue
+
         yields[proc] = []
 
         try:
@@ -124,33 +125,35 @@ def get_yields_in_bins(
             # Slice to process, channel, and any optional axes (e.g., year)
             h_sel = h[selection]
 
-            # Integrate over any remaining axes except the histogram axis itself so
-            # that, e.g., shared Run 3 pickles without a year axis sum over all
-            # relevant categories instead of returning per-axis slices.
-            for ax in list(h_sel.axes):
-                if ax.name != hist_name:
-                    h_sel = h_sel.integrate(ax.name)
-            axis = h_sel.axes[hist_name]
-            view = h_sel.view(flow=False)
+            remaining_axes = [ax.name for ax in h_sel.axes]
+            if hist_name not in remaining_axes:
+                raise KeyError(
+                    f"Histogram '{hist_name}' axis not present after slicing for process "
+                    f"'{proc}'. Remaining axes: {remaining_axes}"
+                )
+
+            # Project onto the histogram axis so that all other coordinates are
+            # integrated out regardless of whether a dedicated year axis exists.
+            if len(remaining_axes) > 1:
+                h_sel = h_sel.project(hist_name)
+
+            axis = h_sel.axes[0]
             edges = axis.edges
-            view_array = list(view.values())[0]  # Extracts the array
-            view_flatten = view_array.flatten().tolist()
+            values = np.asarray(h_sel.values(flow=False), dtype=float)
+            values = values.reshape(-1)
 
         except Exception as e:
             print(f"\n\n  Error slicing/integrating for proc {proc}: {e}")
-            yields[proc] = [(None, None)] * (len(bins) - 1)
-            break
+            yields[proc] = [(0.0, 0.0)] * (len(bins) - 1)
+            continue
 
         for i in range(len(bins) - 1):
             low, high = bins[i], bins[i + 1]
-            val = 0.0
-            err = 0.0
-
             bin_indices = [
-                j for j, (lo, hi) in enumerate(zip(axis.edges[:-1], axis.edges[1:]))
+                j for j, (lo, hi) in enumerate(zip(edges[:-1], edges[1:]))
                 if hi > low and lo < high
             ]
-            val = sum(view_flatten[j] for j in bin_indices)
+            val = float(np.sum(values[bin_indices])) if bin_indices else 0.0
             yields[proc].append((val, 0.0))
             
     return yields
@@ -174,7 +177,14 @@ def make_diboson_sf_json(bins, scale_factors, year, output_dir="."):
 
 
 def compute_linear_fit(bin_centers, scale_factors):
-    if not bin_centers:
+    if not bin_centers or not scale_factors:
+        return None, []
+
+    if len(bin_centers) != len(scale_factors):
+        print(
+            "Warning: skipping linear fit because the number of bin centers does "
+            "not match the number of scale factors."
+        )
         return None, []
 
     coeffs = np.polyfit(bin_centers, scale_factors, deg=1)
@@ -302,25 +312,20 @@ def process_year(
         process_whitelist=whitelist_set,
     )
 
-    diboson = []
-    data = []
-    other = []
+    num_bins = len(bins) - 1
+    diboson = [0.0] * num_bins
+    data = [0.0] * num_bins
+    other = [0.0] * num_bins
 
     for proc, vals in yields.items():
         if proc.startswith("flip"):
             continue  # Skip flip samples
         if proc.startswith("WZTo") or proc.startswith("ZZTo") or proc.startswith("WWTo"):
-            if not diboson:
-                diboson = [val for val, _ in vals]
-            else:
-                diboson = [x + val for x, (val, _) in zip(diboson, vals)]
+            diboson = [x + (val or 0.0) for x, (val, _) in zip(diboson, vals)]
         elif "data" in proc:
-            data = [val for val, _ in vals]
+            data = [val or 0.0 for val, _ in vals]
         else:
-            if not other:
-                other = [val for val, _ in vals]
-            else:
-                other = [x + val for x, (val, _) in zip(other, vals)]
+            other = [x + (val or 0.0) for x, (val, _) in zip(other, vals)]
 
     # Compute (data - other) / diboson
     scale_factors = []
