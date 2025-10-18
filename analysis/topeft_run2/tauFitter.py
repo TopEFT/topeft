@@ -662,11 +662,11 @@ def compute_fake_rates(
 
         has_flow_bins = n_bins == expected_physical_bins + 2
         if has_flow_bins:
-            first_index = 2
+            first_index = 1
+            stop_index = min(n_bins - 1, first_index + expected_physical_bins)
         else:
             first_index = 0
-
-        stop_index = min(n_bins, first_index + expected_physical_bins)
+            stop_index = min(n_bins, first_index + expected_physical_bins)
 
         regroup_slices = [
             (index, index + 1)
