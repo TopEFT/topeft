@@ -283,46 +283,54 @@ def _strip_tau_flow(array, expected_bins):
 
 
 def _fold_tau_overflow(array, expected_bins=None):
-    arr = np.array(array, dtype=float, copy=True)
+    if expected_bins is None:
+        raise ValueError("The expected number of tau bins must be provided.")
 
-    if arr.ndim > 1:
-        if arr.shape[-1] == 5:
-            arr = arr[..., 1:-1]
+    arr = np.asarray(array, dtype=float)
+    squeezed = np.squeeze(arr)
 
-        if arr.shape[-1] == 3:
-            arr = arr[..., 0]
+    if squeezed.ndim != 1:
+        raise RuntimeError(
+            "Unexpected tau flow array shape "
+            f"{arr.shape}; unable to resolve a 1D tau-pt spectrum."
+        )
 
-        if arr.shape[-1] == 1:
-            arr = arr.sum(axis=-1)
+    return _strip_tau_flow(squeezed, expected_bins)
 
-    if arr.ndim == 0:
-        return arr
 
-    if expected_bins is not None:
-        return _strip_tau_flow(arr, expected_bins)
+def _extract_tau_counts(histogram, expected_bins):
+    working_hist = histogram
 
-    trim_slice = [slice(None)] * arr.ndim
-    trim_slice[-1] = slice(1, None)
-    trimmed = arr[tuple(trim_slice)]
+    try:
+        quad_axis = working_hist.axes["quadratic_term"]
+    except (KeyError, ValueError, TypeError):
+        pass
+    else:
+        quad_selection = 0
+        identifiers = getattr(quad_axis, "identifiers", None)
+        if identifiers is not None:
+            try:
+                if 0 not in identifiers:
+                    quad_selection = identifiers[0]
+            except TypeError:
+                quad_selection = identifiers[0]
+        working_hist = working_hist.integrate("quadratic_term", quad_selection)
 
-    if trimmed.shape[-1] == 0:
-        return trimmed.copy()
+    values = np.asarray(working_hist.values(flow=True), dtype=float)
+    variances = working_hist.variances(flow=True)
+    if variances is None:
+        # HistEFT objects backed by Double storage do not track sumw².  Fall back to
+        # Poisson-like uncertainties so statistical errors remain non-zero in that
+        # configuration.  Clip negative values (which can arise from weighted MC) to
+        # zero before treating them as variances.
+        variances = np.maximum(values, 0.0)
+    else:
+        variances = np.asarray(variances, dtype=float)
 
-    overflow_slice = [slice(None)] * trimmed.ndim
-    overflow_slice[-1] = slice(-1, None)
-    overflow = trimmed[tuple(overflow_slice)]
+    folded_values = _fold_tau_overflow(values, expected_bins=expected_bins)
+    folded_variances = _fold_tau_overflow(variances, expected_bins=expected_bins)
 
-    physical_slice = [slice(None)] * trimmed.ndim
-    physical_slice[-1] = slice(None, -1)
-    physical = trimmed[tuple(physical_slice)].copy()
-
-    if physical.shape[-1] == 0:
-        return physical
-
-    last_physical = [slice(None)] * physical.ndim
-    last_physical[-1] = slice(-1, None)
-    physical[tuple(last_physical)] += overflow
-    return physical
+    return folded_values, folded_variances
 
 
 def _format_bin_edge(edge):
@@ -920,27 +928,23 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
             "MC and data tau pt axes define different native edges."
         )
 
-    mc_fake_view = mc_fake.view(flow=True)  # dictionary: keys are SparseHistTuple, values are arrays
-    mc_tight_view = mc_tight.view(flow=True)
     mc_fake_vals_map = {}
     mc_fake_err_map = {}
     mc_tight_vals_map = {}
     mc_tight_err_map = {}
-    for key, vals in mc_fake_view.items():
-        proc = key[0] if isinstance(key, tuple) else key
-        folded_vals = _fold_tau_overflow(
-            np.asarray(vals, dtype=float), expected_bins=expected_bins
-        )
-        mc_fake_vals_map[proc] = folded_vals
-        mc_fake_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
+    for process in mc_fake.axes["process"]:
+        proc_name = str(process)
+        proc_hist = mc_fake[{"process": process}]
+        proc_vals, proc_vars = _extract_tau_counts(proc_hist, expected_bins)
+        mc_fake_vals_map[proc_name] = proc_vals
+        mc_fake_err_map[proc_name] = np.sqrt(np.clip(proc_vars, 0.0, None))
 
-    for key, vals in mc_tight_view.items():
-        proc = key[0] if isinstance(key, tuple) else key
-        folded_vals = _fold_tau_overflow(
-            np.asarray(vals, dtype=float), expected_bins=expected_bins
-        )
-        mc_tight_vals_map[proc] = folded_vals
-        mc_tight_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
+    for process in mc_tight.axes["process"]:
+        proc_name = str(process)
+        proc_hist = mc_tight[{"process": process}]
+        proc_vals, proc_vars = _extract_tau_counts(proc_hist, expected_bins)
+        mc_tight_vals_map[proc_name] = proc_vals
+        mc_tight_err_map[proc_name] = np.sqrt(np.clip(proc_vars, 0.0, None))
 
     if mc_fake_vals_map.keys() != mc_tight_vals_map.keys():
         raise RuntimeError(
@@ -958,27 +962,23 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     mc_tight_e = mc_tight_err_map[mc_proc]
     mc_tight_vals = mc_tight_vals_map[mc_proc]
 
-    data_fake_view = data_fake.view(flow=True)  # dictionary: keys are SparseHistTuple, values are arrays
-    data_tight_view = data_tight.view(flow=True)
     data_fake_vals_map = {}
     data_fake_err_map = {}
     data_tight_vals_map = {}
     data_tight_err_map = {}
-    for key, vals in data_fake_view.items():
-        proc = key[0] if isinstance(key, tuple) else key
-        folded_vals = _fold_tau_overflow(
-            np.asarray(vals, dtype=float), expected_bins=expected_bins
-        )
-        data_fake_vals_map[proc] = folded_vals
-        data_fake_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
+    for process in data_fake.axes["process"]:
+        proc_name = str(process)
+        proc_hist = data_fake[{"process": process}]
+        proc_vals, proc_vars = _extract_tau_counts(proc_hist, expected_bins)
+        data_fake_vals_map[proc_name] = proc_vals
+        data_fake_err_map[proc_name] = np.sqrt(np.clip(proc_vars, 0.0, None))
 
-    for key, vals in data_tight_view.items():
-        proc = key[0] if isinstance(key, tuple) else key
-        folded_vals = _fold_tau_overflow(
-            np.asarray(vals, dtype=float), expected_bins=expected_bins
-        )
-        data_tight_vals_map[proc] = folded_vals
-        data_tight_err_map[proc] = np.asarray(sqrt_list(folded_vals), dtype=float)
+    for process in data_tight.axes["process"]:
+        proc_name = str(process)
+        proc_hist = data_tight[{"process": process}]
+        proc_vals, proc_vars = _extract_tau_counts(proc_hist, expected_bins)
+        data_tight_vals_map[proc_name] = proc_vals
+        data_tight_err_map[proc_name] = np.sqrt(np.clip(proc_vars, 0.0, None))
 
     if data_fake_vals_map.keys() != data_tight_vals_map.keys():
         raise RuntimeError(
