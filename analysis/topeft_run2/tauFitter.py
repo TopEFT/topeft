@@ -304,17 +304,27 @@ def _extract_tau_counts(histogram, expected_bins):
     try:
         quad_axis = working_hist.axes["quadratic_term"]
     except (KeyError, ValueError, TypeError):
-        pass
-    else:
-        quad_selection = 0
+        quad_axis = None
+
+    if quad_axis is not None:
+        quad_label = 0
         identifiers = getattr(quad_axis, "identifiers", None)
         if identifiers is not None:
+            if callable(identifiers):
+                identifiers_value = identifiers()
+            else:
+                identifiers_value = identifiers
+
             try:
-                if 0 not in identifiers:
-                    quad_selection = identifiers[0]
+                identifiers_iter = list(identifiers_value)
             except TypeError:
-                quad_selection = identifiers[0]
-        working_hist = working_hist.integrate("quadratic_term", quad_selection)
+                identifiers_iter = [identifiers_value]
+
+            if 0 in identifiers_iter:
+                quad_label = 0
+            elif identifiers_iter:
+                quad_label = identifiers_iter[0]
+        working_hist = working_hist[{"quadratic_term": quad_label}]
 
     values = np.asarray(working_hist.values(flow=True), dtype=float)
     variances = working_hist.variances(flow=True)
