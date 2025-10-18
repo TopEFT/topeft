@@ -284,6 +284,10 @@ def _strip_tau_flow(array, expected_bins):
 
 def _fold_tau_overflow(array, expected_bins=None):
     arr = np.array(array, dtype=float, copy=True)
+
+    if arr.ndim > 1 and arr.shape[-1] == 1:
+        arr = arr.sum(axis=-1)
+
     if arr.ndim == 0:
         return arr
 
@@ -891,6 +895,25 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     data_fake   = data_fake.integrate("systematic","nominal")
 
     data_tight  = data_tight.integrate("systematic","nominal")
+
+    def _integrate_quadratic_axis(histogram):
+        """Collapse the quadratic term axis when present.
+
+        Some histogram pickles may retain an auxiliary ``quadratic_term`` axis
+        after the systematic integration.  These additional dimensions are not
+        physical and prevent the tau spectrum arrays from appearing 1D.  When
+        encountered, integrate over the axis so downstream routines only see
+        the tau-pt bins (plus potential flow entries).
+        """
+
+        if any(ax.name == "quadratic_term" for ax in histogram.axes):
+            return histogram.integrate("quadratic_term")
+        return histogram
+
+    mc_fake = _integrate_quadratic_axis(mc_fake)
+    mc_tight = _integrate_quadratic_axis(mc_tight)
+    data_fake = _integrate_quadratic_axis(data_fake)
+    data_tight = _integrate_quadratic_axis(data_tight)
 
     tau_pt_edges, regroup_slices = _resolve_tau_pt_bins(
         mc_fake.axes["tau0pt"],
