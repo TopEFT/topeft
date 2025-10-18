@@ -302,11 +302,19 @@ def _extract_tau_counts(histogram, expected_bins):
     working_hist = histogram
 
     try:
-        working_hist.axes["quadratic_term"]
+        quad_axis = working_hist.axes["quadratic_term"]
     except (KeyError, ValueError, TypeError):
         pass
     else:
-        working_hist = working_hist.integrate("quadratic_term", "0")
+        quad_selection = 0
+        identifiers = getattr(quad_axis, "identifiers", None)
+        if identifiers is not None:
+            try:
+                if 0 not in identifiers:
+                    quad_selection = identifiers[0]
+            except TypeError:
+                quad_selection = identifiers[0]
+        working_hist = working_hist.integrate("quadratic_term", quad_selection)
 
     values = np.asarray(working_hist.values(flow=True), dtype=float)
     variances = working_hist.variances(flow=True)
