@@ -223,10 +223,6 @@ CR_GRP_MAP_full = {
     ]
 }
 
-
-#def sqrt_list(numbers):
-#    return [math.sqrt(num) for num in numbers]
-
 def sqrt_list(numbers):
     arr = np.asarray(numbers)
     if arr.dtype.kind in "fc":
