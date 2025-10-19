@@ -334,7 +334,10 @@ def _extract_tau_counts(histogram, expected_bins):
 
     if quad_axis_index is not None and values.ndim > quad_axis_index:
         quad_selection_index = 0
+        identifiers_iter = None
+        axis_size = None
         if quad_axis is not None:
+            axis_size = getattr(quad_axis, "size", None)
             identifiers = getattr(quad_axis, "identifiers", None)
             if identifiers is not None:
                 if callable(identifiers):
@@ -355,16 +358,37 @@ def _extract_tau_counts(histogram, expected_bins):
                 elif identifiers_iter:
                     quad_selection_index = 0
 
-        if values.shape[quad_axis_index] > 1 or values.ndim > 1:
+        if values.shape[quad_axis_index] > 0:
             flow_axis_size = values.shape[quad_axis_index]
-            # values(..., flow=True) includes an underflow element at index 0 for
-            # each axis.  Shift the selection by one so the quadratic coefficient
-            # bin labelled "0" still maps to the correct physical slot.
+
+            has_flow_entries = False
+            if quad_axis is not None:
+                traits = getattr(quad_axis, "traits", None)
+                if traits is not None:
+                    has_flow_entries = bool(
+                        getattr(traits, "underflow", False)
+                        or getattr(traits, "overflow", False)
+                    )
+
+                if not has_flow_entries:
+                    options = getattr(quad_axis, "options", None)
+                    if options is not None:
+                        has_flow_entries = bool(
+                            getattr(options, "underflow", False)
+                            or getattr(options, "overflow", False)
+                        )
+
+            if not has_flow_entries and axis_size is not None:
+                has_flow_entries = flow_axis_size > axis_size
+
+            if not has_flow_entries and identifiers_iter is not None:
+                has_flow_entries = flow_axis_size > len(identifiers_iter)
+
             flow_selection_index = (
-                quad_selection_index + 1
-                if flow_axis_size >= (quad_selection_index + 2)
-                else quad_selection_index
+                quad_selection_index + 1 if has_flow_entries else quad_selection_index
             )
+
+            flow_selection_index = min(flow_selection_index, flow_axis_size - 1)
 
             values = np.take(values, flow_selection_index, axis=quad_axis_index)
             if variances is not None:
