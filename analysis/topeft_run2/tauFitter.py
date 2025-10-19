@@ -418,7 +418,7 @@ def _extract_tau_counts(histogram, expected_bins):
             if variances is not None:
                 variances = np.take(variances, flow_selection_index, axis=quad_axis_index)
 
-    if variances is None:
+    if variances is None or not np.any(variances):
         # HistEFT objects backed by Double storage do not track sumw².  Fall back to
         # Poisson-like uncertainties so statistical errors remain non-zero in that
         # configuration.  Clip negative values (which can arise from weighted MC) to
