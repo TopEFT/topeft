@@ -301,9 +301,21 @@ def _fold_tau_overflow(array, expected_bins=None):
 def _extract_tau_counts(histogram, expected_bins):
     working_hist = histogram
 
-    try:
-        quad_axis = working_hist.axes["quadratic_term"]
-    except (KeyError, ValueError, TypeError):
+    axes = getattr(working_hist, "axes", None)
+    axis_names = ()
+    if axes is not None:
+        axis_names = getattr(axes, "name", ()) or ()
+        if isinstance(axis_names, str):
+            axis_names = (axis_names,)
+        else:
+            axis_names = tuple(axis_names)
+
+    if "quadratic_term" in axis_names:
+        try:
+            quad_axis = working_hist.axes["quadratic_term"]
+        except (KeyError, ValueError, TypeError):
+            quad_axis = None
+    else:
         quad_axis = None
 
     if quad_axis is not None:
