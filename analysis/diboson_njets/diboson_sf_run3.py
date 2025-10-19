@@ -147,10 +147,24 @@ def get_yields_in_bins(
                     f"{final_axes}. Expected only '{hist_name}'."
                 )
 
-            axis = h_sel.axes[0]
+            axes_tuple = h_sel.axes
+            if hist_name in axes_tuple.name:
+                axis = axes_tuple[hist_name]
+            else:
+                axis = axes_tuple[0]
+
+            if not hasattr(axis, "edges"):
+                raise AttributeError(
+                    f"Unable to determine bin edges for axis '{axis.name}'."
+                )
             edges = axis.edges
-            values = np.asarray(h_sel.values(flow=False), dtype=float)
-            values = values.reshape(-1)
+
+            raw_values = h_sel.values(flow=False)
+            if isinstance(raw_values, ak.Array):
+                values = ak.to_numpy(raw_values, allow_missing=False)
+            else:
+                values = np.asarray(raw_values, dtype=float)
+            values = values.astype(float, copy=False).reshape(-1)
 
         except Exception as e:
             print(f"\n\n  Error slicing/integrating for proc {proc}: {e}")
