@@ -132,10 +132,20 @@ def get_yields_in_bins(
                     f"'{proc}'. Remaining axes: {remaining_axes}"
                 )
 
-            # Project onto the histogram axis so that all other coordinates are
-            # integrated out regardless of whether a dedicated year axis exists.
-            if len(remaining_axes) > 1:
-                h_sel = h_sel.project(hist_name)
+            # Explicitly integrate out all axes except the histogram axis. This
+            # mirrors the behaviour prior to the hist v2 regression fix where we
+            # looped over the remaining axes and integrated them one-by-one.
+            for axis in list(h_sel.axes):
+                if axis.name != hist_name:
+                    h_sel = h_sel.integrate(axis.name)
+
+            # Sanity check: only the requested histogram axis should remain.
+            final_axes = [ax.name for ax in h_sel.axes]
+            if final_axes != [hist_name]:
+                raise RuntimeError(
+                    "Unexpected axes remain after integration: "
+                    f"{final_axes}. Expected only '{hist_name}'."
+                )
 
             axis = h_sel.axes[0]
             edges = axis.edges
