@@ -41,6 +41,7 @@ from scipy.odr import *
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.yield_tools import YieldTools
+from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.utils as utils
 
 yt = YieldTools()
@@ -301,6 +302,29 @@ def _fold_tau_overflow(array, expected_bins=None):
 def _extract_tau_counts(histogram, expected_bins):
     working_hist = histogram
 
+    if isinstance(working_hist, HistEFT):
+        # Evaluate EFT histograms at SM couplings so downstream logic works with
+        # regular dense arrays. Prefer as_hist when available so the return value
+        # mimics a standard hist.Hist instance.
+        if hasattr(working_hist, 'as_hist'):
+            working_hist = working_hist.as_hist({})
+        else:
+            evaluated = working_hist.eval({})
+            # Construct a dense histogram manually if as_hist is unavailable.
+            coeff_axis = getattr(working_hist, '_coeff_axis', None)
+            base_axes = [axis for axis in working_hist.axes if axis is not coeff_axis]
+            init_args = getattr(working_hist, '_init_args', {})
+            new_hist = hist.Hist(*base_axes, **init_args)
+            sparse_names = working_hist.categorical_axes.name
+            if isinstance(sparse_names, str):
+                sparse_names = (sparse_names,)
+            for sp_val, arrs in evaluated.items():
+                if not isinstance(sp_val, tuple):
+                    sp_val = (sp_val,)
+                sp_key = dict(zip(sparse_names, sp_val))
+                new_hist[sp_key] = arrs
+            working_hist = new_hist
+
     axes = getattr(working_hist, "axes", None)
     axis_names = ()
     if axes is not None:
@@ -394,7 +418,7 @@ def _extract_tau_counts(histogram, expected_bins):
             if variances is not None:
                 variances = np.take(variances, flow_selection_index, axis=quad_axis_index)
 
-    if variances is None:
+    if variances is None or not np.any(variances):
         # HistEFT objects backed by Double storage do not track sumw².  Fall back to
         # Poisson-like uncertainties so statistical errors remain non-zero in that
         # configuration.  Clip negative values (which can arise from weighted MC) to
