@@ -60,3 +60,21 @@ def test_run3_histogram_yields_are_non_zero(tmp_path):
     assert yields["ZZTo2L2Nu_2022"][1][0] > 0.0
     assert yields["ZZTo2L2Nu_2022"][2][0] > 0.0
     assert yields["WZTo3LNu_2022"][3][0] > 0.0
+
+
+def test_get_yields_in_bins_raises_on_slice_failure(tmp_path):
+    data_path = _materialize_histogram_fixture(tmp_path)
+    histograms = load_pkl_file(str(data_path))
+
+    bins = [0, 1, 2, 3, 4, 5, 6]
+    proc_list = ["ZZTo2L2Nu_2022"]
+
+    with pytest.raises(RuntimeError, match="Failed to compute yields"):
+        get_yields_in_bins(
+            histograms,
+            proc_list=proc_list,
+            bins=bins,
+            hist_name="njets",
+            channel_name="non_existent_channel",
+            extra_slices={"year": "2022"},
+        )

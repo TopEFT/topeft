@@ -154,8 +154,10 @@ def get_yields_in_bins(
 
         except Exception as e:
             print(f"\n\n  Error slicing/integrating for proc {proc}: {e}")
-            yields[proc] = [(0.0, 0.0)] * (len(bins) - 1)
-            continue
+            raise RuntimeError(
+                "Failed to compute yields for process "
+                f"'{proc}' from histogram '{hist_name}'."
+            ) from e
 
         for i in range(len(bins) - 1):
             low, high = bins[i], bins[i + 1]
@@ -312,15 +314,21 @@ def process_year(
                 f"'{', '.join(sorted(filter_tokens))}'."
             )
 
-    yields = get_yields_in_bins(
-        hin_dict,
-        proc_list,
-        bins,
-        hist_name=hist_name,
-        channel_name=channel,
-        extra_slices=None,
-        process_whitelist=whitelist_set,
-    )
+    try:
+        yields = get_yields_in_bins(
+            hin_dict,
+            proc_list,
+            bins,
+            hist_name=hist_name,
+            channel_name=channel,
+            extra_slices=None,
+            process_whitelist=whitelist_set,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "Failed to derive diboson scale factors for year "
+            f"'{year}' using histogram '{hist_name}' from '{pkl_path}'."
+        ) from exc
 
     num_bins = len(bins) - 1
     diboson = [0.0] * num_bins
