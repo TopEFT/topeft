@@ -356,9 +356,19 @@ def _extract_tau_counts(histogram, expected_bins):
                     quad_selection_index = 0
 
         if values.shape[quad_axis_index] > 1 or values.ndim > 1:
-            values = np.take(values, quad_selection_index, axis=quad_axis_index)
+            flow_axis_size = values.shape[quad_axis_index]
+            # values(..., flow=True) includes an underflow element at index 0 for
+            # each axis.  Shift the selection by one so the quadratic coefficient
+            # bin labelled "0" still maps to the correct physical slot.
+            flow_selection_index = (
+                quad_selection_index + 1
+                if flow_axis_size >= (quad_selection_index + 2)
+                else quad_selection_index
+            )
+
+            values = np.take(values, flow_selection_index, axis=quad_axis_index)
             if variances is not None:
-                variances = np.take(variances, quad_selection_index, axis=quad_axis_index)
+                variances = np.take(variances, flow_selection_index, axis=quad_axis_index)
 
     if variances is None:
         # HistEFT objects backed by Double storage do not track sumw².  Fall back to
