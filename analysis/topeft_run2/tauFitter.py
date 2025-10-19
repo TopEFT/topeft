@@ -310,44 +310,62 @@ def _extract_tau_counts(histogram, expected_bins):
         else:
             axis_names = tuple(axis_names)
 
+    quad_axis = None
+    quad_axis_index = None
     if "quadratic_term" in axis_names:
+        try:
+            quad_axis_index = axis_names.index("quadratic_term")
+        except ValueError:
+            quad_axis_index = None
+
         try:
             quad_axis = working_hist.axes["quadratic_term"]
         except (KeyError, ValueError, TypeError):
-            quad_axis = None
-    else:
-        quad_axis = None
-
-    if quad_axis is not None:
-        quad_label = 0
-        identifiers = getattr(quad_axis, "identifiers", None)
-        if identifiers is not None:
-            if callable(identifiers):
-                identifiers_value = identifiers()
-            else:
-                identifiers_value = identifiers
-
             try:
-                identifiers_iter = list(identifiers_value)
-            except TypeError:
-                identifiers_iter = [identifiers_value]
-
-            if 0 in identifiers_iter:
-                quad_label = 0
-            elif identifiers_iter:
-                quad_label = identifiers_iter[0]
-        working_hist = working_hist[{"quadratic_term": quad_label}]
+                if quad_axis_index is not None:
+                    quad_axis = working_hist.axes[quad_axis_index]
+            except (KeyError, ValueError, TypeError, IndexError):
+                quad_axis = None
 
     values = np.asarray(working_hist.values(flow=True), dtype=float)
     variances = working_hist.variances(flow=True)
+    if variances is not None:
+        variances = np.asarray(variances, dtype=float)
+
+    if quad_axis_index is not None and values.ndim > quad_axis_index:
+        quad_selection_index = 0
+        if quad_axis is not None:
+            identifiers = getattr(quad_axis, "identifiers", None)
+            if identifiers is not None:
+                if callable(identifiers):
+                    identifiers_value = identifiers()
+                else:
+                    identifiers_value = identifiers
+
+                try:
+                    identifiers_iter = list(identifiers_value)
+                except TypeError:
+                    identifiers_iter = [identifiers_value]
+
+                if 0 in identifiers_iter:
+                    try:
+                        quad_selection_index = identifiers_iter.index(0)
+                    except ValueError:
+                        quad_selection_index = 0
+                elif identifiers_iter:
+                    quad_selection_index = 0
+
+        if values.shape[quad_axis_index] > 1 or values.ndim > 1:
+            values = np.take(values, quad_selection_index, axis=quad_axis_index)
+            if variances is not None:
+                variances = np.take(variances, quad_selection_index, axis=quad_axis_index)
+
     if variances is None:
         # HistEFT objects backed by Double storage do not track sumw².  Fall back to
         # Poisson-like uncertainties so statistical errors remain non-zero in that
         # configuration.  Clip negative values (which can arise from weighted MC) to
         # zero before treating them as variances.
         variances = np.maximum(values, 0.0)
-    else:
-        variances = np.asarray(variances, dtype=float)
 
     folded_values = _fold_tau_overflow(values, expected_bins=expected_bins)
     folded_variances = _fold_tau_overflow(variances, expected_bins=expected_bins)
