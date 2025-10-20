@@ -35,13 +35,7 @@ WGT_VAR_LST = [
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='You can customize your run')
-    parser.add_argument(
-        'jsonFiles',
-        nargs='?',
-        default='',
-        help='Json file(s) containing files and metadata. When used together with --years, this may be a comma-separated list '
-             'matching the number of supplied years or a template containing "{year}" (e.g. input_samples/cfgs/{year}_data.cfg).'
-    )
+    parser.add_argument('jsonFiles'        , nargs='?', default='', help = 'Json file(s) containing files and metadata')
     parser.add_argument('--executor','-x'  , default='work_queue', help = 'Which executor to use')
     parser.add_argument('--prefix', '-r'   , nargs='?', default='', help = 'Prefix or redirector to look for the files')
     parser.add_argument('--test','-t'       , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
@@ -67,18 +61,9 @@ if __name__ == '__main__':
     parser.add_argument('--ecut', default=None  , help = 'Energy cut threshold i.e. throw out events above this (GeV)')
     parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.')
     parser.add_argument('--noRun3MVA'    , action='store_false', default=True, help = 'Add fwd channels')
-    parser.add_argument(
-        '--years',
-        '-y',
-        nargs='+',
-        help='Run 3 data-taking years to process (e.g. 2022 2022EE 2023). When provided, jsonFiles should either be a template '
-             'with "{year}" (e.g. input_samples/cfgs/{year}_data.cfg) or a comma-separated list of configs with the same length '
-             'as the list of years.'
-    )
 
     args = parser.parse_args()
     jsonFiles  = args.jsonFiles
-    years      = args.years if args.years is not None else []
     prefix     = args.prefix
     executor   = args.executor
     dotest     = args.test
@@ -252,26 +237,10 @@ if __name__ == '__main__':
             samplesdict[sampleName] = json.load(jf)
             samplesdict[sampleName]['redirector'] = prefix
 
-    if years:
-        if jsonFiles is None or jsonFiles == '':
-            raise ValueError('When using --years you must also provide a jsonFiles template or list of config files.')
-        if '{year}' in jsonFiles:
-            jsonFiles = [jsonFiles.format(year=year) for year in years]
-        else:
-            if isinstance(jsonFiles, str):
-                jsonFiles = [j.strip() for j in jsonFiles.split(',') if j.strip()]
-            if len(jsonFiles) != len(years):
-                raise ValueError('The number of jsonFiles provided must match the number of years when not using a {year} template.')
-    else:
-        if isinstance(jsonFiles, str) and ',' in jsonFiles:
-            jsonFiles = [j.strip() for j in jsonFiles.split(',') if j.strip()]
-        elif isinstance(jsonFiles, str):
-            jsonFiles = [jsonFiles] if jsonFiles != '' else []
-
-    if years and jsonFiles:
-        print('>> Queued configs for Run 3 years:')
-        for year, cfg in zip(years, jsonFiles):
-            print(f'   - {year}: {cfg}')
+    if isinstance(jsonFiles, str) and ',' in jsonFiles:
+        jsonFiles = jsonFiles.replace(' ', '').split(',')
+    elif isinstance(jsonFiles, str):
+        jsonFiles = [jsonFiles]
     for jsonFile in jsonFiles:
         if os.path.isdir(jsonFile):
             if not jsonFile.endswith('/'): jsonFile+='/'
@@ -461,7 +430,7 @@ if __name__ == '__main__':
 
     output = runner(flist, treename, processor_instance)
 
-    print("Finished running the processor...")
+    print("Finished running the processor... output keys:", output.keys())
 
     dt = time.time() - tstart
 

@@ -5,7 +5,7 @@ OUT_NAME="run2taus"
 
 # Build the run command for filling SR histos
 CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
-OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 --do-np -o $OUT_NAME --tau_h_analysis" # For analysis
+OPTIONS="--hist-list ana --skip-cr --do-systs -s 20000 --do-np -o $OUT_NAME -x futures -c 1 -s 1000" #--tau_h_analysis" # For analysis
 
 # Build the run command for filling CR histos
 #CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_cr_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
