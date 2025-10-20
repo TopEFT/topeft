@@ -15,6 +15,8 @@ import json
 import os
 import pickle
 import re
+import sys
+import traceback
 
 import numpy as np
 import hist
@@ -109,8 +111,6 @@ def get_yields_in_bins(
     if process_whitelist is not None:
         whitelist_set = set(process_whitelist)
 
-    failures = []
-
     for proc in proc_list:
         if whitelist_set is not None and proc not in whitelist_set:
             continue
@@ -167,8 +167,19 @@ def get_yields_in_bins(
             values = values.astype(float, copy=False).reshape(-1)
 
         except Exception as exc:  # pragma: no cover - exercised via tests
-            failures.append((proc, exc))
-            continue
+            print(
+                "ERROR: Failed to compute yields for process "
+                f"'{proc}' from histogram '{hist_name}' in channel "
+                f"'{channel_name}'.",
+                file=sys.stderr,
+                flush=True,
+            )
+            traceback.print_exc()
+            raise RuntimeError(
+                "Failed to compute yields for process "
+                f"'{proc}' from histogram '{hist_name}' in channel "
+                f"'{channel_name}'."
+            ) from exc
 
         proc_yields = []
         for i in range(len(bins) - 1):
@@ -181,20 +192,6 @@ def get_yields_in_bins(
             proc_yields.append((val, 0.0))
 
         yields[proc] = proc_yields
-
-    if failures:
-        error_details = []
-        for failing_proc, exc in failures:
-            exc_type = type(exc).__name__
-            error_details.append(
-                f"  process '{failing_proc}' ({exc_type}): {exc}"
-            )
-        error_message = (
-            "Failed to compute yields for the following process(es) "
-            f"from histogram '{hist_name}' in channel '{channel_name}':\n"
-            + "\n".join(error_details)
-        )
-        raise RuntimeError(error_message) from failures[0][1]
 
     return yields
 
