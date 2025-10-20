@@ -125,46 +125,51 @@ def get_yields_in_bins(
             # Slice to process, channel, and any optional axes (e.g., year)
             h_sel = h[selection]
 
-            remaining_axes = [ax.name for ax in h_sel.axes]
-            if hist_name not in remaining_axes:
+            axis_names = [ax.name for ax in h_sel.axes]
+            if hist_name not in axis_names:
                 raise KeyError(
                     f"Histogram '{hist_name}' axis not present after slicing for process "
-                    f"'{proc}'. Remaining axes: {remaining_axes}"
+                    f"'{proc}'. Remaining axes: {axis_names}"
                 )
 
-            # Explicitly integrate out all axes except the histogram axis.
-            # Iterate over the live list of axes so both categorical (sparse)
-            # and dense axes are collapsed uniformly.
-            for axis in list(h_sel.axes):
-                if axis.name != hist_name:
-                    h_sel = h_sel.integrate(axis.name)
-
-            # Sanity check: only the requested histogram axis should remain.
-            final_axes = [ax.name for ax in h_sel.axes]
-            if final_axes != [hist_name]:
+            values_ak = h_sel.values(flow=False)
+            try:
+                values_np = ak.to_numpy(values_ak)
+            except Exception as exc:
+                # Attempt a best-effort conversion for debugging before raising a
+                # hard error so upstream callers do not continue with unreliable
+                # contents.
+                try:
+                    np.asarray(values_ak)
+                except Exception:
+                    pass
                 raise RuntimeError(
-                    "Unexpected axes remain after integration: "
-                    f"{final_axes}. Expected only '{hist_name}'."
-                )
+                    "Failed to convert histogram values to a dense NumPy array using "
+                    f"ak.to_numpy for process '{proc}' on histogram '{hist_name}'."
+                ) from exc
 
-            axis = h_sel.axes[0]
-            if axis.name != hist_name:
-                raise RuntimeError(
-                    f"Failed to locate axis '{hist_name}' after integration"
-                )
+            # Reduce all axes except the histogram axis, ensuring stable indices by
+            # summing from the highest axis index downward.
+            reduce_indices = [
+                idx for idx, name in enumerate(axis_names) if name != hist_name
+            ]
+            for axis_idx in sorted(reduce_indices, reverse=True):
+                values_np = values_np.sum(axis=axis_idx)
 
+            axis = h_sel.axes[hist_name]
             if not hasattr(axis, "edges"):
                 raise AttributeError(
                     f"Unable to determine bin edges for axis '{axis.name}'."
                 )
             edges = axis.edges
 
-            raw_values = h_sel.values(flow=False)
-            if isinstance(raw_values, ak.Array):
-                values = ak.to_numpy(raw_values, allow_missing=False)
-            else:
-                values = np.asarray(raw_values, dtype=float)
-            values = values.astype(float, copy=False).reshape(-1)
+            expected_bins = len(edges) - 1
+            values_np = np.asarray(values_np, dtype=float).reshape(-1)
+            if values_np.shape[0] != expected_bins:
+                raise RuntimeError(
+                    "Reduced histogram values do not match the number of bins for axis "
+                    f"'{hist_name}'. Expected {expected_bins}, got {values_np.shape[0]}"
+                )
 
         except Exception as exc:  # pragma: no cover - exercised via tests
             error_message = (
@@ -187,7 +192,7 @@ def get_yields_in_bins(
                 j for j, (lo, hi) in enumerate(zip(edges[:-1], edges[1:]))
                 if hi > low and lo < high
             ]
-            val = float(np.sum(values[bin_indices])) if bin_indices else 0.0
+            val = float(np.sum(values_np[bin_indices])) if bin_indices else 0.0
             proc_yields.append((val, 0.0))
 
         yields[proc] = proc_yields
