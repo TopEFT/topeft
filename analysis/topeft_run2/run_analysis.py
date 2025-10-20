@@ -634,7 +634,7 @@ if __name__ == "__main__":
 
     output = runner(flist, treename, processor_instance)
 
-    print("Finished running the processor...")
+    print("Finished running the processor... output keys:", output.keys())
 
     dt = time.time() - tstart
 
