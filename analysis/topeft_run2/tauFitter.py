@@ -12,6 +12,8 @@
 # output is in the form of linear fit y = mx+b
 # where m and b are in numerical form, y is the SF, and x is the tau pt
 # tau fake-rate fits use regrouped pt edges [20, 30, 40, 50, 60, 80, 100, 200]
+# Detailed setup instructions and interpretation notes live in
+# README_FITTING.md (see the "Tau fake-rate fitter" section).
 
 import numpy as np
 import os
@@ -560,6 +562,8 @@ TAU_PT_BIN_EDGES = [20, 30, 40, 50, 60, 80, 100, 200]
 
 
 def _extract_tau_pt_edges(axis):
+    """Return the raw tau-pt bin edges, parsing categorical axes when needed."""
+
     if axis.name != "tau0pt":
         raise RuntimeError(
             f"Tau pt regrouping requested for unexpected axis '{axis.name}'."
@@ -568,6 +572,8 @@ def _extract_tau_pt_edges(axis):
     try:
         native_edges = np.asarray(axis.edges, dtype=float)
     except AttributeError:
+        # Some histograms encode the tau axis as strings (e.g. "[20, 30)"); in
+        # that case parse the numeric boundaries manually to recover the edges.
         pattern = re.compile(r"[-+]?\d*\.?\d+")
         boundaries = []
         for category in axis:
@@ -598,7 +604,14 @@ def _extract_tau_pt_edges(axis):
 
 
 def _resolve_tau_pt_bins(axis, target_edges):
-    """Validate and translate regrouping edges for the tau pt axis."""
+    """Translate user-specified regrouping edges into histogram bin slices.
+
+    The fitter expects regrouping requests to align with the native histogram
+    boundaries.  This helper verifies that every requested edge coincides with
+    an existing boundary and then stores the corresponding ``(start, stop)``
+    indices.  These indices are later used to sum the fine-grained histogram
+    bins into the coarser working points used for the fit.
+    """
 
     if len(target_edges) < 2:
         raise RuntimeError("Tau pt regrouping requires at least two edge values.")
@@ -607,6 +620,9 @@ def _resolve_tau_pt_bins(axis, target_edges):
 
     regroup_slices = []
     for left, right in zip(target_edges[:-1], target_edges[1:]):
+        # ``np.where`` returns every index matching the requested boundary; we
+        # keep the first match because repeated edges would already constitute
+        # an invalid (zero-width) regrouping interval.
         left_idx = np.where(np.isclose(native_edges, left))[0]
         right_idx = np.where(np.isclose(native_edges, right))[0]
         if left_idx.size == 0:
@@ -631,17 +647,25 @@ def _resolve_tau_pt_bins(axis, target_edges):
         regroup_slices.append((start, stop))
 
     return native_edges, regroup_slices
+
+
 def _finalize_error(total):
+    """Return the square-root error while guarding against small negatives."""
+
     return math.sqrt(total) if total > 0.0 else 0.0
 
 
 def _combine_ratio_uncertainty(num, num_err, den, den_err):
+    """Propagate errors for ``num/den`` using the usual uncorrelated formula."""
+
     if den == 0.0:
         return 0.0
     return math.sqrt((num_err / den) ** 2 + (num * den_err / (den ** 2)) ** 2)
 
 
 def _combine_ratio_uncertainty_array(num, num_err, den, den_err):
+    """Vectorised wrapper around :func:`_combine_ratio_uncertainty`."""
+
     num = np.asarray(num, dtype=float)
     num_err = np.asarray(num_err, dtype=float)
     den = np.asarray(den, dtype=float)
@@ -667,6 +691,27 @@ def compute_fake_rates(
     tight_errs,
     regroup_slices=None,
 ):
+    """Compute fake rates and their uncertainties after optional regrouping.
+
+    Parameters
+    ----------
+    fake_vals, tight_vals : array-like
+        Arrays containing the fake (loose) and tight yields for each tau-pT bin.
+    fake_errs, tight_errs : array-like
+        Quadrature-combined uncertainties matching ``fake_vals`` and
+        ``tight_vals``.
+    regroup_slices : iterable of ``(start, stop)`` pairs, optional
+        Pre-computed regrouping slices describing how fine histogram bins should
+        be merged.  When omitted the function assumes the arrays are already
+        aligned with the working binning and folds overflow away.
+
+    Returns
+    -------
+    tuple
+        ``(rates, errors, summary)`` with per-bin fake rates, propagated
+        uncertainties, and book-keeping information about the summed counts.
+    """
+
     fake_vals = np.asarray(fake_vals, dtype=float)
     fake_errs = np.asarray(fake_errs, dtype=float)
     tight_vals = np.asarray(tight_vals, dtype=float)
@@ -676,6 +721,9 @@ def compute_fake_rates(
         n_bins = fake_vals.shape[-1]
         expected_physical_bins = len(TAU_PT_BIN_EDGES) - 1
 
+        # Histograms produced by coffea often ship the under/overflow bins.
+        # Detect this case and skip the flow entries so we can operate on the
+        # physical tau-pt intervals only.
         has_flow_bins = n_bins == expected_physical_bins + 2
         if has_flow_bins:
             first_index = 1
@@ -684,6 +732,9 @@ def compute_fake_rates(
             first_index = 0
             stop_index = min(n_bins, first_index + expected_physical_bins)
 
+        # Build one-slice-per-bin regrouping instructions so downstream logic
+        # can keep a uniform code path regardless of whether explicit regrouping
+        # instructions were passed.
         regroup_slices = [
             (index, index + 1)
             for index in range(first_index, stop_index)
@@ -695,9 +746,13 @@ def compute_fake_rates(
 
     for start, stop in regroup_slices:
         fake_slice = slice(start, stop)
+        # Sum yields inside the requested regrouping window.  ``np.sum`` already
+        # copes with single-bin windows so no special handling is needed here.
         fake_sum = float(np.sum(fake_vals[fake_slice]))
         tight_sum = float(np.sum(tight_vals[fake_slice]))
 
+        # Add statistical and systematic errors in quadrature, mirroring the
+        # logic used when the fit inputs are prepared.
         fake_err_total = _finalize_error(
             np.sum(fake_errs[fake_slice] ** 2, dtype=float)
         )
@@ -707,6 +762,8 @@ def compute_fake_rates(
 
         if fake_sum != 0.0:
             ratio = tight_sum / fake_sum
+            # Tight and fake selections are assumed uncorrelated, so we can use
+            # the standard error propagation formula for a ratio of two yields.
             ratio_err = _combine_ratio_uncertainty(
                 tight_sum, tight_err_total, fake_sum, fake_err_total
             )
@@ -716,6 +773,8 @@ def compute_fake_rates(
 
         ratios.append(ratio)
         if ratio != 0.0 and (ratio + ratio_err) / ratio < 1.02:
+            # Enforce a minimum ~2% relative uncertainty so the subsequent fit
+            # does not see artificially precise inputs.
             errors.append(1.02 * ratio - ratio)
         else:
             errors.append(ratio_err)
