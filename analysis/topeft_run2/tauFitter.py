@@ -31,7 +31,6 @@ import hist
 
 import sys
 import re
-import numpy as np
 import matplotlib
 #matplotlib.use('Qt4Agg')
 
