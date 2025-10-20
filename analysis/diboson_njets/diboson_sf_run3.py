@@ -169,19 +169,18 @@ def get_yields_in_bins(
             values = values.astype(float, copy=False).reshape(-1)
 
         except Exception as exc:  # pragma: no cover - exercised via tests
-            print(
-                "ERROR: Failed to compute yields for process "
+            error_message = (
+                "Failed to compute yields for process "
                 f"'{proc}' from histogram '{hist_name}' in channel "
-                f"'{channel_name}'.",
+                f"'{channel_name}'."
+            )
+            print(
+                "ERROR: " + error_message,
                 file=sys.stderr,
                 flush=True,
             )
             traceback.print_exc()
-            raise RuntimeError(
-                "Failed to compute yields for process "
-                f"'{proc}' from histogram '{hist_name}' in channel "
-                f"'{channel_name}'."
-            ) from exc
+            raise RuntimeError(error_message) from exc
 
         proc_yields = []
         for i in range(len(bins) - 1):
@@ -624,11 +623,10 @@ def main():
         except KeyError as exc:
             parser.error(str(exc))
         except Exception as exc:
-            parser.error(
+            raise RuntimeError(
                 "Failed to derive diboson scale factors for year "
-                f"'{year}' using histogram '{args.hist_name}' from '{pkl_path}'.\n"
-                f"{exc}"
-            )
+                f"'{year}' using histogram '{args.hist_name}' from '{pkl_path}'."
+            ) from exc
 
     if summary:
         print("\nSummary of scale factor results:")
