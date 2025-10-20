@@ -147,11 +147,11 @@ def get_yields_in_bins(
                     f"{final_axes}. Expected only '{hist_name}'."
                 )
 
-            axes_tuple = h_sel.axes
-            if hist_name in axes_tuple.name:
-                axis = axes_tuple[hist_name]
-            else:
-                axis = axes_tuple[0]
+            axis = next((ax for ax in h_sel.axes if ax.name == hist_name), None)
+            if axis is None:
+                raise RuntimeError(
+                    f"Failed to locate axis '{hist_name}' after integration"
+                )
 
             if not hasattr(axis, "edges"):
                 raise AttributeError(
