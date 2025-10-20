@@ -223,19 +223,6 @@ CR_GRP_MAP_full = {
     ]
 }
 
-def sqrt_list(numbers):
-    arr = np.asarray(numbers)
-    if arr.dtype.kind in "fc":
-        arr = arr.copy()
-    else:
-        arr = arr.astype(float)
-
-    flat = arr.reshape(-1)
-    np.clip(flat, 0, None, out=flat)
-    np.sqrt(flat, out=flat)
-    return flat.reshape(arr.shape).tolist()
-
-
 def _strip_tau_flow(array, expected_bins):
     arr = np.asarray(array, dtype=float)
     if arr.size == 0:
@@ -560,26 +547,6 @@ def SF_fit_alt(SF,SF_e,x):
     c0,c1,cov, = out.Output()
     return c0,c1,cov
 
-def group_bins_original(histo,bin_map,axis_name="sample",drop_unspecified=True):
-
-    bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
-
-    # Construct the map of bins to remap
-    bins_to_remap_lst = []
-    for grp_name,bins_in_grp in bin_map.items():
-        bins_to_remap_lst.extend(bins_in_grp)
-    if not drop_unspecified:
-        for bin_name in yt.get_cat_lables(histo,axis_name):
-            if bin_name not in bins_to_remap_lst:
-                bin_map[bin_name] = bin_name
-
-    # Remap the bins
-    old_ax = histo.axis(axis_name)
-    new_ax = hist.Cat(old_ax.name,old_ax.label)
-    new_histo = histo.group(old_ax,new_ax,bin_map,overflow="over")
-
-    return new_histo
-
 def _ensure_list(values):
     if isinstance(values, str):
         return [values]
@@ -616,33 +583,7 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 
     return histo.group(axis_name, normalized_map)
 
-def unwrap(hist, flow=True):
-    """
-    Unwrap a coffea.hist.Hist or HistEFT object into numpy arrays for values and errors.
-    """
-    # If it's already a dict (from coffea), use it directly
-    if isinstance(hist, dict):
-        vals = list(hist.values())[0]
-        vars_ = list(hist.values())[0]  # if variances already computed elsewhere
-    else:
-        vals = hist.values(flow=flow)
-        vars_ = hist.variances(flow=flow)
-        if isinstance(vals, dict):
-            vals = list(vals.values())[0]
-        if isinstance(vars_, dict):
-            vars_ = list(vars_.values())[0]
-
-    errs = np.sqrt(vars_)
-    return vals, errs
-
 TAU_PT_BIN_EDGES = [20, 30, 40, 50, 60, 80, 100, 200]
-
-TAU_PT_BIN_START = TAU_PT_BIN_EDGES[0]
-TAU_PT_BIN_STEP = 10
-TAU_PT_BIN_DIVIDERS = [
-    TAU_PT_BIN_START + TAU_PT_BIN_STEP * (index + 1)
-    for index in range(len(TAU_PT_BIN_EDGES) - 1)
-]
 
 
 def _extract_tau_pt_edges(axis):

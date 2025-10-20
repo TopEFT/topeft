@@ -93,10 +93,8 @@ def test_group_bins_raises_for_unknown_sources(group_fn):
 
 
 def _toy_histogram_arrays():
-    n_steps = int(
-        (tau.TAU_PT_BIN_DIVIDERS[-1] - tau.TAU_PT_BIN_START) / tau.TAU_PT_BIN_STEP
-    )
-    length = 2 + n_steps
+    n_physical_bins = len(tau.TAU_PT_BIN_EDGES) - 1
+    length = 2 + n_physical_bins
     fake_vals = np.zeros(length)
     tight_vals = np.zeros(length)
     fake_errs = np.zeros(length)
@@ -119,9 +117,10 @@ def test_compute_fake_rates_quadrature_matches_manual():
         tight_errs,
     )
 
-    assert len(ratios) == len(tau.TAU_PT_BIN_DIVIDERS)
-    assert len(errors) == len(tau.TAU_PT_BIN_DIVIDERS)
-    assert len(summary) == len(tau.TAU_PT_BIN_DIVIDERS)
+    expected_bins = len(tau.TAU_PT_BIN_EDGES) - 1
+    assert len(ratios) == expected_bins
+    assert len(errors) == expected_bins
+    assert len(summary) == expected_bins
 
     manual_error = math.sqrt((5.0 / 100.0) ** 2 + (50.0 * 10.0 / (100.0 ** 2)) ** 2)
 
