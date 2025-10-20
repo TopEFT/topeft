@@ -109,11 +109,11 @@ def get_yields_in_bins(
     if process_whitelist is not None:
         whitelist_set = set(process_whitelist)
 
+    errors = []
+
     for proc in proc_list:
         if whitelist_set is not None and proc not in whitelist_set:
             continue
-
-        yields[proc] = []
 
         try:
             selection = {
@@ -166,13 +166,11 @@ def get_yields_in_bins(
                 values = np.asarray(raw_values, dtype=float)
             values = values.astype(float, copy=False).reshape(-1)
 
-        except Exception as e:
-            print(f"\n\n  Error slicing/integrating for proc {proc}: {e}")
-            raise RuntimeError(
-                "Failed to compute yields for process "
-                f"'{proc}' from histogram '{hist_name}'."
-            ) from e
+        except Exception as exc:  # pragma: no cover - exercised via tests
+            errors.append((proc, exc))
+            continue
 
+        proc_yields = []
         for i in range(len(bins) - 1):
             low, high = bins[i], bins[i + 1]
             bin_indices = [
@@ -180,8 +178,21 @@ def get_yields_in_bins(
                 if hi > low and lo < high
             ]
             val = float(np.sum(values[bin_indices])) if bin_indices else 0.0
-            yields[proc].append((val, 0.0))
-            
+            proc_yields.append((val, 0.0))
+
+        yields[proc] = proc_yields
+
+    if errors:
+        error_details = []
+        for failing_proc, exc in errors:
+            error_details.append(f"  process '{failing_proc}': {exc}")
+        error_message = (
+            "Failed to compute yields for the following process(es) "
+            f"from histogram '{hist_name}' in channel '{channel_name}':\n"
+            + "\n".join(error_details)
+        )
+        raise RuntimeError(error_message) from errors[0][1]
+
     return yields
 
 def make_diboson_sf_json(bins, scale_factors, year, output_dir="."):
@@ -328,21 +339,15 @@ def process_year(
                 f"'{', '.join(sorted(filter_tokens))}'."
             )
 
-    try:
-        yields = get_yields_in_bins(
-            hin_dict,
-            proc_list,
-            bins,
-            hist_name=hist_name,
-            channel_name=channel,
-            extra_slices=None,
-            process_whitelist=whitelist_set,
-        )
-    except Exception as exc:
-        raise RuntimeError(
-            "Failed to derive diboson scale factors for year "
-            f"'{year}' using histogram '{hist_name}' from '{pkl_path}'."
-        ) from exc
+    yields = get_yields_in_bins(
+        hin_dict,
+        proc_list,
+        bins,
+        hist_name=hist_name,
+        channel_name=channel,
+        extra_slices=None,
+        process_whitelist=whitelist_set,
+    )
 
     num_bins = len(bins) - 1
     diboson = [0.0] * num_bins
@@ -616,6 +621,12 @@ def main():
             }
         except KeyError as exc:
             parser.error(str(exc))
+        except Exception as exc:
+            parser.error(
+                "Failed to derive diboson scale factors for year "
+                f"'{year}' using histogram '{args.hist_name}' from '{pkl_path}'.\n"
+                f"{exc}"
+            )
 
     if summary:
         print("\nSummary of scale factor results:")
