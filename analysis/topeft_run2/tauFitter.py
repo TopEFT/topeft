@@ -224,6 +224,8 @@ CR_GRP_MAP_full = {
 }
 
 def _strip_tau_flow(array, expected_bins):
+    """Trim under/overflow entries from a tau histogram projection."""
+
     arr = np.asarray(array, dtype=float)
     if arr.size == 0:
         return np.zeros(expected_bins, dtype=float)
@@ -267,149 +269,120 @@ def _strip_tau_flow(array, expected_bins):
 
 
 def _fold_tau_overflow(array, expected_bins=None):
+    """Merge overflow into the last tau-pt bin of a 1D array."""
+
     if expected_bins is None:
         raise ValueError("The expected number of tau bins must be provided.")
 
     arr = np.asarray(array, dtype=float)
-    squeezed = np.squeeze(arr)
-
-    if squeezed.ndim != 1:
+    if arr.ndim != 1:
         raise RuntimeError(
-            "Unexpected tau flow array shape "
-            f"{arr.shape}; unable to resolve a 1D tau-pt spectrum."
+            "Overflow folding expects a 1D tau spectrum; received shape "
+            f"{arr.shape}."
         )
 
-    return _strip_tau_flow(squeezed, expected_bins)
+    return _strip_tau_flow(arr, expected_bins)
 
 
 def _extract_tau_counts(histogram, expected_bins):
+    """Evaluate tau yields and variances, keeping only the SM quadratic term."""
+
     working_hist = histogram
 
+    # HistEFT stores quadratic coefficients sparsely; evaluate them at the SM
+    # point so that downstream logic can operate on dense histograms.
     if isinstance(working_hist, HistEFT):
-        # Evaluate EFT histograms at SM couplings so downstream logic works with
-        # regular dense arrays. Prefer as_hist when available so the return value
-        # mimics a standard hist.Hist instance.
-        if hasattr(working_hist, 'as_hist'):
+        if hasattr(working_hist, "as_hist"):
             working_hist = working_hist.as_hist({})
         else:
             evaluated = working_hist.eval({})
-            # Construct a dense histogram manually if as_hist is unavailable.
-            coeff_axis = getattr(working_hist, '_coeff_axis', None)
-            base_axes = [axis for axis in working_hist.axes if axis is not coeff_axis]
-            init_args = getattr(working_hist, '_init_args', {})
-            new_hist = hist.Hist(*base_axes, **init_args)
-            sparse_names = working_hist.categorical_axes.name
-            if isinstance(sparse_names, str):
-                sparse_names = (sparse_names,)
-            for sp_val, arrs in evaluated.items():
-                if not isinstance(sp_val, tuple):
-                    sp_val = (sp_val,)
-                sp_key = dict(zip(sparse_names, sp_val))
-                new_hist[sp_key] = arrs
-            working_hist = new_hist
+            if isinstance(evaluated, hist.Hist):
+                working_hist = evaluated
+            else:
+                coeff_axis = getattr(working_hist, "_coeff_axis", None)
+                base_axes = [axis for axis in working_hist.axes if axis is not coeff_axis]
+                init_args = getattr(working_hist, "_init_args", {})
+                dense_hist = hist.Hist(*base_axes, **init_args)
+                sparse_names = working_hist.categorical_axes.name
+                if isinstance(sparse_names, str):
+                    sparse_names = (sparse_names,)
+                for sp_val, arrs in evaluated.items():
+                    if not isinstance(sp_val, tuple):
+                        sp_val = (sp_val,)
+                    dense_hist[dict(zip(sparse_names, sp_val))] = arrs
+                working_hist = dense_hist
 
-    axes = getattr(working_hist, "axes", None)
-    axis_names = ()
-    if axes is not None:
-        axis_names = getattr(axes, "name", ()) or ()
-        if isinstance(axis_names, str):
-            axis_names = (axis_names,)
-        else:
-            axis_names = tuple(axis_names)
+    axis_names = tuple(getattr(axis, "name", None) for axis in getattr(working_hist, "axes", ()))
 
-    quad_axis = None
-    quad_axis_index = None
-    if "quadratic_term" in axis_names:
-        try:
-            quad_axis_index = axis_names.index("quadratic_term")
-        except ValueError:
-            quad_axis_index = None
-
-        try:
-            quad_axis = working_hist.axes["quadratic_term"]
-        except (KeyError, ValueError, TypeError):
-            try:
-                if quad_axis_index is not None:
-                    quad_axis = working_hist.axes[quad_axis_index]
-            except (KeyError, ValueError, TypeError, IndexError):
-                quad_axis = None
-
+    # Retrieve dense values/variances with histogram-provided helpers.
     values = np.asarray(working_hist.values(flow=True), dtype=float)
     variances = working_hist.variances(flow=True)
     if variances is not None:
         variances = np.asarray(variances, dtype=float)
 
-    if quad_axis_index is not None and values.ndim > quad_axis_index:
-        quad_selection_index = 0
-        identifiers_iter = None
-        axis_size = None
-        if quad_axis is not None:
-            axis_size = getattr(quad_axis, "size", None)
+    # Drop the quadratic-term axis by selecting the constant coefficient.
+    if "quadratic_term" in axis_names:
+        quad_index = axis_names.index("quadratic_term")
+        coeff_index = 0
+        try:
+            quad_axis = working_hist.axes[quad_index]
             identifiers = getattr(quad_axis, "identifiers", None)
             if identifiers is not None:
-                if callable(identifiers):
-                    identifiers_value = identifiers()
-                else:
-                    identifiers_value = identifiers
+                identifiers_iter = identifiers() if callable(identifiers) else identifiers
+                for idx, identifier in enumerate(identifiers_iter):
+                    ident_value = getattr(identifier, "value", identifier)
+                    if isinstance(ident_value, str):
+                        stripped = ident_value.strip()
+                        if stripped.isdigit():
+                            ident_value = int(stripped)
+                        elif stripped.lower() in {"const", "sm,sm"}:
+                            ident_value = 0
+                    if ident_value == 0:
+                        coeff_index = idx
+                        break
+        except Exception:
+            coeff_index = 0
 
-                try:
-                    identifiers_iter = list(identifiers_value)
-                except TypeError:
-                    identifiers_iter = [identifiers_value]
+        take_index = coeff_index
+        traits = getattr(quad_axis, "traits", None)
+        if traits is not None and getattr(traits, "underflow", False):
+            take_index += 1
 
-                if 0 in identifiers_iter:
-                    try:
-                        quad_selection_index = identifiers_iter.index(0)
-                    except ValueError:
-                        quad_selection_index = 0
-                elif identifiers_iter:
-                    quad_selection_index = 0
+        values = np.take(values, take_index, axis=quad_index)
+        if variances is not None:
+            variances = np.take(variances, take_index, axis=quad_index)
 
-        if values.shape[quad_axis_index] > 0:
-            flow_axis_size = values.shape[quad_axis_index]
+    values_1d = np.squeeze(values)
+    if values_1d.ndim == 0:
+        values_1d = values_1d.reshape(1)
+    if values_1d.ndim != 1:
+        raise RuntimeError(
+            "Unexpected tau histogram shape; expected a 1D tau-pt spectrum, "
+            f"received {values.shape}."
+        )
 
-            has_flow_entries = False
-            if quad_axis is not None:
-                traits = getattr(quad_axis, "traits", None)
-                if traits is not None:
-                    has_flow_entries = bool(
-                        getattr(traits, "underflow", False)
-                        or getattr(traits, "overflow", False)
-                    )
-
-                if not has_flow_entries:
-                    options = getattr(quad_axis, "options", None)
-                    if options is not None:
-                        has_flow_entries = bool(
-                            getattr(options, "underflow", False)
-                            or getattr(options, "overflow", False)
-                        )
-
-            if not has_flow_entries and axis_size is not None:
-                has_flow_entries = flow_axis_size > axis_size
-
-            if not has_flow_entries and identifiers_iter is not None:
-                has_flow_entries = flow_axis_size > len(identifiers_iter)
-
-            flow_selection_index = (
-                quad_selection_index + 1 if has_flow_entries else quad_selection_index
+    if variances is not None:
+        variances_1d = np.squeeze(variances)
+        if variances_1d.ndim == 0:
+            variances_1d = variances_1d.reshape(1)
+        if variances_1d.ndim != 1:
+            raise RuntimeError(
+                "Unexpected tau variance shape; expected a 1D tau-pt spectrum, "
+                f"received {variances.shape}."
             )
+    else:
+        variances_1d = None
 
-            flow_selection_index = min(flow_selection_index, flow_axis_size - 1)
-
-            values = np.take(values, flow_selection_index, axis=quad_axis_index)
-            if variances is not None:
-                variances = np.take(variances, flow_selection_index, axis=quad_axis_index)
-
-    if variances is None or not np.any(variances):
+    if variances_1d is None or not np.any(variances_1d):
         # HistEFT objects backed by Double storage do not track sumw².  Fall back to
         # Poisson-like uncertainties so statistical errors remain non-zero in that
         # configuration.  Clip negative values (which can arise from weighted MC) to
         # zero before treating them as variances.
-        variances = np.maximum(values, 0.0)
+        variances_1d = np.maximum(values_1d, 0.0)
 
-    folded_values = _fold_tau_overflow(values, expected_bins=expected_bins)
-    folded_variances = _fold_tau_overflow(variances, expected_bins=expected_bins)
+    # Fold overflow contributions after ensuring the arrays are 1D.
+    folded_values = _fold_tau_overflow(values_1d, expected_bins=expected_bins)
+    folded_variances = _fold_tau_overflow(variances_1d, expected_bins=expected_bins)
 
     return folded_values, folded_variances
 
