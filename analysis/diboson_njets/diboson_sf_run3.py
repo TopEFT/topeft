@@ -132,14 +132,12 @@ def get_yields_in_bins(
                     f"'{proc}'. Remaining axes: {remaining_axes}"
                 )
 
-            # Explicitly integrate out all axes except the histogram axis. When
-            # the histogram is already one-dimensional, leave it untouched;
-            # otherwise iterate over the axis list so both categorical and dense
-            # axes are handled uniformly.
-            if len(h_sel.axes) > 1:
-                for axis in list(h_sel.axes):
-                    if axis.name != hist_name:
-                        h_sel = h_sel.integrate(axis.name)
+            # Explicitly integrate out all axes except the histogram axis.
+            # Iterate over the live list of axes so both categorical (sparse)
+            # and dense axes are collapsed uniformly.
+            for axis in list(h_sel.axes):
+                if axis.name != hist_name:
+                    h_sel = h_sel.integrate(axis.name)
 
             # Sanity check: only the requested histogram axis should remain.
             final_axes = [ax.name for ax in h_sel.axes]
@@ -149,8 +147,8 @@ def get_yields_in_bins(
                     f"{final_axes}. Expected only '{hist_name}'."
                 )
 
-            axis = next((ax for ax in h_sel.axes if ax.name == hist_name), None)
-            if axis is None:
+            axis = h_sel.axes[0]
+            if axis.name != hist_name:
                 raise RuntimeError(
                     f"Failed to locate axis '{hist_name}' after integration"
                 )
