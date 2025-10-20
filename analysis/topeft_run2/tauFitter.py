@@ -343,9 +343,14 @@ def _extract_tau_counts(histogram, expected_bins):
         except Exception:
             coeff_index = 0
 
-        values = np.take(values, coeff_index, axis=quad_index)
+        take_index = coeff_index
+        traits = getattr(quad_axis, "traits", None)
+        if traits is not None and getattr(traits, "underflow", False):
+            take_index += 1
+
+        values = np.take(values, take_index, axis=quad_index)
         if variances is not None:
-            variances = np.take(variances, coeff_index, axis=quad_index)
+            variances = np.take(variances, take_index, axis=quad_index)
 
     values_1d = np.squeeze(values)
     if values_1d.ndim == 0:
