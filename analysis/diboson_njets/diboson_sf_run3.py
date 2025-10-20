@@ -132,12 +132,14 @@ def get_yields_in_bins(
                     f"'{proc}'. Remaining axes: {remaining_axes}"
                 )
 
-            # Explicitly integrate out all axes except the histogram axis. This
-            # mirrors the behaviour prior to the hist v2 regression fix where we
-            # looped over the remaining axes and integrated them one-by-one.
-            for axis in list(h_sel.axes):
-                if axis.name != hist_name:
-                    h_sel = h_sel.integrate(axis.name)
+            # Explicitly integrate out all axes except the histogram axis. When
+            # the histogram is already one-dimensional, leave it untouched;
+            # otherwise iterate over the axis list so both categorical and dense
+            # axes are handled uniformly.
+            if len(h_sel.axes) > 1:
+                for axis in list(h_sel.axes):
+                    if axis.name != hist_name:
+                        h_sel = h_sel.integrate(axis.name)
 
             # Sanity check: only the requested histogram axis should remain.
             final_axes = [ax.name for ax in h_sel.axes]
