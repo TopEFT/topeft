@@ -41,11 +41,8 @@ import logging
 import os
 import pickle
 import re
-import sys
 
 import numpy as np
-import hist
-import boost_histogram as bh
 import awkward as ak
 
 
