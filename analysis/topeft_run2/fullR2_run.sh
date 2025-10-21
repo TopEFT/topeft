@@ -5,7 +5,6 @@ COMMIT="b225975a"
 TAG="run2taus"
 
 # Build the run command for filling SR histos
-
 #TAG="${TAG}_SRs"
 #OUT_NAME="${TAG}_${COMMIT}"
 #CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
