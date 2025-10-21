@@ -32,16 +32,19 @@ linear-fit JSON, and a PNG diagnostic plot.
 import argparse
 import gzip
 import json
+import logging
 import os
 import pickle
 import re
 import sys
-import traceback
 
 import numpy as np
 import hist
 import boost_histogram as bh
 import awkward as ak
+
+
+logger = logging.getLogger(__name__)
 
 def load_pkl_file(pkl_file):
     with gzip.open(pkl_file, "rb") as f:
@@ -197,12 +200,7 @@ def get_yields_in_bins(
                 f"'{proc}' from histogram '{hist_name}' in channel "
                 f"'{channel_name}'. Encountered error: {exc.__class__.__name__}: {exc}"
             )
-            print(
-                "ERROR: " + error_message,
-                file=sys.stderr,
-                flush=True,
-            )
-            traceback.print_exc()
+            logger.error(error_message, exc_info=exc)
             raise RuntimeError(error_message) from exc
 
         proc_yields = []
