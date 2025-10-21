@@ -7,7 +7,7 @@ wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B
 
 # Run the processor
 printf "\nRunning the processor...\n"
-time python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures -o new_ref_histos
+time python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures -o new_ref_histos "$@"
 
 # Make the JSON file of the yields
 printf "\nMaking the yields JSON file...\n"
