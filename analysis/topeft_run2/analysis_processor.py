@@ -223,6 +223,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sampleType = "prompt_and_conversions"
 
         # Initialize objects
+
         met  = events.MET
         ele  = events.Electron
         mu   = events.Muon
@@ -367,7 +368,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if is_run2: 
                 tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
             if is_run3:
-                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
+                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2018v2p5VSjet, tau.idDeepTau2018v2p5VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
             tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
             tau = tau[tau.isGood] # use these to clean jets
@@ -776,7 +777,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 tau_F_mask  = (ak.num(tau[tau["isVLoose"]>0]) >=1)
                 tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) >=1)
                 no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
-
 
             ######### Store boolean masks with PackedSelection ##########
 

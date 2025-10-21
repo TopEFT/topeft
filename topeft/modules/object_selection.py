@@ -51,7 +51,7 @@ class run3TauSelection:
         pass
 
     def isPresTau(self, pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0):
-        return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTauVSjet >= 4)&(idDeepTauVSe >= 2)&(idDeepTauVSmu >= 2)
+        return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTauVSjet >= 3)&(idDeepTauVSe >= 2)&(idDeepTauVSmu >= 2)
 
     def isVLooseTau(self, idDeepTauVSjet):
         return (idDeepTauVSjet >= 3)
