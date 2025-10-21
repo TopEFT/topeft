@@ -1,13 +1,33 @@
-'''
-        This script is made specifically for run3 diboson scale factor calculation based on njets distribution.
-        Default njet bins are [0, 1, 2, 3, 4, 5, 6].
+"""
+Run 3 diboson scale factor calculation based on the ``njets`` distribution.
+The default ``njets`` bin edges are ``[0, 1, 2, 3, 4, 5, 6]``.
 
-        Run the following command:
-        python diboson_sf_run3.py --pkl {/path/to/np.pkl.gz} -y {year}
+Invocation patterns:
 
-        Multiple years can be processed at once by repeating the arguments, e.g.:
-        python diboson_sf_run3.py --pkl year_{year}.pkl.gz -y 2022 2023
-'''
+* Provide one pickle per year when the histograms are stored separately::
+
+      python diboson_sf_run3.py --pkl 2022.pkl.gz 2023.pkl.gz --year 2022 2023
+
+* Use a template containing ``{year}`` when the files follow a naming
+  convention; the placeholder will be expanded for each requested year::
+
+      python diboson_sf_run3.py --pkl "/path/to/year_{year}.pkl.gz" --year 2022 2023
+
+* Supply a single pickle shared by all years.  The script automatically selects
+  the processes whose names encode each requested year (tokens like
+  ``central2023`` or ``2022EE``)::
+
+      python diboson_sf_run3.py --pkl combined.pkl.gz --year 2022 2023
+
+* Discover every available year in a shared pickle with ``--year all``.  This
+  mode processes every detected year token and also writes a combined result::
+
+      python diboson_sf_run3.py --pkl combined.pkl.gz --year all
+
+Outputs are written per year (including the combined entry when ``all`` is used)
+in subdirectories of ``--output-dir`` and include ``diboson_sf_{year}.json``, a
+linear-fit JSON, and a PNG diagnostic plot.
+"""
 
 import argparse
 import gzip
