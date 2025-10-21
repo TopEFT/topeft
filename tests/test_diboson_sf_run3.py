@@ -147,3 +147,26 @@ def test_get_yields_in_bins_supports_sparse_hist(tmp_path):
         dense_vals = [val for val, _ in dense_yields[proc]]
         sparse_vals = [val for val, _ in sparse_yields[proc]]
         assert sparse_vals == pytest.approx(dense_vals)
+
+
+def test_main_propagates_runtime_error(tmp_path, monkeypatch):
+    data_path = _materialize_histogram_fixture(tmp_path)
+
+    argv = [
+        "diboson_sf_run3.py",
+        "--pkl",
+        str(data_path),
+        "--hist-name",
+        "njets",
+        "--channel",
+        "non_existent_channel",
+        "--year",
+        "2022",
+        "--output-dir",
+        str(tmp_path / "out"),
+    ]
+
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(RuntimeError, match="Failed to compute yields for process"):
+        diboson_module.main()

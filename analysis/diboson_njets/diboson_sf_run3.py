@@ -175,7 +175,7 @@ def get_yields_in_bins(
             error_message = (
                 "Failed to compute yields for process "
                 f"'{proc}' from histogram '{hist_name}' in channel "
-                f"'{channel_name}'. Encountered error: {exc}"
+                f"'{channel_name}'. Encountered error: {exc.__class__.__name__}: {exc}"
             )
             print(
                 "ERROR: " + error_message,
