@@ -83,12 +83,13 @@ echo "OUT_NAME: $OUT_NAME"
 # Build the configuration file list
 CFGS_PATH="../../input_samples/cfgs"
 CFGS="${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg,${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg,${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
+#CFGS="${CFGS_PATH}/NDSkim_${YEAR}_background_samples_loc.cfg"
 
 # Define options based on mode
 if [[ "$FLAG_CR" == "true" ]]; then
-  OPTIONS="--hist-list cr --skip-sr -s 50000 --split-lep-flavor -p /scratch365/$USER/ -o $OUT_NAME -x work_queue --do-np"
+  OPTIONS="--hist-list cr --skip-sr -s 50000 --split-lep-flavor -p /scratch365/$USER/ -o $OUT_NAME -x work_queue"
 else
-  OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 --do-np -o $OUT_NAME"
+  OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 -o $OUT_NAME"
 fi
 
 # Build and run the command

@@ -1,0 +1,173 @@
+import math
+import pathlib
+import sys
+
+import pytest
+
+hist = pytest.importorskip("hist")
+np = pytest.importorskip("numpy")
+
+from topcoffea.modules.histEFT import HistEFT
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
+import analysis.topeft_run2.make_cr_and_sr_plots as mcp
+import analysis.topeft_run2.tauFitter as tau
+
+
+def _make_hist():
+    histo = HistEFT(
+        hist.axis.StrCategory(["a", "b", "c"], name="process", growth=True),
+        hist.axis.Regular(3, 0, 3, name="score"),
+        wc_names=[],
+    )
+    histo.fill(process="a", score=[0.5], weight=[1.0])
+    histo.fill(process="b", score=[1.5], weight=[2.0])
+    histo.fill(process="c", score=[2.5], weight=[4.0])
+    return histo
+
+
+@pytest.mark.parametrize("group_fn", [mcp.group_bins, tau.group_bins])
+def test_group_bins_combines_contributions(group_fn):
+    original = _make_hist()
+    grouped = group_fn(
+        original,
+        {"combo": ["a", "b"]},
+        axis_name="process",
+        drop_unspecified=True,
+    )
+
+    grouped_sm = grouped.as_hist({})
+    combo_values = grouped_sm[{"process": "combo"}].values()
+
+    original_sm = original.as_hist({})
+    expected = (
+        original_sm[{"process": "a"}].values()
+        + original_sm[{"process": "b"}].values()
+    )
+
+    np.testing.assert_allclose(combo_values, expected)
+    assert list(grouped_sm.axes["process"]) == ["combo"]
+
+
+@pytest.mark.parametrize("group_fn", [mcp.group_bins, tau.group_bins])
+def test_group_bins_preserves_unspecified_when_requested(group_fn):
+    original = _make_hist()
+    grouped = group_fn(
+        original,
+        {"combo": ("a", "b")},
+        axis_name="process",
+        drop_unspecified=False,
+    )
+
+    grouped_sm = grouped.as_hist({})
+    assert list(grouped_sm.axes["process"]) == ["combo", "c"]
+
+    combo_values = grouped_sm[{"process": "combo"}].values()
+    c_values = grouped_sm[{"process": "c"}].values()
+
+    original_sm = original.as_hist({})
+    np.testing.assert_allclose(
+        combo_values,
+        original_sm[{"process": "a"}].values()
+        + original_sm[{"process": "b"}].values(),
+    )
+    np.testing.assert_allclose(
+        c_values,
+        original_sm[{"process": "c"}].values(),
+    )
+
+
+@pytest.mark.parametrize("group_fn", [mcp.group_bins, tau.group_bins])
+def test_group_bins_raises_for_unknown_sources(group_fn):
+    histo = _make_hist()
+    with pytest.raises(ValueError, match="missing"):
+        group_fn(
+            histo,
+            {"combo": ["missing"]},
+            axis_name="process",
+            drop_unspecified=True,
+        )
+
+
+def _toy_histogram_arrays():
+    n_physical_bins = len(tau.TAU_PT_BIN_EDGES) - 1
+    length = 2 + n_physical_bins
+    fake_vals = np.zeros(length)
+    tight_vals = np.zeros(length)
+    fake_errs = np.zeros(length)
+    tight_errs = np.zeros(length)
+
+    fake_vals[2] = 100.0
+    tight_vals[2] = 50.0
+    fake_errs[2] = 10.0
+    tight_errs[2] = 5.0
+
+    return fake_vals, fake_errs, tight_vals, tight_errs
+
+
+def test_compute_fake_rates_quadrature_matches_manual():
+    fake_vals, fake_errs, tight_vals, tight_errs = _toy_histogram_arrays()
+    ratios, errors, summary = tau.compute_fake_rates(
+        fake_vals,
+        fake_errs,
+        tight_vals,
+        tight_errs,
+    )
+
+    expected_bins = len(tau.TAU_PT_BIN_EDGES) - 1
+    assert len(ratios) == expected_bins
+    assert len(errors) == expected_bins
+    assert len(summary) == expected_bins
+
+    manual_error = math.sqrt((5.0 / 100.0) ** 2 + (50.0 * 10.0 / (100.0 ** 2)) ** 2)
+
+    assert ratios[0] == pytest.approx(0.5)
+    assert errors[0] == pytest.approx(manual_error)
+    assert summary[0]["tight_sum"] == pytest.approx(50.0)
+    assert summary[0]["fake_sum"] == pytest.approx(100.0)
+    assert np.allclose(ratios[1:], 0.0)
+    assert np.allclose(errors[1:], 0.0)
+
+
+def _make_tau_histogram(channels):
+    return hist.Hist(
+        hist.axis.StrCategory(["ttH"], name="process"),
+        hist.axis.StrCategory(channels, name="channel"),
+        hist.axis.StrCategory(["nominal"], name="systematic"),
+        hist.axis.Regular(3, 20, 50, name="tau0pt"),
+    )
+
+
+def test_validate_histogram_axes_raises_when_axes_missing():
+    histogram = hist.Hist(
+        hist.axis.StrCategory(["ttH"], name="process"),
+        hist.axis.Regular(3, 20, 50, name="tau0pt"),
+    )
+
+    with pytest.raises(RuntimeError, match="missing required axes"):
+        tau._validate_histogram_axes(
+            histogram,
+            tau._TAU_HISTOGRAM_REQUIRED_AXES,
+            "tau0pt",
+        )
+
+
+def test_validate_tau_channel_coverage_reports_missing_bins():
+    histogram = _make_tau_histogram(["2los_ee_1tau_Ftau_2j"])
+
+    with pytest.raises(RuntimeError) as exc_info:
+        tau._validate_tau_channel_coverage(
+            histogram,
+            "channel",
+            ["2los_ee_1tau_Ftau_2j", "2los_em_1tau_Ftau_2j"],
+            ["2los_ee_1tau_Ttau_2j"],
+            "tau0pt",
+        )
+
+    message = str(exc_info.value)
+    assert "Missing bins summary" in message
+    assert "2los_em_1tau_Ftau_2j" in message
+    assert "2los_ee_1tau_Ttau_2j" in message

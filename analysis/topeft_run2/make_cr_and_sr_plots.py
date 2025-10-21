@@ -3,6 +3,7 @@ import os
 import copy
 import datetime
 import argparse
+from collections import OrderedDict
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -42,6 +43,8 @@ CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
 SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
 CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
 SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
+CR_KNOWN_CHANNELS = {chan for chans in CR_CHAN_DICT.values() for chan in chans}
+SR_KNOWN_CHANNELS = {chan for chans in SR_CHAN_DICT.values() for chan in chans}
 FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.items()}
 WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
 LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
@@ -53,9 +56,7 @@ PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 # For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:
 #     python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
 
-
 yt = YieldTools()
-
 
 ######### Utility functions #########
 
@@ -77,6 +78,67 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
                 out_chan_dict[cat].append(bin_name_no_njet)
     return (out_chan_dict)
 
+
+def _apply_channel_transforms(channel_name, transformations):
+    transformed = channel_name
+    for transform in transformations:
+        if transform == "njets":
+            transformed = yt.get_str_without_njet(transformed)
+        elif transform == "lepflav":
+            transformed = yt.get_str_without_lepflav(transformed)
+        else:
+            raise ValueError(f"Unsupported channel transformation '{transform}'")
+    return transformed
+def validate_channel_group(histos, expected_labels, transformations, region, subgroup, variable):
+    if not isinstance(histos, (list, tuple)):
+        histos = [histos]
+
+    available_channels = set()
+    for histo in histos:
+        if not isinstance(histo, (HistEFT, SparseHist)):
+            continue
+        if "channel" not in yt.get_axis_list(histo):
+            continue
+        available_channels.update(list(histo.axes["channel"]))
+
+    if not available_channels:
+        return
+
+    expected_set = set(expected_labels)
+    expected_transformed = {
+        _apply_channel_transforms(label, transformations) for label in expected_set
+    }
+
+    region_known_channels = {
+        "CR": CR_KNOWN_CHANNELS,
+        "SR": SR_KNOWN_CHANNELS,
+    }.get(region)
+    transformed_known_channels = None
+    if region_known_channels is not None:
+        transformed_known_channels = {
+            _apply_channel_transforms(label, transformations)
+            for label in region_known_channels
+        }
+
+    stray_channels = set()
+
+    for channel in available_channels:
+        transformed = _apply_channel_transforms(channel, transformations)
+        if transformed in expected_transformed:
+            continue
+        if region_known_channels is not None and channel in region_known_channels:
+            continue
+        if transformed_known_channels is not None and transformed in transformed_known_channels:
+            continue
+        stray_channels.add(channel)
+
+    if stray_channels:
+        var_str = f" for variable '{variable}'" if variable is not None else ""
+        region_str = f"{region} " if region else ""
+        raise ValueError(
+            f"Found channel bins {sorted(stray_channels)} in {region_str}subgroup '{subgroup}'{var_str} that are not defined in the YAML configuration."
+        )
+
 def populate_group_map(samples, pattern_map):
     out = {k: [] for k in pattern_map}
     for proc_name in samples:
@@ -95,39 +157,37 @@ def populate_group_map(samples, pattern_map):
             # raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
     return out
 
-def group(h: HistEFT, oldname: str, newname: str, grouping: dict[str, list[str]]):
-    hnew = HistEFT(
-        hist.axis.StrCategory(grouping, name=newname),
-        *(ax for ax in h.axes if ax.name != oldname),
-        wc_names=h.wc_names,
-    )
-    for i, indices in enumerate(grouping.values()):
-        ind = [c for c in indices if c in h.axes[0]]
-        hnew.view(flow=True)[i] = h[{oldname: ind}][{oldname: sum}].view(flow=True)
+def _ensure_list(values):
+    if isinstance(values, str):
+        return [values]
+    return list(values)
 
-    return hnew
+
 # Group bins in a hist, returns a new hist
-def group_bins(histo,bin_map,axis_name="process",drop_unspecified=False):
+def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 
-    bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
+    bin_map_copy = copy.deepcopy(bin_map)  # Don't want to edit the original
+    normalized_map = OrderedDict(
+        (group, _ensure_list(bins)) for group, bins in bin_map_copy.items()
+    )
 
-    # Construct the map of bins to remap
-    bins_to_remap_lst = []
-    for grp_name,bins_in_grp in bin_map.items():
-        bins_to_remap_lst.extend(bins_in_grp)
+    axis_categories = list(histo.axes[axis_name])
+    axis_category_set = set(axis_categories)
+
     if not drop_unspecified:
-        for bin_name in yt.get_cat_lables(histo,axis_name):
-            if bin_name not in bins_to_remap_lst:
-                bin_map[bin_name] = bin_name
-    bin_map = {m:bin_map[m] for m in bin_map if any(a in list(histo.axes[axis_name]) for a in bin_map[m])}
+        specified = {item for bins in normalized_map.values() for item in bins}
+        for category in axis_categories:
+            if category not in specified:
+                normalized_map.setdefault(category, [category])
 
-    # Remap the bins
-    old_ax = histo.axes[axis_name]
-    #new_ax = hist.axis.StrCategory([], name=old_ax.name, label=old_ax.label, growth=True)
-    new_histo = group(histo, axis_name, axis_name, bin_map)
-    #new_histo = histo.group(axis_name, bin_map)
+    requested = {item for bins in normalized_map.values() for item in bins}
+    missing = sorted(requested - axis_category_set)
+    if missing:
+        raise ValueError(
+            f"Requested {axis_name} bins not found in histogram: {', '.join(missing)}"
+        )
 
-    return new_histo
+    return histo.group(axis_name, normalized_map)
 
 
 ######### Functions for getting info from the systematics json #########
@@ -924,8 +984,10 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
             continue
         if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
+        channel_transformations = []
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
+            channel_transformations.append("njets")
             sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
         else:
             sr_cat_dict = SR_CHAN_DICT
@@ -954,6 +1016,16 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
             # Make the plots
             for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
+
+                if grouped_hist_cat in sr_cat_dict:
+                    validate_channel_group(
+                        hist_sig,
+                        sr_cat_dict[grouped_hist_cat],
+                        channel_transformations,
+                        region="SR",
+                        subgroup=grouped_hist_cat,
+                        variable=var_name,
+                    )
 
                 # Integrate
                 hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
@@ -1113,7 +1185,16 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
         print("channels:",channels_lst)
         #for chan_name in channels_lst: # For each channel individually
+        channel_transformations = []
         for chan_name in SR_CHAN_DICT.keys():
+            validate_channel_group(
+                [hist_mc_orig, hist_data_orig],
+                SR_CHAN_DICT[chan_name],
+                channel_transformations,
+                region="SR",
+                subgroup=chan_name,
+                variable=var_name,
+            )
             #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
             #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
             # Skip missing channels (histEFT throws an exception)
@@ -1218,6 +1299,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
             sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
         else:
             sr_cat_dict = SR_CHAN_DICT
+        channel_transformations = []
         print("\nVar name:",var_name)
         print("sr_cat_dict:",sr_cat_dict)
 
@@ -1229,6 +1311,16 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         if split_by_chan:
             for hist_cat in SR_CHAN_DICT.keys():
                 if ((var_name == "ptz") and ("3l" not in hist_cat)): continue
+
+                if hist_cat in sr_cat_dict:
+                    validate_channel_group(
+                        hist_sig,
+                        sr_cat_dict[hist_cat],
+                        channel_transformations,
+                        region="SR",
+                        subgroup=hist_cat,
+                        variable=var_name,
+                    )
 
                 # Make a sub dir for this category
                 save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
@@ -1275,6 +1367,15 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 # Using new grouping approach in plot functions
                 #for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
                 for grouped_hist_cat in sr_cat_dict:
+                    if grouped_hist_cat in sr_cat_dict:
+                        validate_channel_group(
+                            hist_sig_grouped,
+                            sr_cat_dict[grouped_hist_cat],
+                            channel_transformations,
+                            region="SR",
+                            subgroup=grouped_hist_cat,
+                            variable=var_name,
+                        )
                     if not any(cat in hist_sig_grouped.axes['channel'] for cat in sr_cat_dict[grouped_hist_cat]):
                         continue
 
@@ -1372,13 +1473,16 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         if (var_name in skip_lst):
             continue
         #if (var_name not in skip_wlst): continue
+        channel_transformations = []
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
+            channel_transformations.append("njets")
             cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
         else:
             cr_cat_dict = CR_CHAN_DICT
         # If the hist is not split by lepton flavor, the lep flav info should not be in the channel names we try to integrate over
         if not yt.is_split_by_lepflav(dict_of_hists):
+            channel_transformations.append("lepflav")
             cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
         print("\nVar name:",var_name)
             
@@ -1397,6 +1501,15 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))):
                 continue # The flip category does not require jets (so leading jet plots do not make sense)
             print("\n\tCategory:",hist_cat)
+
+            validate_channel_group(
+                [hist_mc, hist_data],
+                cr_cat_dict[hist_cat],
+                channel_transformations,
+                region="CR",
+                subgroup=hist_cat,
+                variable=var_name,
+            )
 
             # Make a sub dir for this category
             save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
