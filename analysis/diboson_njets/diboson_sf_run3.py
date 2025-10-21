@@ -41,6 +41,7 @@ import traceback
 import numpy as np
 import hist
 import boost_histogram as bh
+import awkward as ak
 
 def load_pkl_file(pkl_file):
     with gzip.open(pkl_file, "rb") as f:
@@ -151,11 +152,29 @@ def get_yields_in_bins(
                     f"'{proc}'. Remaining axes: {axis_names}"
                 )
 
-            # Integrate over all remaining axes except the histogram axis so the
-            # yields reflect the total contribution for the selected process.
-            for axis in list(h_sel.axes):
-                if axis.name != hist_name:
-                    h_sel = h_sel.integrate(axis.name)
+            values_ak = h_sel.values(flow=False)
+            try:
+                values_np = ak.to_numpy(values_ak)
+            except Exception as exc:
+                # Attempt a best-effort conversion for debugging before raising a
+                # hard error so upstream callers do not continue with unreliable
+                # contents.
+                try:
+                    np.asarray(values_ak)
+                except Exception:
+                    pass
+                raise RuntimeError(
+                    "Failed to convert histogram values to a dense NumPy array using "
+                    f"ak.to_numpy for process '{proc}' on histogram '{hist_name}'."
+                ) from exc
+
+            # Reduce all axes except the histogram axis, ensuring stable indices by
+            # summing from the highest axis index downward.
+            reduce_indices = [
+                idx for idx, name in enumerate(axis_names) if name != hist_name
+            ]
+            for axis_idx in sorted(reduce_indices, reverse=True):
+                values_np = values_np.sum(axis=axis_idx)
 
             axis = h_sel.axes[hist_name]
             if not hasattr(axis, "edges"):
@@ -165,7 +184,7 @@ def get_yields_in_bins(
             edges = axis.edges
 
             expected_bins = len(edges) - 1
-            values_np = np.asarray(h_sel.values(flow=False), dtype=float).reshape(-1)
+            values_np = np.asarray(values_np, dtype=float).reshape(-1)
             if values_np.shape[0] != expected_bins:
                 raise RuntimeError(
                     "Reduced histogram values do not match the number of bins for axis "
