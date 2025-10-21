@@ -15,18 +15,23 @@ Invocation patterns:
 
 * Supply a single pickle shared by all years.  The script automatically selects
   the processes whose names encode each requested year (tokens like
-  ``central2023`` or ``2022EE``)::
+  ``central2023`` or ``2022EE``).  If the conservative regular expression used
+  for matching does not find a process for a given year, the code falls back to
+  a simple substring search so unconventional naming schemes are still handled
+  gracefully::
 
       python diboson_sf_run3.py --pkl combined.pkl.gz --year 2022 2023
 
 * Discover every available year in a shared pickle with ``--year all``.  This
-  mode processes every detected year token and also writes a combined result::
+  sentinel scans the process names, runs the per-year fits for every detected
+  token, and writes a combined result that aggregates all processed years::
 
       python diboson_sf_run3.py --pkl combined.pkl.gz --year all
 
 Outputs are written per year (including the combined entry when ``all`` is used)
-in subdirectories of ``--output-dir`` and include ``diboson_sf_{year}.json``, a
-linear-fit JSON, and a PNG diagnostic plot.
+in subdirectories of ``--output-dir``.  Each directory receives a
+``diboson_sf_{year}.json`` summary, the linear-fit JSON, and the PNG diagnostic
+plot so the per-year artifacts remain grouped together.
 """
 
 import argparse
