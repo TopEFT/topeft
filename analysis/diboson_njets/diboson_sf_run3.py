@@ -132,6 +132,13 @@ def get_yields_in_bins(
                     f"'{proc}'. Remaining axes: {axis_names}"
                 )
 
+            # Integrate over every remaining axis except for the requested
+            # histogram axis so that the yield extraction works for both dense
+            # and sparse histograms.
+            for axis in list(h_sel.axes):
+                if axis.name != hist_name:
+                    h_sel = h_sel.integrate(axis.name)
+
             values_ak = h_sel.values(flow=False)
             try:
                 values_np = ak.to_numpy(values_ak)
@@ -147,14 +154,6 @@ def get_yields_in_bins(
                     "Failed to convert histogram values to a dense NumPy array using "
                     f"ak.to_numpy for process '{proc}' on histogram '{hist_name}'."
                 ) from exc
-
-            # Reduce all axes except the histogram axis, ensuring stable indices by
-            # summing from the highest axis index downward.
-            reduce_indices = [
-                idx for idx, name in enumerate(axis_names) if name != hist_name
-            ]
-            for axis_idx in sorted(reduce_indices, reverse=True):
-                values_np = values_np.sum(axis=axis_idx)
 
             axis = h_sel.axes[hist_name]
             if not hasattr(axis, "edges"):
