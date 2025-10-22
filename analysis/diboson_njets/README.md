@@ -3,6 +3,20 @@
 `diboson_sf_run3.py` derives diboson scale factors from the `njets` distribution.
 The default binning is `[0, 1, 2, 3, 4, 5, 6]`.
 
+## Shared pickle workflow
+
+Run 3 histogram production commonly yields one pickle containing every year.
+To run the script once and obtain scale factors for all encoded years:
+
+1. Ensure the combined pickle embeds the year information in the process names
+   (tokens such as `central2023` or `2022EE` work well).
+2. Execute the script with `--pkl` pointing to the shared file and `--year all`.
+   The script discovers every year token automatically, fits them individually,
+   and also produces a combined summary across the processed years.
+3. Inspect the per-year directories created beneath `--output-dir`.  Each
+   directory contains `diboson_sf_{year}.json`, the linear-fit JSON, and the
+   diagnostic PNG, so every year's artifacts stay grouped together.
+
 ## Input options
 
 * **Per-year pickles** – supply one histogram pickle per year:

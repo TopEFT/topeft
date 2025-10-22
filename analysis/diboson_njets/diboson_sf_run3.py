@@ -2,7 +2,23 @@
 Run 3 diboson scale factor calculation based on the ``njets`` distribution.
 The default ``njets`` bin edges are ``[0, 1, 2, 3, 4, 5, 6]``.
 
-Invocation patterns:
+Shared-pickle workflow
+======================
+
+Run 3 ntuple production often yields a *single* histogram pickle that contains
+all years.  The recommended workflow for such files is:
+
+1. Produce (or obtain) a combined pickle that stores the Run 3 histograms for
+   every year.  The per-year information must be encoded in the process names
+   (tokens such as ``central2023`` or ``2022EE`` work well).
+2. Invoke the script with ``--pkl`` pointing to the shared file and
+   ``--year all``.  The sentinel scans the process names, identifies every
+   year-like token, runs the per-year fits, and generates a combined summary for
+   the union of processed years.
+3. Inspect the per-year artifacts written underneath ``--output-dir``.
+
+Invocation patterns
+-------------------
 
 * Provide one pickle per year when the histograms are stored separately::
 
@@ -14,24 +30,29 @@ Invocation patterns:
       python diboson_sf_run3.py --pkl "/path/to/year_{year}.pkl.gz" --year 2022 2023
 
 * Supply a single pickle shared by all years.  The script automatically selects
-  the processes whose names encode each requested year (tokens like
-  ``central2023`` or ``2022EE``).  If the conservative regular expression used
-  for matching does not find a process for a given year, the code falls back to
-  a simple substring search so unconventional naming schemes are still handled
-  gracefully::
+  the processes whose names encode each requested year.  A conservative regular
+  expression is used first; if that does not find a match, the code falls back
+  to a simple substring search so unconventional naming schemes are still
+  handled gracefully::
 
       python diboson_sf_run3.py --pkl combined.pkl.gz --year 2022 2023
 
 * Discover every available year in a shared pickle with ``--year all``.  This
-  sentinel scans the process names, runs the per-year fits for every detected
-  token, and writes a combined result that aggregates all processed years::
+  sentinel triggers the scanning behaviour described above, runs the per-year
+  fits for every detected token, and writes a combined result that aggregates
+  all processed years::
 
       python diboson_sf_run3.py --pkl combined.pkl.gz --year all
 
-Outputs are written per year (including the combined entry when ``all`` is used)
-in subdirectories of ``--output-dir``.  Each directory receives a
+Output layout
+-------------
+
+Outputs are written per year (including the combined entry when ``all`` is
+used) in subdirectories of ``--output-dir``.  Each directory receives a
 ``diboson_sf_{year}.json`` summary, the linear-fit JSON, and the PNG diagnostic
-plot so the per-year artifacts remain grouped together.
+plot so the per-year artifacts remain grouped together.  The combined
+directory, produced only when ``--year all`` is used, aggregates the fits for
+all discovered years.
 """
 
 import argparse
