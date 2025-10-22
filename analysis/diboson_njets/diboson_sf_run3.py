@@ -180,6 +180,9 @@ def get_yields_in_bins(
     else:
         processes_to_scan = proc_list
 
+    bin_edges_cache = None
+    bin_index_cache = None
+
     for proc in processes_to_scan:
 
         try:
@@ -232,6 +235,24 @@ def get_yields_in_bins(
                     f"Unable to determine bin edges for axis '{hist_name}'."
                 )
             edges = target_axis.edges
+            edges_np = np.asarray(edges, dtype=float)
+
+            if bin_edges_cache is None:
+                bin_edges_cache = edges_np
+                low_edges = edges_np[:-1]
+                high_edges = edges_np[1:]
+                bin_index_cache = [
+                    np.nonzero((high_edges > low) & (low_edges < high))[0].tolist()
+                    for low, high in zip(bins[:-1], bins[1:])
+                ]
+            else:
+                if len(edges_np) != len(bin_edges_cache) or not np.allclose(
+                    edges_np, bin_edges_cache
+                ):
+                    raise AssertionError(
+                        "Histogram axis binning changed between processes; "
+                        "consistent bin edges are required."
+                    )
 
             expected_bins = len(edges) - 1
             values_np = np.asarray(values_np, dtype=float).reshape(-1)
@@ -251,12 +272,7 @@ def get_yields_in_bins(
             raise RuntimeError(error_message) from exc
 
         proc_yields = []
-        for i in range(len(bins) - 1):
-            low, high = bins[i], bins[i + 1]
-            bin_indices = [
-                j for j, (lo, hi) in enumerate(zip(edges[:-1], edges[1:]))
-                if hi > low and lo < high
-            ]
+        for bin_indices in bin_index_cache:
             val = float(np.sum(values_np[bin_indices])) if bin_indices else 0.0
             proc_yields.append((val, 0.0))
 
