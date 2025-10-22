@@ -63,8 +63,8 @@ import os
 import pickle
 import re
 
-import numpy as np
 import awkward as ak
+import numpy as np
 
 
 logger = logging.getLogger(__name__)
@@ -509,7 +509,7 @@ def main():
             if missing_paths:
                 parser.error(
                     "The following expanded --pkl paths do not exist: "
-                    + ", ".join(missing_paths)
+                    f"{', '.join(missing_paths)}"
                 )
         elif len(years) == 1:
             pkl_paths = [pkl_arg]
@@ -562,7 +562,7 @@ def main():
             }
             print(
                 "Discovered years embedded in process names: "
-                + ", ".join(discovered_years)
+                f"{', '.join(discovered_years)}"
             )
         else:
             print(
