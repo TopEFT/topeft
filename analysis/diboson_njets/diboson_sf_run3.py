@@ -255,6 +255,32 @@ def get_yields_in_bins(
     return yields
 
 def make_diboson_sf_json(bins, scale_factors, year, output_dir="."):
+    """Write the per-bin scale factors for ``year`` to a JSON summary.
+
+    Parameters
+    ----------
+    bins : Sequence[float]
+        Monotonically increasing bin edges whose length must exceed the number
+        of scale factors by one.
+    scale_factors : Sequence[float]
+        Scale-factor values computed for the intervals defined by ``bins``.
+    year : str or int
+        Year label used to key the JSON payload and the output filename.
+    output_dir : str, optional
+        Destination directory for produced artifacts.  Created if it does not
+        already exist.
+
+    Returns
+    -------
+    str
+        Absolute path to the emitted JSON file.
+
+    Notes
+    -----
+    Writes ``diboson_sf_{year}.json`` containing the scale-factor JSON to
+    ``output_dir`` so the README-described summary file can be located directly
+    from the code.
+    """
     if len(bins) != len(scale_factors) + 1:
         raise ValueError("Number of scale factors must be one less than number of bin edges.")
 
@@ -270,9 +296,26 @@ def make_diboson_sf_json(bins, scale_factors, year, output_dir="."):
     with open(output_path, "w") as f:
         json.dump(sf_json, f, indent=2)
     print(f"Scaling factors saved to {output_path}")
+    return os.path.abspath(output_path)
 
 
 def compute_linear_fit(bin_centers, scale_factors):
+    """Fit a straight line to the supplied scale factors.
+
+    Parameters
+    ----------
+    bin_centers : Sequence[float]
+        Centers of the ``njets`` bins used as the independent variable.
+    scale_factors : Sequence[float]
+        Scale-factor values serving as the dependent variable.
+
+    Returns
+    -------
+    Tuple[Optional[Dict[str, float]], List[float]]
+        The slope/intercept coefficients and the fitted values evaluated at the
+        provided ``bin_centers``.  Returns ``(None, [])`` when the fit cannot be
+        computed (e.g., mismatched inputs).
+    """
     if not bin_centers or not scale_factors:
         return None, []
 
@@ -292,6 +335,24 @@ def compute_linear_fit(bin_centers, scale_factors):
 
 
 def save_linear_fit_coefficients(year, fit_coefficients, output_dir="."):
+    """Persist linear-fit coefficients for ``year`` when available.
+
+    Parameters
+    ----------
+    year : str or int
+        Label used to name the output file.
+    fit_coefficients : Mapping[str, float]
+        Dictionary containing the ``slope`` and ``intercept`` keys produced by
+        :func:`compute_linear_fit`.
+    output_dir : str, optional
+        Directory where the artifact should be written.  Created if missing.
+
+    Notes
+    -----
+    Writes ``diboson_sf_{year}_linear_fit.json`` containing the linear-fit JSON
+    to ``output_dir`` so the README-described coefficients are visible from the
+    implementation.
+    """
     if not fit_coefficients:
         return
 
@@ -314,6 +375,29 @@ def save_scale_factor_plot(
     fitted_values,
     output_dir=".",
 ):
+    """Generate the diagnostic plot overlaying measured scale factors and the fit.
+
+    Parameters
+    ----------
+    year : str or int
+        Year label included in the plot title and filename.
+    channel : str
+        Channel label included in the plot title.
+    bin_centers : Sequence[float]
+        Abscissa of the plotted points corresponding to ``njets`` bin centers.
+    scale_factors : Sequence[float]
+        Scale-factor values to scatter with uncertainties.
+    fitted_values : Sequence[float]
+        Linear-fit evaluation to overlay; may be empty when the fit fails.
+    output_dir : str, optional
+        Directory where the figure is stored.  Created if it does not exist.
+
+    Notes
+    -----
+    Writes ``diboson_sf_{year}.png`` containing the scale-factor diagnostic plot
+    to ``output_dir`` so the README-stated PNG artifact is documented alongside
+    its implementation.
+    """
     if not bin_centers or not scale_factors:
         print("No bin centers or scale factors available for plotting; skipping plot generation.")
         return
