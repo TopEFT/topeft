@@ -126,7 +126,8 @@ def get_yields_in_bins(
     Parameters mirror the histogram dictionary, processes, and binning
     configuration supplied by callers.  The returned mapping associates each
     process with a list of tuples ``(value, uncertainty)`` for the requested
-    ``bins``.
+    ``bins``.  Whitelist entries that are absent from ``proc_list`` are ignored
+    with a warning so callers know they were skipped.
     """
     h = hin_dict[hist_name]
     yields = {}
@@ -163,10 +164,19 @@ def get_yields_in_bins(
 
     whitelist_set = None
     if process_whitelist is not None:
-        whitelist_set = set(process_whitelist)
+        whitelist_set = {str(proc) for proc in process_whitelist}
 
     if whitelist_set is not None:
-        processes_to_scan = whitelist_set
+        processes_to_scan = [
+            proc for proc in proc_list if str(proc) in whitelist_set
+        ]
+        matched_processes = {str(proc) for proc in processes_to_scan}
+        missing_processes = sorted(whitelist_set - matched_processes)
+        if missing_processes:
+            logger.warning(
+                "Ignoring process whitelist entries not present in histogram: %s",
+                missing_processes,
+            )
     else:
         processes_to_scan = proc_list
 
