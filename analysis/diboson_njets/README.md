@@ -3,6 +3,16 @@
 `diboson_sf_run3.py` derives diboson scale factors from the `njets` distribution.
 The default binning is `[0, 1, 2, 3, 4, 5, 6]`.
 
+## Scale factor calculation
+
+For each requested year, the script loads the `njets` histogram, removes any
+flip-control samples (`flip*` processes), and subtracts the remaining
+non-diboson backgrounds from the data template.  The diboson prediction is
+built by summing the `WZTo*`, `ZZTo*`, and `WWTo*` processes, so the scale
+factors are computed as `(data − other) / diboson` on a bin-by-bin basis.
+Both the filtering of the diboson samples and the flip-sample exclusion are
+implemented in `process_year` within `diboson_sf_run3.py`.
+
 ## Shared pickle workflow
 
 Run 3 histogram production commonly yields one pickle containing every year.
@@ -47,4 +57,9 @@ To run the script once and obtain scale factors for all encoded years:
 Per-year results (and the combined entry when `--year all` is used) are written
 under subdirectories of `--output-dir`.  Each directory contains
 `diboson_sf_{year}.json`, the linear-fit JSON, and the PNG diagnostic plot so all
-artifacts for a year stay together.
+artifacts for a year stay together.  The scale-factor JSON stores the
+bin-by-bin values only, while the linear-fit JSON (`diboson_sf_{year}_linear_fit.json`)
+records the slope and intercept that appear in the CLI summary table.  The PNG
+shows the fitted line overlaid on the scale factors, but the numeric
+coefficients live solely in the linear-fit JSON (and the CLI summary’s Slope
+and Intercept columns) to contextualise the reported mean scale factor.
