@@ -316,7 +316,10 @@ def compute_linear_fit(bin_centers, scale_factors):
         provided ``bin_centers``.  Returns ``(None, [])`` when the fit cannot be
         computed (e.g., mismatched inputs).
     """
-    if not bin_centers or not scale_factors:
+    if bin_centers is None or scale_factors is None:
+        return None, []
+
+    if np.size(bin_centers) == 0 or np.size(scale_factors) == 0:
         return None, []
 
     if len(bin_centers) != len(scale_factors):
@@ -398,7 +401,11 @@ def save_scale_factor_plot(
     to ``output_dir`` so the README-stated PNG artifact is documented alongside
     its implementation.
     """
-    if not bin_centers or not scale_factors:
+    if bin_centers is None or scale_factors is None:
+        print("No bin centers or scale factors available for plotting; skipping plot generation.")
+        return
+
+    if np.size(bin_centers) == 0 or np.size(scale_factors) == 0:
         print("No bin centers or scale factors available for plotting; skipping plot generation.")
         return
 
@@ -419,7 +426,7 @@ def save_scale_factor_plot(
         fmt="o",
         label="Scale factors",
     )
-    if fitted_values:
+    if fitted_values is not None and np.size(fitted_values) > 0:
         fitted_array = np.asarray(fitted_values, dtype=float)
         ax.plot(
             bin_centers,
