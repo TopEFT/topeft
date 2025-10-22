@@ -165,9 +165,12 @@ def get_yields_in_bins(
     if process_whitelist is not None:
         whitelist_set = set(process_whitelist)
 
-    for proc in proc_list:
-        if whitelist_set is not None and proc not in whitelist_set:
-            continue
+    if whitelist_set is not None:
+        processes_to_scan = whitelist_set
+    else:
+        processes_to_scan = proc_list
+
+    for proc in processes_to_scan:
 
         try:
             selection = {
