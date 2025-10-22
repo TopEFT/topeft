@@ -151,42 +151,48 @@ def get_yields_in_bins(
             h_sel = h[selection]
 
             axis_names = [ax.name for ax in h_sel.axes]
-            if hist_name not in axis_names:
+            try:
+                target_index = axis_names.index(hist_name)
+            except ValueError as exc:
                 raise KeyError(
                     f"Histogram '{hist_name}' axis not present after slicing for process "
                     f"'{proc}'. Remaining axes: {axis_names}"
-                )
+                ) from exc
 
-            values_ak = h_sel.values(flow=False)
             try:
-                values_np = ak.to_numpy(values_ak)
+                values_np = ak.to_numpy(h_sel.values(flow=False))
             except Exception as exc:
-                # Attempt a best-effort conversion for debugging before raising a
-                # hard error so upstream callers do not continue with unreliable
-                # contents.
-                try:
-                    np.asarray(values_ak)
-                except Exception:
-                    pass
+                logger.error(
+                    "Failed to convert histogram values to a dense NumPy array using "
+                    "ak.to_numpy for process '%s' on histogram '%s'.",
+                    proc,
+                    hist_name,
+                    exc_info=exc,
+                )
                 raise RuntimeError(
                     "Failed to convert histogram values to a dense NumPy array using "
                     f"ak.to_numpy for process '{proc}' on histogram '{hist_name}'."
                 ) from exc
 
-            # Reduce all axes except the histogram axis, ensuring stable indices by
-            # summing from the highest axis index downward.
-            reduce_indices = [
-                idx for idx, name in enumerate(axis_names) if name != hist_name
-            ]
-            for axis_idx in sorted(reduce_indices, reverse=True):
+            # Reduce all axes except the histogram axis by summing from the highest
+            # index downward so the axis positions remain valid after each
+            # reduction.
+            for axis_idx in range(values_np.ndim - 1, -1, -1):
+                if axis_idx == target_index:
+                    continue
                 values_np = values_np.sum(axis=axis_idx)
+                if axis_idx < target_index:
+                    target_index -= 1
 
-            axis = h_sel.axes[hist_name]
-            if not hasattr(axis, "edges"):
+            target_axis = next(
+                (ax for ax in h_sel.axes if ax.name == hist_name),
+                None,
+            )
+            if target_axis is None or not hasattr(target_axis, "edges"):
                 raise AttributeError(
-                    f"Unable to determine bin edges for axis '{axis.name}'."
+                    f"Unable to determine bin edges for axis '{hist_name}'."
                 )
-            edges = axis.edges
+            edges = target_axis.edges
 
             expected_bins = len(edges) - 1
             values_np = np.asarray(values_np, dtype=float).reshape(-1)
