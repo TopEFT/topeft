@@ -121,12 +121,19 @@ def get_yields_in_bins(
     extra_slices=None,
     process_whitelist=None,
 ):
+    """Return per-process yields for ``hist_name`` bins as (value, uncertainty).
+
+    Parameters mirror the histogram dictionary, processes, and binning
+    configuration supplied by callers.  The returned mapping associates each
+    process with a list of tuples ``(value, uncertainty)`` for the requested
+    ``bins``.
+    """
     h = hin_dict[hist_name]
     yields = {}
 
-    print("h axes:")
+    logger.debug("Histogram '%s' axes:", hist_name)
     for ax in h.axes:
-        print(f"  {ax.name}: {list(ax)}")
+        logger.debug("  %s: %s", ax.name, list(ax))
 
     available_axes = {ax.name for ax in h.axes}
     required_axes = {"process", "channel"}
@@ -143,9 +150,10 @@ def get_yields_in_bins(
     if extra_slices:
         missing_optional = sorted(set(extra_slices) - available_axes)
         if missing_optional:
-            print(
-                "Warning: ignoring extra_slices axes not present on histogram "
-                f"'{hist_name}': {missing_optional}"
+            logger.warning(
+                "Ignoring extra_slices axes not present on histogram '%s': %s",
+                hist_name,
+                missing_optional,
             )
         optional_slices = {
             key: extra_slices[key]
@@ -195,15 +203,12 @@ def get_yields_in_bins(
                     f"ak.to_numpy for process '{proc}' on histogram '{hist_name}'."
                 ) from exc
 
-            # Reduce all axes except the histogram axis by summing from the highest
-            # index downward so the axis positions remain valid after each
-            # reduction.
-            for axis_idx in range(values_np.ndim - 1, -1, -1):
-                if axis_idx == target_index:
-                    continue
-                values_np = values_np.sum(axis=axis_idx)
-                if axis_idx < target_index:
-                    target_index -= 1
+            # Reduce all axes except the histogram axis via a single summation.
+            sum_axes = tuple(
+                axis_idx for axis_idx in range(values_np.ndim) if axis_idx != target_index
+            )
+            if sum_axes:
+                values_np = values_np.sum(axis=sum_axes)
 
             target_axis = next(
                 (ax for ax in h_sel.axes if ax.name == hist_name),
