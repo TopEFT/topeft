@@ -121,6 +121,28 @@ def coerce_json_files(value: Any) -> List[str]:
     return [str(value)]
 
 
+def coerce_environment_file(value: Any) -> Optional[str]:
+    """Normalize environment-file configuration values."""
+
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "auto" if value else None
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        lowered = stripped.lower()
+        if lowered in {"none", "null", "false", "0", "off", "disable", "disabled"}:
+            return None
+        if lowered == "auto":
+            return "auto"
+        return stripped
+    return str(value)
+
+
 def coerce_optional_float(value: Any) -> Optional[float]:
     """Return ``value`` as a float or ``None`` if unset."""
 
@@ -300,7 +322,7 @@ class RunConfig:
 
     json_files: List[str] = field(default_factory=list)
     prefix: str = ""
-    executor: str = "work_queue"
+    executor: str = "taskvine"
     test: bool = False
     pretend: bool = False
     nworkers: int = 8
@@ -323,6 +345,7 @@ class RunConfig:
     ecut: Optional[float] = None
     summary_verbosity: str = "brief"
     log_tasks: bool = False
+    environment_file: Optional[str] = "auto"
 
 
 class RunConfigBuilder:
@@ -342,7 +365,10 @@ class RunConfigBuilder:
             "jsonFiles": ("json_files", coerce_json_files),
             "json_files": ("json_files", coerce_json_files),
             "prefix": ("prefix", lambda v: "" if v is None else str(v)),
-            "executor": ("executor", lambda v: "" if v is None else str(v)),
+            "executor": (
+                "executor",
+                lambda v: "" if v is None else str(v).strip().lower(),
+            ),
             "test": ("test", coerce_bool),
             "pretend": ("pretend", coerce_bool),
             "nworkers": ("nworkers", lambda v: coerce_int(v, allow_none=False)),
@@ -372,6 +398,7 @@ class RunConfigBuilder:
             "port": ("port", coerce_port),
             "summary_verbosity": ("summary_verbosity", coerce_summary_verbosity),
             "log_tasks": ("log_tasks", coerce_bool),
+            "environment_file": ("environment_file", coerce_environment_file),
         }
 
         def _apply_source(source: Mapping[str, Any]):
