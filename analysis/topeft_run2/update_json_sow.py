@@ -72,6 +72,19 @@ def construct_wgt_name_dict(wgt_name_lst):
     return wgt_name_dict
 
 
+def _extract_sow_histograms(accumulator: dict) -> dict:
+    """Return the mapping of SOW histogram names to Hist objects."""
+
+    if not isinstance(accumulator, dict):
+        raise TypeError("Accumulator must be a dictionary")
+
+    sow_dict = accumulator.get("sow")
+    if isinstance(sow_dict, dict) and sow_dict:
+        return sow_dict
+
+    return {k: v for k, v in accumulator.items() if isinstance(k, str) and k.startswith('SumOfWeights')}
+
+
 def main():
     parser = argparse.ArgumentParser(description='You want options? We got options!')
     parser.add_argument('hist_paths', nargs='+', help = 'Paths to the histogram pkl.gz files that we want to load')
@@ -112,7 +125,13 @@ def main():
     # Find JSONs and update weights
     for fpath in hist_paths:
         h = get_hist_from_pkl(fpath)
-        h_sow_nom = h[wgt_name_dict['nom']['hist_name']] # Note, just using nom here (so we assume all histos include the same samples)
+        sow_hists = _extract_sow_histograms(h)
+
+        hist_name_nom = wgt_name_dict['nom']['hist_name']
+        if hist_name_nom not in sow_hists:
+            raise KeyError(f"Histogram '{hist_name_nom}' not found in accumulator from {fpath}")
+
+        h_sow_nom = sow_hists[hist_name_nom] # Note, just using nom here (so we assume all histos include the same samples)
         idents = h_sow_nom.axes['process'] # This is the list of identifiers for the sample axis
         for sname in idents:
             match = regex_match(json_fpaths,regex_lst=[f"{sname}\\.json$"])
@@ -130,7 +149,10 @@ def main():
                 # Get value from sow hist
                 hist_name = wgt_name_dict[wgt_var]['hist_name']
                 jsn_key_name = wgt_name_dict[wgt_var]['jsn_key_name']
-                new_sow,err = yt.get_yield(h[hist_name],sname)
+                if hist_name not in sow_hists:
+                    print(f"WARNING: histogram '{hist_name}' missing in {fpath}; skipping update for {sname} ({wgt_var}).")
+                    continue
+                new_sow,err = yt.get_yield(sow_hists[hist_name],sname)
 
                 # If key already in dict, check if new number looks different than old
                 if jsn_key_name in jsn:
