@@ -92,7 +92,21 @@ scenarios declared in ``topeft/params/metadata.yml``.
    This executes the workflow with the shared defaults plus the ``cr`` profile,
    which skips all SR categories, splits lepton flavors, and runs a short test
    over the background configuration.  TaskVine will automatically upload the
-   packaged environment if the helper tarball is present.
+   packaged environment if the helper tarball is present.  When you control the
+   worker submission, stage the same tarball ahead of time so it does not need
+   to be transferred on first contact:
+
+   ```bash
+   vine_submit_workers --cores 4 --memory 16000 --disk 16000 \
+       --python-env "$(python -m topcoffea.modules.remote_environment)" \
+       -M ${USER}-taskvine-coffea 10
+   ```
+
+   The command reuses the archive path returned by the refreshed
+   ``remote_environment.get_environment()`` helper.  Skipping ``--python-env`` is
+   safe—the manager still forwards the tarball via the ``environment_file``
+   executor argument—but pre-loading it reduces the startup latency for new
+   workers.
 
 4. To launch the signal-region job, reuse the same YAML but select the ``sr``
    profile by appending it after a colon:
