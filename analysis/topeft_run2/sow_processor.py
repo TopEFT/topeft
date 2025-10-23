@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import numpy as np
 import awkward as ak
-np.seterr(divide='ignore', invalid='ignore', over='ignore')
+
+np.seterr(divide="ignore", invalid="ignore", over="ignore")
 
 from coffea import processor
 
@@ -10,35 +13,45 @@ import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.corrections as corrections
 
 
+_WEIGHT_VARIATIONS: dict[str, str | None] = {
+    "nom": None,
+    "ISRUp": "ISRUp",
+    "ISRDown": "ISRDown",
+    "FSRUp": "FSRUp",
+    "FSRDown": "FSRDown",
+    "renormUp": "renormUp",
+    "renormDown": "renormDown",
+    "factUp": "factUp",
+    "factDown": "factDown",
+    "renormfactUp": "renormfactUp",
+    "renormfactDown": "renormfactDown",
+}
+
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], do_errors=False, dtype=np.float32):
+    def __init__(
+        self,
+        samples,
+        wc_names_lst: list[str] | None = None,
+        do_errors: bool = False,
+        dtype=np.float32,
+        debug: bool = False,
+    ):
+
+        if wc_names_lst is None:
+            wc_names_lst = []
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
-        self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
+        self._do_errors = do_errors  # Whether to calculate and store the w**2 coefficients
+        self._debug = debug
 
-        # Create the histogram
-        proc_axis = hist.axis.StrCategory([], name="process", growth=True)
-        dense_axis = hist.axis.Regular(bins=1, start=0, stop=2, name="SumOfWeights", label="SumOfWeights")
         self._accumulator = {
-
-            "SumOfWeights": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-
-            "SumOfWeights_ISRUp":   HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_ISRDown": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_FSRUp":   HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_FSRDown": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-
-            "SumOfWeights_renormUp":       HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_renormDown":     HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_factUp":         HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_factDown":       HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_renormfactUp":   HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_renormfactDown": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-
+            "sow": self._build_hist_dict("SumOfWeights", "SumOfWeights"),
+            "sow_norm": self._build_hist_dict("SumOfWeights_norm", "SumOfWeights (normalized)"),
+            "nEvents": self._build_hist_dict("nEvents", "nEvents", variations=("nom",)),
         }
 
     @property
@@ -59,6 +72,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Can't think of any reason why we'd want to run this over data, so let's make sure to think twice about it before we do
         if isData: raise Exception("Why are you running this over data?")
 
+        if self._debug:
+            print(f"[sow_processor] Processing dataset '{dataset}'")
+
         # Get EFT coeffs
         eft_coeffs = None
         eft_w2_coeffs = None
@@ -71,37 +87,96 @@ class AnalysisProcessor(processor.ProcessorABC):
                 eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype)
 
         # Get nominal wgt
-        counts = np.ones_like(events['event'])
-        wgts = np.ones_like(events['event'])
+        n_events = len(events)
+        counts = np.ones(n_events, dtype=self._dtype)
+        wgts = np.ones(n_events, dtype=self._dtype)
         if not isData and eft_coeffs is None:
             # Basically any central MC samples
-            wgts = events["genWeight"]
+            wgts = ak.to_numpy(events["genWeight"]).astype(self._dtype, copy=False)
 
         # Attach up/down weights
         corrections.AttachPSWeights(events)
         corrections.AttachScaleWeights(events)
 
+        # Compute normalization factor (convert to pb when possible)
+        sample_info = self._samples[dataset]
+        norm_factor = self._dtype(0.0)
+        if not isData:
+            sample_sow = sample_info.get("nSumOfWeights")
+            sample_xsec = sample_info.get("xsec")
+            if sample_sow not in (None, 0):
+                norm_factor = self._dtype(sample_xsec or 0.0) / self._dtype(sample_sow)
+            elif self._debug:
+                print(f"[sow_processor] Sample '{dataset}' missing non-zero nSumOfWeights; normalized histograms will be zero.")
+
+        if self._debug:
+            print(
+                f"[sow_processor] nEvents={n_events}, norm_factor={norm_factor}, has_eft_coeffs={eft_coeffs is not None}"
+            )
+
+        variation_factors: dict[str, np.ndarray] = {}
+        unity = np.ones(n_events, dtype=self._dtype)
+        for variation, attr in _WEIGHT_VARIATIONS.items():
+            if attr is None:
+                variation_factors[variation] = unity
+                continue
+            if not hasattr(events, attr):
+                if self._debug:
+                    print(
+                        f"[sow_processor] Missing '{attr}' variation for dataset '{dataset}', defaulting to unity weights."
+                    )
+                variation_factors[variation] = unity
+                continue
+            variation_factors[variation] = ak.to_numpy(getattr(events, attr)).astype(
+                self._dtype, copy=False
+            )
+
         ###### Fill histograms ######
         hout = self.accumulator
 
-        # Nominal
-        hout["SumOfWeights"].fill(process=dataset, SumOfWeights=counts, weight=wgts, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        for variation, factors in variation_factors.items():
+            suffix = "" if variation == "nom" else f"_{variation}"
 
-        # Fill ISR/FSR histos
-        hout["SumOfWeights_ISRUp"].fill(process=dataset,   SumOfWeights=counts, weight=wgts*events.ISRUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_ISRDown"].fill(process=dataset, SumOfWeights=counts, weight=wgts*events.ISRDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_FSRUp"].fill(process=dataset,   SumOfWeights=counts, weight=wgts*events.FSRUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_FSRDown"].fill(process=dataset, SumOfWeights=counts, weight=wgts*events.FSRDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+            sow_weight = wgts * factors
+            hout["sow"][f"SumOfWeights{suffix}"].fill(
+                process=dataset,
+                SumOfWeights=counts,
+                weight=sow_weight,
+                eft_coeff=eft_coeffs,
+                eft_err_coeff=eft_w2_coeffs,
+            )
 
-        # Fill renorm/fact histos
-        hout["SumOfWeights_renormUp"].fill(process=dataset,       SumOfWeights=counts, weight=wgts*events.renormUp,       eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_renormDown"].fill(process=dataset,     SumOfWeights=counts, weight=wgts*events.renormDown,     eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_factUp"].fill(process=dataset,         SumOfWeights=counts, weight=wgts*events.factUp,         eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_factDown"].fill(process=dataset,       SumOfWeights=counts, weight=wgts*events.factDown,       eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_renormfactUp"].fill(process=dataset,   SumOfWeights=counts, weight=wgts*events.renormfactUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_renormfactDown"].fill(process=dataset, SumOfWeights=counts, weight=wgts*events.renormfactDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+            sow_norm_weight = sow_weight * norm_factor
+            hout["sow_norm"][f"SumOfWeights_norm{suffix}"].fill(
+                process=dataset,
+                SumOfWeights_norm=counts,
+                weight=sow_norm_weight,
+                eft_coeff=eft_coeffs,
+                eft_err_coeff=eft_w2_coeffs,
+            )
+
+        hout["nEvents"]["nEvents"].fill(
+            process=dataset,
+            nEvents=counts,
+            weight=unity,
+            eft_coeff=eft_coeffs,
+            eft_err_coeff=eft_w2_coeffs,
+        )
 
         return hout
 
     def postprocess(self, accumulator):
         return accumulator
+
+    def _build_hist_dict(self, axis_name: str, axis_label: str, variations: tuple[str, ...] | None = None):
+        if variations is None:
+            variations = tuple(_WEIGHT_VARIATIONS.keys())
+
+        hist_dict: dict[str, HistEFT] = {}
+        for variation in variations:
+            suffix = "" if variation == "nom" else f"_{variation}"
+            proc_axis = hist.axis.StrCategory([], name="process", growth=True)
+            dense_axis = hist.axis.Regular(bins=1, start=0, stop=2, name=axis_name, label=axis_label)
+            hist_name = f"{axis_name}{suffix}"
+            hist_dict[hist_name] = HistEFT(proc_axis, dense_axis, wc_names=self._wc_names_lst)
+        return hist_dict

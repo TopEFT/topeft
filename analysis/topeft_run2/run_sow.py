@@ -11,6 +11,8 @@ from pathlib import Path
 # import uproot
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
+
+NanoAODSchema.warn_missing_crossrefs = False
 import topcoffea.modules.remote_environment as remote_environment
 
 import sow_processor
@@ -92,6 +94,7 @@ parser.add_argument(
     const='none',
     help="Disable environment shipping entirely (equivalent to --environment-file=none).",
 )
+parser.add_argument('--debug', action='store_true', help='Enable verbose logging in the sow processor.')
 
 args = parser.parse_args()
 inputFiles = args.inputFiles.replace(' ','').split(',')  # Remove whitespace and split by commas
@@ -104,6 +107,7 @@ treename   = args.treename
 xrd        = args.xrd
 max_files  = args.max_files
 wc_lst     = args.wc_list if args.wc_list is not None else []
+debug_mode = args.debug
 port_min, port_max = _parse_port_range(args.port)
 environment_setting = _normalize_environment_file(args.environment_file)
 
@@ -155,7 +159,7 @@ if wc_lst:
 else:
     print("No Wilson coefficients specified")
 
-processor_instance = sow_processor.AnalysisProcessor(samples_to_process,wc_lst)
+processor_instance = sow_processor.AnalysisProcessor(samples_to_process,wc_lst, debug=debug_mode)
 
 # Run the processor and get the output
 tstart = time.time()
@@ -226,6 +230,17 @@ else:
 
 runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=900)
 output = runner(flist, treename, processor_instance)
+
+expected_keys = {"sow", "sow_norm", "nEvents"}
+missing_keys = expected_keys.difference(output.keys())
+if missing_keys:
+    raise RuntimeError(
+        "sow_processor accumulator is missing expected keys: " + ", ".join(sorted(missing_keys))
+    )
+
+if debug_mode:
+    present_keys = ", ".join(sorted(output.keys()))
+    print(f"Accumulator keys present: {present_keys}")
 
 dt = time.time() - tstart
 
