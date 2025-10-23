@@ -31,7 +31,9 @@ conda env create -f environment.yml
 conda activate coffea202507
 pip install -e .
 ```
-The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`. 
+The commands above provision the refreshed `coffea202507` Conda environment, which tracks the Coffea 2025.7 base release used throughout the project.  Installing `topeft` with `pip install -e .` is now the expected workflow so that local developments are automatically folded into the packaged environment.
+
+The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.
 The `topcoffea` package upon which this analysis also depends is not yet available on `PyPI`, so we need to clone the `topcoffea` repo and install it ourselves.
 ```
 cd /your/favorite/directory
@@ -41,6 +43,8 @@ pip install -e .
 cd ../topeft
 python -m topcoffea.modules.remote_environment
 ```
+Keeping both repositories installed in editable mode ensures the remote-packaging helper inspects the current checkouts (and fails fast if there are unstaged edits).  The `python -m topcoffea.modules.remote_environment` command calls into the updated `remote_environment.get_environment()` logic, which assembles a fresh TaskVine-ready tarball under `topeft-envs/`, captures the pinned Conda + pip stack, and returns the archive path that the workflow passes through the `environment_file` executor argument.  The helper will rebuild the cache whenever the specification or editable sources change, so re-running it before distributed submissions keeps the workers in sync.
+
 Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The packaged environment targets the Coffea 2025.7 release and can be re-generated at any time with `python -m topcoffea.modules.remote_environment`. The next time you want to use the project, activate the environment via `conda activate coffea202507`.
 
 
@@ -78,7 +82,17 @@ The packaged archive produced by `python -m topcoffea.modules.remote_environment
    vine_worker --cores 1 --memory 8000 --disk 8000 -M ${USER}-taskvine-coffea
    ```
 
-   For HTCondor-backed pools, `condor_submit_workers` and other submission helpers ship with TaskVine; point them at the same manager string. Refer to the [remote environment maintenance guide](docs/environment_packaging.md) for details on rebuilding the tarball whenever dependencies change.
+   When scaling out through TaskVine's submission helpers, prefer launching a worker pool with the packaged environment already attached:
+
+   ```bash
+   vine_submit_workers --cores 4 --memory 16000 --disk 16000 \
+       --python-env "$(python -m topcoffea.modules.remote_environment)" \
+       -M ${USER}-taskvine-coffea 10
+   ```
+
+   The `remote_environment.get_environment()` helper returns the same tarball path that the workflow passes through the `environment_file` executor argument; pre-loading it with `--python-env` avoids transferring the archive every time a new worker connects. If `--python-env` is omitted, the manager still hands the environment off automatically via `environment_file`, which mirrors the legacy Work Queue flow.
+
+   For HTCondor-backed pools, `condor_submit_workers` and other submission helpers ship with TaskVine; point them at the same manager string and pass `--python-env` when the helper supports it. Refer to the [remote environment maintenance guide](docs/environment_packaging.md) for details on rebuilding the tarball whenever dependencies change.
 
 Work Queue remains supported for legacy deployments. The historic configuration guide is preserved in [README_WORKQUEUE.md](README_WORKQUEUE.md).
 

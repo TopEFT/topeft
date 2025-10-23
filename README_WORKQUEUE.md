@@ -56,7 +56,7 @@ pip install -e .
 # cd /path/to/my/module
 # pip install -e .
 ```
-The same steps can be followed for `topeft` (i.e. clone the repo, `cd` into it, and then install the package via `pip install -e .`). 
+The same steps can be followed for `topeft` (i.e. clone the repo, `cd` into it, and then install the package via `pip install -e .`).  Keeping both repositories in editable mode is now the standard workflow: the refreshed `remote_environment.get_environment()` helper inspects those checkouts, verifies that there are no unstaged edits, and bakes the current sources into the tarball that workers unpack.
 
 ---
 **NOTE**
@@ -79,7 +79,10 @@ sent to the workers will be automatically constructed from the base environment
 as changes in the topcoffea code are detected. We highly recommend that when
 installing topcoffea, `pip install -e .` is executed from a git repository.
 This allows `work_queue_run.py` to detect unstaged changes or newer commits and
-rebuild the environment accordingly.
+rebuild the environment accordingly.  The same tarball is returned by
+`remote_environment.get_environment()` and stored under `topeft-envs/`, so both
+Work Queue and TaskVine managers point to an identical archive when populating
+the `environment_file` executor argument.
 
 
 ## Executing the topcoffea application
@@ -171,6 +174,25 @@ work_queue_factory -Tcondor -Cfactory.json
 The greatest advantage of using a configuration file for the factory is that
 when this file is updated, the factory reconfigures itself. This is very useful
 when controlling the minimum and maximum number of workers.
+
+### TaskVine worker submission quick reference
+
+When migrating to the TaskVine executor described in the main README, launch
+workers with the packaged environment already attached so they do not need to
+download it from the manager on first contact.  The helper below reuses the
+same tarball path printed by `python -m topcoffea.modules.remote_environment`
+and matches the manager name configured by `run_analysis.py`:
+
+```sh
+vine_submit_workers --cores 4 --memory 16000 --disk 16000 \
+    --python-env "$(python -m topcoffea.modules.remote_environment)" \
+    -M ${USER}-taskvine-coffea 10
+```
+
+When `--python-env` is omitted the manager still forwards the archive through
+the `environment_file` executor argument, mirroring the legacy Work Queue
+behaviour.  Pre-loading the tarball simply accelerates the first task each
+worker processes.
 
 
 ## Exploring the executor arguments
