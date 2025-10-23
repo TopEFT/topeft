@@ -23,9 +23,11 @@ task.
 
 from __future__ import annotations
 
+import getpass
 import gzip
 import json
 import os
+import tempfile
 import time
 import warnings
 from pathlib import Path
@@ -58,7 +60,7 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type checking
     from topeft.modules.channel_metadata import ChannelMetadataHelper
     from topeft.modules.systematics import SystematicsHelper
 
-LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
+LST_OF_KNOWN_EXECUTORS = ["futures", "iterative", "work_queue", "taskvine"]
 
 
 class ChannelPlanner:
@@ -493,7 +495,7 @@ class ExecutorFactory:
         from coffea.nanoevents import NanoAODSchema
         from topcoffea.modules import remote_environment
 
-        executor = self._config.executor
+        executor = (self._config.executor or "").lower()
 
         if executor == "futures":
             exec_instance = processor.futures_executor(workers=self._config.nworkers)
@@ -504,25 +506,36 @@ class ExecutorFactory:
                 maxchunks=self._config.nchunks,
             )
 
+        if executor == "iterative":
+            try:
+                exec_instance = processor.IterativeExecutor()
+            except AttributeError:  # pragma: no cover - depends on coffea build
+                exec_instance = processor.iterative_executor()
+            return processor.Runner(
+                exec_instance,
+                schema=NanoAODSchema,
+                chunksize=self._config.chunksize,
+                maxchunks=self._config.nchunks,
+            )
+
         if executor in {"work_queue", "taskvine"}:
             port_min, port_max = self._parse_port_range(self._config.port)
+            staging_dir = self._distributed_staging_dir(executor)
+            logs_dir = staging_dir / "logs"
+            logs_dir.mkdir(parents=True, exist_ok=True)
+            manager_base = self._manager_name_base(executor)
             executor_args = {
-                "manager_name": f"{os.environ['USER'].capitalize()}-{executor}-coffea",
                 "port": [port_min, port_max],
-                "debug_log": f"/tmp/{os.environ['USER']}/debug.log",
-                "transactions_log": f"/tmp/{os.environ['USER']}/tr.log",
-                "stats_log": f"/tmp/{os.environ['USER']}/stats.log",
-                "tasks_accum_log": f"/tmp/{os.environ['USER']}/tasks.log",
-                "environment_file": remote_environment.get_environment(
-                    extra_pip_local={"topeft": ["topeft", "setup.py"]},
-                    extra_conda=["pyyaml"],
-                ),
+                "debug_log": str(logs_dir / "debug.log"),
+                "transactions_log": str(logs_dir / "transactions.log"),
+                "stats_log": str(logs_dir / "stats.log"),
+                "tasks_accum_log": str(logs_dir / "tasks.log"),
                 "extra_input_files": ["analysis_processor.py"],
                 "retries": 15,
                 "compression": 8,
                 "resource_monitor": "measure",
                 "resources_mode": "auto",
-                "filepath": f"/tmp/{os.environ['USER']}",
+                "filepath": str(staging_dir),
                 "chunks_per_accum": 25,
                 "chunks_accum_in_mem": 2,
                 "fast_terminate_workers": 0,
@@ -530,7 +543,12 @@ class ExecutorFactory:
                 "print_stdout": False,
             }
 
+            environment_file = self._resolve_environment_file(remote_environment)
+            if environment_file:
+                executor_args["environment_file"] = environment_file
+
             if executor == "work_queue":
+                executor_args["master_name"] = manager_base
                 exec_instance = processor.WorkQueueExecutor(**executor_args)
                 return processor.Runner(
                     exec_instance,
@@ -541,8 +559,16 @@ class ExecutorFactory:
                     xrootdtimeout=180,
                 )
 
+            executor_args["manager_name"] = manager_base
+            executor_args["manager_name_template"] = f"{manager_base}-{{pid}}"
             try:
                 exec_instance = processor.TaskVineExecutor(**executor_args)
+            except TypeError as exc:
+                if "manager_name_template" in str(exc) and "manager_name_template" in executor_args:
+                    executor_args.pop("manager_name_template", None)
+                    exec_instance = processor.TaskVineExecutor(**executor_args)
+                else:
+                    raise
             except AttributeError as exc:  # pragma: no cover - depends on coffea build
                 raise RuntimeError("TaskVineExecutor not available.") from exc
             return processor.Runner(
@@ -555,6 +581,38 @@ class ExecutorFactory:
             )
 
         raise ValueError(f"Unknown executor '{executor}'")
+
+    def _resolve_environment_file(self, remote_environment: Any) -> Optional[str]:
+        setting = getattr(self._config, "environment_file", "auto")
+        if setting is None:
+            return None
+        normalized = str(setting).strip()
+        if not normalized:
+            return None
+        if normalized.lower() == "auto":
+            return remote_environment.get_environment(
+                extra_pip_local={"topeft": ["topeft", "setup.py"]},
+                extra_conda=["pyyaml"],
+            )
+        return normalized
+
+    def _distributed_staging_dir(self, executor: str) -> Path:
+        base_dir = os.environ.get("TOPEFT_EXECUTOR_STAGING")
+        if base_dir:
+            staging = Path(base_dir).expanduser()
+        else:
+            staging = Path(tempfile.gettempdir()) / "topeft" / self._manager_name_base(executor)
+        staging.mkdir(parents=True, exist_ok=True)
+        return staging
+
+    def _manager_name_base(self, executor: str) -> str:
+        user = os.environ.get("USER")
+        if not user:
+            try:
+                user = getpass.getuser()
+            except Exception:  # pragma: no cover - best effort fallback
+                user = "coffea"
+        return f"{user}-{executor}-coffea"
 
     @staticmethod
     def _parse_port_range(port: str) -> Tuple[int, int]:
@@ -840,6 +898,13 @@ class RunWorkflow:
                 print(
                     "Running a fast test with %i workers, %i chunks of %i events"
                     % (self._config.nworkers, self._config.nchunks, self._config.chunksize)
+                )
+            elif self._config.executor == "iterative":
+                self._config.nchunks = 2
+                self._config.chunksize = 100
+                print(
+                    "Running a fast iterative test with %i chunks of %i events"
+                    % (self._config.nchunks, self._config.chunksize)
                 )
             else:
                 raise Exception(

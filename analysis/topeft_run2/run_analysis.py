@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--executor",
         "-x",
-        default="work_queue",
+        default="taskvine",
         help="Which executor to use",
     )
     parser.add_argument(
@@ -192,6 +192,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--port",
         default="9123-9130",
         help="Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.",
+    )
+    parser.add_argument(
+        "--environment-file",
+        default="auto",
+        help=(
+            "Environment tarball to ship with distributed executors. Use 'auto' to build via "
+            "remote_environment, or 'none' to disable staging when workers already provide a "
+            "Python environment."
+        ),
+    )
+    parser.add_argument(
+        "--no-environment-file",
+        dest="environment_file",
+        action="store_const",
+        const="none",
+        help=(
+            "Disable environment shipping entirely (equivalent to --environment-file=none)."
+        ),
     )
     parser.add_argument(
         "--options",
