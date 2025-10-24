@@ -157,7 +157,7 @@ def _install_stubs(monkeypatch):
     topeft_corr_module.ApplyFESSystematic = lambda *args, **kwargs: (args[1], args[1])
     topeft_corr_module.AttachPerLeptonFR = lambda *args, **kwargs: None
     topeft_corr_module.ApplyRochesterCorrections = (
-        lambda year, mu, isData: mu
+        lambda mu, year, isData: mu
     )
     topeft_corr_module.GetTriggerSF = lambda *args, **kwargs: np.ones(1)
 

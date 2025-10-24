@@ -459,7 +459,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Muon selection ####################
 
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ready
+        mu["pt"] = ApplyRochesterCorrections(mu, year, isData) # Run3 ready
         mu["isPres"] = leptonSelection.isPresMuon(mu)
         mu["isLooseM"] = leptonSelection.isLooseMuon(mu)
         mu["isFO"] = leptonSelection.isFOMuon(mu, year)

@@ -323,7 +323,7 @@ def _install_test_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
         module.ApplyTESSystematic = lambda *args, **kwargs: (np.ones(1), np.ones(1))
         module.ApplyFESSystematic = lambda *args, **kwargs: (np.ones(1), np.ones(1))
         module.AttachPerLeptonFR = lambda *args, **kwargs: None
-        module.ApplyRochesterCorrections = lambda year, mu, isData: np.ones_like(mu)
+        module.ApplyRochesterCorrections = lambda mu, year, isData: np.ones_like(mu)
         module.ApplyJetSystematics = (
             lambda *args, **kwargs: args[1] if len(args) > 1 else None
         )
