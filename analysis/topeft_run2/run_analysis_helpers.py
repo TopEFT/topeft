@@ -8,7 +8,7 @@ shared across future scripts or tests without pulling in the full execution
 stack.  A narrative description of the configuration pipeline and YAML profile
 workflow lives in ``docs/run_analysis_configuration.md``.
 """
-from __future__ import annotations"
+from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
