@@ -17,7 +17,7 @@ from coffea.jetmet_tools import CorrectedMETFactory
 ### workaround while waiting the correcion-lib integration will be provided in the coffea package
 from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
 from topcoffea.modules.JECStack import JECStack
-from coffea.btag_tools.btagscalefactor import BTagScaleFactor
+from coffea.btag_tools import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
 
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -40,9 +40,58 @@ clib_year_map = {
     "2018": "2018_UL",
     "2022": "2022_Summer22",
     "2022EE": "2022_Summer22EE",
-    "2023": "2022_Summer23",
-    "2023BPix": "2022_Summer23BPix",
+    "2023": "2023_Summer23",
+    "2023BPix": "2023_Summer23BPix",
 }
+
+
+def AttachElectronTrigSF(electrons, year):
+    """Attach high-energy electron trigger scale factors to the input collection."""
+
+    trigger_years = {
+        "2016APV": "UL2016preVFP",
+        "2016": "UL2016postVFP",
+        "2017": "UL2017",
+        "2018": "UL2018",
+    }
+
+    if year not in trigger_years:
+        electrons["SF_elec_trig_nom"] = ak.ones_like(electrons.pt)
+        return
+
+    ext_lep_sf = lookup_tools.extractor()
+    root_path = topeft_path("data/leptonSF/elec/DiEleCaloIdLMWPMS2_HEEPeff.root")
+
+    ext_lep_sf.add_weight_sets(
+        [
+            f"ElecSF_2016APV_barrel UL2016preVFP_Barrel_Et {root_path}",
+            f"ElecSF_2016APV_endcap UL2016preVFP_Endcaps_Et {root_path}",
+            f"ElecSF_2016_barrel UL2016postVFP_Barrel_Et {root_path}",
+            f"ElecSF_2016_endcap UL2016postVFP_Endcaps_Et {root_path}",
+            f"ElecSF_2017_barrel UL2017_Barrel_Et {root_path}",
+            f"ElecSF_2017_endcap UL2017_Endcaps_Et {root_path}",
+            f"ElecSF_2018_barrel UL2018_Barrel_Et {root_path}",
+            f"ElecSF_2018_endcap UL2018_Endcaps_Et {root_path}",
+        ]
+    )
+
+    ext_lep_sf.finalize()
+    sf_evaluator = ext_lep_sf.make_evaluator()
+
+    eta = electrons.eta
+    pt = electrons.pt
+    eta_flat = ak.flatten(eta)
+    pt_flat = ak.flatten(pt)
+
+    barrel_mask = ak.flatten(np.abs(eta) < 1.4442)
+
+    sf_flat = ak.where(
+        barrel_mask,
+        sf_evaluator[f"ElecSF_{year}_barrel"](pt_flat, eta_flat),
+        sf_evaluator[f"ElecSF_{year}_endcap"](pt_flat, eta_flat),
+    )
+
+    electrons["SF_elec_trig_nom"] = ak.unflatten(sf_flat, ak.num(pt))
 
 egm_tag_map = {
     "2016preVFP_UL": "2016preVFP",
@@ -53,6 +102,8 @@ egm_tag_map = {
     "2022_Summer22EE": "2022Re-recoE+PromptFG",
     "2022_Summer23": "2023PromptC",
     "2022_Summer23BPix": "2023PromptD",
+    "2023_Summer23": "2023PromptC",
+    "2023_Summer23BPix": "2023PromptD",
 }
 
 egm_pt_bins = {
@@ -1513,47 +1564,53 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
 ################################################################
 # https://gitlab.cern.ch/akhukhun/roccor
 # https://github.com/CoffeaTeam/coffea/blob/master/coffea/lookup_tools/rochester_lookup.py
-def ApplyRochesterCorrections(year, mu, is_data):
-    if year.startswith('201'): #Run2 scenario
-        rocco_tag = None
-        if year == '2016':
-            rocco_tag = "2016bUL"
-        elif year == '2016APV':
-            rocco_tag = "2016aUL"
-        elif year == '2017':
-            rocco_tag = "2017UL"
-        elif year == '2018':
-            rocco_tag = "2018UL"
-        rochester_data = txt_converters.convert_rochester_file(topcoffea_path(f"data/MuonScale/RoccoR{rocco_tag}.txt"), loaduncs=True)
-        rochester = rochester_lookup.rochester_lookup(rochester_data)
-        if not is_data:
-            hasgen = ~np.isnan(ak.fill_none(mu.matched_gen.pt, np.nan))
-            mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
-            mc_rand = ak.unflatten(mc_rand, ak.num(mu.pt, axis=1))
-            corrections = np.array(ak.flatten(ak.ones_like(mu.pt)))
-            mc_kspread = rochester.kSpreadMC(
-                mu.charge[hasgen],mu.pt[hasgen],
-                mu.eta[hasgen],
-                mu.phi[hasgen],
-                mu.matched_gen.pt[hasgen]
-            )
-            mc_ksmear = rochester.kSmearMC(
-                mu.charge[~hasgen],
-                mu.pt[~hasgen],
-                mu.eta[~hasgen],
-                mu.phi[~hasgen],
-                mu.nTrackerLayers[~hasgen],
-                mc_rand[~hasgen]
-            )
-            hasgen_flat = np.array(ak.flatten(hasgen))
-            corrections[hasgen_flat] = np.array(ak.flatten(mc_kspread))
-            corrections[~hasgen_flat] = np.array(ak.flatten(mc_ksmear))
-            corrections = ak.unflatten(corrections, ak.num(mu.pt, axis=1))
-        else:
-            corrections = rochester.kScaleDT(mu.charge, mu.pt, mu.eta, mu.phi)
+def ApplyRochesterCorrections(mu, year, is_data):
+    if not year.startswith("201"):
+        return mu.pt
+
+    rocco_year_map = {
+        "2016": "2016bUL",
+        "2016APV": "2016aUL",
+        "2017": "2017UL",
+        "2018": "2018UL",
+    }
+
+    if year not in rocco_year_map:
+        return mu.pt
+
+    rochester_data = txt_converters.convert_rochester_file(
+        topcoffea_path(f"data/MuonScale/RoccoR{rocco_year_map[year]}.txt"), loaduncs=True
+    )
+    rochester = rochester_lookup.rochester_lookup(rochester_data)
+
+    if is_data:
+        corrections = rochester.kScaleDT(mu.charge, mu.pt, mu.eta, mu.phi)
     else:
-        corrections = ak.ones_like(mu.pt)
-    return (mu.pt * corrections)
+        hasgen = ~np.isnan(ak.fill_none(mu.matched_gen.pt, np.nan))
+        mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
+        mc_rand = ak.unflatten(mc_rand, ak.num(mu.pt, axis=1))
+        corrections = np.array(ak.flatten(ak.ones_like(mu.pt)))
+        mc_kspread = rochester.kSpreadMC(
+            mu.charge[hasgen],
+            mu.pt[hasgen],
+            mu.eta[hasgen],
+            mu.phi[hasgen],
+            mu.matched_gen.pt[hasgen],
+        )
+        mc_ksmear = rochester.kSmearMC(
+            mu.charge[~hasgen],
+            mu.pt[~hasgen],
+            mu.eta[~hasgen],
+            mu.phi[~hasgen],
+            mu.nTrackerLayers[~hasgen],
+            mc_rand[~hasgen],
+        )
+        hasgen_flat = np.array(ak.flatten(hasgen))
+        corrections[hasgen_flat] = np.array(ak.flatten(mc_kspread))
+        corrections[~hasgen_flat] = np.array(ak.flatten(mc_ksmear))
+        corrections = ak.unflatten(corrections, ak.num(mu.pt, axis=1))
+
+    return mu.pt * corrections
 
 ###### Trigger SFs
 ################################################################
