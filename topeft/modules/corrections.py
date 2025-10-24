@@ -102,6 +102,8 @@ egm_tag_map = {
     "2022_Summer22EE": "2022Re-recoE+PromptFG",
     "2022_Summer23": "2023PromptC",
     "2022_Summer23BPix": "2023PromptD",
+    "2023_Summer23": "2023PromptC",
+    "2023_Summer23BPix": "2023PromptD",
 }
 
 egm_pt_bins = {
