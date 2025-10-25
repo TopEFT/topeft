@@ -23,6 +23,7 @@ task.
 
 from __future__ import annotations
 
+import errno
 import getpass
 import gzip
 import json
@@ -576,7 +577,6 @@ class ExecutorFactory:
                 raise RuntimeError("TaskVineExecutor not available.")
 
             executor_args = {
-                "port": self._select_manager_port(port_min, port_max),
                 "manager_name": manager_base,
                 "filepath": str(staging_dir),
                 "extra_input_files": ["analysis_processor.py"],
@@ -592,7 +592,55 @@ class ExecutorFactory:
             if environment_file:
                 executor_args["environment_file"] = environment_file
 
-            exec_instance = taskvine_cls(**executor_args)
+            if port_min > port_max:
+                raise ValueError("Invalid port range: minimum exceeds maximum.")
+
+            attempted_ports: Set[int] = set()
+            last_port_error: Optional[BaseException] = None
+            for _ in range(port_max - port_min + 1):
+                try:
+                    port = self._select_manager_port(
+                        port_min, port_max, exclude=attempted_ports
+                    )
+                except RuntimeError as exc:
+                    if last_port_error is not None:
+                        range_desc = (
+                            f"{port_min}-{port_max}"
+                            if port_min != port_max
+                            else str(port_min)
+                        )
+                        raise RuntimeError(
+                            "TaskVineExecutor could not bind a manager port "
+                            f"in range {range_desc}."
+                        ) from last_port_error
+                    raise
+
+                attempted_ports.add(port)
+                executor_args["port"] = port
+
+                try:
+                    exec_instance = taskvine_cls(**executor_args)
+                except Exception as exc:  # pragma: no cover - executor raises remotely
+                    if not self._is_port_allocation_error(exc):
+                        raise
+                    last_port_error = exc
+                    continue
+
+                break
+            else:
+                range_desc = (
+                    f"{port_min}-{port_max}"
+                    if port_min != port_max
+                    else str(port_min)
+                )
+                message = (
+                    "TaskVineExecutor could not bind a manager port "
+                    f"in range {range_desc}."
+                )
+                if last_port_error is not None:
+                    raise RuntimeError(message) from last_port_error
+                raise RuntimeError(message)
+
             return _build_runner(
                 exec_instance,
                 skipbadfiles=True,
@@ -648,10 +696,15 @@ class ExecutorFactory:
         return tokens[0], tokens[1]
 
     @staticmethod
-    def _select_manager_port(port_min: int, port_max: int) -> int:
+    def _select_manager_port(
+        port_min: int, port_max: int, *, exclude: Optional[Set[int]] = None
+    ) -> int:
         if port_min > port_max:
             raise ValueError("Invalid port range: minimum exceeds maximum.")
+        excluded = exclude or set()
         for port in range(port_min, port_max + 1):
+            if port in excluded:
+                continue
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
                 candidate.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 try:
@@ -661,6 +714,15 @@ class ExecutorFactory:
                 return port
         raise RuntimeError(
             f"No available port found in the requested range {port_min}-{port_max}."
+        )
+
+    @staticmethod
+    def _is_port_allocation_error(exc: BaseException) -> bool:
+        if isinstance(exc, OSError) and exc.errno == errno.EADDRINUSE:
+            return True
+        message = str(exc).lower()
+        return "address already in use" in message or (
+            "port" in message and "in use" in message
         )
 
     def _taskvine_custom_init(self, logs_dir: Path) -> Callable[[Any], None]:
