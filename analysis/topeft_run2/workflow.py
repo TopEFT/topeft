@@ -23,10 +23,12 @@ task.
 
 from __future__ import annotations
 
+import errno
 import getpass
 import gzip
 import json
 import os
+import socket
 import tempfile
 import time
 import warnings
@@ -34,6 +36,7 @@ from pathlib import Path
 from dataclasses import asdict, dataclass
 from typing import (
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -497,26 +500,30 @@ class ExecutorFactory:
 
         executor = (self._config.executor or "").lower()
 
-        if executor == "futures":
-            exec_instance = processor.futures_executor(workers=self._config.nworkers)
+        def _build_runner(exec_instance: Any, **runner_kwargs: Any) -> Any:
             return processor.Runner(
-                exec_instance,
+                executor=exec_instance,
                 schema=NanoAODSchema,
                 chunksize=self._config.chunksize,
                 maxchunks=self._config.nchunks,
+                **runner_kwargs,
             )
+
+        if executor == "futures":
+            futures_cls = getattr(processor, "FuturesExecutor", None)
+            if futures_cls is not None:
+                exec_instance = futures_cls(workers=self._config.nworkers)
+            else:
+                exec_factory = getattr(processor, "futures_executor")
+                exec_instance = exec_factory(workers=self._config.nworkers)
+            return _build_runner(exec_instance)
 
         if executor == "iterative":
             try:
                 exec_instance = processor.IterativeExecutor()
             except AttributeError:  # pragma: no cover - depends on coffea build
                 exec_instance = processor.iterative_executor()
-            return processor.Runner(
-                exec_instance,
-                schema=NanoAODSchema,
-                chunksize=self._config.chunksize,
-                maxchunks=self._config.nchunks,
-            )
+            return _build_runner(exec_instance)
 
         if executor in {"work_queue", "taskvine"}:
             port_min, port_max = self._parse_port_range(self._config.port)
@@ -524,58 +531,118 @@ class ExecutorFactory:
             logs_dir = staging_dir / "logs"
             logs_dir.mkdir(parents=True, exist_ok=True)
             manager_base = self._manager_name_base(executor)
+            environment_file = self._resolve_environment_file(remote_environment)
+
+            if executor == "work_queue":
+                work_queue_cls = getattr(processor, "WorkQueueExecutor", None)
+                if work_queue_cls is None:
+                    raise RuntimeError(
+                        "WorkQueueExecutor is not available in this Coffea installation. "
+                        "The Coffea 2025.7 release removed the bundled Work Queue backend; "
+                        "use the TaskVine executor or install a Coffea build that "
+                        "provides WorkQueueExecutor."
+                    )
+
+                executor_args = {
+                    "port": [port_min, port_max],
+                    "debug_log": str(logs_dir / "debug.log"),
+                    "transactions_log": str(logs_dir / "transactions.log"),
+                    "stats_log": str(logs_dir / "stats.log"),
+                    "tasks_accum_log": str(logs_dir / "tasks.log"),
+                    "extra_input_files": ["analysis_processor.py"],
+                    "retries": 15,
+                    "compression": 8,
+                    "resource_monitor": "measure",
+                    "resources_mode": "auto",
+                    "filepath": str(staging_dir),
+                    "chunks_per_accum": 25,
+                    "chunks_accum_in_mem": 2,
+                    "fast_terminate_workers": 0,
+                    "verbose": True,
+                    "print_stdout": False,
+                    "master_name": manager_base,
+                }
+                if environment_file:
+                    executor_args["environment_file"] = environment_file
+
+                exec_instance = work_queue_cls(**executor_args)
+                return _build_runner(
+                    exec_instance,
+                    skipbadfiles=False,
+                    xrootdtimeout=180,
+                )
+
+            taskvine_cls = getattr(processor, "TaskVineExecutor", None)
+            if taskvine_cls is None:
+                raise RuntimeError("TaskVineExecutor not available.")
+
             executor_args = {
-                "port": [port_min, port_max],
-                "debug_log": str(logs_dir / "debug.log"),
-                "transactions_log": str(logs_dir / "transactions.log"),
-                "stats_log": str(logs_dir / "stats.log"),
-                "tasks_accum_log": str(logs_dir / "tasks.log"),
+                "manager_name": manager_base,
+                "filepath": str(staging_dir),
                 "extra_input_files": ["analysis_processor.py"],
                 "retries": 15,
                 "compression": 8,
                 "resource_monitor": "measure",
                 "resources_mode": "auto",
-                "filepath": str(staging_dir),
-                "chunks_per_accum": 25,
-                "chunks_accum_in_mem": 2,
                 "fast_terminate_workers": 0,
                 "verbose": True,
                 "print_stdout": False,
+                "custom_init": self._taskvine_custom_init(logs_dir),
             }
-
-            environment_file = self._resolve_environment_file(remote_environment)
             if environment_file:
                 executor_args["environment_file"] = environment_file
 
-            if executor == "work_queue":
-                executor_args["master_name"] = manager_base
-                exec_instance = processor.WorkQueueExecutor(**executor_args)
-                return processor.Runner(
-                    exec_instance,
-                    schema=NanoAODSchema,
-                    chunksize=self._config.chunksize,
-                    maxchunks=self._config.nchunks,
-                    skipbadfiles=False,
-                    xrootdtimeout=180,
-                )
+            if port_min > port_max:
+                raise ValueError("Invalid port range: minimum exceeds maximum.")
 
-            executor_args["manager_name"] = manager_base
-            executor_args["manager_name_template"] = f"{manager_base}-{{pid}}"
-            try:
-                exec_instance = processor.TaskVineExecutor(**executor_args)
-            except TypeError as exc:
-                if "manager_name_template" in str(exc) and "manager_name_template" in executor_args:
-                    executor_args.pop("manager_name_template", None)
-                    exec_instance = processor.TaskVineExecutor(**executor_args)
-                else:
+            attempted_ports: Set[int] = set()
+            last_port_error: Optional[BaseException] = None
+            for _ in range(port_max - port_min + 1):
+                try:
+                    port = self._select_manager_port(
+                        port_min, port_max, exclude=attempted_ports
+                    )
+                except RuntimeError as exc:
+                    if last_port_error is not None:
+                        range_desc = (
+                            f"{port_min}-{port_max}"
+                            if port_min != port_max
+                            else str(port_min)
+                        )
+                        raise RuntimeError(
+                            "TaskVineExecutor could not bind a manager port "
+                            f"in range {range_desc}."
+                        ) from last_port_error
                     raise
-            except AttributeError as exc:  # pragma: no cover - depends on coffea build
-                raise RuntimeError("TaskVineExecutor not available.") from exc
-            return processor.Runner(
+
+                attempted_ports.add(port)
+                executor_args["port"] = port
+
+                try:
+                    exec_instance = taskvine_cls(**executor_args)
+                except Exception as exc:  # pragma: no cover - executor raises remotely
+                    if not self._is_port_allocation_error(exc):
+                        raise
+                    last_port_error = exc
+                    continue
+
+                break
+            else:
+                range_desc = (
+                    f"{port_min}-{port_max}"
+                    if port_min != port_max
+                    else str(port_min)
+                )
+                message = (
+                    "TaskVineExecutor could not bind a manager port "
+                    f"in range {range_desc}."
+                )
+                if last_port_error is not None:
+                    raise RuntimeError(message) from last_port_error
+                raise RuntimeError(message)
+
+            return _build_runner(
                 exec_instance,
-                schema=NanoAODSchema,
-                chunksize=self._config.chunksize,
-                maxchunks=self._config.nchunks,
                 skipbadfiles=True,
                 xrootdtimeout=300,
             )
@@ -627,6 +694,59 @@ class ExecutorFactory:
         if len(tokens) == 1:
             tokens.append(tokens[0])
         return tokens[0], tokens[1]
+
+    @staticmethod
+    def _select_manager_port(
+        port_min: int, port_max: int, *, exclude: Optional[Set[int]] = None
+    ) -> int:
+        if port_min > port_max:
+            raise ValueError("Invalid port range: minimum exceeds maximum.")
+        excluded = exclude or set()
+        for port in range(port_min, port_max + 1):
+            if port in excluded:
+                continue
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
+                candidate.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    candidate.bind(("", port))
+                except OSError:
+                    continue
+                return port
+        raise RuntimeError(
+            f"No available port found in the requested range {port_min}-{port_max}."
+        )
+
+    @staticmethod
+    def _is_port_allocation_error(exc: BaseException) -> bool:
+        if isinstance(exc, OSError) and exc.errno == errno.EADDRINUSE:
+            return True
+        message = str(exc).lower()
+        return "address already in use" in message or (
+            "port" in message and "in use" in message
+        )
+
+    def _taskvine_custom_init(self, logs_dir: Path) -> Callable[[Any], None]:
+        logs_dir.mkdir(parents=True, exist_ok=True)
+
+        def _configure(manager: Any) -> None:
+            log_map = {
+                "set_debug_log": logs_dir / "debug.log",
+                "set_transactions_log": logs_dir / "transactions.log",
+                "set_stats_file": logs_dir / "stats.log",
+                "set_tasks_accumulation_file": logs_dir / "tasks.log",
+            }
+            for method_name, log_path in log_map.items():
+                setter = getattr(manager, method_name, None)
+                if callable(setter):
+                    try:
+                        setter(str(log_path))
+                    except Exception:
+                        warnings.warn(
+                            f"TaskVine manager could not enable {method_name} at {log_path}.",
+                            RuntimeWarning,
+                        )
+
+        return _configure
 
 
 class RunWorkflow:
