@@ -3,7 +3,116 @@ import json
 import sys
 import types
 
-import awkward as ak
+try:  # pragma: no cover - prefer real awkward when available
+    import awkward as ak
+except ModuleNotFoundError:  # pragma: no cover - shim for test isolation
+    class _SimpleArray:
+        def __init__(self, data):
+            if isinstance(data, _SimpleArray):
+                self._data = data._data
+            else:
+                self._data = np.array(data, dtype=object)
+
+        def __array__(self, dtype=None):
+            return np.array(self._data, dtype=dtype) if dtype else np.array(self._data)
+
+        def __len__(self):
+            return len(self._data)
+
+        def __iter__(self):
+            return iter(self._data)
+
+        def __repr__(self):
+            return f"SimpleArray({self._data!r})"
+
+        def __getitem__(self, item):
+            return _SimpleArray(self._data[item])
+
+        def __setitem__(self, key, value):
+            self._data[key] = value
+
+        def _extract_field(self, item, name):
+            if isinstance(item, dict):
+                return item.get(name)
+            if isinstance(item, (list, tuple, np.ndarray)):
+                return [self._extract_field(sub, name) for sub in item]
+            if hasattr(item, name):
+                return getattr(item, name)
+            return None
+
+        def __getattr__(self, name):
+            try:
+                extractor = np.vectorize(lambda item: self._extract_field(item, name), otypes=[object])
+                return _SimpleArray(extractor(self._data))
+            except Exception as exc:  # pragma: no cover - defensive
+                raise AttributeError(name) from exc
+
+        @property
+        def layout(self):  # pragma: no cover - compatibility shim
+            return self._data
+
+    def _ensure_array(value):
+        return value._data if isinstance(value, _SimpleArray) else np.array(value, dtype=object)
+
+    def _wrap_array(value):
+        return value if isinstance(value, _SimpleArray) else _SimpleArray(value)
+
+    class _AwkwardModule(types.SimpleNamespace):
+        def Array(self, data):
+            return _SimpleArray(data)
+
+        def ones_like(self, array, dtype=float):
+            data = _ensure_array(array)
+            return _SimpleArray(np.ones_like(data, dtype=dtype))
+
+        def fill_none(self, array, value):
+            data = _ensure_array(array)
+
+            def _replace(item):
+                if isinstance(item, (list, tuple, np.ndarray)):
+                    return [_replace(sub) for sub in item]
+                return value if item is None else item
+
+            replacer = np.vectorize(_replace, otypes=[object])
+            return _SimpleArray(replacer(data))
+
+        def flatten(self, array):
+            data = _ensure_array(array)
+            flat = []
+            for item in data:
+                if isinstance(item, (list, tuple, np.ndarray)):
+                    flat.extend(item)
+                else:
+                    flat.append(item)
+            return _SimpleArray(np.array(flat, dtype=object))
+
+        def num(self, array, axis=0):
+            data = _ensure_array(array)
+            if axis != 0:
+                raise NotImplementedError("Only axis=0 is supported in the test shim")
+            counts = []
+            for item in data:
+                if isinstance(item, (list, tuple, np.ndarray)):
+                    counts.append(len(item))
+                else:
+                    counts.append(1 if item is not None else 0)
+            return np.array(counts, dtype=int)
+
+        def unflatten(self, flat_array, counts):
+            values = list(_ensure_array(flat_array).ravel())
+            counts_arr = np.array(_ensure_array(counts), dtype=int).ravel()
+            result = []
+            index = 0
+            for count in counts_arr:
+                segment = values[index : index + count]
+                index += count
+                result.append(segment)
+            return _SimpleArray(np.array(result, dtype=object))
+
+    ak = _AwkwardModule()
+    ak.combinations = lambda array, *args, **kwargs: _SimpleArray([])
+    ak.with_name = lambda array, name: array
+    sys.modules.setdefault("awkward", ak)
 import numpy as np
 import pytest
 
@@ -29,6 +138,12 @@ def _install_stubs(monkeypatch):
         monkeypatch.setitem(sys.modules, name, module)
         return module
 
+    topcoffea_pkg = _module("topcoffea")
+    topcoffea_pkg.__path__ = []  # type: ignore[attr-defined]
+    topcoffea_modules_pkg = _module("topcoffea.modules")
+    topcoffea_modules_pkg.__path__ = []  # type: ignore[attr-defined]
+    topcoffea_pkg.modules = topcoffea_modules_pkg  # type: ignore[attr-defined]
+
     # HistEFT stub
     hist_module = _module("topcoffea.modules.histEFT")
 
@@ -46,7 +161,25 @@ def _install_stubs(monkeypatch):
 
     # ``hist`` axis helpers
     hist_pkg = _module("hist")
-    hist_pkg.axis = types.SimpleNamespace(Regular=lambda *_, **__: None)
+    def _axis_factory(kind):
+        def _factory(*args, **kwargs):
+            axis = types.SimpleNamespace(
+                kind=kind,
+                args=args,
+                kwargs=kwargs,
+            )
+            axis.name = kwargs.get("name")
+            axis.label = kwargs.get("label")
+            axis.metadata = {"kind": kind}
+            return axis
+
+        return _factory
+
+    hist_pkg.axis = types.SimpleNamespace(
+        Regular=_axis_factory("Regular"),
+        Variable=_axis_factory("Variable"),
+        StrCategory=_axis_factory("StrCategory"),
+    )
 
     # Coffea interfaces
     coffea_pkg = _module("coffea")
@@ -78,20 +211,109 @@ def _install_stubs(monkeypatch):
 
     class _Weights:
         def __init__(self, size, storeIndividual=False):
-            self._weights = {"nominal": np.ones(size)}
-            self.variations = ()
+            self._store_individual = bool(storeIndividual)
+            self._central = np.ones(size) if size is not None else None
+            self._weights = {} if self._store_individual else {}
+            self._modifiers = {}
+            self._names = []
 
-        def add(self, name, weight, *args, **kwargs):
-            arr = np.asarray(weight)
-            self._weights[name] = arr
-            if name != "nominal" and name not in self.variations:
-                self.variations = tuple(self.variations) + (name,)
+        def add(self, name, weight, *variations, shift=False):
+            if name in self._names:
+                raise ValueError(f"Weight '{name}' already exists")
 
-        def weight(self, name=None):
-            return self._weights.get(name or "nominal", self._weights["nominal"])
+            weight_arr = np.asarray(weight)
+            if self._central is None:
+                self._central = np.ones_like(weight_arr, dtype=float)
+
+            self._central = self._central * weight_arr
+            if self._store_individual:
+                self._weights[name] = weight_arr
+
+            self._names.append(name)
+
+            suffixes = ["Up", "Down"]
+            for idx, variation in enumerate(variations):
+                if variation is None:
+                    continue
+                var_arr = np.asarray(variation)
+                ratio = np.ones_like(weight_arr, dtype=float)
+                mask = weight_arr != 0
+                ratio[mask] = var_arr[mask] / weight_arr[mask]
+                label = name + (suffixes[idx] if idx < len(suffixes) else f"Var{idx}")
+                self._modifiers[label] = ratio
+
+        def weight(self, modifier=None):
+            if modifier in (None, "nominal"):
+                return self._central
+
+            if modifier in self._modifiers:
+                return self._central * self._modifiers[modifier]
+
+            if modifier and modifier.endswith("Down"):
+                up_label = modifier[:-4] + "Up"
+                if up_label in self._modifiers:
+                    return self._central / self._modifiers[up_label]
+
+            return self._central
+
+        def partial_weight(self, include=None, exclude=None, modifier=None):
+            include = tuple(include or ())
+            exclude = tuple(exclude or ())
+            if include and exclude:
+                raise ValueError("Cannot specify both include and exclude")
+            if not self._store_individual:
+                raise ValueError(
+                    "To request partial weights, instantiate with storeIndividual=True"
+                )
+
+            names = set(self._weights.keys())
+            if include:
+                names &= set(include)
+            if exclude:
+                names -= set(exclude)
+
+            result = np.ones_like(self._central)
+            for name in names:
+                result = result * self._weights[name]
+
+            if modifier is None or modifier == "nominal":
+                return result
+
+            if modifier in self.variations:
+                if modifier in self._modifiers:
+                    return result * self._modifiers[modifier]
+                if modifier.endswith("Down"):
+                    up_label = modifier[:-4] + "Up"
+                    if up_label in self._modifiers:
+                        return result / self._modifiers[up_label]
+            raise ValueError(f"Modifier {modifier} is not available")
+
+        @property
+        def variations(self):
+            keys = set(self._modifiers.keys())
+            for key in list(keys):
+                if key.endswith("Up"):
+                    keys.add(key[:-2] + "Down")
+            return keys
 
     analysis_tools_module.PackedSelection = _PackedSelection
     analysis_tools_module.Weights = _Weights
+
+    nanoevents_module = _module("coffea.nanoevents")
+    coffea_pkg.nanoevents = nanoevents_module  # type: ignore[attr-defined]
+
+    class _NanoEventsFactory:
+        def __init__(self, events=None):
+            self._events = events if events is not None else ak.Array([])
+
+        @classmethod
+        def from_root(cls, *_args, **_kwargs):
+            return cls()
+
+        def events(self):
+            return self._events
+
+    nanoevents_module.NanoEventsFactory = _NanoEventsFactory
 
     lumi_tools_module = _module("coffea.lumi_tools")
 
@@ -108,8 +330,18 @@ def _install_stubs(monkeypatch):
     paths_module = _module("topcoffea.modules.paths")
     paths_module.topcoffea_path = lambda path: str(path)
 
+    topeft_pkg = _module("topeft")
+    topeft_pkg.__path__ = []  # type: ignore[attr-defined]
+    topeft_modules_pkg = _module("topeft.modules")
+    topeft_modules_pkg.__path__ = []  # type: ignore[attr-defined]
+    topeft_pkg.modules = topeft_modules_pkg  # type: ignore[attr-defined]
+
     te_paths_module = _module("topeft.modules.paths")
     te_paths_module.topeft_path = lambda path: str(path)
+
+    eft_helper_module = _module("topcoffea.modules.eft_helper")
+    eft_helper_module.remap_coeffs = lambda *args, **kwargs: args[-1]
+    eft_helper_module.calc_w2_coeffs = lambda coeffs, dtype=None: coeffs
 
     def _dummy_get_param(mapping):
         defaults = {
@@ -152,6 +384,9 @@ def _install_stubs(monkeypatch):
     topeft_corr_module.AttachMuonSF = lambda *args, **kwargs: None
     topeft_corr_module.AttachElectronSF = lambda *args, **kwargs: None
     topeft_corr_module.AttachTauSF = lambda *args, **kwargs: None
+    topeft_corr_module.AttachElectronTrigSF = lambda *args, **kwargs: None
+    topeft_corr_module.AttachPdfWeights = lambda *args, **kwargs: None
+    topeft_corr_module.AttachScaleWeights = corrections_module.AttachScaleWeights
     topeft_corr_module.ApplyTES = lambda *args, **kwargs: (args[1], args[1])
     topeft_corr_module.ApplyTESSystematic = lambda *args, **kwargs: (args[1], args[1])
     topeft_corr_module.ApplyFESSystematic = lambda *args, **kwargs: (args[1], args[1])
@@ -160,6 +395,20 @@ def _install_stubs(monkeypatch):
         lambda mu, year, isData: mu
     )
     topeft_corr_module.GetTriggerSF = lambda *args, **kwargs: np.ones(1)
+
+    channel_metadata_module = _module("topeft.modules.channel_metadata")
+
+    class _ChannelMetadataHelper:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def build_channel_mapping(self, *args, **kwargs):
+            return {}
+
+        def get_channel(self, *args, **kwargs):
+            return {}
+
+    channel_metadata_module.ChannelMetadataHelper = _ChannelMetadataHelper
 
     btag_module = _module("topeft.modules.btag_weights")
     btag_module.register_btag_sf_weights = lambda *args, **kwargs: None
