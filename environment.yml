@@ -12,6 +12,7 @@ dependencies:
   - dill
   - git
   - pyyaml
+  - pytest
   - pip:
       - coffea==2025.7.3
       - awkward==2.8.7
