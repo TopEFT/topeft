@@ -19,7 +19,7 @@ Before running the workflow you will need:
    conda activate coffea202507
    ```
 
-   The packaged environment tracks the Coffea 2025.7 release. Rebuild the TaskVine archive after dependency changes with `python -m topcoffea.modules.remote_environment` so remote workers stay in sync.
+   The packaged environment tracks the Coffea 2025.7 release. Rebuild the TaskVine archive after dependency changes with `python -m topcoffea.modules.remote_environment` so remote workers stay in sync.  Developers upgrading an existing checkout can run `conda env update -f environment.yml --prune` instead of recreating the environment from scratch.  Expect Conda to request a solver update on older installations due to the move to Python 3.13—allow the update (or execute `conda update -n base -c conda-forge conda`) and approve the follow-up `coffea==2025.7.3`/`awkward==2.8.7` prompts so the local stack matches the packaged tarball.
 
 2. **The editable `topeft` and `topcoffea` packages.**  From the repository
    root install the local modules with:

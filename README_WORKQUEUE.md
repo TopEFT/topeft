@@ -56,6 +56,7 @@ pip install -e .
 # cd /path/to/my/module
 # pip install -e .
 ```
+If you already have the environment from a previous checkout, run `conda env update -f environment.yml --prune` instead of recreating it.  The Coffea 2025.7 refresh pulls in Python 3.13 and newer `ndcctools` wheels, so Conda versions older than 23.11 may request a solver update—allow the prompt or run `conda update -n base -c conda-forge conda` first.  When pip asks to install the pinned `coffea==2025.7.3` and `awkward==2.8.7` builds, approve the changes so the editable packages align with the packaged worker tarball.
 The same steps can be followed for `topeft` (i.e. clone the repo, `cd` into it, and then install the package via `pip install -e .`).  Keeping both repositories in editable mode is now the standard workflow: the refreshed `remote_environment.get_environment()` helper inspects those checkouts, verifies that there are no unstaged edits, and bakes the current sources into the tarball that workers unpack.
 
 ---
@@ -118,6 +119,7 @@ find the address of the manager. In some other terminal, run:
 conda activate coffea202507
 work_queue_worker -dall --cores 1 --memory 8000 --disk 8000 -M ${USER}-workqueue-coffea
 ```
+Reusing an existing environment?  Apply any new pins with `conda env update -f environment.yml --prune` before launching the worker.
 
 We use the options cores, memory, and disk to limit the resources that worker
 claims for itself, otherwise it may incorrectly assume that the whole resources
@@ -140,6 +142,7 @@ In a similar way, we can launch workers using a campus cluster that has HTCondor
 conda activate coffea202507
 condor_submit_workers --cores 4 --memory 16000 --disk 16000 -M ${USER}-workqueue-coffea 10
 ```
+Run the same `conda env update -f environment.yml --prune` step whenever you pull new dependencies so the staged environment stays in sync with the packaged tarball.
 
 In this case, we are submitting 10 workers, each with 4 cores, and 4GB of
 memory and disk per core.
@@ -170,6 +173,7 @@ factory.json
 conda activate coffea202507
 work_queue_factory -Tcondor -Cfactory.json
 ```
+When dependencies change, refresh the environment with `conda env update -f environment.yml --prune` before restarting the factory so that new workers receive the updated tarball.
 
 The greatest advantage of using a configuration file for the factory is that
 when this file is updated, the factory reconfigures itself. This is very useful
@@ -207,4 +211,5 @@ called `stats.log`, which can be plotted using:
 conda activate coffea202507
 work_queue_graph_log -Tpng stats.log
 ```
+Running the update command (`conda env update -f environment.yml --prune`) before long campaigns ensures the analysis, TaskVine, and Work Queue helpers are all pointing at the same Coffea 2025.7 stack.
 

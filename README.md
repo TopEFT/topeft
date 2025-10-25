@@ -22,7 +22,7 @@ If conda is not already available, download and install it:
 curl https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > conda-install.sh
 bash conda-install.sh
 ```
-The topeft directory is set up to be installed as a python package. First clone the repository as shown, then run the following commands to set up the environment (note that `environment.yml` is a file that is a part of the `topeft` repository, so you should `cd` into `topeft` before running the command):
+The topeft directory is set up to be installed as a python package. First clone the repository as shown, then run the following commands to set up the environment (note that `environment.yml` is a file that is a part of the `topeft` repository, so you should `cd` into `topeft` before running the command).  The refreshed workflow standardizes on the Coffea 2025.7 toolchain captured in the `coffea202507` Conda environment:
 ```
 git clone https://github.com/TopEFT/topeft.git
 cd topeft
@@ -31,7 +31,9 @@ conda env create -f environment.yml
 conda activate coffea202507
 pip install -e .
 ```
-The commands above provision the refreshed `coffea202507` Conda environment, which tracks the Coffea 2025.7 base release used throughout the project.  Installing `topeft` with `pip install -e .` is now the expected workflow so that local developments are automatically folded into the packaged environment.
+The commands above provision the refreshed `coffea202507` Conda environment, which tracks the Coffea 2025.7 base release used throughout the project.  Installing `topeft` with `pip install -e .` is now the expected workflow so that local developments are automatically folded into the packaged environment.
+
+Upgrading from an older checkout?  Reuse the same directory and run `conda env update -f environment.yml --prune` before activating the environment so the existing `coffea202507` install picks up the Coffea 2025.7 pins and removes stale dependencies.  Because the specification now targets Python 3.13 and newer `ndcctools` builds from conda-forge, older Conda releases may prompt for a solver update; if that happens, accept the prompt or run `conda update -n base -c conda-forge conda` first.  When pip subsequently asks to install `coffea==2025.7.3` and `awkward==2.8.7`, answer “yes” (or allow the editable installs to proceed) so the environment matches the shipped tarballs.
 
 The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.
 The `topcoffea` package upon which this analysis also depends is not yet available on `PyPI`, so we need to clone the `topcoffea` repo and install it ourselves.
