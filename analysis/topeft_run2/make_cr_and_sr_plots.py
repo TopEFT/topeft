@@ -828,14 +828,23 @@ def make_cr_fig(
         template = next(iter(mc_vals.values())) if mc_vals else h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
         for proc_name, members in grouping.items():
             valid_members = [m for m in members if m in available_processes]
-            if not valid_members:
-                mc_sumw2_vals[proc_name] = np.zeros_like(template)
-                continue
-            grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
-            grouped_vals = grouped_hist.as_hist({}).values(flow=True)[1:]
-            if unit_norm_bool:
-                grouped_vals = grouped_vals * mc_norm_factor**2
-            mc_sumw2_vals[proc_name] = grouped_vals
+            missing_members = [m for m in members if m not in available_processes]
+
+            grouped_vals = np.zeros_like(template)
+            if valid_members:
+                grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
+                grouped_vals = grouped_hist.as_hist({}).values(flow=True)[1:]
+                if unit_norm_bool:
+                    grouped_vals = grouped_vals * mc_norm_factor**2
+
+            fallback_vals = np.zeros_like(template)
+            if missing_members:
+                fallback_hist = h_mc[{"process": missing_members}][{"process": sum}]
+                fallback_vals = fallback_hist.as_hist({}).values(flow=True)[1:]
+                if unit_norm_bool:
+                    fallback_vals = fallback_vals * mc_norm_factor
+
+            mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
 
     bins = h_data[{'process': sum}].as_hist({}).axes[var].edges
     bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
@@ -888,7 +897,7 @@ def make_cr_fig(
             if unit_norm_bool:
                 summed_mc_sumw2 = summed_mc_sumw2 * mc_norm_factor**2
     else:
-        summed_mc_sumw2 = mc_totals
+        summed_mc_sumw2 = mc_totals * (mc_norm_factor if unit_norm_bool else 1)
 
     mc_stat_unc = np.sqrt(np.clip(summed_mc_sumw2, a_min=0, a_max=None))
 
