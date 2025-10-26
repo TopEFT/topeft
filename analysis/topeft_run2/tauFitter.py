@@ -13,7 +13,7 @@ import datetime
 import argparse
 import math
 
-from coffea import hist
+import coffea.hist as hist
 
 from scipy.optimize import curve_fit
 from numpy.linalg import eig

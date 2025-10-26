@@ -1,9 +1,31 @@
 #!/usr/bin/env python
 import numpy as np
 import awkward as ak
-from coffea import hist, processor
+import coffea.hist as hist
+import coffea.processor as processor
 
 import topcoffea.modules.objects as obj
+
+
+def _resolve_nested_field(array, *field_paths):
+    for path in field_paths:
+        current = array
+        for names in path:
+            candidate = None
+            for name in names:
+                if hasattr(current, name):
+                    candidate = getattr(current, name)
+                    break
+                if name in getattr(current, "fields", []):
+                    candidate = current[name]
+                    break
+            if candidate is None:
+                current = None
+                break
+            current = candidate
+        if current is not None:
+            return current
+    return None
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -35,7 +57,8 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        dataset      = events.metadata["dataset"]
+        source_dataset = events.metadata["dataset"]
+        dataset      = source_dataset
         histAxisName = self._samples[dataset]["histAxisName"]
         year         = self._samples[dataset]["year"]
         isData       = self._samples[dataset]["isData"]
@@ -46,7 +69,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         e = events.Electron
 
-        e["gen_pdgId"] = e.matched_gen.pdgId
+        gen_pdg = _resolve_nested_field(e, (("matched_gen",), ("pdgId", "pdg_id")))
+        if gen_pdg is None:
+            raise ValueError(
+                f"Missing matched generator PDG IDs for electrons in dataset '{source_dataset}'."
+            )
+
+        e["gen_pdgId"] = gen_pdg
 
         e["idEmu"]         = obj.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e["conept"]        = obj.coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)

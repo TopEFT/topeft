@@ -3,10 +3,10 @@ import numpy as np
 import awkward as ak
 import pandas as pd
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import processor
+import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
-from coffea.processor import AccumulatorABC
+from coffea.processor.accumulator import AccumulatorABC
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *

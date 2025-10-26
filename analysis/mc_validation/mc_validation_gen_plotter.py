@@ -8,7 +8,7 @@ import argparse
 import gzip
 import cloudpickle
 
-from coffea import hist
+import coffea.hist as hist
 
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.scripts.make_html import make_html

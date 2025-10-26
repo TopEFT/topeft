@@ -4,7 +4,7 @@ import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 #from coffea.arrays import Initialize # Not used and gives error
-from coffea import processor
+import coffea.processor as processor
 import hist
 from coffea.util import load
 import coffea.analysis_tools

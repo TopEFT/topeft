@@ -3,7 +3,8 @@ import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
+import coffea.hist as hist
+import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
@@ -11,6 +12,27 @@ from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
 from topcoffea.modules.selection import *
 from topcoffea.modules.paths import topcoffea_path
+
+
+def _resolve_nested_field(array, *field_paths):
+    for path in field_paths:
+        current = array
+        for names in path:
+            candidate = None
+            for name in names:
+                if hasattr(current, name):
+                    candidate = getattr(current, name)
+                    break
+                if name in getattr(current, "fields", []):
+                    candidate = current[name]
+                    break
+            if candidate is None:
+                current = None
+                break
+            current = candidate
+        if current is not None:
+            return current
+    return None
 
 # Check if the values in an array are within a given range
 def in_range_mask(in_var,lo_lim=None,hi_lim=None):
@@ -64,7 +86,8 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        dataset = events.metadata["dataset"]
+        source_dataset = events.metadata["dataset"]
+        dataset = source_dataset
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
         year               = self._samples[dataset]["year"]
@@ -100,12 +123,64 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
 
         if not isData:
-            e["gen_pdgId"] = e.matched_gen.pdgId
-            mu["gen_pdgId"] = mu.matched_gen.pdgId
-            e["gen_parent_pdgId"] = e.matched_gen.distinctParent.pdgId
-            mu["gen_parent_pdgId"] = mu.matched_gen.distinctParent.pdgId
-            e["gen_gparent_pdgId"] = e.matched_gen.distinctParent.distinctParent.pdgId
-            mu["gen_gparent_pdgId"] = mu.matched_gen.distinctParent.distinctParent.pdgId
+            gen_pdg_e = _resolve_nested_field(e, (("matched_gen",), ("pdgId", "pdg_id")))
+            if gen_pdg_e is None:
+                raise ValueError(
+                    f"Missing matched generator PDG IDs for electrons in dataset '{source_dataset}'."
+                )
+            e["gen_pdgId"] = gen_pdg_e
+            gen_pdg_mu = _resolve_nested_field(mu, (("matched_gen",), ("pdgId", "pdg_id")))
+            if gen_pdg_mu is None:
+                raise ValueError(
+                    f"Missing matched generator PDG IDs for muons in dataset '{source_dataset}'."
+                )
+            mu["gen_pdgId"] = gen_pdg_mu
+            parent_pdg_e = _resolve_nested_field(
+                e,
+                (("matched_gen",), ("distinctParent", "parent"), ("pdgId", "pdg_id")),
+            )
+            if parent_pdg_e is None:
+                raise ValueError(
+                    f"Missing parent generator PDG IDs for electrons in dataset '{source_dataset}'."
+                )
+            e["gen_parent_pdgId"] = parent_pdg_e
+            parent_pdg_mu = _resolve_nested_field(
+                mu,
+                (("matched_gen",), ("distinctParent", "parent"), ("pdgId", "pdg_id")),
+            )
+            if parent_pdg_mu is None:
+                raise ValueError(
+                    f"Missing parent generator PDG IDs for muons in dataset '{source_dataset}'."
+                )
+            mu["gen_parent_pdgId"] = parent_pdg_mu
+            gparent_pdg_e = _resolve_nested_field(
+                e,
+                (
+                    ("matched_gen",),
+                    ("distinctParent", "parent"),
+                    ("distinctParent", "parent"),
+                    ("pdgId", "pdg_id"),
+                ),
+            )
+            if gparent_pdg_e is None:
+                raise ValueError(
+                    f"Missing grandparent generator PDG IDs for electrons in dataset '{source_dataset}'."
+                )
+            e["gen_gparent_pdgId"] = gparent_pdg_e
+            gparent_pdg_mu = _resolve_nested_field(
+                mu,
+                (
+                    ("matched_gen",),
+                    ("distinctParent", "parent"),
+                    ("distinctParent", "parent"),
+                    ("pdgId", "pdg_id"),
+                ),
+            )
+            if gparent_pdg_mu is None:
+                raise ValueError(
+                    f"Missing grandparent generator PDG IDs for muons in dataset '{source_dataset}'."
+                )
+            mu["gen_gparent_pdgId"] = gparent_pdg_mu
 
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":

@@ -6,7 +6,7 @@
 import os
 import copy
 import matplotlib.pyplot as plt
-from coffea import hist
+import coffea.hist as hist
 
 from topcoffea.modules.YieldTools import YieldTools
 yt = YieldTools()

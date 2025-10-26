@@ -494,7 +494,7 @@ class ExecutorFactory:
         self._config = config
 
     def create_runner(self) -> Any:
-        from coffea import processor
+        import coffea.processor as processor
         from coffea.nanoevents import NanoAODSchema
         from topcoffea.modules import remote_environment
 

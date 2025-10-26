@@ -2,8 +2,8 @@
 import numpy as np
 import pandas as pd
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import processor
-from coffea.processor import AccumulatorABC
+import coffea.processor as processor
+from coffea.processor.accumulator import AccumulatorABC
 
 import pickle
 import gzip
