@@ -564,9 +564,9 @@ def processor(monkeypatch, tmp_path):
     return processor
 
 
-def _build_minimal_events():
+def _build_minimal_events(metadata=None):
     events = _EventNamespace()
-    events.metadata = {"dataset": "DummyDataset"}
+    events.metadata = metadata if metadata is not None else {"dataset": "DummyDataset"}
     events.caches = [dict()]
     events.run = ak.Array([1])
     events.luminosityBlock = ak.Array([1])
@@ -660,7 +660,7 @@ def _build_minimal_events():
 
 
 def test_process_nominal_run_is_quiet(processor, capsys, monkeypatch):
-    events = _build_minimal_events()
+    events = _build_minimal_events(metadata=types.MappingProxyType({"dataset": "DummyDataset"}))
 
     def _fake_process(self, events):
         dataset = events.metadata["dataset"]
@@ -698,3 +698,20 @@ def test_process_nominal_run_is_quiet(processor, capsys, monkeypatch):
 
     assert captured.out == ""
     assert result == {"DummyDataset": 0}
+
+
+def test_metadata_to_mapping_handles_various_inputs():
+    analysis_processor = importlib.import_module("analysis.topeft_run2.analysis_processor")
+
+    mapping_proxy = types.MappingProxyType({"dataset": "proxy", "value": 1})
+    sequence_items = [("dataset", "sequence"), ("value", 2)]
+    namespace = types.SimpleNamespace(dataset="namespace", value=3, helper=lambda: None)
+
+    metadata_from_proxy = analysis_processor.AnalysisProcessor._metadata_to_mapping(mapping_proxy)
+    metadata_from_sequence = analysis_processor.AnalysisProcessor._metadata_to_mapping(sequence_items)
+    metadata_from_namespace = analysis_processor.AnalysisProcessor._metadata_to_mapping(namespace)
+
+    assert metadata_from_proxy["dataset"] == "proxy"
+    assert metadata_from_sequence["dataset"] == "sequence"
+    assert metadata_from_namespace["dataset"] == "namespace"
+    assert "helper" not in metadata_from_namespace
