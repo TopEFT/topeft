@@ -17,7 +17,9 @@ Test the quadratic fit plotting script
 ### `tests/test_futures.py`
 The `test_futures` runs the analysis processor over a given file, `test_nonprompt()` runs the output from `test_topcoffea()` through `topcoffea/modules/dataDrivenEstimation.py`, `test_datacardmaker()` creates a test datacard. 
 ### `test_work_queue()`
-Runs the main processor with the work queue executor. 
+Runs the main processor with the legacy Work Queue executor.  The production
+workflow defaults to TaskVine, but this test is kept to ensure backwards
+compatibility with the historical backend.
 ### `test_yields()`
 Checks the yields from the output pkl file from the processor against ref yields. 
 

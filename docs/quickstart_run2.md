@@ -8,6 +8,37 @@ by `analysis/topeft_run2/run_analysis.py`.  They configure the
 conservative defaults, load a small histogram list and keep the executor limited
 to the local ``futures`` backend.
 
+## Prerequisites
+
+Set up the shared development environment before launching the helper.  The
+repository standardises on the Coffea 2025.7 toolchain, captured in the
+`coffea20250703` Conda environment declared in `environment.yml`:
+
+```bash
+conda env create -f environment.yml
+conda activate coffea20250703
+pip install -e .
+```
+
+Install the companion [`topcoffea`](https://github.com/TopEFT/topcoffea)
+package in the same environment and rebuild the packaged TaskVine archive so the
+workflow can hand a consistent tarball to remote workers:
+
+```bash
+git clone https://github.com/TopEFT/topcoffea.git
+cd topcoffea
+pip install -e .
+cd ../topeft
+python -m topcoffea.modules.remote_environment
+```
+
+The helper emits the cache path under `topeft-envs/`.  Pass the same value to
+``vine_submit_workers --python-env`` when scaling beyond the default local
+executor, or consult the [remote environment maintenance
+guide](environment_packaging.md) for rebuild strategies.  Legacy Work Queue
+instructions remain available in [`README_WORKQUEUE.md`](../README_WORKQUEUE.md)
+when you need to reproduce the historical backend.
+
 The quickest way to run the helper is via the dedicated module entry point::
 
     python -m topeft.quickstart input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
