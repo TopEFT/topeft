@@ -1121,6 +1121,8 @@ def make_cr_fig(
     new_right = max(new_right, rightmost_extent)
 
     if not np.isclose(new_right, current_right):
+        ax_position = ax.get_position()
+        rax_position = rax.get_position()
         plt.subplots_adjust(
             bottom=subplot_params.bottom,
             top=subplot_params.top,
@@ -1129,6 +1131,8 @@ def make_cr_fig(
             hspace=subplot_params.hspace,
             wspace=subplot_params.wspace,
         )
+        ax.set_position(ax_position)
+        rax.set_position(rax_position)
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
         subplot_params = fig.subplotpars
