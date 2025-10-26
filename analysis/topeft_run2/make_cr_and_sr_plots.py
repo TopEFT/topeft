@@ -1135,14 +1135,12 @@ def make_cr_fig(
     subplot_params = fig.subplotpars
     current_bottom = subplot_params.bottom
     clearance_deficit = required_clearance - min_axis_y
-    new_bottom = current_bottom
-    if clearance_deficit > 0:
-        new_bottom = max(new_bottom, current_bottom + clearance_deficit)
-    new_bottom = max(new_bottom, required_clearance)
+    proposed_bottom = max(required_clearance, current_bottom + clearance_deficit)
+    proposed_bottom = np.clip(proposed_bottom, 0.0, 1.0)
 
-    if new_bottom > current_bottom:
+    if not np.isclose(proposed_bottom, current_bottom):
         plt.subplots_adjust(
-            bottom=new_bottom,
+            bottom=proposed_bottom,
             top=subplot_params.top,
             left=subplot_params.left,
             right=subplot_params.right,
@@ -1151,9 +1149,8 @@ def make_cr_fig(
         )
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
-        min_axis_y = _get_min_axis_y(renderer)
-    else:
-        min_axis_y = _get_min_axis_y(renderer)
+
+    min_axis_y = _get_min_axis_y(renderer)
 
     label_y = min_axis_y - measured_height - margin
     rax_box = rax.get_position()
