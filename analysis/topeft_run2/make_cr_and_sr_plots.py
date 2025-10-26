@@ -91,6 +91,32 @@ def _apply_channel_transforms(channel_name, transformations):
         else:
             raise ValueError(f"Unsupported channel transformation '{transform}'")
     return transformed
+
+
+def _resolve_requested_variables(dict_of_hists, variables, context):
+    """Return the ordered list of variables to process for a plotting function."""
+
+    all_variables = list(dict_of_hists.keys())
+    if not variables:
+        return all_variables
+
+    resolved = []
+    missing = []
+    for var_name in variables:
+        if var_name in dict_of_hists:
+            if var_name not in resolved:
+                resolved.append(var_name)
+        else:
+            missing.append(var_name)
+
+    for missing_name in missing:
+        print(
+            f"Warning: Requested variable '{missing_name}' not found in {context}; skipping."
+        )
+
+    return resolved
+
+
 def validate_channel_group(histos, expected_labels, transformations, region, subgroup, variable):
     if not isinstance(histos, (list, tuple)):
         histos = [histos]
@@ -1108,7 +1134,7 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref,var='lj0pt',err_p=None,er
 # Wrapper function to loop over all SR categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make plots that show all systematics in the pkl file
-def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
+def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path,variables=None):
 
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
@@ -1143,7 +1169,11 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
-    for idx, var_name in enumerate(dict_of_hists.keys()):
+    variables_to_plot = _resolve_requested_variables(
+        dict_of_hists, variables, "make_all_sr_sys_plots"
+    )
+
+    for idx, var_name in enumerate(variables_to_plot):
         if 'sumw2' in var_name: continue
         if _is_sparse_2d_hist(dict_of_hists[var_name]):
             continue
@@ -1212,11 +1242,15 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
 ###################### Wrapper function for simple plots ######################
 # Wrapper function to loop over categories and make plots for all variables
-def make_simple_plots(dict_of_hists,year,save_dir_path):
+def make_simple_plots(dict_of_hists,year,save_dir_path,variables=None):
 
     all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="njets")
 
-    for idx,var_name in enumerate(dict_of_hists.keys()):
+    variables_to_plot = _resolve_requested_variables(
+        dict_of_hists, variables, "make_simple_plots"
+    )
+
+    for idx,var_name in enumerate(variables_to_plot):
         if 'sumw2' in var_name: continue
         if _is_sparse_2d_hist(dict_of_hists[var_name]):
             continue
@@ -1322,8 +1356,11 @@ def make_all_sr_data_mc_plots(
     print("\nData samples:",data_sample_lst)
     all_variables = list(dict_of_hists.keys())
     print("\nVariables:",all_variables)
+    variables_to_plot = _resolve_requested_variables(
+        dict_of_hists, variables, "make_all_sr_data_mc_plots"
+    )
     if variables is not None:
-        print("Filtered variables:", variables)
+        print("Filtered variables:", variables_to_plot)
 
     global SR_GRP_MAP, CR_GRP_MAP
     CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
@@ -1357,11 +1394,7 @@ def make_all_sr_data_mc_plots(
     # Loop over hists and make plots
     skip_lst = ['ptz', 'njets'] # Skip this hist
     #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
-    variable_filter = set(variables) if variables is not None else None
-
-    for idx,var_name in enumerate(dict_of_hists.keys()):
-        if variable_filter is not None and var_name not in variable_filter:
-            continue
+    for idx,var_name in enumerate(variables_to_plot):
         if 'sumw2' in var_name: continue
         if _is_sparse_2d_hist(dict_of_hists[var_name]):
             continue
@@ -1510,7 +1543,15 @@ def make_all_sr_data_mc_plots(
 # Wrapper function to loop over all SR categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make two sets of plots: One with process overlay, one with channel overlay
-def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True):
+def make_all_sr_plots(
+    dict_of_hists,
+    year,
+    unit_norm_bool,
+    save_dir_path,
+    split_by_chan=True,
+    split_by_proc=True,
+    variables=None,
+):
 
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
@@ -1545,9 +1586,11 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
-    for idx,var_name in enumerate(dict_of_hists.keys()):
-        if variable_filter is not None and var_name not in variable_filter:
-            continue
+    variables_to_plot = _resolve_requested_variables(
+        dict_of_hists, variables, "make_all_sr_plots"
+    )
+
+    for idx,var_name in enumerate(variables_to_plot):
         #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if 'sumw2' in var_name: continue
         if _is_sparse_2d_hist(dict_of_hists[var_name]):
@@ -1728,8 +1771,11 @@ def make_all_cr_plots(
             samples_to_rm_from_data_hist.append(sample_name)
     all_variables = list(dict_of_hists.keys())
     print("\nVariables:",all_variables)
+    variables_to_plot = _resolve_requested_variables(
+        dict_of_hists, variables, "make_all_cr_plots"
+    )
     if variables is not None:
-        print("Filtered variables:", variables)
+        print("Filtered variables:", variables_to_plot)
 
     global CR_GRP_MAP
     CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
@@ -1744,12 +1790,8 @@ def make_all_cr_plots(
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
     #skip_wlst = ["njets"] # Skip all but these hists
-    variable_filter = set(variables) if variables is not None else None
-
-    for idx,var_name in enumerate(dict_of_hists.keys()):
+    for idx,var_name in enumerate(variables_to_plot):
         if 'sumw2' in var_name:
-            continue
-        if variable_filter is not None and var_name not in variable_filter:
             continue
         if (var_name in skip_lst):
             continue
