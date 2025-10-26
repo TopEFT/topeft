@@ -12,6 +12,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import mplhep as hep
 import hist
+from matplotlib.transforms import Bbox
 from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
 from topeft.modules.axes import info as axes_info
@@ -836,7 +837,7 @@ def make_cr_fig(
             years[name] = [axis_name]
     hep.style.use("CMS")
     plt.sca(ax)
-    hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
+    cms_label = hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
 
     # Use the grouping information determined above
     def _get_grouped_vals(hist_obj, grouping_map):
@@ -1031,9 +1032,44 @@ def make_cr_fig(
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
-    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
+    legend = ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
 
     fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+
+    legend_box = None
+    if legend is not None:
+        legend_bbox = legend.get_window_extent(renderer=renderer)
+        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+    cms_artists = ()
+    if cms_label is not None:
+        if isinstance(cms_label, (list, tuple)):
+            cms_artists = tuple(cms_label)
+        else:
+            cms_artists = (cms_label,)
+
+    cms_bboxes = []
+    for artist in cms_artists:
+        if hasattr(artist, "get_window_extent"):
+            cms_bbox = artist.get_window_extent(renderer=renderer)
+            cms_bboxes.append(cms_bbox)
+
+    if legend_box is not None and cms_bboxes:
+        cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+        target_gap = 0.015
+        gap = cms_box.y0 - legend_box.y1
+        if gap < target_gap:
+            delta = target_gap - gap
+            ax_box = ax.get_position()
+            rax_box = rax.get_position()
+            shift = min(delta, ax_box.y0, rax_box.y0)
+            if shift > 0:
+                ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
+                rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
+                fig.canvas.draw()
+                renderer = fig.canvas.get_renderer()
+
     def _get_min_axis_y(renderer):
         bboxes = []
         for tick_label in rax.get_xticklabels():
