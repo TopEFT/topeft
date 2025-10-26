@@ -178,8 +178,15 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
             # Get the systematic shape and rate uncertainties
             group_map = {"Conv":[], "Diboson":[], "Triboson":[], "Flips":[], "Signal":[proc+"_private"]} # A group map is expected by the code that gets the rate systs
-            rate_systs_summed_arr_m , rate_systs_summed_arr_p = mcp.get_rate_syst_arrs(private_proc_histo,group_map)
-            shape_systs_summed_arr_m , shape_systs_summed_arr_p = mcp.get_shape_syst_arrs(private_proc_histo)
+            rate_systs_summed_arr_m , rate_systs_summed_arr_p = mcp.get_rate_syst_arrs(
+                private_proc_histo,
+                group_map,
+                group_type="SR",
+            )
+            shape_systs_summed_arr_m , shape_systs_summed_arr_p = mcp.get_shape_syst_arrs(
+                private_proc_histo,
+                group_type="SR",
+            )
 
             # Get the missing parton uncertainty, add it to the rate uncertainties
             histo_private_all_cats = histo_base.integrate("sample",comp_proc_dict[proc]["private"]).integrate("systematic","nominal")
