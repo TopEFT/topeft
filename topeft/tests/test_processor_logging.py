@@ -192,26 +192,26 @@ def _install_stubs(monkeypatch):
         def __init_subclass__(cls, **kwargs):  # pragma: no cover - compatibility
             return super().__init_subclass__(**kwargs)
 
-    class _BaseExecutor:  # pragma: no cover - simple executor stub
+    class _ExecutorBase:  # pragma: no cover - simple executor stub
         def __init__(self, **config):
             self.config = config
 
         def __call__(self, *args, **kwargs):
             return {}
 
-    class _IterativeExecutor(_BaseExecutor):
+    class _IterativeExecutor(_ExecutorBase):
         pass
 
-    class _FuturesExecutor(_BaseExecutor):
+    class _FuturesExecutor(_ExecutorBase):
         pass
 
-    class _DaskExecutor(_BaseExecutor):
+    class _DaskExecutor(_ExecutorBase):
         pass
 
-    class _ParslExecutor(_BaseExecutor):
+    class _ParslExecutor(_ExecutorBase):
         pass
 
-    class _TaskVineExecutor(_BaseExecutor):
+    class _TaskVineExecutor(_ExecutorBase):
         pass
 
     class _Runner:  # pragma: no cover - invoked indirectly in tests
@@ -304,6 +304,7 @@ def _install_stubs(monkeypatch):
     accumulator_module.column_accumulator = _column_accumulator
 
     processor_module.ProcessorABC = _ProcessorABC
+    processor_module.ExecutorBase = _ExecutorBase
     processor_module.IterativeExecutor = _IterativeExecutor
     processor_module.FuturesExecutor = _FuturesExecutor
     processor_module.DaskExecutor = _DaskExecutor
@@ -325,6 +326,33 @@ def _install_stubs(monkeypatch):
     processor_module.defaultdict_accumulator = _defaultdict_accumulator
     processor_module.column_accumulator = _column_accumulator
     processor_module.accumulator = accumulator_module
+
+    executor_submodule = _module("coffea.processor.executor")
+    executor_submodule.ExecutorBase = _ExecutorBase
+    executor_submodule.IterativeExecutor = _IterativeExecutor
+    executor_submodule.FuturesExecutor = _FuturesExecutor
+    executor_submodule.DaskExecutor = _DaskExecutor
+    executor_submodule.ParslExecutor = _ParslExecutor
+    executor_submodule.TaskVineExecutor = _TaskVineExecutor
+    executor_submodule.Runner = _Runner
+    executor_submodule.accumulate = _accumulate
+    executor_submodule.AccumulatorABC = _AccumulatorABC
+    executor_submodule.Accumulatable = _Accumulatable
+    executor_submodule.list_accumulator = _ListAccumulator
+    executor_submodule.set_accumulator = _SetAccumulator
+    executor_submodule.dict_accumulator = _DictAccumulator
+    executor_submodule.defaultdict_accumulator = _defaultdict_accumulator
+    executor_submodule.column_accumulator = _column_accumulator
+
+    taskvine_submodule = _module("coffea.processor.taskvine_executor")
+    taskvine_submodule.TaskVineExecutor = _TaskVineExecutor
+
+    processor_submodule = _module("coffea.processor.processor")
+    processor_submodule.ProcessorABC = _ProcessorABC
+
+    processor_module.executor = executor_submodule  # type: ignore[attr-defined]
+    processor_module.taskvine_executor = taskvine_submodule  # type: ignore[attr-defined]
+    processor_module.processor = processor_submodule  # type: ignore[attr-defined]
 
     coffea_pkg.processor = processor_module  # type: ignore[attr-defined]
 
@@ -609,6 +637,27 @@ def _install_stubs(monkeypatch):
     analysis_tools_module.CutflowToNpz = _cutflow_to_npz
     analysis_tools_module.NminusOneToNpz = _nminus_one_to_npz
 
+    class _IncompatiblePartitions(Exception):
+        """Lightweight proxy for dask_awkward.utils.IncompatiblePartitions."""
+
+    def _compatible_partitions(*_args, **_kwargs):
+        return True
+
+    analysis_tools_module.IncompatiblePartitions = _IncompatiblePartitions
+    analysis_tools_module.compatible_partitions = _compatible_partitions
+    analysis_tools_module.numpy = np
+    analysis_tools_module.awkward = ak
+    analysis_tools_module.hist = hist_pkg
+    analysis_tools_module.coffea = coffea_pkg
+    analysis_tools_module.warnings = __import__("warnings")
+    analysis_tools_module.lru_cache = __import__("functools").lru_cache
+    analysis_tools_module.namedtuple = __import__("collections").namedtuple
+
+    dask_module = _module("dask")
+    dask_awkward_module = _module("dask_awkward")
+    analysis_tools_module.dask = dask_module  # type: ignore[attr-defined]
+    analysis_tools_module.dask_awkward = dask_awkward_module  # type: ignore[attr-defined]
+
     nanoevents_module = _module("coffea.nanoevents")
     coffea_pkg.nanoevents = nanoevents_module  # type: ignore[attr-defined]
 
@@ -648,6 +697,12 @@ def _install_stubs(monkeypatch):
     lumi_tools_module.LumiMask = _DummyLumiMask
     lumi_tools_module.LumiList = _LumiList
     lumi_tools_module.LumiData = _LumiData
+
+    lumi_submodule = _module("coffea.lumi_tools.lumi_tools")
+    lumi_submodule.LumiMask = _DummyLumiMask
+    lumi_submodule.LumiList = _LumiList
+    lumi_submodule.LumiData = _LumiData
+    lumi_tools_module.lumi_tools = lumi_submodule  # type: ignore[attr-defined]
 
     # Parameter helpers
     paths_module = _module("topcoffea.modules.paths")
