@@ -1696,6 +1696,13 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
     global CR_GRP_MAP
     CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
+    dict_of_sumw2 = {
+        hist_name.replace("_sumw2", ""): hist_obj
+        for hist_name, hist_obj in dict_of_hists.items()
+        if hist_name.endswith("_sumw2") and hist_name.count("sumw2") == 1
+    }
+    cr_signal_samples = sorted(set(CR_GRP_MAP.get("Signal", [])))
+    unblind_data = len(data_sample_lst) > 0
 
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
@@ -1722,9 +1729,17 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
-        hist_mc_sumw2 = dict_of_hists.get(f"{var_name}_sumw2")
-        if hist_mc_sumw2 is not None:
-            hist_mc_sumw2 = hist_mc_sumw2.remove("process", samples_to_rm_from_mc_hist)
+        hist_mc_sumw2_orig = dict_of_sumw2.get(var_name)
+        if hist_mc_sumw2_orig is not None:
+            hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", samples_to_rm_from_mc_hist)
+            if cr_signal_samples:
+                existing_signal = [
+                    sample
+                    for sample in cr_signal_samples
+                    if sample in yt.get_cat_lables(hist_mc_sumw2_orig, "process")
+                ]
+                if existing_signal:
+                    hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", existing_signal)
         is_sparse2d = _is_sparse_2d_hist(hist_mc)
         if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
             print(f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting.")
@@ -1761,10 +1776,10 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)[{"channel": sum}]
             except:
                 continue
-            if hist_mc_sumw2 is not None:
+            if hist_mc_sumw2_orig is not None:
                 try:
                     hist_mc_sumw2_integrated = yt.integrate_out_cats(
-                        yt.integrate_out_appl(hist_mc_sumw2, hist_cat),
+                        yt.integrate_out_appl(hist_mc_sumw2_orig, hist_cat),
                         axes_to_integrate_dict,
                     )[{'channel': sum}]
                 except Exception:
@@ -1789,6 +1804,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             m_err_arr = None
             p_err_arr_ratio = None
             m_err_arr_ratio = None
+            syst_err_mode = False
             if not (is_sparse2d or skip_syst_errs):
                 # Get plus and minus rate and shape arrs
                 rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(
@@ -1811,6 +1827,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:] # This goes in the main plot
                 p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
                 m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
+                syst_err_mode = "total" if unblind_data else "syst"
 
 
             if is_sparse2d:
@@ -1877,11 +1894,12 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                     lumitag=LUMI_COM_PAIRS[year][0],
                     comtag=LUMI_COM_PAIRS[year][1],
                     h_mc_sumw2=hist_mc_sumw2_integrated,
+                    syst_err=syst_err_mode,
                     err_p_syst=p_err_arr,
                     err_m_syst=m_err_arr,
                     err_ratio_p_syst=p_err_arr_ratio,
                     err_ratio_m_syst=m_err_arr_ratio,
-                    unblind=True,
+                    unblind=unblind_data,
                 )
             if unit_norm_bool: title = title + "_unitnorm"
             if isinstance(fig, dict):
