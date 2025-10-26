@@ -13,6 +13,7 @@ dependencies:
   - git
   - pyyaml
   - pytest
+  - numpy
   - pip:
       - coffea==2025.7.3
       - awkward==2.8.7
