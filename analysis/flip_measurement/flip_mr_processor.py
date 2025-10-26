@@ -57,7 +57,8 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        dataset      = events.metadata["dataset"]
+        source_dataset = events.metadata["dataset"]
+        dataset      = source_dataset
         histAxisName = self._samples[dataset]["histAxisName"]
         year         = self._samples[dataset]["year"]
         isData       = self._samples[dataset]["isData"]
@@ -70,7 +71,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         gen_pdg = _resolve_nested_field(e, (("matched_gen",), ("pdgId", "pdg_id")))
         if gen_pdg is None:
-            gen_pdg = ak.zeros_like(getattr(e, "pdgId"))
+            raise ValueError(
+                f"Missing matched generator PDG IDs for electrons in dataset '{source_dataset}'."
+            )
         e["gen_pdgId"] = gen_pdg
 
         e["idEmu"]         = obj.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)

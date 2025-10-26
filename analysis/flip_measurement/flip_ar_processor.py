@@ -86,7 +86,8 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        dataset = events.metadata["dataset"]
+        source_dataset = events.metadata["dataset"]
+        dataset = source_dataset
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
         year               = self._samples[dataset]["year"]
@@ -124,25 +125,33 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
             gen_pdg_e = _resolve_nested_field(e, (("matched_gen",), ("pdgId", "pdg_id")))
             if gen_pdg_e is None:
-                gen_pdg_e = ak.zeros_like(getattr(e, "pdgId"))
+                raise ValueError(
+                    f"Missing matched generator PDG IDs for electrons in dataset '{source_dataset}'."
+                )
             e["gen_pdgId"] = gen_pdg_e
             gen_pdg_mu = _resolve_nested_field(mu, (("matched_gen",), ("pdgId", "pdg_id")))
             if gen_pdg_mu is None:
-                gen_pdg_mu = ak.zeros_like(getattr(mu, "pdgId"))
+                raise ValueError(
+                    f"Missing matched generator PDG IDs for muons in dataset '{source_dataset}'."
+                )
             mu["gen_pdgId"] = gen_pdg_mu
             parent_pdg_e = _resolve_nested_field(
                 e,
                 (("matched_gen",), ("distinctParent", "parent"), ("pdgId", "pdg_id")),
             )
             if parent_pdg_e is None:
-                parent_pdg_e = ak.zeros_like(getattr(e, "pdgId"))
+                raise ValueError(
+                    f"Missing parent generator PDG IDs for electrons in dataset '{source_dataset}'."
+                )
             e["gen_parent_pdgId"] = parent_pdg_e
             parent_pdg_mu = _resolve_nested_field(
                 mu,
                 (("matched_gen",), ("distinctParent", "parent"), ("pdgId", "pdg_id")),
             )
             if parent_pdg_mu is None:
-                parent_pdg_mu = ak.zeros_like(getattr(mu, "pdgId"))
+                raise ValueError(
+                    f"Missing parent generator PDG IDs for muons in dataset '{source_dataset}'."
+                )
             mu["gen_parent_pdgId"] = parent_pdg_mu
             gparent_pdg_e = _resolve_nested_field(
                 e,
@@ -154,7 +163,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ),
             )
             if gparent_pdg_e is None:
-                gparent_pdg_e = ak.zeros_like(getattr(e, "pdgId"))
+                raise ValueError(
+                    f"Missing grandparent generator PDG IDs for electrons in dataset '{source_dataset}'."
+                )
             e["gen_gparent_pdgId"] = gparent_pdg_e
             gparent_pdg_mu = _resolve_nested_field(
                 mu,
@@ -166,7 +177,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ),
             )
             if gparent_pdg_mu is None:
-                gparent_pdg_mu = ak.zeros_like(getattr(mu, "pdgId"))
+                raise ValueError(
+                    f"Missing grandparent generator PDG IDs for muons in dataset '{source_dataset}'."
+                )
             mu["gen_gparent_pdgId"] = gparent_pdg_mu
 
         # Get the lumi mask for data
