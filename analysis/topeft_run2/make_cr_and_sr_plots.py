@@ -1032,17 +1032,71 @@ def make_cr_fig(
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
     ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
-    rax_box = rax.get_position()
-    label_y = rax_box.y0 - 0.06
+
+    fig.canvas.draw()
+    def _measure_ticks():
+        local_renderer = fig.canvas.get_renderer()
+        local_rax_box = rax.get_position()
+        local_tick_bboxes = []
+        for tick_label in rax.get_xticklabels():
+            if not tick_label.get_visible():
+                continue
+            text = tick_label.get_text()
+            if not text:
+                continue
+            bbox = tick_label.get_window_extent(renderer=local_renderer)
+            local_tick_bboxes.append(
+                bbox.transformed(fig.transFigure.inverted())
+            )
+
+        if local_tick_bboxes:
+            min_tick_y_val = min(bbox.y0 for bbox in local_tick_bboxes)
+        else:
+            min_tick_y_val = local_rax_box.y0
+
+        return min_tick_y_val, local_rax_box
+
+    buffer = 0.01
+    label_fontsize = rax.yaxis.label.get_size() if rax.yaxis.label else 18
+    text_height = label_fontsize / 72.0 / fig.get_size_inches()[1]
+
+    def _compute_layout_metrics():
+        min_tick_y, local_rax_box = _measure_ticks()
+        label_y_pos = max(buffer, min_tick_y - buffer)
+        required_bottom = max(0.02, label_y_pos - text_height - 0.005)
+        return required_bottom, label_y_pos, local_rax_box
+
+    applied_bottom_margin = None
+    final_label_y = None
+    final_rax_box = None
+
+    for _ in range(5):
+        bottom_margin, label_y, rax_box = _compute_layout_metrics()
+        final_label_y = label_y
+        final_rax_box = rax_box
+        if applied_bottom_margin is not None and abs(bottom_margin - applied_bottom_margin) < 1e-4:
+            break
+        plt.subplots_adjust(top=0.88, bottom=bottom_margin, right=0.96, left=0.11)
+        fig.canvas.draw()
+        applied_bottom_margin = bottom_margin
+
+    if applied_bottom_margin is None:
+        # Ensure margins are set even if no adjustment was required inside the loop
+        plt.subplots_adjust(top=0.88, bottom=_compute_layout_metrics()[0], right=0.96, left=0.11)
+        fig.canvas.draw()
+        _, final_label_y, final_rax_box = _compute_layout_metrics()
+    else:
+        # Capture final geometry after the last adjustment
+        _, final_label_y, final_rax_box = _compute_layout_metrics()
+
     fig.text(
-        rax_box.x1,
-        label_y,
+        final_rax_box.x0 + final_rax_box.width,
+        final_label_y,
         display_label,
         ha="right",
         va="top",
-        fontsize=16,
+        fontsize=label_fontsize,
     )
-    plt.subplots_adjust(top=0.88, bottom=0.16, right=0.96, left=0.11)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
