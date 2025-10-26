@@ -1,6 +1,6 @@
 import gzip
 import pickle
-#from coffea import lookup_tools
+# from coffea.lookup_tools.dense_lookup import dense_lookup
 
 # The committed pkl files
 pkl_lst_committed = [
@@ -41,7 +41,10 @@ def main():
         print(hin.values())
         print(hin.axis("pt").edges())
         print(hin.axis("eta").edges())
-        x = lookup_tools.dense_lookup.dense_lookup(hin.values()[()],[hin.axis("pt").edges(),hin.axis("eta").edges()])
+        x = dense_lookup(
+            hin.values()[()],
+            [hin.axis("pt").edges(), hin.axis("eta").edges()],
+        )
         print("x",x)
         print("x",type(x))
         print(x(-35,1.9))
