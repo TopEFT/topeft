@@ -2054,6 +2054,11 @@ def main():
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
 
+    print("\nMaking plots for year:",args.year)
+    print("Output dir:",save_dir_path)
+    print("Variables to plot:", selected_variables if selected_variables else "All")
+    print("\n\n")
+    
     # Make the plots
     if not args.skip_cr:
         make_all_cr_plots(
