@@ -578,6 +578,7 @@ class ExecutorFactory:
 
             executor_args = {
                 "manager_name": manager_base,
+                "manager_name_template": f"{manager_base}-{{pid}}",
                 "filepath": str(staging_dir),
                 "extra_input_files": ["analysis_processor.py"],
                 "retries": 15,
@@ -619,7 +620,14 @@ class ExecutorFactory:
                 executor_args["port"] = port
 
                 try:
-                    exec_instance = taskvine_cls(**executor_args)
+                    try:
+                        exec_instance = taskvine_cls(**executor_args)
+                    except TypeError as exc:
+                        if "manager_name_template" in str(exc) and "manager_name_template" in executor_args:
+                            executor_args.pop("manager_name_template", None)
+                            exec_instance = taskvine_cls(**executor_args)
+                        else:
+                            raise
                 except Exception as exc:  # pragma: no cover - executor raises remotely
                     if not self._is_port_allocation_error(exc):
                         raise
