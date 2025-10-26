@@ -1056,22 +1056,42 @@ def make_cr_fig(
 
         return min_tick_y_val, local_rax_box
 
-    min_tick_y, rax_box = _measure_ticks()
-
     buffer = 0.01
     label_fontsize = rax.yaxis.label.get_size() if rax.yaxis.label else 18
     text_height = label_fontsize / 72.0 / fig.get_size_inches()[1]
-    label_y = max(buffer, min_tick_y - buffer)
-    bottom_margin = max(0.02, label_y - text_height - 0.005)
 
-    plt.subplots_adjust(top=0.88, bottom=bottom_margin, right=0.96, left=0.11)
-    fig.canvas.draw()
+    def _compute_layout_metrics():
+        min_tick_y, local_rax_box = _measure_ticks()
+        label_y_pos = max(buffer, min_tick_y - buffer)
+        required_bottom = max(0.02, label_y_pos - text_height - 0.005)
+        return required_bottom, label_y_pos, local_rax_box
 
-    min_tick_y, rax_box = _measure_ticks()
-    label_y = max(buffer, min_tick_y - buffer)
+    applied_bottom_margin = None
+    final_label_y = None
+    final_rax_box = None
+
+    for _ in range(5):
+        bottom_margin, label_y, rax_box = _compute_layout_metrics()
+        final_label_y = label_y
+        final_rax_box = rax_box
+        if applied_bottom_margin is not None and abs(bottom_margin - applied_bottom_margin) < 1e-4:
+            break
+        plt.subplots_adjust(top=0.88, bottom=bottom_margin, right=0.96, left=0.11)
+        fig.canvas.draw()
+        applied_bottom_margin = bottom_margin
+
+    if applied_bottom_margin is None:
+        # Ensure margins are set even if no adjustment was required inside the loop
+        plt.subplots_adjust(top=0.88, bottom=_compute_layout_metrics()[0], right=0.96, left=0.11)
+        fig.canvas.draw()
+        _, final_label_y, final_rax_box = _compute_layout_metrics()
+    else:
+        # Capture final geometry after the last adjustment
+        _, final_label_y, final_rax_box = _compute_layout_metrics()
+
     fig.text(
-        rax_box.x0 + rax_box.width,
-        label_y,
+        final_rax_box.x0 + final_rax_box.width,
+        final_label_y,
         display_label,
         ha="right",
         va="top",
