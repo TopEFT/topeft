@@ -1,6 +1,7 @@
 import collections
 import importlib
 import json
+import logging
 import sys
 import types
 
@@ -168,6 +169,51 @@ def _install_stubs(monkeypatch):
 
     hist_module.HistEFT = _DummyHistEFT
 
+    hist_planner_module = _module("topcoffea.modules.histEFT_planner")
+
+    class _DummyHistogramTask:
+        def __init__(self, sample, channel, variable, application, systematic, metadata=None):
+            self.sample = sample
+            self.channel = channel
+            self.variable = variable
+            self.application = application
+            self.systematic = systematic
+            self.metadata = metadata or {}
+
+        def key(self):
+            return (self.sample, self.channel, self.variable, self.application, self.systematic)
+
+        def __iter__(self):  # pragma: no cover - convenience shim
+            yield from self.key()
+
+    class _DummyHistogramPlan(list):
+        def summary(self):
+            return {"tasks": len(self)}
+
+        def to_dict(self):  # pragma: no cover - debug helper
+            return [task.key() for task in self]
+
+    class _DummyHistEFTPlanner:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
+        def plan(self, *tasks):
+            plan = _DummyHistogramPlan()
+            for task in tasks:
+                if isinstance(task, _DummyHistogramTask):
+                    plan.append(task)
+                else:
+                    plan.append(_DummyHistogramTask(*task))
+            return plan
+
+        def summary(self, *tasks):  # pragma: no cover - compatibility shim
+            return self.plan(*tasks).summary()
+
+    hist_planner_module.HistogramTask = _DummyHistogramTask
+    hist_planner_module.HistogramPlan = _DummyHistogramPlan
+    hist_planner_module.HistEFTPlanner = _DummyHistEFTPlanner
+
     # ``hist`` axis helpers
     hist_pkg = _module("hist")
 
@@ -245,11 +291,28 @@ def _install_stubs(monkeypatch):
             return super().__init_subclass__(**kwargs)
 
     class _ExecutorBase:  # pragma: no cover - simple executor stub
+        status = True
+        unit = "items"
+        desc = "Processing"
+        compression = 1
+        function_name = None
+
         def __init__(self, **config):
-            self.config = config
+            self.config = dict(config)
+            for key, value in config.items():
+                setattr(self, key, value)
+
+        def configure(self, **updates):
+            self.config.update(updates)
+            for key, value in updates.items():
+                setattr(self, key, value)
+            return self
 
         def __call__(self, *args, **kwargs):
             return {}
+
+        def __repr__(self):  # pragma: no cover - debug helper
+            return f"{type(self).__name__}(config={self.config})"
 
     class _IterativeExecutor(_ExecutorBase):
         pass
@@ -264,7 +327,17 @@ def _install_stubs(monkeypatch):
         pass
 
     class _TaskVineExecutor(_ExecutorBase):
-        pass
+        def __init__(self, **config):
+            super().__init__(**config)
+            self.port = config.get("port", 9123)
+            self.manager_name = config.get("manager_name")
+            self.extra_input_files = list(config.get("extra_input_files", []))
+            self.custom_init = config.get("custom_init")
+
+        def enable_monitoring(self, manager, method, path):
+            if hasattr(manager, "enable_monitoring"):
+                return manager.enable_monitoring(method, path)
+            return False
 
     class _Runner:  # pragma: no cover - invoked indirectly in tests
         def __init__(self, executor=None, schema=None, chunksize=None, maxchunks=None, **kwargs):
@@ -396,8 +469,27 @@ def _install_stubs(monkeypatch):
     executor_submodule.defaultdict_accumulator = _defaultdict_accumulator
     executor_submodule.column_accumulator = _column_accumulator
 
+    class _TaskVineManager:
+        def __init__(self):
+            self.enabled = {}
+            self.port = None
+
+        def enable_monitoring(self, method, path):
+            self.enabled[method] = path
+            return True
+
+        def terminate_when(self, *_args, **_kwargs):  # pragma: no cover - compatibility stub
+            return True
+
     taskvine_submodule = _module("coffea.processor.taskvine_executor")
     taskvine_submodule.TaskVineExecutor = _TaskVineExecutor
+    taskvine_submodule.manager = _TaskVineManager()
+
+    def _taskvine_accumulate(files, accumulator=None, concurrent_reads=2):  # pragma: no cover - shim
+        return accumulator
+
+    taskvine_submodule.accumulate_result_files = _taskvine_accumulate
+    taskvine_submodule.early_terminate = False
 
     processor_submodule = _module("coffea.processor.processor")
     processor_submodule.ProcessorABC = _ProcessorABC
@@ -407,6 +499,19 @@ def _install_stubs(monkeypatch):
     processor_module.processor = processor_submodule  # type: ignore[attr-defined]
 
     coffea_pkg.processor = processor_module  # type: ignore[attr-defined]
+
+    taskvine_hooks_module = _module("topeft.modules.taskvine_hooks")
+
+    def _enable_manager_logging(manager, *, method="status", path="/tmp/taskvine.log"):
+        if hasattr(manager, "enable_monitoring"):
+            return manager.enable_monitoring(method, path)
+        return False
+
+    def _install_runtime_hooks(*_args, **_kwargs):  # pragma: no cover - compatibility shim
+        return {}
+
+    taskvine_hooks_module.enable_manager_logging = _enable_manager_logging
+    taskvine_hooks_module.install_runtime_hooks = _install_runtime_hooks
 
     analysis_tools_module = _module("coffea.analysis_tools")
 
@@ -444,6 +549,14 @@ def _install_stubs(monkeypatch):
             self.maxw = float(maxw)
             self.n = int(n)
 
+        def __repr__(self):  # pragma: no cover - debug helper
+            return (
+                "WeightStatistics(sumw={sumw}, sumw2={sumw2}, minw={minw}, "
+                "maxw={maxw}, n={n})"
+            ).format(
+                sumw=self.sumw, sumw2=self.sumw2, minw=self.minw, maxw=self.maxw, n=self.n
+            )
+
         def identity(self):
             return type(self)()
 
@@ -457,6 +570,20 @@ def _install_stubs(monkeypatch):
 
         def __iadd__(self, other):
             return self.add(other)
+
+        def __add__(self, other):  # pragma: no cover - compatibility shim
+            result = type(self)(self.sumw, self.sumw2, self.minw, self.maxw, self.n)
+            result.add(other)
+            return result
+
+        def to_dict(self):  # pragma: no cover - helper
+            return {
+                "sumw": self.sumw,
+                "sumw2": self.sumw2,
+                "minw": self.minw,
+                "maxw": self.maxw,
+                "n": self.n,
+            }
 
     class _PackedSelection:
         _max_items = {
@@ -479,6 +606,10 @@ def _install_stubs(monkeypatch):
         @property
         def maxitems(self):
             return self._max_items[self._dtype]
+
+        @property
+        def delayed_mode(self):
+            return False
 
         def _ensure_mask(self, selection, fill_value=False):
             try:
@@ -510,6 +641,10 @@ def _install_stubs(monkeypatch):
             bit = self._dtype.type(1 << len(self._names))
             np.bitwise_or(self._data, bit, out=self._data, where=mask)
             self._names.append(name)
+
+        def add_multiple(self, selections, fill_value=False):
+            for name, mask in dict(selections).items():
+                self.add(name, mask, fill_value=fill_value)
 
         def _data_view(self):
             if self._data is None:
@@ -543,6 +678,48 @@ def _install_stubs(monkeypatch):
                 idx = self._names.index(name)
                 consider |= self._dtype.type(1 << idx)
             return (data & consider) != 0
+
+        def allfalse(self, *names):
+            names = names or tuple(self._names)
+            consider = self._dtype.type(0)
+            for name in names:
+                idx = self._names.index(name)
+                consider |= self._dtype.type(1 << idx)
+            return (self._data_view() & consider) == 0
+
+        def nminusone(self, *names):
+            names = names or tuple(self._names)
+            masks = collections.OrderedDict()
+            counts = collections.OrderedDict()
+            counts["initial"] = int(np.count_nonzero(np.ones_like(self._data_view(), dtype=bool)))
+            for name in names:
+                others = [candidate for candidate in names if candidate != name]
+                mask = self.all(*others)
+                masks[name] = mask
+                counts[name] = int(np.count_nonzero(mask))
+            counts["all"] = int(np.count_nonzero(self.all(*names))) if names else counts["initial"]
+            result = _NminusOne()
+            for label, value in counts.items():
+                result.add(label, value)
+            result._mask_map = masks
+            return result
+
+        def cutflow(self, *names, commonmask=None, weights=None, weightsmodifier=None):
+            names = names or tuple(self._names)
+            cumulative = np.ones_like(self._data_view(), dtype=bool)
+            if commonmask is not None:
+                cumulative = cumulative & self._ensure_mask(commonmask)
+            cutflow = _Cutflow()
+            cutflow._commonmask = commonmask
+            cutflow.add("initial", cumulative, mask=cumulative, weight=None)
+            for name in names:
+                mask = self.all(name)
+                if commonmask is not None:
+                    mask = mask & cumulative
+                cutflow.add(name, mask, mask=mask, weight=None)
+                cumulative = cumulative & mask
+            cutflow.add("final", cumulative, mask=cumulative, weight=None)
+            return cutflow
 
     class _Weights:
         def __init__(self, size, storeIndividual=False):
@@ -667,10 +844,17 @@ def _install_stubs(monkeypatch):
     class _Cutflow:
         def __init__(self):
             self._counts = collections.OrderedDict()
+            self._masks = []
+            self._weights = []
+            self._commonmask = None
 
-        def add(self, name, count):
+        def add(self, name, count, *, mask=None, weight=None):
             value = float(np.sum(count)) if np.size(count) else float(count)
             self._counts[name] = self._counts.get(name, 0.0) + value
+            if mask is not None:
+                self._masks.append((name, np.asarray(mask, dtype=bool)))
+            if weight is not None:
+                self._weights.append((name, np.asarray(weight, dtype=float)))
 
         def __getitem__(self, key):
             return self._counts[key]
@@ -681,8 +865,19 @@ def _install_stubs(monkeypatch):
         def to_dict(self):  # pragma: no cover - convenience helper
             return dict(self._counts)
 
+        def result(self):  # pragma: no cover - compatibility shim
+            labels = list(self._counts.keys())
+            values = list(self._counts.values())
+            masks = [mask for _, mask in self._masks]
+            return labels, values, values, masks, masks
+
     class _NminusOne(_Cutflow):
-        pass
+        def __init__(self):
+            super().__init__()
+            self._mask_map = collections.OrderedDict()
+
+        def masks(self):  # pragma: no cover - compatibility shim
+            return self._mask_map
 
     def _cutflow_to_npz(cutflow, filename, **metadata):  # pragma: no cover - shim
         return {
@@ -1134,11 +1329,24 @@ def _build_minimal_events(metadata=None):
     return events
 
 
-def test_process_nominal_run_is_quiet(processor, capsys, monkeypatch):
+def test_process_nominal_run_is_quiet(processor, capsys, caplog, monkeypatch):
     events = _build_minimal_events(metadata=types.MappingProxyType({"dataset": "DummyDataset"}))
 
     def _fake_process(self, events):
         dataset = events.metadata["dataset"]
+        features = tuple(sorted(getattr(self, "_channel_features", ())))
+        variation_metadata = {"label": "nominal", "components": ()}
+        self._debug(
+            "Resolved dataset context: dataset=%s trigger_dataset=%s features=%s",
+            dataset,
+            dataset,
+            features,
+        )
+        self._debug(
+            "Resolved variation metadata for '%s': %s",
+            "nominal",
+            variation_metadata,
+        )
         self._debug(
             "Processing variation '%s' (type: %s, base: %s)",
             "nominal",
@@ -1166,13 +1374,24 @@ def test_process_nominal_run_is_quiet(processor, capsys, monkeypatch):
         return {dataset: 0}
 
     monkeypatch.setattr(processor, "process", _fake_process.__get__(processor, type(processor)))
-
-    result = processor.process(events)
+    processor._debug_logging = True
+    with caplog.at_level(logging.DEBUG, logger="analysis.topeft_run2.analysis_processor"):
+        result = processor.process(events)
 
     captured = capsys.readouterr()
 
     assert captured.out == ""
     assert result == {"DummyDataset": 0}
+
+    messages = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "analysis.topeft_run2.analysis_processor"
+    ]
+    assert any("Resolved dataset context" in message for message in messages)
+    assert any("Resolved variation metadata" in message for message in messages)
+    assert any("Processing variation" in message for message in messages)
+    assert any("Filled histkey" in message for message in messages)
 
 
 def test_metadata_to_mapping_handles_various_inputs():
