@@ -227,8 +227,11 @@ CR_GRP_MAP:
       - ST
       - tW
       - tbarW
-      - TWZ_Tto
       - TZQB-Zto2L
+  tWZ:
+    color: tab:gray
+    patterns:
+      - TWZ
   Singleboson:
     color: tan
     patterns:
@@ -336,13 +339,16 @@ SR_GRP_MAP:
     color: mediumseagreen
     patterns:
       - TTG
-  Multiboson:
+  Triboson:
     color: tab:purple
     patterns:
       - WWW
       - WWZ
       - WZZ
       - ZZZ
+  tWZ:
+    color: tab:gray
+    patterns:
       - TWZ
   Diboson:
     color: tab:cyan

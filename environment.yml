@@ -13,3 +13,4 @@ dependencies:
   - git
   - pyyaml
   - setuptools==70.3.0
+  - pytest
