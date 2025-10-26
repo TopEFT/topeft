@@ -68,7 +68,8 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 * `make_cr_and_sr_plots.py`:
     - This script makes plots for all CRs categories, also has the ability to make SR plots.
     - The script takes as input a pkl file that should have both data and background MC included.
-    - Example usage: `python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2018 -t -u`
+    - Example usage: `python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2018 -t -u --variables lj0pt ptz`
+    - Omitting `--variables` processes every histogram in the input pickle, while providing one or more names limits the run to those histograms.
     - Histograms with multiple dense axes (e.g. the `SparseHist`-based `lepton_pt_vs_eta`) are automatically rendered as CMS-style 2D heatmaps, while the 1D rebinning and systematic envelopes quietly skip them. The heatmap canvas now includes a dedicated Data/MC ratio panel so comparisons are available at a glance alongside the nominal MC and data projections.
 
 * `get_yield_json.py`:
