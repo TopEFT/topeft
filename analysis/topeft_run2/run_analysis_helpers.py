@@ -121,13 +121,11 @@ def coerce_json_files(value: Any) -> List[str]:
     return [str(value)]
 
 
-def coerce_environment_file(value: Any) -> Optional[str]:
-    """Normalize environment-file configuration values."""
+def _coerce_optional_string(value: Any) -> Optional[str]:
+    """Return ``value`` as a normalised string or ``None`` when disabled."""
 
     if value is None:
         return None
-    if isinstance(value, bool):
-        return "auto" if value else None
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, str):
@@ -137,10 +135,23 @@ def coerce_environment_file(value: Any) -> Optional[str]:
         lowered = stripped.lower()
         if lowered in {"none", "null", "false", "0", "off", "disable", "disabled"}:
             return None
-        if lowered == "auto":
-            return "auto"
         return stripped
     return str(value)
+
+
+def coerce_environment_file(value: Any) -> Optional[str]:
+    """Normalize environment-file configuration values."""
+
+    if isinstance(value, bool):
+        return "auto" if value else None
+    result = _coerce_optional_string(value)
+    if result is None:
+        return None
+    if isinstance(value, str) and result.lower() == "auto":
+        return "auto"
+    if isinstance(value, str) and value.strip().lower() == "auto":
+        return "auto"
+    return result
 
 
 def coerce_optional_float(value: Any) -> Optional[float]:
@@ -342,6 +353,11 @@ class RunConfig:
     do_renormfact_envelope: bool = False
     wc_list: List[str] = field(default_factory=list)
     port: str = "9123-9130"
+    negotiate_manager_port: bool = True
+    manager_name: Optional[str] = None
+    manager_name_template: Optional[str] = None
+    resource_monitor: Optional[str] = "measure"
+    resources_mode: Optional[str] = "auto"
     ecut: Optional[float] = None
     summary_verbosity: str = "brief"
     log_tasks: bool = False
@@ -396,6 +412,17 @@ class RunConfigBuilder:
             "wc_list": ("wc_list", normalize_sequence),
             "ecut": ("ecut", coerce_optional_float),
             "port": ("port", coerce_port),
+            "negotiate_manager_port": (
+                "negotiate_manager_port",
+                coerce_bool,
+            ),
+            "manager_name": ("manager_name", _coerce_optional_string),
+            "manager_name_template": (
+                "manager_name_template",
+                _coerce_optional_string,
+            ),
+            "resource_monitor": ("resource_monitor", _coerce_optional_string),
+            "resources_mode": ("resources_mode", _coerce_optional_string),
             "summary_verbosity": ("summary_verbosity", coerce_summary_verbosity),
             "log_tasks": ("log_tasks", coerce_bool),
             "environment_file": ("environment_file", coerce_environment_file),
@@ -506,6 +533,11 @@ class RunConfigBuilder:
                 "wc_list": "wc_list",
                 "ecut": "ecut",
                 "port": "port",
+                "negotiate_manager_port": "negotiate_manager_port",
+                "manager_name": "manager_name",
+                "manager_name_template": "manager_name_template",
+                "resource_monitor": "resource_monitor",
+                "resources_mode": "resources_mode",
                 "environment_file": "environment_file",
             }
 
