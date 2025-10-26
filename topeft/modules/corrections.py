@@ -1,12 +1,8 @@
-'''
- This script is used to transform scale factors, which are tipically provided as 2D histograms within root files,
- into coffea format of corrections.
-'''
+"""
+This script transforms scale factors, typically provided as 2D histograms in ROOT files,
+into Coffea-friendly correction objects.
+"""
 
-from coffea.lookup_tools.dense_lookup import dense_lookup as build_dense_lookup
-from coffea.lookup_tools.extractor import extractor as LookupExtractor
-from topcoffea.modules.paths import topcoffea_path
-from topeft.modules.paths import topeft_path
 import numpy as np
 import awkward as ak
 import scipy
@@ -14,9 +10,14 @@ import gzip
 import pickle
 import correctionlib
 import json
+
+from coffea import lookup_tools
 from coffea.jetmet_tools import CorrectedJetsFactory, CorrectedMETFactory, JECStack
 from coffea.btag_tools import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
+
+from topcoffea.modules.paths import topcoffea_path
+from topeft.modules.paths import topeft_path
 
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
@@ -28,7 +29,9 @@ basepathFromTTH = 'data/fromTTH/'
 
 ###### Lepton scale factors
 ################################################################
-extLepSF = LookupExtractor()
+build_dense_lookup = lookup_tools.dense_lookup.dense_lookup
+
+extLepSF = lookup_tools.extractor()
 
 clib_year_map = {
     "2016APV": "2016preVFP_UL",
@@ -42,51 +45,90 @@ clib_year_map = {
     "2023BPix": "2023_Summer23BPix",
 }
 
+_ELECTRON_TRIGGER_SUPPORTED_YEARS = frozenset({"2016APV", "2016", "2017", "2018"})
+_ELECTRON_TRIGGER_WEIGHT_SETS = (
+    "ElecSF_2016APV_barrel UL2016preVFP_Barrel_Et",
+    "ElecSF_2016APV_endcap UL2016preVFP_Endcaps_Et",
+    "ElecSF_2016_barrel UL2016postVFP_Barrel_Et",
+    "ElecSF_2016_endcap UL2016postVFP_Endcaps_Et",
+    "ElecSF_2017_barrel UL2017_Barrel_Et",
+    "ElecSF_2017_endcap UL2017_Endcaps_Et",
+    "ElecSF_2018_barrel UL2018_Barrel_Et",
+    "ElecSF_2018_endcap UL2018_Endcaps_Et",
+)
+
+_electron_trigger_evaluator = None
+
+_MUON_CORRECTION_CACHE = {
+    "muon_HighPt": {},
+    "muon_Z": {},
+}
+
+_JET_VETO_CORRECTIONS = {}
+
+
+def _get_electron_trigger_evaluator():
+    global _electron_trigger_evaluator
+    if _electron_trigger_evaluator is None:
+        weight_specs = [
+            f"{weight_spec} {topeft_path('data/leptonSF/elec/DiEleCaloIdLMWPMS2_HEEPeff.root')}"
+            for weight_spec in _ELECTRON_TRIGGER_WEIGHT_SETS
+        ]
+        extractor = lookup_tools.extractor()
+        extractor.add_weight_sets(weight_specs)
+        extractor.finalize()
+        _electron_trigger_evaluator = extractor.make_evaluator()
+    return _electron_trigger_evaluator
+
+
+def _get_muon_correction_set(clib_year, dataset):
+    cache = _MUON_CORRECTION_CACHE[dataset]
+    if clib_year not in cache:
+        filename = {
+            "muon_HighPt": "muon_HighPt.json.gz",
+            "muon_Z": "muon_Z.json.gz",
+        }[dataset]
+        cache[clib_year] = correctionlib.CorrectionSet.from_file(
+            topcoffea_path(f"data/POG/MUO/{clib_year}/{filename}")
+        )
+    return cache[clib_year]
+
+
+def _get_jet_veto_corrections(clib_year):
+    if clib_year not in _JET_VETO_CORRECTIONS:
+        _JET_VETO_CORRECTIONS[clib_year] = correctionlib.CorrectionSet.from_file(
+            topeft_path(f"data/POG/JME/{clib_year}/jetvetomaps.json.gz")
+        )
+    return _JET_VETO_CORRECTIONS[clib_year]
+
 
 def AttachElectronTrigSF(electrons, year):
     """Attach high-energy electron trigger scale factors to the input collection."""
 
-    trigger_years = {
-        "2016APV": "UL2016preVFP",
-        "2016": "UL2016postVFP",
-        "2017": "UL2017",
-        "2018": "UL2018",
-    }
-
-    if year not in trigger_years:
+    if year not in _ELECTRON_TRIGGER_SUPPORTED_YEARS:
         electrons["SF_elec_trig_nom"] = ak.ones_like(electrons.pt)
         return
 
-    ext_lep_sf = LookupExtractor()
-    root_path = topeft_path("data/leptonSF/elec/DiEleCaloIdLMWPMS2_HEEPeff.root")
+    evaluator = _get_electron_trigger_evaluator()
 
-    ext_lep_sf.add_weight_sets(
-        [
-            f"ElecSF_2016APV_barrel UL2016preVFP_Barrel_Et {root_path}",
-            f"ElecSF_2016APV_endcap UL2016preVFP_Endcaps_Et {root_path}",
-            f"ElecSF_2016_barrel UL2016postVFP_Barrel_Et {root_path}",
-            f"ElecSF_2016_endcap UL2016postVFP_Endcaps_Et {root_path}",
-            f"ElecSF_2017_barrel UL2017_Barrel_Et {root_path}",
-            f"ElecSF_2017_endcap UL2017_Endcaps_Et {root_path}",
-            f"ElecSF_2018_barrel UL2018_Barrel_Et {root_path}",
-            f"ElecSF_2018_endcap UL2018_Endcaps_Et {root_path}",
-        ]
-    )
-
-    ext_lep_sf.finalize()
-    sf_evaluator = ext_lep_sf.make_evaluator()
-
-    eta = electrons.eta
     pt = electrons.pt
-    eta_flat = ak.flatten(eta)
-    pt_flat = ak.flatten(pt)
+    eta = electrons.eta
+    pt_flat = ak.to_numpy(ak.flatten(pt))
 
-    barrel_mask = ak.flatten(np.abs(eta) < 1.4442)
+    if pt_flat.size == 0:
+        electrons["SF_elec_trig_nom"] = ak.ones_like(pt)
+        return
 
-    sf_flat = ak.where(
+    eta_flat = ak.to_numpy(ak.flatten(eta))
+    barrel_mask = np.abs(eta_flat) < 1.4442
+
+    barrel_key = f"ElecSF_{year}_barrel"
+    endcap_key = f"ElecSF_{year}_endcap"
+
+    sf_flat = np.where(
         barrel_mask,
-        sf_evaluator[f"ElecSF_{year}_barrel"](pt_flat, eta_flat),
-        sf_evaluator[f"ElecSF_{year}_endcap"](pt_flat, eta_flat),
+        evaluator[barrel_key](pt_flat, eta_flat),
+        evaluator[endcap_key](pt_flat, eta_flat),
     )
 
     electrons["SF_elec_trig_nom"] = ak.unflatten(sf_flat, ak.num(pt))
@@ -986,6 +1028,36 @@ def fakeRateWeight3l(events, lep1, lep2, lep3):
         fakefactor_3l = fakefactor_3l * (lep3.isTightLep + (~lep3.isTightLep) * getattr(lep3,'fakefactor%s' % syst))
         events['fakefactor_3l%s' % syst] = fakefactor_3l
 
+def AttachMuonTrigSF(muons, year):
+    if year not in clib_year_map:
+        raise Exception(f"Error: Unknown year \"{year}\".")
+
+    pt = muons.pt
+    abs_eta = np.abs(muons.eta)
+    pt_flat = ak.to_numpy(ak.flatten(pt))
+
+    if pt_flat.size == 0:
+        ones = ak.ones_like(pt)
+        muons["SF_muon_trig_nom"] = ones
+        muons["SF_muon_trig_up"] = ones
+        muons["SF_muon_trig_down"] = ones
+        return
+
+    abseta_flat = ak.to_numpy(ak.flatten(abs_eta))
+    clib_year = clib_year_map[year]
+    ceval_highpt = _get_muon_correction_set(clib_year, "muon_HighPt")
+
+    trigger = ceval_highpt["NUM_HLT_DEN_HighPtLooseRelIsoProbes"]
+    trig_nom_flat = trigger.evaluate(abseta_flat, pt_flat, "nominal")
+    trig_up_flat = trigger.evaluate(abseta_flat, pt_flat, "systup")
+    trig_down_flat = trigger.evaluate(abseta_flat, pt_flat, "systdown")
+
+    counts = ak.num(pt)
+    muons["SF_muon_trig_nom"] = ak.unflatten(trig_nom_flat, counts)
+    muons["SF_muon_trig_up"] = ak.unflatten(trig_up_flat, counts)
+    muons["SF_muon_trig_down"] = ak.unflatten(trig_down_flat, counts)
+
+
 def AttachMuonSF(muons, year):
     '''
       Description:
@@ -1135,6 +1207,19 @@ def AttachMuonSF(muons, year):
     muons['sf_nom_3l_elec'] = ak.ones_like(new_sf)
     muons['sf_hi_3l_elec']  = ak.ones_like(new_sf)
     muons['sf_lo_3l_elec']  = ak.ones_like(new_sf)
+
+
+def ApplyMuonPtCorr(muons, year, is_data):
+    """Return the corrected muon ``pt`` using Rochester and TuneP scale factors."""
+
+    corrected_pt = ApplyRochesterCorrections(muons, year, is_data)
+
+    if not hasattr(muons, "tunepRelPt"):
+        return corrected_pt
+
+    tunep_pt = muons.pt * muons.tunepRelPt
+    return ak.where(muons.pt >= 120, tunep_pt, corrected_pt)
+
 
 def AttachElectronSF(electrons, year, looseWP=None):
     '''
@@ -1420,6 +1505,46 @@ def AttachPdfWeights(events):
     pdf_weight = ak.Array(events.LHEPdfWeight)
     #events['Pdf'] = ak.Array(events.nLHEPdfWeight) # FIXME not working
 
+
+def ApplyJetVetoMaps(jets, year):
+    jet_veto_dict = {
+        "2016APV": "Summer19UL16_V1",
+        "2016": "Summer19UL16_V1",
+        "2017": "Summer19UL17_V1",
+        "2018": "Summer19UL18_V1",
+        "2022": "Summer22_23Sep2023_RunCD_V1",
+        "2022EE": "Summer22EE_23Sep2023_RunEFG_V1",
+        "2023": "Summer23Prompt23_RunC_V1",
+        "2023BPix": "Summer23BPixPrompt23_RunD_V1",
+    }
+
+    if year not in jet_veto_dict:
+        raise Exception(f"Error: Unknown year \"{year}\".")
+
+    jme_year = clib_year_map[year]
+    ceval = _get_jet_veto_corrections(jme_year)
+    key = jet_veto_dict[year]
+
+    eta_flat = ak.flatten(jets.eta)
+    phi_flat = ak.flatten(jets.phi)
+
+    eta_flat_bound = ak.where(
+        eta_flat > 5.19,
+        5.19,
+        ak.where(eta_flat < -5.19, -5.19, eta_flat),
+    )
+    phi_flat_bound = ak.where(
+        phi_flat > np.pi,
+        np.pi,
+        ak.where(phi_flat < -np.pi, -np.pi, phi_flat),
+    )
+
+    jet_vetomap_flat = ceval[key].evaluate("jetvetomap", eta_flat_bound, phi_flat_bound)
+    jet_vetomap_score = ak.unflatten(jet_vetomap_flat, ak.num(jets.phi))
+
+    return ak.sum(jet_vetomap_score, axis=-1)
+
+
 ####### JEC
 ##############################################
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
@@ -1436,7 +1561,7 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=F
         jec_tag = jerc_tag_map[year][0]
         jer_tag = jerc_tag_map[year][1]
         jet_algo = "AK4PFchs"
-        extJEC = LookupExtractor()
+        extJEC = lookup_tools.extractor()
         weight_sets = []
         if not isData:
             weight_sets += [
