@@ -1098,6 +1098,41 @@ def make_cr_fig(
                 if cms_bboxes:
                     cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
 
+    axis_bboxes = []
+    for axis_obj in (ax, rax):
+        try:
+            bbox = axis_obj.get_tightbbox(renderer)
+        except Exception:
+            bbox = None
+        if bbox is None:
+            continue
+        axis_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+
+    if axis_bboxes:
+        rightmost_extent = max(bbox.x1 for bbox in axis_bboxes)
+    else:
+        rightmost_extent = max(ax.get_position().x1, rax.get_position().x1)
+
+    subplot_params = fig.subplotpars
+    current_right = subplot_params.right
+    safety_margin = 0.003
+    proposed_right = rightmost_extent + safety_margin
+    new_right = min(1.0, proposed_right)
+    new_right = max(new_right, rightmost_extent)
+
+    if not np.isclose(new_right, current_right):
+        plt.subplots_adjust(
+            bottom=subplot_params.bottom,
+            top=subplot_params.top,
+            left=subplot_params.left,
+            right=new_right,
+            hspace=subplot_params.hspace,
+            wspace=subplot_params.wspace,
+        )
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        subplot_params = fig.subplotpars
+
     def _get_min_axis_y(renderer):
         bboxes = []
         for tick_label in rax.get_xticklabels():
