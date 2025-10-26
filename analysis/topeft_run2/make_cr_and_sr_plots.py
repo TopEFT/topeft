@@ -1058,12 +1058,20 @@ def make_cr_fig(
 
     buffer = 0.01
     label_fontsize = rax.yaxis.label.get_size() if rax.yaxis.label else 18
-    text_height = label_fontsize / 72.0 / fig.get_size_inches()[1]
+    renderer = fig.canvas.get_renderer()
+    temp_text = fig.text(0, 0, display_label, fontsize=label_fontsize)
+    temp_text.draw(renderer)
+    text_height = temp_text.get_window_extent(renderer=renderer).transformed(
+        fig.transFigure.inverted()
+    ).height
+    temp_text.remove()
+    label_margin = 0.003
 
     def _compute_layout_metrics():
         min_tick_y, local_rax_box = _measure_ticks()
-        label_y_pos = max(buffer, min_tick_y - buffer)
-        required_bottom = max(0.02, label_y_pos - text_height - 0.005)
+        raw_label_y = min_tick_y - (text_height + label_margin)
+        label_y_pos = max(buffer, raw_label_y)
+        required_bottom = max(0.02, label_y_pos - label_margin)
         return required_bottom, label_y_pos, local_rax_box
 
     applied_bottom_margin = None
@@ -1094,7 +1102,7 @@ def make_cr_fig(
         final_label_y,
         display_label,
         ha="right",
-        va="top",
+        va="bottom",
         fontsize=label_fontsize,
     )
     return fig
