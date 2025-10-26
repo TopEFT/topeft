@@ -22,18 +22,18 @@ If conda is not already available, download and install it:
 curl https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > conda-install.sh
 bash conda-install.sh
 ```
-The topeft directory is set up to be installed as a python package. First clone the repository as shown, then run the following commands to set up the environment (note that `environment.yml` is a file that is a part of the `topeft` repository, so you should `cd` into `topeft` before running the command).  The refreshed workflow standardizes on the Coffea 2025.7 toolchain captured in the `coffea202507` Conda environment:
+The topeft directory is set up to be installed as a python package. First clone the repository as shown, then run the following commands to set up the environment (note that `environment.yml` is a file that is a part of the `topeft` repository, so you should `cd` into `topeft` before running the command).  The refreshed workflow standardizes on the Coffea 2025.7.3 toolchain captured in the `coffea20250703` Conda environment:
 ```
 git clone https://github.com/TopEFT/topeft.git
 cd topeft
 unset PYTHONPATH # To avoid conflicts.
 conda env create -f environment.yml
-conda activate coffea202507
+conda activate coffea20250703
 pip install -e .
 ```
-The commands above provision the refreshed `coffea202507` Conda environment, which tracks the Coffea 2025.7 base release used throughout the project.  Installing `topeft` with `pip install -e .` is now the expected workflow so that local developments are automatically folded into the packaged environment.
+The commands above provision the refreshed `coffea20250703` Conda environment, which tracks the Coffea 2025.7.3 base release used throughout the project.  Installing `topeft` with `pip install -e .` is now the expected workflow so that local developments are automatically folded into the packaged environment.
 
-Upgrading from an older checkout?  Reuse the same directory and run `conda env update -f environment.yml --prune` before activating the environment so the existing `coffea202507` install picks up the Coffea 2025.7 pins and removes stale dependencies.  Because the specification now targets Python 3.13 and newer `ndcctools` builds from conda-forge, older Conda releases may prompt for a solver update; if that happens, accept the prompt or run `conda update -n base -c conda-forge conda` first.  When pip subsequently asks to install `coffea==2025.7.3` and `awkward==2.8.7`, answer “yes” (or allow the editable installs to proceed) so the environment matches the shipped tarballs.
+Upgrading from an older checkout?  Reuse the same directory and run `conda env update -f environment.yml --prune` before activating the environment so the existing `coffea20250703` install picks up the Coffea 2025.7.3 pins and removes stale dependencies.  Because the specification now targets Python 3.13 and newer `ndcctools` builds from conda-forge, older Conda releases may prompt for a solver update; if that happens, accept the prompt or run `conda update -n base -c conda-forge conda` first.  When pip subsequently asks to install `coffea==2025.7.3` and `awkward==2.8.7`, answer “yes” (or allow the editable installs to proceed) so the environment matches the shipped tarballs.
 
 The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.
 The `topcoffea` package upon which this analysis also depends is not yet available on `PyPI`, so we need to clone the `topcoffea` repo and install it ourselves.
@@ -51,7 +51,7 @@ Keeping both repositories installed in editable mode ensures the remote-packagin
 
 The cached tarballs live in `topeft-envs/` and are named after the Conda + pip specification combined with the Git commits of editable packages.  Each invocation of `python -m topcoffea.modules.remote_environment` prints the active path and automatically rebuilds the archive when it detects new commits or unstaged edits in `topeft` or `topcoffea`.  If you need to force a rebuild (for example after cleaning a branch or rebasing), either remove the cached file or run `python -c "from topcoffea.modules.remote_environment import get_environment; print(get_environment(force=True))"`.  The resulting tarball is exactly what `processor.TaskVineExecutor` sends to remote workers through the `environment_file` parameter.
 
-Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The packaged environment targets the Coffea 2025.7 release and can be re-generated at any time with `python -m topcoffea.modules.remote_environment`. The next time you want to use the project, activate the environment via `conda activate coffea202507`.
+Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The packaged environment targets the Coffea 2025.7.3 release and can be re-generated at any time with `python -m topcoffea.modules.remote_environment`. The next time you want to use the project, activate the environment via `conda activate coffea20250703`.
 
 
 ### TaskVine distributed execution

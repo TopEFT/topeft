@@ -27,6 +27,12 @@ ENV_DIR_CACHE = Path.cwd() / "topeft-envs"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PY_VERSION = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
+PINNED_PIP_PACKAGES = [
+    "coffea==2025.7.3",
+    "awkward==2.8.7",
+]
+
+
 DEFAULT_MODULES: Dict[str, object] = {
     "conda": {
         "channels": ["conda-forge"],
@@ -42,18 +48,18 @@ DEFAULT_MODULES: Dict[str, object] = {
     "pip": [
         "topeft",
         "topcoffea",
-        "coffea==2025.7.3",
-        "awkward==2.8.7",
+        *PINNED_PIP_PACKAGES,
     ],
 }
 
 PIP_LOCAL_TO_WATCH: Dict[str, Sequence[str]] = {
     "topcoffea": ("topcoffea", "setup.py"),
-    "topeft": ("topeft", "setup.py"),
+    "topeft": ("topeft", "setup.py", "analysis"),
 }
 
 DEFAULT_LOCAL_EDITABLES: Dict[str, Path] = {
     "topeft": REPO_ROOT,
+    "topcoffea": REPO_ROOT / "topcoffea",
 }
 
 

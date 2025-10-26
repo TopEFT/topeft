@@ -1,4 +1,4 @@
-name: coffea202507
+name: coffea20250703
 channels:
   - conda-forge
 dependencies:
@@ -13,7 +13,6 @@ dependencies:
   - git
   - pyyaml
   - pytest
-  - numpy
   - pip:
       - coffea==2025.7.3
       - awkward==2.8.7
