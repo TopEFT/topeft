@@ -19,7 +19,7 @@ import logging
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
-from coffea import processor
+import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 from typing import Dict, List, Optional, Tuple

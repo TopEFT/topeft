@@ -3,7 +3,7 @@ import numpy as np
 import awkward as ak
 
 import hist
-from coffea import processor
+import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection
 from coffea.nanoevents import NanoAODSchema
 
@@ -16,6 +16,38 @@ import topcoffea.modules.eft_helper as efth
 
 np.seterr(divide="ignore", invalid="ignore", over="ignore")
 NanoAODSchema.warn_missing_crossrefs = False
+
+
+def _resolve_collection(events, names):
+    for name in names:
+        if hasattr(events, name):
+            return getattr(events, name)
+        if name in getattr(events, "fields", []):
+            return events[name]
+    raise AttributeError(f"None of the candidate collections {names} are present in the event record")
+
+
+def _get_field(array, *names):
+    for name in names:
+        if hasattr(array, name):
+            return getattr(array, name)
+        if name in getattr(array, "fields", []):
+            return array[name]
+    raise AttributeError(f"Unable to find any of the fields {names}")
+
+
+def _parent_pdg_id(particles):
+    parent = None
+    for name in ("distinctParent", "parent"):
+        if hasattr(particles, name):
+            parent = getattr(particles, name)
+            break
+        if name in getattr(particles, "fields", []):
+            parent = particles[name]
+            break
+    if parent is None:
+        raise AttributeError("Generator-level particles do not expose parent links")
+    return _get_field(parent, "pdgId", "pdg_id")
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -167,20 +199,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_data:
             raise Exception("Error: This processor is not for data")
 
-        genpart = events.GenPart
-        genjet = events.GenJet
+        genpart = _resolve_collection(events, ("GenPart", "GeneratorParticle", "GeneratorPart"))
+        pdg_id = _get_field(genpart, "pdgId", "pdg_id")
+        genjet = _resolve_collection(events, ("GenJet", "GeneratorJet", "GenJetAK4"))
 
         is_final_mask = genpart.hasFlags(["fromHardProcess", "isLastCopy"])
 
-        gen_top = ak.pad_none(genpart[is_final_mask & (abs(genpart.pdgId) == 6)], 2)
+        gen_top = ak.pad_none(genpart[is_final_mask & (abs(pdg_id) == 6)], 2)
 
         gen_l = genpart[
             is_final_mask
-            & ((abs(genpart.pdgId) == 11) | (abs(genpart.pdgId) == 13) | (abs(genpart.pdgId) == 15))
+            & ((abs(pdg_id) == 11) | (abs(pdg_id) == 13) | (abs(pdg_id) == 15))
         ]
-        gen_e = genpart[is_final_mask & (abs(genpart.pdgId) == 11)]
-        gen_m = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
-        gen_t = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
+        gen_e = genpart[is_final_mask & (abs(pdg_id) == 11)]
+        gen_m = genpart[is_final_mask & (abs(pdg_id) == 13)]
+        gen_t = genpart[is_final_mask & (abs(pdg_id) == 15)]
 
         gen_l = gen_l[ak.argsort(gen_l.pt, axis=-1, ascending=False)]
         gen_l = ak.pad_none(gen_l, 2)
@@ -188,17 +221,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         gen_m = gen_m[ak.argsort(gen_m.pt, axis=-1, ascending=False)]
         gen_t = gen_t[ak.argsort(gen_t.pt, axis=-1, ascending=False)]
 
+        gen_l_parent = _parent_pdg_id(gen_l)
+        gen_e_parent = _parent_pdg_id(gen_e)
+        gen_m_parent = _parent_pdg_id(gen_m)
+        gen_t_parent = _parent_pdg_id(gen_t)
+
         gen_l_from_zg = ak.pad_none(
-            gen_l[(gen_l.distinctParent.pdgId == 23) | (gen_l.distinctParent.pdgId == 22)], 2
+            gen_l[(gen_l_parent == 23) | (gen_l_parent == 22)], 2
         )
         gen_e_from_zg = ak.pad_none(
-            gen_e[(gen_e.distinctParent.pdgId == 23) | (gen_e.distinctParent.pdgId == 22)], 2
+            gen_e[(gen_e_parent == 23) | (gen_e_parent == 22)], 2
         )
         gen_m_from_zg = ak.pad_none(
-            gen_m[(gen_m.distinctParent.pdgId == 23) | (gen_m.distinctParent.pdgId == 22)], 2
+            gen_m[(gen_m_parent == 23) | (gen_m_parent == 22)], 2
         )
         gen_t_from_zg = ak.pad_none(
-            gen_t[(gen_t.distinctParent.pdgId == 23) | (gen_t.distinctParent.pdgId == 22)], 2
+            gen_t[(gen_t_parent == 23) | (gen_t_parent == 22)], 2
         )
 
         genjet = genjet[genjet.pt > 30]

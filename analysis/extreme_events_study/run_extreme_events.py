@@ -5,7 +5,7 @@ import gzip
 import os
 import argparse
 
-from coffea import processor
+import coffea.processor as processor
 from coffea.nanoevents import NanoAODSchema
 import topcoffea.modules.remote_environment as remote_environment
 

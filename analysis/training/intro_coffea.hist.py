@@ -10,7 +10,7 @@
 # In[1]:
 
 
-from coffea import hist
+import coffea.hist as hist
 import matplotlib.pyplot as plt #plot histograms
 import numpy as np
 import os

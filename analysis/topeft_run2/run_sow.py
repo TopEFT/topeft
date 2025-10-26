@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 # import uproot
-from coffea import processor
+import coffea.processor as processor
 from coffea.nanoevents import NanoAODSchema
 
 NanoAODSchema.warn_missing_crossrefs = False

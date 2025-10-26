@@ -2,7 +2,8 @@
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
+import coffea.hist as hist
+import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
@@ -11,6 +12,24 @@ from topcoffea.modules.objects import *
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
+
+
+def _resolve_collection(events, names):
+    for name in names:
+        if hasattr(events, name):
+            return getattr(events, name)
+        if name in getattr(events, "fields", []):
+            return events[name]
+    raise AttributeError(f"None of the candidate collections {names} are present in the event record")
+
+
+def _get_field(array, *names):
+    for name in names:
+        if hasattr(array, name):
+            return getattr(array, name)
+        if name in getattr(array, "fields", []):
+            return array[name]
+    raise AttributeError(f"Unable to find any of the fields {names}")
 
 
 @dataclass
@@ -110,10 +129,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         events = context.events
 
-        e = events.GenPart[abs(events.GenPart.pdgId) == 11]
-        m = events.GenPart[abs(events.GenPart.pdgId) == 13]
-        tau = events.GenPart[abs(events.GenPart.pdgId) == 15]
-        j = events.GenJet
+        genpart = _resolve_collection(events, ("GenPart", "GeneratorParticle", "GeneratorPart"))
+        pdg_id = _get_field(genpart, "pdgId", "pdg_id")
+        e = genpart[abs(pdg_id) == 11]
+        m = genpart[abs(pdg_id) == 13]
+        tau = genpart[abs(pdg_id) == 15]
+        genjet = _resolve_collection(events, ("GenJet", "GeneratorJet", "GenJetAK4"))
+        j = genjet
 
         run = events.run
         luminosityBlock = events.luminosityBlock

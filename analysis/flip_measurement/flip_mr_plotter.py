@@ -7,7 +7,7 @@ import copy
 import matplotlib.pyplot as plt
 import cloudpickle
 import gzip
-from coffea import hist
+import coffea.hist as hist
 
 from topcoffea.modules.YieldTools import YieldTools
 yt = YieldTools()

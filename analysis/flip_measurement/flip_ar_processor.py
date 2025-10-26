@@ -3,7 +3,8 @@ import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
+import coffea.hist as hist
+import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
@@ -11,6 +12,27 @@ from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
 from topcoffea.modules.selection import *
 from topcoffea.modules.paths import topcoffea_path
+
+
+def _resolve_nested_field(array, *field_paths):
+    for path in field_paths:
+        current = array
+        for names in path:
+            candidate = None
+            for name in names:
+                if hasattr(current, name):
+                    candidate = getattr(current, name)
+                    break
+                if name in getattr(current, "fields", []):
+                    candidate = current[name]
+                    break
+            if candidate is None:
+                current = None
+                break
+            current = candidate
+        if current is not None:
+            return current
+    return None
 
 # Check if the values in an array are within a given range
 def in_range_mask(in_var,lo_lim=None,hi_lim=None):
@@ -100,12 +122,52 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
 
         if not isData:
-            e["gen_pdgId"] = e.matched_gen.pdgId
-            mu["gen_pdgId"] = mu.matched_gen.pdgId
-            e["gen_parent_pdgId"] = e.matched_gen.distinctParent.pdgId
-            mu["gen_parent_pdgId"] = mu.matched_gen.distinctParent.pdgId
-            e["gen_gparent_pdgId"] = e.matched_gen.distinctParent.distinctParent.pdgId
-            mu["gen_gparent_pdgId"] = mu.matched_gen.distinctParent.distinctParent.pdgId
+            gen_pdg_e = _resolve_nested_field(e, (("matched_gen",), ("pdgId", "pdg_id")))
+            if gen_pdg_e is None:
+                gen_pdg_e = ak.zeros_like(getattr(e, "pdgId"))
+            e["gen_pdgId"] = gen_pdg_e
+            gen_pdg_mu = _resolve_nested_field(mu, (("matched_gen",), ("pdgId", "pdg_id")))
+            if gen_pdg_mu is None:
+                gen_pdg_mu = ak.zeros_like(getattr(mu, "pdgId"))
+            mu["gen_pdgId"] = gen_pdg_mu
+            parent_pdg_e = _resolve_nested_field(
+                e,
+                (("matched_gen",), ("distinctParent", "parent"), ("pdgId", "pdg_id")),
+            )
+            if parent_pdg_e is None:
+                parent_pdg_e = ak.zeros_like(getattr(e, "pdgId"))
+            e["gen_parent_pdgId"] = parent_pdg_e
+            parent_pdg_mu = _resolve_nested_field(
+                mu,
+                (("matched_gen",), ("distinctParent", "parent"), ("pdgId", "pdg_id")),
+            )
+            if parent_pdg_mu is None:
+                parent_pdg_mu = ak.zeros_like(getattr(mu, "pdgId"))
+            mu["gen_parent_pdgId"] = parent_pdg_mu
+            gparent_pdg_e = _resolve_nested_field(
+                e,
+                (
+                    ("matched_gen",),
+                    ("distinctParent", "parent"),
+                    ("distinctParent", "parent"),
+                    ("pdgId", "pdg_id"),
+                ),
+            )
+            if gparent_pdg_e is None:
+                gparent_pdg_e = ak.zeros_like(getattr(e, "pdgId"))
+            e["gen_gparent_pdgId"] = gparent_pdg_e
+            gparent_pdg_mu = _resolve_nested_field(
+                mu,
+                (
+                    ("matched_gen",),
+                    ("distinctParent", "parent"),
+                    ("distinctParent", "parent"),
+                    ("pdgId", "pdg_id"),
+                ),
+            )
+            if gparent_pdg_mu is None:
+                gparent_pdg_mu = ak.zeros_like(getattr(mu, "pdgId"))
+            mu["gen_gparent_pdgId"] = gparent_pdg_mu
 
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
