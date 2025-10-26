@@ -1350,7 +1350,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
         hist_mc_sumw2_orig = dict_of_sumw2.get(var_name)
         if hist_mc_sumw2_orig is not None:
             hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", samples_to_rm_from_mc_hist)
-            if sr_signal_samples:
+            if sr_signal_samples and not unblind:
                 hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", sr_signal_samples)
 
         # Loop over channels
