@@ -43,6 +43,8 @@ CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
 SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
 CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
 SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
+SR_SIGNAL_GROUP_KEYS = {"ttH", "ttlnu", "ttll", "tXq", "tttt"}
+SIGNAL_WC_MATCHES = ("ttH", "tllq", "ttlnu", "ttll", "tHq", "tttt")
 CR_KNOWN_CHANNELS = {chan for chans in CR_CHAN_DICT.values() for chan in chans}
 SR_KNOWN_CHANNELS = {chan for chans in SR_CHAN_DICT.values() for chan in chans}
 FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.items()}
@@ -157,6 +159,19 @@ def populate_group_map(samples, pattern_map):
             # raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
     return out
 
+
+def _sample_in_signal_group(sample_name, sample_group_map, group_type):
+    if group_type == "CR":
+        return sample_name in sample_group_map.get("Signal", [])
+
+    if group_type == "SR":
+        for grp_key in SR_SIGNAL_GROUP_KEYS:
+            if sample_name in sample_group_map.get(grp_key, []):
+                return True
+
+    return False
+
+
 def _ensure_list(values):
     if isinstance(values, str):
         return [values]
@@ -194,27 +209,31 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 
 # Match a given sample name to whatever it is called in the json
 # Will return None if a match is not found
-def get_scale_name(sample_name,sample_group_map):
+def get_scale_name(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = None
-    if sample_name in sample_group_map["Conv"]:
+    if sample_name in sample_group_map.get("Conv", []):
         scale_name_for_json = "convs"
-    elif sample_name in sample_group_map["Diboson"]:
+    elif sample_name in sample_group_map.get("Diboson", []):
         scale_name_for_json = "Diboson"
-    elif sample_name in sample_group_map["Triboson"]:
+    elif sample_name in sample_group_map.get("Triboson", []):
         scale_name_for_json = "Triboson"
-    elif sample_name in sample_group_map["Signal"]:
-        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
-            if proc_str in sample_name:
+    elif _sample_in_signal_group(sample_name, sample_group_map, group_type):
+        wc_matches = [proc_str for proc_str in SIGNAL_WC_MATCHES if proc_str in sample_name]
+        if group_type == "CR":
+            if len(wc_matches) == 1:
+                scale_name_for_json = wc_matches[0]
+        else:
+            if wc_matches:
                 # This should only match once, but maybe we should put a check to enforce this
-                scale_name_for_json = proc_str
+                scale_name_for_json = wc_matches[0]
     return scale_name_for_json
 
 # This function gets the tag that indicates how a particualr systematic is correlated
 #   - For pdf_scale this corresponds to the initial state (e.g. gg)
 #   - For qcd_scale this corresponds to the process type (e.g. VV)
 # For any systemaitc or process that is not included in the correlations json we return None
-def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
-    proc_name_in_json = get_scale_name(proc_name,sample_group_map)
+def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type="CR"):
+    proc_name_in_json = get_scale_name(proc_name,sample_group_map,group_type=group_type)
     corr_tag = None
     # Right now we only have two types of uncorrelated rate systematics
     if uncertainty_name in ["qcd_scale","pdf_scale"]:
@@ -230,10 +249,10 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
 # This function gets all of the the rate systematics from the json file
 # Returns a dictionary with all of the uncertainties
 # If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
-def get_rate_systs(sample_name,sample_group_map):
+def get_rate_systs(sample_name,sample_group_map,group_type="CR"):
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
-    scale_name_for_json = get_scale_name(sample_name,sample_group_map)
+    scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type=group_type)
 
     # Get the lumi uncty for this sample (same for all samles)
     lumi_uncty = grs.get_syst("lumi")
@@ -268,7 +287,7 @@ def get_rate_systs(sample_name,sample_group_map):
 
 
 # Wrapper for getting plus and minus rate arrs
-def get_rate_syst_arrs(base_histo,proc_group_map):
+def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
     rate_syst_arr_dict = {}
@@ -277,13 +296,13 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
         for sample_name in yt.get_cat_lables(base_histo,"process"):
 
             # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
-            rate_syst_dict = get_rate_systs(sample_name,proc_group_map)
+            rate_syst_dict = get_rate_systs(sample_name,proc_group_map,group_type=group_type)
             thissample_nom_arr = base_histo.integrate("process",sample_name).integrate("systematic","nominal").eval({})[()]
             p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
             m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
 
             # Put the arrays into the correlation dict (organizing correlated ones together)
-            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map)
+            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map,group_type=group_type)
             out_key_name = rate_sys_type
             if correlation_tag is not None: out_key_name += "_"+correlation_tag
             if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
@@ -304,7 +323,7 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
     return [sum(all_rates_m_sumw2_lst),sum(all_rates_p_sumw2_lst)]
 
 # Wrapper for getting plus and minus shape arrs
-def get_shape_syst_arrs(base_histo):
+def get_shape_syst_arrs(base_histo,group_type="CR"):
 
     # Get the list of systematic base names (i.e. without the up and down tags)
     # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
@@ -329,7 +348,8 @@ def get_shape_syst_arrs(base_histo):
         # Special handling of renorm and fact
         # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
         if (syst_name == "renorm") or (syst_name == "fact"):
-            p_arr_rel,m_arr_rel = get_decorrelated_uncty(syst_name,CR_GRP_MAP,relevant_samples_lst,base_histo,n_arr)
+            grp_map = CR_GRP_MAP if group_type == "CR" else SR_GRP_MAP
+            p_arr_rel,m_arr_rel = get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,n_arr)
 
         # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
         else:
@@ -1544,8 +1564,15 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             m_err_arr_ratio = None
             if not (is_sparse2d or skip_syst_errs):
                 # Get plus and minus rate and shape arrs
-                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
-                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
+                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(
+                    hist_mc_integrated,
+                    CR_GRP_MAP,
+                    group_type="CR",
+                )
+                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(
+                    hist_mc_integrated,
+                    group_type="CR",
+                )
                 if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
                     db_hist = hist_mc_integrated.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
