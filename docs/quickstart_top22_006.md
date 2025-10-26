@@ -16,10 +16,10 @@ Before running the workflow you will need:
 
    ```bash
    conda env create -f environment.yml
-   conda activate coffea202507
+   conda activate coffea20250703
    ```
 
-   The packaged environment tracks the Coffea 2025.7 release. Rebuild the TaskVine archive after dependency changes with `python -m topcoffea.modules.remote_environment`; the helper caches the resulting tarball under `topeft-envs/` using the Conda specification plus the Git commits of editable packages.  Each invocation prints the active path and automatically refreshes the archive when it detects new commits or unstaged edits in `topeft` or `topcoffea`.  To force a rebuild (for example after a branch reset), remove the cached file or run ``python -c "from topcoffea.modules.remote_environment import get_environment; print(get_environment(force=True))"``.  Developers upgrading an existing checkout can run `conda env update -f environment.yml --prune` instead of recreating the environment from scratch.  Expect Conda to request a solver update on older installations due to the move to Python 3.13—allow the update (or execute `conda update -n base -c conda-forge conda`) and approve the follow-up `coffea==2025.7.3`/`awkward==2.8.7` prompts so the local stack matches the packaged tarball.
+   The packaged environment tracks the Coffea 2025.7.3 release. Rebuild the TaskVine archive after dependency changes with `python -m topcoffea.modules.remote_environment`; the helper caches the resulting tarball under `topeft-envs/` using the Conda specification plus the Git commits of editable packages.  Each invocation prints the active path and automatically refreshes the archive when it detects new commits or unstaged edits in `topeft` or `topcoffea`.  To force a rebuild (for example after a branch reset), remove the cached file or run ``python -c "from topcoffea.modules.remote_environment import get_environment; print(get_environment(force=True))"``.  Developers upgrading an existing checkout can run `conda env update -f environment.yml --prune` instead of recreating the environment from scratch.  Expect Conda to request a solver update on older installations due to the move to Python 3.13—allow the update (or execute `conda update -n base -c conda-forge conda`) and approve the follow-up `coffea==2025.7.3`/`awkward==2.8.7` prompts so the local stack matches the packaged tarball.
 
 2. **The editable `topeft` and `topcoffea` packages.**  From the repository
    root install the local modules with:
