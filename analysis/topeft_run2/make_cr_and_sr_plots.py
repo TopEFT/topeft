@@ -1034,72 +1034,69 @@ def make_cr_fig(
     ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
 
     fig.canvas.draw()
-    def _measure_ticks():
-        local_renderer = fig.canvas.get_renderer()
-        local_rax_box = rax.get_position()
-        local_tick_bboxes = []
+    def _get_min_axis_y(renderer):
+        bboxes = []
         for tick_label in rax.get_xticklabels():
             if not tick_label.get_visible():
                 continue
             text = tick_label.get_text()
             if not text:
                 continue
-            bbox = tick_label.get_window_extent(renderer=local_renderer)
-            local_tick_bboxes.append(
-                bbox.transformed(fig.transFigure.inverted())
-            )
+            bbox = tick_label.get_window_extent(renderer=renderer)
+            bboxes.append(bbox.transformed(fig.transFigure.inverted()))
 
-        if local_tick_bboxes:
-            min_tick_y_val = min(bbox.y0 for bbox in local_tick_bboxes)
-        else:
-            min_tick_y_val = local_rax_box.y0
+        axis_label = rax.xaxis.label
+        if axis_label and axis_label.get_visible():
+            axis_bbox = axis_label.get_window_extent(renderer=renderer)
+            bboxes.append(axis_bbox.transformed(fig.transFigure.inverted()))
 
-        return min_tick_y_val, local_rax_box
+        if bboxes:
+            return min(bbox.y0 for bbox in bboxes)
 
-    buffer = 0.01
+        return rax.get_position().y0
+
     label_fontsize = rax.yaxis.label.get_size() if rax.yaxis.label else 18
     renderer = fig.canvas.get_renderer()
+
     temp_text = fig.text(0, 0, display_label, fontsize=label_fontsize)
-    temp_text.draw(renderer)
-    text_height = temp_text.get_window_extent(renderer=renderer).transformed(
-        fig.transFigure.inverted()
-    ).height
+    temp_bbox = temp_text.get_window_extent(renderer=renderer)
+    temp_bbox = temp_bbox.transformed(fig.transFigure.inverted())
+    measured_height = temp_bbox.height
     temp_text.remove()
-    label_margin = 0.003
 
-    def _compute_layout_metrics():
-        min_tick_y, local_rax_box = _measure_ticks()
-        raw_label_y = min_tick_y - (text_height + label_margin)
-        label_y_pos = max(buffer, raw_label_y)
-        required_bottom = max(0.02, label_y_pos - label_margin)
-        return required_bottom, label_y_pos, local_rax_box
+    margin = 0.002
+    min_axis_y = _get_min_axis_y(renderer)
+    required_clearance = measured_height + margin
 
-    applied_bottom_margin = None
-    final_label_y = None
-    final_rax_box = None
+    subplot_params = fig.subplotpars
+    current_bottom = subplot_params.bottom
+    clearance_deficit = required_clearance - min_axis_y
+    new_bottom = current_bottom
+    if clearance_deficit > 0:
+        new_bottom = max(new_bottom, current_bottom + clearance_deficit)
+    new_bottom = max(new_bottom, required_clearance)
 
-    for _ in range(5):
-        bottom_margin, label_y, rax_box = _compute_layout_metrics()
-        final_label_y = label_y
-        final_rax_box = rax_box
-        if applied_bottom_margin is not None and abs(bottom_margin - applied_bottom_margin) < 1e-4:
-            break
-        plt.subplots_adjust(top=0.88, bottom=bottom_margin, right=0.96, left=0.11)
+    if new_bottom > current_bottom:
+        plt.subplots_adjust(
+            bottom=new_bottom,
+            top=subplot_params.top,
+            left=subplot_params.left,
+            right=subplot_params.right,
+            hspace=subplot_params.hspace,
+            wspace=subplot_params.wspace,
+        )
         fig.canvas.draw()
-        applied_bottom_margin = bottom_margin
-
-    if applied_bottom_margin is None:
-        # Ensure margins are set even if no adjustment was required inside the loop
-        plt.subplots_adjust(top=0.88, bottom=_compute_layout_metrics()[0], right=0.96, left=0.11)
-        fig.canvas.draw()
-        _, final_label_y, final_rax_box = _compute_layout_metrics()
+        renderer = fig.canvas.get_renderer()
+        min_axis_y = _get_min_axis_y(renderer)
     else:
-        # Capture final geometry after the last adjustment
-        _, final_label_y, final_rax_box = _compute_layout_metrics()
+        min_axis_y = _get_min_axis_y(renderer)
+
+    label_y = min_axis_y - measured_height - margin
+    rax_box = rax.get_position()
 
     fig.text(
-        final_rax_box.x0 + final_rax_box.width,
-        final_label_y,
+        rax_box.x0 + rax_box.width,
+        label_y,
         display_label,
         ha="right",
         va="bottom",
