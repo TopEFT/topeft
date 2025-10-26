@@ -356,8 +356,8 @@ class RunConfig:
     negotiate_manager_port: bool = True
     manager_name: Optional[str] = None
     manager_name_template: Optional[str] = None
-    resource_monitor: Optional[str] = None
-    resources_mode: Optional[str] = None
+    resource_monitor: Optional[str] = "measure"
+    resources_mode: Optional[str] = "auto"
     ecut: Optional[float] = None
     summary_verbosity: str = "brief"
     log_tasks: bool = False
