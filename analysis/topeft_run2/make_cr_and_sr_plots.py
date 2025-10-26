@@ -773,6 +773,8 @@ def make_cr_fig(
     if err_ratio_m_syst is None and err_ratio_m is not None:
         err_ratio_m_syst = err_ratio_m
 
+    display_label = axes_info.get(var, {}).get("label", var)
+
     # Create the figure
     fig, (ax, rax) = plt.subplots(
         nrows=2,
@@ -1004,7 +1006,16 @@ def make_cr_fig(
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
     ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
-    plt.subplots_adjust(top=0.88, bottom=0.05, right=0.95, left=0.11)
+    ax.text(
+        0.98,
+        0.02,
+        display_label,
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=16,
+    )
+    plt.subplots_adjust(top=0.88, bottom=0.06, right=0.96, left=0.11)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
