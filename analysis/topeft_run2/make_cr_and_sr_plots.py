@@ -1927,7 +1927,10 @@ def main():
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
     parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
-    parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip syst errs in plots, only relevant for CR plots right now")
+    parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip systematic error bands in plots")
+    parser.add_argument("--run-sr-data-mc", action="store_true", help = "Also produce signal region data vs MC comparison plots")
+    parser.add_argument("--unblind-sr", action="store_true", help = "Unblind the SR data/MC plots (requires --run-sr-data-mc)")
+    parser.add_argument("--skip-cr", action="store_true", help = "Skip the control region plots if only SR outputs are needed")
     args = parser.parse_args()
 
     # Whether or not to unit norm the plots
@@ -1949,18 +1952,27 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+    if not args.skip_cr:
+        make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
+    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,skip_syst_errs=args.skip_syst)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
 
     # Make unblinded SR data MC comparison plots by year
-    #make_all_sr_data_mc_plots(hin_dict,"2016",save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,"2016APV",save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,"2017",save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,"2018",save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,None,save_dir_path)
+    if args.run_sr_data_mc:
+        make_all_sr_data_mc_plots(
+            hin_dict,
+            args.year,
+            save_dir_path,
+            unblind=args.unblind_sr,
+            skip_syst_errs=args.skip_syst,
+        )
+    #make_all_sr_data_mc_plots(hin_dict,"2016",save_dir_path,unblind=True)
+    #make_all_sr_data_mc_plots(hin_dict,"2016APV",save_dir_path,unblind=True)
+    #make_all_sr_data_mc_plots(hin_dict,"2017",save_dir_path,unblind=True)
+    #make_all_sr_data_mc_plots(hin_dict,"2018",save_dir_path,unblind=True)
+    #make_all_sr_data_mc_plots(hin_dict,None,save_dir_path,unblind=True)
 
 if __name__ == "__main__":
     main()
