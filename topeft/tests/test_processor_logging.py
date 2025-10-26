@@ -149,37 +149,89 @@ def _install_stubs(monkeypatch):
     hist_module = _module("topcoffea.modules.histEFT")
 
     class _DummyHistEFT:
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *axes, wc_names=None, label=None, **kwargs):
+            self.axes = tuple(axes)
+            self.wc_names = list(wc_names or [])
+            self.label = label
+            self._fills = []
             self._sumw = 0.0
 
         def fill(self, weight=None, **kwargs):
             if weight is None:
-                return
-            array = np.asarray(weight)
+                weight = 1.0
+            array = np.asarray(weight, dtype=float)
+            self._fills.append({"weight": array, "fields": kwargs})
             self._sumw += float(np.sum(array))
+
+        def __repr__(self):  # pragma: no cover - debug helper
+            return f"DummyHistEFT(sumw={self._sumw}, fills={len(self._fills)})"
 
     hist_module.HistEFT = _DummyHistEFT
 
     # ``hist`` axis helpers
     hist_pkg = _module("hist")
-    def _axis_factory(kind):
+
+    class _BaseAxis:
+        def __init__(self, kind, *args, **kwargs):
+            self.kind = kind
+            self.args = args
+            self.kwargs = kwargs
+            self.name = kwargs.get("name")
+            self.label = kwargs.get("label")
+            self.metadata = {"kind": kind}
+
+        def __repr__(self):  # pragma: no cover - debug helper
+            return f"Axis(kind={self.kind!r}, name={self.name!r})"
+
+    class _DenseAxis(_BaseAxis):
+        def __init__(self, kind, *args, **kwargs):
+            super().__init__(kind, *args, **kwargs)
+            if kind == "Variable":
+                self.edges = np.asarray(args[0], dtype=float)
+            elif kind == "Regular":
+                bins, start, stop = args[:3]
+                self.edges = np.linspace(start, stop, int(bins) + 1, dtype=float)
+            elif kind == "Integer":
+                start, stop = args[:2]
+                self.edges = np.arange(start, stop + 1, dtype=int)
+            else:
+                self.edges = np.asarray(args, dtype=float)
+
+    class _CategoryAxis(_BaseAxis):
+        def __init__(self, kind, *args, **kwargs):
+            super().__init__(kind, *args, **kwargs)
+            categories = []
+            if args:
+                categories = list(args[0])
+            elif kind == "Boolean":
+                categories = [False, True]
+            self._categories = list(categories)
+
+        def __iter__(self):
+            return iter(self._categories)
+
+        def __contains__(self, value):
+            return value in self._categories
+
+        def __len__(self):
+            return len(self._categories)
+
+        def __repr__(self):  # pragma: no cover - debug helper
+            return f"CategoryAxis(kind={self.kind!r}, name={self.name!r}, categories={self._categories!r})"
+
+    def _axis_factory(kind, axis_type):
         def _factory(*args, **kwargs):
-            axis = types.SimpleNamespace(
-                kind=kind,
-                args=args,
-                kwargs=kwargs,
-            )
-            axis.name = kwargs.get("name")
-            axis.label = kwargs.get("label")
-            axis.metadata = {"kind": kind}
-            return axis
+            return axis_type(kind, *args, **kwargs)
 
         return _factory
 
     hist_pkg.axis = types.SimpleNamespace(
-        Regular=_axis_factory("Regular"),
-        Variable=_axis_factory("Variable"),
-        StrCategory=_axis_factory("StrCategory"),
+        Regular=_axis_factory("Regular", _DenseAxis),
+        Variable=_axis_factory("Variable", _DenseAxis),
+        Integer=_axis_factory("Integer", _DenseAxis),
+        IntCategory=_axis_factory("IntCategory", _CategoryAxis),
+        StrCategory=_axis_factory("StrCategory", _CategoryAxis),
+        Boolean=_axis_factory("Boolean", _CategoryAxis),
     )
 
     # Coffea interfaces
@@ -407,182 +459,169 @@ def _install_stubs(monkeypatch):
             return self.add(other)
 
     class _PackedSelection:
-        def __init__(self):
-            self._masks = {}
+        _max_items = {
+            np.dtype("uint16"): 16,
+            np.dtype("uint32"): 32,
+            np.dtype("uint64"): 64,
+        }
 
-        def add(self, name, mask):
-            self._masks[name] = mask
+        def __init__(self, dtype="uint32"):
+            self._dtype = np.dtype(dtype)
+            if self._dtype not in self._max_items:
+                raise ValueError(f"dtype {dtype} is not supported")
+            self._names = []
+            self._data = None
+
+        @property
+        def names(self):
+            return list(self._names)
+
+        @property
+        def maxitems(self):
+            return self._max_items[self._dtype]
+
+        def _ensure_mask(self, selection, fill_value=False):
+            try:
+                import awkward as _ak  # pragma: no cover - use real awkward when available
+
+                if isinstance(selection, _ak.Array):
+                    selection = _ak.to_numpy(selection, allow_missing=True)
+            except ModuleNotFoundError:  # pragma: no cover - rely on numpy fallback
+                pass
+
+            if isinstance(selection, np.ma.MaskedArray):
+                selection = selection.filled(bool(fill_value))
+            arr = np.asarray(selection, dtype=bool)
+            if arr.ndim == 0:
+                arr = arr.reshape(1)
+            return arr
+
+        def add(self, name, selection, fill_value=False):
+            mask = self._ensure_mask(selection, fill_value=fill_value)
+            if self._data is None:
+                self._data = np.zeros(mask.shape, dtype=self._dtype)
+            elif mask.shape != self._data.shape:
+                raise ValueError(
+                    f"Selection '{name}' has shape {mask.shape}, expected {self._data.shape}"
+                )
+            if len(self._names) >= self.maxitems:
+                raise RuntimeError("PackedSelection has reached maximum capacity")
+
+            bit = self._dtype.type(1 << len(self._names))
+            np.bitwise_or(self._data, bit, out=self._data, where=mask)
+            self._names.append(name)
+
+        def _data_view(self):
+            if self._data is None:
+                return np.zeros(1, dtype=self._dtype)
+            return self._data
+
+        def require(self, **names):
+            data = self._data_view()
+            consider = self._dtype.type(0)
+            required = self._dtype.type(0)
+            for name, value in names.items():
+                idx = self._names.index(name)
+                consider |= self._dtype.type(1 << idx)
+                if value:
+                    required |= self._dtype.type(1 << idx)
+            return (data & consider) == required
 
         def all(self, *names):
+            data = self._data_view()
             if not names:
-                return True
-            result = None
+                return np.ones_like(data, dtype=bool)
+            requirements = {name: True for name in names}
+            return self.require(**requirements)
+
+        def any(self, *names):
+            data = self._data_view()
+            if not names:
+                return np.zeros_like(data, dtype=bool)
+            consider = self._dtype.type(0)
             for name in names:
-                mask = self._masks.get(name, True)
-                result = mask if result is None else (result & mask)
-            return result if result is not None else True
+                idx = self._names.index(name)
+                consider |= self._dtype.type(1 << idx)
+            return (data & consider) != 0
 
     class _Weights:
         def __init__(self, size, storeIndividual=False):
             self._store_individual = bool(storeIndividual)
-            self._central = np.ones(size) if size is not None else None
-            self._weights = {} if self._store_individual else {}
+            self._central = np.ones(int(size), dtype=float) if size is not None else None
+            self._weights = {}
             self._modifiers = {}
-            self._names = []
+            self._statistics = {}
 
-        def add(self, name, weight, *variations, shift=False):
-            if name in self._names:
-                raise ValueError(f"Weight '{name}' already exists")
+        @property
+        def weightStatistics(self):
+            return self._statistics
 
-            weight_arr = np.asarray(weight)
+        def _ensure_array(self, value):
+            arr = np.asarray(value, dtype=float)
+            if arr.ndim == 0:
+                arr = arr.reshape(1)
             if self._central is None:
-                self._central = np.ones_like(weight_arr, dtype=float)
+                self._central = np.ones_like(arr, dtype=float)
+            return arr
 
-            self._central = self._central * weight_arr
+        def _register_stat(self, name, array):
+            if array.size:
+                minw = float(np.min(array))
+                maxw = float(np.max(array))
+            else:  # pragma: no cover - degenerate
+                minw = float("inf")
+                maxw = float("-inf")
+            self._statistics[name] = _WeightStatistics(
+                sumw=np.sum(array),
+                sumw2=np.sum(array ** 2),
+                minw=minw,
+                maxw=maxw,
+                n=array.size,
+            )
+
+        def _add_variation(self, label, base, up=None, down=None, shift=False):
+            if up is not None:
+                up_arr = self._ensure_array(up)
+                ratio_up = np.ones_like(base, dtype=float)
+                if shift:
+                    up_arr = up_arr + base
+                np.divide(up_arr, base, out=ratio_up, where=base != 0)
+                self._modifiers[label + "Up"] = ratio_up
+            else:
+                ratio_up = None
+
+            if down is not None:
+                down_arr = self._ensure_array(down)
+                ratio_down = np.ones_like(base, dtype=float)
+                if shift:
+                    down_arr = base - down_arr
+                np.divide(down_arr, base, out=ratio_down, where=base != 0)
+                self._modifiers[label + "Down"] = ratio_down
+            elif ratio_up is not None:
+                inv = np.ones_like(ratio_up, dtype=float)
+                np.divide(1.0, ratio_up, out=inv, where=ratio_up != 0)
+                self._modifiers[label + "Down"] = inv
+
+        def add(self, name, weight, weightUp=None, weightDown=None, shift=False):
+            base = self._ensure_array(weight)
+            self._central = self._central * base
             if self._store_individual:
-                self._weights[name] = weight_arr
-
-            self._names.append(name)
-
-            suffixes = ["Up", "Down"]
-            for idx, variation in enumerate(variations):
-                if variation is None:
-                    continue
-                var_arr = np.asarray(variation)
-                ratio = np.ones_like(weight_arr, dtype=float)
-                mask = weight_arr != 0
-                ratio[mask] = var_arr[mask] / weight_arr[mask]
-                label = name + (suffixes[idx] if idx < len(suffixes) else f"Var{idx}")
-                self._modifiers[label] = ratio
+                self._weights[name] = base
+            self._register_stat(name, base)
+            self._add_variation(name, base, up=weightUp, down=weightDown, shift=shift)
 
         def add_multivariation(
             self, name, weight, modifierNames, weightsUp, weightsDown, shift=False
         ):
-            self.add(name, weight)
-            weight_arr = np.asarray(weight)
-            if self._central is None:
-                self._central = np.ones_like(weight_arr, dtype=float)
+            base = self._ensure_array(weight)
+            self._central = self._central * base
+            if self._store_individual:
+                self._weights[name] = base
+            self._register_stat(name, base)
 
             for modifier, up, down in zip(modifierNames, weightsUp, weightsDown):
                 label = f"{name}_{modifier}"
-                if label in self._names:
-                    raise ValueError(f"Weight '{label}' already exists")
-
-                up_arr = np.asarray(up) if up is not None else None
-                down_arr = np.asarray(down) if down is not None else None
-
-                ratio_up = None
-                ratio_down = None
-
-                if up_arr is not None:
-                    ratio_up = np.ones_like(weight_arr, dtype=float)
-                    np.divide(
-                        up_arr,
-                        weight_arr,
-                        out=ratio_up,
-                        where=weight_arr != 0,
-                    )
-
-                if down_arr is not None:
-                    ratio_down = np.ones_like(weight_arr, dtype=float)
-                    np.divide(
-                        down_arr,
-                        weight_arr,
-                        out=ratio_down,
-                        where=weight_arr != 0,
-                    )
-                elif ratio_up is not None:
-                    ratio_down = np.ones_like(ratio_up, dtype=float)
-                    np.divide(
-                        1.0,
-                        ratio_up,
-                        out=ratio_down,
-                        where=ratio_up != 0,
-                    )
-                    down_arr = weight_arr * ratio_down
-
-                if self._store_individual:
-                    if up_arr is not None:
-                        self._weights[f"{label}Up"] = up_arr
-                    if down_arr is not None:
-                        self._weights[f"{label}Down"] = down_arr
-
-                self._names.append(label)
-
-                if ratio_up is not None:
-                    self._modifiers[f"{label}Up"] = ratio_up
-                if ratio_down is not None:
-                    self._modifiers[f"{label}Down"] = ratio_down
-
-        def weight(self, modifier=None):
-            if modifier in (None, "nominal"):
-                return self._central
-
-            if modifier in self._modifiers:
-                return self._central * self._modifiers[modifier]
-
-            if modifier and modifier.endswith("Down"):
-                up_label = modifier[:-4] + "Up"
-                if up_label in self._modifiers:
-                    return self._central / self._modifiers[up_label]
-
-            return self._central
-
-        def partial_weight(self, include=None, exclude=None, modifier=None):
-            include = tuple(include or ())
-            exclude = tuple(exclude or ())
-            if include and exclude:
-                raise ValueError("Cannot specify both include and exclude")
-            if not self._store_individual:
-                raise ValueError(
-                    "To request partial weights, instantiate with storeIndividual=True"
-                )
-
-            names = set(self._weights.keys())
-            if include:
-                names &= set(include)
-            if exclude:
-                names -= set(exclude)
-
-            result = np.ones_like(self._central)
-            for name in names:
-                result = result * self._weights[name]
-
-            if modifier is None or modifier == "nominal":
-                return result
-
-            if modifier in self.variations:
-                if modifier in self._modifiers:
-                    return result * self._modifiers[modifier]
-                if modifier.endswith("Down"):
-                    up_label = modifier[:-4] + "Up"
-                    if up_label in self._modifiers:
-                        return result / self._modifiers[up_label]
-            raise ValueError(f"Modifier {modifier} is not available")
-
-        @property
-        def weightStatistics(self):
-            stats = {}
-            if self._central is not None:
-                central = np.asarray(self._central)
-                stats["weight"] = _WeightStatistics(
-                    np.sum(central),
-                    np.sum(central ** 2),
-                    np.min(central) if central.size else 0.0,
-                    np.max(central) if central.size else 0.0,
-                    central.size,
-                )
-            if self._store_individual:
-                for name, arr in self._weights.items():
-                    arr_np = np.asarray(arr)
-                    stats[name] = _WeightStatistics(
-                        np.sum(arr_np),
-                        np.sum(arr_np ** 2),
-                        np.min(arr_np) if arr_np.size else 0.0,
-                        np.max(arr_np) if arr_np.size else 0.0,
-                        arr_np.size,
-                    )
-            return stats
+                self._add_variation(label, base, up=up, down=down, shift=shift)
 
         @property
         def variations(self):
@@ -591,6 +630,39 @@ def _install_stubs(monkeypatch):
                 if key.endswith("Up"):
                     keys.add(key[:-2] + "Down")
             return keys
+
+        def weight(self, modifier=None):
+            if modifier in (None, "nominal"):
+                return self._central
+
+            if modifier not in self._modifiers and isinstance(modifier, str) and modifier.endswith("Down"):
+                up_key = modifier[:-4] + "Up"
+                if up_key in self._modifiers:
+                    inv = np.ones_like(self._modifiers[up_key], dtype=float)
+                    np.divide(1.0, self._modifiers[up_key], out=inv, where=self._modifiers[up_key] != 0)
+                    self._modifiers[modifier] = inv
+
+            if modifier in self._modifiers:
+                return self._central * self._modifiers[modifier]
+
+            raise KeyError(f"Unknown weight modifier '{modifier}'")
+
+        def partial_weight(self, include=None, exclude=None):
+            if not self._store_individual:
+                raise ValueError("storeIndividual must be True to compute partial weights")
+            include = include or []
+            exclude = exclude or []
+            if include and exclude:
+                raise ValueError("Specify only include or exclude, not both")
+            names = set(self._weights)
+            if include:
+                names &= set(include)
+            if exclude:
+                names -= set(exclude)
+            result = np.ones_like(self._central, dtype=float)
+            for name in names:
+                result *= self._weights[name]
+            return result
 
     class _Cutflow:
         def __init__(self):
@@ -662,6 +734,8 @@ def _install_stubs(monkeypatch):
     coffea_pkg.nanoevents = nanoevents_module  # type: ignore[attr-defined]
 
     class _NanoEventsFactory:
+        warn_missing_crossrefs = False
+
         def __init__(self, events=None):
             self._events = events if events is not None else ak.Array([])
 
@@ -669,10 +743,28 @@ def _install_stubs(monkeypatch):
         def from_root(cls, *_args, **_kwargs):
             return cls()
 
+        @classmethod
+        def from_parquet(cls, *_args, **_kwargs):  # pragma: no cover - compatibility shim
+            return cls()
+
+        @classmethod
+        def from_awkd(cls, events, *_args, **_kwargs):  # pragma: no cover - compatibility shim
+            return cls(events)
+
+        @classmethod
+        def from_preloaded(cls, events, *_args, **_kwargs):  # pragma: no cover
+            return cls(events)
+
         def events(self):
             return self._events
 
+    class _NanoAODSchema:
+        @classmethod
+        def schema(cls, *_args, **_kwargs):  # pragma: no cover - simple placeholder
+            return {}
+
     nanoevents_module.NanoEventsFactory = _NanoEventsFactory
+    nanoevents_module.NanoAODSchema = _NanoAODSchema
 
     lumi_tools_module = _module("coffea.lumi_tools")
 
@@ -749,6 +841,7 @@ def _install_stubs(monkeypatch):
 
     corrections_module.ApplyJetCorrections = lambda *args, **kwargs: _JetCorrections()
     corrections_module.AttachScaleWeights = lambda *args, **kwargs: None
+    corrections_module.AttachPSWeights = lambda *args, **kwargs: None
     corrections_module.GetPUSF = lambda *args, **kwargs: np.ones(1)
     corrections_module.btag_sf_eval = lambda *args, **kwargs: np.ones(1)
     corrections_module.get_method1a_wgt_doublewp = (
@@ -760,11 +853,14 @@ def _install_stubs(monkeypatch):
     topeft_corr_module.ApplyJetSystematics = lambda *args, **kwargs: args[1]
     topeft_corr_module.GetBtagEff = lambda *args, **kwargs: np.ones(1)
     topeft_corr_module.AttachMuonSF = lambda *args, **kwargs: None
+    topeft_corr_module.AttachMuonTrigSF = lambda *args, **kwargs: None
     topeft_corr_module.AttachElectronSF = lambda *args, **kwargs: None
     topeft_corr_module.AttachTauSF = lambda *args, **kwargs: None
     topeft_corr_module.AttachElectronTrigSF = lambda *args, **kwargs: None
     topeft_corr_module.AttachPdfWeights = lambda *args, **kwargs: None
     topeft_corr_module.AttachScaleWeights = corrections_module.AttachScaleWeights
+    topeft_corr_module.AttachPSWeights = corrections_module.AttachPSWeights
+    topeft_corr_module.ApplyMuonPtCorr = lambda *args, **kwargs: args[1]
     topeft_corr_module.ApplyTES = lambda *args, **kwargs: (args[1], args[1])
     topeft_corr_module.ApplyTESSystematic = lambda *args, **kwargs: (args[1], args[1])
     topeft_corr_module.ApplyFESSystematic = lambda *args, **kwargs: (args[1], args[1])
@@ -773,6 +869,7 @@ def _install_stubs(monkeypatch):
         lambda mu, year, isData: mu
     )
     topeft_corr_module.GetTriggerSF = lambda *args, **kwargs: np.ones(1)
+    topeft_corr_module.ApplyJetVetoMaps = lambda *args, **kwargs: args[1]
 
     channel_metadata_module = _module("topeft.modules.channel_metadata")
 
