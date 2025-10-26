@@ -1034,26 +1034,41 @@ def make_cr_fig(
     ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
 
     fig.canvas.draw()
-    rax_box = rax.get_position()
-    renderer = fig.canvas.get_renderer()
-    tick_bboxes = []
-    for label in rax.get_xticklabels():
-        if not label.get_visible():
-            continue
-        text = label.get_text()
-        if not text:
-            continue
-        bbox = label.get_window_extent(renderer=renderer)
-        tick_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+    def _measure_ticks():
+        local_renderer = fig.canvas.get_renderer()
+        local_rax_box = rax.get_position()
+        local_tick_bboxes = []
+        for tick_label in rax.get_xticklabels():
+            if not tick_label.get_visible():
+                continue
+            text = tick_label.get_text()
+            if not text:
+                continue
+            bbox = tick_label.get_window_extent(renderer=local_renderer)
+            local_tick_bboxes.append(
+                bbox.transformed(fig.transFigure.inverted())
+            )
 
-    if tick_bboxes:
-        min_tick_y = min(bbox.y0 for bbox in tick_bboxes)
-    else:
-        min_tick_y = rax_box.y0
+        if local_tick_bboxes:
+            min_tick_y_val = min(bbox.y0 for bbox in local_tick_bboxes)
+        else:
+            min_tick_y_val = local_rax_box.y0
+
+        return min_tick_y_val, local_rax_box
+
+    min_tick_y, rax_box = _measure_ticks()
 
     buffer = 0.01
-    label_y = max(buffer, min_tick_y - buffer)
     label_fontsize = rax.yaxis.label.get_size() if rax.yaxis.label else 18
+    text_height = label_fontsize / 72.0 / fig.get_size_inches()[1]
+    label_y = max(buffer, min_tick_y - buffer)
+    bottom_margin = max(0.02, label_y - text_height - 0.005)
+
+    plt.subplots_adjust(top=0.88, bottom=bottom_margin, right=0.96, left=0.11)
+    fig.canvas.draw()
+
+    min_tick_y, rax_box = _measure_ticks()
+    label_y = max(buffer, min_tick_y - buffer)
     fig.text(
         rax_box.x0 + rax_box.width,
         label_y,
@@ -1062,10 +1077,6 @@ def make_cr_fig(
         va="top",
         fontsize=label_fontsize,
     )
-
-    text_height = label_fontsize / 72.0 / fig.get_size_inches()[1]
-    bottom_margin = max(0.02, label_y - text_height - 0.005)
-    plt.subplots_adjust(top=0.88, bottom=bottom_margin, right=0.96, left=0.11)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
