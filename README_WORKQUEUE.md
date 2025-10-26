@@ -83,7 +83,13 @@ This allows `work_queue_run.py` to detect unstaged changes or newer commits and
 rebuild the environment accordingly.  The same tarball is returned by
 `remote_environment.get_environment()` and stored under `topeft-envs/`, so both
 Work Queue and TaskVine managers point to an identical archive when populating
-the `environment_file` executor argument.
+the `environment_file` executor argument.  Re-run
+`python -m topcoffea.modules.remote_environment` whenever you update the Conda
+stack or push new commits to editable packages; the helper compares the cached
+Git state against the current checkout and rebuilds the tarball automatically.
+To force a rebuild manually, remove the cached file or run
+``python -c "from topcoffea.modules.remote_environment import get_environment;
+print(get_environment(force=True))"``.
 
 
 ## Executing the topcoffea application

@@ -47,6 +47,10 @@ python -m topcoffea.modules.remote_environment
 ```
 Keeping both repositories installed in editable mode ensures the remote-packaging helper inspects the current checkouts (and fails fast if there are unstaged edits).  The `python -m topcoffea.modules.remote_environment` command calls into the updated `remote_environment.get_environment()` logic, which assembles a fresh TaskVine-ready tarball under `topeft-envs/`, captures the pinned Conda + pip stack, and returns the archive path that the workflow passes through the `environment_file` executor argument.  The helper will rebuild the cache whenever the specification or editable sources change, so re-running it before distributed submissions keeps the workers in sync.
 
+#### Packaged TaskVine environment cache
+
+The cached tarballs live in `topeft-envs/` and are named after the Conda + pip specification combined with the Git commits of editable packages.  Each invocation of `python -m topcoffea.modules.remote_environment` prints the active path and automatically rebuilds the archive when it detects new commits or unstaged edits in `topeft` or `topcoffea`.  If you need to force a rebuild (for example after cleaning a branch or rebasing), either remove the cached file or run `python -c "from topcoffea.modules.remote_environment import get_environment; print(get_environment(force=True))"`.  The resulting tarball is exactly what `processor.TaskVineExecutor` sends to remote workers through the `environment_file` parameter.
+
 Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The packaged environment targets the Coffea 2025.7 release and can be re-generated at any time with `python -m topcoffea.modules.remote_environment`. The next time you want to use the project, activate the environment via `conda activate coffea202507`.
 
 
@@ -70,7 +74,10 @@ The packaged archive produced by `python -m topcoffea.modules.remote_environment
    such as `fullR2_run_taskvine.yml` and adjust the `executor` there.)
 
 2. Configure the workflow with TaskVine enabled (for example, selecting the
-   Run 2 control preset):
+   Run 2 control preset).  Setting `executor: taskvine` in the YAML tells
+   `run_analysis.py` to launch `coffea.processor.TaskVineExecutor`, which
+   automatically streams tasks to the TaskVine manager while handing workers
+   the packaged environment via `environment_file`:
 
    ```bash
    python run_analysis.py \
