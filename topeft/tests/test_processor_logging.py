@@ -474,7 +474,6 @@ def _install_stubs(monkeypatch):
                     down_arr = weight_arr * ratio_down
 
                 if self._store_individual:
-                    self._weights[label] = weight_arr
                     if up_arr is not None:
                         self._weights[f"{label}Up"] = up_arr
                     if down_arr is not None:
