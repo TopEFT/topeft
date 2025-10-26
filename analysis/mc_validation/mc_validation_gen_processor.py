@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import awkward as ak
+from collections import OrderedDict
 
 import hist
 import coffea.processor as processor
@@ -76,7 +77,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         sample_axis = hist.axis.StrCategory([], name="sample", growth=True)
 
-        histogram_definitions = {
+        histogram_definitions = OrderedDict({
             "mll_fromzg_e": (
                 hist.axis.Regular(
                     40,
@@ -153,6 +154,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 hist.axis.Regular(10, 0, 10, name="njets", label="njets"),
             ),
         }
+        )
 
         self._accumulator = processor.dict_accumulator(
             {
@@ -298,9 +300,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             if dense_axis_name not in self._hist_lst:
                 continue
 
-            not_none_mask = ak.fill_none(dense_axis_vals != None, False)
+            not_none_mask = ~ak.is_none(dense_axis_vals)
 
-            selections = PackedSelection()
+            selections = PackedSelection(dtype="uint64")
             selections.add("valid", not_none_mask)
 
             if not selections.all("valid").any():
