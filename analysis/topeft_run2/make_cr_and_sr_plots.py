@@ -43,6 +43,8 @@ CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
 SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
 CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
 SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
+SR_SIGNAL_GROUP_KEYS = {"ttH", "ttlnu", "ttll", "tXq", "tttt"}
+SIGNAL_WC_MATCHES = ("ttH", "tllq", "ttlnu", "ttll", "tHq", "tttt")
 CR_KNOWN_CHANNELS = {chan for chans in CR_CHAN_DICT.values() for chan in chans}
 SR_KNOWN_CHANNELS = {chan for chans in SR_CHAN_DICT.values() for chan in chans}
 FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.items()}
@@ -157,6 +159,19 @@ def populate_group_map(samples, pattern_map):
             # raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
     return out
 
+
+def _sample_in_signal_group(sample_name, sample_group_map, group_type):
+    if group_type == "CR":
+        return sample_name in sample_group_map.get("Signal", [])
+
+    if group_type == "SR":
+        for grp_key in SR_SIGNAL_GROUP_KEYS:
+            if sample_name in sample_group_map.get(grp_key, []):
+                return True
+
+    return False
+
+
 def _ensure_list(values):
     if isinstance(values, str):
         return [values]
@@ -202,12 +217,8 @@ def get_scale_name(sample_name,sample_group_map,group_type="CR"):
         scale_name_for_json = "Diboson"
     elif sample_name in sample_group_map.get("Triboson", []):
         scale_name_for_json = "Triboson"
-    elif sample_name in sample_group_map.get("Signal", []):
-        wc_matches = [
-            proc_str
-            for proc_str in ["ttH", "tllq", "ttlnu", "ttll", "tHq", "tttt"]
-            if proc_str in sample_name
-        ]
+    elif _sample_in_signal_group(sample_name, sample_group_map, group_type):
+        wc_matches = [proc_str for proc_str in SIGNAL_WC_MATCHES if proc_str in sample_name]
         if group_type == "CR":
             if len(wc_matches) == 1:
                 scale_name_for_json = wc_matches[0]
