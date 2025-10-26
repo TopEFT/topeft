@@ -1032,17 +1032,40 @@ def make_cr_fig(
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
     ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
+
+    fig.canvas.draw()
     rax_box = rax.get_position()
-    label_y = rax_box.y0 - 0.06
+    renderer = fig.canvas.get_renderer()
+    tick_bboxes = []
+    for label in rax.get_xticklabels():
+        if not label.get_visible():
+            continue
+        text = label.get_text()
+        if not text:
+            continue
+        bbox = label.get_window_extent(renderer=renderer)
+        tick_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+
+    if tick_bboxes:
+        min_tick_y = min(bbox.y0 for bbox in tick_bboxes)
+    else:
+        min_tick_y = rax_box.y0
+
+    buffer = 0.01
+    label_y = max(buffer, min_tick_y - buffer)
+    label_fontsize = rax.yaxis.label.get_size() if rax.yaxis.label else 18
     fig.text(
-        rax_box.x1,
+        rax_box.x0 + rax_box.width,
         label_y,
         display_label,
         ha="right",
         va="top",
-        fontsize=16,
+        fontsize=label_fontsize,
     )
-    plt.subplots_adjust(top=0.88, bottom=0.16, right=0.96, left=0.11)
+
+    text_height = label_fontsize / 72.0 / fig.get_size_inches()[1]
+    bottom_margin = max(0.02, label_y - text_height - 0.005)
+    plt.subplots_adjust(top=0.88, bottom=bottom_margin, right=0.96, left=0.11)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
