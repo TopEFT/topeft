@@ -1006,16 +1006,16 @@ def make_cr_fig(
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
     ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
-    ax.text(
-        0.98,
-        0.02,
+    rax_box = rax.get_position()
+    fig.text(
+        rax_box.x1,
+        rax_box.y0 - 0.02,
         display_label,
-        transform=ax.transAxes,
         ha="right",
-        va="bottom",
+        va="top",
         fontsize=16,
     )
-    plt.subplots_adjust(top=0.88, bottom=0.06, right=0.96, left=0.11)
+    plt.subplots_adjust(top=0.88, bottom=0.10, right=0.96, left=0.11)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
