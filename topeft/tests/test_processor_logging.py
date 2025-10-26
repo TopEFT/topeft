@@ -431,13 +431,36 @@ def _install_stubs(monkeypatch):
             self, name, weight, modifierNames, weightsUp, weightsDown, shift=False
         ):
             self.add(name, weight)
+            weight_arr = np.asarray(weight)
+            if self._central is None:
+                self._central = np.ones_like(weight_arr, dtype=float)
+
             for modifier, up, down in zip(modifierNames, weightsUp, weightsDown):
                 label = f"{name}_{modifier}"
-                if down is None and up is not None:
-                    down = np.ones_like(up)
+                if label in self._names:
+                    raise ValueError(f"Weight '{label}' already exists")
+
+                down_arr = down
+                if down_arr is None and up is not None:
+                    down_arr = np.ones_like(up)
                     mask = up != 0
-                    down[mask] = 1.0 / up[mask]
-                self.add(label, weight, up, down, shift=shift)
+                    down_arr[mask] = 1.0 / up[mask]
+
+                if self._store_individual:
+                    self._weights[label] = weight_arr
+
+                self._names.append(label)
+
+                suffixes = ["Up", "Down"]
+                for idx, variation in enumerate((up, down_arr)):
+                    if variation is None:
+                        continue
+                    var_arr = np.asarray(variation)
+                    ratio = np.ones_like(weight_arr, dtype=float)
+                    mask = weight_arr != 0
+                    ratio[mask] = var_arr[mask] / weight_arr[mask]
+                    suffix = suffixes[idx]
+                    self._modifiers[f"{label}{suffix}"] = ratio
 
         def weight(self, modifier=None):
             if modifier in (None, "nominal"):
