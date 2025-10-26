@@ -14,9 +14,12 @@ from typing import Any, Callable, Optional, Set
 
 # import uproot
 import coffea.processor as processor
-from coffea.nanoevents import NanoAODSchema
+from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 
-NanoAODSchema.warn_missing_crossrefs = False
+if hasattr(NanoEventsFactory, "warn_missing_crossrefs"):
+    NanoEventsFactory.warn_missing_crossrefs = False
+elif hasattr(NanoAODSchema, "warn_missing_crossrefs"):
+    NanoAODSchema.warn_missing_crossrefs = False
 import topcoffea.modules.remote_environment as remote_environment
 
 import sow_processor
@@ -358,5 +361,15 @@ out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
 print(f"\nSaving output in {out_pkl_file}...")
 with gzip.open(out_pkl_file, "wb") as fout:
     cloudpickle.dump(output, fout)
+
+with gzip.open(out_pkl_file, "rb") as fin:
+    saved_output = cloudpickle.load(fin)
+
+missing_keys = expected_keys.difference(saved_output.keys())
+if missing_keys:
+    raise RuntimeError(
+        "Persisted sow_processor accumulator is missing expected keys: "
+        + ", ".join(sorted(missing_keys))
+    )
 
 print("Done!")
