@@ -440,27 +440,52 @@ def _install_stubs(monkeypatch):
                 if label in self._names:
                     raise ValueError(f"Weight '{label}' already exists")
 
-                down_arr = down
-                if down_arr is None and up is not None:
-                    down_arr = np.ones_like(up)
-                    mask = up != 0
-                    down_arr[mask] = 1.0 / up[mask]
+                up_arr = np.asarray(up) if up is not None else None
+                down_arr = np.asarray(down) if down is not None else None
+
+                ratio_up = None
+                ratio_down = None
+
+                if up_arr is not None:
+                    ratio_up = np.ones_like(weight_arr, dtype=float)
+                    np.divide(
+                        up_arr,
+                        weight_arr,
+                        out=ratio_up,
+                        where=weight_arr != 0,
+                    )
+
+                if down_arr is not None:
+                    ratio_down = np.ones_like(weight_arr, dtype=float)
+                    np.divide(
+                        down_arr,
+                        weight_arr,
+                        out=ratio_down,
+                        where=weight_arr != 0,
+                    )
+                elif ratio_up is not None:
+                    ratio_down = np.ones_like(ratio_up, dtype=float)
+                    np.divide(
+                        1.0,
+                        ratio_up,
+                        out=ratio_down,
+                        where=ratio_up != 0,
+                    )
+                    down_arr = weight_arr * ratio_down
 
                 if self._store_individual:
                     self._weights[label] = weight_arr
+                    if up_arr is not None:
+                        self._weights[f"{label}Up"] = up_arr
+                    if down_arr is not None:
+                        self._weights[f"{label}Down"] = down_arr
 
                 self._names.append(label)
 
-                suffixes = ["Up", "Down"]
-                for idx, variation in enumerate((up, down_arr)):
-                    if variation is None:
-                        continue
-                    var_arr = np.asarray(variation)
-                    ratio = np.ones_like(weight_arr, dtype=float)
-                    mask = weight_arr != 0
-                    ratio[mask] = var_arr[mask] / weight_arr[mask]
-                    suffix = suffixes[idx]
-                    self._modifiers[f"{label}{suffix}"] = ratio
+                if ratio_up is not None:
+                    self._modifiers[f"{label}Up"] = ratio_up
+                if ratio_down is not None:
+                    self._modifiers[f"{label}Down"] = ratio_down
 
         def weight(self, modifier=None):
             if modifier in (None, "nominal"):
