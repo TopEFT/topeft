@@ -1050,10 +1050,25 @@ def make_cr_fig(
             cms_artists = (cms_label,)
 
     cms_bboxes = []
+    cms_positions = []
     for artist in cms_artists:
         if hasattr(artist, "get_window_extent"):
             cms_bbox = artist.get_window_extent(renderer=renderer)
             cms_bboxes.append(cms_bbox)
+        if hasattr(artist, "get_position") and hasattr(artist, "get_transform"):
+            try:
+                artist_pos = np.asarray(artist.get_position())
+            except Exception:
+                continue
+            artist_transform = artist.get_transform()
+            if artist_transform is None:
+                continue
+            try:
+                display_coords = artist_transform.transform(artist_pos)
+            except Exception:
+                continue
+            fig_coords = fig.transFigure.inverted().transform(display_coords)
+            cms_positions.append((artist, fig_coords))
 
     if legend_box is not None and cms_bboxes:
         cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
@@ -1062,21 +1077,26 @@ def make_cr_fig(
         if gap < target_gap:
             delta = target_gap - gap
             ax_box = ax.get_position()
-            max_shift = legend_box.y0 - ax_box.y1
+            rax_box = rax.get_position()
+            max_shift = rax_box.y0
             shift = min(delta, max_shift)
             if shift > 0:
-                new_box = Bbox.from_bounds(
-                    legend_box.x0,
-                    legend_box.y0 - shift,
-                    legend_box.width,
-                    legend_box.height,
-                )
-                legend.set_bbox_to_anchor(new_box, transform=fig.transFigure)
+                ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
+                rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
+                for artist, fig_coords in cms_positions:
+                    artist.set_transform(fig.transFigure)
+                    artist.set_position(fig_coords)
                 fig.canvas.draw()
                 renderer = fig.canvas.get_renderer()
                 legend_bbox = legend.get_window_extent(renderer=renderer)
                 legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-                cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+                cms_bboxes = []
+                for artist in cms_artists:
+                    if hasattr(artist, "get_window_extent"):
+                        cms_bbox = artist.get_window_extent(renderer=renderer)
+                        cms_bboxes.append(cms_bbox)
+                if cms_bboxes:
+                    cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
 
     def _get_min_axis_y(renderer):
         bboxes = []
