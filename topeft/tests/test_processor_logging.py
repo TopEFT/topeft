@@ -1,3 +1,4 @@
+import collections
 import importlib
 import json
 import sys
@@ -186,12 +187,196 @@ def _install_stubs(monkeypatch):
     processor_module = _module("coffea.processor")
 
     class _ProcessorABC:  # pragma: no cover - interface shim
+        """Minimal stand-in for coffea.processor.ProcessorABC."""
+
+        def __init_subclass__(cls, **kwargs):  # pragma: no cover - compatibility
+            return super().__init_subclass__(**kwargs)
+
+    class _BaseExecutor:  # pragma: no cover - simple executor stub
+        def __init__(self, **config):
+            self.config = config
+
+        def __call__(self, *args, **kwargs):
+            return {}
+
+    class _IterativeExecutor(_BaseExecutor):
         pass
 
+    class _FuturesExecutor(_BaseExecutor):
+        pass
+
+    class _DaskExecutor(_BaseExecutor):
+        pass
+
+    class _ParslExecutor(_BaseExecutor):
+        pass
+
+    class _TaskVineExecutor(_BaseExecutor):
+        pass
+
+    class _Runner:  # pragma: no cover - invoked indirectly in tests
+        def __init__(self, executor=None, schema=None, chunksize=None, maxchunks=None, **kwargs):
+            self.executor = executor
+            self.schema = schema
+            self.chunksize = chunksize
+            self.maxchunks = maxchunks
+            self.runner_config = kwargs
+
+        def __call__(self, items, processor_instance, *args, **kwargs):
+            if processor_instance is None:
+                return {}
+            process = getattr(processor_instance, "process", None)
+            if callable(process):
+                return process(items)
+            return {}
+
+    def _iterative_executor(*args, **kwargs):  # pragma: no cover - legacy shim
+        return _IterativeExecutor(*args, **kwargs)
+
+    def _futures_executor(*args, **kwargs):  # pragma: no cover - legacy shim
+        return _FuturesExecutor(*args, **kwargs)
+
+    def _dask_executor(*args, **kwargs):  # pragma: no cover - legacy shim
+        return _DaskExecutor(*args, **kwargs)
+
+    def _parsl_executor(*args, **kwargs):  # pragma: no cover - legacy shim
+        return _ParslExecutor(*args, **kwargs)
+
+    def _taskvine_executor(*args, **kwargs):  # pragma: no cover - legacy shim
+        return _TaskVineExecutor(*args, **kwargs)
+
+    # Accumulator helpers mimicking coffea.processor.accumulator
+    class _AccumulatorABC:  # pragma: no cover - interface shim
+        def identity(self):
+            return type(self)()
+
+        def add(self, other):
+            return other
+
+    class _Accumulatable(_AccumulatorABC):
+        pass
+
+    class _ValueAccumulator(_AccumulatorABC):
+        def __init__(self, value=None):
+            self.value = value
+
+        def add(self, other):
+            self.value = other
+            return self
+
+    class _ListAccumulator(list):
+        def add(self, other):
+            self.extend(other)
+            return self
+
+    class _SetAccumulator(set):
+        def add(self, other):
+            super().update(other)
+            return self
+
+    class _DictAccumulator(dict):
+        def add(self, other):
+            self.update(other)
+            return self
+
+    def _defaultdict_accumulator(factory):
+        return collections.defaultdict(factory)
+
+    def _column_accumulator(array):
+        return np.asarray(array)
+
+    def _accumulate(sequence):
+        result = {}
+        for item in sequence:
+            if isinstance(item, dict):
+                result.update(item)
+        return result
+
+    accumulator_module = _module("coffea.processor.accumulator")
+    accumulator_module.AccumulatorABC = _AccumulatorABC
+    accumulator_module.Accumulatable = _Accumulatable
+    accumulator_module.accumulate = _accumulate
+    accumulator_module.value_accumulator = _ValueAccumulator
+    accumulator_module.list_accumulator = _ListAccumulator
+    accumulator_module.set_accumulator = _SetAccumulator
+    accumulator_module.dict_accumulator = _DictAccumulator
+    accumulator_module.defaultdict_accumulator = _defaultdict_accumulator
+    accumulator_module.column_accumulator = _column_accumulator
+
     processor_module.ProcessorABC = _ProcessorABC
+    processor_module.IterativeExecutor = _IterativeExecutor
+    processor_module.FuturesExecutor = _FuturesExecutor
+    processor_module.DaskExecutor = _DaskExecutor
+    processor_module.ParslExecutor = _ParslExecutor
+    processor_module.TaskVineExecutor = _TaskVineExecutor
+    processor_module.Runner = _Runner
+    processor_module.iterative_executor = _iterative_executor
+    processor_module.futures_executor = _futures_executor
+    processor_module.dask_executor = _dask_executor
+    processor_module.parsl_executor = _parsl_executor
+    processor_module.taskvine_executor = _taskvine_executor
+    processor_module.AccumulatorABC = _AccumulatorABC
+    processor_module.Accumulatable = _Accumulatable
+    processor_module.accumulate = _accumulate
+    processor_module.value_accumulator = _ValueAccumulator
+    processor_module.list_accumulator = _ListAccumulator
+    processor_module.set_accumulator = _SetAccumulator
+    processor_module.dict_accumulator = _DictAccumulator
+    processor_module.defaultdict_accumulator = _defaultdict_accumulator
+    processor_module.column_accumulator = _column_accumulator
+    processor_module.accumulator = accumulator_module
+
     coffea_pkg.processor = processor_module  # type: ignore[attr-defined]
 
     analysis_tools_module = _module("coffea.analysis_tools")
+
+    def _boolean_masks_to_categorical_integers(
+        masks,
+        insert_unmasked_as_zeros=False,
+        insert_commonmask_as_zeros=None,
+        return_mask=False,
+    ):
+        mask_arrays = [np.asarray(mask, dtype=bool) for mask in masks]
+        if mask_arrays:
+            mask_stack = np.stack(mask_arrays, axis=1)
+        else:
+            mask_stack = np.zeros((0, 0), dtype=bool)
+
+        if insert_unmasked_as_zeros:
+            unmasked = np.all(mask_stack, axis=1, keepdims=True)
+            mask_stack = np.concatenate([unmasked, mask_stack], axis=1)
+
+        if insert_commonmask_as_zeros is not None:
+            common = np.asarray(insert_commonmask_as_zeros, dtype=bool).reshape(-1, 1)
+            mask_stack = np.concatenate([common, mask_stack], axis=1)
+
+        if return_mask:
+            return mask_stack
+
+        categories = [np.nonzero(row)[0].tolist() for row in mask_stack]
+        return ak.Array(categories)
+
+    class _WeightStatistics:
+        def __init__(self, sumw=0.0, sumw2=0.0, minw=np.inf, maxw=-np.inf, n=0):
+            self.sumw = float(sumw)
+            self.sumw2 = float(sumw2)
+            self.minw = float(minw)
+            self.maxw = float(maxw)
+            self.n = int(n)
+
+        def identity(self):
+            return type(self)()
+
+        def add(self, other):
+            self.sumw += other.sumw
+            self.sumw2 += other.sumw2
+            self.minw = min(self.minw, other.minw)
+            self.maxw = max(self.maxw, other.maxw)
+            self.n += other.n
+            return self
+
+        def __iadd__(self, other):
+            return self.add(other)
 
     class _PackedSelection:
         def __init__(self):
@@ -242,6 +427,65 @@ def _install_stubs(monkeypatch):
                 label = name + (suffixes[idx] if idx < len(suffixes) else f"Var{idx}")
                 self._modifiers[label] = ratio
 
+        def add_multivariation(
+            self, name, weight, modifierNames, weightsUp, weightsDown, shift=False
+        ):
+            self.add(name, weight)
+            weight_arr = np.asarray(weight)
+            if self._central is None:
+                self._central = np.ones_like(weight_arr, dtype=float)
+
+            for modifier, up, down in zip(modifierNames, weightsUp, weightsDown):
+                label = f"{name}_{modifier}"
+                if label in self._names:
+                    raise ValueError(f"Weight '{label}' already exists")
+
+                up_arr = np.asarray(up) if up is not None else None
+                down_arr = np.asarray(down) if down is not None else None
+
+                ratio_up = None
+                ratio_down = None
+
+                if up_arr is not None:
+                    ratio_up = np.ones_like(weight_arr, dtype=float)
+                    np.divide(
+                        up_arr,
+                        weight_arr,
+                        out=ratio_up,
+                        where=weight_arr != 0,
+                    )
+
+                if down_arr is not None:
+                    ratio_down = np.ones_like(weight_arr, dtype=float)
+                    np.divide(
+                        down_arr,
+                        weight_arr,
+                        out=ratio_down,
+                        where=weight_arr != 0,
+                    )
+                elif ratio_up is not None:
+                    ratio_down = np.ones_like(ratio_up, dtype=float)
+                    np.divide(
+                        1.0,
+                        ratio_up,
+                        out=ratio_down,
+                        where=ratio_up != 0,
+                    )
+                    down_arr = weight_arr * ratio_down
+
+                if self._store_individual:
+                    if up_arr is not None:
+                        self._weights[f"{label}Up"] = up_arr
+                    if down_arr is not None:
+                        self._weights[f"{label}Down"] = down_arr
+
+                self._names.append(label)
+
+                if ratio_up is not None:
+                    self._modifiers[f"{label}Up"] = ratio_up
+                if ratio_down is not None:
+                    self._modifiers[f"{label}Down"] = ratio_down
+
         def weight(self, modifier=None):
             if modifier in (None, "nominal"):
                 return self._central
@@ -289,6 +533,30 @@ def _install_stubs(monkeypatch):
             raise ValueError(f"Modifier {modifier} is not available")
 
         @property
+        def weightStatistics(self):
+            stats = {}
+            if self._central is not None:
+                central = np.asarray(self._central)
+                stats["weight"] = _WeightStatistics(
+                    np.sum(central),
+                    np.sum(central ** 2),
+                    np.min(central) if central.size else 0.0,
+                    np.max(central) if central.size else 0.0,
+                    central.size,
+                )
+            if self._store_individual:
+                for name, arr in self._weights.items():
+                    arr_np = np.asarray(arr)
+                    stats[name] = _WeightStatistics(
+                        np.sum(arr_np),
+                        np.sum(arr_np ** 2),
+                        np.min(arr_np) if arr_np.size else 0.0,
+                        np.max(arr_np) if arr_np.size else 0.0,
+                        arr_np.size,
+                    )
+            return stats
+
+        @property
         def variations(self):
             keys = set(self._modifiers.keys())
             for key in list(keys):
@@ -296,8 +564,50 @@ def _install_stubs(monkeypatch):
                     keys.add(key[:-2] + "Down")
             return keys
 
+    class _Cutflow:
+        def __init__(self):
+            self._counts = collections.OrderedDict()
+
+        def add(self, name, count):
+            value = float(np.sum(count)) if np.size(count) else float(count)
+            self._counts[name] = self._counts.get(name, 0.0) + value
+
+        def __getitem__(self, key):
+            return self._counts[key]
+
+        def items(self):
+            return self._counts.items()
+
+        def to_dict(self):  # pragma: no cover - convenience helper
+            return dict(self._counts)
+
+    class _NminusOne(_Cutflow):
+        pass
+
+    def _cutflow_to_npz(cutflow, filename, **metadata):  # pragma: no cover - shim
+        return {
+            "filename": filename,
+            "cutflow": dict(getattr(cutflow, "items", lambda: [])()),
+            "metadata": metadata,
+        }
+
+    def _nminus_one_to_npz(nminus_one, filename, **metadata):  # pragma: no cover
+        return {
+            "filename": filename,
+            "cutflow": dict(getattr(nminus_one, "items", lambda: [])()),
+            "metadata": metadata,
+        }
+
+    analysis_tools_module.boolean_masks_to_categorical_integers = (
+        _boolean_masks_to_categorical_integers
+    )
+    analysis_tools_module.WeightStatistics = _WeightStatistics
     analysis_tools_module.PackedSelection = _PackedSelection
     analysis_tools_module.Weights = _Weights
+    analysis_tools_module.Cutflow = _Cutflow
+    analysis_tools_module.NminusOne = _NminusOne
+    analysis_tools_module.CutflowToNpz = _cutflow_to_npz
+    analysis_tools_module.NminusOneToNpz = _nminus_one_to_npz
 
     nanoevents_module = _module("coffea.nanoevents")
     coffea_pkg.nanoevents = nanoevents_module  # type: ignore[attr-defined]
@@ -324,7 +634,20 @@ def _install_stubs(monkeypatch):
         def __call__(self, run, lumi):
             return ak.ones_like(run, dtype=bool)
 
+    class _LumiList(list):  # pragma: no cover - lightweight shim
+        def __init__(self, *lumis, **kwargs):
+            super().__init__(lumis or kwargs.get("lumis", []))
+
+        def __contains__(self, item):
+            return list.__contains__(self, item)
+
+    class _LumiData(dict):  # pragma: no cover - lightweight shim
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
     lumi_tools_module.LumiMask = _DummyLumiMask
+    lumi_tools_module.LumiList = _LumiList
+    lumi_tools_module.LumiData = _LumiData
 
     # Parameter helpers
     paths_module = _module("topcoffea.modules.paths")
