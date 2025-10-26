@@ -1513,7 +1513,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
 ################################################################
 # https://gitlab.cern.ch/akhukhun/roccor
 # https://github.com/CoffeaTeam/coffea/blob/master/coffea/lookup_tools/rochester_lookup.py
-def ApplyRochesterCorrections(year, mu, is_data):
+def ApplyRochesterCorrections(mu, year, is_data):
     if year.startswith('201'): #Run2 scenario
         rocco_tag = None
         if year == '2016':
