@@ -530,7 +530,11 @@ class ExecutorFactory:
             staging_dir = self._distributed_staging_dir(executor)
             logs_dir = staging_dir / "logs"
             logs_dir.mkdir(parents=True, exist_ok=True)
-            manager_base = self._manager_name_base(executor)
+            manager_default = self._manager_name_base(executor)
+            manager_name = self._config.manager_name or manager_default
+            manager_template = self._config.manager_name_template
+            if manager_template is None and manager_name:
+                manager_template = f"{manager_name}-{{pid}}"
             environment_file = self._resolve_environment_file(remote_environment)
 
             if executor == "work_queue":
@@ -543,7 +547,7 @@ class ExecutorFactory:
                         "provides WorkQueueExecutor."
                     )
 
-                executor_args = {
+                executor_args: Dict[str, Any] = {
                     "port": [port_min, port_max],
                     "debug_log": str(logs_dir / "debug.log"),
                     "transactions_log": str(logs_dir / "transactions.log"),
@@ -552,16 +556,18 @@ class ExecutorFactory:
                     "extra_input_files": ["analysis_processor.py"],
                     "retries": 15,
                     "compression": 8,
-                    "resource_monitor": "measure",
-                    "resources_mode": "auto",
                     "filepath": str(staging_dir),
                     "chunks_per_accum": 25,
                     "chunks_accum_in_mem": 2,
                     "fast_terminate_workers": 0,
                     "verbose": True,
                     "print_stdout": False,
-                    "master_name": manager_base,
+                    "master_name": manager_name,
                 }
+                if self._config.resource_monitor is not None:
+                    executor_args["resource_monitor"] = self._config.resource_monitor
+                if self._config.resources_mode is not None:
+                    executor_args["resources_mode"] = self._config.resources_mode
                 if environment_file:
                     executor_args["environment_file"] = environment_file
 
@@ -576,78 +582,104 @@ class ExecutorFactory:
             if taskvine_cls is None:
                 raise RuntimeError("TaskVineExecutor not available.")
 
-            executor_args = {
-                "manager_name": manager_base,
-                "manager_name_template": f"{manager_base}-{{pid}}",
+            executor_args: Dict[str, Any] = {
                 "filepath": str(staging_dir),
                 "extra_input_files": ["analysis_processor.py"],
                 "retries": 15,
                 "compression": 8,
-                "resource_monitor": "measure",
-                "resources_mode": "auto",
                 "fast_terminate_workers": 0,
                 "verbose": True,
                 "print_stdout": False,
                 "custom_init": self._taskvine_custom_init(logs_dir),
             }
+            if manager_name:
+                executor_args["manager_name"] = manager_name
+            if manager_template is not None:
+                executor_args["manager_name_template"] = manager_template
+            if self._config.resource_monitor is not None:
+                executor_args["resource_monitor"] = self._config.resource_monitor
+            if self._config.resources_mode is not None:
+                executor_args["resources_mode"] = self._config.resources_mode
             if environment_file:
                 executor_args["environment_file"] = environment_file
 
             if port_min > port_max:
                 raise ValueError("Invalid port range: minimum exceeds maximum.")
-
-            attempted_ports: Set[int] = set()
-            last_port_error: Optional[BaseException] = None
-            for _ in range(port_max - port_min + 1):
-                try:
-                    port = self._select_manager_port(
-                        port_min, port_max, exclude=attempted_ports
-                    )
-                except RuntimeError as exc:
-                    if last_port_error is not None:
-                        range_desc = (
-                            f"{port_min}-{port_max}"
-                            if port_min != port_max
-                            else str(port_min)
-                        )
-                        raise RuntimeError(
-                            "TaskVineExecutor could not bind a manager port "
-                            f"in range {range_desc}."
-                        ) from last_port_error
-                    raise
-
-                attempted_ports.add(port)
-                executor_args["port"] = port
-
-                try:
+            def _instantiate_taskvine(args: Dict[str, Any]) -> Any:
+                attempt_args = dict(args)
+                while True:
                     try:
-                        exec_instance = taskvine_cls(**executor_args)
+                        return taskvine_cls(**attempt_args)
                     except TypeError as exc:
-                        if "manager_name_template" in str(exc) and "manager_name_template" in executor_args:
-                            executor_args.pop("manager_name_template", None)
-                            exec_instance = taskvine_cls(**executor_args)
-                        else:
-                            raise
-                except Exception as exc:  # pragma: no cover - executor raises remotely
-                    if not self._is_port_allocation_error(exc):
+                        if (
+                            "manager_name_template" in attempt_args
+                            and "manager_name_template" in str(exc)
+                        ):
+                            attempt_args.pop("manager_name_template", None)
+                            continue
                         raise
-                    last_port_error = exc
-                    continue
 
-                break
+            exec_instance: Optional[Any] = None
+            last_port_error: Optional[BaseException] = None
+
+            if self._config.negotiate_manager_port:
+                attempted_ports: Set[int] = set()
+                for _ in range(port_max - port_min + 1):
+                    try:
+                        port = self._select_manager_port(
+                            port_min, port_max, exclude=attempted_ports
+                        )
+                    except RuntimeError as exc:
+                        if last_port_error is not None:
+                            range_desc = (
+                                f"{port_min}-{port_max}"
+                                if port_min != port_max
+                                else str(port_min)
+                            )
+                            raise RuntimeError(
+                                "TaskVineExecutor could not bind a manager port "
+                                f"in range {range_desc}."
+                            ) from last_port_error
+                        raise
+
+                    attempted_ports.add(port)
+                    port_args = dict(executor_args)
+                    port_args["port"] = port
+
+                    try:
+                        exec_instance = _instantiate_taskvine(port_args)
+                    except Exception as exc:
+                        if self._is_port_allocation_error(exc):
+                            last_port_error = exc
+                            continue
+                        raise
+                    else:
+                        break
+                else:
+                    range_desc = (
+                        f"{port_min}-{port_max}"
+                        if port_min != port_max
+                        else str(port_min)
+                    )
+                    message = (
+                        "TaskVineExecutor could not bind a manager port "
+                        f"in range {range_desc}."
+                    )
+                    if last_port_error is not None:
+                        raise RuntimeError(message) from last_port_error
+                    raise RuntimeError(message)
             else:
-                range_desc = (
-                    f"{port_min}-{port_max}"
-                    if port_min != port_max
-                    else str(port_min)
-                )
-                message = (
-                    "TaskVineExecutor could not bind a manager port "
-                    f"in range {range_desc}."
-                )
-                if last_port_error is not None:
-                    raise RuntimeError(message) from last_port_error
-                raise RuntimeError(message)
+                port_args = dict(executor_args)
+                port_args["port"] = port_min
+                try:
+                    exec_instance = _instantiate_taskvine(port_args)
+                except Exception as exc:
+                    if self._is_port_allocation_error(exc):
+                        raise RuntimeError(
+                            "TaskVineExecutor could not bind manager port "
+                            f"{port_min}."
+                        ) from exc
+                    raise
 
             return _build_runner(
                 exec_instance,

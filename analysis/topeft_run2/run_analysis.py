@@ -191,7 +191,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--port",
         default="9123-9130",
-        help="Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.",
+        help=(
+            "Specify the TaskVine/Work Queue manager port. Accepts a single PORT "
+            "or a range PORT_MIN-PORT_MAX for negotiation."
+        ),
+    )
+    parser.add_argument(
+        "--no-port-negotiation",
+        dest="negotiate_manager_port",
+        action="store_false",
+        help=(
+            "Disable automatic TaskVine port negotiation. When set the first value "
+            "from --port is used directly and any allocation failure aborts the run."
+        ),
     )
     parser.add_argument(
         "--environment-file",
@@ -221,6 +233,36 @@ def build_parser() -> argparse.ArgumentParser:
             " of the YAML configuration."
         ),
     )
+    parser.add_argument(
+        "--manager-name",
+        default=None,
+        help=(
+            "Override the distributed executor manager identifier. Defaults to "
+            "'<user>-<executor>-coffea' when unset."
+        ),
+    )
+    parser.add_argument(
+        "--manager-name-template",
+        default=None,
+        help=(
+            "Template for TaskVine manager names when multiple processes start. "
+            "Use '{pid}' to insert the process ID."
+        ),
+    )
+    parser.add_argument(
+        "--resource-monitor",
+        default=None,
+        help=(
+            "TaskVine resource monitor setting (for example 'measure'). Use 'none' "
+            "to disable explicit monitoring."
+        ),
+    )
+    parser.add_argument(
+        "--resources-mode",
+        default=None,
+        help="TaskVine resources mode override (for example 'auto').",
+    )
+    parser.set_defaults(negotiate_manager_port=True)
     return parser
 
 

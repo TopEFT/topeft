@@ -233,6 +233,13 @@ def run_quickstart(
     wc_list: Optional[Iterable[str]] = None,
     pretend: bool = False,
     test: bool = False,
+    port: str = "9123-9130",
+    negotiate_manager_port: bool = True,
+    manager_name: Optional[str] = None,
+    manager_name_template: Optional[str] = None,
+    resource_monitor: Optional[str] = None,
+    resources_mode: Optional[str] = None,
+    environment_file: Optional[str] = "auto",
 ) -> RunConfig:
     """Execute the Run 2 processor with conservative defaults.
 
@@ -268,6 +275,13 @@ def run_quickstart(
         skip_cr=skip_cr,
         do_np=do_np,
         wc_list=unique_preserving_order(normalize_sequence(wc_list)),
+        port=port,
+        negotiate_manager_port=negotiate_manager_port,
+        manager_name=manager_name,
+        manager_name_template=manager_name_template,
+        resource_monitor=resource_monitor,
+        resources_mode=resources_mode,
+        environment_file=environment_file,
     )
 
     sample_loader = SampleLoader(
