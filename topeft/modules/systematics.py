@@ -20,7 +20,10 @@ from typing import (
 )
 
 import numpy as np
-import topcoffea.modules.corrections as tc_cor
+try:
+    import topcoffea.modules.corrections as tc_cor
+except ImportError:  # pragma: no cover - fallback for standalone usage
+    import topeft.modules.corrections as tc_cor
 
 from topeft.modules.paths import topeft_path
 

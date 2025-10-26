@@ -3,7 +3,8 @@
  into coffea format of corrections.
 '''
 
-from coffea import lookup_tools
+from coffea.lookup_tools.dense_lookup import dense_lookup as build_dense_lookup
+from coffea.lookup_tools.extractor import extractor as LookupExtractor
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
 import numpy as np
@@ -13,10 +14,7 @@ import gzip
 import pickle
 import correctionlib
 import json
-from coffea.jetmet_tools import CorrectedMETFactory
-### workaround while waiting the correcion-lib integration will be provided in the coffea package
-from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
-from topcoffea.modules.JECStack import JECStack
+from coffea.jetmet_tools import CorrectedJetsFactory, CorrectedMETFactory, JECStack
 from coffea.btag_tools import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
 
@@ -30,7 +28,7 @@ basepathFromTTH = 'data/fromTTH/'
 
 ###### Lepton scale factors
 ################################################################
-extLepSF = lookup_tools.extractor()
+extLepSF = LookupExtractor()
 
 clib_year_map = {
     "2016APV": "2016preVFP_UL",
@@ -59,7 +57,7 @@ def AttachElectronTrigSF(electrons, year):
         electrons["SF_elec_trig_nom"] = ak.ones_like(electrons.pt)
         return
 
-    ext_lep_sf = lookup_tools.extractor()
+    ext_lep_sf = LookupExtractor()
     root_path = topeft_path("data/leptonSF/elec/DiEleCaloIdLMWPMS2_HEEPeff.root")
 
     ext_lep_sf.add_weight_sets(
@@ -921,7 +919,10 @@ def AttachPerLeptonFR(leps, flavor, year):
     else: flip_year_name = "UL18" #TO READAPT when fakefactors are ready #raise Exception(f"Not a known year: {year}")
     with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
         flip_hist = pickle.load(fin)
-        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
+        flip_lookup = build_dense_lookup(
+            flip_hist.values()[()],
+            [flip_hist.axes["pt"].edges, flip_hist.axes["eta"].edges],
+        )
 
     # Get the fliprate scaling factor for the given year
     chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
@@ -1299,7 +1300,7 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
     h = hists['jetptetaflav']
     hnum = h[{'WP': wp}]
     hden = h[{'WP': 'all'}]
-    getnum = lookup_tools.dense_lookup.dense_lookup(
+    getnum = build_dense_lookup(
         hnum.values(flow=True)[1:,1:,1:], # Strip off underflow
         [
             hnum.axes['pt'].edges,
@@ -1307,7 +1308,7 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
             hnum.axes['flav'].edges
         ]
     )
-    getden = lookup_tools.dense_lookup.dense_lookup(
+    getden = build_dense_lookup(
         hden.values(flow=True)[1:,1:,1:],
         [
             hden.axes['pt'].edges,
@@ -1435,7 +1436,7 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=F
         jec_tag = jerc_tag_map[year][0]
         jer_tag = jerc_tag_map[year][1]
         jet_algo = "AK4PFchs"
-        extJEC = lookup_tools.extractor()
+        extJEC = LookupExtractor()
         weight_sets = []
         if not isData:
             weight_sets += [
@@ -1703,9 +1704,15 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     ratio[np.isnan(ratio)] = 1.0
     do[np.isnan(do)] = 0.0
     up[np.isnan(up)] = 0.0
-    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
-    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
-    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+    GetTrig = build_dense_lookup(
+        ratio, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges]
+    )
+    GetTrigUp = build_dense_lookup(
+        up, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges]
+    )
+    GetTrigDo = build_dense_lookup(
+        do, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges]
+    )
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 def GetTriggerSF(year, events, lep0, lep1):
