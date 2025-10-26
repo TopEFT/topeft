@@ -786,6 +786,7 @@ def make_cr_fig(
     # Set up the colors for each stacked process
 
     # Normalize if we want to do that
+    mc_norm_factor = 1.0
     if unit_norm_bool:
         sum_mc = 0
         sum_data = 0
@@ -793,7 +794,8 @@ def make_cr_fig(
             sum_mc = sum_mc + sum(h_mc.eval({})[sample])
         for sample in h_data.eval({}):
             sum_data = sum_data + sum(h_data.eval({})[sample])
-        h_mc.scale(1.0/sum_mc)
+        mc_norm_factor = 1.0/sum_mc
+        h_mc.scale(mc_norm_factor)
         h_data.scale(1.0/sum_data)
 
     # Plot the MC
@@ -830,7 +832,10 @@ def make_cr_fig(
                 mc_sumw2_vals[proc_name] = np.zeros_like(template)
                 continue
             grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
-            mc_sumw2_vals[proc_name] = grouped_hist.as_hist({}).values(flow=True)[1:]
+            grouped_vals = grouped_hist.as_hist({}).values(flow=True)[1:]
+            if unit_norm_bool:
+                grouped_vals = grouped_vals * mc_norm_factor**2
+            mc_sumw2_vals[proc_name] = grouped_vals
 
     bins = h_data[{'process': sum}].as_hist({}).axes[var].edges
     bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
@@ -876,7 +881,12 @@ def make_cr_fig(
     # Plot the syst error
     mc_totals = h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
     if h_mc_sumw2 is not None:
-        summed_mc_sumw2 = np.sum(list(mc_sumw2_vals.values()), axis=0) if mc_sumw2_vals else h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)[1:]
+        if mc_sumw2_vals:
+            summed_mc_sumw2 = np.sum(list(mc_sumw2_vals.values()), axis=0)
+        else:
+            summed_mc_sumw2 = h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)[1:]
+            if unit_norm_bool:
+                summed_mc_sumw2 = summed_mc_sumw2 * mc_norm_factor**2
     else:
         summed_mc_sumw2 = mc_totals
 
