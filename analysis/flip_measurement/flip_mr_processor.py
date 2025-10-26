@@ -74,6 +74,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(
                 f"Missing matched generator PDG IDs for electrons in dataset '{source_dataset}'."
             )
+
+        if ak.any(ak.is_none(gen_pdg), axis=None):
+            raise ValueError(
+                "Matched generator PDG IDs for electrons contain missing values; "
+                f"dataset '{source_dataset}' is incompatible with the flip MR processor."
+            )
         e["gen_pdgId"] = gen_pdg
 
         e["idEmu"]         = obj.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
