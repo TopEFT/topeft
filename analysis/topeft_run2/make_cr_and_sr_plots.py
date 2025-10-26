@@ -719,7 +719,29 @@ def make_sparse2d_fig(
 
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=None, group=None, set_x_lim=None, err_p=None, err_m=None, err_ratio_p=None, err_ratio_m=None, lumitag="138", comtag="13"):
+def make_cr_fig(
+    h_mc,
+    h_data,
+    unit_norm_bool,
+    axis='process',
+    var='lj0pt',
+    bins=None,
+    group=None,
+    set_x_lim=None,
+    err_p=None,
+    err_m=None,
+    err_ratio_p=None,
+    err_ratio_m=None,
+    lumitag="138",
+    comtag="13",
+    h_mc_sumw2=None,
+    syst_err=None,
+    err_p_syst=None,
+    err_m_syst=None,
+    err_ratio_p_syst=None,
+    err_ratio_m_syst=None,
+    unblind=False,
+):
     if bins is None:
         bins = []
     if group is None:
@@ -742,14 +764,14 @@ def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=
             c = default_colors[i % len(default_colors)]
         colors.append(c)
 
-    # Decide if we're plotting stat or syst uncty for mc
-    # In principle would be better to combine them
-    # But for our cases syst is way bigger than mc stat, so if we're plotting syst, ignore stat
-    plot_syst_err = False
-    mc_err_ops = MC_ERROR_OPS
-    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None):
-        plot_syst_err = True
-        mc_err_ops = None
+    if err_p_syst is None and err_p is not None:
+        err_p_syst = err_p
+    if err_m_syst is None and err_m is not None:
+        err_m_syst = err_m
+    if err_ratio_p_syst is None and err_ratio_p is not None:
+        err_ratio_p_syst = err_ratio_p
+    if err_ratio_m_syst is None and err_ratio_m is not None:
+        err_ratio_m_syst = err_ratio_m
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -764,6 +786,7 @@ def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=
     # Set up the colors for each stacked process
 
     # Normalize if we want to do that
+    mc_norm_factor = 1.0
     if unit_norm_bool:
         sum_mc = 0
         sum_data = 0
@@ -771,7 +794,8 @@ def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=
             sum_mc = sum_mc + sum(h_mc.eval({})[sample])
         for sample in h_data.eval({}):
             sum_data = sum_data + sum(h_data.eval({})[sample])
-        h_mc.scale(1.0/sum_mc)
+        mc_norm_factor = 1.0/sum_mc
+        h_mc.scale(mc_norm_factor)
         h_data.scale(1.0/sum_data)
 
     # Plot the MC
@@ -787,10 +811,40 @@ def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=
     hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
 
     # Use the grouping information determined above
-    mc_vals = {
-        proc: h_mc[{"process": grouping[proc]}][{"process": sum}].as_hist({}).values(flow=True)[1:]
-        for proc in grouping
-    }
+    def _get_grouped_vals(hist_obj, grouping_map):
+        grouped_values = {}
+        for proc_name, members in grouping_map.items():
+            grouped_hist = hist_obj[{"process": members}][{"process": sum}]
+            grouped_values[proc_name] = grouped_hist.as_hist({}).values(flow=True)[1:]
+        return grouped_values
+
+    mc_vals = _get_grouped_vals(h_mc, grouping)
+    mc_sumw2_vals = {}
+    if h_mc_sumw2 is not None:
+        try:
+            available_processes = set(h_mc_sumw2.axes[axis])
+        except KeyError:
+            available_processes = set()
+        template = next(iter(mc_vals.values())) if mc_vals else h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
+        for proc_name, members in grouping.items():
+            valid_members = [m for m in members if m in available_processes]
+            missing_members = [m for m in members if m not in available_processes]
+
+            grouped_vals = np.zeros_like(template)
+            if valid_members:
+                grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
+                grouped_vals = grouped_hist.as_hist({}).values(flow=True)[1:]
+                if unit_norm_bool:
+                    grouped_vals = grouped_vals * mc_norm_factor**2
+
+            fallback_vals = np.zeros_like(template)
+            if missing_members:
+                fallback_hist = h_mc[{"process": missing_members}][{"process": sum}]
+                fallback_vals = fallback_hist.as_hist({}).values(flow=True)[1:]
+                if unit_norm_bool:
+                    fallback_vals = fallback_vals * mc_norm_factor
+
+            mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
 
     bins = h_data[{'process': sum}].as_hist({}).axes[var].edges
     bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
@@ -834,24 +888,104 @@ def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=
     )
 
     # Plot the syst error
-    if plot_syst_err:
-        bin_edges_arr = h_mc.axes[var].edges
-        #err_p = np.append(err_p,0) # Work around off by one error
-        #err_m = np.append(err_m,0) # Work around off by one error
-        #err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
-        #err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
-        ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
-        rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
-    err_m = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]-np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_p = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]+np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_ratio_m = np.append(1-1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_ratio_p = np.append(1+1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    rax.fill_between(bins,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Stat err', hatch='////')
+    mc_totals = h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
+    if h_mc_sumw2 is not None:
+        if mc_sumw2_vals:
+            summed_mc_sumw2 = np.sum(list(mc_sumw2_vals.values()), axis=0)
+        else:
+            summed_mc_sumw2 = h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)[1:]
+            if unit_norm_bool:
+                summed_mc_sumw2 = summed_mc_sumw2 * mc_norm_factor**2
+    else:
+        summed_mc_sumw2 = mc_totals * (mc_norm_factor if unit_norm_bool else 1)
+
+    mc_stat_unc = np.sqrt(np.clip(summed_mc_sumw2, a_min=0, a_max=None))
+
+    has_syst_arrays = all(
+        arr is not None
+        for arr in (err_p_syst, err_m_syst, err_ratio_p_syst, err_ratio_m_syst)
+    )
+
+    valid_modes = {"stat", "syst", "total"}
+    if isinstance(syst_err, str) and syst_err.lower() in valid_modes:
+        band_mode = syst_err.lower()
+    elif isinstance(syst_err, bool):
+        if syst_err and has_syst_arrays:
+            band_mode = "total" if unblind else "syst"
+        else:
+            band_mode = "stat"
+    else:
+        if has_syst_arrays:
+            band_mode = "total" if unblind else "syst"
+        else:
+            band_mode = "stat"
+
+    def _append_last(arr):
+        if arr is None or len(arr) == 0:
+            return arr
+        return np.append(arr, arr[-1])
+
+    mc_stat_up = mc_totals + mc_stat_unc
+    mc_stat_down = np.clip(mc_totals - mc_stat_unc, a_min=0, a_max=None)
+    ratio_stat_up = np.where(mc_totals > 0, 1 + mc_stat_unc / mc_totals, 1)
+    ratio_stat_down = np.where(mc_totals > 0, 1 - mc_stat_unc / mc_totals, 1)
+
+    mc_band_up = mc_stat_up
+    mc_band_down = mc_stat_down
+    ratio_band_up = ratio_stat_up
+    ratio_band_down = ratio_stat_down
+    if band_mode in ("syst", "total") and has_syst_arrays:
+        syst_up = np.asarray(err_p_syst)
+        syst_down = np.asarray(err_m_syst)
+        ratio_syst_up = np.asarray(err_ratio_p_syst)
+        ratio_syst_down = np.asarray(err_ratio_m_syst)
+        if band_mode == "syst":
+            mc_band_up = syst_up
+            mc_band_down = np.clip(syst_down, a_min=0, a_max=None)
+            ratio_band_up = ratio_syst_up
+            ratio_band_down = ratio_syst_down
+        else:
+            syst_up_diff = np.clip(syst_up - mc_totals, a_min=0, a_max=None)
+            syst_down_diff = np.clip(mc_totals - syst_down, a_min=0, a_max=None)
+            total_up = mc_totals + np.sqrt(mc_stat_unc**2 + syst_up_diff**2)
+            total_down = mc_totals - np.sqrt(mc_stat_unc**2 + syst_down_diff**2)
+            mc_band_up = total_up
+            mc_band_down = np.clip(total_down, a_min=0, a_max=None)
+            ratio_band_up = np.where(mc_totals > 0, mc_band_up / mc_totals, 1)
+            ratio_band_down = np.where(mc_totals > 0, mc_band_down / mc_totals, 1)
+
+    mc_band_up = _append_last(mc_band_up)
+    mc_band_down = _append_last(mc_band_down)
+    ratio_band_up = _append_last(ratio_band_up)
+    ratio_band_down = _append_last(ratio_band_down)
+
+    if mc_band_up is not None and mc_band_down is not None:
+        ax.fill_between(
+            bins,
+            mc_band_down,
+            mc_band_up,
+            step='post',
+            facecolor='none',
+            edgecolor='gray',
+            label=f"{'Total' if band_mode == 'total' else ('Syst' if band_mode == 'syst' else 'Stat')} err",
+            hatch='////',
+        )
+    if ratio_band_up is not None and ratio_band_down is not None:
+        rax.fill_between(
+            bins,
+            ratio_band_down,
+            ratio_band_up,
+            step='post',
+            facecolor='none',
+            edgecolor='gray',
+            label=f"{'Total' if band_mode == 'total' else ('Syst' if band_mode == 'syst' else 'Stat')} err",
+            hatch='////',
+        )
 
     # Scale the y axis and labels
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
-    ax.tick_params(axis='both', labelsize=18)   # both x and y ticks
+    ax.tick_params(axis='both', labelsize=18, width=1.5, length=6)
     ax.ticklabel_format(axis='y', style='scientific', scilimits=(0,6), useMathText=True)
     ax.yaxis.set_offset_position("left")
     ax.yaxis.offsetText.set_x(-0.07)
@@ -862,7 +996,7 @@ def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=
     labels = [item.get_text() for item in rax.get_xticklabels()]
     labels[-1] = '>500'
     rax.set_xticklabels(labels)
-    rax.tick_params(axis='both', labelsize=18)   # both x and y ticks
+    rax.tick_params(axis='both', labelsize=18, width=1.5, length=6)
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
@@ -1200,6 +1334,9 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         # Extract the MC and data hists
         hist_mc_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
+        hist_mc_sumw2_orig = dict_of_hists.get(f"{var_name}_sumw2")
+        if hist_mc_sumw2_orig is not None:
+            hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", samples_to_rm_from_mc_hist)
 
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
@@ -1222,6 +1359,11 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             if not channels:
                 continue
             hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
+            hist_mc_sumw2 = None
+            if hist_mc_sumw2_orig is not None:
+                channels_sumw2 = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_mc_sumw2_orig.axes['channel']]
+                if channels_sumw2:
+                    hist_mc_sumw2 = hist_mc_sumw2_orig.integrate("systematic","nominal").integrate("channel",channels_sumw2)[{'channel': sum}]
             channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_data_orig.axes['channel']]
             hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
 
@@ -1255,7 +1397,18 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 print("Warning: empty data histo, continuing")
                 continue
 
-            fig = make_cr_fig(hist_mc, hist_data, var=var_name, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP, lumitag=LUMI_COM_PAIRS[year][0], comtag=LUMI_COM_PAIRS[year][1])
+            fig = make_cr_fig(
+                hist_mc,
+                hist_data,
+                var=var_name,
+                unit_norm_bool=False,
+                bins=axes_info[var_name]['variable'],
+                group=SR_GRP_MAP,
+                lumitag=LUMI_COM_PAIRS[year][0],
+                comtag=LUMI_COM_PAIRS[year][1],
+                h_mc_sumw2=hist_mc_sumw2,
+                unblind=True,
+            )
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
@@ -1509,6 +1662,9 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
+        hist_mc_sumw2 = dict_of_hists.get(f"{var_name}_sumw2")
+        if hist_mc_sumw2 is not None:
+            hist_mc_sumw2 = hist_mc_sumw2.remove("process", samples_to_rm_from_mc_hist)
         is_sparse2d = _is_sparse_2d_hist(hist_mc)
         if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
             print(f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting.")
@@ -1539,11 +1695,20 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             # Integrate to get the categories we want
             axes_to_integrate_dict = {}
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
+            hist_mc_sumw2_integrated = None
             try:
                 hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)[{"channel": sum}]
                 hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)[{"channel": sum}]
             except:
                 continue
+            if hist_mc_sumw2 is not None:
+                try:
+                    hist_mc_sumw2_integrated = yt.integrate_out_cats(
+                        yt.integrate_out_appl(hist_mc_sumw2, hist_cat),
+                        axes_to_integrate_dict,
+                    )[{'channel': sum}]
+                except Exception:
+                    hist_mc_sumw2_integrated = None
             # Remove samples that are not relevant for the given category
             samples_to_rm = []
 
@@ -1555,6 +1720,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 else:
                     pass
             hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
+            if hist_mc_sumw2_integrated is not None:
+                hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.remove("process", samples_to_rm)
 
 
             # Calculate the syst errors
@@ -1600,6 +1767,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 #hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
                 #hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
                 hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
+                if hist_mc_sumw2_integrated is not None:
+                    hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.integrate("systematic","nominal")
                 hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
                 if hist_mc_integrated.empty():
                     print(f'Empty {hist_mc_integrated=}')
@@ -1645,12 +1814,14 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                     var=var_name,
                     group=group,
                     set_x_lim = x_range,
-                    err_p = p_err_arr,
-                    err_m = m_err_arr,
-                    err_ratio_p = p_err_arr_ratio,
-                    err_ratio_m = m_err_arr_ratio,
                     lumitag=LUMI_COM_PAIRS[year][0],
-                    comtag=LUMI_COM_PAIRS[year][1]
+                    comtag=LUMI_COM_PAIRS[year][1],
+                    h_mc_sumw2=hist_mc_sumw2_integrated,
+                    err_p_syst=p_err_arr,
+                    err_m_syst=m_err_arr,
+                    err_ratio_p_syst=p_err_arr_ratio,
+                    err_ratio_m_syst=m_err_arr_ratio,
+                    unblind=True,
                 )
             if unit_norm_bool: title = title + "_unitnorm"
             if isinstance(fig, dict):
