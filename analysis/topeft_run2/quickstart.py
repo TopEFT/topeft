@@ -240,6 +240,7 @@ def run_quickstart(
     resource_monitor: Optional[str] = "measure",
     resources_mode: Optional[str] = "auto",
     environment_file: Optional[str] = "auto",
+    scratch_dir: Optional[str] = None,
 ) -> RunConfig:
     """Execute the Run 2 processor with conservative defaults.
 
@@ -279,6 +280,7 @@ def run_quickstart(
         negotiate_manager_port=negotiate_manager_port,
         manager_name=manager_name,
         manager_name_template=manager_name_template,
+        scratch_dir=scratch_dir,
         resource_monitor=resource_monitor,
         resources_mode=resources_mode,
         environment_file=environment_file,
