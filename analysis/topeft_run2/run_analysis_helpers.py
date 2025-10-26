@@ -356,6 +356,7 @@ class RunConfig:
     negotiate_manager_port: bool = True
     manager_name: Optional[str] = None
     manager_name_template: Optional[str] = None
+    scratch_dir: Optional[str] = None
     resource_monitor: Optional[str] = "measure"
     resources_mode: Optional[str] = "auto"
     ecut: Optional[float] = None
@@ -421,6 +422,8 @@ class RunConfigBuilder:
                 "manager_name_template",
                 _coerce_optional_string,
             ),
+            "scratch_dir": ("scratch_dir", _coerce_optional_string),
+            "scratch_path": ("scratch_dir", _coerce_optional_string),
             "resource_monitor": ("resource_monitor", _coerce_optional_string),
             "resources_mode": ("resources_mode", _coerce_optional_string),
             "summary_verbosity": ("summary_verbosity", coerce_summary_verbosity),
@@ -536,6 +539,7 @@ class RunConfigBuilder:
                 "negotiate_manager_port": "negotiate_manager_port",
                 "manager_name": "manager_name",
                 "manager_name_template": "manager_name_template",
+                "scratch_dir": "scratch_dir",
                 "resource_monitor": "resource_monitor",
                 "resources_mode": "resources_mode",
                 "environment_file": "environment_file",

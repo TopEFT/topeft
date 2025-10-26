@@ -528,8 +528,7 @@ class ExecutorFactory:
         if executor in {"work_queue", "taskvine"}:
             port_min, port_max = self._parse_port_range(self._config.port)
             staging_dir = self._distributed_staging_dir(executor)
-            logs_dir = staging_dir / "logs"
-            logs_dir.mkdir(parents=True, exist_ok=True)
+            logs_dir = self._executor_logs_dir(executor, staging_dir)
             manager_default = self._manager_name_base(executor)
             manager_name = self._config.manager_name or manager_default
             manager_template = self._config.manager_name_template
@@ -704,11 +703,19 @@ class ExecutorFactory:
         return normalized
 
     def _distributed_staging_dir(self, executor: str) -> Path:
-        base_dir = os.environ.get("TOPEFT_EXECUTOR_STAGING")
-        if base_dir:
-            staging = Path(base_dir).expanduser()
+        configured = getattr(self._config, "scratch_dir", None)
+        if configured:
+            staging = Path(configured).expanduser()
         else:
-            staging = Path(tempfile.gettempdir()) / "topeft" / self._manager_name_base(executor)
+            base_dir = os.environ.get("TOPEFT_EXECUTOR_STAGING")
+            if base_dir:
+                staging = Path(base_dir).expanduser()
+            else:
+                staging = (
+                    Path(tempfile.gettempdir())
+                    / "topeft"
+                    / self._manager_name_base(executor)
+                )
         staging.mkdir(parents=True, exist_ok=True)
         return staging
 
@@ -720,6 +727,14 @@ class ExecutorFactory:
             except Exception:  # pragma: no cover - best effort fallback
                 user = "coffea"
         return f"{user}-{executor}-coffea"
+
+    def _executor_logs_dir(self, executor: str, staging_dir: Path) -> Path:
+        if executor == "taskvine":
+            logs_dir = staging_dir / "logs" / "taskvine"
+        else:
+            logs_dir = staging_dir / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        return logs_dir
 
     @staticmethod
     def _parse_port_range(port: str) -> Tuple[int, int]:

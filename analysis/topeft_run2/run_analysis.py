@@ -250,6 +250,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--scratch-dir",
+        default=None,
+        help=(
+            "Shared scratch directory for TaskVine/Work Queue staging. When unset "
+            "the workflow chooses a temporary location or uses "
+            "TOPEFT_EXECUTOR_STAGING when defined."
+        ),
+    )
+    parser.add_argument(
         "--resource-monitor",
         default=None,
         help=(
