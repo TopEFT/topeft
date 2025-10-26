@@ -1062,13 +1062,21 @@ def make_cr_fig(
         if gap < target_gap:
             delta = target_gap - gap
             ax_box = ax.get_position()
-            rax_box = rax.get_position()
-            shift = min(delta, ax_box.y0, rax_box.y0)
+            max_shift = legend_box.y0 - ax_box.y1
+            shift = min(delta, max_shift)
             if shift > 0:
-                ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
-                rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
+                new_box = Bbox.from_bounds(
+                    legend_box.x0,
+                    legend_box.y0 - shift,
+                    legend_box.width,
+                    legend_box.height,
+                )
+                legend.set_bbox_to_anchor(new_box, transform=fig.transFigure)
                 fig.canvas.draw()
                 renderer = fig.canvas.get_renderer()
+                legend_bbox = legend.get_window_extent(renderer=renderer)
+                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+                cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
 
     def _get_min_axis_y(renderer):
         bboxes = []
