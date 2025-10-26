@@ -9,6 +9,7 @@ systematic catalogue exposed through ``topeft/params/metadata.yml`` with the
 
 import copy
 from collections import OrderedDict
+from collections.abc import Mapping
 import coffea
 import numpy as np
 import awkward as ak
@@ -274,6 +275,37 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError("systematic_variations must contain at least one entry when provided")
 
 
+    @staticmethod
+    def _metadata_to_mapping(metadata: Optional[object]) -> Mapping[str, object]:
+        """Return *metadata* as a mapping without mutating the input."""
+
+        if metadata is None:
+            return {}
+        if isinstance(metadata, Mapping):
+            return metadata
+        if hasattr(metadata, "items"):
+            try:
+                return dict(metadata.items())
+            except Exception:  # pragma: no cover - defensive fallback
+                return dict(metadata)
+        if hasattr(metadata, "__iter__") and not isinstance(metadata, (str, bytes)):
+            try:
+                return dict(metadata)
+            except Exception:  # pragma: no cover - defensive fallback
+                pass
+        if hasattr(metadata, "__dict__"):
+            result = {}
+            for key in dir(metadata):
+                if key.startswith("_"):
+                    continue
+                value = getattr(metadata, key)
+                if callable(value):
+                    continue
+                result[key] = value
+            return result
+        return {}
+
+
     @property
     def accumulator(self):
         return self._accumulator
@@ -358,7 +390,13 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        raw_dataset_name = events.metadata["dataset"]
+        events_metadata = self._metadata_to_mapping(getattr(events, "metadata", None))
+        raw_dataset_name = events_metadata.get("dataset")
+        if raw_dataset_name is None:
+            raw_dataset_name = self._sample.get("histAxisName")
+        if raw_dataset_name is None:
+            raise KeyError("Events metadata is missing a 'dataset' entry")
+        raw_dataset_name = str(raw_dataset_name)
         dataset, trigger_dataset = self._resolve_dataset_names(raw_dataset_name)
         isEFT = self._sample["WCnames"] != []
 
@@ -570,14 +608,21 @@ class AnalysisProcessor(processor.ProcessorABC):
             variation_name = variation.name if variation is not None else "nominal"
             variation_base = variation.base if variation is not None else None
             variation_type = getattr(variation, "type", None) if variation is not None else None
-            variation_metadata = variation.metadata if variation is not None else {}
+            variation_metadata = self._metadata_to_mapping(
+                getattr(variation, "metadata", None) if variation is not None else None
+            )
 
             variation_base_str = variation_base or ""
-            metadata_lepton_flavor = str(
+            metadata_lepton_flavor_value = (
                 variation_metadata.get("lepton_flavor")
                 or variation_metadata.get("lepton_type")
-                or ""
-            ).lower()
+                or variation_metadata.get("flavor")
+            )
+            metadata_lepton_flavor = (
+                str(metadata_lepton_flavor_value).strip().lower()
+                if metadata_lepton_flavor_value is not None
+                else ""
+            )
             include_lep_sf_variations = bool(
                 variation_metadata.get("lepton_sf")
                 or variation_metadata.get("weight_family") == "lepton_sf"
@@ -637,7 +682,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_variations = {"nominal": sow}
 
             if variation is not None and self._systematic_variations and not isData:
-                group_mapping = variation.group or {}
+                group_mapping = self._metadata_to_mapping(getattr(variation, "group", None))
                 group_key = (variation.base, variation.component, variation.year)
                 group_info = group_mapping.get(group_key, {})
                 
@@ -1481,8 +1526,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                     all_cuts_mask = selections.all(*cuts_lst)
                     if self._ecut_threshold is not None:
                         all_cuts_mask = (all_cuts_mask & ecut_mask)
-
-                    weights_flat = weight[all_cuts_mask]
+                    if isinstance(all_cuts_mask, ak.Array):
+                        mask_numpy = (
+                            ak.to_numpy(all_cuts_mask)
+                            if hasattr(ak, "to_numpy")
+                            else np.asarray(all_cuts_mask)
+                        )
+                    else:
+                        mask_numpy = np.asarray(all_cuts_mask)
+                    weights_flat = np.asarray(weight)[mask_numpy]
                     eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
                     axes_fill_info_dict = {
