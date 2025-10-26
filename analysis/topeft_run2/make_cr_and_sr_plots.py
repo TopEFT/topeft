@@ -1114,28 +1114,23 @@ def make_cr_fig(
         rightmost_extent = max(ax.get_position().x1, rax.get_position().x1)
 
     subplot_params = fig.subplotpars
-    current_right = subplot_params.right
     safety_margin = 0.003
     proposed_right = rightmost_extent + safety_margin
-    new_right = min(1.0, proposed_right)
-    new_right = max(new_right, rightmost_extent)
+    clipped_right = np.clip(proposed_right, 0.0, 1.0)
 
-    if not np.isclose(new_right, current_right):
-        ax_position = ax.get_position()
-        rax_position = rax.get_position()
-        plt.subplots_adjust(
-            bottom=subplot_params.bottom,
-            top=subplot_params.top,
-            left=subplot_params.left,
-            right=new_right,
-            hspace=subplot_params.hspace,
-            wspace=subplot_params.wspace,
-        )
-        ax.set_position(ax_position)
-        rax.set_position(rax_position)
+    axis_positions = [ax.get_position(), rax.get_position()]
+    current_axis_right = max(pos.x1 for pos in axis_positions)
+    effective_right = max(clipped_right, min(current_axis_right, 1.0))
+
+    if not np.isclose(effective_right, current_axis_right):
+        delta_right = effective_right - current_axis_right
+        for axis_obj, pos in zip((ax, rax), axis_positions):
+            new_width = max(pos.width + delta_right, 1e-6)
+            axis_obj.set_position([pos.x0, pos.y0, new_width, pos.height])
+
+        subplot_params.right = effective_right
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
-        subplot_params = fig.subplotpars
 
     def _get_min_axis_y(renderer):
         bboxes = []
