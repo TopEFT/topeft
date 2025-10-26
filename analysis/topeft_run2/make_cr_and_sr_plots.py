@@ -1261,7 +1261,14 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
 
 ###################### Wrapper function for SR data and mc plots (unblind!) ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
-def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,skip_syst_errs=False):
+def make_all_sr_data_mc_plots(
+    dict_of_hists,
+    year,
+    save_dir_path,
+    unblind=False,
+    skip_syst_errs=False,
+    variables=None,
+):
 
     # Construct list of MC samples
     mc_wl = []
@@ -1313,7 +1320,10 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
     print("\nAll samples:",all_samples)
     print("\nMC samples:",mc_sample_lst)
     print("\nData samples:",data_sample_lst)
-    print("\nVariables:",dict_of_hists.keys())
+    all_variables = list(dict_of_hists.keys())
+    print("\nVariables:",all_variables)
+    if variables is not None:
+        print("Filtered variables:", variables)
 
     global SR_GRP_MAP, CR_GRP_MAP
     CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
@@ -1347,7 +1357,11 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
     # Loop over hists and make plots
     skip_lst = ['ptz', 'njets'] # Skip this hist
     #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
+    variable_filter = set(variables) if variables is not None else None
+
     for idx,var_name in enumerate(dict_of_hists.keys()):
+        if variable_filter is not None and var_name not in variable_filter:
+            continue
         if 'sumw2' in var_name: continue
         if _is_sparse_2d_hist(dict_of_hists[var_name]):
             continue
@@ -1532,6 +1546,8 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
+        if variable_filter is not None and var_name not in variable_filter:
+            continue
         #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if 'sumw2' in var_name: continue
         if _is_sparse_2d_hist(dict_of_hists[var_name]):
@@ -1648,7 +1664,14 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 ###################### Wrapper function for all CR plots ######################
 # Wrapper function to loop over all CR categories and make plots for all variables
 # The input hist should include both the data and MC
-def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_path):
+def make_all_cr_plots(
+    dict_of_hists,
+    year,
+    skip_syst_errs,
+    unit_norm_bool,
+    save_dir_path,
+    variables=None,
+):
 
     # Construct list of MC samples
     mc_wl = []
@@ -1703,7 +1726,10 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
-    print("\nVariables:",dict_of_hists.keys())
+    all_variables = list(dict_of_hists.keys())
+    print("\nVariables:",all_variables)
+    if variables is not None:
+        print("Filtered variables:", variables)
 
     global CR_GRP_MAP
     CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
@@ -1718,8 +1744,12 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
     #skip_wlst = ["njets"] # Skip all but these hists
+    variable_filter = set(variables) if variables is not None else None
+
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name:
+            continue
+        if variable_filter is not None and var_name not in variable_filter:
             continue
         if (var_name in skip_lst):
             continue
@@ -1942,7 +1972,26 @@ def main():
     parser.add_argument("--run-sr-data-mc", action="store_true", help = "Also produce signal region data vs MC comparison plots")
     parser.add_argument("--unblind-sr", action="store_true", help = "Unblind the SR data/MC plots (requires --run-sr-data-mc)")
     parser.add_argument("--skip-cr", action="store_true", help = "Skip the control region plots if only SR outputs are needed")
+    parser.add_argument(
+        "--variables",
+        nargs="+",
+        default=None,
+        help="Optional list of histogram variables to plot",
+    )
     args = parser.parse_args()
+
+    normalized_variables = []
+    if args.variables is not None:
+        seen_variables = set()
+        for value in args.variables:
+            if value is None:
+                continue
+            cleaned = value.strip()
+            if not cleaned or cleaned in seen_variables:
+                continue
+            seen_variables.add(cleaned)
+            normalized_variables.append(cleaned)
+    selected_variables = normalized_variables if normalized_variables else None
 
     # Whether or not to unit norm the plots
     unit_norm_bool = args.unit_norm
@@ -1964,7 +2013,14 @@ def main():
 
     # Make the plots
     if not args.skip_cr:
-        make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+        make_all_cr_plots(
+            hin_dict,
+            args.year,
+            args.skip_syst,
+            unit_norm_bool,
+            save_dir_path,
+            variables=selected_variables,
+        )
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,skip_syst_errs=args.skip_syst)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
@@ -1978,6 +2034,7 @@ def main():
             save_dir_path,
             unblind=args.unblind_sr,
             skip_syst_errs=args.skip_syst,
+            variables=selected_variables,
         )
     #make_all_sr_data_mc_plots(hin_dict,"2016",save_dir_path,unblind=True)
     #make_all_sr_data_mc_plots(hin_dict,"2016APV",save_dir_path,unblind=True)
