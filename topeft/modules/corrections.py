@@ -1515,15 +1515,17 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
 # https://github.com/CoffeaTeam/coffea/blob/master/coffea/lookup_tools/rochester_lookup.py
 def ApplyRochesterCorrections(mu, year, is_data):
     if year.startswith('201'): #Run2 scenario
-        rocco_tag = None
-        if year == '2016':
-            rocco_tag = "2016bUL"
-        elif year == '2016APV':
-            rocco_tag = "2016aUL"
-        elif year == '2017':
-            rocco_tag = "2017UL"
-        elif year == '2018':
-            rocco_tag = "2018UL"
+        rochester_tags = {
+            "2016": "2016bUL",
+            "2016APV": "2016aUL",
+            "2016preVFP": "2016aUL",
+            "2016postVFP": "2016bUL",
+            "2017": "2017UL",
+            "2018": "2018UL",
+        }
+        rocco_tag = rochester_tags.get(year)
+        if rocco_tag is None:
+            return mu.pt
         rochester_data = txt_converters.convert_rochester_file(topcoffea_path(f"data/MuonScale/RoccoR{rocco_tag}.txt"), loaduncs=True)
         rochester = rochester_lookup.rochester_lookup(rochester_data)
         if not is_data:
