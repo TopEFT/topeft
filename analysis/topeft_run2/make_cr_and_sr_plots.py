@@ -1250,7 +1250,7 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
 
 ###################### Wrapper function for SR data and mc plots (unblind!) ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
-def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
+def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,skip_syst_errs=False):
 
     # Construct list of MC samples
     mc_wl = []
@@ -1308,6 +1308,19 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
     SR_GRP_MAP = populate_group_map(mc_sample_lst + data_sample_lst, SR_GRP_PATTERNS)
 
+    dict_of_sumw2 = {
+        hist_name.replace("_sumw2", ""): hist_obj
+        for hist_name, hist_obj in dict_of_hists.items()
+        if hist_name.endswith("_sumw2")
+    }
+    sr_signal_samples = sorted(
+        {
+            proc_name
+            for group_name in SR_SIGNAL_GROUP_KEYS
+            for proc_name in SR_GRP_MAP.get(group_name, [])
+        }
+    )
+
     # The analysis bins
     analysis_bins = {}
     # Skipping for now
@@ -1334,9 +1347,11 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         # Extract the MC and data hists
         hist_mc_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
-        hist_mc_sumw2_orig = dict_of_hists.get(f"{var_name}_sumw2")
+        hist_mc_sumw2_orig = dict_of_sumw2.get(var_name)
         if hist_mc_sumw2_orig is not None:
             hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", samples_to_rm_from_mc_hist)
+            if sr_signal_samples:
+                hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", sr_signal_samples)
 
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
@@ -1358,14 +1373,52 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_mc_orig.axes['channel']]
             if not channels:
                 continue
-            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
+            hist_mc_channel = hist_mc_orig.integrate("channel",channels)[{'channel': sum}]
+            hist_mc = hist_mc_channel.integrate("systematic","nominal")
             hist_mc_sumw2 = None
             if hist_mc_sumw2_orig is not None:
                 channels_sumw2 = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_mc_sumw2_orig.axes['channel']]
                 if channels_sumw2:
-                    hist_mc_sumw2 = hist_mc_sumw2_orig.integrate("systematic","nominal").integrate("channel",channels_sumw2)[{'channel': sum}]
+                    hist_mc_sumw2 = hist_mc_sumw2_orig.integrate("channel",channels_sumw2)[{'channel': sum}]
+                    hist_mc_sumw2 = hist_mc_sumw2.integrate("systematic","nominal")
             channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_data_orig.axes['channel']]
-            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
+            hist_data_channel = hist_data_orig.integrate("channel",channels)[{'channel': sum}]
+            hist_data = hist_data_channel.integrate("systematic","nominal")
+
+            syst_err = False
+            err_p_syst = None
+            err_m_syst = None
+            err_ratio_p_syst = None
+            err_ratio_m_syst = None
+            if not skip_syst_errs:
+                try:
+                    rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(
+                        hist_mc_channel,
+                        SR_GRP_MAP,
+                        group_type="SR",
+                    )
+                    shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(
+                        hist_mc_channel,
+                        group_type="SR",
+                    )
+                except Exception as exc:
+                    print(
+                        f"Warning: Failed to compute SR systematics for {chan_name} {var_name}: {exc}"
+                    )
+                else:
+                    nom_arr_all = (
+                        hist_mc_channel[{"process": sum}]
+                        .integrate("systematic","nominal")
+                        .eval({})[()][1:]
+                    )
+                    sqrt_sum_p = np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:]
+                    sqrt_sum_m = np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:]
+                    err_p_syst = nom_arr_all + sqrt_sum_p
+                    err_m_syst = nom_arr_all - sqrt_sum_m
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        err_ratio_p_syst = np.where(nom_arr_all > 0, err_p_syst / nom_arr_all, 1)
+                        err_ratio_m_syst = np.where(nom_arr_all > 0, err_m_syst / nom_arr_all, 1)
+                    syst_err = True
 
             #print(var_name, chan_name, f'grouping {SR_GRP_MAP=}')
             # Using new grouping approach in plot functions
@@ -1393,13 +1446,15 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             if not hist_mc.eval({}):
                 print("Warning: empty mc histo, continuing")
                 continue
-            if not hist_data.eval({}):
+            if unblind and not hist_data.eval({}):
                 print("Warning: empty data histo, continuing")
                 continue
 
+            hist_data_to_plot = hist_data if unblind else copy.deepcopy(hist_mc)
+
             fig = make_cr_fig(
                 hist_mc,
-                hist_data,
+                hist_data_to_plot,
                 var=var_name,
                 unit_norm_bool=False,
                 bins=axes_info[var_name]['variable'],
@@ -1407,7 +1462,12 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 lumitag=LUMI_COM_PAIRS[year][0],
                 comtag=LUMI_COM_PAIRS[year][1],
                 h_mc_sumw2=hist_mc_sumw2,
-                unblind=True,
+                syst_err=syst_err,
+                err_p_syst=err_p_syst,
+                err_m_syst=err_m_syst,
+                err_ratio_p_syst=err_ratio_p_syst,
+                err_ratio_m_syst=err_ratio_m_syst,
+                unblind=unblind,
             )
             if year is not None: year_str = year
             else: year_str = "ULall"
