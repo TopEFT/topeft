@@ -177,7 +177,15 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
             nom_arr_all = private_proc_histo.sum("sample").integrate("systematic","nominal").values()[()]
 
             # Get the systematic shape and rate uncertainties
-            group_map = {"Conv":[], "Diboson":[], "Triboson":[], "Flips":[], "Signal":[proc+"_private"]} # A group map is expected by the code that gets the rate systs
+            sr_group_map = {"Conv": [], "Diboson": [], "Triboson": [], "Flips": []}
+            sr_group_map.update({grp_key: [] for grp_key in mcp.SR_SIGNAL_GROUP_KEYS})
+
+            sr_signal_key = "tXq" if proc == "tllq" else proc
+            if sr_signal_key not in sr_group_map:
+                raise ValueError(f"Unsupported SR signal group '{proc}' in MC validation plotter")
+            sr_group_map[sr_signal_key] = [proc + "_private"]
+
+            group_map = sr_group_map  # A group map is expected by the code that gets the rate systs
             rate_systs_summed_arr_m , rate_systs_summed_arr_p = mcp.get_rate_syst_arrs(
                 private_proc_histo,
                 group_map,
