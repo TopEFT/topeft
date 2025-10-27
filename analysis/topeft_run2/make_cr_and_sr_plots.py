@@ -959,57 +959,117 @@ def make_cr_fig(
     ratio_stat_up = np.where(mc_totals > 0, 1 + mc_stat_unc / mc_totals, 1)
     ratio_stat_down = np.where(mc_totals > 0, 1 - mc_stat_unc / mc_totals, 1)
 
-    mc_band_up = mc_stat_up
-    mc_band_down = mc_stat_down
-    ratio_band_up = ratio_stat_up
-    ratio_band_down = ratio_stat_down
-    if band_mode in ("syst", "total") and has_syst_arrays:
+    mc_stat_band_up = _append_last(mc_stat_up)
+    mc_stat_band_down = _append_last(mc_stat_down)
+    ratio_stat_band_up = _append_last(ratio_stat_up)
+    ratio_stat_band_down = _append_last(ratio_stat_down)
+
+    syst_up = syst_down = ratio_syst_up = ratio_syst_down = None
+    mc_total_band_up = mc_total_band_down = None
+    ratio_total_band_up = ratio_total_band_down = None
+    if has_syst_arrays:
         syst_up = np.asarray(err_p_syst)
         syst_down = np.asarray(err_m_syst)
         ratio_syst_up = np.asarray(err_ratio_p_syst)
         ratio_syst_down = np.asarray(err_ratio_m_syst)
-        if band_mode == "syst":
-            mc_band_up = syst_up
-            mc_band_down = np.clip(syst_down, a_min=0, a_max=None)
-            ratio_band_up = ratio_syst_up
-            ratio_band_down = ratio_syst_down
-        else:
-            syst_up_diff = np.clip(syst_up - mc_totals, a_min=0, a_max=None)
-            syst_down_diff = np.clip(mc_totals - syst_down, a_min=0, a_max=None)
-            total_up = mc_totals + np.sqrt(mc_stat_unc**2 + syst_up_diff**2)
-            total_down = mc_totals - np.sqrt(mc_stat_unc**2 + syst_down_diff**2)
-            mc_band_up = total_up
-            mc_band_down = np.clip(total_down, a_min=0, a_max=None)
-            ratio_band_up = np.where(mc_totals > 0, mc_band_up / mc_totals, 1)
-            ratio_band_down = np.where(mc_totals > 0, mc_band_down / mc_totals, 1)
 
-    mc_band_up = _append_last(mc_band_up)
-    mc_band_down = _append_last(mc_band_down)
-    ratio_band_up = _append_last(ratio_band_up)
-    ratio_band_down = _append_last(ratio_band_down)
+        syst_up_diff = np.clip(syst_up - mc_totals, a_min=0, a_max=None)
+        syst_down_diff = np.clip(mc_totals - syst_down, a_min=0, a_max=None)
 
-    if mc_band_up is not None and mc_band_down is not None:
-        ax.fill_between(
-            bins,
-            mc_band_down,
-            mc_band_up,
-            step='post',
-            facecolor='none',
-            edgecolor='gray',
-            label=f"{'Total' if band_mode == 'total' else ('Syst' if band_mode == 'syst' else 'Stat')} err",
-            hatch='////',
-        )
-    if ratio_band_up is not None and ratio_band_down is not None:
-        rax.fill_between(
-            bins,
-            ratio_band_down,
-            ratio_band_up,
-            step='post',
-            facecolor='none',
-            edgecolor='gray',
-            label=f"{'Total' if band_mode == 'total' else ('Syst' if band_mode == 'syst' else 'Stat')} err",
-            hatch='////',
-        )
+        total_unc_up = np.sqrt(mc_stat_unc**2 + syst_up_diff**2)
+        total_unc_down = np.sqrt(mc_stat_unc**2 + syst_down_diff**2)
+
+        mc_total_band_up = _append_last(mc_totals + total_unc_up)
+        mc_total_band_down = _append_last(np.clip(mc_totals - total_unc_down, a_min=0, a_max=None))
+
+        ratio_total_up = np.where(mc_totals > 0, 1 + total_unc_up / mc_totals, 1)
+        ratio_total_down = np.where(mc_totals > 0, 1 - total_unc_down / mc_totals, 1)
+        ratio_total_band_up = _append_last(np.clip(ratio_total_up, a_min=0, a_max=None))
+        ratio_total_band_down = _append_last(np.clip(ratio_total_down, a_min=0, a_max=None))
+
+        ratio_syst_band_up = _append_last(ratio_syst_up)
+        ratio_syst_band_down = _append_last(ratio_syst_down)
+        mc_syst_band_up = _append_last(np.clip(syst_up, a_min=0, a_max=None))
+        mc_syst_band_down = _append_last(np.clip(syst_down, a_min=0, a_max=None))
+    else:
+        ratio_syst_band_up = ratio_syst_band_down = None
+        mc_syst_band_up = mc_syst_band_down = None
+
+    stat_label = "Stat. unc."
+    syst_label = "Syst. unc."
+    total_label = "Stat. ⊕ syst. unc."
+
+    if band_mode == "syst" and has_syst_arrays:
+        if mc_syst_band_up is not None and mc_syst_band_down is not None:
+            ax.fill_between(
+                bins,
+                mc_syst_band_down,
+                mc_syst_band_up,
+                step='post',
+                facecolor='none',
+                edgecolor='gray',
+                label=syst_label,
+                hatch='////',
+            )
+        if ratio_syst_band_up is not None and ratio_syst_band_down is not None:
+            rax.fill_between(
+                bins,
+                ratio_syst_band_down,
+                ratio_syst_band_up,
+                step='post',
+                facecolor='none',
+                edgecolor='gray',
+                label='_nolegend_',
+                hatch='////',
+            )
+    else:
+        if mc_stat_band_up is not None and mc_stat_band_down is not None:
+            ax.fill_between(
+                bins,
+                mc_stat_band_down,
+                mc_stat_band_up,
+                step='post',
+                facecolor='gray',
+                alpha=0.3,
+                edgecolor='none',
+                label=stat_label,
+            )
+        if ratio_stat_band_up is not None and ratio_stat_band_down is not None:
+            rax.fill_between(
+                bins,
+                ratio_stat_band_down,
+                ratio_stat_band_up,
+                step='post',
+                facecolor='gray',
+                alpha=0.3,
+                edgecolor='none',
+                label='_nolegend_',
+            )
+
+        show_total = band_mode == "total" and has_syst_arrays
+        if show_total:
+            if mc_total_band_up is not None and mc_total_band_down is not None:
+                ax.fill_between(
+                    bins,
+                    mc_total_band_down,
+                    mc_total_band_up,
+                    step='post',
+                    facecolor='none',
+                    edgecolor='gray',
+                    label=total_label,
+                    hatch='////',
+                )
+            if ratio_total_band_up is not None and ratio_total_band_down is not None:
+                rax.fill_between(
+                    bins,
+                    ratio_total_band_down,
+                    ratio_total_band_up,
+                    step='post',
+                    facecolor='none',
+                    edgecolor='gray',
+                    label='_nolegend_',
+                    hatch='////',
+                )
 
     # Scale the y axis and labels
     ax.autoscale(axis='y')
