@@ -2702,7 +2702,8 @@ def make_signal_plots(
 ###################### Wrapper function for default region plots ######################
 # Wrapper function to loop over the requested analysis region and make plots for all variables.
 # The input hist should include both the data and MC.
-# By default these plots are unblinded unless explicitly overridden.
+# Plots are unblinded by default in the control region and blinded by
+# default in the signal region unless explicitly overridden.
 def make_region_plots(
     dict_of_hists,
     year,
@@ -2799,7 +2800,22 @@ def main():
             "Defaulting to 'CR'; please pass --cr or --sr to specify explicitly."
         )
 
+    if args.unblind is None:
+        resolved_unblind = resolved_region == "CR"
+        blinding_source = f"default for {resolved_region} region"
+    elif args.unblind:
+        resolved_unblind = True
+        blinding_source = "command-line --unblind override"
+    else:
+        resolved_unblind = False
+        blinding_source = "command-line --blind override"
+
     print(f"Resolved plotting region: {resolved_region}")
+    print(
+        "Resolved blinding mode: {} ({})".format(
+            "unblinded" if resolved_unblind else "blinded", blinding_source
+        )
+    )
 
     normalized_variables = []
     if args.variables is not None:
@@ -2845,7 +2861,7 @@ def main():
         unit_norm_bool,
         save_dir_path,
         variables=selected_variables,
-        unblind=args.unblind,
+        unblind=resolved_unblind,
         region=resolved_region,
     )
     #make_signal_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
