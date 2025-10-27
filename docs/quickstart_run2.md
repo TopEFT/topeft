@@ -22,7 +22,9 @@ pip install -e .
 
 Install the companion [`topcoffea`](https://github.com/TopEFT/topcoffea)
 package in the same environment and rebuild the packaged TaskVine archive so the
-workflow can hand a consistent tarball to remote workers:
+workflow can hand a consistent tarball to remote workers (see the
+[TaskVine workflow quickstart](taskvine_workflow.md) for the full end-to-end
+checklist):
 
 ```bash
 git clone https://github.com/TopEFT/topcoffea.git

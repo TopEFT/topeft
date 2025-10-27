@@ -8,7 +8,9 @@ the shared metadata bundles defined in the Run 2 preset YAML configuration.
 
 ## Prerequisites
 
-Before running the workflow you will need:
+Before running the workflow you will need (the
+[TaskVine workflow quickstart](taskvine_workflow.md) expands each step into a
+single distributed-execution checklist):
 
 1. **A working Python environment.**  The analysis is developed and tested
    against the conda environment shipped with the repository.  Create and

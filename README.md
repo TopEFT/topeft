@@ -56,7 +56,7 @@ Now all of the dependencies have been installed and the `topeft` repository is r
 
 ### TaskVine distributed execution
 
-The packaged archive produced by `python -m topcoffea.modules.remote_environment` is uploaded automatically when runs target the TaskVine executor. Launching a distributed job therefore becomes:
+For a narrated walkthrough that ties environment preparation, tarball packaging, and worker submission together, see the [TaskVine workflow quickstart](docs/taskvine_workflow.md). The packaged archive produced by `python -m topcoffea.modules.remote_environment` is uploaded automatically when runs target the TaskVine executor. Launching a distributed job therefore becomes:
 
 1. Enable TaskVine in the YAML profile before launching the run.  Open
    `analysis/topeft_run2/configs/fullR2_run.yml` and set the profile you plan

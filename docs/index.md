@@ -5,6 +5,7 @@ straight to the information you need.
 
 ## Getting started
 
+- [TaskVine workflow quickstart](taskvine_workflow.md)
 - [Run 2 quickstart pipeline](quickstart_run2.md)
 - [TOP-22-006 script walkthrough](quickstart_top22_006.md)
 

@@ -2,7 +2,7 @@
 
 > **Note**
 >
-> TaskVine is now the recommended distributed executor for `topeft`. The TaskVine setup flow—including the environment packaging helper and worker submission command—is documented in the main [README](README.md). The steps below are preserved for sites that still require Work Queue.
+> TaskVine is now the recommended distributed executor for `topeft`. Follow the [TaskVine workflow quickstart](docs/taskvine_workflow.md) or the summary in the main [README](README.md) for environment packaging and worker submission details. The steps below are preserved for sites that still require Work Queue.
 
 The script [run_analysis.py](https://github.com/TopEFT/topeft/blob/refactoring/analysis/topeft_run2/run_analysis.py) sets up topcoffea to run as a Work Queue
 application. Work Queue itself is a framework for building large scale
