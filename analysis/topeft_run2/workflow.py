@@ -509,14 +509,39 @@ class ExecutorFactory:
                 **runner_kwargs,
             )
 
+        runner_fields = set(getattr(processor.Runner, "__dataclass_fields__", {}))
+
         if executor == "futures":
+            workers = self._config.nworkers or 1
+            executor_args: Dict[str, Any] = {"workers": max(int(workers), 1)}
+            if self._config.futures_status is not None:
+                executor_args["status"] = bool(self._config.futures_status)
+            if self._config.futures_tail_timeout is not None:
+                executor_args["tailtimeout"] = int(self._config.futures_tail_timeout)
+
             futures_cls = getattr(processor, "FuturesExecutor", None)
-            if futures_cls is not None:
-                exec_instance = futures_cls(workers=self._config.nworkers)
-            else:
-                exec_factory = getattr(processor, "futures_executor")
-                exec_instance = exec_factory(workers=self._config.nworkers)
-            return _build_runner(exec_instance)
+            if futures_cls is None:
+                futures_cls = getattr(processor, "futures_executor")
+            exec_instance = futures_cls(**executor_args)
+
+            runner_kwargs: Dict[str, Any] = {}
+            if (
+                self._config.futures_memory is not None
+                and "dynamic_chunksize" in runner_fields
+            ):
+                runner_kwargs["dynamic_chunksize"] = {
+                    "memory": int(self._config.futures_memory)
+                }
+
+            prefetch = self._config.futures_prefetch
+            if (
+                prefetch is not None
+                and prefetch > 0
+                and "prefetch" in runner_fields
+            ):
+                runner_kwargs["prefetch"] = int(prefetch)
+
+            return _build_runner(exec_instance, **runner_kwargs)
 
         if executor == "iterative":
             try:
@@ -918,7 +943,15 @@ class RunWorkflow:
 
         for task in histogram_plan.tasks:
             sample_dict = samplesdict[task.sample]
-            sample_flist = flist[task.sample][:1]
+            sample_files = list(flist[task.sample])
+            if self._config.executor == "futures":
+                prefetch_files = self._config.futures_prefetch
+                if prefetch_files is None or prefetch_files <= 0:
+                    sample_flist = sample_files
+                else:
+                    sample_flist = sample_files[: int(prefetch_files)]
+            else:
+                sample_flist = sample_files
 
             channel_dict = task.channel_metadata
             if not channel_dict:
@@ -956,7 +989,45 @@ class RunWorkflow:
             )
 
             self._log_task_submission(task)
-            out = runner({task.sample: sample_flist}, self._config.treename, processor_instance)
+
+            attempt = 0
+            max_retries = 0
+            if (
+                self._config.executor == "futures"
+                and self._config.futures_retries
+            ):
+                max_retries = max(int(self._config.futures_retries), 0)
+            retry_wait = 0.0
+            if (
+                self._config.executor == "futures"
+                and self._config.futures_retry_wait is not None
+            ):
+                retry_wait = max(float(self._config.futures_retry_wait), 0.0)
+
+            while True:
+                try:
+                    out = runner(
+                        {task.sample: sample_flist},
+                        self._config.treename,
+                        processor_instance,
+                    )
+                except Exception as exc:
+                    if attempt >= max_retries:
+                        raise
+                    attempt += 1
+                    print(
+                        "[futures] task for {sample} failed (attempt {attempt}/{max_attempts}): {error}.".format(
+                            sample=task.sample,
+                            attempt=attempt,
+                            max_attempts=max_retries,
+                            error=exc,
+                        )
+                    )
+                    if retry_wait > 0:
+                        time.sleep(retry_wait)
+                    continue
+                else:
+                    break
             output.update(out)
 
         dt = time.time() - tstart

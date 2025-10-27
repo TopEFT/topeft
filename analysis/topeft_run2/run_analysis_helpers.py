@@ -363,6 +363,12 @@ class RunConfig:
     summary_verbosity: str = "brief"
     log_tasks: bool = False
     environment_file: Optional[str] = "auto"
+    futures_status: Optional[bool] = None
+    futures_tail_timeout: Optional[int] = None
+    futures_memory: Optional[int] = None
+    futures_prefetch: Optional[int] = 1
+    futures_retries: int = 0
+    futures_retry_wait: float = 5.0
 
 
 class RunConfigBuilder:
@@ -429,6 +435,27 @@ class RunConfigBuilder:
             "summary_verbosity": ("summary_verbosity", coerce_summary_verbosity),
             "log_tasks": ("log_tasks", coerce_bool),
             "environment_file": ("environment_file", coerce_environment_file),
+            "futures_status": ("futures_status", coerce_bool),
+            "futures_tail_timeout": (
+                "futures_tail_timeout",
+                lambda v: coerce_int(v, allow_none=True),
+            ),
+            "futures_memory": (
+                "futures_memory",
+                lambda v: coerce_int(v, allow_none=True),
+            ),
+            "futures_prefetch": (
+                "futures_prefetch",
+                lambda v: coerce_int(v, allow_none=True),
+            ),
+            "futures_retries": (
+                "futures_retries",
+                lambda v: coerce_int(v, allow_none=True),
+            ),
+            "futures_retry_wait": (
+                "futures_retry_wait",
+                coerce_optional_float,
+            ),
         }
 
         def _apply_source(source: Mapping[str, Any]):

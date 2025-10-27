@@ -69,6 +69,17 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
     - The same override is available in YAML presets via the top-level ``metadata`` key.  Setting ``metadata: configs/metadata_dev.yml`` inside your ``--options`` file keeps the bundle version-controlled alongside other run settings.
 
+    - When running with the futures executor you can now tune the local workflow directly from the CLI (or the matching YAML keys).  The most common toggles are::
+
+          --futures-prefetch 1        # number of ROOT files to stage per sample (0 uses all files)
+          --futures-retries 2         # automatic retry attempts when a task fails
+          --futures-retry-wait 10     # seconds to wait between retries
+          --futures-status            # show or hide the coffea progress bar (--no-futures-status disables it)
+          --futures-tail-timeout 300  # cancel stuck tasks after 5 minutes of inactivity
+          --futures-memory 2000       # hint (in MB) for dynamic chunk sizing
+
+      YAML profiles accept the same names with underscores (for example ``futures_prefetch`` and ``futures_retry_wait``).  The defaults keep single-node debugging lightweight—only the first ROOT file is staged and no retries are attempted—while still allowing larger local tests before handing work off to TaskVine.
+
     - Python API example::
 
         from topeft.analysis import run_workflow
