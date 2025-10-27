@@ -30,6 +30,44 @@ def _ensure_ak_array(values, dtype=None):
         values = ak.values_astype(values, dtype)
     return values
 
+def _resolve_collection(container, candidate_names):
+    for name in candidate_names:
+        if hasattr(container, name):
+            return getattr(container, name)
+        fields = getattr(container, "fields", [])
+        if name in fields:
+            return container[name]
+    return None
+
+
+def _resolve_field(container, *candidate_names):
+    for name in candidate_names:
+        if hasattr(container, name):
+            return getattr(container, name)
+        fields = getattr(container, "fields", [])
+        if name in fields:
+            return container[name]
+    return None
+
+
+def _resolve_parent(collection, base_collection):
+    parent = _resolve_field(collection, "distinctParent", "parent")
+    if parent is not None:
+        return parent
+    parent_idx = _resolve_field(collection, "distinctParentIdx", "parentIdx")
+    if parent_idx is None:
+        return None
+    valid = parent_idx >= 0
+    parents = ak.mask(base_collection[parent_idx], valid)
+    return parents
+
+
+def _get_parent_pdg(collection, base_collection):
+    parent = _resolve_parent(collection, base_collection)
+    if parent is None:
+        return None
+    return _resolve_field(parent, "pdgId", "pdg_id")
+
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -100,20 +138,30 @@ class AnalysisProcessor(processor.ProcessorABC):
         if isData: raise Exception("Error: This processor is not for data")
 
         ### Get gen particles collection ###
-        genpart = events.GenPart
-        genjet = events.GenJet
+        genpart = _resolve_collection(events, ("GenPart", "GeneratorParticle", "GeneratorPart"))
+        if genpart is None:
+            raise AttributeError("Unable to resolve generator particle collection from events")
+        genjet = _resolve_collection(events, ("GenJet", "GeneratorJet", "GenJetAK4", "GenJetAK4CHS"))
+        if genjet is None:
+            raise AttributeError("Unable to resolve generator jet collection from events")
+
+        pdg_id = _resolve_field(genpart, "pdgId", "pdg_id")
+        if pdg_id is None:
+            raise AttributeError("Missing PDG ID information for generator particles")
+        abs_pdg = abs(pdg_id)
 
 
         ### Lepton object selection ###
 
-        is_final_mask = genpart.hasFlags(["fromHardProcess","isLastCopy"])
+        is_final_mask = genpart.hasFlags(["fromHardProcess", "isLastCopy"])
 
-        gen_top = ak.pad_none(genpart[is_final_mask & (abs(genpart.pdgId) == 6)],2)
+        gen_top = ak.pad_none(genpart[is_final_mask & (abs_pdg == 6)], 2)
 
-        gen_l = genpart[is_final_mask & ((abs(genpart.pdgId) == 11) | (abs(genpart.pdgId) == 13) | (abs(genpart.pdgId) == 15))]
-        gen_e = genpart[is_final_mask & (abs(genpart.pdgId) == 11)]
-        gen_m = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
-        gen_t = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
+        lepton_mask = is_final_mask & ((abs_pdg == 11) | (abs_pdg == 13) | (abs_pdg == 15))
+        gen_l = genpart[lepton_mask]
+        gen_e = genpart[is_final_mask & (abs_pdg == 11)]
+        gen_m = genpart[is_final_mask & (abs_pdg == 13)]
+        gen_t = genpart[is_final_mask & (abs_pdg == 15)]
 
         gen_l = gen_l[ak.argsort(gen_l.pt, axis=-1, ascending=False)]
         gen_l = ak.pad_none(gen_l,2)
@@ -121,10 +169,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         gen_m = gen_m[ak.argsort(gen_m.pt, axis=-1, ascending=False)]
         gen_t = gen_t[ak.argsort(gen_t.pt, axis=-1, ascending=False)]
 
-        gen_l_from_zg = ak.pad_none(gen_l[(gen_l.distinctParent.pdgId == 23) | (gen_l.distinctParent.pdgId == 22)], 2)
-        gen_e_from_zg = ak.pad_none(gen_e[(gen_e.distinctParent.pdgId == 23) | (gen_e.distinctParent.pdgId == 22)], 2)
-        gen_m_from_zg = ak.pad_none(gen_m[(gen_m.distinctParent.pdgId == 23) | (gen_m.distinctParent.pdgId == 22)], 2)
-        gen_t_from_zg = ak.pad_none(gen_t[(gen_t.distinctParent.pdgId == 23) | (gen_t.distinctParent.pdgId == 22)], 2)
+        parent_pdg_l = _get_parent_pdg(gen_l, genpart)
+        parent_pdg_e = _get_parent_pdg(gen_e, genpart)
+        parent_pdg_m = _get_parent_pdg(gen_m, genpart)
+        parent_pdg_t = _get_parent_pdg(gen_t, genpart)
+
+        def _select_from_zg(collection, parent_pdg):
+            if parent_pdg is None:
+                mask = ak.zeros_like(collection.pt, dtype=bool)
+            else:
+                parent_pdg = ak.fill_none(parent_pdg, 0)
+                mask = (abs(parent_pdg) == 23) | (abs(parent_pdg) == 22)
+            return ak.pad_none(collection[mask], 2)
+
+        gen_l_from_zg = _select_from_zg(gen_l, parent_pdg_l)
+        gen_e_from_zg = _select_from_zg(gen_e, parent_pdg_e)
+        gen_m_from_zg = _select_from_zg(gen_m, parent_pdg_m)
+        gen_t_from_zg = _select_from_zg(gen_t, parent_pdg_t)
 
 
         # Jet object selection
