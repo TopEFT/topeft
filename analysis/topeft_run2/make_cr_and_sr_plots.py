@@ -906,16 +906,26 @@ def make_cr_fig(
     data_vals_flow = h_data[{'process': sum}].as_hist({}).values(flow=True)
     mc_vals_flow = h_mc[{"process": sum}].as_hist({}).values(flow=True)
 
-    def _safe_divide(num, denom, default):
+    def _safe_divide(num, denom, default, zero_over_zero=None):
         num_arr = np.asarray(num, dtype=float)
         denom_arr = np.asarray(denom, dtype=float)
         out = np.full_like(num_arr, default, dtype=float)
         with np.errstate(divide='ignore', invalid='ignore'):
-            np.divide(num_arr, denom_arr, out=out, where=denom_arr != 0)
+            valid = denom_arr != 0
+            np.divide(num_arr, denom_arr, out=out, where=valid)
+        if zero_over_zero is not None:
+            zero_zero_mask = (denom_arr == 0) & (num_arr == 0)
+            out[zero_zero_mask] = zero_over_zero
         return out
 
-    ratio_vals_flow = _safe_divide(data_vals_flow, mc_vals_flow, default=1.0)
+    ratio_vals_flow = _safe_divide(
+        data_vals_flow,
+        mc_vals_flow,
+        default=np.nan,
+        zero_over_zero=1.0,
+    )
     ratio_yerr_flow = _safe_divide(np.sqrt(data_vals_flow), data_vals_flow, default=0.0)
+    ratio_yerr_flow[mc_vals_flow == 0] = np.nan
 
     hep.histplot(
         ratio_vals_flow[1:],
