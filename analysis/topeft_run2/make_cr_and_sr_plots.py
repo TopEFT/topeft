@@ -1115,9 +1115,8 @@ def make_cr_fig(
 
     subplot_params = fig.subplotpars
     safety_margin = 0.003
-    proposed_right = rightmost_extent + safety_margin
     max_right = np.nextafter(1.0, 0.0)
-    effective_right = min(max_right, max(subplot_params.right, proposed_right))
+    effective_right = min(max_right, rightmost_extent + safety_margin)
 
     if not np.isclose(effective_right, subplot_params.right):
         stored_positions = [ax.get_position().frozen(), rax.get_position().frozen()]
@@ -1187,25 +1186,24 @@ def make_cr_fig(
 
     margin = 0.002
     min_axis_y = _get_min_axis_y(renderer)
-    required_clearance = measured_height + margin
+    label_y = min_axis_y - measured_height - margin
 
     subplot_params = fig.subplotpars
-    current_bottom = subplot_params.bottom
-    clearance_deficit = required_clearance - min_axis_y
-    proposed_bottom = max(required_clearance, current_bottom + clearance_deficit)
-    proposed_bottom = np.clip(proposed_bottom, 0.0, 1.0)
+    new_bottom = max(0.0, label_y - margin)
+    new_bottom = np.clip(new_bottom, 0.0, 1.0)
 
-    if not np.isclose(proposed_bottom, current_bottom):
+    if not np.isclose(new_bottom, subplot_params.bottom):
         plt.subplots_adjust(
-            bottom=proposed_bottom,
+            bottom=new_bottom,
             top=subplot_params.top,
             left=subplot_params.left,
             right=subplot_params.right,
             hspace=subplot_params.hspace,
             wspace=subplot_params.wspace,
         )
-        fig.canvas.draw()
-        renderer = fig.canvas.get_renderer()
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
 
     min_axis_y = _get_min_axis_y(renderer)
 
@@ -1412,7 +1410,11 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path,variables=None):
                 # Make plots
                 fig = make_single_fig_with_ratio(hist_sig_grouped_tmp,"systematic","nominal",var=var_name)
                 title = proc_name+"_"+grouped_hist_cat+"_"+var_name
-                fig.savefig(os.path.join(save_dir_path_tmp,title))
+                fig.savefig(
+                    os.path.join(save_dir_path_tmp, title),
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
@@ -1465,7 +1467,11 @@ def make_simple_plots(dict_of_hists,year,save_dir_path,variables=None):
 
             fig = make_single_fig(histo, unit_norm_bool=False)
             title = chan_name + "_" + var_name
-            fig.savefig(os.path.join(save_dir_path_tmp,title))
+            fig.savefig(
+                os.path.join(save_dir_path_tmp, title),
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path: make_html(save_dir_path_tmp)
@@ -1708,7 +1714,11 @@ def make_all_sr_data_mc_plots(
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
-            fig.savefig(os.path.join(save_dir_path_tmp,title))
+            fig.savefig(
+                os.path.join(save_dir_path_tmp, title),
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
@@ -1824,7 +1834,11 @@ def make_all_sr_plots(
                 fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool,bins=axes_info[var_name]['variable'])
                 title = hist_cat+"_"+var_name
                 if unit_norm_bool: title = title + "_unitnorm"
-                fig.savefig(os.path.join(save_dir_path_tmp,title))
+                fig.savefig(
+                    os.path.join(save_dir_path_tmp, title),
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
 
                 # Make an index.html file if saving to web area
                 if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
@@ -1875,7 +1889,11 @@ def make_all_sr_plots(
                     fig = make_single_fig(hist_sig_grouped_tmp[{'channel': sr_cat_dict[grouped_hist_cat]}][{'channel': sum}],unit_norm_bool,bins=axes_info[var_name]['variable'])
                     title = proc_name+"_"+grouped_hist_cat+"_"+var_name
                     if unit_norm_bool: title = title + "_unitnorm"
-                    fig.savefig(os.path.join(save_dir_path_tmp,title))
+                    fig.savefig(
+                        os.path.join(save_dir_path_tmp, title),
+                        bbox_inches="tight",
+                        pad_inches=0.05,
+                    )
 
                 # Make an index.html file if saving to web area
                 if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
@@ -2165,15 +2183,27 @@ def make_all_cr_plots(
             if unit_norm_bool: title = title + "_unitnorm"
             if isinstance(fig, dict):
                 combined_fig = fig["combined"]
-                combined_fig.savefig(os.path.join(save_dir_path_tmp,title))
+                combined_fig.savefig(
+                    os.path.join(save_dir_path_tmp, title),
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
                 suffix_map = {"mc": "_MC", "data": "_data", "ratio": "_ratio"}
                 for key, panel_fig in fig.items():
                     if key == "combined":
                         continue
                     suffix = suffix_map.get(key, f"_{key}")
-                    panel_fig.savefig(os.path.join(save_dir_path_tmp, f"{title}{suffix}"))
+                    panel_fig.savefig(
+                        os.path.join(save_dir_path_tmp, f"{title}{suffix}"),
+                        bbox_inches="tight",
+                        pad_inches=0.05,
+                    )
             else:
-                fig.savefig(os.path.join(save_dir_path_tmp,title))
+                fig.savefig(
+                    os.path.join(save_dir_path_tmp, title),
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
