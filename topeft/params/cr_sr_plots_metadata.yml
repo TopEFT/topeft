@@ -405,3 +405,94 @@ PROC_WITHOUT_PDF_RATE_SYST:
   - Triboson
   - tWZ
   - convs
+REGION_PLOTTING:
+  CR:
+    variable_label: "Var name"
+    skip_sparse_2d: false
+    # channel_mode selects how the plotting loop interprets the channel axis for
+    # every histogram that belongs to this region.  "aggregate" means that the
+    # per-category channel list from CR_CHAN_DICT is collapsed into a single
+    # combined template before the figure is rendered, reproducing the legacy
+    # behaviour where CR plots integrate over all flavours/jet bins inside a
+    # category.  Switching to "per-channel" (used by SR below) leaves the
+    # channel axis intact so that each entry in the region channel map generates
+    # its own figure.  Only these two literal values are supported; any other
+    # string will raise during RegionContext construction.
+    channel_mode: aggregate
+    skip_variables: []
+    channel_transformations:
+      # channel_transformations provides an ordered recipe for rewriting the raw
+      # channel labels that come out of the histogram before any matching is
+      # performed.  The resolved instruction list is the concatenation of:
+      #   * default: unconditional transforms applied to every variable.
+      #   * variables: overrides keyed by the histogram name; the list given for
+      #     "njets" below strips jet-multiplicity suffixes only when we are
+      #     plotting the njets histogram.
+      #   * conditional: rules guarded by a boolean named condition.  Each entry
+      #     specifies a metadata flag (e.g. "not_split_by_lepflav") that maps to
+      #     an evaluator inside YieldTools.  When the condition returns true for
+      #     the histogram currently being processed, its "apply" list is appended
+      #     to the transformation sequence.  In the example we drop lepton-flavour
+      #     suffixes whenever the dataset is not split by flavour, ensuring that
+      #     the CR channel patterns still match the provided CR_CHAN_DICT keys.
+      default: []
+      variables:
+        njets:
+          - njets
+      conditional:
+        - when: not_split_by_lepflav
+          apply:
+            - lepflav
+    sample_removals:
+      - categories:
+          prefixes:
+            - cr_2los_tt
+            - cr_2los_Z
+        groups:
+          - Nonprompt
+    category_skips:
+      - categories:
+          equals:
+            - cr_2los_Z
+        variable_includes:
+          - j0
+        variable_excludes:
+          - lj0pt
+      - categories:
+          equals:
+            - cr_2lss_flip
+        variable_includes:
+          - j0
+        variable_excludes:
+          - lj0pt
+    sumw2_remove_signal: true
+    sumw2_remove_signal_when_blinded: false
+    debug_channel_lists: false
+    use_mc_as_data_when_blinded: false
+  SR:
+    variable_label: "Variable"
+    skip_sparse_2d: true
+    # See the CR block above for the semantics of channel_mode.  SR keeps the
+    # channel axis explicit so every channel listed in SR_CHAN_DICT is rendered
+    # individually.
+    channel_mode: per-channel
+    skip_variables:
+      - ptz
+      - njets
+    channel_transformations:
+      # No SR-specific rewrites are required today, but the same rules described
+      # in the CR section above can be enabled here if future SR plots need to
+      # rename, strip, or otherwise rewrite channel labels before matching them
+      # to SR_CHAN_DICT.
+      default: []
+      variables: {}
+      conditional: []
+    sample_removals: []
+    category_skips: []
+    sumw2_remove_signal: false
+    sumw2_remove_signal_when_blinded: true
+    debug_channel_lists: true
+    use_mc_as_data_when_blinded: true
+    analysis_bins:
+      ptz: ptz
+      lj0pt: lj0pt
