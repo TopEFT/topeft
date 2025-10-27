@@ -18,6 +18,7 @@ from topcoffea.scripts.make_html import make_html
 # Probably I should move the utility functions out of that script and put them in modules
 # Anyway, not good practice to just import it here as if it were a library, but I'm doing it anyway (for now)
 import make_cr_and_sr_plots as mcp
+from plot_utils import make_single_fig_with_ratio
 
 yt = YieldTools()
 
@@ -230,7 +231,7 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
             # Make the plots
             proc_histo = mcp.group_bins(histo,comp_proc_dict[proc],drop_unspecified=True).integrate("systematic","nominal")
-            fig = mcp.make_single_fig_with_ratio(
+            fig = make_single_fig_with_ratio(
                 proc_histo,"sample","private",
                 err_p = p_err_arr,
                 err_m = m_err_arr,
