@@ -999,6 +999,8 @@ def make_cr_fig(
     syst_label = "Syst. unc."
     total_label = "Stat. ⊕ syst. unc."
 
+    ratio_band_handles = []
+
     if band_mode == "syst" and has_syst_arrays:
         if mc_syst_band_up is not None and mc_syst_band_down is not None:
             ax.fill_between(
@@ -1012,16 +1014,17 @@ def make_cr_fig(
                 hatch='////',
             )
         if ratio_syst_band_up is not None and ratio_syst_band_down is not None:
-            rax.fill_between(
+            ratio_syst_handle = rax.fill_between(
                 bins,
                 ratio_syst_band_down,
                 ratio_syst_band_up,
                 step='post',
                 facecolor='none',
                 edgecolor='gray',
-                label='_nolegend_',
+                label=syst_label,
                 hatch='////',
             )
+            ratio_band_handles.append(ratio_syst_handle)
     else:
         if mc_stat_band_up is not None and mc_stat_band_down is not None:
             ax.fill_between(
@@ -1035,7 +1038,7 @@ def make_cr_fig(
                 label=stat_label,
             )
         if ratio_stat_band_up is not None and ratio_stat_band_down is not None:
-            rax.fill_between(
+            ratio_stat_handle = rax.fill_between(
                 bins,
                 ratio_stat_band_down,
                 ratio_stat_band_up,
@@ -1043,8 +1046,9 @@ def make_cr_fig(
                 facecolor='gray',
                 alpha=0.3,
                 edgecolor='none',
-                label='_nolegend_',
+                label=stat_label,
             )
+            ratio_band_handles.append(ratio_stat_handle)
 
         show_total = band_mode == "total" and has_syst_arrays
         if show_total:
@@ -1060,16 +1064,25 @@ def make_cr_fig(
                     hatch='////',
                 )
             if ratio_total_band_up is not None and ratio_total_band_down is not None:
-                rax.fill_between(
+                ratio_total_handle = rax.fill_between(
                     bins,
                     ratio_total_band_down,
                     ratio_total_band_up,
                     step='post',
                     facecolor='none',
                     edgecolor='gray',
-                    label='_nolegend_',
+                    label=total_label,
                     hatch='////',
                 )
+                ratio_band_handles.append(ratio_total_handle)
+
+    if ratio_band_handles:
+        rax.legend(
+            handles=ratio_band_handles,
+            loc="upper left",
+            fontsize=10,
+            frameon=False,
+        )
 
     # Scale the y axis and labels
     ax.autoscale(axis='y')
