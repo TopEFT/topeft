@@ -146,6 +146,14 @@ def _install_stubs(monkeypatch):
     topcoffea_modules_pkg.__path__ = []  # type: ignore[attr-defined]
     topcoffea_pkg.modules = topcoffea_modules_pkg  # type: ignore[attr-defined]
 
+    remote_env_module = _module("topcoffea.modules.remote_environment")
+
+    def _remote_get_environment(**_kwargs):
+        return "/tmp/coffea-env.tar"
+
+    remote_env_module.get_environment = _remote_get_environment
+    topcoffea_modules_pkg.remote_environment = remote_env_module  # type: ignore[attr-defined]
+
     # HistEFT stub
     hist_module = _module("topcoffea.modules.histEFT")
 
@@ -284,11 +292,21 @@ def _install_stubs(monkeypatch):
     coffea_pkg = _module("coffea")
     processor_module = _module("coffea.processor")
 
-    class _ProcessorABC:  # pragma: no cover - interface shim
+    import abc
+
+    class _ProcessorABC(abc.ABC):  # pragma: no cover - interface shim
         """Minimal stand-in for coffea.processor.ProcessorABC."""
 
         def __init_subclass__(cls, **kwargs):  # pragma: no cover - compatibility
             return super().__init_subclass__(**kwargs)
+
+        @abc.abstractmethod
+        def process(self, events):
+            raise NotImplementedError
+
+        @abc.abstractmethod
+        def postprocess(self, accumulator):
+            return accumulator
 
     class _ExecutorBase:  # pragma: no cover - simple executor stub
         status = True
@@ -338,6 +356,9 @@ def _install_stubs(monkeypatch):
             if hasattr(manager, "enable_monitoring"):
                 return manager.enable_monitoring(method, path)
             return False
+
+    class _WorkQueueExecutor(_ExecutorBase):
+        pass
 
     class _Runner:  # pragma: no cover - invoked indirectly in tests
         def __init__(self, executor=None, schema=None, chunksize=None, maxchunks=None, **kwargs):
@@ -417,10 +438,14 @@ def _install_stubs(monkeypatch):
                 result.update(item)
         return result
 
+    async def _async_accumulate(sequence):  # pragma: no cover - async shim
+        return _accumulate(sequence)
+
     accumulator_module = _module("coffea.processor.accumulator")
     accumulator_module.AccumulatorABC = _AccumulatorABC
     accumulator_module.Accumulatable = _Accumulatable
     accumulator_module.accumulate = _accumulate
+    accumulator_module.async_accumulate = _async_accumulate
     accumulator_module.value_accumulator = _ValueAccumulator
     accumulator_module.list_accumulator = _ListAccumulator
     accumulator_module.set_accumulator = _SetAccumulator
@@ -435,6 +460,7 @@ def _install_stubs(monkeypatch):
     processor_module.DaskExecutor = _DaskExecutor
     processor_module.ParslExecutor = _ParslExecutor
     processor_module.TaskVineExecutor = _TaskVineExecutor
+    processor_module.WorkQueueExecutor = _WorkQueueExecutor
     processor_module.Runner = _Runner
     processor_module.iterative_executor = _iterative_executor
     processor_module.futures_executor = _futures_executor
@@ -444,6 +470,7 @@ def _install_stubs(monkeypatch):
     processor_module.AccumulatorABC = _AccumulatorABC
     processor_module.Accumulatable = _Accumulatable
     processor_module.accumulate = _accumulate
+    processor_module.async_accumulate = _async_accumulate
     processor_module.value_accumulator = _ValueAccumulator
     processor_module.list_accumulator = _ListAccumulator
     processor_module.set_accumulator = _SetAccumulator
@@ -459,8 +486,10 @@ def _install_stubs(monkeypatch):
     executor_submodule.DaskExecutor = _DaskExecutor
     executor_submodule.ParslExecutor = _ParslExecutor
     executor_submodule.TaskVineExecutor = _TaskVineExecutor
+    executor_submodule.WorkQueueExecutor = _WorkQueueExecutor
     executor_submodule.Runner = _Runner
     executor_submodule.accumulate = _accumulate
+    executor_submodule.async_accumulate = _async_accumulate
     executor_submodule.AccumulatorABC = _AccumulatorABC
     executor_submodule.Accumulatable = _Accumulatable
     executor_submodule.list_accumulator = _ListAccumulator
@@ -1154,6 +1183,198 @@ def _install_stubs(monkeypatch):
     systematics_module.register_trigger_sf_weight = lambda *args, **kwargs: None
     systematics_module.register_weight_variation = lambda *args, **kwargs: None
     systematics_module.validate_data_weight_variations = lambda *args, **kwargs: None
+
+    executor_module = _module("topeft.modules.executor")
+
+    def _parse_port_range(port):
+        if isinstance(port, (tuple, list)):
+            tokens = [int(str(token).strip()) for token in port if str(token).strip()]
+        else:
+            text = str(port).strip()
+            if not text:
+                raise ValueError("Port specification must not be empty")
+            if "-" in text:
+                start_text, end_text = (segment.strip() for segment in text.split("-", 1))
+                if not start_text and not end_text:
+                    raise ValueError("Invalid port range specification")
+                if not start_text:
+                    start_text = end_text or text
+                if not end_text:
+                    end_text = start_text
+                tokens = [int(start_text), int(end_text)]
+            else:
+                value = int(text)
+                tokens = [value, value]
+        if len(tokens) == 1:
+            tokens = [tokens[0], tokens[0]]
+        return int(tokens[0]), int(tokens[1])
+
+    def _resolve_environment_file(setting, remote_environment, *, extra_pip_local=None, extra_conda=None):
+        if setting is None:
+            return None
+        normalised = str(setting).strip()
+        if not normalised or normalised.lower() in {"none", "false", "no"}:
+            return None
+        if normalised.lower() == "auto":
+            getter = getattr(remote_environment, "get_environment", lambda **_: "/tmp/coffea-env.tar")
+            return getter(
+                extra_pip_local=extra_pip_local or {},
+                extra_conda=list(extra_conda or ()),
+            )
+        return normalised
+
+    def _base_executor_args(staging_dir, extra_input_files, resource_monitor, resources_mode, environment_file):
+        from pathlib import Path as _Path
+
+        staging_path = _Path(staging_dir)
+        args = {
+            "filepath": str(staging_path),
+            "extra_input_files": list(extra_input_files or ()),
+            "retries": 15,
+            "compression": 8,
+            "fast_terminate_workers": 0,
+            "verbose": True,
+            "print_stdout": False,
+        }
+        if resource_monitor is not None:
+            args["resource_monitor"] = resource_monitor
+        if resources_mode is not None:
+            args["resources_mode"] = resources_mode
+        if environment_file:
+            args["environment_file"] = environment_file
+        return args
+
+    def _build_work_queue_args(
+        *,
+        staging_dir,
+        logs_dir,
+        manager_name,
+        port_range,
+        extra_input_files,
+        resource_monitor,
+        resources_mode,
+        environment_file,
+    ):
+        from pathlib import Path as _Path
+
+        port_min, port_max = _parse_port_range(port_range)
+        args = _base_executor_args(
+            staging_dir,
+            extra_input_files,
+            resource_monitor,
+            resources_mode,
+            environment_file,
+        )
+        logs_path = _Path(logs_dir)
+        args.update(
+            {
+                "port": [int(port_min), int(port_max)],
+                "debug_log": str(logs_path / "debug.log"),
+                "transactions_log": str(logs_path / "transactions.log"),
+                "stats_log": str(logs_path / "stats.log"),
+                "tasks_accum_log": str(logs_path / "tasks.log"),
+                "chunks_per_accum": 25,
+                "chunks_accum_in_mem": 2,
+                "master_name": manager_name,
+            }
+        )
+        return args
+
+    def _build_taskvine_args(
+        *,
+        staging_dir,
+        logs_dir,
+        manager_name,
+        manager_name_template,
+        extra_input_files,
+        resource_monitor,
+        resources_mode,
+        environment_file,
+        custom_init=None,
+    ):
+        args = _base_executor_args(
+            staging_dir,
+            extra_input_files,
+            resource_monitor,
+            resources_mode,
+            environment_file,
+        )
+        if manager_name:
+            args["manager_name"] = manager_name
+        if manager_name_template:
+            args["manager_name_template"] = manager_name_template
+        if custom_init is not None:
+            args["custom_init"] = custom_init
+        return args
+
+    def _taskvine_log_configurator(logs_dir):
+        from pathlib import Path as _Path
+
+        logs_path = _Path(logs_dir)
+        logs_path.mkdir(parents=True, exist_ok=True)
+
+        def _configure(manager):
+            enable = getattr(manager, "enable_monitoring", None)
+            if callable(enable):
+                enable("status", str(logs_path / "taskvine-status.log"))
+            return manager
+
+        return _configure
+
+    def _instantiate_work_queue_executor(processor_module, args):
+        work_queue_cls = getattr(processor_module, "WorkQueueExecutor", None)
+        if work_queue_cls is None:
+            raise RuntimeError("WorkQueueExecutor is not available")
+        return work_queue_cls(**args)
+
+    def _instantiate_taskvine_executor(
+        processor_module,
+        base_args,
+        *,
+        port_range,
+        negotiate_port=True,
+    ):
+        taskvine_cls = getattr(processor_module, "TaskVineExecutor", _TaskVineExecutor)
+        args = dict(base_args)
+        port_min, port_max = _parse_port_range(port_range)
+        args.setdefault("port", port_min if not negotiate_port else port_min)
+        if negotiate_port and port_min != port_max:
+            args["port"] = port_min
+        return taskvine_cls(**args)
+
+    def _build_futures_executor(
+        processor_module,
+        *,
+        workers,
+        status=None,
+        tailtimeout=None,
+    ):
+        futures_cls = getattr(processor_module, "FuturesExecutor", _FuturesExecutor)
+        config = {"workers": max(int(workers), 1)}
+        if status is not None:
+            config["status"] = bool(status)
+        if tailtimeout is not None:
+            config["tailtimeout"] = int(tailtimeout)
+        return futures_cls(**config)
+
+    def _futures_runner_overrides(runner_fields, *, memory=None, prefetch=None):
+        fields = set(runner_fields)
+        overrides = {}
+        if memory is not None and "dynamic_chunksize" in fields:
+            overrides["dynamic_chunksize"] = {"memory": int(memory)}
+        if prefetch is not None and prefetch > 0 and "prefetch" in fields:
+            overrides["prefetch"] = int(prefetch)
+        return overrides
+
+    executor_module.parse_port_range = _parse_port_range
+    executor_module.resolve_environment_file = _resolve_environment_file
+    executor_module.build_work_queue_args = _build_work_queue_args
+    executor_module.build_taskvine_args = _build_taskvine_args
+    executor_module.taskvine_log_configurator = _taskvine_log_configurator
+    executor_module.instantiate_work_queue_executor = _instantiate_work_queue_executor
+    executor_module.instantiate_taskvine_executor = _instantiate_taskvine_executor
+    executor_module.build_futures_executor = _build_futures_executor
+    executor_module.futures_runner_overrides = _futures_runner_overrides
 
 
 @pytest.fixture
