@@ -903,9 +903,33 @@ def make_cr_fig(
     )
 
     # Make the ratio plot
+    data_vals_flow = h_data[{'process': sum}].as_hist({}).values(flow=True)
+    mc_vals_flow = h_mc[{"process": sum}].as_hist({}).values(flow=True)
+
+    def _safe_divide(num, denom, default, zero_over_zero=None):
+        num_arr = np.asarray(num, dtype=float)
+        denom_arr = np.asarray(denom, dtype=float)
+        out = np.full_like(num_arr, default, dtype=float)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            valid = denom_arr != 0
+            np.divide(num_arr, denom_arr, out=out, where=valid)
+        if zero_over_zero is not None:
+            zero_zero_mask = (denom_arr == 0) & (num_arr == 0)
+            out[zero_zero_mask] = zero_over_zero
+        return out
+
+    ratio_vals_flow = _safe_divide(
+        data_vals_flow,
+        mc_vals_flow,
+        default=np.nan,
+        zero_over_zero=1.0,
+    )
+    ratio_yerr_flow = _safe_divide(np.sqrt(data_vals_flow), data_vals_flow, default=0.0)
+    ratio_yerr_flow[mc_vals_flow == 0] = np.nan
+
     hep.histplot(
-        (h_data[{'process':sum}].as_hist({}).values(flow=True)/h_mc[{"process": sum}].as_hist({}).values(flow=True))[1:],
-        yerr=(np.sqrt(h_data[{'process':sum}].as_hist({}).values(flow=True)) / h_data[{'process':sum}].as_hist({}).values(flow=True))[1:],
+        ratio_vals_flow[1:],
+        yerr=ratio_yerr_flow[1:],
         #error_opts = DATA_ERR_OPS,
         ax=rax,
         bins=bins,
@@ -956,8 +980,9 @@ def make_cr_fig(
 
     mc_stat_up = mc_totals + mc_stat_unc
     mc_stat_down = np.clip(mc_totals - mc_stat_unc, a_min=0, a_max=None)
-    ratio_stat_up = np.where(mc_totals > 0, 1 + mc_stat_unc / mc_totals, 1)
-    ratio_stat_down = np.where(mc_totals > 0, 1 - mc_stat_unc / mc_totals, 1)
+    stat_fraction = _safe_divide(mc_stat_unc, mc_totals, default=0.0)
+    ratio_stat_up = 1 + stat_fraction
+    ratio_stat_down = 1 - stat_fraction
 
     mc_stat_band_up = _append_last(mc_stat_up)
     mc_stat_band_down = _append_last(mc_stat_down)
@@ -982,8 +1007,10 @@ def make_cr_fig(
         mc_total_band_up = _append_last(mc_totals + total_unc_up)
         mc_total_band_down = _append_last(np.clip(mc_totals - total_unc_down, a_min=0, a_max=None))
 
-        ratio_total_up = np.where(mc_totals > 0, 1 + total_unc_up / mc_totals, 1)
-        ratio_total_down = np.where(mc_totals > 0, 1 - total_unc_down / mc_totals, 1)
+        total_up_fraction = _safe_divide(total_unc_up, mc_totals, default=0.0)
+        total_down_fraction = _safe_divide(total_unc_down, mc_totals, default=0.0)
+        ratio_total_up = 1 + total_up_fraction
+        ratio_total_down = 1 - total_down_fraction
         ratio_total_band_up = _append_last(np.clip(ratio_total_up, a_min=0, a_max=None))
         ratio_total_band_down = _append_last(np.clip(ratio_total_down, a_min=0, a_max=None))
 
