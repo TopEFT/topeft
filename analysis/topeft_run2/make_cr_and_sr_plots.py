@@ -200,6 +200,620 @@ def _sample_in_signal_group(sample_name, sample_group_map, group_type):
     return False
 
 
+def _find_reference_hist_name(dict_of_hists):
+    for hist_name in dict_of_hists:
+        if not hist_name.endswith("_sumw2"):
+            return hist_name
+    raise ValueError("No histogram without '_sumw2' suffix was found.")
+
+
+class RegionContext(object):
+    def __init__(
+        self,
+        name,
+        dict_of_hists,
+        year,
+        channel_map,
+        group_patterns,
+        group_map,
+        all_samples,
+        mc_samples,
+        data_samples,
+        samples_to_remove,
+        sumw2_hists,
+        signal_samples,
+        unblind_default,
+        lumi_pair,
+        skip_variables=None,
+        analysis_bins=None,
+    ):
+        self.name = name
+        self.dict_of_hists = dict_of_hists
+        self.year = year
+        self.channel_map = channel_map
+        self.group_patterns = group_patterns
+        self.group_map = group_map
+        self.all_samples = all_samples
+        self.mc_samples = mc_samples
+        self.data_samples = data_samples
+        self.samples_to_remove = samples_to_remove
+        self.sumw2_hists = sumw2_hists
+        self.signal_samples = signal_samples
+        self.unblind_default = unblind_default
+        self.lumi_pair = lumi_pair
+        self.skip_variables = set() if skip_variables is None else skip_variables
+        self.analysis_bins = {} if analysis_bins is None else analysis_bins
+
+
+def build_region_context(region,dict_of_hists,year,unblind_override=None):
+    region_upper = region.upper()
+    if region_upper not in ["CR","SR"]:
+        raise ValueError(f"Unsupported region '{region}'.")
+
+    mc_wl = []
+    mc_bl = ["data"]
+    data_wl = ["data"]
+    data_bl = []
+    if year is None:
+        pass
+    elif year == "2017":
+        mc_wl.append("UL17")
+        data_wl.append("UL17")
+    elif year == "2018":
+        mc_wl.append("UL18")
+        data_wl.append("UL18")
+    elif year == "2016":
+        mc_wl.append("UL16")
+        mc_bl.append("UL16APV")
+        data_wl.append("UL16")
+        data_bl.append("UL16APV")
+    elif year == "2016APV":
+        mc_wl.append("UL16APV")
+        data_wl.append("UL16APV")
+    elif year == "2022":
+        mc_wl.append("2022")
+        data_wl.append("2022")
+    elif year == "2022EE":
+        mc_wl.append("2022EE")
+        data_wl.append("2022EE")
+    elif year == "2023":
+        mc_wl.append("2023")
+        data_wl.append("2023")
+    elif year == "2023BPix":
+        mc_wl.append("2023BPix")
+        data_wl.append("2023BPix")
+    else:
+        raise Exception(f"Error: Unknown year \"{year}\".")
+
+    try:
+        all_samples = yt.get_cat_lables(dict_of_hists, "process")
+    except Exception:
+        ref_hist = _find_reference_hist_name(dict_of_hists)
+        all_samples = yt.get_cat_lables(dict_of_hists, "process", h_name=ref_hist)
+
+    mc_samples = utils.filter_lst_of_strs(
+        all_samples, substr_whitelist=mc_wl, substr_blacklist=mc_bl
+    )
+    data_samples = utils.filter_lst_of_strs(
+        all_samples, substr_whitelist=data_wl, substr_blacklist=data_bl
+    )
+    samples_to_remove = {
+        "mc": [sample for sample in all_samples if sample not in mc_samples],
+        "data": [sample for sample in all_samples if sample not in data_samples],
+    }
+
+    sumw2_hists = {
+        hist_name.replace("_sumw2", ""): hist_obj
+        for hist_name, hist_obj in dict_of_hists.items()
+        if hist_name.endswith("_sumw2") and hist_name.count("sumw2") == 1
+    }
+
+    lumi_pair = LUMI_COM_PAIRS.get(year)
+
+    if region_upper == "CR":
+        group_patterns = CR_GRP_PATTERNS
+        channel_map = CR_CHAN_DICT
+        group_map = populate_group_map(all_samples, group_patterns)
+        signal_samples = sorted(set(group_map.get("Signal", [])))
+        unblind_default = len(data_samples) > 0
+        skip_variables = set()
+        analysis_bins = {}
+        global CR_GRP_MAP
+        CR_GRP_MAP = group_map
+    else:
+        group_patterns = SR_GRP_PATTERNS
+        channel_map = SR_CHAN_DICT
+        group_map = populate_group_map(mc_samples + data_samples, group_patterns)
+        signal_samples = sorted(
+            {
+                proc_name
+                for group_name in SR_SIGNAL_GROUP_KEYS
+                for proc_name in group_map.get(group_name, [])
+            }
+        )
+        unblind_default = bool(unblind_override)
+        skip_variables = set(["ptz","njets"])
+        analysis_bins = {
+            "ptz": axes_info["ptz"]["variable"],
+            "lj0pt": axes_info["lj0pt"]["variable"],
+        }
+        global SR_GRP_MAP
+        SR_GRP_MAP = group_map
+
+    return RegionContext(
+        region_upper,
+        dict_of_hists,
+        year,
+        channel_map,
+        group_patterns,
+        group_map,
+        all_samples,
+        mc_samples,
+        data_samples,
+        samples_to_remove,
+        sumw2_hists,
+        signal_samples,
+        unblind_default,
+        lumi_pair,
+        skip_variables,
+        analysis_bins,
+    )
+
+
+def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_norm_bool,unblind_override=None):
+    dict_of_hists = region_ctx.dict_of_hists
+    context_label = f"{region_ctx.name} region"
+    variables_to_plot = _resolve_requested_variables(
+        dict_of_hists, variables, context_label
+    )
+    if variables is not None:
+        print("Filtered variables:", variables_to_plot)
+
+    print("\n\nAll samples:", region_ctx.all_samples)
+    print("\nMC samples:", region_ctx.mc_samples)
+    print("\nData samples:", region_ctx.data_samples)
+    print("\nVariables:", list(dict_of_hists.keys()))
+
+    unblind_flag = (
+        region_ctx.unblind_default
+        if unblind_override is None
+        else bool(unblind_override)
+    )
+    stat_only_plots = 0
+    stat_and_syst_plots = 0
+
+    for var_name in variables_to_plot:
+        if "sumw2" in var_name:
+            continue
+        if var_name in region_ctx.skip_variables:
+            continue
+
+        histo = dict_of_hists[var_name]
+        is_sparse2d = _is_sparse_2d_hist(histo)
+        if region_ctx.name == "SR" and is_sparse2d:
+            continue
+        if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
+            print(
+                f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting."
+            )
+            is_sparse2d = False
+
+        label = "Variable" if region_ctx.name == "SR" else "Var name"
+        print(f"\n{label}: {var_name}")
+
+        channel_transformations = []
+        if region_ctx.name == "CR" and var_name == "njets":
+            channel_transformations.append("njets")
+            channel_dict = get_dict_with_stripped_bin_names(
+                region_ctx.channel_map, "njets"
+            )
+        elif region_ctx.name == "CR":
+            channel_dict = region_ctx.channel_map
+        else:
+            channel_dict = region_ctx.channel_map
+
+        if region_ctx.name == "CR" and not yt.is_split_by_lepflav(dict_of_hists):
+            channel_transformations.append("lepflav")
+            channel_dict = get_dict_with_stripped_bin_names(
+                channel_dict, "lepflav"
+            )
+
+        hist_mc = histo.remove("process", region_ctx.samples_to_remove["mc"])
+        hist_data = histo.remove("process", region_ctx.samples_to_remove["data"])
+        hist_mc_sumw2_orig = region_ctx.sumw2_hists.get(var_name)
+        if hist_mc_sumw2_orig is not None:
+            hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
+                "process", region_ctx.samples_to_remove["mc"]
+            )
+            if region_ctx.name == "CR" and region_ctx.signal_samples:
+                existing_signal = [
+                    sample
+                    for sample in region_ctx.signal_samples
+                    if sample in yt.get_cat_lables(hist_mc_sumw2_orig, "process")
+                ]
+                if existing_signal:
+                    hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
+                        "process", existing_signal
+                    )
+            if region_ctx.name == "SR" and region_ctx.signal_samples and not unblind_flag:
+                hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
+                    "process", region_ctx.signal_samples
+                )
+
+        if region_ctx.name == "SR":
+            try:
+                channels_lst = yt.get_cat_lables(dict_of_hists[var_name], "channel")
+            except Exception:
+                channels_lst = []
+            print("channels:", channels_lst)
+
+        for hist_cat, channel_bins in channel_dict.items():
+            if region_ctx.name == "CR":
+                if (
+                    hist_cat == "cr_2los_Z"
+                    and ("j0" in var_name)
+                    and ("lj0pt" not in var_name)
+                ):
+                    continue
+                if (
+                    hist_cat == "cr_2lss_flip"
+                    and ("j0" in var_name)
+                    and ("lj0pt" not in var_name)
+                ):
+                    continue
+
+                print(f"\n\tCategory: {hist_cat}")
+
+            validate_channel_group(
+                [hist_mc, hist_data],
+                channel_bins,
+                channel_transformations,
+                region=region_ctx.name,
+                subgroup=hist_cat,
+                variable=var_name,
+            )
+
+            save_dir_path_tmp = os.path.join(save_dir_path, hist_cat)
+            if not os.path.exists(save_dir_path_tmp):
+                os.mkdir(save_dir_path_tmp)
+
+            if region_ctx.name == "CR":
+                axes_to_integrate_dict = {"channel": channel_bins}
+                try:
+                    hist_mc_integrated = yt.integrate_out_cats(
+                        yt.integrate_out_appl(hist_mc, hist_cat),
+                        axes_to_integrate_dict,
+                    )[{'channel': sum}]
+                    hist_data_integrated = yt.integrate_out_cats(
+                        yt.integrate_out_appl(hist_data, hist_cat),
+                        axes_to_integrate_dict,
+                    )[{'channel': sum}]
+                except Exception:
+                    continue
+                hist_mc_sumw2_integrated = None
+                if hist_mc_sumw2_orig is not None:
+                    try:
+                        hist_mc_sumw2_integrated = yt.integrate_out_cats(
+                            yt.integrate_out_appl(hist_mc_sumw2_orig, hist_cat),
+                            axes_to_integrate_dict,
+                        )[{'channel': sum}]
+                    except Exception:
+                        hist_mc_sumw2_integrated = None
+
+                samples_to_rm = []
+                if hist_cat.startswith("cr_2los_tt") or hist_cat.startswith("cr_2los_Z"):
+                    try:
+                        samples_to_rm += copy.deepcopy(
+                            region_ctx.group_map["Nonprompt"]
+                        )
+                    except KeyError:
+                        print(
+                            f"Warning: No Nonprompt group in CR_GRP_MAP for {hist_cat}, skipping sample removal."
+                        )
+                hist_mc_integrated = hist_mc_integrated.remove(
+                    "process", samples_to_rm
+                )
+                if hist_mc_sumw2_integrated is not None:
+                    hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.remove(
+                        "process", samples_to_rm
+                    )
+
+                p_err_arr = None
+                m_err_arr = None
+                p_err_arr_ratio = None
+                m_err_arr_ratio = None
+                syst_err_mode = False
+                if not (is_sparse2d or skip_syst_errs):
+                    rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+                        hist_mc_integrated,
+                        region_ctx.group_map,
+                        group_type=region_ctx.name,
+                    )
+                    shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+                        hist_mc_integrated,
+                        group_type=region_ctx.name,
+                    )
+                    if var_name == "njets":
+                        diboson_samples = region_ctx.group_map.get("Diboson", [])
+                        if diboson_samples:
+                            db_hist = (
+                                hist_mc_integrated.integrate(
+                                    "process", diboson_samples
+                                )[{'process': sum}]
+                                .integrate("systematic", "nominal")
+                                .eval({})[()]
+                            )
+                            shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(
+                                db_hist, bin0_njets=0
+                            )
+                            shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(
+                                db_hist, bin0_njets=0
+                            )
+                    nom_arr_all = (
+                        hist_mc_integrated[{"process": sum}]
+                        .integrate("systematic", "nominal")
+                        .eval({})[()][1:]
+                    )
+                    sqrt_sum_p = np.sqrt(
+                        shape_systs_summed_arr_p + rate_systs_summed_arr_p
+                    )[1:]
+                    sqrt_sum_m = np.sqrt(
+                        shape_systs_summed_arr_m + rate_systs_summed_arr_m
+                    )[1:]
+                    p_err_arr = nom_arr_all + sqrt_sum_p
+                    m_err_arr = nom_arr_all - sqrt_sum_m
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        p_err_arr_ratio = np.where(
+                            nom_arr_all > 0, p_err_arr / nom_arr_all, 1
+                        )
+                        m_err_arr_ratio = np.where(
+                            nom_arr_all > 0, m_err_arr / nom_arr_all, 1
+                        )
+                    syst_err_mode = "total" if unblind_flag else True
+
+                if is_sparse2d:
+                    hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate(
+                        "systematic", "nominal"
+                    )
+                    hist_data_nominal = hist_data_integrated[{"process": sum}].integrate(
+                        "systematic", "nominal"
+                    )
+                    if hist_mc_nominal.empty():
+                        print(
+                            f"Empty histogram for hist_cat={hist_cat} var_name={var_name}, skipping 2D plot."
+                        )
+                        continue
+                    if hist_data_nominal.empty():
+                        print(
+                            f"Empty data histogram for hist_cat={hist_cat} var_name={var_name}, skipping 2D plot."
+                        )
+                        continue
+                    fig = make_sparse2d_fig(
+                        hist_mc_nominal,
+                        hist_data_nominal,
+                        var_name,
+                        channel_name=hist_cat,
+                        lumitag=region_ctx.lumi_pair[0],
+                        comtag=region_ctx.lumi_pair[1],
+                        per_panel=True,
+                    )
+                else:
+                    hist_mc_integrated = hist_mc_integrated.integrate(
+                        "systematic", "nominal"
+                    )
+                    if hist_mc_sumw2_orig is not None and hist_mc_sumw2_integrated is not None:
+                        hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.integrate(
+                            "systematic", "nominal"
+                        )
+                    hist_data_integrated = hist_data_integrated.integrate(
+                        "systematic", "nominal"
+                    )
+                    if hist_mc_integrated.empty():
+                        print(f"Empty {hist_mc_integrated=}")
+                        continue
+                    if hist_data_integrated.empty():
+                        print(f"Empty {hist_data_integrated=}")
+                        continue
+                    x_range = (0, 250) if var_name == "ht" else None
+                    group = {k: v for k, v in region_ctx.group_map.items() if v}
+                    fig = make_cr_fig(
+                        hist_mc_integrated,
+                        hist_data_integrated,
+                        unit_norm_bool,
+                        var=var_name,
+                        group=group,
+                        set_x_lim=x_range,
+                        lumitag=region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
+                        comtag=region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
+                        h_mc_sumw2=hist_mc_sumw2_integrated,
+                        syst_err=syst_err_mode,
+                        err_p_syst=p_err_arr,
+                        err_m_syst=m_err_arr,
+                        err_ratio_p_syst=p_err_arr_ratio,
+                        err_ratio_m_syst=m_err_arr_ratio,
+                        unblind=unblind_flag,
+                    )
+                title = hist_cat + "_" + var_name
+                if unit_norm_bool:
+                    title = title + "_unitnorm"
+                has_syst_inputs = any(
+                    err is not None
+                    for err in (
+                        p_err_arr,
+                        m_err_arr,
+                        p_err_arr_ratio,
+                        m_err_arr_ratio,
+                    )
+                )
+                if isinstance(fig, dict):
+                    combined_fig = fig["combined"]
+                    combined_fig.savefig(
+                        os.path.join(save_dir_path_tmp, title),
+                        bbox_inches="tight",
+                        pad_inches=0.05,
+                    )
+                    suffix_map = {"mc": "_MC", "data": "_data", "ratio": "_ratio"}
+                    for key, panel_fig in fig.items():
+                        if key == "combined":
+                            continue
+                        suffix = suffix_map.get(key, f"_{key}")
+                        panel_fig.savefig(
+                            os.path.join(save_dir_path_tmp, f"{title}{suffix}"),
+                            bbox_inches="tight",
+                            pad_inches=0.05,
+                        )
+                else:
+                    fig.savefig(
+                        os.path.join(save_dir_path_tmp, title),
+                        bbox_inches="tight",
+                        pad_inches=0.05,
+                    )
+                if has_syst_inputs:
+                    stat_and_syst_plots += 1
+                else:
+                    stat_only_plots += 1
+            else:
+                channels = [
+                    chan
+                    for chan in channel_bins
+                    if chan in hist_mc.axes["channel"]
+                ]
+                if not channels:
+                    continue
+                hist_mc_channel = hist_mc.integrate("channel", channels)[{'channel': sum}]
+                hist_mc_integrated = hist_mc_channel.integrate(
+                    "systematic", "nominal"
+                )
+                hist_mc_sumw2 = None
+                if hist_mc_sumw2_orig is not None:
+                    channels_sumw2 = [
+                        chan
+                        for chan in channel_bins
+                        if chan in hist_mc_sumw2_orig.axes["channel"]
+                    ]
+                    if channels_sumw2:
+                        hist_mc_sumw2 = hist_mc_sumw2_orig.integrate(
+                            "channel", channels_sumw2
+                        )[{'channel': sum}]
+                        hist_mc_sumw2 = hist_mc_sumw2.integrate(
+                            "systematic", "nominal"
+                        )
+                channels_data = [
+                    chan
+                    for chan in channel_bins
+                    if chan in hist_data.axes["channel"]
+                ]
+                hist_data_channel = hist_data.integrate(
+                    "channel", channels_data
+                )[{'channel': sum}]
+                hist_data_integrated = hist_data_channel.integrate(
+                    "systematic", "nominal"
+                )
+
+                syst_err = False
+                err_p_syst = None
+                err_m_syst = None
+                err_ratio_p_syst = None
+                err_ratio_m_syst = None
+                if not skip_syst_errs:
+                    try:
+                        rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+                            hist_mc_channel,
+                            region_ctx.group_map,
+                            group_type=region_ctx.name,
+                        )
+                        shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+                            hist_mc_channel,
+                            group_type=region_ctx.name,
+                        )
+                    except Exception as exc:
+                        print(
+                            f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
+                        )
+                    else:
+                        nom_arr_all = (
+                            hist_mc_channel[{"process": sum}]
+                            .integrate("systematic", "nominal")
+                            .eval({})[()][1:]
+                        )
+                        sqrt_sum_p = np.sqrt(
+                            shape_systs_summed_arr_p + rate_systs_summed_arr_p
+                        )[1:]
+                        sqrt_sum_m = np.sqrt(
+                            shape_systs_summed_arr_m + rate_systs_summed_arr_m
+                        )[1:]
+                        err_p_syst = nom_arr_all + sqrt_sum_p
+                        err_m_syst = nom_arr_all - sqrt_sum_m
+                        with np.errstate(divide="ignore", invalid="ignore"):
+                            err_ratio_p_syst = np.where(
+                                nom_arr_all > 0, err_p_syst / nom_arr_all, 1
+                            )
+                            err_ratio_m_syst = np.where(
+                                nom_arr_all > 0, err_m_syst / nom_arr_all, 1
+                            )
+                        syst_err = True
+
+                if not hist_mc_integrated.eval({}):
+                    print("Warning: empty mc histo, continuing")
+                    continue
+                if unblind_flag and not hist_data_integrated.eval({}):
+                    print("Warning: empty data histo, continuing")
+                    continue
+
+                hist_data_to_plot = (
+                    hist_data_integrated if unblind_flag else copy.deepcopy(hist_mc_integrated)
+                )
+                year_str = region_ctx.year if region_ctx.year is not None else "ULall"
+                title = f"{hist_cat}_{var_name}_{year_str}"
+                fig = make_cr_fig(
+                    hist_mc_integrated,
+                    hist_data_to_plot,
+                    var=var_name,
+                    unit_norm_bool=False,
+                    bins=axes_info[var_name]["variable"],
+                    group=region_ctx.group_map,
+                    lumitag=region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
+                    comtag=region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
+                    h_mc_sumw2=hist_mc_sumw2,
+                    syst_err=syst_err,
+                    err_p_syst=err_p_syst,
+                    err_m_syst=err_m_syst,
+                    err_ratio_p_syst=err_ratio_p_syst,
+                    err_ratio_m_syst=err_ratio_m_syst,
+                    unblind=unblind_flag,
+                )
+                fig.savefig(
+                    os.path.join(save_dir_path_tmp, title),
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
+                has_syst_inputs = any(
+                    err is not None
+                    for err in (
+                        err_p_syst,
+                        err_m_syst,
+                        err_ratio_p_syst,
+                        err_ratio_m_syst,
+                    )
+                )
+                if has_syst_inputs:
+                    stat_and_syst_plots += 1
+                else:
+                    stat_only_plots += 1
+
+            if "www" in save_dir_path_tmp:
+                make_html(save_dir_path_tmp)
+
+    print(
+        f"[{region_ctx.name}] Produced {stat_and_syst_plots} plots with stat⊕syst uncertainties and {stat_only_plots} plots with stat-only bands",
+        end="",
+    )
+    if save_dir_path:
+        print(f" in {save_dir_path}")
+    else:
+        print()
+
+
 def _ensure_list(values):
     if isinstance(values, str):
         return [values]
@@ -1696,267 +2310,20 @@ def make_all_sr_data_mc_plots(
     skip_syst_errs=False,
     variables=None,
 ):
-
-    # Construct list of MC samples
-    mc_wl = []
-    mc_bl = ["data"]
-    data_wl = ["data"]
-    data_bl = []
-    if year is None:
-        pass # Don't think we actually need to do anything here?
-    elif year == "2017":
-        mc_wl.append("UL17")
-        data_wl.append("UL17")
-    elif year == "2018":
-        mc_wl.append("UL18")
-        data_wl.append("UL18")
-    elif year == "2016":
-        mc_wl.append("UL16")
-        mc_bl.append("UL16APV")
-        data_wl.append("UL16")
-        data_bl.append("UL16APV")
-    elif year == "2016APV":
-        mc_wl.append("UL16APV")
-        data_wl.append("UL16APV")
-    elif year == "2022":
-        mc_wl.append("2022")
-        data_wl.append("2022")
-    elif year == "2022EE":
-        mc_wl.append("2022EE")
-        data_wl.append("2022EE")
-    elif year == "2023":
-        mc_wl.append("2023")
-        data_wl.append("2023")
-    elif year == "2023BPix":
-        mc_wl.append("2023BPix")
-        data_wl.append("2023BPix")
-    else:
-        raise Exception(f"Error: Unknown year \"{year}\".")
-
-    # Get the list of samples we want to plot
-    samples_to_rm_from_mc_hist = []
-    samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="lj0pt")
-    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
-    for sample_name in all_samples:
-        if sample_name not in mc_sample_lst:
-            samples_to_rm_from_mc_hist.append(sample_name)
-        if sample_name not in data_sample_lst:
-            samples_to_rm_from_data_hist.append(sample_name)
-    print("\nAll samples:",all_samples)
-    print("\nMC samples:",mc_sample_lst)
-    print("\nData samples:",data_sample_lst)
-    all_variables = list(dict_of_hists.keys())
-    print("\nVariables:",all_variables)
-    variables_to_plot = _resolve_requested_variables(
-        dict_of_hists, variables, "make_all_sr_data_mc_plots"
+    region_ctx = build_region_context(
+        "SR",
+        dict_of_hists,
+        year,
+        unblind_override=unblind,
     )
-    if variables is not None:
-        print("Filtered variables:", variables_to_plot)
-
-    global SR_GRP_MAP, CR_GRP_MAP
-    CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
-    SR_GRP_MAP = populate_group_map(mc_sample_lst + data_sample_lst, SR_GRP_PATTERNS)
-
-    dict_of_sumw2 = {
-        hist_name.replace("_sumw2", ""): hist_obj
-        for hist_name, hist_obj in dict_of_hists.items()
-        if hist_name.endswith("_sumw2")
-    }
-
-    stat_only_plots = 0
-    stat_and_syst_plots = 0
-    sr_signal_samples = sorted(
-        {
-            proc_name
-            for group_name in SR_SIGNAL_GROUP_KEYS
-            for proc_name in SR_GRP_MAP.get(group_name, [])
-        }
+    produce_region_plots(
+        region_ctx,
+        save_dir_path,
+        variables,
+        skip_syst_errs,
+        unit_norm_bool=False,
+        unblind_override=unblind,
     )
-
-    # The analysis bins
-    analysis_bins = {}
-    # Skipping for now
-    #    'njets': {
-    #        '2l': [4,5,6,7,dict_of_hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
-    #        '3l': [2,3,4,5,dict_of_hists['njets'].axis('njets').edges()[-1]],
-    #        '4l': [2,3,4,dict_of_hists['njets'].axis('njets').edges()[-1]]
-    #    }
-    #}
-    analysis_bins['ptz'] = axes_info['ptz']['variable']
-    analysis_bins['lj0pt'] = axes_info['lj0pt']['variable']
-
-    # Loop over hists and make plots
-    skip_lst = ['ptz', 'njets'] # Skip this hist
-    #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
-    for idx,var_name in enumerate(variables_to_plot):
-        if 'sumw2' in var_name: continue
-        if _is_sparse_2d_hist(dict_of_hists[var_name]):
-            continue
-        if (var_name in skip_lst): continue
-        #if (var_name not in keep_lst): continue
-        print("\nVariable:",var_name)
-
-        # Extract the MC and data hists
-        hist_mc_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
-        hist_data_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
-        hist_mc_sumw2_orig = dict_of_sumw2.get(var_name)
-        if hist_mc_sumw2_orig is not None:
-            hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", samples_to_rm_from_mc_hist)
-            if sr_signal_samples and not unblind:
-                hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", sr_signal_samples)
-
-        # Loop over channels
-        channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
-        print("channels:",channels_lst)
-        #for chan_name in channels_lst: # For each channel individually
-        channel_transformations = []
-        for chan_name in SR_CHAN_DICT.keys():
-            validate_channel_group(
-                [hist_mc_orig, hist_data_orig],
-                SR_CHAN_DICT[chan_name],
-                channel_transformations,
-                region="SR",
-                subgroup=chan_name,
-                variable=var_name,
-            )
-            #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
-            #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
-            # Skip missing channels (histEFT throws an exception)
-            channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_mc_orig.axes['channel']]
-            if not channels:
-                continue
-            hist_mc_channel = hist_mc_orig.integrate("channel",channels)[{'channel': sum}]
-            hist_mc = hist_mc_channel.integrate("systematic","nominal")
-            hist_mc_sumw2 = None
-            if hist_mc_sumw2_orig is not None:
-                channels_sumw2 = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_mc_sumw2_orig.axes['channel']]
-                if channels_sumw2:
-                    hist_mc_sumw2 = hist_mc_sumw2_orig.integrate("channel",channels_sumw2)[{'channel': sum}]
-                    hist_mc_sumw2 = hist_mc_sumw2.integrate("systematic","nominal")
-            channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_data_orig.axes['channel']]
-            hist_data_channel = hist_data_orig.integrate("channel",channels)[{'channel': sum}]
-            hist_data = hist_data_channel.integrate("systematic","nominal")
-
-            syst_err = False
-            err_p_syst = None
-            err_m_syst = None
-            err_ratio_p_syst = None
-            err_ratio_m_syst = None
-            if not skip_syst_errs:
-                try:
-                    rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(
-                        hist_mc_channel,
-                        SR_GRP_MAP,
-                        group_type="SR",
-                    )
-                    shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(
-                        hist_mc_channel,
-                        group_type="SR",
-                    )
-                except Exception as exc:
-                    print(
-                        f"Warning: Failed to compute SR systematics for {chan_name} {var_name}: {exc}"
-                    )
-                else:
-                    nom_arr_all = (
-                        hist_mc_channel[{"process": sum}]
-                        .integrate("systematic","nominal")
-                        .eval({})[()][1:]
-                    )
-                    sqrt_sum_p = np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:]
-                    sqrt_sum_m = np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:]
-                    err_p_syst = nom_arr_all + sqrt_sum_p
-                    err_m_syst = nom_arr_all - sqrt_sum_m
-                    with np.errstate(divide="ignore", invalid="ignore"):
-                        err_ratio_p_syst = np.where(nom_arr_all > 0, err_p_syst / nom_arr_all, 1)
-                        err_ratio_m_syst = np.where(nom_arr_all > 0, err_m_syst / nom_arr_all, 1)
-                    syst_err = True
-
-            #print(var_name, chan_name, f'grouping {SR_GRP_MAP=}')
-            # Using new grouping approach in plot functions
-            #hist_mc = group_bins(hist_mc,SR_GRP_MAP,"process",drop_unspecified=False)
-            #hist_data = group_bins(hist_data,SR_GRP_MAP,"process",drop_unspecified=False)
-
-            # Make a sub dir for this category
-            save_dir_path_tmp = os.path.join(save_dir_path,chan_name)
-            if not os.path.exists(save_dir_path_tmp):
-                os.mkdir(save_dir_path_tmp)
-
-            # Rebin into analysis bins
-            if var_name in analysis_bins.keys():
-                lep_bin = chan_name[:2]
-                # histEFT doesn't support rebinning for now
-                '''
-                if var_name == "njets":
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name][lep_bin]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name][lep_bin]))
-                else:
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name]))
-                '''
-
-            if not hist_mc.eval({}):
-                print("Warning: empty mc histo, continuing")
-                continue
-            if unblind and not hist_data.eval({}):
-                print("Warning: empty data histo, continuing")
-                continue
-
-            hist_data_to_plot = hist_data if unblind else copy.deepcopy(hist_mc)
-
-            fig = make_cr_fig(
-                hist_mc,
-                hist_data_to_plot,
-                var=var_name,
-                unit_norm_bool=False,
-                bins=axes_info[var_name]['variable'],
-                group=SR_GRP_MAP,
-                lumitag=LUMI_COM_PAIRS[year][0],
-                comtag=LUMI_COM_PAIRS[year][1],
-                h_mc_sumw2=hist_mc_sumw2,
-                syst_err=syst_err,
-                err_p_syst=err_p_syst,
-                err_m_syst=err_m_syst,
-                err_ratio_p_syst=err_ratio_p_syst,
-                err_ratio_m_syst=err_ratio_m_syst,
-                unblind=unblind,
-            )
-            has_syst_inputs = any(
-                err is not None
-                for err in (
-                    err_p_syst,
-                    err_m_syst,
-                    err_ratio_p_syst,
-                    err_ratio_m_syst,
-                )
-            )
-            if year is not None: year_str = year
-            else: year_str = "ULall"
-            title = chan_name + "_" + var_name + "_" + year_str
-            fig.savefig(
-                os.path.join(save_dir_path_tmp, title),
-                bbox_inches="tight",
-                pad_inches=0.05,
-            )
-
-            if has_syst_inputs:
-                stat_and_syst_plots += 1
-            else:
-                stat_only_plots += 1
-
-            # Make an index.html file if saving to web area
-            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-
-    print(
-        f"[SR] Produced {stat_and_syst_plots} plots with stat⊕syst uncertainties and {stat_only_plots} plots with stat-only bands",
-        end="",
-    )
-    if save_dir_path:
-        print(f" in {save_dir_path}")
-    else:
-        print()
 
 
 
@@ -2144,328 +2511,14 @@ def make_all_cr_plots(
     save_dir_path,
     variables=None,
 ):
-
-    # Construct list of MC samples
-    mc_wl = []
-    mc_bl = ["data"]
-    data_wl = ["data"]
-    data_bl = []
-    if year is None:
-        pass # Don't think we actually need to do anything here?
-    elif year == "2017":
-        mc_wl.append("UL17")
-        data_wl.append("UL17")
-    elif year == "2018":
-        mc_wl.append("UL18")
-        data_wl.append("UL18")
-    elif year == "2016":
-        mc_wl.append("UL16")
-        mc_bl.append("UL16APV")
-        data_wl.append("UL16")
-        data_bl.append("UL16APV")
-    elif year == "2016APV":
-        mc_wl.append("UL16APV")
-        data_wl.append("UL16APV")
-    elif year == "2022":
-        mc_wl.append("2022")
-        data_wl.append("2022")
-    elif year == "2022EE":
-        mc_wl.append("2022EE")
-        data_wl.append("2022EE")
-    elif year == "2023":
-        mc_wl.append("2023")
-        data_wl.append("2023")
-    elif year == "2023BPix":
-        mc_wl.append("2023BPix")
-        data_wl.append("2023BPix")
-    else:
-        raise Exception(f"Error: Unknown year \"{year}\".")
-
-    # Get the list of samples we want to plot
-    samples_to_rm_from_mc_hist = []
-    samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"process")
-    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
-
-    #print("dict_of_hists", dict_of_hists)
-    print("\n\nAll samples:",all_samples, "data"+year in all_samples)
-    print("\nMC samples:",mc_sample_lst)
-    print("\nData samples:",data_sample_lst)
-
-    for sample_name in all_samples:
-        if sample_name not in mc_sample_lst:
-            samples_to_rm_from_mc_hist.append(sample_name)
-        if sample_name not in data_sample_lst:
-            samples_to_rm_from_data_hist.append(sample_name)
-    all_variables = list(dict_of_hists.keys())
-    print("\nVariables:",all_variables)
-    variables_to_plot = _resolve_requested_variables(
-        dict_of_hists, variables, "make_all_cr_plots"
+    region_ctx = build_region_context("CR", dict_of_hists, year)
+    produce_region_plots(
+        region_ctx,
+        save_dir_path,
+        variables,
+        skip_syst_errs,
+        unit_norm_bool,
     )
-    if variables is not None:
-        print("Filtered variables:", variables_to_plot)
-
-    global CR_GRP_MAP
-    CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
-    dict_of_sumw2 = {
-        hist_name.replace("_sumw2", ""): hist_obj
-        for hist_name, hist_obj in dict_of_hists.items()
-        if hist_name.endswith("_sumw2") and hist_name.count("sumw2") == 1
-    }
-    cr_signal_samples = sorted(set(CR_GRP_MAP.get("Signal", [])))
-    unblind_data = len(data_sample_lst) > 0
-
-    stat_only_plots = 0
-    stat_and_syst_plots = 0
-
-    # Loop over hists and make plots
-    skip_lst = [] # Skip these hists
-    #skip_wlst = ["njets"] # Skip all but these hists
-    for idx,var_name in enumerate(variables_to_plot):
-        if 'sumw2' in var_name:
-            continue
-        if (var_name in skip_lst):
-            continue
-        #if (var_name not in skip_wlst): continue
-        channel_transformations = []
-        if (var_name == "njets"):
-            # We do not keep track of jets in the sparse axis for the njets hists
-            channel_transformations.append("njets")
-            cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
-        else:
-            cr_cat_dict = CR_CHAN_DICT
-        # If the hist is not split by lepton flavor, the lep flav info should not be in the channel names we try to integrate over
-        if not yt.is_split_by_lepflav(dict_of_hists):
-            channel_transformations.append("lepflav")
-            cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
-        print("\nVar name:",var_name)
-            
-        # Extract the MC and data hists
-        hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
-        hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
-        hist_mc_sumw2_orig = dict_of_sumw2.get(var_name)
-        if hist_mc_sumw2_orig is not None:
-            hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", samples_to_rm_from_mc_hist)
-            if cr_signal_samples:
-                existing_signal = [
-                    sample
-                    for sample in cr_signal_samples
-                    if sample in yt.get_cat_lables(hist_mc_sumw2_orig, "process")
-                ]
-                if existing_signal:
-                    hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", existing_signal)
-        is_sparse2d = _is_sparse_2d_hist(hist_mc)
-        if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
-            print(f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting.")
-            is_sparse2d = False
-
-        # Loop over the CR categories
-        for hist_cat in cr_cat_dict.keys():
-            if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))):
-                continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
-            if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))):
-                continue # The flip category does not require jets (so leading jet plots do not make sense)
-            print("\n\tCategory:",hist_cat)
-
-            validate_channel_group(
-                [hist_mc, hist_data],
-                cr_cat_dict[hist_cat],
-                channel_transformations,
-                region="CR",
-                subgroup=hist_cat,
-                variable=var_name,
-            )
-
-            # Make a sub dir for this category
-            save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
-            if not os.path.exists(save_dir_path_tmp):
-                os.mkdir(save_dir_path_tmp)
-
-            # Integrate to get the categories we want
-            axes_to_integrate_dict = {}
-            axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
-            hist_mc_sumw2_integrated = None
-            try:
-                hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)[{"channel": sum}]
-                hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)[{"channel": sum}]
-            except:
-                continue
-            if hist_mc_sumw2_orig is not None:
-                try:
-                    hist_mc_sumw2_integrated = yt.integrate_out_cats(
-                        yt.integrate_out_appl(hist_mc_sumw2_orig, hist_cat),
-                        axes_to_integrate_dict,
-                    )[{'channel': sum}]
-                except Exception:
-                    hist_mc_sumw2_integrated = None
-            # Remove samples that are not relevant for the given category
-            samples_to_rm = []
-
-            if hist_cat.startswith("cr_2los_tt") or hist_cat.startswith('cr_2los_Z'): #we don't actually expect nonprompt in the ttbar CR, and here the nonprompt estimation is not really reliable
-                try:
-                    samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
-                except KeyError:
-                    print(f"Warning: No Nonprompt group in CR_GRP_MAP for {hist_cat}, skipping sample removal.")
-                else:
-                    pass
-            hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
-            if hist_mc_sumw2_integrated is not None:
-                hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.remove("process", samples_to_rm)
-
-
-            # Calculate the syst errors
-            p_err_arr = None
-            m_err_arr = None
-            p_err_arr_ratio = None
-            m_err_arr_ratio = None
-            syst_err_mode = False
-            if not (is_sparse2d or skip_syst_errs):
-                # Get plus and minus rate and shape arrs
-                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(
-                    hist_mc_integrated,
-                    CR_GRP_MAP,
-                    group_type="CR",
-                )
-                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(
-                    hist_mc_integrated,
-                    group_type="CR",
-                )
-                if (var_name == "njets"):
-                    # This is a special case for the diboson jet dependent systematic
-                    db_hist = hist_mc_integrated.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
-                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
-                # Get the arrays we will actually put in the CR plot
-                nom_arr_all = hist_mc_integrated[{"process": sum}].integrate("systematic","nominal").eval({})[()][1:]
-                p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:] # This goes in the main plot
-                m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:] # This goes in the main plot
-                p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
-                m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
-                syst_err_mode = "total" if unblind_data else True
-
-
-            if is_sparse2d:
-                hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate("systematic", "nominal")
-                hist_data_nominal = hist_data_integrated[{"process": sum}].integrate("systematic", "nominal")
-                if hist_mc_nominal.empty():
-                    print(f'Empty histogram for {hist_cat=} {var_name=}, skipping 2D plot.')
-                    continue
-                if hist_data_nominal.empty():
-                    print(f'Empty data histogram for {hist_cat=} {var_name=}, skipping 2D plot.')
-                    continue
-            else:
-                # Group the samples by process type, and grab just nominal syst category
-                #hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
-                #hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
-                hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
-                if hist_mc_sumw2_integrated is not None:
-                    hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.integrate("systematic","nominal")
-                hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
-                if hist_mc_integrated.empty():
-                    print(f'Empty {hist_mc_integrated=}')
-                    continue
-                if hist_data_integrated.empty():
-                    print(f'Empty {hist_data_integrated=}')
-                    continue
-
-            # Print out total MC and data and the sf between them
-            # For extracting the factors we apply to the flip contribution
-            # Probably should be an option not just a commented block...
-            #if hist_cat != "cr_2lss_flip": continue
-            #tot_data = sum(sum(hist_data_integrated.eval({}).eval({})))
-            #tot_mc   = sum(sum(hist_mc_integrated.eval({}).eval({})))
-            #flips    = sum(sum(hist_mc_integrated["Flips"].eval({}).eval({})))
-            #tot_mc_but_flips = tot_mc - flips
-            #sf = (tot_data - tot_mc_but_flips)/flips
-            #print(f"\nComp: data/pred = {tot_data}/{tot_mc} = {tot_data/tot_mc}")
-            #print(f"Flip sf needed = (data - (pred - flips))/flips = {sf}")
-            #exit()
-
-            # Create and save the figure
-            x_range = None
-            if var_name == "ht": x_range = (0,250)
-            title = hist_cat+"_"+var_name
-            if is_sparse2d:
-                fig = make_sparse2d_fig(
-                    hist_mc_nominal,
-                    hist_data_nominal,
-                    var_name,
-                    channel_name=hist_cat,
-                    lumitag=LUMI_COM_PAIRS[year][0],
-                    comtag=LUMI_COM_PAIRS[year][1],
-                    per_panel=True,
-                )
-            else:
-                group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
-
-                fig = make_cr_fig(
-                    hist_mc_integrated,
-                    hist_data_integrated,
-                    unit_norm_bool,
-                    var=var_name,
-                    group=group,
-                    set_x_lim = x_range,
-                    lumitag=LUMI_COM_PAIRS[year][0],
-                    comtag=LUMI_COM_PAIRS[year][1],
-                    h_mc_sumw2=hist_mc_sumw2_integrated,
-                    syst_err=syst_err_mode,
-                    err_p_syst=p_err_arr,
-                    err_m_syst=m_err_arr,
-                    err_ratio_p_syst=p_err_arr_ratio,
-                    err_ratio_m_syst=m_err_arr_ratio,
-                    unblind=unblind_data,
-                )
-            has_syst_inputs = any(
-                err is not None
-                for err in (
-                    p_err_arr,
-                    m_err_arr,
-                    p_err_arr_ratio,
-                    m_err_arr_ratio,
-                )
-            )
-            if unit_norm_bool: title = title + "_unitnorm"
-            if isinstance(fig, dict):
-                combined_fig = fig["combined"]
-                combined_fig.savefig(
-                    os.path.join(save_dir_path_tmp, title),
-                    bbox_inches="tight",
-                    pad_inches=0.05,
-                )
-                suffix_map = {"mc": "_MC", "data": "_data", "ratio": "_ratio"}
-                for key, panel_fig in fig.items():
-                    if key == "combined":
-                        continue
-                    suffix = suffix_map.get(key, f"_{key}")
-                    panel_fig.savefig(
-                        os.path.join(save_dir_path_tmp, f"{title}{suffix}"),
-                        bbox_inches="tight",
-                        pad_inches=0.05,
-                    )
-            else:
-                fig.savefig(
-                    os.path.join(save_dir_path_tmp, title),
-                    bbox_inches="tight",
-                    pad_inches=0.05,
-                )
-
-            if has_syst_inputs:
-                stat_and_syst_plots += 1
-            else:
-                stat_only_plots += 1
-
-            # Make an index.html file if saving to web area
-            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-
-    print(
-        f"[CR] Produced {stat_and_syst_plots} plots with stat⊕syst uncertainties and {stat_only_plots} plots with stat-only bands",
-        end="",
-    )
-    if save_dir_path:
-        print(f" in {save_dir_path}")
-    else:
-        print()
 
 def main():
 
