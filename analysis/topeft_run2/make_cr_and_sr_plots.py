@@ -1027,6 +1027,23 @@ def make_cr_fig(
     rax.set_xticklabels(labels)
     rax.tick_params(axis='both', labelsize=18, width=1.5, length=6)
 
+    fig.canvas.draw()
+    ax_box = ax.get_position()
+    rax_box = rax.get_position()
+    ratio_label_fig = None
+    ratio_label = rax.yaxis.label
+    if ratio_label is not None:
+        try:
+            ratio_label_pos = np.asarray(ratio_label.get_position(), dtype=float)
+            ratio_label_transform = ratio_label.get_transform()
+            if ratio_label_transform is not None:
+                ratio_label_display = ratio_label_transform.transform([ratio_label_pos])[0]
+                ratio_label_fig = fig.transFigure.inverted().transform(ratio_label_display)
+        except Exception:
+            ratio_label_fig = None
+
+    initial_events_anchor = (rax_box.x0 + rax_box.width, ax_box.y0 + ax_box.height)
+
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
     box = ax.get_position()
@@ -1034,7 +1051,18 @@ def make_cr_fig(
     # Put a legend to the right of the current axis
     legend = ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
 
-    def _finalize_layout(fig, ax, rax, legend, cms_label, display_label, label_artist=None):
+    def _finalize_layout(
+        fig,
+        ax,
+        rax,
+        legend,
+        cms_label,
+        display_label,
+        label_artist=None,
+        events_artist=None,
+        ratio_anchor=None,
+        events_anchor=None,
+    ):
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
 
@@ -1208,7 +1236,57 @@ def make_cr_fig(
             min_axis_y = _get_min_axis_y(renderer)
             label_y = min_axis_y - measured_height - margin
 
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        ax_box = ax.get_position()
         rax_box = rax.get_position()
+
+        ratio_label_fig_x = None
+        ratio_label = rax.yaxis.label
+        if ratio_label is not None:
+            try:
+                ratio_label_pos = np.asarray(ratio_label.get_position(), dtype=float)
+                ratio_label_transform = ratio_label.get_transform()
+                if ratio_label_transform is not None:
+                    ratio_label_display = ratio_label_transform.transform([ratio_label_pos])[0]
+                    ratio_label_fig = fig.transFigure.inverted().transform(ratio_label_display)
+                    ratio_label_fig_x = ratio_label_fig[0]
+            except Exception:
+                ratio_label_fig_x = None
+
+        if ratio_label_fig_x is None and ratio_anchor is not None:
+            ratio_label_fig_x = ratio_anchor[0]
+
+        events_x, events_y = events_anchor if events_anchor is not None else (None, None)
+
+        if ratio_label_fig_x is not None:
+            events_x = ratio_label_fig_x
+        if events_x is None:
+            events_x = rax_box.x0 + rax_box.width
+
+        current_events_y = ax_box.y0 + ax_box.height
+        if current_events_y is not None:
+            events_y = current_events_y
+        elif events_y is None:
+            events_y = rax_box.y0 + rax_box.height
+
+        if events_artist is None or not isinstance(events_artist, mpl.text.Text):
+            events_artist = fig.text(
+                events_x,
+                events_y,
+                "Events",
+                ha="right",
+                va="bottom",
+                fontsize=label_fontsize,
+                rotation=90,
+            )
+        else:
+            events_artist.set_position((events_x, events_y))
+            events_artist.set_text("Events")
+            events_artist.set_fontsize(label_fontsize)
+            events_artist.set_rotation(90)
+            events_artist.set_ha("right")
+            events_artist.set_va("bottom")
 
         if label_artist is None or not isinstance(label_artist, mpl.text.Text):
             label_artist = fig.text(
@@ -1226,11 +1304,23 @@ def make_cr_fig(
             label_artist.set_ha("right")
             label_artist.set_va("bottom")
 
-        return label_artist
+        return label_artist, events_artist
 
     label_artist = None
+    events_artist = None
     for _ in range(2):
-        label_artist = _finalize_layout(fig, ax, rax, legend, cms_label, display_label, label_artist)
+        label_artist, events_artist = _finalize_layout(
+            fig,
+            ax,
+            rax,
+            legend,
+            cms_label,
+            display_label,
+            label_artist,
+            events_artist,
+            ratio_label_fig,
+            initial_events_anchor,
+        )
 
     return fig
 
