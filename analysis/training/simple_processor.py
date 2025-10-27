@@ -88,12 +88,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             dataset_axis, channel_axis, selection_axis = _category_axes()
             dense_axis = hist.axis.Regular(bins=bins, start=start, stop=stop, name=axis_name, label=axis_label)
             return HistEFT(
+                "Events",
+                wc_names_lst,
                 dataset_axis,
                 channel_axis,
                 selection_axis,
                 dense_axis,
-                wc_names=wc_names_lst,
-                label="Events",
             )
 
         dataset_axis, channel_axis, selection_axis = _category_axes()

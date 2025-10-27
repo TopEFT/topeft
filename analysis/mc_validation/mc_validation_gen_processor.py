@@ -43,7 +43,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         def _make_hist(axis_name: str, axis_label: str, bins: int, start: float, stop: float) -> HistEFT:
             dataset_axis = hist.axis.StrCategory([], name="dataset", growth=True)
             dense_axis = hist.axis.Regular(bins=bins, start=start, stop=stop, name=axis_name, label=axis_label)
-            return HistEFT(dataset_axis, dense_axis, wc_names=wc_names_lst, label="Events")
+            return HistEFT("Events", wc_names_lst, dataset_axis, dense_axis)
 
         self._accumulator = processor.dict_accumulator({
             "mll_fromzg_e": _make_hist("mll_fromzg_e", "invmass ee from z/gamma", 40, 0, 200),
