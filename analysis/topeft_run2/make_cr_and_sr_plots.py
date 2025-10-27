@@ -53,6 +53,7 @@ FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.
 WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
 LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
 PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
+REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
 
 # This script takes an input pkl file that should have both data and background MC included.
 # Use the -y option to specify a year, if no year is specified, all years will be included.
@@ -200,6 +201,132 @@ def _sample_in_signal_group(sample_name, sample_group_map, group_type):
     return False
 
 
+def _normalize_sequence(value):
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return list(value)
+
+
+def _evaluate_channel_condition(condition, region_ctx):
+    if condition == "not_split_by_lepflav":
+        return not yt.is_split_by_lepflav(region_ctx.dict_of_hists)
+    raise ValueError(
+        f"Unsupported channel transformation condition '{condition}'"
+    )
+
+
+def _resolve_channel_transformations(region_ctx, var_name):
+    rules = region_ctx.channel_rules
+    transformations = []
+    transformations.extend(rules.get("default", []))
+    transformations.extend(rules.get("variables", {}).get(var_name, []))
+    for cond_entry in rules.get("conditional", []):
+        condition = cond_entry.get("when")
+        if condition is None:
+            continue
+        if _evaluate_channel_condition(condition, region_ctx):
+            transformations.extend(cond_entry.get("apply", []))
+    ordered = []
+    seen = set()
+    for transform in transformations:
+        if transform not in seen:
+            ordered.append(transform)
+            seen.add(transform)
+    return ordered
+
+
+def _apply_channel_dict_transformations(channel_dict, transformations):
+    transformed_dict = copy.deepcopy(channel_dict)
+    for transform in transformations:
+        if transform == "njets":
+            transformed_dict = get_dict_with_stripped_bin_names(
+                transformed_dict, "njets"
+            )
+        elif transform == "lepflav":
+            transformed_dict = get_dict_with_stripped_bin_names(
+                transformed_dict, "lepflav"
+            )
+        else:
+            raise ValueError(
+                f"Unsupported channel transformation '{transform}'"
+            )
+    return transformed_dict
+
+
+def _match_category(hist_cat, categories_cfg):
+    if not categories_cfg:
+        return True
+    prefixes = _normalize_sequence(categories_cfg.get("prefixes"))
+    if prefixes and any(hist_cat.startswith(pref) for pref in prefixes):
+        return True
+    equals = _normalize_sequence(categories_cfg.get("equals"))
+    if equals and hist_cat in equals:
+        return True
+    contains = _normalize_sequence(categories_cfg.get("contains"))
+    if contains and any(token in hist_cat for token in contains):
+        return True
+    return False
+
+
+def _should_skip_category(rules, hist_cat, var_name):
+    for rule in rules:
+        if not _match_category(hist_cat, rule.get("categories")):
+            continue
+        includes = _normalize_sequence(rule.get("variable_includes"))
+        if includes and not any(token in var_name for token in includes):
+            continue
+        excludes = _normalize_sequence(rule.get("variable_excludes"))
+        if excludes and any(token in var_name for token in excludes):
+            continue
+        return True
+    return False
+
+
+def _collect_samples_to_remove(rules, hist_cat, region_ctx):
+    samples = []
+    for rule in rules:
+        if not _match_category(hist_cat, rule.get("categories")):
+            continue
+        rule_groups = _normalize_sequence(rule.get("groups"))
+        for group in rule_groups:
+            samples.extend(region_ctx.group_map.get(group, []))
+        samples.extend(_normalize_sequence(rule.get("samples")))
+    ordered = []
+    seen = set()
+    for sample in samples:
+        if sample not in seen:
+            ordered.append(sample)
+            seen.add(sample)
+    return ordered
+
+
+def _normalize_channel_rules(raw_rules):
+    if raw_rules is None:
+        return {"default": [], "variables": {}, "conditional": []}
+    normalized = {
+        "default": _normalize_sequence(raw_rules.get("default", [])),
+        "variables": {
+            key: _normalize_sequence(value)
+            for key, value in raw_rules.get("variables", {}).items()
+        },
+        "conditional": [],
+    }
+    conditional_entries = []
+    for entry in raw_rules.get("conditional", []):
+        if not entry:
+            continue
+        when_key = entry.get("when")
+        if when_key is None:
+            continue
+        conditional_entries.append(
+            {"when": when_key, "apply": _normalize_sequence(entry.get("apply", []))}
+        )
+    normalized["conditional"] = conditional_entries
+    return normalized
+
+
 def _find_reference_hist_name(dict_of_hists):
     for hist_name in dict_of_hists:
         if not hist_name.endswith("_sumw2"):
@@ -226,6 +353,16 @@ class RegionContext(object):
         lumi_pair,
         skip_variables=None,
         analysis_bins=None,
+        channel_rules=None,
+        sample_removal_rules=None,
+        category_skip_rules=None,
+        skip_sparse_2d=False,
+        channel_mode="per-channel",
+        variable_label="Variable",
+        debug_channel_lists=False,
+        sumw2_remove_signal=False,
+        sumw2_remove_signal_when_blinded=False,
+        use_mc_as_data_when_blinded=False,
     ):
         self.name = name
         self.dict_of_hists = dict_of_hists
@@ -241,8 +378,33 @@ class RegionContext(object):
         self.signal_samples = signal_samples
         self.unblind_default = unblind_default
         self.lumi_pair = lumi_pair
-        self.skip_variables = set() if skip_variables is None else skip_variables
-        self.analysis_bins = {} if analysis_bins is None else analysis_bins
+        self.skip_variables = set() if skip_variables is None else set(skip_variables)
+        self.analysis_bins = (
+            {} if analysis_bins is None else copy.deepcopy(analysis_bins)
+        )
+        default_channel_rules = {"default": [], "variables": {}, "conditional": []}
+        self.channel_rules = copy.deepcopy(
+            channel_rules if channel_rules is not None else default_channel_rules
+        )
+        self.sample_removal_rules = (
+            copy.deepcopy(sample_removal_rules)
+            if sample_removal_rules is not None
+            else []
+        )
+        self.category_skip_rules = (
+            copy.deepcopy(category_skip_rules)
+            if category_skip_rules is not None
+            else []
+        )
+        self.skip_sparse_2d = bool(skip_sparse_2d)
+        self.channel_mode = channel_mode
+        self.variable_label = variable_label
+        self.debug_channel_lists = bool(debug_channel_lists)
+        self.sumw2_remove_signal = bool(sumw2_remove_signal)
+        self.sumw2_remove_signal_when_blinded = bool(
+            sumw2_remove_signal_when_blinded
+        )
+        self.use_mc_as_data_when_blinded = bool(use_mc_as_data_when_blinded)
 
 
 def build_region_context(region,dict_of_hists,year,unblind=None):
@@ -315,14 +477,43 @@ def build_region_context(region,dict_of_hists,year,unblind=None):
     else:
         resolved_unblind = bool(unblind)
 
+    region_plot_cfg = REGION_PLOTTING.get(region_upper, {})
+
+    skip_variables = set(region_plot_cfg.get("skip_variables", []))
+    analysis_bins = {}
+    for var_name, spec in region_plot_cfg.get("analysis_bins", {}).items():
+        if isinstance(spec, str):
+            if spec not in axes_info:
+                raise KeyError(
+                    f"Analysis bin specification '{spec}' is not defined in axes_info."
+                )
+            analysis_bins[var_name] = axes_info[spec]["variable"]
+        else:
+            analysis_bins[var_name] = spec
+
+    channel_rules = _normalize_channel_rules(
+        region_plot_cfg.get("channel_transformations")
+    )
+    sample_removal_rules = region_plot_cfg.get("sample_removals", [])
+    category_skip_rules = region_plot_cfg.get("category_skips", [])
+    skip_sparse_2d = region_plot_cfg.get("skip_sparse_2d", False)
+    channel_mode = region_plot_cfg.get("channel_mode", "per-channel")
+    variable_label = region_plot_cfg.get("variable_label", "Variable")
+    debug_channel_lists = region_plot_cfg.get("debug_channel_lists", False)
+    sumw2_remove_signal = region_plot_cfg.get("sumw2_remove_signal", False)
+    sumw2_remove_signal_when_blinded = region_plot_cfg.get(
+        "sumw2_remove_signal_when_blinded", False
+    )
+    use_mc_as_data_when_blinded = region_plot_cfg.get(
+        "use_mc_as_data_when_blinded", False
+    )
+
     if region_upper == "CR":
         group_patterns = CR_GRP_PATTERNS
         channel_map = CR_CHAN_DICT
         group_map = populate_group_map(all_samples, group_patterns)
         signal_samples = sorted(set(group_map.get("Signal", [])))
         unblind_default = resolved_unblind
-        skip_variables = set()
-        analysis_bins = {}
         global CR_GRP_MAP
         CR_GRP_MAP = group_map
     else:
@@ -337,11 +528,6 @@ def build_region_context(region,dict_of_hists,year,unblind=None):
             }
         )
         unblind_default = resolved_unblind
-        skip_variables = set(["ptz","njets"])
-        analysis_bins = {
-            "ptz": axes_info["ptz"]["variable"],
-            "lj0pt": axes_info["lj0pt"]["variable"],
-        }
         global SR_GRP_MAP
         SR_GRP_MAP = group_map
 
@@ -362,6 +548,16 @@ def build_region_context(region,dict_of_hists,year,unblind=None):
         lumi_pair,
         skip_variables,
         analysis_bins,
+        channel_rules=channel_rules,
+        sample_removal_rules=sample_removal_rules,
+        category_skip_rules=category_skip_rules,
+        skip_sparse_2d=skip_sparse_2d,
+        channel_mode=channel_mode,
+        variable_label=variable_label,
+        debug_channel_lists=debug_channel_lists,
+        sumw2_remove_signal=sumw2_remove_signal,
+        sumw2_remove_signal_when_blinded=sumw2_remove_signal_when_blinded,
+        use_mc_as_data_when_blinded=use_mc_as_data_when_blinded,
     )
 
 
@@ -393,7 +589,7 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
 
         histo = dict_of_hists[var_name]
         is_sparse2d = _is_sparse_2d_hist(histo)
-        if region_ctx.name == "SR" and is_sparse2d:
+        if is_sparse2d and region_ctx.skip_sparse_2d:
             continue
         if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
             print(
@@ -401,25 +597,15 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
             )
             is_sparse2d = False
 
-        label = "Variable" if region_ctx.name == "SR" else "Var name"
+        label = region_ctx.variable_label
         print(f"\n{label}: {var_name}")
 
-        channel_transformations = []
-        if region_ctx.name == "CR" and var_name == "njets":
-            channel_transformations.append("njets")
-            channel_dict = get_dict_with_stripped_bin_names(
-                region_ctx.channel_map, "njets"
-            )
-        elif region_ctx.name == "CR":
-            channel_dict = region_ctx.channel_map
-        else:
-            channel_dict = region_ctx.channel_map
-
-        if region_ctx.name == "CR" and not yt.is_split_by_lepflav(dict_of_hists):
-            channel_transformations.append("lepflav")
-            channel_dict = get_dict_with_stripped_bin_names(
-                channel_dict, "lepflav"
-            )
+        channel_transformations = _resolve_channel_transformations(
+            region_ctx, var_name
+        )
+        channel_dict = _apply_channel_dict_transformations(
+            region_ctx.channel_map, channel_transformations
+        )
 
         hist_mc = histo.remove("process", region_ctx.samples_to_remove["mc"])
         hist_data = histo.remove("process", region_ctx.samples_to_remove["data"])
@@ -428,7 +614,7 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
             hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
                 "process", region_ctx.samples_to_remove["mc"]
             )
-            if region_ctx.name == "CR" and region_ctx.signal_samples:
+            if region_ctx.sumw2_remove_signal and region_ctx.signal_samples:
                 existing_signal = [
                     sample
                     for sample in region_ctx.signal_samples
@@ -438,12 +624,16 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                     hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
                         "process", existing_signal
                     )
-            if region_ctx.name == "SR" and region_ctx.signal_samples and not unblind_flag:
+            if (
+                region_ctx.sumw2_remove_signal_when_blinded
+                and region_ctx.signal_samples
+                and not unblind_flag
+            ):
                 hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
                     "process", region_ctx.signal_samples
                 )
 
-        if region_ctx.name == "SR":
+        if region_ctx.debug_channel_lists:
             try:
                 channels_lst = yt.get_cat_lables(dict_of_hists[var_name], "channel")
             except Exception:
@@ -451,20 +641,12 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
             print("channels:", channels_lst)
 
         for hist_cat, channel_bins in channel_dict.items():
-            if region_ctx.name == "CR":
-                if (
-                    hist_cat == "cr_2los_Z"
-                    and ("j0" in var_name)
-                    and ("lj0pt" not in var_name)
-                ):
-                    continue
-                if (
-                    hist_cat == "cr_2lss_flip"
-                    and ("j0" in var_name)
-                    and ("lj0pt" not in var_name)
-                ):
-                    continue
+            if _should_skip_category(
+                region_ctx.category_skip_rules, hist_cat, var_name
+            ):
+                continue
 
+            if region_ctx.channel_mode == "aggregate":
                 print(f"\n\tCategory: {hist_cat}")
 
             validate_channel_group(
@@ -480,7 +662,7 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
             if not os.path.exists(save_dir_path_tmp):
                 os.mkdir(save_dir_path_tmp)
 
-            if region_ctx.name == "CR":
+            if region_ctx.channel_mode == "aggregate":
                 axes_to_integrate_dict = {"channel": channel_bins}
                 try:
                     hist_mc_integrated = yt.integrate_out_cats(
@@ -503,16 +685,9 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                     except Exception:
                         hist_mc_sumw2_integrated = None
 
-                samples_to_rm = []
-                if hist_cat.startswith("cr_2los_tt") or hist_cat.startswith("cr_2los_Z"):
-                    try:
-                        samples_to_rm += copy.deepcopy(
-                            region_ctx.group_map["Nonprompt"]
-                        )
-                    except KeyError:
-                        print(
-                            f"Warning: No Nonprompt group in CR_GRP_MAP for {hist_cat}, skipping sample removal."
-                        )
+                samples_to_rm = _collect_samples_to_remove(
+                    region_ctx.sample_removal_rules, hist_cat, region_ctx
+                )
                 hist_mc_integrated = hist_mc_integrated.remove(
                     "process", samples_to_rm
                 )
@@ -619,22 +794,28 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                         continue
                     x_range = (0, 250) if var_name == "ht" else None
                     group = {k: v for k, v in region_ctx.group_map.items() if v}
+                    stacked_kwargs = {
+                        "h_mc_sumw2": hist_mc_sumw2_integrated,
+                        "syst_err": syst_err_mode,
+                        "err_p_syst": p_err_arr,
+                        "err_m_syst": m_err_arr,
+                        "err_ratio_p_syst": p_err_arr_ratio,
+                        "err_ratio_m_syst": m_err_arr_ratio,
+                        "unblind": unblind_flag,
+                        "set_x_lim": x_range,
+                    }
+                    bins_override = region_ctx.analysis_bins.get(var_name)
+                    if bins_override is not None:
+                        stacked_kwargs["bins"] = bins_override
                     fig = make_stacked_ratio_fig(
                         hist_mc_integrated,
                         hist_data_integrated,
                         unit_norm_bool,
                         var=var_name,
                         group=group,
-                        set_x_lim=x_range,
                         lumitag=region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
                         comtag=region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
-                        h_mc_sumw2=hist_mc_sumw2_integrated,
-                        syst_err=syst_err_mode,
-                        err_p_syst=p_err_arr,
-                        err_m_syst=m_err_arr,
-                        err_ratio_p_syst=p_err_arr_ratio,
-                        err_ratio_m_syst=m_err_arr_ratio,
-                        unblind=unblind_flag,
+                        **stacked_kwargs,
                     )
                 title = hist_cat + "_" + var_name
                 if unit_norm_bool:
@@ -675,7 +856,7 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                     stat_and_syst_plots += 1
                 else:
                     stat_only_plots += 1
-            else:
+            elif region_ctx.channel_mode == "per-channel":
                 channels = [
                     chan
                     for chan in channel_bins
@@ -764,26 +945,35 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                     continue
 
                 hist_data_to_plot = (
-                    hist_data_integrated if unblind_flag else copy.deepcopy(hist_mc_integrated)
+                    hist_data_integrated
+                    if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
+                    else copy.deepcopy(hist_mc_integrated)
                 )
                 year_str = region_ctx.year if region_ctx.year is not None else "ULall"
                 title = f"{hist_cat}_{var_name}_{year_str}"
+                bins_override = region_ctx.analysis_bins.get(var_name)
+                default_bins = axes_info[var_name]["variable"] if var_name in axes_info else None
+                stacked_kwargs = {
+                    "group": region_ctx.group_map,
+                    "lumitag": region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
+                    "comtag": region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
+                    "h_mc_sumw2": hist_mc_sumw2,
+                    "syst_err": syst_err,
+                    "err_p_syst": err_p_syst,
+                    "err_m_syst": err_m_syst,
+                    "err_ratio_p_syst": err_ratio_p_syst,
+                    "err_ratio_m_syst": err_ratio_m_syst,
+                    "unblind": unblind_flag,
+                }
+                bins_to_use = bins_override if bins_override is not None else default_bins
+                if bins_to_use is not None:
+                    stacked_kwargs["bins"] = bins_to_use
                 fig = make_stacked_ratio_fig(
                     hist_mc_integrated,
                     hist_data_to_plot,
                     var=var_name,
                     unit_norm_bool=False,
-                    bins=axes_info[var_name]["variable"],
-                    group=region_ctx.group_map,
-                    lumitag=region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
-                    comtag=region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
-                    h_mc_sumw2=hist_mc_sumw2,
-                    syst_err=syst_err,
-                    err_p_syst=err_p_syst,
-                    err_m_syst=err_m_syst,
-                    err_ratio_p_syst=err_ratio_p_syst,
-                    err_ratio_m_syst=err_ratio_m_syst,
-                    unblind=unblind_flag,
+                    **stacked_kwargs,
                 )
                 fig.savefig(
                     os.path.join(save_dir_path_tmp, title),
@@ -803,6 +993,10 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                     stat_and_syst_plots += 1
                 else:
                     stat_only_plots += 1
+            else:
+                raise ValueError(
+                    f"Unsupported channel_mode '{region_ctx.channel_mode}'"
+                )
 
             if "www" in save_dir_path_tmp:
                 make_html(save_dir_path_tmp)
