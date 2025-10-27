@@ -808,7 +808,7 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                     bins_override = region_ctx.analysis_bins.get(var_name)
                     if bins_override is not None:
                         stacked_kwargs["bins"] = bins_override
-                    fig = make_stacked_ratio_fig(
+                    fig = make_region_stacked_ratio_fig(
                         hist_mc_integrated,
                         hist_data_integrated,
                         unit_norm_bool,
@@ -969,7 +969,7 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                 bins_to_use = bins_override if bins_override is not None else default_bins
                 if bins_to_use is not None:
                     stacked_kwargs["bins"] = bins_to_use
-                fig = make_stacked_ratio_fig(
+                fig = make_region_stacked_ratio_fig(
                     hist_mc_integrated,
                     hist_data_to_plot,
                     var=var_name,
@@ -1558,8 +1558,9 @@ def make_sparse2d_fig(
     return single_panel_figs
 
 
-# Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_stacked_ratio_fig(
+# Takes two histograms and makes a region-level stacked ratio plot (with only one sparse axis, which should be "process").
+# One histogram should encode the MC prediction while the other carries the data yields (or MC-substituted data when blinded).
+def make_region_stacked_ratio_fig(
     h_mc,
     h_data,
     unit_norm_bool,
@@ -2498,34 +2499,6 @@ def make_simple_plots(dict_of_hists,year,save_dir_path,variables=None):
             if "www" in save_dir_path: make_html(save_dir_path_tmp)
 
 
-###################### Wrapper function for data/MC comparison plots ######################
-# Wrapper function to loop over all analysis regions and make plots for all variables.
-# The plots remain blinded by default unless the caller provides unblind=True.
-def make_region_data_mc_plots(
-    dict_of_hists,
-    year,
-    save_dir_path,
-    unblind=False,
-    skip_syst_errs=False,
-    variables=None,
-):
-    region_ctx = build_region_context(
-        "SR",
-        dict_of_hists,
-        year,
-        unblind=unblind,
-    )
-    produce_region_plots(
-        region_ctx,
-        save_dir_path,
-        variables,
-        skip_syst_errs,
-        unit_norm_bool=False,
-        unblind=unblind,
-    )
-
-
-
 ###################### Wrapper function for signal-focused plots ######################
 # Wrapper function to loop over selected categories and make plots for all variables
 # Right now this function will only plot the signal samples
@@ -2699,22 +2672,26 @@ def make_signal_plots(
 
 
 
-###################### Wrapper function for default region plots ######################
-# Wrapper function to loop over the requested analysis region and make plots for all variables.
-# The input hist should include both the data and MC.
-# Plots are unblinded by default in the control region and blinded by
-# default in the signal region unless explicitly overridden.
-def make_region_plots(
+###################### Region plotting entry point ######################
+# Execute the region-agnostic plotting pipeline for the requested region name.
+# The caller provides the histogram dictionary that includes data and MC.
+def run_plots_for_region(
+    region_name,
     dict_of_hists,
     year,
-    skip_syst_errs,
-    unit_norm_bool,
     save_dir_path,
+    *,
+    skip_syst_errs=False,
+    unit_norm_bool=False,
     variables=None,
     unblind=None,
-    region="CR",
 ):
-    region_ctx = build_region_context(region, dict_of_hists, year, unblind=unblind)
+    region_ctx = build_region_context(
+        region_name,
+        dict_of_hists,
+        year,
+        unblind=unblind,
+    )
     produce_region_plots(
         region_ctx,
         save_dir_path,
@@ -2854,18 +2831,17 @@ def main():
     print("\n\n")
 
     # Make the plots
-    make_region_plots(
+    run_plots_for_region(
+        resolved_region,
         hin_dict,
         args.year,
-        args.skip_syst,
-        unit_norm_bool,
         save_dir_path,
+        skip_syst_errs=args.skip_syst,
+        unit_norm_bool=unit_norm_bool,
         variables=selected_variables,
         unblind=resolved_unblind,
-        region=resolved_region,
     )
     #make_signal_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    #make_region_data_mc_plots(hin_dict,args.year,save_dir_path,skip_syst_errs=args.skip_syst)
     #make_signal_systematic_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
 
