@@ -3,6 +3,7 @@ import os
 import copy
 import datetime
 import argparse
+import re
 from collections import OrderedDict
 import matplotlib as mpl
 mpl.use('Agg')
@@ -2699,7 +2700,7 @@ def make_signal_plots(
 
 
 ###################### Wrapper function for default region plots ######################
-# Wrapper function to loop over a default set of analysis regions and make plots for all variables.
+# Wrapper function to loop over the requested analysis region and make plots for all variables.
 # The input hist should include both the data and MC.
 # By default these plots are unblinded unless explicitly overridden.
 def make_region_plots(
@@ -2709,9 +2710,10 @@ def make_region_plots(
     unit_norm_bool,
     save_dir_path,
     variables=None,
-    unblind=True,
+    unblind=None,
+    region="CR",
 ):
-    region_ctx = build_region_context("CR", dict_of_hists, year, unblind=unblind)
+    region_ctx = build_region_context(region, dict_of_hists, year, unblind=unblind)
     produce_region_plots(
         region_ctx,
         save_dir_path,
@@ -2733,11 +2735,6 @@ def main():
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip systematic error bands in plots")
     parser.add_argument(
-        "--run-sr-data-mc",
-        action="store_true",
-        help="Also produce dedicated data vs MC comparison plots",
-    )
-    parser.add_argument(
         "--unblind",
         dest="unblind",
         action="store_true",
@@ -2750,10 +2747,20 @@ def main():
         help="Force plots to hide data yields even in normally unblinded regions.",
     )
     parser.set_defaults(unblind=None)
-    parser.add_argument(
-        "--skip-cr",
-        action="store_true",
-        help="Skip the baseline region plots if only comparison outputs are needed",
+    region_group = parser.add_mutually_exclusive_group()
+    region_group.add_argument(
+        "--cr",
+        dest="region_override",
+        action="store_const",
+        const="CR",
+        help="Force control-region plotting, overriding filename-based detection.",
+    )
+    region_group.add_argument(
+        "--sr",
+        dest="region_override",
+        action="store_const",
+        const="SR",
+        help="Force signal-region plotting, overriding filename-based detection.",
     )
     parser.add_argument(
         "--variables",
@@ -2762,6 +2769,32 @@ def main():
         help="Optional list of histogram variables to plot",
     )
     args = parser.parse_args()
+
+    def _detect_region_from_path(path):
+        if not path:
+            return None, False
+        filename = os.path.basename(path)
+        uppercase = filename.upper()
+        matched_regions = []
+        for region in ("CR", "SR"):
+            pattern = re.compile(rf"(?<![A-Z0-9]){region}(?![A-Z0-9])")
+            if pattern.search(uppercase):
+                matched_regions.append(region)
+        if len(matched_regions) == 1:
+            return matched_regions[0], False
+        if len(matched_regions) > 1:
+            return None, True
+        return None, False
+
+    detected_region, ambiguous_region = _detect_region_from_path(args.pkl_file_path)
+    resolved_region = args.region_override or detected_region or "CR"
+    if ambiguous_region and not args.region_override:
+        print(
+            "Warning: Detected both 'CR' and 'SR' tokens in the input filename. "
+            "Defaulting to 'CR'; please pass --cr or --sr to specify explicitly."
+        )
+
+    print(f"Resolved plotting region: {resolved_region}")
 
     normalized_variables = []
     if args.variables is not None:
@@ -2798,41 +2831,22 @@ def main():
     print("Output dir:",save_dir_path)
     print("Variables to plot:", selected_variables if selected_variables else "All")
     print("\n\n")
-    
-    # Make the plots
-    resolved_unblind_cr = args.unblind if args.unblind is not None else True
-    resolved_unblind_sr = args.unblind if args.unblind is not None else False
 
-    if not args.skip_cr:
-        make_region_plots(
-            hin_dict,
-            args.year,
-            args.skip_syst,
-            unit_norm_bool,
-            save_dir_path,
-            variables=selected_variables,
-            unblind=resolved_unblind_cr,
-        )
+    # Make the plots
+    make_region_plots(
+        hin_dict,
+        args.year,
+        args.skip_syst,
+        unit_norm_bool,
+        save_dir_path,
+        variables=selected_variables,
+        unblind=args.unblind,
+        region=resolved_region,
+    )
     #make_signal_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_region_data_mc_plots(hin_dict,args.year,save_dir_path,skip_syst_errs=args.skip_syst)
     #make_signal_systematic_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
-
-    # Make unblinded SR data MC comparison plots by year
-    if args.run_sr_data_mc:
-        make_region_data_mc_plots(
-            hin_dict,
-            args.year,
-            save_dir_path,
-            unblind=resolved_unblind_sr,
-            skip_syst_errs=args.skip_syst,
-            variables=selected_variables,
-        )
-    #make_region_data_mc_plots(hin_dict,"2016",save_dir_path,unblind=True)
-    #make_region_data_mc_plots(hin_dict,"2016APV",save_dir_path,unblind=True)
-    #make_region_data_mc_plots(hin_dict,"2017",save_dir_path,unblind=True)
-    #make_region_data_mc_plots(hin_dict,"2018",save_dir_path,unblind=True)
-    #make_region_data_mc_plots(hin_dict,None,save_dir_path,unblind=True)
 
 if __name__ == "__main__":
     main()
