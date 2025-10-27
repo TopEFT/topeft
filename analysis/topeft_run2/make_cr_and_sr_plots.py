@@ -806,7 +806,7 @@ def make_cr_fig(
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(10,11),
+        figsize=(8, 9),
         gridspec_kw={"height_ratios": (4, 1)},
         sharex=True
     )
@@ -1034,190 +1034,204 @@ def make_cr_fig(
     # Put a legend to the right of the current axis
     legend = ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
 
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
-
-    legend_box = None
-    if legend is not None:
-        legend_bbox = legend.get_window_extent(renderer=renderer)
-        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-
-    cms_artists = ()
-    if cms_label is not None:
-        if isinstance(cms_label, (list, tuple)):
-            cms_artists = tuple(cms_label)
-        else:
-            cms_artists = (cms_label,)
-
-    cms_bboxes = []
-    cms_positions = []
-    for artist in cms_artists:
-        if hasattr(artist, "get_window_extent"):
-            cms_bbox = artist.get_window_extent(renderer=renderer)
-            cms_bboxes.append(cms_bbox)
-        if hasattr(artist, "get_position") and hasattr(artist, "get_transform"):
-            try:
-                artist_pos = np.asarray(artist.get_position())
-            except Exception:
-                continue
-            artist_transform = artist.get_transform()
-            if artist_transform is None:
-                continue
-            try:
-                display_coords = artist_transform.transform(artist_pos)
-            except Exception:
-                continue
-            fig_coords = fig.transFigure.inverted().transform(display_coords)
-            cms_positions.append((artist, fig_coords))
-
-    if legend_box is not None and cms_bboxes:
-        cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
-        target_gap = 0.015
-        gap = cms_box.y0 - legend_box.y1
-        if gap < target_gap:
-            delta = target_gap - gap
-            ax_box = ax.get_position()
-            rax_box = rax.get_position()
-            max_shift = rax_box.y0
-            shift = min(delta, max_shift)
-            if shift > 0:
-                ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
-                rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
-                for artist, fig_coords in cms_positions:
-                    artist.set_transform(fig.transFigure)
-                    artist.set_position(fig_coords)
-                fig.canvas.draw()
-                renderer = fig.canvas.get_renderer()
-                legend_bbox = legend.get_window_extent(renderer=renderer)
-                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-                cms_bboxes = []
-                for artist in cms_artists:
-                    if hasattr(artist, "get_window_extent"):
-                        cms_bbox = artist.get_window_extent(renderer=renderer)
-                        cms_bboxes.append(cms_bbox)
-                if cms_bboxes:
-                    cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
-
-    axis_bboxes = []
-    for axis_obj in (ax, rax):
-        try:
-            bbox = axis_obj.get_tightbbox(renderer)
-        except Exception:
-            bbox = None
-        if bbox is None:
-            continue
-        axis_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
-
-    if axis_bboxes:
-        rightmost_extent = max(bbox.x1 for bbox in axis_bboxes)
-    else:
-        rightmost_extent = max(ax.get_position().x1, rax.get_position().x1)
-
-    subplot_params = fig.subplotpars
-    safety_margin = 0.003
-    max_right = np.nextafter(1.0, 0.0)
-    effective_right = min(max_right, rightmost_extent + safety_margin)
-
-    if not np.isclose(effective_right, subplot_params.right):
-        stored_positions = [ax.get_position().frozen(), rax.get_position().frozen()]
-
-        plt.subplots_adjust(
-            bottom=subplot_params.bottom,
-            top=subplot_params.top,
-            left=subplot_params.left,
-            right=effective_right,
-            hspace=subplot_params.hspace,
-            wspace=subplot_params.wspace,
-        )
-
+    def _finalize_layout(fig, ax, rax, legend, cms_label, display_label, label_artist=None):
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
 
-        adjusted = False
-        for axis_obj, original_pos in zip((ax, rax), stored_positions):
-            updated_pos = axis_obj.get_position()
-            delta_y = original_pos.y0 - updated_pos.y0
-            if not np.isclose(delta_y, 0.0):
-                axis_obj.set_position(
-                    [
-                        updated_pos.x0,
-                        updated_pos.y0 + delta_y,
-                        updated_pos.width,
-                        updated_pos.height,
-                    ]
-                )
-                adjusted = True
+        legend_box = None
+        if legend is not None:
+            legend_bbox = legend.get_window_extent(renderer=renderer)
+            legend_box = legend_bbox.transformed(fig.transFigure.inverted())
 
-        if adjusted:
+        cms_artists = ()
+        if cms_label is not None:
+            if isinstance(cms_label, (list, tuple)):
+                cms_artists = tuple(cms_label)
+            else:
+                cms_artists = (cms_label,)
+
+        cms_bboxes = []
+        cms_positions = []
+        for artist in cms_artists:
+            if hasattr(artist, "get_window_extent"):
+                cms_bbox = artist.get_window_extent(renderer=renderer)
+                cms_bboxes.append(cms_bbox)
+            if hasattr(artist, "get_position") and hasattr(artist, "get_transform"):
+                try:
+                    artist_pos = np.asarray(artist.get_position())
+                except Exception:
+                    continue
+                artist_transform = artist.get_transform()
+                if artist_transform is None:
+                    continue
+                try:
+                    display_coords = artist_transform.transform(artist_pos)
+                except Exception:
+                    continue
+                fig_coords = fig.transFigure.inverted().transform(display_coords)
+                cms_positions.append((artist, fig_coords))
+
+        if legend_box is not None and cms_bboxes:
+            cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+            target_gap = 0.015
+            gap = cms_box.y0 - legend_box.y1
+            if gap < target_gap:
+                delta = target_gap - gap
+                ax_box = ax.get_position()
+                rax_box = rax.get_position()
+                max_shift = rax_box.y0
+                shift = min(delta, max_shift)
+                if shift > 0:
+                    ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
+                    rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
+                    for artist, fig_coords in cms_positions:
+                        artist.set_transform(fig.transFigure)
+                        artist.set_position(fig_coords)
+                    fig.canvas.draw()
+                    renderer = fig.canvas.get_renderer()
+                    legend_bbox = legend.get_window_extent(renderer=renderer)
+                    legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+                    cms_bboxes = []
+                    for artist in cms_artists:
+                        if hasattr(artist, "get_window_extent"):
+                            cms_bbox = artist.get_window_extent(renderer=renderer)
+                            cms_bboxes.append(cms_bbox)
+                    if cms_bboxes:
+                        cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+
+        axis_bboxes = []
+        for axis_obj in (ax, rax):
+            try:
+                bbox = axis_obj.get_tightbbox(renderer)
+            except Exception:
+                bbox = None
+            if bbox is None:
+                continue
+            axis_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+
+        if axis_bboxes:
+            rightmost_extent = max(bbox.x1 for bbox in axis_bboxes)
+        else:
+            rightmost_extent = max(ax.get_position().x1, rax.get_position().x1)
+
+        subplot_params = fig.subplotpars
+        safety_margin = 0.003
+        max_right = np.nextafter(1.0, 0.0)
+        effective_right = min(max_right, rightmost_extent + safety_margin)
+
+        if not np.isclose(effective_right, subplot_params.right):
+            stored_positions = [ax.get_position().frozen(), rax.get_position().frozen()]
+
+            plt.subplots_adjust(
+                bottom=subplot_params.bottom,
+                top=subplot_params.top,
+                left=subplot_params.left,
+                right=effective_right,
+                hspace=subplot_params.hspace,
+                wspace=subplot_params.wspace,
+            )
+
             fig.canvas.draw()
             renderer = fig.canvas.get_renderer()
 
+            adjusted = False
+            for axis_obj, original_pos in zip((ax, rax), stored_positions):
+                updated_pos = axis_obj.get_position()
+                delta_y = original_pos.y0 - updated_pos.y0
+                if not np.isclose(delta_y, 0.0):
+                    axis_obj.set_position(
+                        [
+                            updated_pos.x0,
+                            updated_pos.y0 + delta_y,
+                            updated_pos.width,
+                            updated_pos.height,
+                        ]
+                    )
+                    adjusted = True
+
+            if adjusted:
+                fig.canvas.draw()
+                renderer = fig.canvas.get_renderer()
+
+            subplot_params = fig.subplotpars
+
+        def _get_min_axis_y(renderer):
+            bboxes = []
+            for tick_label in rax.get_xticklabels():
+                if not tick_label.get_visible():
+                    continue
+                text = tick_label.get_text()
+                if not text:
+                    continue
+                bbox = tick_label.get_window_extent(renderer=renderer)
+                bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+
+            axis_label = rax.xaxis.label
+            if axis_label and axis_label.get_visible():
+                axis_bbox = axis_label.get_window_extent(renderer=renderer)
+                bboxes.append(axis_bbox.transformed(fig.transFigure.inverted()))
+
+            if bboxes:
+                return min(bbox.y0 for bbox in bboxes)
+
+            return rax.get_position().y0
+
+        label_fontsize = rax.yaxis.label.get_size() if rax.yaxis.label else 18
+        renderer = fig.canvas.get_renderer()
+
+        temp_text = fig.text(0, 0, display_label, fontsize=label_fontsize)
+        temp_bbox = temp_text.get_window_extent(renderer=renderer)
+        temp_bbox = temp_bbox.transformed(fig.transFigure.inverted())
+        measured_height = temp_bbox.height
+        temp_text.remove()
+
+        margin = 0.002
+        min_axis_y = _get_min_axis_y(renderer)
+        label_y = min_axis_y - measured_height - margin
+
         subplot_params = fig.subplotpars
+        new_bottom = max(0.0, label_y - margin)
+        new_bottom = np.clip(new_bottom, 0.0, 1.0)
 
-    def _get_min_axis_y(renderer):
-        bboxes = []
-        for tick_label in rax.get_xticklabels():
-            if not tick_label.get_visible():
-                continue
-            text = tick_label.get_text()
-            if not text:
-                continue
-            bbox = tick_label.get_window_extent(renderer=renderer)
-            bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+        if not np.isclose(new_bottom, subplot_params.bottom):
+            plt.subplots_adjust(
+                bottom=new_bottom,
+                top=subplot_params.top,
+                left=subplot_params.left,
+                right=subplot_params.right,
+                hspace=subplot_params.hspace,
+                wspace=subplot_params.wspace,
+            )
 
-        axis_label = rax.xaxis.label
-        if axis_label and axis_label.get_visible():
-            axis_bbox = axis_label.get_window_extent(renderer=renderer)
-            bboxes.append(axis_bbox.transformed(fig.transFigure.inverted()))
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            min_axis_y = _get_min_axis_y(renderer)
+            label_y = min_axis_y - measured_height - margin
 
-        if bboxes:
-            return min(bbox.y0 for bbox in bboxes)
+        rax_box = rax.get_position()
 
-        return rax.get_position().y0
+        if label_artist is None or not isinstance(label_artist, mpl.text.Text):
+            label_artist = fig.text(
+                rax_box.x0 + rax_box.width,
+                label_y,
+                display_label,
+                ha="right",
+                va="bottom",
+                fontsize=label_fontsize,
+            )
+        else:
+            label_artist.set_position((rax_box.x0 + rax_box.width, label_y))
+            label_artist.set_text(display_label)
+            label_artist.set_fontsize(label_fontsize)
+            label_artist.set_ha("right")
+            label_artist.set_va("bottom")
 
-    label_fontsize = rax.yaxis.label.get_size() if rax.yaxis.label else 18
-    renderer = fig.canvas.get_renderer()
+        return label_artist
 
-    temp_text = fig.text(0, 0, display_label, fontsize=label_fontsize)
-    temp_bbox = temp_text.get_window_extent(renderer=renderer)
-    temp_bbox = temp_bbox.transformed(fig.transFigure.inverted())
-    measured_height = temp_bbox.height
-    temp_text.remove()
+    label_artist = None
+    for _ in range(2):
+        label_artist = _finalize_layout(fig, ax, rax, legend, cms_label, display_label, label_artist)
 
-    margin = 0.002
-    min_axis_y = _get_min_axis_y(renderer)
-    label_y = min_axis_y - measured_height - margin
-
-    subplot_params = fig.subplotpars
-    new_bottom = max(0.0, label_y - margin)
-    new_bottom = np.clip(new_bottom, 0.0, 1.0)
-
-    if not np.isclose(new_bottom, subplot_params.bottom):
-        plt.subplots_adjust(
-            bottom=new_bottom,
-            top=subplot_params.top,
-            left=subplot_params.left,
-            right=subplot_params.right,
-            hspace=subplot_params.hspace,
-            wspace=subplot_params.wspace,
-        )
-
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
-
-    min_axis_y = _get_min_axis_y(renderer)
-
-    label_y = min_axis_y - measured_height - margin
-    rax_box = rax.get_position()
-
-    fig.text(
-        rax_box.x0 + rax_box.width,
-        label_y,
-        display_label,
-        ha="right",
-        va="bottom",
-        fontsize=label_fontsize,
-    )
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
