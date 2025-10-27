@@ -223,6 +223,12 @@ def run_quickstart(
     nworkers: int = 1,
     chunksize: int = 50000,
     nchunks: Optional[int] = 2,
+    futures_status: Optional[bool] = None,
+    futures_tail_timeout: Optional[int] = None,
+    futures_memory: Optional[int] = None,
+    futures_prefetch: Optional[int] = 1,
+    futures_retries: int = 0,
+    futures_retry_wait: float = 5.0,
     outname: str = "quickstart",
     treename: Optional[str] = None,
     split_lep_flavor: bool = False,
@@ -284,6 +290,12 @@ def run_quickstart(
         resource_monitor=resource_monitor,
         resources_mode=resources_mode,
         environment_file=environment_file,
+        futures_status=futures_status,
+        futures_tail_timeout=futures_tail_timeout,
+        futures_memory=futures_memory,
+        futures_prefetch=futures_prefetch,
+        futures_retries=futures_retries,
+        futures_retry_wait=futures_retry_wait,
     )
 
     sample_loader = SampleLoader(

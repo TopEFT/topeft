@@ -141,6 +141,60 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--futures-status",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Toggle the progress bar emitted by coffea.processor.FuturesExecutor."
+            " Defaults to coffea's built-in choice when omitted."
+        ),
+    )
+    parser.add_argument(
+        "--futures-tail-timeout",
+        type=int,
+        default=None,
+        help=(
+            "Timeout in seconds for cancelling stalled futures tasks."
+            " Passed through to FuturesExecutor.tailtimeout."
+        ),
+    )
+    parser.add_argument(
+        "--futures-memory",
+        type=int,
+        default=None,
+        help=(
+            "Approximate per-worker memory budget in MB for dynamic chunk sizing"
+            " when using the futures executor."
+        ),
+    )
+    parser.add_argument(
+        "--futures-prefetch",
+        type=int,
+        default=1,
+        help=(
+            "Number of input ROOT files per sample to stage when running with"
+            " the futures executor. Set to 0 to process all files."
+        ),
+    )
+    parser.add_argument(
+        "--futures-retries",
+        type=int,
+        default=0,
+        help=(
+            "Number of times to retry a futures task after a failure before"
+            " aborting the run."
+        ),
+    )
+    parser.add_argument(
+        "--futures-retry-wait",
+        type=float,
+        default=5.0,
+        help=(
+            "Seconds to wait between futures retry attempts. Only used when"
+            " --futures-retries is greater than zero."
+        ),
+    )
+    parser.add_argument(
         "--scenario",
         dest="scenarios",
         action="append",

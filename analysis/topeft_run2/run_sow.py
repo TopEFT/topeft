@@ -133,6 +133,42 @@ parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the o
 parser.add_argument('--treename'       , default='Events', help = 'Name of the tree inside the files')
 parser.add_argument('--xrd'            , default='', help = 'The XRootD redirector to use when reading directly from json files')
 parser.add_argument('--wc-list'        , action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
+parser.add_argument(
+    '--futures-workers',
+    type=int,
+    default=8,
+    help='Maximum number of local processes to launch with the futures executor.',
+)
+parser.add_argument(
+    '--futures-status',
+    action=argparse.BooleanOptionalAction,
+    default=None,
+    help='Toggle the coffea futures progress bar.',
+)
+parser.add_argument(
+    '--futures-tail-timeout',
+    type=int,
+    default=None,
+    help='Timeout (in seconds) for cancelling stalled futures tasks.',
+)
+parser.add_argument(
+    '--futures-memory',
+    type=int,
+    default=None,
+    help='Approximate per-worker memory budget in MB for dynamic chunk sizing.',
+)
+parser.add_argument(
+    '--futures-retries',
+    type=int,
+    default=0,
+    help='Number of times to retry a futures execution after a failure.',
+)
+parser.add_argument(
+    '--futures-retry-wait',
+    type=float,
+    default=5.0,
+    help='Seconds to wait between futures retry attempts.',
+)
 parser.add_argument('--port'           , default='9123-9130', help = 'Specify the Work Queue/TaskVine port range (PORT or PORT_MIN-PORT_MAX).')
 parser.add_argument(
     '--environment-file',
@@ -165,6 +201,19 @@ wc_lst     = args.wc_list if args.wc_list is not None else []
 debug_mode = args.debug
 port_min, port_max = _parse_port_range(args.port)
 environment_setting = _normalize_environment_file(args.environment_file)
+futures_workers = max(int(args.futures_workers or 1), 1)
+futures_status = args.futures_status
+futures_tail_timeout = None
+if args.futures_tail_timeout and args.futures_tail_timeout > 0:
+    futures_tail_timeout = int(args.futures_tail_timeout)
+if args.futures_memory is None:
+    futures_memory = None
+else:
+    futures_memory = int(args.futures_memory)
+    if futures_memory <= 0:
+        futures_memory = None
+futures_retries = max(int(args.futures_retries or 0), 0)
+futures_retry_wait = max(float(args.futures_retry_wait or 0.0), 0.0)
 
 samples_to_process = {}
 for fn in inputFiles:
@@ -220,10 +269,15 @@ processor_instance = sow_processor.AnalysisProcessor(samples_to_process,wc_lst, 
 tstart = time.time()
 
 if executor == "futures":
-    try:
-        exec_instance = processor.FuturesExecutor(workers=8)
-    except AttributeError:  # pragma: no cover - depends on coffea build
-        exec_instance = processor.futures_executor(workers=8)
+    executor_args = {"workers": futures_workers}
+    if futures_status is not None:
+        executor_args["status"] = bool(futures_status)
+    if futures_tail_timeout is not None:
+        executor_args["tailtimeout"] = int(futures_tail_timeout)
+    futures_cls = getattr(processor, "FuturesExecutor", None)
+    if futures_cls is None:  # pragma: no cover - depends on coffea build
+        futures_cls = getattr(processor, "futures_executor")
+    exec_instance = futures_cls(**executor_args)
 elif executor == "iterative":
     try:
         exec_instance = processor.IterativeExecutor()
@@ -339,8 +393,45 @@ elif executor in {"work_queue", "taskvine"}:
 else:
     raise Exception(f"Executor \"{executor}\" is not known.")
 
-runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=900)
-output = runner(flist, treename, processor_instance)
+runner_fields = set(getattr(processor.Runner, "__dataclass_fields__", {}))
+runner_kwargs: dict[str, Any] = {}
+if (
+    executor == "futures"
+    and futures_memory is not None
+    and "dynamic_chunksize" in runner_fields
+):
+    runner_kwargs["dynamic_chunksize"] = {"memory": int(futures_memory)}
+
+runner = processor.Runner(
+    exec_instance,
+    schema=NanoAODSchema,
+    chunksize=chunksize,
+    maxchunks=nchunks,
+    skipbadfiles=False,
+    xrootdtimeout=900,
+    **runner_kwargs,
+)
+
+attempt = 0
+while True:
+    try:
+        output = runner(flist, treename, processor_instance)
+    except Exception as exc:
+        if executor != "futures" or attempt >= futures_retries:
+            raise
+        attempt += 1
+        print(
+            "[futures] sow task failed (attempt {attempt}/{limit}): {error}.".format(
+                attempt=attempt,
+                limit=futures_retries,
+                error=exc,
+            )
+        )
+        if futures_retry_wait > 0:
+            time.sleep(futures_retry_wait)
+        continue
+    else:
+        break
 
 expected_keys = {"sow", "sow_norm", "nEvents"}
 missing_keys = expected_keys.difference(output.keys())
