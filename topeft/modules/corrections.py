@@ -17,7 +17,7 @@ from coffea.jetmet_tools import CorrectedMETFactory
 ### workaround while waiting the correcion-lib integration will be provided in the coffea package
 from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
 from topcoffea.modules.JECStack import JECStack
-from coffea.btag_tools.btagscalefactor import BTagScaleFactor
+from coffea.btag_tools import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
 
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -40,8 +40,8 @@ clib_year_map = {
     "2018": "2018_UL",
     "2022": "2022_Summer22",
     "2022EE": "2022_Summer22EE",
-    "2023": "2022_Summer23",
-    "2023BPix": "2022_Summer23BPix",
+    "2023": "2023_Summer23",
+    "2023BPix": "2023_Summer23BPix",
 }
 
 egm_tag_map = {
@@ -51,8 +51,8 @@ egm_tag_map = {
     "2018_UL": "2018",
     "2022_Summer22": "2022Re-recoBCD",
     "2022_Summer22EE": "2022Re-recoE+PromptFG",
-    "2022_Summer23": "2023PromptC",
-    "2022_Summer23BPix": "2023PromptD",
+    "2023_Summer23": "2023PromptC",
+    "2023_Summer23BPix": "2023PromptD",
 }
 
 egm_pt_bins = {
