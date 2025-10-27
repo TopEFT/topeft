@@ -2,7 +2,7 @@
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-import coffea.hist as hist
+import hist
 import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection
 from dataclasses import dataclass, field
@@ -10,8 +10,17 @@ from typing import Any, Dict, Optional
 
 from topcoffea.modules.objects import *
 from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
+
+
+class HistWithIdentity(hist.Hist):
+    """Small helper to provide coffea-style identity semantics for boost-hist histograms."""
+
+    def identity(self):
+        clone = self.copy()
+        clone.reset()
+        return clone
 
 
 def _resolve_collection(events, names):
@@ -30,6 +39,24 @@ def _get_field(array, *names):
         if name in getattr(array, "fields", []):
             return array[name]
     raise AttributeError(f"Unable to find any of the fields {names}")
+
+
+def _ensure_ak_array(values, dtype=None):
+    if values is None:
+        return None
+    if not isinstance(values, ak.Array):
+        values = ak.Array(values)
+    fields = ak.fields(values)
+    if fields:
+        if "nominal" in fields:
+            values = values["nominal"]
+        else:
+            values = values[fields[0]]
+    while isinstance(values, ak.Array) and values.ndim > 1:
+        values = ak.flatten(values, axis=1)
+    if dtype is not None:
+        values = ak.values_astype(values, dtype)
+    return values
 
 
 @dataclass
@@ -57,13 +84,43 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._dtype = dtype
 
         # Create the histograms
-        # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
+        # In general, histograms depend on 'dataset', 'channel' (final state) and 'selection' (level of selection)
+
+        def _category_axes():
+            return (
+                hist.axis.StrCategory([], name="dataset", growth=True),
+                hist.axis.StrCategory([], name="channel", growth=True),
+                hist.axis.StrCategory([], name="selection", growth=True),
+            )
+
+        def _build_eft_hist(axis_name: str, axis_label: str, bins: int, start: float, stop: float):
+            dataset_axis, channel_axis, selection_axis = _category_axes()
+            dense_axis = hist.axis.Regular(bins=bins, start=start, stop=stop, name=axis_name, label=axis_label)
+            return HistEFT(
+                dataset_axis,
+                channel_axis,
+                selection_axis,
+                dense_axis,
+                wc_names=wc_names_lst,
+                label="Events",
+            )
+
+        dataset_axis, channel_axis, selection_axis = _category_axes()
+        counts_axis = hist.axis.Regular(bins=1, start=0, stop=2, name="counts", label="Counts")
+
         self._accumulator = processor.dict_accumulator({
-            'counts'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("counts", "Counts", 1, 0, 2)),
-            'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("njets",  "Jet multiplicity ", 12, 0, 12)),
-            'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 10, 0, 600)),
-            'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0eta",  "Leading jet  $\eta$", 10, -3.0, 3.0)),
-            'l0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("l0pt",   "Leading lep $p_{T}$ (GeV)", 15, 0, 400)),
+            "counts": HistWithIdentity(
+                dataset_axis,
+                channel_axis,
+                selection_axis,
+                counts_axis,
+                storage=hist.storage.Double(),
+                label="Events",
+            ),
+            "njets": _build_eft_hist("njets", "Jet multiplicity", 12, 0, 12),
+            "j0pt": _build_eft_hist("j0pt", "Leading jet  $p_{T}$ (GeV)", 10, 0, 600),
+            "j0eta": _build_eft_hist("j0eta", "Leading jet  $\eta$", 10, -3.0, 3.0),
+            "l0pt": _build_eft_hist("l0pt", "Leading lep $p_{T}$ (GeV)", 15, 0, 400),
         })
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
@@ -267,15 +324,43 @@ class AnalysisProcessor(processor.ProcessorABC):
             eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
             eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
             if var == "counts":
-                hout[var].fill(counts=values, sample=dataset, channel="2l", cut="2l")
+                hout[var].fill(counts=values, dataset=dataset, channel="2l", selection="2l")
             elif var == "njets":
-                hout[var].fill(njets=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+                hout[var].fill(
+                    njets=values,
+                    dataset=dataset,
+                    channel="2l",
+                    selection="2l",
+                    eft_coeff=eft_coeffs_cut,
+                    eft_err_coeff=eft_w2_coeffs_cut,
+                )
             elif var == "j0pt":
-                hout[var].fill(j0pt=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+                hout[var].fill(
+                    j0pt=values,
+                    dataset=dataset,
+                    channel="2l",
+                    selection="2l",
+                    eft_coeff=eft_coeffs_cut,
+                    eft_err_coeff=eft_w2_coeffs_cut,
+                )
             elif var == "j0eta":
-                hout[var].fill(j0eta=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+                hout[var].fill(
+                    j0eta=values,
+                    dataset=dataset,
+                    channel="2l",
+                    selection="2l",
+                    eft_coeff=eft_coeffs_cut,
+                    eft_err_coeff=eft_w2_coeffs_cut,
+                )
             elif var == "l0pt":
-                hout[var].fill(l0pt=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+                hout[var].fill(
+                    l0pt=values,
+                    dataset=dataset,
+                    channel="2l",
+                    selection="2l",
+                    eft_coeff=eft_coeffs_cut,
+                    eft_err_coeff=eft_w2_coeffs_cut,
+                )
 
         context.hist_output = hout
 

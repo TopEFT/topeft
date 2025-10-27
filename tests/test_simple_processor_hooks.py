@@ -28,11 +28,16 @@ def _install_test_stubs():
 
     coffea_pkg = sys.modules.setdefault("coffea", types.ModuleType("coffea"))
 
-    hist_module = types.ModuleType("coffea.hist")
+    hist_module = types.ModuleType("hist")
 
     class _DummyAxis:
-        def __init__(self, *_, **__):
-            pass
+        def __init__(self, *_, **kwargs):
+            self.name = kwargs.get("name", "axis")
+            self.label = kwargs.get("label")
+
+    class _DummyStorage:
+        def __call__(self, *_, **__):
+            return self
 
     class _DummyHist:
         def __init__(self, *_, **__):
@@ -41,11 +46,16 @@ def _install_test_stubs():
         def fill(self, **__):
             pass
 
+        def identity(self):
+            return self
+
+    hist_module.axis = types.SimpleNamespace(
+        StrCategory=_DummyAxis,
+        Regular=_DummyAxis,
+    )
+    hist_module.storage = types.SimpleNamespace(Double=_DummyStorage)
     hist_module.Hist = _DummyHist
-    hist_module.Cat = _DummyAxis
-    hist_module.Bin = _DummyAxis
-    sys.modules["coffea.hist"] = hist_module
-    coffea_pkg.hist = hist_module  # type: ignore[attr-defined]
+    sys.modules["hist"] = hist_module
 
     processor_module = types.ModuleType("coffea.processor")
 
@@ -87,8 +97,6 @@ def _install_test_stubs():
     selection_module = types.ModuleType("topcoffea.modules.selection")
     sys.modules["topcoffea.modules.selection"] = selection_module
 
-    hist_eft_module = types.ModuleType("topcoffea.modules.HistEFT")
-
     class _DummyHistEFT:
         def __init__(self, *_, **__):
             pass
@@ -96,8 +104,13 @@ def _install_test_stubs():
         def fill(self, **__):
             pass
 
+    hist_eft_module = types.ModuleType("topcoffea.modules.HistEFT")
     hist_eft_module.HistEFT = _DummyHistEFT
     sys.modules["topcoffea.modules.HistEFT"] = hist_eft_module
+
+    hist_eft_lower_module = types.ModuleType("topcoffea.modules.histEFT")
+    hist_eft_lower_module.HistEFT = _DummyHistEFT
+    sys.modules["topcoffea.modules.histEFT"] = hist_eft_lower_module
 
     eft_helper_module = types.ModuleType("topcoffea.modules.eft_helper")
     eft_helper_module.calc_w2_coeffs = lambda *_, **__: None  # type: ignore[attr-defined]

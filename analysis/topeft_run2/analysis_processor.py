@@ -276,6 +276,25 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
     @staticmethod
+    def _ensure_ak_array(values, dtype=None):
+        if values is None:
+            return None
+        if not isinstance(values, ak.Array):
+            values = ak.Array(values)
+        fields = ak.fields(values)
+        if fields:
+            if "nominal" in fields:
+                values = values["nominal"]
+            else:
+                values = values[fields[0]]
+        while isinstance(values, ak.Array) and values.ndim > 1:
+            values = ak.flatten(values, axis=1)
+        if dtype is not None:
+            values = ak.values_astype(values, dtype)
+        return values
+
+
+    @staticmethod
     def _metadata_to_mapping(metadata: Optional[object]) -> Mapping[str, object]:
         """Return *metadata* as a mapping without mutating the input."""
 
@@ -883,9 +902,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # If this is not an EFT sample, use the generator weight; otherwise
                 # default to unity.
                 if eft_coeffs is None:
-                    genw = events["genWeight"]
+                    genw = self._ensure_ak_array(getattr(events, "genWeight", None), dtype=self._dtype)
+                    if genw is None:
+                        genw = ak.ones_like(events.event, dtype=self._dtype)
                 else:
-                    genw = np.ones_like(events["event"])
+                    genw = ak.ones_like(events.event, dtype=self._dtype)
 
                 # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples.
                 lumi = 1000.0 * get_tc_param(f"lumi_{year}")
