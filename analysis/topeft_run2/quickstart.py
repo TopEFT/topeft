@@ -27,13 +27,22 @@ from .run_analysis_helpers import (
     unique_preserving_order,
     weight_variations_from_metadata,
 )
-from .workflow import (
-    DEFAULT_SCENARIO_NAME,
-    ChannelPlanner,
-    ExecutorFactory,
-    HistogramPlanner,
-    RunWorkflow,
-)
+try:
+    from .workflow import (
+        DEFAULT_SCENARIO_NAME,
+        ChannelPlanner,
+        ExecutorFactory,
+        HistogramPlanner,
+        RunWorkflow,
+    )
+except ImportError:  # pragma: no cover - optional workflow helper
+    from .workflow import (  # type: ignore[misc]
+        DEFAULT_SCENARIO_NAME,
+        ChannelPlanner,
+        ExecutorFactory,
+        HistogramPlanner,
+    )
+    RunWorkflow = None  # type: ignore[assignment]
 
 _DEFAULT_VARIABLES: Tuple[str, ...] = ("lj0pt",)
 
@@ -318,6 +327,9 @@ def run_quickstart(
     )
 
     executor_factory = ExecutorFactory(config)
+
+    if RunWorkflow is None:  # pragma: no cover - defensive guard
+        raise RuntimeError("RunWorkflow is not available; workflow helpers cannot be used")
 
     workflow = RunWorkflow(
         config=config,

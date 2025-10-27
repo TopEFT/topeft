@@ -48,6 +48,25 @@ _SCALE_VARIATIONS = {
 }
 
 
+def _to_numpy_weight(values, dtype):
+    if values is None:
+        return None
+    if not isinstance(values, ak.Array):
+        values = ak.Array(values)
+    fields = ak.fields(values)
+    if fields:
+        if "nominal" in fields:
+            values = values["nominal"]
+        else:
+            values = values[fields[0]]
+    while isinstance(values, ak.Array) and values.ndim > 1:
+        values = ak.flatten(values, axis=1)
+    result = ak.to_numpy(values)
+    if dtype is not None:
+        result = result.astype(dtype, copy=False)
+    return result
+
+
 class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(
@@ -121,7 +140,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         wgts = np.ones(n_events, dtype=self._dtype)
         if not isData and eft_coeffs is None:
             # Basically any central MC samples
-            wgts = ak.to_numpy(events["genWeight"]).astype(self._dtype, copy=False)
+            genw = _to_numpy_weight(getattr(events, "genWeight", None), self._dtype)
+            if genw is not None:
+                wgts = genw
 
         # Attach up/down weights when necessary
         self._attach_variation_weights(events, dataset, isData)
@@ -154,9 +175,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     )
                 variation_factors[variation] = unity
                 continue
-            variation_factors[variation] = ak.to_numpy(getattr(events, attr)).astype(
-                self._dtype, copy=False
-            )
+            variation_values = _to_numpy_weight(getattr(events, attr), self._dtype)
+            variation_factors[variation] = variation_values if variation_values is not None else unity
 
         ###### Fill histograms ######
         hout = self.accumulator

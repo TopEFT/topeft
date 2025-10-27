@@ -6,7 +6,7 @@ import gzip
 import os
 
 import numpy as np
-import coffea.hist as hist
+import hist
 import coffea.processor as processor
 from coffea.nanoevents import NanoAODSchema
 

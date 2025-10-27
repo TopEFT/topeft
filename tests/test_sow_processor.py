@@ -3,6 +3,15 @@ import pytest
 np = pytest.importorskip("numpy")
 ak = pytest.importorskip("awkward")
 
+import sys
+import types
+
+if "topcoffea.modules.corrections" not in sys.modules:
+    corrections_stub = types.ModuleType("topcoffea.modules.corrections")
+    corrections_stub.AttachPSWeights = lambda *args, **kwargs: None  # type: ignore[assignment]
+    corrections_stub.AttachScaleWeights = lambda *args, **kwargs: None  # type: ignore[assignment]
+    sys.modules["topcoffea.modules.corrections"] = corrections_stub
+
 from analysis.topeft_run2 import sow_processor
 
 
