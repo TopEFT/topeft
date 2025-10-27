@@ -143,8 +143,9 @@ if __name__ == '__main__':
     output = runner(flist, treename, processor_instance)
     dt = time.time() - tstart
 
-    nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
+    histograms = [h for h in output.values() if isinstance(h, hist.Hist)]
+    nbins = sum(h.values(flow=True).size for h in histograms)
+    nfilled = sum(np.sum(h.values(flow=True) > 0) for h in histograms)
     print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
     print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
 
