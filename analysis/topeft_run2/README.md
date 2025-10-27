@@ -1,6 +1,17 @@
 ## topEFT
 This directory contains scripts for the Full Run 2 EFT analysis. This README documents and explains how to run the scrips.
 
+### Table of Contents
+- [Scripts for remaking reference files that the CI tests against](#scripts-for-remaking-reference-files-that-the-ci-tests-against)
+- [Scripts that check or plot things directly from the NAOD files](#scripts-that-check-or-plot-things-directly-from-the-naod-files)
+- [Scripts for making things that are inputs to the processors](#scripts-for-making-things-that-are-inputs-to-the-processors)
+- [Run scripts and processors](#run-scripts-and-processors)
+- [Scripts for finding, comparing and plotting yields from histograms (from the processor)](#scripts-for-finding-comparing-and-plotting-yields-from-histograms-from-the-processor)
+- [Scripts for making and checking the datacards](#scripts-for-making-and-checking-the-datacards)
+- [CR/SR plotting CLI quickstart](#crsr-plotting-cli-quickstart)
+- [make_cr_and_sr_plots.py internals](#make_cr_and_sr_plotspy-internals)
+- [CR/SR metadata reference](#crsr-metadata-reference)
+
 ### Scripts for remaking reference files that the CI tests against
 
 * `remake_ci_ref_datacard.py`:
@@ -72,13 +83,52 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Omitting `--variables` processes every histogram in the input pickle, while providing one or more names limits the run to those histograms.
     - Histograms with multiple dense axes (e.g. the `SparseHist`-based `lepton_pt_vs_eta`) are automatically rendered as CMS-style 2D heatmaps, while the 1D rebinning and systematic envelopes quietly skip them. The heatmap canvas now includes a dedicated Data/MC ratio panel so comparisons are available at a glance alongside the nominal MC and data projections.
 
+### CR/SR plotting CLI quickstart
+
+The `make_cr_and_sr_plots.py` entry point auto-detects whether the supplied pickle corresponds to control- or signal-region histograms by looking for `CR` or `SR` tokens in the filename. Detection is case-insensitive and accepts suffixes such as `SR2018`; it defaults to control-region mode when no clear token is present. If both tokens are found the script falls back to the control-region configuration and prints a warning recommending an explicit override.
+
+Two new mutually exclusive switches, `--cr` and `--sr`, allow you to override the auto-detected mode. They are especially useful when the filename contains multiple year or campaign tags that would otherwise confuse the heuristic, or when a generic filename (e.g. `plotsTopEFT.pkl.gz`) is reused for multiple region exports.
+
+Blinding is now governed by a single flag pair: `--unblind` always renders the data layer regardless of the region defaults, and `--blind` hides the data. When neither flag is provided the tool unblinds control-region plots and blinds signal-region plots, matching the standard analysis policy. The resolved region and blinding choice are echoed on start-up for clarity.
+
+Common invocation patterns:
+
+* Control-region scan with automatic blinding: `python make_cr_and_sr_plots.py -f histos/plotsCR_Run2.pkl.gz`
+* Signal-region pass where the filename already encodes `SR`: `python make_cr_and_sr_plots.py -f histos/SR2018.pkl.gz -o ~/www/sr --variables lj0pt ptz`
+* Overriding the heuristic and forcing a blinded SR workflow: `python make_cr_and_sr_plots.py -f histos/plotsTopEFT.pkl.gz --sr --blind`
+* Producing unblinded CR plots with explicit tagging and timestamped directories: `python make_cr_and_sr_plots.py -f histos/CR2018.pkl.gz --cr -t -n cr_2018_scan`
+
 * `get_yield_json.py`:
     - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.
     - Example usage: `python get_yield_json.py -f histos/your_pkl_file.pkl.gz`
 
-* `comp_yields.py`:
-    - This script takes two json files of yields (produced by `get_yield_json.py`), finds the difference and percent difference between them in each category, and prints out all of the information. You can also compare to the TOP-19-001 yields by specifying `TOP-19-001` as one of the inputs. Specifying the second file is optional, and it will default to the reference yield file. The script returns a non-zero exit code if any of the percent differences are larger than a given value (currently set to 1e-8). 
-    - Example usage: `python comp_yields.py your_yields_1.json your_yields_2.json`
+  * `comp_yields.py`:
+      - This script takes two json files of yields (produced by `get_yield_json.py`), finds the difference and percent difference between them in each category, and prints out all of the information. You can also compare to the TOP-19-001 yields by specifying `TOP-19-001` as one of the inputs. Specifying the second file is optional, and it will default to the reference yield file. The script returns a non-zero exit code if any of the percent differences are larger than a given value (currently set to 1e-8).
+      - Example usage: `python comp_yields.py your_yields_1.json your_yields_2.json`
+
+
+### make_cr_and_sr_plots.py internals
+
+Under the hood the CLI defers to a unified region runner so that both CR and SR workflows share the same plumbing. The `main()` function normalizes the CLI arguments, resolves the target region (auto-detected from the filename unless `--cr/--sr` is supplied), and prepares the output directory before handing control to `run_plots_for_region()`. That helper builds a `RegionContext` object via `build_region_context()`, which bundles together the histogram dictionary, lists of MC/data samples, per-region channel maps, and all style defaults. The context embeds the metadata derived from `topeft/params/cr_sr_plots_metadata.yml`, ensuring that channel definitions, grouping patterns, and region-specific overrides are all evaluated once and reused throughout the plotting loop.
+
+`produce_region_plots()` then iterates over the requested histograms, applies the appropriate channel transformations, and orchestrates the per-category plotting. In aggregate (CR) mode the channel axis is integrated before rendering, while the SR configuration keeps each channel separate. During this sweep the code also:
+
+* Removes samples that do not belong to the selected MC/data view and applies optional group-specific removals and category skips defined in the metadata.
+* Fetches `sumw2` histograms for statistical uncertainties and combines them with shape/rate systematics where requested.
+* Switches between raw 1D plotting and the dedicated 2D heatmap path when sparse histograms are encountered.
+
+Because everything flows through the same `RegionContext`, adding a new region or adjusting behaviour in the YAML automatically updates both CR and SR plotting passes without touching the CLI.
+
+
+### CR/SR metadata reference
+
+The plotting behaviour is configured by `topeft/params/cr_sr_plots_metadata.yml`. The most commonly tuned blocks are:
+
+* **Channel maps (`CR_CHAN_DICT` / `SR_CHAN_DICT`)** – map human-readable category labels to the underlying histogram channel bins. Add or remove entries here when categories are renamed or regrouped; the CLI enforces that every plotted channel appears in these lists.
+* **Group patterns (`CR_GRP_MAP` / `SR_GRP_MAP`)** – define how raw process names are clustered into stacked contributions. Each group contains a color token and a list of substring patterns; new MC samples inherit the colour/styling of the group whose pattern matches their dataset name.
+* **Region overrides (`REGION_PLOTTING`)** – per-region knobs that adjust plotting mechanics. Highlights include `channel_mode` (aggregate CR vs. per-channel SR figures), `channel_transformations` (string rewrites such as removing jet- or flavour-suffixes before matching), sample removal/category skip rules, and blinding-specific controls like `sumw2_remove_signal_when_blinded` and `use_mc_as_data_when_blinded`.
+
+Other keys provide cohesive styling—e.g. `DATA_ERR_OPS`, `MC_ERROR_OPS`, `LUMI_COM_PAIRS`, and `WCPT_EXAMPLE`—and are consumed when building the `RegionContext`. Treat the YAML as the single source of truth for both category definitions and plot appearance to keep CR and SR outputs synchronized.
 
 
 ### Scripts for making and checking the datacards
