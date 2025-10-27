@@ -245,7 +245,7 @@ class RegionContext(object):
         self.analysis_bins = {} if analysis_bins is None else analysis_bins
 
 
-def build_region_context(region,dict_of_hists,year,unblind_override=None):
+def build_region_context(region,dict_of_hists,year,unblind=None):
     region_upper = region.upper()
     if region_upper not in ["CR","SR"]:
         raise ValueError(f"Unsupported region '{region}'.")
@@ -310,12 +310,17 @@ def build_region_context(region,dict_of_hists,year,unblind_override=None):
 
     lumi_pair = LUMI_COM_PAIRS.get(year)
 
+    if unblind is None:
+        resolved_unblind = region_upper == "CR"
+    else:
+        resolved_unblind = bool(unblind)
+
     if region_upper == "CR":
         group_patterns = CR_GRP_PATTERNS
         channel_map = CR_CHAN_DICT
         group_map = populate_group_map(all_samples, group_patterns)
         signal_samples = sorted(set(group_map.get("Signal", [])))
-        unblind_default = len(data_samples) > 0
+        unblind_default = resolved_unblind
         skip_variables = set()
         analysis_bins = {}
         global CR_GRP_MAP
@@ -331,7 +336,7 @@ def build_region_context(region,dict_of_hists,year,unblind_override=None):
                 for proc_name in group_map.get(group_name, [])
             }
         )
-        unblind_default = bool(unblind_override)
+        unblind_default = resolved_unblind
         skip_variables = set(["ptz","njets"])
         analysis_bins = {
             "ptz": axes_info["ptz"]["variable"],
@@ -360,7 +365,7 @@ def build_region_context(region,dict_of_hists,year,unblind_override=None):
     )
 
 
-def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_norm_bool,unblind_override=None):
+def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_norm_bool,unblind=None):
     dict_of_hists = region_ctx.dict_of_hists
     context_label = f"{region_ctx.name} region"
     variables_to_plot = _resolve_requested_variables(
@@ -375,9 +380,7 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
     print("\nVariables:", list(dict_of_hists.keys()))
 
     unblind_flag = (
-        region_ctx.unblind_default
-        if unblind_override is None
-        else bool(unblind_override)
+        region_ctx.unblind_default if unblind is None else bool(unblind)
     )
     stat_only_plots = 0
     stat_and_syst_plots = 0
@@ -2300,8 +2303,9 @@ def make_simple_plots(dict_of_hists,year,save_dir_path,variables=None):
             if "www" in save_dir_path: make_html(save_dir_path_tmp)
 
 
-###################### Wrapper function for SR data and mc plots (unblind!) ######################
-# Wrapper function to loop over all SR categories and make plots for all variables
+###################### Wrapper function for SR data and mc plots ######################
+# Wrapper function to loop over all SR categories and make plots for all variables.
+# The plots remain blinded by default unless the caller provides unblind=True.
 def make_all_sr_data_mc_plots(
     dict_of_hists,
     year,
@@ -2314,7 +2318,7 @@ def make_all_sr_data_mc_plots(
         "SR",
         dict_of_hists,
         year,
-        unblind_override=unblind,
+        unblind=unblind,
     )
     produce_region_plots(
         region_ctx,
@@ -2322,7 +2326,7 @@ def make_all_sr_data_mc_plots(
         variables,
         skip_syst_errs,
         unit_norm_bool=False,
-        unblind_override=unblind,
+        unblind=unblind,
     )
 
 
@@ -2501,8 +2505,9 @@ def make_all_sr_plots(
 
 
 ###################### Wrapper function for all CR plots ######################
-# Wrapper function to loop over all CR categories and make plots for all variables
-# The input hist should include both the data and MC
+# Wrapper function to loop over all CR categories and make plots for all variables.
+# The input hist should include both the data and MC.
+# By default the CR plots are unblinded unless explicitly overridden.
 def make_all_cr_plots(
     dict_of_hists,
     year,
@@ -2510,14 +2515,16 @@ def make_all_cr_plots(
     unit_norm_bool,
     save_dir_path,
     variables=None,
+    unblind=True,
 ):
-    region_ctx = build_region_context("CR", dict_of_hists, year)
+    region_ctx = build_region_context("CR", dict_of_hists, year, unblind=unblind)
     produce_region_plots(
         region_ctx,
         save_dir_path,
         variables,
         skip_syst_errs,
         unit_norm_bool,
+        unblind=unblind,
     )
 
 def main():
@@ -2532,7 +2539,19 @@ def main():
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip systematic error bands in plots")
     parser.add_argument("--run-sr-data-mc", action="store_true", help = "Also produce signal region data vs MC comparison plots")
-    parser.add_argument("--unblind-sr", action="store_true", help = "Unblind the SR data/MC plots (requires --run-sr-data-mc)")
+    parser.add_argument(
+        "--unblind",
+        dest="unblind",
+        action="store_true",
+        help="Force plots to include data yields even in normally blinded regions.",
+    )
+    parser.add_argument(
+        "--blind",
+        dest="unblind",
+        action="store_false",
+        help="Force plots to hide data yields even in normally unblinded regions.",
+    )
+    parser.set_defaults(unblind=None)
     parser.add_argument("--skip-cr", action="store_true", help = "Skip the control region plots if only SR outputs are needed")
     parser.add_argument(
         "--variables",
@@ -2579,6 +2598,9 @@ def main():
     print("\n\n")
     
     # Make the plots
+    resolved_unblind_cr = args.unblind if args.unblind is not None else True
+    resolved_unblind_sr = args.unblind if args.unblind is not None else False
+
     if not args.skip_cr:
         make_all_cr_plots(
             hin_dict,
@@ -2587,6 +2609,7 @@ def main():
             unit_norm_bool,
             save_dir_path,
             variables=selected_variables,
+            unblind=resolved_unblind_cr,
         )
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,skip_syst_errs=args.skip_syst)
@@ -2599,7 +2622,7 @@ def main():
             hin_dict,
             args.year,
             save_dir_path,
-            unblind=args.unblind_sr,
+            unblind=resolved_unblind_sr,
             skip_syst_errs=args.skip_syst,
             variables=selected_variables,
         )
