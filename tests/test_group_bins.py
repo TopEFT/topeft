@@ -80,6 +80,13 @@ def test_group_bins_preserves_unspecified_when_requested(group_fn):
     )
 
 
+def test_removed_sr_helpers_are_absent():
+    """Ensure legacy SR helper aliases stay removed."""
+
+    assert not hasattr(mcp, "make_all_sr_plots")
+    assert not hasattr(mcp, "make_all_sr_sys_plots")
+
+
 @pytest.mark.parametrize("group_fn", [mcp.group_bins, tau.group_bins])
 def test_group_bins_raises_for_unknown_sources(group_fn):
     histo = _make_hist()
