@@ -1216,6 +1216,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["j0eta"]   = ak.flatten(j0.eta)
             varnames["njets"]   = njets
             varnames["nbtagsl"] = nbtagsl
+            varnames["nbtagsm"] = nbtagsm
             varnames["invmass"] = mll_0_1
             varnames["ptbl"]    = ak.flatten(ptbl)
             varnames["ptz"]     = ptz
