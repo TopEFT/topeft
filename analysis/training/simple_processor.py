@@ -14,6 +14,15 @@ from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 
 
+class HistWithIdentity(hist.Hist):
+    """Small helper to provide coffea-style identity semantics for boost-hist histograms."""
+
+    def identity(self):
+        clone = self.copy()
+        clone.reset()
+        return clone
+
+
 def _resolve_collection(events, names):
     for name in names:
         if hasattr(events, name):
@@ -100,7 +109,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         counts_axis = hist.axis.Regular(bins=1, start=0, stop=2, name="counts", label="Counts")
 
         self._accumulator = processor.dict_accumulator({
-            "counts": hist.Hist(
+            "counts": HistWithIdentity(
                 dataset_axis,
                 channel_axis,
                 selection_axis,

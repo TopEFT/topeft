@@ -97,8 +97,6 @@ def _install_test_stubs():
     selection_module = types.ModuleType("topcoffea.modules.selection")
     sys.modules["topcoffea.modules.selection"] = selection_module
 
-    hist_eft_module = types.ModuleType("topcoffea.modules.HistEFT")
-
     class _DummyHistEFT:
         def __init__(self, *_, **__):
             pass
@@ -106,8 +104,13 @@ def _install_test_stubs():
         def fill(self, **__):
             pass
 
+    hist_eft_module = types.ModuleType("topcoffea.modules.HistEFT")
     hist_eft_module.HistEFT = _DummyHistEFT
     sys.modules["topcoffea.modules.HistEFT"] = hist_eft_module
+
+    hist_eft_lower_module = types.ModuleType("topcoffea.modules.histEFT")
+    hist_eft_lower_module.HistEFT = _DummyHistEFT
+    sys.modules["topcoffea.modules.histEFT"] = hist_eft_lower_module
 
     eft_helper_module = types.ModuleType("topcoffea.modules.eft_helper")
     eft_helper_module.calc_w2_coeffs = lambda *_, **__: None  # type: ignore[attr-defined]
