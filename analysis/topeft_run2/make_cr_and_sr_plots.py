@@ -58,7 +58,7 @@ PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 # Use the -y option to specify a year, if no year is specified, all years will be included.
 # There are various other options available from the command line.
 # For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:
-#     python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
+#     python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
 
 yt = YieldTools()
 
@@ -619,7 +619,7 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                         continue
                     x_range = (0, 250) if var_name == "ht" else None
                     group = {k: v for k, v in region_ctx.group_map.items() if v}
-                    fig = make_cr_fig(
+                    fig = make_stacked_ratio_fig(
                         hist_mc_integrated,
                         hist_data_integrated,
                         unit_norm_bool,
@@ -768,7 +768,7 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                 )
                 year_str = region_ctx.year if region_ctx.year is not None else "ULall"
                 title = f"{hist_cat}_{var_name}_{year_str}"
-                fig = make_cr_fig(
+                fig = make_stacked_ratio_fig(
                     hist_mc_integrated,
                     hist_data_to_plot,
                     var=var_name,
@@ -1364,7 +1364,7 @@ def make_sparse2d_fig(
 
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_cr_fig(
+def make_stacked_ratio_fig(
     h_mc,
     h_data,
     unit_norm_bool,
@@ -2132,11 +2132,11 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref,var='lj0pt',err_p=None,er
 
 
 
-###################### Wrapper function for example SR plots with systematics ######################
-# Wrapper function to loop over all SR categories and make plots for all variables
+###################### Wrapper function for signal plots with systematics ######################
+# Wrapper function to loop over all categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make plots that show all systematics in the pkl file
-def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path,variables=None):
+def make_signal_systematic_plots(dict_of_hists,year,save_dir_path,variables=None):
 
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
@@ -2172,7 +2172,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path,variables=None):
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
     variables_to_plot = _resolve_requested_variables(
-        dict_of_hists, variables, "make_all_sr_sys_plots"
+        dict_of_hists, variables, "make_signal_systematic_plots"
     )
 
     for idx, var_name in enumerate(variables_to_plot):
@@ -2303,10 +2303,10 @@ def make_simple_plots(dict_of_hists,year,save_dir_path,variables=None):
             if "www" in save_dir_path: make_html(save_dir_path_tmp)
 
 
-###################### Wrapper function for SR data and mc plots ######################
-# Wrapper function to loop over all SR categories and make plots for all variables.
+###################### Wrapper function for data/MC comparison plots ######################
+# Wrapper function to loop over all analysis regions and make plots for all variables.
 # The plots remain blinded by default unless the caller provides unblind=True.
-def make_all_sr_data_mc_plots(
+def make_region_data_mc_plots(
     dict_of_hists,
     year,
     save_dir_path,
@@ -2331,11 +2331,11 @@ def make_all_sr_data_mc_plots(
 
 
 
-###################### Wrapper function for example SR plots ######################
-# Wrapper function to loop over all SR categories and make plots for all variables
+###################### Wrapper function for signal-focused plots ######################
+# Wrapper function to loop over selected categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make two sets of plots: One with process overlay, one with channel overlay
-def make_all_sr_plots(
+def make_signal_plots(
     dict_of_hists,
     year,
     unit_norm_bool,
@@ -2379,7 +2379,7 @@ def make_all_sr_plots(
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
     variables_to_plot = _resolve_requested_variables(
-        dict_of_hists, variables, "make_all_sr_plots"
+        dict_of_hists, variables, "make_signal_plots"
     )
 
     for idx,var_name in enumerate(variables_to_plot):
@@ -2504,11 +2504,11 @@ def make_all_sr_plots(
 
 
 
-###################### Wrapper function for all CR plots ######################
-# Wrapper function to loop over all CR categories and make plots for all variables.
+###################### Wrapper function for default region plots ######################
+# Wrapper function to loop over a default set of analysis regions and make plots for all variables.
 # The input hist should include both the data and MC.
-# By default the CR plots are unblinded unless explicitly overridden.
-def make_all_cr_plots(
+# By default these plots are unblinded unless explicitly overridden.
+def make_region_plots(
     dict_of_hists,
     year,
     skip_syst_errs,
@@ -2538,7 +2538,11 @@ def main():
     parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip systematic error bands in plots")
-    parser.add_argument("--run-sr-data-mc", action="store_true", help = "Also produce signal region data vs MC comparison plots")
+    parser.add_argument(
+        "--run-sr-data-mc",
+        action="store_true",
+        help="Also produce dedicated data vs MC comparison plots",
+    )
     parser.add_argument(
         "--unblind",
         dest="unblind",
@@ -2552,7 +2556,11 @@ def main():
         help="Force plots to hide data yields even in normally unblinded regions.",
     )
     parser.set_defaults(unblind=None)
-    parser.add_argument("--skip-cr", action="store_true", help = "Skip the control region plots if only SR outputs are needed")
+    parser.add_argument(
+        "--skip-cr",
+        action="store_true",
+        help="Skip the baseline region plots if only comparison outputs are needed",
+    )
     parser.add_argument(
         "--variables",
         nargs="+",
@@ -2602,7 +2610,7 @@ def main():
     resolved_unblind_sr = args.unblind if args.unblind is not None else False
 
     if not args.skip_cr:
-        make_all_cr_plots(
+        make_region_plots(
             hin_dict,
             args.year,
             args.skip_syst,
@@ -2611,14 +2619,14 @@ def main():
             variables=selected_variables,
             unblind=resolved_unblind_cr,
         )
-    #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,skip_syst_errs=args.skip_syst)
-    #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
+    #make_signal_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    #make_region_data_mc_plots(hin_dict,args.year,save_dir_path,skip_syst_errs=args.skip_syst)
+    #make_signal_systematic_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
 
     # Make unblinded SR data MC comparison plots by year
     if args.run_sr_data_mc:
-        make_all_sr_data_mc_plots(
+        make_region_data_mc_plots(
             hin_dict,
             args.year,
             save_dir_path,
@@ -2626,11 +2634,11 @@ def main():
             skip_syst_errs=args.skip_syst,
             variables=selected_variables,
         )
-    #make_all_sr_data_mc_plots(hin_dict,"2016",save_dir_path,unblind=True)
-    #make_all_sr_data_mc_plots(hin_dict,"2016APV",save_dir_path,unblind=True)
-    #make_all_sr_data_mc_plots(hin_dict,"2017",save_dir_path,unblind=True)
-    #make_all_sr_data_mc_plots(hin_dict,"2018",save_dir_path,unblind=True)
-    #make_all_sr_data_mc_plots(hin_dict,None,save_dir_path,unblind=True)
+    #make_region_data_mc_plots(hin_dict,"2016",save_dir_path,unblind=True)
+    #make_region_data_mc_plots(hin_dict,"2016APV",save_dir_path,unblind=True)
+    #make_region_data_mc_plots(hin_dict,"2017",save_dir_path,unblind=True)
+    #make_region_data_mc_plots(hin_dict,"2018",save_dir_path,unblind=True)
+    #make_region_data_mc_plots(hin_dict,None,save_dir_path,unblind=True)
 
 if __name__ == "__main__":
     main()
