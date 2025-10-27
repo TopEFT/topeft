@@ -1,9 +1,11 @@
-import json
-import time
+import argparse
 import cloudpickle
 import gzip
+import json
 import os
-import argparse
+import tempfile
+import time
+from pathlib import Path
 
 import coffea.processor as processor
 from coffea.nanoevents import NanoAODSchema
@@ -12,10 +14,45 @@ import topcoffea.modules.remote_environment as remote_environment
 import extreme_events
 
 from topcoffea.modules.utils import load_sample_json_file, read_cfg_file, update_cfg
+from topeft.modules.executor import (
+    build_futures_executor,
+    build_taskvine_args,
+    build_work_queue_args,
+    distributed_logs_dir,
+    instantiate_taskvine_executor,
+    instantiate_work_queue_executor,
+    manager_name_base,
+    parse_port_range,
+    resolve_environment_file,
+    taskvine_log_configurator,
+)
 
-parser = argparse.ArgumentParser(description='You can customize your run')
+
+def _staging_directory(executor: str, scratch_dir: str | None) -> Path:
+    if scratch_dir:
+        staging = Path(scratch_dir).expanduser()
+    else:
+        base_dir = os.environ.get("TOPEFT_EXECUTOR_STAGING")
+        if base_dir:
+            staging = Path(base_dir).expanduser()
+        else:
+            staging = Path(tempfile.gettempdir()) / "topeft" / manager_name_base(executor)
+    staging.mkdir(parents=True, exist_ok=True)
+    return staging
+
+
+parser = argparse.ArgumentParser(
+    description='You can customize your run',
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog=(
+        "TaskVine workers can be launched with:\n"
+        "  vine_submit_workers --python-env \"$(python -m topcoffea.modules.remote_environment)\" \\\n"
+        "    --cores 4 --memory 16000 --disk 16000 -M <manager-name>\n"
+        "Adjust the resources and manager to match your deployment."
+    ),
+)
 parser.add_argument('inputFiles'            , nargs='?', default='', help = 'Json or cfg file(s) containing files and metadata')
-parser.add_argument('--executor','-x'       , default='work_queue', help = 'Which executor to use')
+parser.add_argument('--executor','-x'       , default='taskvine', help = 'Which executor to use (futures, work_queue, or taskvine)')
 parser.add_argument('--chunksize','-s'      , default=100000, type=int, help = 'Number of events per chunk')
 parser.add_argument('--max-files','-N'      , default=0, type=int, help = 'If specified, limit the number of root files per sample. Useful for testing')
 parser.add_argument('--nchunks','-c'        , default=0, type=int, help = 'You can choose to run only a number of chunks')
@@ -23,10 +60,21 @@ parser.add_argument('--outname','-o'        , default='flipTopEFT', help = 'Name
 parser.add_argument('--outpath','-p'        , default='histos', help = 'Name of the output directory')
 parser.add_argument('--treename'            , default='Events', help = 'Name of the tree inside the files')
 parser.add_argument('--xrd'                 , default='', help = 'The XRootD redirector to use when reading directly from json files')
+parser.add_argument('--port'                , default='9123-9130', help = 'TaskVine/Work Queue manager port (PORT or PORT_MIN-PORT_MAX).')
+parser.add_argument('--environment-file'    , default='auto', help = "Environment tarball for distributed executors ('auto', 'none', or path).")
+parser.add_argument('--no-environment-file' , dest='environment_file', action='store_const', const='none', help = 'Disable environment shipping (equivalent to --environment-file=none).')
+parser.add_argument('--manager-name'        , default=None, help = "Override the distributed executor manager identifier.")
+parser.add_argument('--manager-name-template', default=None, help = "Template for TaskVine manager names (use '{pid}' for the process id).")
+parser.add_argument('--scratch-dir'         , default=None, help = 'Shared staging directory for distributed executors.')
+parser.add_argument('--resource-monitor'    , default='measure', help = "TaskVine/Work Queue resource monitor setting ('none' to disable).")
+parser.add_argument('--resources-mode'      , default='auto', help = 'TaskVine/Work Queue resources mode (for example auto).')
+parser.add_argument('--futures-workers'     , default=8, type=int, help = 'Maximum number of local processes for the futures executor.')
+parser.add_argument('--futures-status'      , action=argparse.BooleanOptionalAction, default=None, help = 'Toggle the coffea futures progress bar.')
+parser.add_argument('--futures-tail-timeout', default=None, type=int, help = 'Timeout in seconds for cancelling stalled futures tasks.')
 
 args = parser.parse_args()
 inputFiles = args.inputFiles.replace(' ','').split(',')  # Remove whitespace and split by commas
-executor   = args.executor
+executor   = (args.executor or '').strip().lower() or 'taskvine'
 chunksize  = args.chunksize
 nchunks    = args.nchunks if args.nchunks else None
 outname    = args.outname
@@ -34,6 +82,38 @@ outpath    = args.outpath
 treename   = args.treename
 xrd        = args.xrd
 max_files  = args.max_files
+port_min, port_max = parse_port_range(args.port)
+
+environment_file = resolve_environment_file(
+    args.environment_file,
+    remote_environment,
+    extra_pip_local={"topeft": ["topeft", "setup.py"]},
+    extra_conda=["pyyaml"],
+)
+
+manager_name = args.manager_name or manager_name_base(executor)
+manager_template = args.manager_name_template
+if manager_template is None and manager_name:
+    manager_template = f"{manager_name}-{{pid}}"
+scratch_dir = args.scratch_dir
+
+resource_monitor = args.resource_monitor
+if resource_monitor:
+    rm_normalized = resource_monitor.strip().lower()
+    if rm_normalized in {"none", "off", "false", "0"}:
+        resource_monitor = None
+
+resources_mode = args.resources_mode
+if resources_mode:
+    mode_normalized = resources_mode.strip().lower()
+    if mode_normalized in {"none", "off", "false", "0"}:
+        resources_mode = None
+
+futures_workers = max(int(args.futures_workers or 1), 1)
+futures_status = args.futures_status
+futures_tail_timeout = None
+if args.futures_tail_timeout and args.futures_tail_timeout > 0:
+    futures_tail_timeout = int(args.futures_tail_timeout)
 
 
 samples_to_process = {}
@@ -71,119 +151,55 @@ for sample_name,jsn in samples_to_process.items():
 
 processor_instance = extreme_events.AnalysisProcessor(samples_to_process)
 
-if executor == "work_queue":
-    executor_args = {
-        'master_name': '{}-workqueue-coffea'.format(os.environ.get('USER', 'coffea')),
-
-        # find a port to run work queue in this range:
-        'port': [9123,9130],
-
-        'debug_log': 'debug.log',
-        'transactions_log': 'tr.log',
-        'stats_log': 'stats.log',
-
-        'environment_file': remote_environment.get_environment(),
-        'extra_input_files': ['extreme_events.py'],
-
-        # use mid-range compression for chunks results. 9 is the default for work
-        # queue in coffea. Valid values are 0 (minimum compression, less memory
-        # usage) to 16 (maximum compression, more memory usage).
-        'compression': 9,
-
-        # automatically find an adequate resource allocation for tasks.
-        # tasks are first tried using the maximum resources seen of previously ran
-        # tasks. on resource exhaustion, they are retried with the maximum resource
-        # values, if specified below. if a maximum is not specified, the task waits
-        # forever until a larger worker connects.
-        'resource_monitor': True,
-        'resources_mode': 'auto',
-
-        # this resource values may be omitted when using
-        # resources_mode: 'auto', but they do make the initial portion
-        # of a workflow run a little bit faster.
-        # Rather than using whole workers in the exploratory mode of
-        # resources_mode: auto, tasks are forever limited to a maximum
-        # of 8GB of mem and disk.
-        #
-        # NOTE: The very first tasks in the exploratory
-        # mode will use the values specified here, so workers need to be at least
-        # this large. If left unspecified, tasks will use whole workers in the
-        # exploratory mode.
-        #'cores': 1,
-        #'disk': 8000,   #MB
-        #'memory': 10000, #MB
-
-        # control the size of accumulation tasks. Results are
-        # accumulated in groups of size chunks_per_accum, keeping at
-        # most chunks_per_accum at the same time in memory per task.
-        'chunks_per_accum': 25,
-        'chunks_accum_in_mem': 2,
-
-        # terminate workers on which tasks have been running longer than average.
-        # This is useful for temporary conditions on worker nodes where a task will
-        # be finish faster is ran in another worker.
-        # the time limit is computed by multipliying the average runtime of tasks
-        # by the value of 'fast_terminate_workers'.  Since some tasks can be
-        # legitimately slow, no task can trigger the termination of workers twice.
-        #
-        # warning: small values (e.g. close to 1) may cause the workflow to misbehave,
-        # as most tasks will be terminated.
-        #
-        # Less than 1 disables it.
-        'fast_terminate_workers': 0,
-
-        # print messages when tasks are submitted, finished, etc.,
-        # together with their resource allocation and usage. If a task
-        # fails, its standard output is also printed, so we can turn
-        # off print_stdout for all tasks.
-        'verbose': True,
-        'print_stdout': False,
-    }
-
 # Run the processor and get the output
 tstart = time.time()
 
 if executor == "futures":
-    exec_instance = processor.FuturesExecutor(workers=8)
-elif executor ==  "work_queue":
-    work_queue_cls = getattr(processor, "WorkQueueExecutor", None)
-    if work_queue_cls is None:
-        raise RuntimeError(
-            "WorkQueueExecutor is not available in this Coffea installation. "
-            "Use the TaskVine executor or install a Coffea build that provides "
-            "WorkQueueExecutor."
-        )
-    exec_instance = work_queue_cls(**executor_args)
-elif executor == "taskvine":
-    manager_name = f"{os.environ.get('USER', 'coffea')}-taskvine-coffea"
-    staging_dir = os.path.join(
-        os.environ.get("TOPEFT_EXECUTOR_STAGING", os.getcwd()),
-        "taskvine",
+    exec_instance = build_futures_executor(
+        processor,
+        workers=futures_workers,
+        status=futures_status,
+        tailtimeout=futures_tail_timeout,
     )
-    os.makedirs(staging_dir, exist_ok=True)
+elif executor == "iterative":
+    try:
+        exec_instance = processor.IterativeExecutor()
+    except AttributeError:  # pragma: no cover - depends on coffea build
+        exec_instance = processor.iterative_executor()
+elif executor in {"work_queue", "taskvine"}:
+    staging_dir = _staging_directory(executor, scratch_dir)
+    logs_dir = distributed_logs_dir(staging_dir, executor)
 
-    taskvine_args = {
-        "manager_name": manager_name,
-        "filepath": staging_dir,
-        "extra_input_files": ['extreme_events.py'],
-        "compression": 8,
-        "retries": 15,
-        "fast_terminate_workers": 0,
-        "verbose": True,
-        "print_stdout": False,
-        "resource_monitor": "measure",
-        "resources_mode": "auto",
-    }
-
-    env_file = remote_environment.get_environment()
-    if env_file:
-        taskvine_args["environment_file"] = env_file
-
-    taskvine_cls = getattr(processor, "TaskVineExecutor", None)
-    if taskvine_cls is None:
-        raise RuntimeError("TaskVineExecutor is not available in this Coffea installation.")
-
-    exec_instance = taskvine_cls(**taskvine_args)
+    if executor == "work_queue":
+        executor_args = build_work_queue_args(
+            staging_dir=staging_dir,
+            logs_dir=logs_dir,
+            manager_name=manager_name,
+            port_range=(port_min, port_max),
+            extra_input_files=['extreme_events.py'],
+            resource_monitor=resource_monitor,
+            resources_mode=resources_mode,
+            environment_file=environment_file,
+        )
+        exec_instance = instantiate_work_queue_executor(processor, executor_args)
+    else:
+        taskvine_args = build_taskvine_args(
+            staging_dir=staging_dir,
+            logs_dir=logs_dir,
+            manager_name=manager_name,
+            manager_name_template=manager_template,
+            extra_input_files=['extreme_events.py'],
+            resource_monitor=resource_monitor,
+            resources_mode=resources_mode,
+            environment_file=environment_file,
+            custom_init=taskvine_log_configurator(logs_dir),
+        )
+        exec_instance = instantiate_taskvine_executor(
+            processor,
+            taskvine_args,
+            port_range=(port_min, port_max),
+            negotiate_port=True,
+        )
 else:
     raise Exception(f"Executor \"{executor}\" is not known.")
 
