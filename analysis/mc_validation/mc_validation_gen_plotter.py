@@ -17,6 +17,7 @@ from topcoffea.scripts.make_html import make_html
 # Probably I should move the utility functions out of this script and put them in modules
 # Anyway, not good practice to just import it here as if it were a library, but I'm doing it anyway (for now)
 import make_cr_and_sr_plots as mcp
+from plot_utils import make_single_fig_with_ratio
 
 yt = YieldTools()
 
@@ -85,7 +86,7 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
             #continue
 
             # Make the plots
-            fig = mcp.make_single_fig_with_ratio(proc_histo,"sample","private")
+            fig = make_single_fig_with_ratio(proc_histo, "sample", "private")
             #fig = mcp.make_single_fig(proc_histo,unit_norm_bool=True)
             fig.savefig(os.path.join(save_dir_path,proc+"_"+var_name))
             if "www" in save_dir_path: make_html(save_dir_path)
