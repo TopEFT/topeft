@@ -73,7 +73,7 @@ processor_instance = extreme_events.AnalysisProcessor(samples_to_process)
 
 if executor == "work_queue":
     executor_args = {
-        'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
+        'master_name': '{}-workqueue-coffea'.format(os.environ.get('USER', 'coffea')),
 
         # find a port to run work queue in this range:
         'port': [9123,9130],
@@ -146,7 +146,44 @@ tstart = time.time()
 if executor == "futures":
     exec_instance = processor.FuturesExecutor(workers=8)
 elif executor ==  "work_queue":
-    exec_instance = processor.WorkQueueExecutor(**executor_args)
+    work_queue_cls = getattr(processor, "WorkQueueExecutor", None)
+    if work_queue_cls is None:
+        raise RuntimeError(
+            "WorkQueueExecutor is not available in this Coffea installation. "
+            "Use the TaskVine executor or install a Coffea build that provides "
+            "WorkQueueExecutor."
+        )
+    exec_instance = work_queue_cls(**executor_args)
+elif executor == "taskvine":
+    manager_name = f"{os.environ.get('USER', 'coffea')}-taskvine-coffea"
+    staging_dir = os.path.join(
+        os.environ.get("TOPEFT_EXECUTOR_STAGING", os.getcwd()),
+        "taskvine",
+    )
+    os.makedirs(staging_dir, exist_ok=True)
+
+    taskvine_args = {
+        "manager_name": manager_name,
+        "filepath": staging_dir,
+        "extra_input_files": ['extreme_events.py'],
+        "compression": 8,
+        "retries": 15,
+        "fast_terminate_workers": 0,
+        "verbose": True,
+        "print_stdout": False,
+        "resource_monitor": "measure",
+        "resources_mode": "auto",
+    }
+
+    env_file = remote_environment.get_environment()
+    if env_file:
+        taskvine_args["environment_file"] = env_file
+
+    taskvine_cls = getattr(processor, "TaskVineExecutor", None)
+    if taskvine_cls is None:
+        raise RuntimeError("TaskVineExecutor is not available in this Coffea installation.")
+
+    exec_instance = taskvine_cls(**taskvine_args)
 else:
     raise Exception(f"Executor \"{executor}\" is not known.")
 
