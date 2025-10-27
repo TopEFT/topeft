@@ -8,7 +8,8 @@ import argparse
 import gzip
 import cloudpickle
 
-import coffea.hist as hist
+import hist
+from hist import axis, storage
 
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.scripts.make_html import make_html
@@ -22,10 +23,11 @@ yt = YieldTools()
 
 def save_pkl_for_arr(sf_arr,tag):
     sf_histo = hist.Hist(
-        "Ratio",
-        hist.Bin("ht","ht",25,0,1000)
+        axis.Regular(25, 0, 1000, name="ht", label="ht", flow=True),
+        storage=storage.Double(),
+        label="Ratio",
     )
-    sf_histo._sumw = {(): sf_arr}
+    sf_histo.view()[...] = sf_arr
     save_pkl_str = "ht_rwgt_sf_" + tag + ".pkl.gz"
     with gzip.open(save_pkl_str, "wb") as fout:
         cloudpickle.dump(sf_histo, fout)
