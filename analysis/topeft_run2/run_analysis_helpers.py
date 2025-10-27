@@ -570,6 +570,12 @@ class RunConfigBuilder:
                 "resource_monitor": "resource_monitor",
                 "resources_mode": "resources_mode",
                 "environment_file": "environment_file",
+                "futures_status": "futures_status",
+                "futures_tail_timeout": "futures_tail_timeout",
+                "futures_memory": "futures_memory",
+                "futures_prefetch": "futures_prefetch",
+                "futures_retries": "futures_retries",
+                "futures_retry_wait": "futures_retry_wait",
             }
 
             defaults = self.defaults
