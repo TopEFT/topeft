@@ -940,12 +940,12 @@ def make_cr_fig(
         band_mode = syst_err.lower()
     elif isinstance(syst_err, bool):
         if syst_err and has_syst_arrays:
-            band_mode = "total" if unblind else "syst"
+            band_mode = "total"
         else:
             band_mode = "stat"
     else:
         if has_syst_arrays:
-            band_mode = "total" if unblind else "syst"
+            band_mode = "total"
         else:
             band_mode = "stat"
 
@@ -2210,7 +2210,7 @@ def make_all_cr_plots(
                 m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:] # This goes in the main plot
                 p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
                 m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
-                syst_err_mode = "total" if unblind_data else "syst"
+                syst_err_mode = "total" if unblind_data else True
 
 
             if is_sparse2d:
