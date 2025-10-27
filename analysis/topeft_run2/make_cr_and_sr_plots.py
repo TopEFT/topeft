@@ -2777,7 +2777,12 @@ def main():
         uppercase = filename.upper()
         matched_regions = []
         for region in ("CR", "SR"):
-            pattern = re.compile(rf"(?<![A-Z0-9]){region}(?![A-Z0-9])")
+            # Accept filenames where the region token is directly followed by
+            # qualifiers such as a year (e.g. "SR2018") or run tag (e.g. "CRRun2").
+            # We only guard against being embedded within a longer alphanumeric
+            # token by ensuring the preceding character is not an uppercase
+            # letter or digit.
+            pattern = re.compile(rf"(?<![A-Z0-9]){region}")
             if pattern.search(uppercase):
                 matched_regions.append(region)
         if len(matched_regions) == 1:
