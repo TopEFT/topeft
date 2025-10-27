@@ -1098,6 +1098,63 @@ def make_cr_fig(
                 if cms_bboxes:
                     cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
 
+    axis_bboxes = []
+    for axis_obj in (ax, rax):
+        try:
+            bbox = axis_obj.get_tightbbox(renderer)
+        except Exception:
+            bbox = None
+        if bbox is None:
+            continue
+        axis_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+
+    if axis_bboxes:
+        rightmost_extent = max(bbox.x1 for bbox in axis_bboxes)
+    else:
+        rightmost_extent = max(ax.get_position().x1, rax.get_position().x1)
+
+    subplot_params = fig.subplotpars
+    safety_margin = 0.003
+    proposed_right = rightmost_extent + safety_margin
+    max_right = np.nextafter(1.0, 0.0)
+    effective_right = min(max_right, max(subplot_params.right, proposed_right))
+
+    if not np.isclose(effective_right, subplot_params.right):
+        stored_positions = [ax.get_position().frozen(), rax.get_position().frozen()]
+
+        plt.subplots_adjust(
+            bottom=subplot_params.bottom,
+            top=subplot_params.top,
+            left=subplot_params.left,
+            right=effective_right,
+            hspace=subplot_params.hspace,
+            wspace=subplot_params.wspace,
+        )
+
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+
+        adjusted = False
+        for axis_obj, original_pos in zip((ax, rax), stored_positions):
+            updated_pos = axis_obj.get_position()
+            delta_y = original_pos.y0 - updated_pos.y0
+            if not np.isclose(delta_y, 0.0):
+                axis_obj.set_position(
+                    [
+                        updated_pos.x0,
+                        updated_pos.y0 + delta_y,
+                        updated_pos.width,
+                        updated_pos.height,
+                    ]
+                )
+                adjusted = True
+
+        if adjusted:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+
+        subplot_params = fig.subplotpars
+
     def _get_min_axis_y(renderer):
         bboxes = []
         for tick_label in rax.get_xticklabels():
