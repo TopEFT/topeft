@@ -7,6 +7,7 @@ from collections import OrderedDict
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FixedFormatter, FixedLocator
 from cycler import cycler
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -1122,12 +1123,16 @@ def make_cr_fig(
 
     rax.set_ylabel('Ratio', loc='center', fontsize=18)
     rax.set_ylim(0.5,1.5)
-    labels = [item.get_text() for item in rax.get_xticklabels()]
-    labels[-1] = '>500'
-    rax.set_xticklabels(labels)
     rax.tick_params(axis='both', labelsize=18, width=1.5, length=6)
 
     fig.canvas.draw()
+    xticks = rax.get_xticks()
+    xtick_labels = [tick.get_text() for tick in rax.get_xticklabels()]
+    if xtick_labels and len(xtick_labels) == len(xticks):
+        xtick_labels[-1] = '>500'
+        rax.xaxis.set_major_locator(FixedLocator(xticks))
+        rax.xaxis.set_major_formatter(FixedFormatter(xtick_labels))
+
     ax_box = ax.get_position()
     rax_box = rax.get_position()
     ratio_label_fig = None
