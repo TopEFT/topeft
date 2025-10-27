@@ -1719,6 +1719,9 @@ def make_all_sr_data_mc_plots(
         for hist_name, hist_obj in dict_of_hists.items()
         if hist_name.endswith("_sumw2")
     }
+
+    stat_only_plots = 0
+    stat_and_syst_plots = 0
     sr_signal_samples = sorted(
         {
             proc_name
@@ -1875,6 +1878,15 @@ def make_all_sr_data_mc_plots(
                 err_ratio_m_syst=err_ratio_m_syst,
                 unblind=unblind,
             )
+            has_syst_inputs = any(
+                err is not None
+                for err in (
+                    err_p_syst,
+                    err_m_syst,
+                    err_ratio_p_syst,
+                    err_ratio_m_syst,
+                )
+            )
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
@@ -1884,10 +1896,22 @@ def make_all_sr_data_mc_plots(
                 pad_inches=0.05,
             )
 
+            if has_syst_inputs:
+                stat_and_syst_plots += 1
+            else:
+                stat_only_plots += 1
+
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
 
-
+    print(
+        f"[SR] Produced {stat_and_syst_plots} plots with stat⊕syst uncertainties and {stat_only_plots} plots with stat-only bands",
+        end="",
+    )
+    if save_dir_path:
+        print(f" in {save_dir_path}")
+    else:
+        print()
 
 
 
@@ -2147,6 +2171,9 @@ def make_all_cr_plots(
     cr_signal_samples = sorted(set(CR_GRP_MAP.get("Signal", [])))
     unblind_data = len(data_sample_lst) > 0
 
+    stat_only_plots = 0
+    stat_and_syst_plots = 0
+
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
     #skip_wlst = ["njets"] # Skip all but these hists
@@ -2344,6 +2371,15 @@ def make_all_cr_plots(
                     err_ratio_m_syst=m_err_arr_ratio,
                     unblind=unblind_data,
                 )
+            has_syst_inputs = any(
+                err is not None
+                for err in (
+                    p_err_arr,
+                    m_err_arr,
+                    p_err_arr_ratio,
+                    m_err_arr_ratio,
+                )
+            )
             if unit_norm_bool: title = title + "_unitnorm"
             if isinstance(fig, dict):
                 combined_fig = fig["combined"]
@@ -2369,8 +2405,22 @@ def make_all_cr_plots(
                     pad_inches=0.05,
                 )
 
+            if has_syst_inputs:
+                stat_and_syst_plots += 1
+            else:
+                stat_only_plots += 1
+
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+
+    print(
+        f"[CR] Produced {stat_and_syst_plots} plots with stat⊕syst uncertainties and {stat_only_plots} plots with stat-only bands",
+        end="",
+    )
+    if save_dir_path:
+        print(f" in {save_dir_path}")
+    else:
+        print()
 
 def main():
 
