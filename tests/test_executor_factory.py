@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import sys
 import types
 from pathlib import Path
@@ -149,12 +150,54 @@ def test_executor_factory_taskvine_instantiates(tmp_path, monkeypatch, stub_remo
     workflow = importlib.import_module("analysis.topeft_run2.workflow")
     workflow = importlib.reload(workflow)
 
+    processor = pytest.importorskip("coffea.processor")
+    taskvine_cls = getattr(processor, "TaskVineExecutor", None)
+    if taskvine_cls is None:
+        pytest.skip("TaskVineExecutor not available in this Coffea installation.")
+
+    signature = inspect.signature(taskvine_cls)
+    accepts_kwargs = any(
+        param.kind is inspect.Parameter.VAR_KEYWORD
+        for param in signature.parameters.values()
+    )
+    expected_keys = {
+        "filepath",
+        "extra_input_files",
+        "retries",
+        "compression",
+        "fast_terminate_workers",
+        "verbose",
+        "print_stdout",
+        "custom_init",
+    }
+    missing_keys = [
+        key
+        for key in expected_keys
+        if key not in signature.parameters and not accepts_kwargs
+    ]
+    if missing_keys:
+        pytest.fail(
+            "TaskVineExecutor signature missing expected parameters: "
+            + ", ".join(sorted(missing_keys))
+        )
+
+    call_args: dict = {}
+
+    class RecordingTaskVineExecutor:
+        def __init__(self, *args, **kwargs):
+            call_args["args"] = args
+            call_args["kwargs"] = kwargs
+            self.kwargs = kwargs
+            self.manager_name = kwargs.get("manager_name")
+            self.filepath = kwargs.get("filepath")
+
+    monkeypatch.setattr(processor, "TaskVineExecutor", RecordingTaskVineExecutor)
+
     scratch_dir = tmp_path / "staging"
     config = RunConfig(
         executor="taskvine",
         environment_file=None,
         scratch_dir=str(scratch_dir),
-        port="9125",
         negotiate_manager_port=False,
         manager_name="test-taskvine",
     )
@@ -162,10 +205,19 @@ def test_executor_factory_taskvine_instantiates(tmp_path, monkeypatch, stub_remo
     factory = workflow.ExecutorFactory(config)
     runner = factory.create_runner()
 
-    import coffea.processor as processor
-
     assert isinstance(runner.executor, processor.TaskVineExecutor)
     assert runner.executor.manager_name == "test-taskvine"
     assert runner.executor.filepath == str(scratch_dir)
     assert runner.skipbadfiles is True
     assert runner.xrootdtimeout == 300
+
+    kwargs = call_args.get("kwargs", {})
+    assert kwargs.get("manager_name") == "test-taskvine"
+    assert kwargs.get("filepath") == str(scratch_dir)
+    assert isinstance(kwargs.get("custom_init"), types.FunctionType)
+    assert kwargs.get("extra_input_files") == ["analysis_processor.py"]
+    assert kwargs.get("retries") == 15
+    assert kwargs.get("compression") == 8
+    assert kwargs.get("fast_terminate_workers") == 0
+    assert kwargs.get("verbose") is True
+    assert kwargs.get("print_stdout") is False
