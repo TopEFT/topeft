@@ -1620,7 +1620,7 @@ def make_region_stacked_ratio_fig(
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(8, 9),
+        figsize=(9, 8),
         gridspec_kw={"height_ratios": (4, 1)},
         sharex=True
     )
@@ -1988,6 +1988,22 @@ def make_region_stacked_ratio_fig(
             fontsize=10,
         )
         ax.add_artist(legend)
+
+    fig.canvas.draw()
+    required_headroom = None
+    if legend is not None:
+        renderer = fig.canvas.get_renderer()
+        legend_bbox = legend.get_window_extent(renderer=renderer)
+        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+        legend_height = legend_box.height
+        buffer = 0.01
+        required_headroom = legend_height + buffer
+        top_target = 1.0 - required_headroom
+        if top_target < 0.0:
+            top_target = 0.0
+        elif top_target > 1.0:
+            top_target = 1.0
+        plt.subplots_adjust(top=top_target)
 
     def _finalize_layout(
         fig,
