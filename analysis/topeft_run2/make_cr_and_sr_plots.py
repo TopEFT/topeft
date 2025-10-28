@@ -1970,7 +1970,13 @@ def make_region_stacked_ratio_fig(
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
-    legend = ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
+    legend = ax.legend(
+        loc='lower center',
+        bbox_to_anchor=(0.5, 0.98),
+        ncol=4,
+        fontsize=16,
+        borderaxespad=0.6,
+    )
     if main_band_handles:
         unc_handles, unc_labels = zip(*main_band_handles)
         _ = ax.legend(
@@ -2033,13 +2039,13 @@ def make_region_stacked_ratio_fig(
 
         if legend_box is not None and cms_bboxes:
             cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
-            target_gap = 0.015
+            target_gap = 0.01
             gap = cms_box.y0 - legend_box.y1
             if gap < target_gap:
                 delta = target_gap - gap
                 ax_box = ax.get_position()
                 rax_box = rax.get_position()
-                max_shift = rax_box.y0
+                max_shift = max(0.0, min(ax_box.y0, rax_box.y0))
                 shift = min(delta, max_shift)
                 if shift > 0:
                     ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
