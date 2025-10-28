@@ -2061,19 +2061,34 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
 def _values_with_flow_or_overflow(hist_slice):
     """Return histogram values including overflow bins for different histogram types."""
 
+    if isinstance(hist_slice, HistEFT):
+        evaluated = hist_slice.eval({})
+        if isinstance(evaluated, dict):
+            if () in evaluated:
+                return np.asarray(evaluated[()])
+            return np.asarray(next(iter(evaluated.values())))
+        return np.asarray(evaluated)
+
     values_method = hist_slice.values
 
     try:
         signature = inspect.signature(values_method)
     except (TypeError, ValueError):
-        return values_method()
+        values = values_method()
+    else:
+        if "overflow" in signature.parameters:
+            values = values_method(overflow="all")
+        elif "flow" in signature.parameters:
+            values = values_method(flow=True)
+        else:
+            values = values_method()
 
-    if "overflow" in signature.parameters:
-        return values_method(overflow="all")
-    if "flow" in signature.parameters:
-        return values_method(flow=True)
+    if isinstance(values, dict):
+        if () in values:
+            return np.asarray(values[()])
+        return np.asarray(next(iter(values.values())))
 
-    return values_method()
+    return np.asarray(values)
 
 
 def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,template_zeros_arr):
