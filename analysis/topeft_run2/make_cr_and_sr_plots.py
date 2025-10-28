@@ -1969,15 +1969,26 @@ def make_region_stacked_ratio_fig(
     if set_x_lim: plt.xlim(set_x_lim)
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
-    # Put a legend to the right of the current axis
-    legend = ax.legend(
-        loc='upper center',
-        bbox_to_anchor=(0.5, 0.99),
-        bbox_transform=fig.transFigure,
-        ncol=4,
-        fontsize=16,
-        borderaxespad=0.6,
-    )
+    # Build a figure-anchored legend with a measured inset from the top edge
+    legend_handles, legend_labels = ax.get_legend_handles_labels()
+    legend = None
+    if legend_handles and legend_labels:
+        filtered = OrderedDict()
+        for handle, label in zip(legend_handles, legend_labels):
+            if label == '_nolegend_':
+                continue
+            if label not in filtered:
+                filtered[label] = handle
+        if filtered:
+            legend = fig.legend(
+                list(filtered.values()),
+                list(filtered.keys()),
+                loc='upper center',
+                bbox_to_anchor=(0.5, 1.0),
+                borderaxespad=0.0,
+                ncol=4,
+                fontsize=16,
+            )
     if main_band_handles:
         unc_handles, unc_labels = zip(*main_band_handles)
         _ = ax.legend(
@@ -1988,26 +1999,37 @@ def make_region_stacked_ratio_fig(
             frameon=False,
             fontsize=10,
         )
-        ax.add_artist(legend)
 
     fig.canvas.draw()
     required_headroom = None
     legend_is_figure_anchored = False
+    top_adjusted = False
     if legend is not None:
         renderer = fig.canvas.get_renderer()
         legend_bbox = legend.get_window_extent(renderer=renderer)
         legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+        measured_height = legend_box.height
+        buffer = max(0.01, 0.25 * measured_height)
+        anchor_y = max(0.0, 1.0 - buffer)
+        legend.set_bbox_to_anchor((0.5, anchor_y), fig.transFigure)
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        legend_bbox = legend.get_window_extent(renderer=renderer)
+        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
         legend_height = legend_box.height
-        buffer = 0.01
+        buffer = max(buffer, 0.01)
         required_headroom = legend_height + buffer
         legend_is_figure_anchored = True
         subplot_params = fig.subplotpars
-        top_target = min(subplot_params.top, 1.0 - required_headroom)
-        if top_target < 0.0:
-            top_target = 0.0
-        elif top_target > 1.0:
-            top_target = 1.0
-        plt.subplots_adjust(top=top_target)
+        available_top = 1.0 - required_headroom
+        available_top = np.clip(available_top, 0.0, 1.0)
+        if subplot_params.top > available_top:
+            plt.subplots_adjust(top=available_top)
+            top_adjusted = True
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            legend_bbox = legend.get_window_extent(renderer=renderer)
+            legend_box = legend_bbox.transformed(fig.transFigure.inverted())
 
     def _finalize_layout(
         fig,
@@ -2307,7 +2329,8 @@ def make_region_stacked_ratio_fig(
 
     label_artist = None
     events_artist = None
-    for _ in range(2):
+    iterations = 3 if top_adjusted else 2
+    for _ in range(iterations):
         label_artist, events_artist = _finalize_layout(
             fig,
             ax,
