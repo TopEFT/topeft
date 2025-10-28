@@ -1422,13 +1422,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             variation_state.has_hadron_flavour = False
 
-        add_fake_factor_weights(
-            weights_object,
-            events,
-            channel_prefix,
-            year,
-            variation_state.requested_data_weight_label,
-        )
+        if channel_prefix in {"1l", "2l", "3l"}:
+            add_fake_factor_weights(
+                weights_object,
+                events,
+                channel_prefix,
+                year,
+                variation_state.requested_data_weight_label,
+            )
 
         register_weight_variation(
             weights_object,
