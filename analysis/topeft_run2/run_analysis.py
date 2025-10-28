@@ -246,8 +246,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--port",
         default="9123-9130",
         help=(
-            "Specify the TaskVine/Work Queue manager port. Accepts a single PORT "
-            "or a range PORT_MIN-PORT_MAX for negotiation."
+            "Specify the TaskVine manager port. Accepts a single PORT or a range "
+            "PORT_MIN-PORT_MAX for negotiation."
         ),
     )
     parser.add_argument(
@@ -307,8 +307,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--scratch-dir",
         default=None,
         help=(
-            "Shared scratch directory for TaskVine/Work Queue staging. When unset "
-            "the workflow chooses a temporary location or uses "
+            "Shared scratch directory for TaskVine staging. When unset the "
+            "workflow chooses a temporary location or uses "
             "TOPEFT_EXECUTOR_STAGING when defined."
         ),
     )

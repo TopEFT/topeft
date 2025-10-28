@@ -18,4 +18,4 @@ This directory contains several scripts that are relevant for the charge flip me
 
 ### Run scripts
 
-* `run_flip.py`: This run script can run either the `flip_mr_processor.py` or `flip_mr_processor.py` processor (specify the name of the processor with the `--processor_name` argument). It can also run with the `futures` or `work_queue` executor (specify this via the `--executor` argument).
+* `run_flip.py`: This run script can run either the `flip_mr_processor.py` or `flip_mr_processor.py` processor (specify the name of the processor with the `--processor_name` argument). It can run with the `futures`, `iterative`, or TaskVine executors (select via the `--executor` argument).

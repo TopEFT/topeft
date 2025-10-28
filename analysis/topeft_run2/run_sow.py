@@ -23,11 +23,9 @@ import sow_processor
 from topcoffea.modules.executor import (
     build_futures_executor,
     build_taskvine_args,
-    build_work_queue_args,
     distributed_logs_dir,
     futures_runner_overrides,
     instantiate_taskvine_executor,
-    instantiate_work_queue_executor,
     manager_name_base,
     parse_port_range,
     resolve_environment_file,
@@ -48,7 +46,10 @@ def _staging_directory(executor: str) -> Path:
 
 parser = argparse.ArgumentParser(description='You can customize your run')
 parser.add_argument('inputFiles'       , nargs='?', default='', help = 'Json or cfg file(s) containing files and metadata')
-parser.add_argument('--executor','-x'  , default='taskvine', help = 'Which executor to use')
+parser.add_argument(
+    '--executor','-x'  , default='taskvine',
+    help='Which executor to use (futures, iterative, or taskvine)'
+)
 parser.add_argument('--chunksize','-s' , default=100000, type=int, help = 'Number of events per chunk')
 parser.add_argument('--max-files','-N' , default=0, type=int, help = 'If specified, limit the number of root files per sample. Useful for testing')
 parser.add_argument('--nchunks','-c'   , default=0, type=int, help = 'You can choose to run only a number of chunks')
@@ -93,7 +94,7 @@ parser.add_argument(
     default=5.0,
     help='Seconds to wait between futures retry attempts.',
 )
-parser.add_argument('--port'           , default='9123-9130', help = 'Specify the Work Queue/TaskVine port range (PORT or PORT_MIN-PORT_MAX).')
+parser.add_argument('--port'           , default='9123-9130', help = 'Specify the TaskVine manager port range (PORT or PORT_MIN-PORT_MAX).')
 parser.add_argument(
     '--environment-file',
     default='auto',
@@ -209,41 +210,28 @@ elif executor == "iterative":
         exec_instance = processor.IterativeExecutor()
     except AttributeError:  # pragma: no cover - depends on coffea build
         exec_instance = processor.iterative_executor()
-elif executor in {"work_queue", "taskvine"}:
+elif executor == "taskvine":
     staging_dir = _staging_directory(executor)
     logs_dir = distributed_logs_dir(staging_dir, executor)
     manager_base = manager_name_base(executor)
 
-    if executor == 'work_queue':
-        executor_args = build_work_queue_args(
-            staging_dir=staging_dir,
-            logs_dir=logs_dir,
-            manager_name=manager_base,
-            port_range=(port_min, port_max),
-            extra_input_files=["sow_processor.py"],
-            resource_monitor='measure',
-            resources_mode='auto',
-            environment_file=environment_file,
-        )
-        exec_instance = instantiate_work_queue_executor(processor, executor_args)
-    else:
-        taskvine_args = build_taskvine_args(
-            staging_dir=staging_dir,
-            logs_dir=logs_dir,
-            manager_name=manager_base,
-            manager_name_template=f"{manager_base}-{{pid}}",
-            extra_input_files=["sow_processor.py"],
-            resource_monitor='measure',
-            resources_mode='auto',
-            environment_file=environment_file,
-            custom_init=taskvine_log_configurator(logs_dir),
-        )
-        exec_instance = instantiate_taskvine_executor(
-            processor,
-            taskvine_args,
-            port_range=(port_min, port_max),
-            negotiate_port=True,
-        )
+    taskvine_args = build_taskvine_args(
+        staging_dir=staging_dir,
+        logs_dir=logs_dir,
+        manager_name=manager_base,
+        manager_name_template=f"{manager_base}-{{pid}}",
+        extra_input_files=["sow_processor.py"],
+        resource_monitor='measure',
+        resources_mode='auto',
+        environment_file=environment_file,
+        custom_init=taskvine_log_configurator(logs_dir),
+    )
+    exec_instance = instantiate_taskvine_executor(
+        processor,
+        taskvine_args,
+        port_range=(port_min, port_max),
+        negotiate_port=True,
+    )
 else:
     raise Exception(f"Executor \"{executor}\" is not known.")
 

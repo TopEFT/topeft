@@ -90,7 +90,7 @@ root::
    histogram tasks.  This is where ``--scenario``, ``--skip-sr`` and similar
    knobs take effect.
 6. **Execution** – :class:`analysis.topeft_run2.workflow.ExecutorFactory`
-   instantiates the selected backend (``futures``, ``work_queue`` or
+   instantiates the selected backend (``futures``, ``iterative`` or
    ``taskvine``).  Each histogram task yields an
    :class:`analysis.topeft_run2.analysis_processor.AnalysisProcessor` instance
    configured for the corresponding sample and channel.  Progress is summarized
@@ -139,7 +139,7 @@ The table below summarises the most common extension hooks:
 | :class:`SampleLoader` | Resolve JSON/CFG inputs and normalize metadata. | Provide a custom ``SampleLoader`` to support other manifest formats (for example, CSV).  The replacement object must offer ``collect`` and ``load`` methods returning the same structures. |
 | :class:`analysis.topeft_run2.workflow.ChannelPlanner` | Activate channels according to metadata scenarios. | Extend :class:`topeft.modules.channel_metadata.ChannelMetadataHelper` or wrap the planner to insert additional filters (for example, dropping jet categories). |
 | :class:`analysis.topeft_run2.workflow.HistogramPlanner` | Enumerate histogram combinations for execution. | Pass a custom planner that rewrites the histogram list (for example, sampling only a subset of variables) before the workflow starts the executor. |
-| :class:`analysis.topeft_run2.workflow.ExecutorFactory` | Configure the execution backend. | Supply a factory that sets up distributed resources (for example, a site-specific Work Queue profile).  The factory only needs to return an object with a ``create_runner`` method. |
+| :class:`analysis.topeft_run2.workflow.ExecutorFactory` | Configure the execution backend. | Supply a factory that sets up distributed resources (for example, a site-specific TaskVine profile).  The factory only needs to return an object with a ``create_runner`` method. |
 | :func:`analysis.topeft_run2.workflow.run_workflow` | Convenience wrapper mirroring the CLI. | Import the function and feed it the :class:`RunConfig` returned by the quickstart helpers when you want to programmatically drive the workflow from notebooks or scripts. |
 
 ### Adding new configuration values

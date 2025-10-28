@@ -1,221 +1,66 @@
-# Running Topcoffea with Work Queue (legacy)
+# Distributed execution with TaskVine
 
-> **Note**
->
-> TaskVine is now the recommended distributed executor for `topeft`. Follow the [TaskVine workflow quickstart](docs/taskvine_workflow.md) or the summary in the main [README](README.md) for environment packaging and worker submission details. The steps below are preserved for sites that still require Work Queue.
+TaskVine is the supported distributed backend for `topeft`.  The helpers in
+`analysis/topeft_run2/workflow.py` and the command line interfaces default to the
+TaskVine executor so that large campaigns can share workers across sites.  This
+note collects the minimum steps required to stage the Python environment, launch
+the manager, and submit workers.  For a more complete walkthrough see
+[`docs/taskvine_workflow.md`](docs/taskvine_workflow.md) together with the main
+[README](README.md).
 
-The script [run_analysis.py](https://github.com/TopEFT/topeft/blob/refactoring/analysis/topeft_run2/run_analysis.py) sets up topcoffea to run as a Work Queue
-application. Work Queue itself is a framework for building large scale
-applications. With Work Queue, `run_analysis.py` serves as a manager that
-waits for worker processes to connect, and dispatches to them work to complete.
+## Environment packaging
 
-When using Work Queue, it is your responsibility to launch the worker processes
-according to your needs, for example, using a campus cluster, or a
-supercomputer on XSEDE. You should also setup your python environment so that
-it can easily be sent to the remote workers. We will cover these two points
-below.
-
-
-## Obtaining topeft and topcoffea
-
-We highly recommend setting up topcoffea as git repository. This allows
-topcoffea to automatically detect changes that need to be included in the
-python environments sent to the workers:
+TaskVine managers ship the same tarball built by
+`topcoffea.modules.remote_environment`.  From the repository root run:
 
 ```sh
-git clone https://github.com/TopEFT/topcoffea.git
-cd topcoffea
-```
-
-
-## Setting up python
-
-The recommended way to set up `topeft` and `topcoffea` with Work Queue is using the `conda`
-python package manager. If you do not have `miniconda` (recommended, as it
-installs much faster), or `anaconda` installed, you must run the following
-steps on a terminal:
-
-```sh
-curl https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > conda-install.sh
-bash conda-install.sh
-```
-
-Once `conda` is installed, open a new terminal and create the base python
-environment for topcoffea:
-
-```sh
-# you may choose other python version, e.g. 3.8
-conda env create -f environment.yml
+conda env create -f environment.yml           # or: conda env update -f environment.yml --prune
 conda activate coffea20250703
-
-# install topcoffea via pip. We install it in editable mode to ease the test of
-# changes in development. From the root directory of the topcoffea repository:
-pip install -e .
-
-# You may install any other modules that you are developing, as:
-# cd /path/to/my/module
-# pip install -e .
-```
-If you already have the environment from a previous checkout, run `conda env update -f environment.yml --prune` instead of recreating it.  The Coffea 2025.7.3 refresh pulls in Python 3.13 and newer `ndcctools` wheels, so Conda versions older than 23.11 may request a solver update—allow the prompt or run `conda update -n base -c conda-forge conda` first.  When pip asks to install the pinned `coffea==2025.7.3` and `awkward==2.8.7` builds, approve the changes so the editable packages align with the packaged worker tarball.
-The same steps can be followed for `topeft` (i.e. clone the repo, `cd` into it, and then install the package via `pip install -e .`).  Keeping both repositories in editable mode is now the standard workflow: the refreshed `remote_environment.get_environment()` helper inspects those checkouts, verifies that there are no unstaged edits, and bakes the current sources into the tarball that workers unpack.
-
----
-**NOTE**
-
-If your python environments do not work after the step `conda activate
-coffea20250703`, for example, if `python` immediately fails because it cannot
-find module, then your conda installation may be in conflict with a previous
-setup. Most problems like this are solved by typing:
-
-```sh
-unset PYTHONPATH
+pip install -e .                              # install topeft in editable mode
+pip install -e topcoffea/                     # install topcoffea in editable mode
+python -m topcoffea.modules.remote_environment
 ```
 
-just before the `conda activate` command.
+The final command prints the path to the packaged environment.  Re-run it
+whenever you update dependencies or pull new commits so the archive remains in
+sync with your editable checkouts.
 
----
+## Running the analysis with TaskVine
 
-This completes setting up the base python environment. The python environment
-sent to the workers will be automatically constructed from the base environment
-as changes in the topcoffea code are detected. We highly recommend that when
-installing topcoffea, `pip install -e .` is executed from a git repository.
-This allows `work_queue_run.py` to detect unstaged changes or newer commits and
-rebuild the environment accordingly.  The same tarball is returned by
-`remote_environment.get_environment()` and stored under `topeft-envs/`, so both
-Work Queue and TaskVine managers point to an identical archive when populating
-the `environment_file` executor argument.  Re-run
-`python -m topcoffea.modules.remote_environment` whenever you update the Conda
-stack or push new commits to editable packages; the helper compares the cached
-Git state against the current checkout and rebuilds the tarball automatically.
-To force a rebuild manually, remove the cached file or run
-``python -c "from topcoffea.modules.remote_environment import get_environment;
-print(get_environment(force=True))"``.
-
-
-## Executing the topcoffea application
-
-The script `run_analysis.py` expects a configuration file that describes
-which files of events to process. One small configuration to test is:
-
+From `analysis/topeft_run2` prepare a run configuration (JSON/YAML/CFG as shown
+in the quickstart docs) and launch the manager:
 
 ```sh
 conda activate coffea20250703
-cd analysis/topeft_run2
-
-## optional: initialize your proxy credentials to access the needed xrootd files.
-## It is not needed if the .cfg file is using root files from local paths.
-# voms-proxy-init2
-
-python run_analysis.py --chunksize 128000 ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
+python run_analysis.py --executor taskvine --chunksize 160000 \
+    ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
 ```
 
-The first time you run `work_queue_run.py` it will spend a handful of minutes
-constructing the environment that will be sent to the workers. After that, it
-will wait for workers to connect.
-
+The manager listens on the port range configured via `--port` (default
+`9123-9130`) and writes staging artefacts under
+`${TOPEFT_EXECUTOR_STAGING:-$TMPDIR/topeft/<user>-taskvine-coffea}`.  Logs live
+in the `logs/taskvine/` subdirectory within the staging area.
 
 ## Launching workers
 
-Work Queue has several mechanisms to execute worker processes. The simplest way
-is to launch a local worker for testing purposes. `work_queue_run.py` creates a
-Work Queue manager named after your user id, and the worker uses this name to
-find the address of the manager. In some other terminal, run:
+Use the environment archive from the packaging step to start workers with
+`vine_submit_workers` (TaskVine automatically distributes it if the flag is
+omitted, but pre-loading the tarball avoids repeated transfers):
 
 ```sh
-conda activate coffea20250703
-work_queue_worker -dall --cores 1 --memory 8000 --disk 8000 -M ${USER}-workqueue-coffea
-```
-Reusing an existing environment?  Apply any new pins with `conda env update -f environment.yml --prune` before launching the worker.
-
-We use the options cores, memory, and disk to limit the resources that worker
-claims for itself, otherwise it may incorrectly assume that the whole resources
-of the machine are available to it. Further, the resources used here match the
-resource description in `work_queue_run.py` for the maximum resources any task
-can use. When no task has been completed, tasks are dispatched to workers using
-these maximum resources specified, so it is required for the workers to be at
-least as large.  As tasks are finished and data about their resource usage is
-collected, Work Queue will try to reduce the size of the allocations used when
-first trying the tasks in order to run more tasks concurrently. Tasks will be
-retried, if needed, using the maximum specified values in `work_queue_run.py`.
-
-We also use the option `-dall` to print debugging output. If the worker
-correctly connected to the manager, you should see the messages that describe
-the work submited to the worker.
-
-In a similar way, we can launch workers using a campus cluster that has HTCondor:
-
-```sh
-conda activate coffea20250703
-condor_submit_workers --cores 4 --memory 16000 --disk 16000 -M ${USER}-workqueue-coffea 10
-```
-Run the same `conda env update -f environment.yml --prune` step whenever you pull new dependencies so the staged environment stays in sync with the packaged tarball.
-
-In this case, we are submitting 10 workers, each with 4 cores, and 4GB of
-memory and disk per core.
-
-Instead of launching the workers manually, we can use the `work_queue_factory`
-to submit workers for us. The factory checks with the manager if there is work
-available, and submit workers accordingly. We specify the arguments for the
-factory in a configuration file:
-
-factory.json
-```json
-{
-    "manager-name": "USER-workqueue-coffea",
-    "max-workers": 10,
-    "min-workers": 0,
-    "workers-per-cycle": 10,
-    "cores": 4,
-    "memory": 16000,
-    "disk": 16000,
-    "timeout": 900,
-}
-```
-
-
-```sh
-# Remember to replace USER in the manager-name of the configuration file with
-# your user id.
-conda activate coffea20250703
-work_queue_factory -Tcondor -Cfactory.json
-```
-When dependencies change, refresh the environment with `conda env update -f environment.yml --prune` before restarting the factory so that new workers receive the updated tarball.
-
-The greatest advantage of using a configuration file for the factory is that
-when this file is updated, the factory reconfigures itself. This is very useful
-when controlling the minimum and maximum number of workers.
-
-### TaskVine worker submission quick reference
-
-When migrating to the TaskVine executor described in the main README, launch
-workers with the packaged environment already attached so they do not need to
-download it from the manager on first contact.  The helper below reuses the
-same tarball path printed by `python -m topcoffea.modules.remote_environment`
-and matches the manager name configured by `run_analysis.py`:
-
-```sh
+python_env=$(python -m topcoffea.modules.remote_environment)
 vine_submit_workers --cores 4 --memory 16000 --disk 16000 \
-    --python-env "$(python -m topcoffea.modules.remote_environment)" \
-    -M ${USER}-taskvine-coffea 10
+    --python-env "$python_env" -M ${USER}-taskvine-coffea 10
 ```
 
-When `--python-env` is omitted the manager still forwards the archive through
-the `environment_file` executor argument, mirroring the legacy Work Queue
-behaviour.  Pre-loading the tarball simply accelerates the first task each
-worker processes.
+Adjust the resources to match your site policies.  The same command works for
+local testing by setting `--cores 1 --memory 4000 --disk 4000` and requesting a
+single worker.
 
+## Legacy Work Queue
 
-## Exploring the executor arguments
-
-The script `work_queue_run.py` has some other default options that may be
-tweaked to run particular workflows more efficiently, or that generate debug
-output. These are documented in the `executor_args` dictionary in
-`work_queue_run.py`. For example, statistics of the run are sent to a file
-called `stats.log`, which can be plotted using:
-
-```sh
-conda activate coffea20250703
-work_queue_graph_log -Tpng stats.log
-```
-Running the update command (`conda env update -f environment.yml --prune`) before long campaigns ensures the analysis, TaskVine, and Work Queue helpers are all pointing at the same Coffea 2025.7 stack.
-
+Work Queue support has been removed from the workflow helpers and CLIs.  Older
+instructions remain available in the Git history prior to this change.  If you
+are required to operate against a Coffea build that still exposes
+`WorkQueueExecutor`, pin the repository to a revision before the TaskVine-only
+switch and follow the historic instructions that accompanied that release.
