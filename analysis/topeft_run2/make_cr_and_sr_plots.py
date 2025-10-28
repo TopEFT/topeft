@@ -176,7 +176,9 @@ def validate_channel_group(histos, expected_labels, transformations, region, sub
         )
 
 def populate_group_map(samples, pattern_map):
-    out = {k: [] for k in pattern_map}
+    out = OrderedDict((k, []) for k in pattern_map)
+    fallback_groups = OrderedDict()
+
     for proc_name in samples:
         matched = False
         for grp, patterns in pattern_map.items():
@@ -188,9 +190,17 @@ def populate_group_map(samples, pattern_map):
             if matched:
                 break
         if not matched:
-            print(f"Warning: Process name \"{proc_name}\" does not match any known group patterns. It will not be included in the grouping.")
-            # If you want to raise an error instead, uncomment the next line
-            # raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+            if proc_name not in fallback_groups:
+                logger.warning(
+                    "Process name '%s' does not match any configured group pattern; "
+                    "assigning it to fallback group '%s'.",
+                    proc_name,
+                    proc_name,
+                )
+                fallback_groups[proc_name] = []
+            fallback_groups[proc_name].append(proc_name)
+
+    out.update(fallback_groups)
     return out
 
 
@@ -1599,14 +1609,19 @@ def make_region_stacked_ratio_fig(
     ]
 
     # Determine which groups are actually present
-    grouping = {proc: [p for p in group[proc] if p in h_mc.axes['process']]
-                for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
+    grouping = OrderedDict()
+    for proc, members in group.items():
+        present_members = [p for p in members if p in h_mc.axes['process']]
+        if present_members:
+            grouping[proc] = present_members
 
     colors = []
-    for i, proc in enumerate(grouping):
+    default_color_index = 0
+    for proc in grouping:
         c = FILL_COLORS.get(proc)
         if c is None:
-            c = default_colors[i % len(default_colors)]
+            c = default_colors[default_color_index % len(default_colors)]
+            default_color_index += 1
         colors.append(c)
 
     if err_p_syst is None and err_p is not None:
