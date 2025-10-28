@@ -192,7 +192,7 @@ class ExecutorCLIHelper:
             "--environment-file",
             default=self._default_environment,
             help=(
-                "Environment tarball for distributed executors ('auto', 'none', or path)."
+                "Environment tarball for distributed executors ('cached', 'auto', 'none', or path)."
             ),
         )
         parser.add_argument(

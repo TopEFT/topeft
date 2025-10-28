@@ -22,4 +22,7 @@ archived environment shipped to remote workers. After editing the specification:
    referenced by `PIP_LOCAL_TO_WATCH`.
 
 Remember to commit both the specification and the newly generated archive when
-updating the shipped environment.
+updating the shipped environment.  Workflows such as ``analysis/topeft_run2/run_analysis.py``
+now default to ``--environment-file=cached`` and will error out when the tarball
+is absent, so keeping the package up to date is part of the standard review
+checklist.

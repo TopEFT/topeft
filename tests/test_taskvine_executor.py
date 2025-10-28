@@ -41,8 +41,6 @@ def test_run_analysis_with_taskvine(tmp_path):
         sys.executable,
         "run_analysis.py",
         str(json_manifest),
-        "--executor",
-        "taskvine",
         "--port",
         f"{port}-{port}",
         "--no-port-negotiation",

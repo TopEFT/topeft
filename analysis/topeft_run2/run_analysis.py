@@ -16,6 +16,14 @@ from typing import Sequence
 
 from run_analysis_helpers import RunConfigBuilder
 
+import topcoffea.modules.remote_environment as remote_environment
+from topeft.modules.executor_cli import (
+    ExecutorCLIHelper,
+    FuturesArgumentSpec,
+    TaskVineArgumentSpec,
+)
+from topeft.modules.executor import resolve_environment_file
+
 if __package__ in (None, ""):
     import pathlib
     import sys
@@ -26,21 +34,53 @@ else:
     from .workflow import run_workflow
 
 
+EXECUTOR_CLI = ExecutorCLIHelper(
+    remote_environment=remote_environment,
+    futures_spec=FuturesArgumentSpec(
+        workers_default=8,
+        include_status=True,
+        include_tail_timeout=True,
+        include_memory=True,
+        include_prefetch=True,
+        include_retries=True,
+        include_retry_wait=True,
+    ),
+    taskvine_spec=TaskVineArgumentSpec(
+        include_manager_name=True,
+        include_manager_template=True,
+        include_scratch_dir=True,
+        include_resource_monitor=True,
+        include_resources_mode=True,
+        resource_monitor_default="measure",
+        resources_mode_default="auto",
+    ),
+    extra_pip_local={"topeft": ["topeft", "setup.py"]},
+    extra_conda=["pyyaml"],
+    default_environment="cached",
+)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Return the CLI argument parser used by ``run_analysis.py``."""
 
-    parser = argparse.ArgumentParser(description="You can customize your run")
+    parser = argparse.ArgumentParser(
+        description="You can customize your run",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "TaskVine workers can be launched with:\n"
+            "  vine_submit_workers --python-env \"$(python -m topcoffea.modules.remote_environment)\" \\\n"
+            "    --cores 4 --memory 16000 --disk 16000 -M <manager-name>\n"
+            "run_analysis expects a cached remote environment tarball by default\n"
+            "(--environment-file=cached). Use --environment-file auto to rebuild\n"
+            "the archive on demand. Adjust the resources and manager name to\n"
+            "match your deployment."
+        ),
+    )
     parser.add_argument(
         "jsonFiles",
         nargs="?",
         default="",
         help="Json file(s) containing files and metadata",
-    )
-    parser.add_argument(
-        "--executor",
-        "-x",
-        default="taskvine",
-        help="Which executor to use",
     )
     parser.add_argument(
         "--prefix",
@@ -60,9 +100,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Read json files but do not execute the analysis",
     )
+    EXECUTOR_CLI.configure_parser(parser)
     parser.add_argument(
         "--nworkers",
         "-n",
+        type=int,
         default=8,
         help="Number of workers",
     )
@@ -141,60 +183,6 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--futures-status",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help=(
-            "Toggle the progress bar emitted by coffea.processor.FuturesExecutor."
-            " Defaults to coffea's built-in choice when omitted."
-        ),
-    )
-    parser.add_argument(
-        "--futures-tail-timeout",
-        type=int,
-        default=None,
-        help=(
-            "Timeout in seconds for cancelling stalled futures tasks."
-            " Passed through to FuturesExecutor.tailtimeout."
-        ),
-    )
-    parser.add_argument(
-        "--futures-memory",
-        type=int,
-        default=None,
-        help=(
-            "Approximate per-worker memory budget in MB for dynamic chunk sizing"
-            " when using the futures executor."
-        ),
-    )
-    parser.add_argument(
-        "--futures-prefetch",
-        type=int,
-        default=1,
-        help=(
-            "Number of input ROOT files per sample to stage when running with"
-            " the futures executor. Set to 0 to process all files."
-        ),
-    )
-    parser.add_argument(
-        "--futures-retries",
-        type=int,
-        default=0,
-        help=(
-            "Number of times to retry a futures task after a failure before"
-            " aborting the run."
-        ),
-    )
-    parser.add_argument(
-        "--futures-retry-wait",
-        type=float,
-        default=5.0,
-        help=(
-            "Seconds to wait between futures retry attempts. Only used when"
-            " --futures-retries is greater than zero."
-        ),
-    )
-    parser.add_argument(
         "--scenario",
         dest="scenarios",
         action="append",
@@ -243,38 +231,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Energy cut threshold i.e. throw out events above this (GeV)",
     )
     parser.add_argument(
-        "--port",
-        default="9123-9130",
-        help=(
-            "Specify the TaskVine manager port. Accepts a single PORT or a range "
-            "PORT_MIN-PORT_MAX for negotiation."
-        ),
-    )
-    parser.add_argument(
         "--no-port-negotiation",
         dest="negotiate_manager_port",
         action="store_false",
         help=(
             "Disable automatic TaskVine port negotiation. When set the first value "
             "from --port is used directly and any allocation failure aborts the run."
-        ),
-    )
-    parser.add_argument(
-        "--environment-file",
-        default="auto",
-        help=(
-            "Environment tarball to ship with distributed executors. Use 'auto' to build via "
-            "remote_environment, or 'none' to disable staging when workers already provide a "
-            "Python environment."
-        ),
-    )
-    parser.add_argument(
-        "--no-environment-file",
-        dest="environment_file",
-        action="store_const",
-        const="none",
-        help=(
-            "Disable environment shipping entirely (equivalent to --environment-file=none)."
         ),
     )
     parser.add_argument(
@@ -287,44 +249,6 @@ def build_parser() -> argparse.ArgumentParser:
             " of the YAML configuration."
         ),
     )
-    parser.add_argument(
-        "--manager-name",
-        default=None,
-        help=(
-            "Override the distributed executor manager identifier. Defaults to "
-            "'<user>-<executor>-coffea' when unset."
-        ),
-    )
-    parser.add_argument(
-        "--manager-name-template",
-        default=None,
-        help=(
-            "Template for TaskVine manager names when multiple processes start. "
-            "Use '{pid}' to insert the process ID."
-        ),
-    )
-    parser.add_argument(
-        "--scratch-dir",
-        default=None,
-        help=(
-            "Shared scratch directory for TaskVine staging. When unset the "
-            "workflow chooses a temporary location or uses "
-            "TOPEFT_EXECUTOR_STAGING when defined."
-        ),
-    )
-    parser.add_argument(
-        "--resource-monitor",
-        default=None,
-        help=(
-            "TaskVine resource monitor setting (for example 'measure'). Use 'none' "
-            "to disable explicit monitoring."
-        ),
-    )
-    parser.add_argument(
-        "--resources-mode",
-        default=None,
-        help="TaskVine resources mode override (for example 'auto').",
-    )
     parser.set_defaults(negotiate_manager_port=True)
     return parser
 
@@ -333,11 +257,25 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = build_parser()
     parser_defaults = parser.parse_args([])
     args = parser.parse_args(argv)
+    executor_choice = (getattr(args, "executor", "") or "").strip().lower()
+    if not executor_choice:
+        executor_choice = "taskvine"
+    setattr(args, "executor", executor_choice)
+
     config_builder = RunConfigBuilder(parser_defaults)
     config = config_builder.build(
         args,
         getattr(args, "options", None),
     )
+
+    if config.executor == "taskvine":
+        config.environment_file = resolve_environment_file(
+            config.environment_file,
+            remote_environment,
+            extra_pip_local={"topeft": ["topeft", "setup.py"]},
+            extra_conda=["pyyaml"],
+        )
+
     run_workflow(config)
 
 

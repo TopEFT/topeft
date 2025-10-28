@@ -95,10 +95,12 @@ scenarios declared in ``topeft/params/metadata.yml``.
 
    This executes the workflow with the shared defaults plus the ``cr`` profile,
    which skips all SR categories, splits lepton flavors, and runs a short test
-   over the background configuration.  TaskVine will automatically upload the
-   packaged environment if the helper tarball is present.  When you control the
-   worker submission, stage the same tarball ahead of time so it does not need
-   to be transferred on first contact:
+   over the background configuration.  The TaskVine executor now expects the
+   cached environment tarball prepared in the prerequisites.  If the archive is
+   missing, ``run_analysis.py`` aborts with guidance to rebuild it or to pass
+   ``--environment-file auto`` explicitly.  When you control the worker
+   submission, stage the same tarball ahead of time so it does not need to be
+   transferred on first contact:
 
    ```bash
    vine_submit_workers --cores 4 --memory 16000 --disk 16000 \
