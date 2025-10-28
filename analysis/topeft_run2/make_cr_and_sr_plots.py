@@ -844,7 +844,6 @@ def _finalize_layout(
 
     events_x, events_y = events_anchor if events_anchor is not None else (None, None)
     if ratio_label_fig is not None:
-        label_y = ratio_label_fig[1]
         events_x = ratio_label_fig[0]
     if events_x is None:
         events_x = rax_box.x0 + rax_box.width
