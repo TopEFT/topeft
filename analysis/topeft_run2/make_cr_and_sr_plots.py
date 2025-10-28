@@ -1249,12 +1249,24 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         ref_hist = _find_reference_hist_name(dict_of_hists)
         all_samples = yt.get_cat_lables(dict_of_hists, "process", h_name=ref_hist)
 
-    mc_samples = utils.filter_lst_of_strs(
-        all_samples, substr_whitelist=mc_wl, substr_blacklist=mc_bl
-    )
-    data_samples = utils.filter_lst_of_strs(
-        all_samples, substr_whitelist=data_wl, substr_blacklist=data_bl
-    )
+    def _filter_samples(all_labels, whitelist, blacklist):
+        """Return samples that satisfy blacklist rules and match any whitelist token."""
+
+        if len(whitelist) <= 1:
+            return utils.filter_lst_of_strs(
+                all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
+            )
+
+        filtered = []
+        for label in all_labels:
+            if any(token in label for token in blacklist):
+                continue
+            if any(token in label for token in whitelist):
+                filtered.append(label)
+        return filtered
+
+    mc_samples = _filter_samples(all_samples, mc_wl, mc_bl)
+    data_samples = _filter_samples(all_samples, data_wl, data_bl)
     samples_to_remove = {
         "mc": [sample for sample in all_samples if sample not in mc_samples],
         "data": [sample for sample in all_samples if sample not in data_samples],
