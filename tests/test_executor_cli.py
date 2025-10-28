@@ -172,3 +172,33 @@ def test_executor_cli_defaults(monkeypatch, tmp_path):
     assert logs_dir.exists()
 
     assert remote_env.calls == [({}, [])]
+
+
+def test_executor_cli_futures_allows_missing_cached(tmp_path):
+    helper = ExecutorCLIHelper(
+        remote_environment=SimpleNamespace(env_dir_cache=tmp_path / "envs"),
+        futures_spec=FuturesArgumentSpec(
+            workers_default=2,
+            include_status=False,
+            include_tail_timeout=False,
+        ),
+        taskvine_spec=TaskVineArgumentSpec(
+            include_manager_name=False,
+            include_manager_template=False,
+            include_scratch_dir=False,
+            include_resource_monitor=False,
+            include_resources_mode=False,
+        ),
+        default_environment="cached",
+        default_executor="taskvine",
+    )
+
+    parser = argparse.ArgumentParser()
+    helper.configure_parser(parser)
+
+    args = parser.parse_args(["--executor", "futures"])
+    config = helper.parse_args(args)
+
+    assert config.executor == "futures"
+    assert config.environment_file is None
+    assert config.taskvine.environment_file is None
