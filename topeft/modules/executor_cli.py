@@ -192,7 +192,7 @@ class ExecutorCLIHelper:
             "--environment-file",
             default=self._default_environment,
             help=(
-                "Environment tarball for distributed executors ('auto', 'none', or path)."
+                "Environment tarball for distributed executors ('cached', 'auto', 'none', or path)."
             ),
         )
         parser.add_argument(
@@ -300,12 +300,21 @@ class ExecutorCLIHelper:
         port_spec = getattr(args, "port", self._default_port)
         port_range = parse_port_range(port_spec)
         environment_setting = getattr(args, "environment_file", self._default_environment)
-        environment_file = resolve_environment_file(
-            environment_setting,
-            self._remote_environment,
-            extra_pip_local=self._extra_pip_local,
-            extra_conda=self._extra_conda,
-        )
+        try:
+            environment_file = resolve_environment_file(
+                environment_setting,
+                self._remote_environment,
+                extra_pip_local=self._extra_pip_local,
+                extra_conda=self._extra_conda,
+            )
+        except FileNotFoundError:
+            if (
+                executor == "taskvine"
+                or str(environment_setting).strip().lower() != "cached"
+                or str(self._default_environment).strip().lower() != "cached"
+            ):
+                raise
+            environment_file = None
 
         futures_cfg = self._parse_futures(args)
         taskvine_cfg = self._parse_taskvine(args, executor, port_range, environment_file)

@@ -47,11 +47,12 @@ def resolve_environment_file(
     ----------
     setting:
         The user-facing configuration value.  ``"auto"`` triggers environment
-        packaging, ``"none"``/``None`` disables shipping, and any other string
-        is returned verbatim.
+        packaging, ``"cached"`` resolves the most recent pre-built archive, and
+        ``"none"``/``None`` disables shipping. Any other non-empty string is
+        returned verbatim.
     remote_environment:
         The :mod:`topcoffea.modules.remote_environment` module (or compatible)
-        used to materialise the packaged archive.
+        used to materialise or locate the packaged archive.
     extra_pip_local, extra_conda:
         Forwarded to :func:`remote_environment.get_environment` when the
         ``"auto"`` path is requested.
@@ -64,13 +65,54 @@ def resolve_environment_file(
     if not normalised or normalised.lower() == "none":
         return None
 
-    if normalised.lower() == "auto":
+    lowered = normalised.lower()
+    if lowered == "auto":
         return remote_environment.get_environment(
             extra_pip_local=extra_pip_local or {},
             extra_conda=list(extra_conda or ()),
         )
 
+    if lowered == "cached":
+        cached = _latest_cached_environment(remote_environment)
+        if cached is None:
+            raise FileNotFoundError(
+                "No cached remote environment tarball found. "
+                "Run 'python -m topcoffea.modules.remote_environment' to "
+                "materialise one or pass --environment-file auto to build "
+                "on demand."
+            )
+        return cached
+
     return normalised
+
+
+def _latest_cached_environment(remote_environment: Any) -> Optional[str]:
+    """Return the newest cached remote-environment archive if available."""
+
+    cache_dir = getattr(remote_environment, "env_dir_cache", None)
+    if cache_dir is None:
+        cache_dir = Path.cwd() / "topeft-envs"
+    else:
+        cache_dir = Path(cache_dir)
+
+    try:
+        candidates = sorted(
+            cache_dir.glob("env_*.tar.gz"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return None
+
+    for candidate in candidates:
+        try:
+            if candidate.is_file():
+                return str(candidate)
+        except OSError:
+            continue
+    return None
 
 
 def manager_name_base(executor: str, *, default_user: Optional[str] = None) -> str:

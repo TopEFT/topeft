@@ -362,7 +362,7 @@ class RunConfig:
     ecut: Optional[float] = None
     summary_verbosity: str = "brief"
     log_tasks: bool = False
-    environment_file: Optional[str] = "auto"
+    environment_file: Optional[str] = "cached"
     futures_status: Optional[bool] = None
     futures_tail_timeout: Optional[int] = None
     futures_memory: Optional[int] = None
