@@ -1935,6 +1935,8 @@ def make_region_stacked_ratio_fig(
             loc="upper left",
             fontsize=10,
             frameon=False,
+            ncol=2,
+            columnspacing=1.0,
         )
 
     # Scale the y axis and labels
@@ -2007,6 +2009,8 @@ def make_region_stacked_ratio_fig(
             bbox_to_anchor=(0.98, 0.98),
             frameon=False,
             fontsize=10,
+            ncol=2,
+            columnspacing=1.0,
         )
 
     fig.canvas.draw()
