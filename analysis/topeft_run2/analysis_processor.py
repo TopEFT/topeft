@@ -1451,12 +1451,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                     "The 2l same-sign data branch must register the central 'fliprate' weight."
                 )
 
-        validate_data_weight_variations(
-            weights_object,
-            data_weight_systematics,
-            variation_state.requested_data_weight_label,
-            variation_name,
-        )
+        if isData and self._systematic_variations:
+            validate_data_weight_variations(
+                weights_object,
+                data_weight_systematics,
+                variation_state.requested_data_weight_label,
+                variation_name,
+            )
 
         if self._debug_logging:
             weight_summary = (
