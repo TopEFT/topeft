@@ -1364,7 +1364,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                         "object_variation": variation_state.object_variation,
                         "variation_name": variation_name,
                     },
-                    weights_object=weights_object,
                 )
 
                 weights_object.add("btagSF", btag_result.central)
