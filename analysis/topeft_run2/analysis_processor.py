@@ -1442,18 +1442,40 @@ class AnalysisProcessor(processor.ProcessorABC):
                 variation_state.requested_data_weight_label,
             )
 
+        flipfactor_central = getattr(events, "flipfactor_2l")
+        flipfactor_up = getattr(events, "flipfactor_2l_up", None)
+        flipfactor_down = getattr(events, "flipfactor_2l_down", None)
+
+        charge_flip_central = flipfactor_central
+        charge_flip_up = (lambda: flipfactor_up) if flipfactor_up is not None else None
+        charge_flip_down = (lambda: flipfactor_down) if flipfactor_down is not None else None
+
+        if isData and channel_prefix == "2l" and ("os" not in self.channel):
+            def _charge_flip_ratio(values):
+                denominator = flipfactor_central
+                ones = ak.ones_like(denominator)
+                nonzero = denominator != 0
+                safe_denominator = ak.where(nonzero, denominator, ones)
+                return ak.where(nonzero, values / safe_denominator, ones)
+
+            charge_flip_central = lambda: ak.ones_like(flipfactor_central)
+            if flipfactor_up is not None:
+                charge_flip_up = lambda: _charge_flip_ratio(flipfactor_up)
+            if flipfactor_down is not None:
+                charge_flip_down = lambda: _charge_flip_ratio(flipfactor_down)
+
         register_weight_variation(
             weights_object,
             "charge_flips",
-            events.flipfactor_2l,
-            up=lambda: events.flipfactor_2l_up,
-            down=lambda: events.flipfactor_2l_down,
+            charge_flip_central,
+            up=charge_flip_up,
+            down=charge_flip_down,
             active=bool(self._systematic_variations)
             and variation_state.base == "charge_flips",
         )
 
         if isData and channel_prefix == "2l" and ("os" not in self.channel):
-            weights_object.add("fliprate", events.flipfactor_2l)
+            weights_object.add("fliprate", flipfactor_central)
 
             central_modifiers = getattr(weights_object, "_weights", None).keys()
 
