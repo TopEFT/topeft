@@ -1841,6 +1841,7 @@ def make_region_stacked_ratio_fig(
     total_label = "Stat. $\oplus$ syst. unc."
 
     ratio_band_handles = []
+    main_band_handles = []
 
     if band_mode == "syst" and has_syst_arrays:
         if mc_syst_band_up is not None and mc_syst_band_down is not None:
@@ -1868,7 +1869,7 @@ def make_region_stacked_ratio_fig(
             ratio_band_handles.append(ratio_syst_handle)
     else:
         if mc_stat_band_up is not None and mc_stat_band_down is not None:
-            ax.fill_between(
+            stat_handle_main = ax.fill_between(
                 bins,
                 mc_stat_band_down,
                 mc_stat_band_up,
@@ -1876,8 +1877,9 @@ def make_region_stacked_ratio_fig(
                 facecolor='gray',
                 alpha=0.3,
                 edgecolor='none',
-                label=stat_label,
+                label='_nolegend_',
             )
+            main_band_handles.append((stat_handle_main, stat_label))
         if ratio_stat_band_up is not None and ratio_stat_band_down is not None:
             ratio_stat_handle = rax.fill_between(
                 bins,
@@ -1894,16 +1896,17 @@ def make_region_stacked_ratio_fig(
         show_total = band_mode == "total" and has_syst_arrays
         if show_total:
             if mc_total_band_up is not None and mc_total_band_down is not None:
-                ax.fill_between(
+                total_handle_main = ax.fill_between(
                     bins,
                     mc_total_band_down,
                     mc_total_band_up,
                     step='post',
                     facecolor='none',
                     edgecolor='gray',
-                    label=total_label,
+                    label='_nolegend_',
                     hatch='////',
                 )
+                main_band_handles.append((total_handle_main, total_label))
             if ratio_total_band_up is not None and ratio_total_band_down is not None:
                 ratio_total_handle = rax.fill_between(
                     bins,
@@ -1968,6 +1971,17 @@ def make_region_stacked_ratio_fig(
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
     legend = ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
+    if main_band_handles:
+        unc_handles, unc_labels = zip(*main_band_handles)
+        _ = ax.legend(
+            handles=list(unc_handles),
+            labels=list(unc_labels),
+            loc="upper right",
+            bbox_to_anchor=(0.98, 0.98),
+            frameon=False,
+            fontsize=10,
+        )
+        ax.add_artist(legend)
 
     def _finalize_layout(
         fig,
