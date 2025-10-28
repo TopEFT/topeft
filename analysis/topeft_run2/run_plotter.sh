@@ -179,7 +179,16 @@ detect_region() {
     local matches=()
     local region
     for region in CR SR; do
+        local matched=0
         if [[ ${uppercase} =~ (^|[^A-Z0-9])${region} ]]; then
+            matched=1
+        else
+            local trimmed_leading_digits="${uppercase##[0-9]*}"
+            if [[ ${trimmed_leading_digits} =~ ^${region} ]]; then
+                matched=1
+            fi
+        fi
+        if (( matched )); then
             matches+=("${region}")
         fi
     done
