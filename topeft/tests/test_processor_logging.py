@@ -1552,6 +1552,7 @@ def test_process_nominal_run_is_quiet(processor, capsys, caplog, monkeypatch):
 
     monkeypatch.setattr(processor, "process", _fake_process.__get__(processor, type(processor)))
     processor._debug_logging = True
+    processor._suppress_debug_prints = True
     with caplog.at_level(logging.DEBUG, logger="analysis.topeft_run2.analysis_processor"):
         result = processor.process(events)
 
@@ -1569,6 +1570,16 @@ def test_process_nominal_run_is_quiet(processor, capsys, caplog, monkeypatch):
     assert any("Resolved variation metadata" in message for message in messages)
     assert any("Processing variation" in message for message in messages)
     assert any("Filled histkey" in message for message in messages)
+
+
+def test_debug_prints_emitted_when_not_suppressed(processor, capsys):
+    processor._debug_logging = True
+    processor._suppress_debug_prints = False
+
+    processor._debug("Example message %s", "value")
+
+    captured = capsys.readouterr()
+    assert "Example message value" in captured.out
 
 
 def test_metadata_to_mapping_handles_various_inputs():
