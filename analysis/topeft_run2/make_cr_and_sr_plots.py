@@ -1838,7 +1838,7 @@ def make_region_stacked_ratio_fig(
 
     stat_label = "Stat. unc."
     syst_label = "Syst. unc."
-    total_label = "Stat. ⊕ syst. unc."
+    total_label = r"Stat.\ $\oplus$\ syst.\ unc."
 
     ratio_band_handles = []
 
