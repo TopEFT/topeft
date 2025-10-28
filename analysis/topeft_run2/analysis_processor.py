@@ -1160,6 +1160,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         goodJets = variation_state.good_jets
         isData = dataset.is_data
         year = dataset.year
+        trigger_weight_label = f"triggerSF_{year}"
         sow = dataset.sow
         xsec = dataset.xsec
         lumi = dataset.lumi
@@ -1381,13 +1382,17 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             register_trigger_sf_weight(
                 weights_object,
-                events,
-                variation_name,
-                dataset.hist_axis_name,
-                dataset.year,
-                dataset.sample_type,
-                variation_state.include_muon_sf,
-                variation_state.include_elec_sf,
+                year=dataset.year,
+                events=events,
+                lepton0=variation_state.l0,
+                lepton1=variation_state.l1,
+                label=trigger_weight_label,
+                variation_descriptor={
+                    "has_systematics": bool(self._systematic_variations),
+                    "variation_base": variation_state.base,
+                    "variation_name": variation_name,
+                },
+                logger_obj=logger,
             )
 
             if self.tau_h_analysis:
