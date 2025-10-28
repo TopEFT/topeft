@@ -2073,9 +2073,9 @@ def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,tem
             for proc_name in proc_lst:
                 if proc_name not in relevant_samples_lst: continue
 
-                n_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-                u_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic",syst_name+"Up").eval({})[()]
-                d_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic",syst_name+"Down").eval({})[()]
+                n_arr_proc = base_histo.integrate("process", [proc_name]).integrate("systematic", "nominal").eval({})[()]
+                u_arr_proc = base_histo.integrate("process", [proc_name]).integrate("systematic", syst_name+"Up").eval({})[()]
+                d_arr_proc = base_histo.integrate("process", [proc_name]).integrate("systematic", syst_name+"Down").eval({})[()]
 
                 u_arr_proc_rel = u_arr_proc - n_arr_proc
                 d_arr_proc_rel = d_arr_proc - n_arr_proc
