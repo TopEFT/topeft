@@ -7,9 +7,9 @@ systematic catalogue exposed through ``topeft/params/metadata.yml`` with the
 ``RunWorkflow`` planner and the YAML quickstart workflow.
 """
 
-import copy
 from collections import OrderedDict
 from collections.abc import Mapping
+from dataclasses import dataclass
 import coffea
 import numpy as np
 import awkward as ak
@@ -77,6 +77,162 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
     return ret_str
 
 
+@dataclass(frozen=True)
+class DatasetContext:
+    dataset: str
+    trigger_dataset: str
+    hist_axis_name: str
+    is_data: bool
+    is_eft: bool
+    year: str
+    xsec: float
+    sow: float
+    run_era: Optional[str]
+    is_run2: bool
+    is_run3: bool
+    sample_type: str
+    is_lo_sample: bool
+    lumi_mask: ak.Array
+    lumi: float
+    eft_coeffs: Optional[np.ndarray]
+    eft_w2_coeffs: Optional[np.ndarray]
+
+
+@dataclass(frozen=True)
+class BaseObjectState:
+    met: ak.Array
+    electrons: ak.Array
+    muons: ak.Array
+    taus: ak.Array
+    jets: ak.Array
+    loose_leptons: ak.Array
+    fakeable_leptons: ak.Array
+    fakeable_sorted: ak.Array
+    jets_rho: ak.Array
+    lepton_selection: object
+    cleaning_taus: Optional[ak.Array]
+    n_loose_taus: Optional[ak.Array]
+    tau0: Optional[ak.Array]
+
+
+@dataclass
+class VariationObjects:
+    met: ak.Array
+    electrons: ak.Array
+    muons: ak.Array
+    taus: ak.Array
+    jets: ak.Array
+    loose_leptons: ak.Array
+    fakeable_leptons: ak.Array
+    fakeable_sorted: ak.Array
+    cleaning_taus: Optional[ak.Array]
+    n_loose_taus: Optional[ak.Array]
+    tau0: Optional[ak.Array]
+
+    @classmethod
+    def from_base(cls, base: BaseObjectState) -> "VariationObjects":
+        return cls(
+            met=ak.copy(base.met),
+            electrons=ak.copy(base.electrons),
+            muons=ak.copy(base.muons),
+            taus=ak.copy(base.taus),
+            jets=ak.copy(base.jets),
+            loose_leptons=ak.copy(base.loose_leptons),
+            fakeable_leptons=ak.copy(base.fakeable_leptons),
+            fakeable_sorted=ak.copy(base.fakeable_sorted),
+            cleaning_taus=ak.copy(base.cleaning_taus) if base.cleaning_taus is not None else None,
+            n_loose_taus=ak.copy(base.n_loose_taus) if base.n_loose_taus is not None else None,
+            tau0=ak.copy(base.tau0) if base.tau0 is not None else None,
+        )
+
+
+@dataclass(frozen=True)
+class VariationRequest:
+    variation: Optional[object]
+    histogram_label: str
+
+
+@dataclass
+class VariationState:
+    request: VariationRequest
+    name: str
+    base: Optional[str]
+    variation_type: Optional[str]
+    metadata: Mapping[str, object]
+    object_variation: str
+    weight_variations: List[str]
+    requested_data_weight_label: Optional[str]
+    sow_variation_key_map: Dict[str, str]
+    sow_variations: Dict[str, float]
+    objects: VariationObjects
+    lepton_selection: object
+    jets_rho: ak.Array
+    cleaned_jets: Optional[ak.Array] = None
+    good_jets: Optional[ak.Array] = None
+    fwd_jets: Optional[ak.Array] = None
+    njets: Optional[ak.Array] = None
+    nfwdj: Optional[ak.Array] = None
+    ht: Optional[ak.Array] = None
+    j0: Optional[ak.Array] = None
+    l_sorted_padded: Optional[ak.Array] = None
+    l0: Optional[ak.Array] = None
+    l1: Optional[ak.Array] = None
+    l2: Optional[ak.Array] = None
+    isBtagJetsLoose: Optional[ak.Array] = None
+    isNotBtagJetsLoose: Optional[ak.Array] = None
+    nbtagsl: Optional[ak.Array] = None
+    isBtagJetsMedium: Optional[ak.Array] = None
+    isNotBtagJetsMedium: Optional[ak.Array] = None
+    nbtagsm: Optional[ak.Array] = None
+    isBtagJetsLooseNotMedium: Optional[ak.Array] = None
+    jets_light: Optional[ak.Array] = None
+    jets_bc: Optional[ak.Array] = None
+    light_mask: Optional[ak.Array] = None
+    bc_mask: Optional[ak.Array] = None
+    has_hadron_flavour: bool = False
+    include_muon_sf: bool = False
+    include_elec_sf: bool = False
+    include_tau_real_sf: bool = False
+    include_tau_fake_sf: bool = False
+
+
+_LEPTON_SF_WEIGHT_SPECS: Dict[str, Tuple[Tuple[str, str, str, str, str], ...]] = {
+    "1l": (
+        ("lepSF_muon", "sf_1l_muon", "sf_1l_hi_muon", "sf_1l_lo_muon", "include_muon_sf"),
+        ("lepSF_elec", "sf_1l_elec", "sf_1l_hi_elec", "sf_1l_lo_elec", "include_elec_sf"),
+    ),
+    "2l": (
+        ("lepSF_muon", "sf_2l_muon", "sf_2l_hi_muon", "sf_2l_lo_muon", "include_muon_sf"),
+        ("lepSF_elec", "sf_2l_elec", "sf_2l_hi_elec", "sf_2l_lo_elec", "include_elec_sf"),
+    ),
+    "3l": (
+        ("lepSF_muon", "sf_3l_muon", "sf_3l_hi_muon", "sf_3l_lo_muon", "include_muon_sf"),
+        ("lepSF_elec", "sf_3l_elec", "sf_3l_hi_elec", "sf_3l_lo_elec", "include_elec_sf"),
+    ),
+    "4l": (
+        ("lepSF_muon", "sf_4l_muon", "sf_4l_hi_muon", "sf_4l_lo_muon", "include_muon_sf"),
+        ("lepSF_elec", "sf_4l_elec", "sf_4l_hi_elec", "sf_4l_lo_elec", "include_elec_sf"),
+    ),
+}
+
+_TAU_SF_WEIGHT_SPECS: Tuple[Tuple[str, str, str, str, str], ...] = (
+    (
+        "lepSF_taus_real",
+        "sf_2l_taus_real",
+        "sf_2l_taus_real_hi",
+        "sf_2l_taus_real_lo",
+        "include_tau_real_sf",
+    ),
+    (
+        "lepSF_taus_fake",
+        "sf_2l_taus_fake",
+        "sf_2l_taus_fake_hi",
+        "sf_2l_taus_fake_lo",
+        "include_tau_fake_sf",
+    ),
+)
+
+
 class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(
@@ -97,6 +253,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         available_systematics=None,
         metadata_path: Optional[str] = None,
         debug_logging: bool = False,
+        executor_mode: Optional[str] = None,
+        suppress_debug_prints: Optional[bool] = None,
     ):
 
         self._sample = sample
@@ -128,6 +286,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         }
         self._metadata_path = metadata_path
         self._debug_logging = bool(debug_logging)
+        self._executor_mode = (executor_mode or "").strip().lower() or None
+        if suppress_debug_prints is None:
+            suppress_debug_prints = (
+                self._executor_mode == "taskvine"
+                or bool(os.environ.get("TOPEFT_SUPPRESS_DEBUG_STDOUT"))
+            )
+        self._suppress_debug_prints = bool(suppress_debug_prints)
         self._golden_json_path = golden_json_path
         if self._sample.get("isData") and not self._golden_json_path:
             raise ValueError("golden_json_path must be provided for data samples")
@@ -354,6 +519,1446 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
         return ch_name, base_ch_name
 
+    def _build_dataset_context(self, events) -> DatasetContext:
+        events_metadata = self._metadata_to_mapping(getattr(events, "metadata", None))
+        raw_dataset_name = events_metadata.get("dataset")
+        if raw_dataset_name is None:
+            raw_dataset_name = self._sample.get("histAxisName")
+        if raw_dataset_name is None:
+            raise KeyError("Events metadata is missing a 'dataset' entry")
+        raw_dataset_name = str(raw_dataset_name)
+        dataset, trigger_dataset = self._resolve_dataset_names(raw_dataset_name)
+
+        hist_axis_name = self._sample["histAxisName"]
+        is_data = self._sample["isData"]
+        year = self._sample["year"]
+        xsec = self._sample["xsec"]
+        sow = self._sample["nSumOfWeights"]
+
+        is_eft = self._sample["WCnames"] != []
+        is_run3 = year.startswith("202")
+        is_run2 = not is_run3
+
+        run_era = None
+        if is_data:
+            run_era = self._sample["path"].split("/")[2].split("-")[0][-1]
+
+        is_lo_sample = hist_axis_name in get_te_param("lo_xsec_samples")
+
+        sample_type = "prompt"
+        if is_data:
+            sample_type = "data"
+        elif hist_axis_name in get_te_param("conv_samples"):
+            sample_type = "conversions"
+        elif hist_axis_name in get_te_param("prompt_and_conv_samples"):
+            sample_type = "prompt_and_conversions"
+
+        lumi_mask = ak.ones_like(events.run, dtype=bool)
+        if is_data:
+            lumi_mask = LumiMask(self._golden_json_path)(events.run, events.luminosityBlock)
+
+        eft_coeffs = (
+            ak.to_numpy(events["EFTfitCoefficients"])
+            if hasattr(events, "EFTfitCoefficients")
+            else None
+        )
+        if eft_coeffs is not None and self._sample["WCnames"] != self._wc_names_lst:
+            eft_coeffs = efth.remap_coeffs(
+                self._sample["WCnames"], self._wc_names_lst, eft_coeffs
+            )
+        eft_w2_coeffs = (
+            efth.calc_w2_coeffs(eft_coeffs, self._dtype)
+            if (self._do_errors and eft_coeffs is not None)
+            else None
+        )
+
+        lumi = 1000.0 * get_tc_param(f"lumi_{year}")
+
+        context = DatasetContext(
+            dataset=dataset,
+            trigger_dataset=trigger_dataset,
+            hist_axis_name=hist_axis_name,
+            is_data=is_data,
+            is_eft=is_eft,
+            year=year,
+            xsec=xsec,
+            sow=sow,
+            run_era=run_era,
+            is_run2=is_run2,
+            is_run3=is_run3,
+            sample_type=sample_type,
+            is_lo_sample=is_lo_sample,
+            lumi_mask=lumi_mask,
+            lumi=lumi,
+            eft_coeffs=eft_coeffs,
+            eft_w2_coeffs=eft_w2_coeffs,
+        )
+
+        if self._debug_logging:
+            features = tuple(sorted(self._channel_features))
+            self._debug(
+                "Resolved dataset context: dataset=%s trigger_dataset=%s features=%s "
+                "is_data=%s is_eft=%s sample_type=%s run_era=%s year=%s",
+                context.dataset,
+                context.trigger_dataset,
+                features,
+                context.is_data,
+                context.is_eft,
+                context.sample_type,
+                context.run_era,
+                context.year,
+            )
+
+        return context
+
+    def _select_base_objects(
+        self, events, dataset: DatasetContext
+    ) -> BaseObjectState:
+        met = events.MET
+        ele = events.Electron
+        mu = events.Muon
+        tau = events.Tau
+        jets = events.Jet
+
+        if dataset.is_run3:
+            lepton_selection = te_os.run3leptonselection()
+            jets_rho = events.Rho["fixedGridRhoFastjetAll"]
+        else:
+            lepton_selection = te_os.run2leptonselection()
+            jets_rho = events.fixedGridRhoFastjetAll
+
+        events.nom = ak.ones_like(events.MET.pt)
+
+        ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(
+            ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie
+        )
+        ele["conept"] = lepton_selection.coneptElec(ele)
+        mu["conept"] = lepton_selection.coneptMuon(mu)
+        ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
+        mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+        if not dataset.is_data:
+            ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
+            mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
+
+        ele["isPres"] = lepton_selection.isPresElec(ele)
+        ele["isLooseE"] = lepton_selection.isLooseElec(ele)
+        ele["isFO"] = lepton_selection.isFOElec(ele, dataset.year)
+        ele["isTightLep"] = lepton_selection.tightSelElec(ele)
+
+        mu["pt"] = ApplyRochesterCorrections(mu, dataset.year, dataset.is_data)
+        mu["isPres"] = lepton_selection.isPresMuon(mu)
+        mu["isLooseM"] = lepton_selection.isLooseMuon(mu)
+        mu["isFO"] = lepton_selection.isFOMuon(mu, dataset.year)
+        mu["isTightLep"] = lepton_selection.tightSelMuon(mu)
+
+        m_loose = mu[mu.isPres & mu.isLooseM]
+        e_loose = ele[ele.isPres & ele.isLooseE]
+        l_loose = ak.with_name(
+            ak.concatenate([e_loose, m_loose], axis=1), "PtEtaPhiMCandidate"
+        )
+
+        llpairs = ak.combinations(l_loose, 2, fields=["l0", "l1"])
+        events["minMllAFAS"] = ak.min((llpairs.l0 + llpairs.l1).mass, axis=-1)
+
+        m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
+        e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
+
+        AttachElectronSF(
+            e_fo, year=dataset.year, looseWP="none" if dataset.is_run3 else "wpLnoiso"
+        )
+        AttachMuonSF(m_fo, year=dataset.year)
+        AttachPerLeptonFR(e_fo, flavor="Elec", year=dataset.year)
+        AttachPerLeptonFR(m_fo, flavor="Muon", year=dataset.year)
+        m_fo["convVeto"] = ak.ones_like(m_fo.charge)
+        m_fo["lostHits"] = ak.zeros_like(m_fo.charge)
+
+        l_fo = ak.with_name(
+            ak.concatenate([e_fo, m_fo], axis=1),
+            "PtEtaPhiMCandidate",
+        )
+        l_fo = l_fo[ak.argsort(l_fo.conept, axis=1, ascending=False)]
+        l_fo_conept_sorted = l_fo
+
+        cleaning_taus = None
+        nLtau = None
+        tau0 = None
+
+        if self.tau_h_analysis:
+            tau["pt"], tau["mass"] = ApplyTES(dataset.year, tau, dataset.is_data)
+            tau["isPres"] = te_os.isPresTau(
+                tau.pt,
+                tau.eta,
+                tau.dxy,
+                tau.dz,
+                tau.idDeepTau2017v2p1VSjet,
+                tau.idDeepTau2017v2p1VSe,
+                tau.idDeepTau2017v2p1VSmu,
+                minpt=20,
+            )
+            tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
+            tau["isGood"] = tau["isClean"] & tau["isPres"]
+            tau = tau[tau.isGood]
+
+            tau["DMflag"] = (
+                (tau.decayMode == 0)
+                | (tau.decayMode == 1)
+                | (tau.decayMode == 10)
+                | (tau.decayMode == 11)
+            )
+            tau = tau[tau["DMflag"]]
+            tau["isVLoose"] = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet)
+            tau["isLoose"] = te_os.isLooseTau(tau.idDeepTau2017v2p1VSjet)
+            tau["iseTight"] = te_os.iseTightTau(tau.idDeepTau2017v2p1VSe)
+            tau["ismTight"] = te_os.ismTightTau(tau.idDeepTau2017v2p1VSmu)
+
+            cleaning_taus = tau[tau["isLoose"] > 0]
+            nLtau = ak.num(tau[tau["isLoose"] > 0])
+            tau_padded = ak.pad_none(tau, 1)
+            tau0 = tau_padded[:, 0]
+        else:
+            tau["isPres"] = te_os.isPresTau(
+                tau.pt,
+                tau.eta,
+                tau.dxy,
+                tau.dz,
+                tau.idDeepTau2017v2p1VSjet,
+                tau.idDeepTau2017v2p1VSe,
+                tau.idDeepTau2017v2p1VSmu,
+                minpt=20,
+            )
+            tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
+            tau["isGood"] = tau["isClean"] & tau["isPres"]
+            tau = tau[tau.isGood]
+            tau["isTight"] = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet)
+
+        return BaseObjectState(
+            met=met,
+            electrons=ele,
+            muons=mu,
+            taus=tau,
+            jets=jets,
+            loose_leptons=l_loose,
+            fakeable_leptons=l_fo,
+            fakeable_sorted=l_fo_conept_sorted,
+            jets_rho=jets_rho,
+            lepton_selection=lepton_selection,
+            cleaning_taus=cleaning_taus,
+            n_loose_taus=nLtau,
+            tau0=tau0,
+        )
+
+    def _build_variation_requests(self) -> List[VariationRequest]:
+        if self._systematic_variations:
+            requests = []
+            for variation in self._systematic_variations:
+                label = self._histogram_label_lookup.get(variation.name)
+                if label is None:
+                    raise KeyError(
+                        f"Missing histogram label for requested variation '{variation.name}'"
+                    )
+                requests.append(VariationRequest(variation=variation, histogram_label=label))
+        else:
+            requests = [VariationRequest(variation=None, histogram_label="nominal")]
+
+        if self._debug_logging:
+            summary = [
+                (
+                    req.variation.name if req.variation is not None else "nominal",
+                    req.histogram_label,
+                )
+                for req in requests
+            ]
+            self._debug(
+                "Prepared %d variation requests: %s",
+                len(requests),
+                summary,
+            )
+
+        return requests
+
+    def _initialize_variation_state(
+        self,
+        request: VariationRequest,
+        base_objects: BaseObjectState,
+        dataset: DatasetContext,
+        object_systematics: Tuple[str, ...],
+        weight_systematics: Tuple[str, ...],
+        theory_systematics: Tuple[str, ...],
+        data_weight_systematics: Tuple[str, ...],
+    ) -> VariationState:
+        variation = request.variation
+        variation_name = variation.name if variation is not None else "nominal"
+        variation_base = variation.base if variation is not None else None
+        variation_type = getattr(variation, "type", None) if variation is not None else None
+        variation_metadata = self._metadata_to_mapping(
+            getattr(variation, "metadata", None) if variation is not None else None
+        )
+
+        if self._debug_logging:
+            components = (
+                tuple(getattr(variation, "components", ()))
+                if variation is not None
+                else ()
+            )
+            self._debug(
+                "Resolved variation metadata for '%s': type=%s base=%s components=%s metadata=%s",
+                variation_name,
+                variation_type,
+                variation_base,
+                components,
+                dict(variation_metadata),
+            )
+
+        variation_base_str = variation_base or ""
+        metadata_lepton_flavor_value = (
+            variation_metadata.get("lepton_flavor")
+            or variation_metadata.get("lepton_type")
+            or variation_metadata.get("flavor")
+        )
+        metadata_lepton_flavor = (
+            str(metadata_lepton_flavor_value).strip().lower()
+            if metadata_lepton_flavor_value is not None
+            else ""
+        )
+
+        include_lep_sf_variations = bool(
+            variation_metadata.get("lepton_sf")
+            or variation_metadata.get("weight_family") == "lepton_sf"
+            or variation_metadata.get("weight_category") == "lepton_sf"
+            or variation_base_str.startswith("lepton_sf_")
+        )
+        include_muon_sf_variations = include_lep_sf_variations and (
+            metadata_lepton_flavor in {"mu", "muon", "muons"}
+            or variation_base_str.endswith("muon")
+        )
+        include_elec_sf_variations = include_lep_sf_variations and (
+            metadata_lepton_flavor in {"e", "ele", "elec", "electron", "electrons"}
+            or variation_base_str.endswith("elec")
+            or variation_base_str.endswith("electron")
+        )
+        include_tau_real_sf_variations = include_lep_sf_variations and (
+            metadata_lepton_flavor in {"tau_real", "tau-real"}
+            or variation_base_str.endswith("tau_real")
+        )
+        include_tau_fake_sf_variations = include_lep_sf_variations and (
+            metadata_lepton_flavor in {"tau_fake", "tau-fake"}
+            or variation_base_str.endswith("tau_fake")
+        )
+
+        object_variation = "nominal"
+        weight_variations_to_run: List[str] = []
+        requested_data_weight_label: Optional[str] = None
+
+        sow_variation_key_map: Dict[str, str] = {}
+        requested_sow_variations: set = set()
+        sow_variations: Dict[str, float] = {"nominal": dataset.sow}
+
+        if (
+            variation is not None
+            and self._systematic_variations
+            and not dataset.is_data
+        ):
+            group_mapping = self._metadata_to_mapping(getattr(variation, "group", None))
+            group_key = (variation.base, variation.component, variation.year)
+            group_info = group_mapping.get(group_key, {})
+
+            if group_mapping:
+                self._debug(
+                    "Variation group mapping for '%s': mapping=%s key=%s info=%s",
+                    variation_name,
+                    group_mapping,
+                    group_key,
+                    group_info,
+                )
+
+            if not group_info and variation.metadata.get("sum_of_weights"):
+                group_info = {
+                    variation.name: {
+                        "sum_of_weights": variation.metadata["sum_of_weights"]
+                    }
+                }
+
+            if group_info:
+                requested_sow_variations = set(group_info.keys())
+                sow_variation_key_map = {
+                    name: info.get("sum_of_weights")
+                    for name, info in group_info.items()
+                    if info.get("sum_of_weights")
+                }
+
+        if self._systematic_variations and not dataset.is_data:
+            for sow_label in requested_sow_variations:
+                if dataset.is_lo_sample:
+                    sow_variations[sow_label] = dataset.sow
+                else:
+                    key = sow_variation_key_map.get(sow_label)
+                    if key is not None and key in self._sample:
+                        sow_variations[sow_label] = self._sample[key]
+
+        if variation_type == "object":
+            if variation_name not in object_systematics:
+                raise ValueError(
+                    f"Requested object systematic '{variation_name}' is not available in the mapping"
+                )
+            object_variation = variation_name
+        elif variation_type in {"weight", "theory", "data_weight"}:
+            variation_pool = {
+                "weight": weight_systematics,
+                "theory": theory_systematics,
+                "data_weight": data_weight_systematics,
+            }[variation_type]
+
+            if variation_name != "nominal":
+                if variation_name not in variation_pool:
+                    raise ValueError(
+                        f"Requested {variation_type} systematic '{variation_name}' is not available in the mapping"
+                    )
+                weight_variations_to_run = [variation_name]
+
+        if variation_type == "data_weight" and variation_name != "nominal":
+            requested_data_weight_label = variation_name
+            for _direction in ("Up", "Down"):
+                if requested_data_weight_label.endswith(_direction):
+                    requested_data_weight_label = requested_data_weight_label[: -len(_direction)]
+                    break
+
+        objects = VariationObjects.from_base(base_objects)
+
+        variation_state = VariationState(
+            request=request,
+            name=variation_name,
+            base=variation_base,
+            variation_type=variation_type,
+            metadata=variation_metadata,
+            object_variation=object_variation,
+            weight_variations=weight_variations_to_run,
+            requested_data_weight_label=requested_data_weight_label,
+            sow_variation_key_map=sow_variation_key_map,
+            sow_variations=sow_variations,
+            objects=objects,
+            lepton_selection=base_objects.lepton_selection,
+            jets_rho=base_objects.jets_rho,
+            include_muon_sf=include_muon_sf_variations,
+            include_elec_sf=include_elec_sf_variations,
+            include_tau_real_sf=include_tau_real_sf_variations,
+            include_tau_fake_sf=include_tau_fake_sf_variations,
+        )
+        return variation_state
+
+    def _apply_object_variations(
+        self,
+        events,
+        dataset: DatasetContext,
+        variation_state: VariationState,
+        events_cache,
+    ) -> VariationState:
+        objects = variation_state.objects
+        met = objects.met
+        ele = objects.electrons
+        mu = objects.muons
+        tau = objects.taus
+        jets = objects.jets
+        l_loose = objects.loose_leptons
+        l_fo = objects.fakeable_leptons
+        l_fo_conept_sorted = objects.fakeable_sorted
+        cleaning_taus = objects.cleaning_taus
+
+        met_raw = met
+
+        if self.tau_h_analysis and cleaning_taus is None:
+            cleaning_taus = tau[tau["isLoose"] > 0]
+
+        if self.tau_h_analysis:
+            vetos_tocleanjets = ak.with_name(
+                ak.concatenate([cleaning_taus, l_fo], axis=1), "PtEtaPhiMCandidate"
+            )
+        else:
+            vetos_tocleanjets = ak.with_name(l_fo, "PtEtaPhiMCandidate")
+
+        tmp = ak.cartesian(
+            [ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True
+        )
+        cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]
+
+        jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
+
+        cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor) * cleanedJets.pt
+        cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor) * cleanedJets.mass
+        cleanedJets["rho"] = ak.broadcast_arrays(variation_state.jets_rho, cleanedJets.pt)[0]
+
+        if not dataset.is_data:
+            cleanedJets["pt_gen"] = ak.values_astype(
+                ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32
+            )
+            if self.tau_h_analysis:
+                tau_pt, tau_mass = ApplyTESSystematic(
+                    dataset.year, tau, dataset.is_data, variation_state.object_variation
+                )
+                tau["pt"], tau["mass"] = tau_pt, tau_mass
+                tau_pt, tau_mass = ApplyFESSystematic(
+                    dataset.year, tau, dataset.is_data, variation_state.object_variation
+                )
+                tau["pt"], tau["mass"] = tau_pt, tau_mass
+                cleaning_taus = tau[tau["isLoose"] > 0]
+                nLtau = ak.num(tau[tau["isLoose"] > 0])
+                tau_padded = ak.pad_none(tau, 1)
+                tau0 = tau_padded[:, 0]
+                variation_state.objects.cleaning_taus = cleaning_taus
+                variation_state.objects.n_loose_taus = nLtau
+                variation_state.objects.tau0 = tau0
+
+        cleanedJets = ApplyJetCorrections(
+            dataset.year, corr_type="jets", isData=dataset.is_data, era=dataset.run_era
+        ).build(cleanedJets, lazy_cache=events_cache)
+        cleanedJets = ApplyJetSystematics(
+            dataset.year, cleanedJets, variation_state.object_variation
+        )
+        met = ApplyJetCorrections(
+            dataset.year, corr_type="met", isData=dataset.is_data, era=dataset.run_era
+        ).build(met_raw, cleanedJets, lazy_cache=events_cache)
+
+        objects.met = met
+        objects.taus = tau
+        objects.jets = cleanedJets
+        objects.fakeable_sorted = l_fo_conept_sorted
+
+        cleanedJets["isGood"] = tc_os.is_tight_jet(
+            getattr(cleanedJets, jetptname),
+            cleanedJets.eta,
+            cleanedJets.jetId,
+            pt_cut=30.0,
+            eta_cut=get_te_param("eta_j_cut"),
+            id_cut=get_te_param("jet_id_cut"),
+        )
+        cleanedJets["isFwd"] = te_os.isFwdJet(
+            getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.0
+        )
+        goodJets = cleanedJets[cleanedJets.isGood]
+        fwdJets = cleanedJets[cleanedJets.isFwd]
+
+        njets = ak.num(goodJets)
+        nfwdj = ak.num(fwdJets)
+        ht = ak.sum(goodJets.pt, axis=-1) if "ht" in self._var_def else None
+        j0 = (
+            goodJets[ak.argmax(goodJets.pt, axis=-1, keepdims=True)]
+            if "j0" in self._var_def
+            else None
+        )
+
+        events["njets"] = njets
+        events["l_fo_conept_sorted"] = l_fo_conept_sorted
+
+        te_es.add1lMaskAndSFs(events, dataset.year, dataset.is_data, dataset.sample_type)
+        te_es.add2lMaskAndSFs(events, dataset.year, dataset.is_data, dataset.sample_type)
+        te_es.add3lMaskAndSFs(events, dataset.year, dataset.is_data, dataset.sample_type)
+        te_es.add4lMaskAndSFs(events, dataset.year, dataset.is_data)
+        te_es.addLepCatMasks(events)
+
+        l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
+        l0 = l_fo_conept_sorted_padded[:, 0]
+        l1 = l_fo_conept_sorted_padded[:, 1]
+        l2 = l_fo_conept_sorted_padded[:, 2]
+
+        variation_state.cleaned_jets = cleanedJets
+        variation_state.good_jets = goodJets
+        variation_state.fwd_jets = fwdJets
+        variation_state.njets = njets
+        variation_state.nfwdj = nfwdj
+        variation_state.ht = ht
+        variation_state.j0 = j0
+        variation_state.l_sorted_padded = l_fo_conept_sorted_padded
+        variation_state.l0 = l0
+        variation_state.l1 = l1
+        variation_state.l2 = l2
+
+        if self._debug_logging:
+            try:
+                total_good_jets = int(ak.sum(njets)) if variation_state.njets is not None else 0
+            except Exception:
+                total_good_jets = 0
+            try:
+                total_fwd_jets = (
+                    int(ak.sum(nfwdj)) if variation_state.nfwdj is not None else 0
+                )
+            except Exception:
+                total_fwd_jets = 0
+            self._debug(
+                "Prepared objects for variation '%s': object_variation=%s total_good_jets=%d total_fwd_jets=%d",
+                variation_state.name,
+                variation_state.object_variation,
+                total_good_jets,
+                total_fwd_jets,
+            )
+
+        return variation_state
+
+    def _register_lepton_sf_weights(
+        self,
+        *,
+        events,
+        weights_object,
+        lepton_category: str,
+        channel_prefix: str,
+        variation_state: VariationState,
+        variation_name: str,
+    ) -> None:
+        weight_specs = _LEPTON_SF_WEIGHT_SPECS.get(channel_prefix)
+        if weight_specs is None:
+            raise Exception(f"Unknown channel name: {lepton_category}")
+
+        for (
+            label,
+            central_attr,
+            up_attr,
+            down_attr,
+            include_attr,
+        ) in weight_specs:
+            include_variations = getattr(variation_state, include_attr)
+            register_lepton_sf_weight(
+                weights_object,
+                events,
+                label,
+                central_attr,
+                up_attr,
+                down_attr,
+                include_variations,
+                variation_name=variation_name,
+                logger_obj=logger,
+            )
+
+        if self.tau_h_analysis and channel_prefix in {"1l", "2l", "3l"}:
+            for (
+                label,
+                central_attr,
+                up_attr,
+                down_attr,
+                include_attr,
+            ) in _TAU_SF_WEIGHT_SPECS:
+                include_variations = getattr(variation_state, include_attr)
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
+                    label,
+                    central_attr,
+                    up_attr,
+                    down_attr,
+                    include_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
+                )
+
+    def _register_weights_for_variation(
+        self,
+        events,
+        dataset: DatasetContext,
+        variation_state: VariationState,
+        data_weight_systematics,
+        data_weight_systematics_set,
+    ):
+        weights_object = coffea.analysis_tools.Weights(len(events), storeIndividual=True)
+
+        goodJets = variation_state.good_jets
+        isData = dataset.is_data
+        year = dataset.year
+        trigger_weight_label = f"triggerSF_{year}"
+        sow = dataset.sow
+        xsec = dataset.xsec
+        lumi = dataset.lumi
+        histAxisName = dataset.hist_axis_name
+        sampleType = dataset.sample_type
+        variation = variation_state.request.variation
+        variation_base = variation_state.base
+        variation_name = variation_state.name
+
+        nlep_cat = re.match(r"\d+l", self.channel).group(0)
+        channel_prefix = nlep_cat[:2]
+
+        if year == "2016":
+            year_light = "2016APV"
+        else:
+            year_light = year
+
+        loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
+        btagwpl = get_tc_param(loose_tag)
+        isBtagJetsLoose = goodJets.btagDeepFlavB > btagwpl
+        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
+        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+
+        medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+        btagwpm = get_tc_param(medium_tag)
+        isBtagJetsMedium = goodJets.btagDeepFlavB > btagwpm
+        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
+        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
+        isBtagJetsLooseNotMedium = isBtagJetsLoose & isNotBtagJetsMedium
+
+        variation_state.isBtagJetsLoose = isBtagJetsLoose
+        variation_state.isNotBtagJetsLoose = isNotBtagJetsLoose
+        variation_state.nbtagsl = nbtagsl
+        variation_state.isBtagJetsMedium = isBtagJetsMedium
+        variation_state.isNotBtagJetsMedium = isNotBtagJetsMedium
+        variation_state.nbtagsm = nbtagsm
+        variation_state.isBtagJetsLooseNotMedium = isBtagJetsLooseNotMedium
+
+        default_flavour_mask = ak.values_astype(
+            ak.zeros_like(goodJets.pt, highlevel=True), np.bool_
+        )
+
+        if not isData:
+            has_hadron_flavour = hasattr(goodJets, "hadronFlavour")
+            variation_state.has_hadron_flavour = has_hadron_flavour
+            if has_hadron_flavour:
+                light_mask = goodJets.hadronFlavour == 0
+                bc_mask = goodJets.hadronFlavour > 0
+            else:
+                logger.warning(
+                    "Missing 'hadronFlavour' for MC sample '%s'; defaulting to empty jet flavour masks.",
+                    dataset.dataset,
+                )
+                light_mask = default_flavour_mask
+                bc_mask = default_flavour_mask
+
+            variation_state.light_mask = light_mask
+            variation_state.bc_mask = bc_mask
+            jets_light = goodJets[light_mask]
+            jets_bc = goodJets[bc_mask]
+            variation_state.jets_light = jets_light
+            variation_state.jets_bc = jets_bc
+
+            if dataset.eft_coeffs is None:
+                genw = self._ensure_ak_array(
+                    getattr(events, "genWeight", None), dtype=self._dtype
+                )
+                if genw is None:
+                    genw = ak.ones_like(events.event, dtype=self._dtype)
+            else:
+                genw = ak.ones_like(events.event, dtype=self._dtype)
+
+            weights_object.add("norm", (xsec / sow) * genw * lumi)
+
+            have_systematics = bool(self._systematic_variations)
+            tc_cor.AttachScaleWeights(events)
+
+            theory_weight_arguments = apply_theory_weight_variations(
+                events=events,
+                variation=variation,
+                variation_base=variation_base,
+                have_systematics=have_systematics,
+                sow=sow,
+                sow_variations=variation_state.sow_variations,
+                sow_variation_key_map=variation_state.sow_variation_key_map,
+                is_lo_sample=dataset.is_lo_sample,
+                hist_axis_name=histAxisName,
+                sample=self._sample,
+            )
+            for label, args in theory_weight_arguments.items():
+                weights_object.add(label, *args)
+
+            if dataset.is_run2:
+                l1prefiring_args = [
+                    events.L1PreFiringWeight.Nom,
+                    events.L1PreFiringWeight.Up,
+                    events.L1PreFiringWeight.Dn,
+                ]
+            else:
+                l1prefiring_args = [
+                    ak.ones_like(events.nom),
+                    ak.ones_like(events.nom),
+                    ak.ones_like(events.nom),
+                ]
+
+            register_weight_variation(
+                weights_object,
+                "PreFiring",
+                l1prefiring_args[0],
+                up=lambda: l1prefiring_args[1],
+                down=lambda: l1prefiring_args[2],
+                active=have_systematics and variation_state.base == "prefiring",
+            )
+
+            pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
+            register_weight_variation(
+                weights_object,
+                "PU",
+                pu_central,
+                up=lambda: tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "up"),
+                down=lambda: tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "down"),
+                active=have_systematics and variation_state.base == "pileup",
+            )
+
+            if variation_state.has_hadron_flavour:
+                btag_effM_light = GetBtagEff(variation_state.jets_light, year, "medium")
+                btag_effM_bc = GetBtagEff(variation_state.jets_bc, year, "medium")
+                btag_effL_light = GetBtagEff(variation_state.jets_light, year, "loose")
+                btag_effL_bc = GetBtagEff(variation_state.jets_bc, year, "loose")
+                btag_sfM_light = tc_cor.btag_sf_eval(
+                    variation_state.jets_light,
+                    "M",
+                    year_light,
+                    "deepJet_incl",
+                    "central",
+                )
+                btag_sfM_bc = tc_cor.btag_sf_eval(
+                    variation_state.jets_bc,
+                    "M",
+                    year,
+                    "deepJet_comb",
+                    "central",
+                )
+                btag_sfL_light = tc_cor.btag_sf_eval(
+                    variation_state.jets_light,
+                    "L",
+                    year_light,
+                    "deepJet_incl",
+                    "central",
+                )
+                btag_sfL_bc = tc_cor.btag_sf_eval(
+                    variation_state.jets_bc,
+                    "L",
+                    year,
+                    "deepJet_comb",
+                    "central",
+                )
+
+                pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(
+                    btag_effM_light,
+                    btag_effL_light,
+                    btag_sfM_light,
+                    btag_sfL_light,
+                    isBtagJetsMedium[variation_state.light_mask],
+                    isBtagJetsLooseNotMedium[variation_state.light_mask],
+                    isNotBtagJetsLoose[variation_state.light_mask],
+                )
+                btag_w_light = pData_light / pMC_light
+                pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(
+                    btag_effM_bc,
+                    btag_effL_bc,
+                    btag_sfM_bc,
+                    btag_sfL_bc,
+                    isBtagJetsMedium[variation_state.bc_mask],
+                    isBtagJetsLooseNotMedium[variation_state.bc_mask],
+                    isNotBtagJetsLoose[variation_state.bc_mask],
+                )
+                btag_w_bc = pData_bc / pMC_bc
+
+                btag_result = register_btag_sf_weights(
+                    jets_light=variation_state.jets_light,
+                    jets_bc=variation_state.jets_bc,
+                    efficiencies={
+                        "light": {"M": btag_effM_light, "L": btag_effL_light},
+                        "bc": {"M": btag_effM_bc, "L": btag_effL_bc},
+                    },
+                    central_values={
+                        "light": {"weight": btag_w_light, "pMC": pMC_light},
+                        "bc": {"weight": btag_w_bc, "pMC": pMC_bc},
+                    },
+                    selection_masks={
+                        "medium": isBtagJetsMedium,
+                        "loose_not_medium": isBtagJetsLooseNotMedium,
+                        "not_loose": isNotBtagJetsLoose,
+                        "light": variation_state.light_mask,
+                        "bc": variation_state.bc_mask,
+                    },
+                    years={"light": year_light, "bc": year},
+                    systematic_descriptor={
+                        "has_systematics": bool(self._systematic_variations),
+                        "object_variation": variation_state.object_variation,
+                        "variation_name": variation_name,
+                    },
+                )
+
+                weights_object.add("btagSF", btag_result.central)
+
+                if btag_result.variation_label is not None:
+                    # ``register_btag_sf_weights`` returns variation weights that are already
+                    # expressed relative to the central value.  Register them as a unity
+                    # nominal correction so ``Weights`` exposes the ``Up``/``Down`` modifiers
+                    # required during histogram filling.
+                    weights_object.add(
+                        btag_result.variation_label,
+                        events.nom,
+                        btag_result.variation_up,
+                        btag_result.variation_down,
+                    )
+            else:
+                weights_object.add("btagSF", ak.ones_like(events.nom))
+
+            self._register_lepton_sf_weights(
+                events=events,
+                weights_object=weights_object,
+                lepton_category=nlep_cat,
+                channel_prefix=channel_prefix,
+                variation_state=variation_state,
+                variation_name=variation_name,
+            )
+
+            register_trigger_sf_weight(
+                weights_object,
+                year=dataset.year,
+                events=events,
+                lepton0=variation_state.l0,
+                lepton1=variation_state.l1,
+                label=trigger_weight_label,
+                variation_descriptor={
+                    "has_systematics": bool(self._systematic_variations),
+                    "variation_base": variation_state.base,
+                    "variation_name": variation_name,
+                },
+                logger_obj=logger,
+            )
+
+            if self.tau_h_analysis:
+                AttachTauSF(
+                    events,
+                    variation_state.objects.taus,
+                    year,
+                )
+                register_weight_variation(
+                    weights_object,
+                    "tauID",
+                    events.tau_SF_central,
+                    up=lambda: events.tau_SF_up,
+                    down=lambda: events.tau_SF_down,
+                    active=bool(self._systematic_variations)
+                    and variation_state.base == "tauID",
+                )
+                register_weight_variation(
+                    weights_object,
+                    "tauMisID",
+                    events.tau_misID_central,
+                    up=lambda: events.tau_misID_up,
+                    down=lambda: events.tau_misID_down,
+                    active=bool(self._systematic_variations)
+                    and variation_state.base == "tauMisID",
+                )
+        else:
+            variation_state.has_hadron_flavour = False
+
+        if channel_prefix in {"1l", "2l", "3l"}:
+            add_fake_factor_weights(
+                weights_object,
+                events,
+                channel_prefix,
+                year,
+                variation_state.requested_data_weight_label,
+            )
+
+        if channel_prefix == "2l":
+            flipfactor_central = getattr(events, "flipfactor_2l")
+            flipfactor_up = getattr(events, "flipfactor_2l_up", None)
+            flipfactor_down = getattr(events, "flipfactor_2l_down", None)
+
+            charge_flip_central = flipfactor_central
+            charge_flip_up = (lambda: flipfactor_up) if flipfactor_up is not None else None
+            charge_flip_down = (lambda: flipfactor_down) if flipfactor_down is not None else None
+
+            if isData and ("os" not in self.channel):
+                def _charge_flip_ratio(values):
+                    denominator = flipfactor_central
+                    ones = ak.ones_like(denominator)
+                    nonzero = denominator != 0
+                    safe_denominator = ak.where(nonzero, denominator, ones)
+                    return ak.where(nonzero, values / safe_denominator, ones)
+
+                charge_flip_central = lambda: ak.ones_like(flipfactor_central)
+                if flipfactor_up is not None:
+                    charge_flip_up = lambda: _charge_flip_ratio(flipfactor_up)
+                if flipfactor_down is not None:
+                    charge_flip_down = lambda: _charge_flip_ratio(flipfactor_down)
+
+            register_weight_variation(
+                weights_object,
+                "charge_flips",
+                charge_flip_central,
+                up=charge_flip_up,
+                down=charge_flip_down,
+                active=bool(self._systematic_variations)
+                and variation_state.base == "charge_flips",
+            )
+
+            if isData and ("os" not in self.channel):
+                weights_object.add("fliprate", flipfactor_central)
+
+                central_modifiers = getattr(weights_object, "_weights", None).keys()
+
+                if central_modifiers is None or "fliprate" not in set(central_modifiers):
+                    raise AssertionError(
+                        "The 2l same-sign data branch must register the central 'fliprate' weight."
+                    )
+
+        if isData and self._systematic_variations:
+            validate_data_weight_variations(
+                weights_object,
+                data_weight_systematics,
+                variation_state.requested_data_weight_label,
+                variation_name,
+            )
+
+        if self._debug_logging:
+            weight_summary = (
+                variation_state.weight_variations
+                if variation_state.weight_variations
+                else ["nominal"]
+            )
+            self._debug(
+                "Registered weight configuration for '%s': weights=%s data_weight=%s sow_labels=%s",
+                variation_state.name,
+                weight_summary,
+                variation_state.requested_data_weight_label,
+                sorted(variation_state.sow_variations.keys()),
+            )
+
+        return weights_object
+
+    def _fill_histograms_for_variation(
+        self,
+        events,
+        dataset: DatasetContext,
+        variation_state: VariationState,
+        weights_object,
+        hist_label: str,
+        data_weight_systematics_set,
+        hout,
+    ) -> None:
+        goodJets = variation_state.good_jets
+        fwdJets = variation_state.fwd_jets
+        njets = variation_state.njets
+        nfwdj = variation_state.nfwdj
+        isBtagJetsLoose = variation_state.isBtagJetsLoose
+        isNotBtagJetsLoose = variation_state.isNotBtagJetsLoose
+        nbtagsl = variation_state.nbtagsl
+        isBtagJetsMedium = variation_state.isBtagJetsMedium
+        isNotBtagJetsMedium = variation_state.isNotBtagJetsMedium
+        nbtagsm = variation_state.nbtagsm
+        isBtagJetsLooseNotMedium = variation_state.isBtagJetsLooseNotMedium
+        l_fo_conept_sorted = variation_state.objects.fakeable_sorted
+        l_fo_conept_sorted_padded = variation_state.l_sorted_padded
+        l0 = variation_state.l0
+        l1 = variation_state.l1
+        l2 = variation_state.l2
+        tau = variation_state.objects.taus
+        nLtau = variation_state.objects.n_loose_taus
+        tau0 = variation_state.objects.tau0
+
+        histAxisName = dataset.hist_axis_name
+        trigger_dataset = dataset.trigger_dataset
+        year = dataset.year
+        isData = dataset.is_data
+
+        sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(
+            l_fo_conept_sorted_padded[:, 0:3], pt_window=10.0
+        )
+        sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
+        if self.offZ_3l_split:
+            sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(
+                l_fo_conept_sorted_padded[:, 0:3], pt_window=0.0
+            )
+            sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(
+                l_fo_conept_sorted_padded[:, 0:3]
+            )
+        sfosz_2l_mask = tc_es.get_Z_peak_mask(
+            l_fo_conept_sorted_padded[:, 0:2], pt_window=10.0
+        )
+        sfasz_2l_mask = tc_es.get_Z_peak_mask(
+            l_fo_conept_sorted_padded[:, 0:2], pt_window=30.0, flavor="as"
+        )
+        if self.tau_h_analysis and tau0 is not None:
+            tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
+        else:
+            tl_zpeak_mask = None
+
+        pass_trg = tc_es.trg_pass_no_overlap(
+            events,
+            isData,
+            trigger_dataset,
+            str(year),
+            te_es.dataset_dict_top22006,
+            te_es.exclude_dict_top22006,
+        )
+
+        bmask_atleast1med_atleast2loose = (nbtagsm >= 1) & (nbtagsl >= 2)
+        bmask_exactly0med = nbtagsm == 0
+        bmask_exactly1med = nbtagsm == 1
+        bmask_exactly2med = nbtagsm == 2
+        bmask_atleast2med = nbtagsm >= 2
+        bmask_atmost2med = nbtagsm < 3
+        bmask_atleast3med = nbtagsm >= 3
+        fwdjet_mask = nfwdj > 0
+
+        chargel0_p = ak.fill_none((l0.charge) > 0, False)
+        chargel0_m = ak.fill_none((l0.charge) < 0, False)
+        charge2l_0 = ak.fill_none(((l0.charge + l1.charge) == 0), False)
+        charge2l_1 = ak.fill_none(((l0.charge + l1.charge) != 0), False)
+        charge3l_p = ak.fill_none(((l0.charge + l1.charge + l2.charge) > 0), False)
+        charge3l_m = ak.fill_none(((l0.charge + l1.charge + l2.charge) < 0), False)
+        if self.tau_h_analysis:
+            tau_F_mask = ak.num(tau[tau["isVLoose"] > 0]) >= 1
+            tau_L_mask = ak.num(tau[tau["isLoose"] > 0]) >= 1
+            no_tau_mask = ak.num(tau[tau["isLoose"] > 0]) == 0
+        else:
+            tau_F_mask = tau_L_mask = no_tau_mask = None
+
+        selections = PackedSelection(dtype="uint64")
+        preselections = PackedSelection(dtype="uint64")
+        lumi_mask = dataset.lumi_mask
+        selections.add("is_good_lumi", lumi_mask)
+        preselections.add("is_good_lumi", lumi_mask)
+
+        preselections.add("chargedl0", (chargel0_p | chargel0_m))
+        preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
+        preselections.add("2los", charge2l_0)
+        preselections.add("2lem", events.is_em)
+        preselections.add("2lee", events.is_ee)
+        preselections.add("2lmm", events.is_mm)
+        preselections.add("2l_onZ_as", sfasz_2l_mask)
+        preselections.add("2l_onZ", sfosz_2l_mask)
+        preselections.add("bmask_atleast3m", bmask_atleast3med)
+        preselections.add("bmask_atleast1m2l", bmask_atleast1med_atleast2loose)
+        preselections.add("bmask_atmost2m", bmask_atmost2med)
+        preselections.add("fwdjet_mask", fwdjet_mask)
+        preselections.add("~fwdjet_mask", ~fwdjet_mask)
+
+        if self.tau_h_analysis:
+            preselections.add("1l", (events.is1l & pass_trg))
+            preselections.add("1tau", tau_L_mask)
+            preselections.add("1Ftau", tau_F_mask)
+            preselections.add("0tau", no_tau_mask)
+            preselections.add("onZ_tau", tl_zpeak_mask)
+            preselections.add("offZ_tau", ~tl_zpeak_mask if tl_zpeak_mask is not None else tl_zpeak_mask)
+        if self.fwd_analysis:
+            preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
+            preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
+            preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
+
+        preselections.add("2lss", (events.is2l & pass_trg))
+        preselections.add("2l_p", chargel0_p)
+        preselections.add("2l_m", chargel0_m)
+
+        preselections.add("3l", (events.is3l & pass_trg))
+        preselections.add("bmask_exactly0m", bmask_exactly0med)
+        preselections.add("bmask_exactly1m", bmask_exactly1med)
+        preselections.add("bmask_exactly2m", bmask_exactly2med)
+        preselections.add("bmask_atleast2m", bmask_atleast2med)
+        preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
+        preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
+        preselections.add("3l_onZ", sfosz_3l_OnZ_mask)
+
+        if self.offZ_3l_split:
+            preselections.add(
+                "3l_offZ_low",
+                (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask),
+            )
+            preselections.add(
+                "3l_offZ_high",
+                (
+                    sfosz_3l_OffZ_mask
+                    & sfosz_3l_OffZ_any_mask
+                    & ~sfosz_3l_OffZ_low_mask
+                ),
+            )
+            preselections.add(
+                "3l_offZ_none",
+                (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask),
+            )
+        else:
+            preselections.add("3l_offZ", sfosz_3l_OffZ_mask)
+
+        preselections.add("4l", (events.is4l & pass_trg))
+
+        lep_ch = self._channel_dict["chan_def_lst"]
+        tempmask = None
+        chtag = lep_ch[0]
+        for chcut in lep_ch[1:]:
+            tempmask = (
+                tempmask & preselections.any(chcut)
+                if tempmask is not None
+                else preselections.any(chcut)
+            )
+        selections.add(chtag, tempmask)
+
+        del preselections
+
+        selections.add("e", events.is_e)
+        selections.add("m", events.is_m)
+        selections.add("ee", events.is_ee)
+        selections.add("em", events.is_em)
+        selections.add("mm", events.is_mm)
+        selections.add("eee", events.is_eee)
+        selections.add("eem", events.is_eem)
+        selections.add("emm", events.is_emm)
+        selections.add("mmm", events.is_mmm)
+        selections.add(
+            "llll",
+            (
+                events.is_eeee
+                | events.is_eeem
+                | events.is_eemm
+                | events.is_emmm
+                | events.is_mmmm
+                | events.is_gr4l
+            ),
+        )
+
+        selections.add("exactly_0j", njets == 0)
+        selections.add("exactly_1j", njets == 1)
+        selections.add("exactly_2j", njets == 2)
+        selections.add("exactly_3j", njets == 3)
+        selections.add("exactly_4j", njets == 4)
+        selections.add("exactly_5j", njets == 5)
+        selections.add("exactly_6j", njets == 6)
+        selections.add("atleast_1j", njets >= 1)
+        selections.add("atleast_4j", njets >= 4)
+        selections.add("atleast_5j", njets >= 5)
+        selections.add("atleast_6j", njets >= 6)
+        selections.add("atleast_7j", njets >= 7)
+        selections.add("atleast_0j", njets >= 0)
+        selections.add("atmost_3j", njets <= 3)
+
+        selections.add("isSR_2lSS", (events.is2l_SR) & charge2l_1)
+        selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_1)
+        selections.add("isAR_2lSS_OS", (events.is2l_SR) & charge2l_0)
+        selections.add("isSR_2lOS", (events.is2l_SR) & charge2l_0)
+        selections.add("isAR_2lOS", (~events.is2l_SR) & charge2l_0)
+        if self.tau_h_analysis:
+            selections.add("isSR_1l", events.is1l_SR)
+        selections.add("isSR_3l", events.is3l_SR)
+        selections.add("isAR_3l", ~events.is3l_SR)
+        selections.add("isSR_4l", events.is4l_SR)
+
+        var_def = self.var_def
+
+        if ("ptbl" in var_def) or ("b0pt" in var_def) or ("bl0pt" in var_def):
+            ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
+            ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt, axis=-1, keepdims=True)]
+            ptbl_lep = l_fo_conept_sorted
+            ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
+            ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
+        else:
+            ptbl = None
+
+        if "ptz" in var_def:
+            ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:, 0:3], 10.0)
+            if self.offZ_3l_split:
+                ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:, 0:3], 10.0)
+        else:
+            ptz = None
+        if "ptz_wtau" in var_def and tau0 is not None:
+            ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
+        else:
+            ptz_wtau = None
+
+        if "bl0pt" in var_def:
+            bjetsl = goodJets[isBtagJetsLoose][
+                ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)
+            ]
+            bl_pairs = ak.cartesian({"b": bjetsl, "l": l_fo_conept_sorted})
+            blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
+            bl0pt = ak.flatten(blpt[ak.argmax(blpt, axis=-1, keepdims=True)])
+        else:
+            bl0pt = None
+
+        need_lj_collection = any(
+            token in var_def for token in ["o0pt", "lj0pt", "ljptsum"]
+        ) or (self._ecut_threshold is not None)
+        if need_lj_collection:
+            if self.tau_h_analysis:
+                l_j_collection = ak.with_name(
+                    ak.concatenate(
+                        [l_fo_conept_sorted, goodJets, variation_state.objects.cleaning_taus],
+                        axis=1,
+                    ),
+                    "PtEtaPhiMCollection",
+                )
+            else:
+                l_j_collection = ak.with_name(
+                    ak.concatenate([l_fo_conept_sorted, goodJets], axis=1),
+                    "PtEtaPhiMCollection",
+                )
+            if "o0pt" in var_def:
+                o0pt = ak.max(l_j_collection.pt, axis=-1)
+            else:
+                o0pt = None
+            if ("ljptsum" in var_def) or (self._ecut_threshold is not None):
+                ljptsum = ak.sum(l_j_collection.pt, axis=-1)
+            else:
+                ljptsum = None
+            if "lj0pt" in var_def:
+                l_j_pairs = ak.combinations(l_j_collection, 2, fields=["o0", "o1"])
+                l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
+                lj0pt = ak.max(l_j_pairs_pt, axis=-1)
+            else:
+                lj0pt = None
+        else:
+            o0pt = ljptsum = lj0pt = None
+
+        if "lt" in var_def:
+            lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + variation_state.objects.met.pt
+        else:
+            lt = None
+
+        if "mll_0_1" in var_def:
+            mll_0_1 = (l0 + l1).mass
+        else:
+            mll_0_1 = None
+
+        if self._ecut_threshold is not None:
+            if ljptsum is None:
+                if self.tau_h_analysis:
+                    l_j_collection = ak.with_name(
+                        ak.concatenate(
+                            [
+                                l_fo_conept_sorted,
+                                goodJets,
+                                variation_state.objects.cleaning_taus,
+                            ],
+                            axis=1,
+                        ),
+                        "PtEtaPhiMCollection",
+                    )
+                else:
+                    l_j_collection = ak.with_name(
+                        ak.concatenate([l_fo_conept_sorted, goodJets], axis=1),
+                        "PtEtaPhiMCollection",
+                    )
+                ljptsum = ak.sum(l_j_collection.pt, axis=-1)
+            ecut_mask = ljptsum < self._ecut_threshold
+        else:
+            ecut_mask = None
+
+        dense_axis_name = self._var
+        dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
+
+        weight_variations_to_run = list(variation_state.weight_variations)
+        if weight_variations_to_run:
+            wgt_var_lst = []
+        else:
+            wgt_var_lst = ["nominal"]
+        for name in weight_variations_to_run:
+            if name not in wgt_var_lst:
+                wgt_var_lst.append(name)
+
+        lep_chan = self._channel_dict["chan_def_lst"][0]
+        jet_req = self._channel_dict["jet_selection"]
+        lep_flav_iter = (
+            self._channel_dict["lep_flav_lst"]
+            if self._split_by_lepton_flavor
+            else [None]
+        )
+
+        for wgt_fluct in wgt_var_lst:
+            if wgt_fluct == "nominal":
+                weight = weights_object.weight(None)
+            elif wgt_fluct in weights_object.variations:
+                weight = weights_object.weight(wgt_fluct)
+            else:
+                continue
+
+            if self.appregion.startswith("isSR") and wgt_fluct in data_weight_systematics_set:
+                continue
+
+            if wgt_fluct == "nominal":
+                hist_variation_label = hist_label
+            else:
+                hist_variation_label = self._histogram_label_lookup.get(
+                    wgt_fluct, wgt_fluct
+                )
+
+            for lep_flav in lep_flav_iter:
+                cuts_lst = [self.appregion, lep_chan]
+                flav_ch = None
+                njet_ch = None
+                if isData:
+                    cuts_lst.append("is_good_lumi")
+                if self._split_by_lepton_flavor:
+                    flav_ch = lep_flav
+                    cuts_lst.append(lep_flav)
+                if dense_axis_name != "njets":
+                    njet_ch = jet_req
+                    cuts_lst.append(jet_req)
+
+                ch_name, base_ch_name = self._build_channel_names(
+                    lep_chan, njet_ch, flav_ch
+                )
+                if base_ch_name != self.channel:
+                    continue
+
+                if self._debug_logging:
+                    cut_pass_info = {cut: selections.all(cut) for cut in cuts_lst}
+                    self._debug(
+                        "Filling histograms for channel '%s' (base '%s') with cuts %s",
+                        ch_name,
+                        base_ch_name,
+                        cut_pass_info,
+                    )
+
+                all_cuts_mask = selections.all(*cuts_lst)
+                if ecut_mask is not None:
+                    all_cuts_mask = all_cuts_mask & ecut_mask
+                if isinstance(all_cuts_mask, ak.Array):
+                    mask_numpy = (
+                        ak.to_numpy(all_cuts_mask)
+                        if hasattr(ak, "to_numpy")
+                        else np.asarray(all_cuts_mask)
+                    )
+                else:
+                    mask_numpy = np.asarray(all_cuts_mask)
+                weights_flat = np.asarray(weight)[mask_numpy]
+                eft_coeffs = dataset.eft_coeffs
+                eft_coeffs_cut = (
+                    eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
+                )
+
+                axes_fill_info_dict = {
+                    dense_axis_name: dense_axis_vals[all_cuts_mask],
+                    "weight": weights_flat,
+                    "eft_coeff": eft_coeffs_cut,
+                }
+
+                histkey = (
+                    dense_axis_name,
+                    ch_name,
+                    self.appregion,
+                    dataset.dataset,
+                    hist_variation_label,
+                )
+
+                if histkey not in hout:
+                    fallback_histkey = (
+                        dense_axis_name,
+                        base_ch_name,
+                        self.appregion,
+                        dataset.dataset,
+                        hist_variation_label,
+                    )
+                    if fallback_histkey not in hout:
+                        continue
+                    histkey = fallback_histkey
+
+                hout[histkey].fill(**axes_fill_info_dict)
+
+                if self._debug_logging:
+                    filled_count = int(np.count_nonzero(np.asarray(all_cuts_mask)))
+                    self._debug(
+                        "Filled histkey %s with %d selected events",
+                        histkey,
+                        filled_count,
+                    )
+
+                axes_fill_info_dict = {
+                    dense_axis_name + "_sumw2": dense_axis_vals[all_cuts_mask],
+                    "weight": np.square(weights_flat),
+                    "eft_coeff": eft_coeffs_cut,
+                }
+                histkey = (
+                    dense_axis_name + "_sumw2",
+                    base_ch_name,
+                    self.appregion,
+                    dataset.dataset,
+                    hist_variation_label,
+                )
+                if histkey not in hout.keys():
+                    continue
+                hout[histkey].fill(**axes_fill_info_dict)
+
     @property
     def channel(self):
         return self._channel
@@ -402,210 +2007,26 @@ class AnalysisProcessor(processor.ProcessorABC):
         return dataset_for_histograms, dataset_for_triggers
 
     def _debug(self, message: str, *args) -> None:
-        if self._debug_logging:
-            logger.debug(message, *args)
+        if not self._debug_logging:
+            return
+
+        logger.debug(message, *args)
+
+        if self._suppress_debug_prints:
+            return
+
+        try:
+            formatted = message % args if args else message
+        except Exception:
+            formatted = " ".join([message, *(str(arg) for arg in args)])
+        print(formatted, flush=True)
 
     # Main function: run on a given dataset
+
     def process(self, events):
-
-        # Dataset parameters
-        events_metadata = self._metadata_to_mapping(getattr(events, "metadata", None))
-        raw_dataset_name = events_metadata.get("dataset")
-        if raw_dataset_name is None:
-            raw_dataset_name = self._sample.get("histAxisName")
-        if raw_dataset_name is None:
-            raise KeyError("Events metadata is missing a 'dataset' entry")
-        raw_dataset_name = str(raw_dataset_name)
-        dataset, trigger_dataset = self._resolve_dataset_names(raw_dataset_name)
-        isEFT = self._sample["WCnames"] != []
-
-        isData = self._sample["isData"]
-        histAxisName = self._sample["histAxisName"]
-        year = self._sample["year"]
-        xsec = self._sample["xsec"]
-        sow = self._sample["nSumOfWeights"]
-
-        # Build the ordered list of (variation, histogram label) contexts to run.
-        variation_contexts = []
-        if self._systematic_variations:
-            for variation in self._systematic_variations:
-                label = self._histogram_label_lookup.get(variation.name)
-                if label is None:
-                    raise KeyError(
-                        f"Missing histogram label for requested variation '{variation.name}'"
-                    )
-                variation_contexts.append((variation, label))
-        else:
-            variation_contexts.append((None, "nominal"))
-
-        is_run3 = False
-        if year.startswith("202"):
-            is_run3 = True
-        is_run2 = not is_run3
-
-        run_era = None
-        if isData:
-            run_era = self._sample["path"].split("/")[2].split("-")[0][-1]
-
-        is_lo_sample = histAxisName in get_te_param("lo_xsec_samples")
-
-        # Set the sampleType (used for MC matching requirement)
-        sampleType = "prompt"
-        if isData:
-            sampleType = "data"
-        elif histAxisName in get_te_param("conv_samples"):
-            sampleType = "conversions"
-        elif histAxisName in get_te_param("prompt_and_conv_samples"):
-            # Just DY (since we care about prompt DY for Z CR, and conv DY for 3l CR)
-            sampleType = "prompt_and_conversions"
-
-        # Initialize objects
-        met  = events.MET
-        ele  = events.Electron
-        mu   = events.Muon
-        tau  = events.Tau
-        jets = events.Jet
-
-        if is_run3:
-            leptonSelection = te_os.run3leptonselection()
-            jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-        elif is_run2:
-            leptonSelection = te_os.run2leptonselection()
-            jetsRho = events.fixedGridRhoFastjetAll
-
-        # An array of lenght events that is just 1 for each event
-        # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
-        events.nom = ak.ones_like(events.MET.pt)
-
-        ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
-        ele["conept"] = leptonSelection.coneptElec(ele)
-        mu["conept"] = leptonSelection.coneptMuon(mu)
-        ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
-        mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
-        if not isData:
-            ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
-            mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
-
-        # Initialize lumi mask to ``True`` for all events so simulated samples
-        # see an identity mask.  Data samples replace it with the configured
-        # golden JSON selection below.
-        lumi_mask = ak.ones_like(events.run, dtype=bool)
-        if isData:
-            lumi_mask = LumiMask(self._golden_json_path)(events.run, events.luminosityBlock)
-
-        ######### EFT coefficients ##########
-
-        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
-        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
-        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
-        if eft_coeffs is not None:
-            # Check to see if the ordering of WCs for this sample matches what wanted
-            if self._sample["WCnames"] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._sample["WCnames"], self._wc_names_lst, eft_coeffs)
-        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
-        
-        # Initialize the out object
-        hout = self.accumulator
-
-        ################### Electron selection ####################
-
-        ele["isPres"] = leptonSelection.isPresElec(ele)
-        ele["isLooseE"] = leptonSelection.isLooseElec(ele)
-        ele["isFO"] = leptonSelection.isFOElec(ele, year)
-        ele["isTightLep"] = leptonSelection.tightSelElec(ele)
-
-        ################### Muon selection ####################
-
-        mu["pt"] = ApplyRochesterCorrections(mu, year, isData) # Run3 ready
-        mu["isPres"] = leptonSelection.isPresMuon(mu)
-        mu["isLooseM"] = leptonSelection.isLooseMuon(mu)
-        mu["isFO"] = leptonSelection.isFOMuon(mu, year)
-        mu["isTightLep"]= leptonSelection.tightSelMuon(mu)
-
-        ################### Loose selection ####################
-
-        m_loose = mu[mu.isPres & mu.isLooseM]
-        e_loose = ele[ele.isPres & ele.isLooseE]
-        l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
-
-        # Compute pair invariant masses, for all flavors all signes
-        llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
-
-        # Build FO collection
-        m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
-        e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
-
-        # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo,year=year, looseWP="none" if is_run3 else "wpLnoiso") #Run3 ready
-        AttachMuonSF(m_fo,year=year)
-
-        # Attach per lepton fake rates
-        AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
-        AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-        m_fo['convVeto'] = ak.ones_like(m_fo.charge)
-        m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
-        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
-        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
-
-        ################### Tau selection ####################
-
-        if self.tau_h_analysis:
-            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData)
-            tau["isPres"] = te_os.isPresTau(
-                tau.pt,
-                tau.eta,
-                tau.dxy,
-                tau.dz,
-                tau.idDeepTau2017v2p1VSjet,
-                tau.idDeepTau2017v2p1VSe,
-                tau.idDeepTau2017v2p1VSmu,
-                minpt=20,
-            )
-            tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
-            tau["isGood"] = tau["isClean"] & tau["isPres"]
-            tau = tau[tau.isGood]
-
-            tau["DMflag"] = (
-                (tau.decayMode == 0)
-                | (tau.decayMode == 1)
-                | (tau.decayMode == 10)
-                | (tau.decayMode == 11)
-            )
-            tau = tau[tau["DMflag"]]
-            tau["isVLoose"] = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet)
-            tau["isLoose"] = te_os.isLooseTau(tau.idDeepTau2017v2p1VSjet)
-            tau["iseTight"] = te_os.iseTightTau(tau.idDeepTau2017v2p1VSe)
-            tau["ismTight"] = te_os.ismTightTau(tau.idDeepTau2017v2p1VSmu)
-
-            cleaning_taus = tau[tau["isLoose"] > 0]
-            nLtau = ak.num(tau[tau["isLoose"] > 0])
-            tau_padded = ak.pad_none(tau, 1)
-            tau0 = tau_padded[:, 0]
-        else:
-            tau["isPres"] = te_os.isPresTau(
-                tau.pt,
-                tau.eta,
-                tau.dxy,
-                tau.dz,
-                tau.idDeepTau2017v2p1VSjet,
-                tau.idDeepTau2017v2p1VSe,
-                tau.idDeepTau2017v2p1VSmu,
-                minpt=20,
-            )
-            tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
-            tau["isGood"] = tau["isClean"] & tau["isPres"]
-            tau = tau[tau.isGood]
-            tau["isTight"] = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet)
-
-        base_met = copy.deepcopy(met)
-        base_ele = copy.deepcopy(ele)
-        base_mu = copy.deepcopy(mu)
-        base_tau = copy.deepcopy(tau)
-        base_jets = copy.deepcopy(jets)
-        base_l_loose = copy.deepcopy(l_loose)
-        base_l_fo = copy.deepcopy(l_fo)
-        base_l_fo_conept_sorted = copy.deepcopy(l_fo_conept_sorted)
+        dataset = self._build_dataset_context(events)
+        base_objects = self._select_base_objects(events, dataset)
+        variation_requests = self._build_variation_requests()
 
         object_systematics = self._available_systematics.get("object", ())
         weight_systematics = self._available_systematics.get("weight", ())
@@ -615,1001 +2036,54 @@ class AnalysisProcessor(processor.ProcessorABC):
             "data_weight", set()
         )
 
-        ######### Systematics ###########
-
         events_cache = events.caches[0]
+        hout = self.accumulator
 
-        # print("\n\n\n\n")
-        # print("variation_contexts:", [(v.name if v is not None else None, l) for v, l in variation_contexts])
-        # print("\n\n\n\n")
-
-        for variation, hist_label in variation_contexts:
-            variation_name = variation.name if variation is not None else "nominal"
-            variation_base = variation.base if variation is not None else None
-            variation_type = getattr(variation, "type", None) if variation is not None else None
-            variation_metadata = self._metadata_to_mapping(
-                getattr(variation, "metadata", None) if variation is not None else None
-            )
-
-            variation_base_str = variation_base or ""
-            metadata_lepton_flavor_value = (
-                variation_metadata.get("lepton_flavor")
-                or variation_metadata.get("lepton_type")
-                or variation_metadata.get("flavor")
-            )
-            metadata_lepton_flavor = (
-                str(metadata_lepton_flavor_value).strip().lower()
-                if metadata_lepton_flavor_value is not None
-                else ""
-            )
-            include_lep_sf_variations = bool(
-                variation_metadata.get("lepton_sf")
-                or variation_metadata.get("weight_family") == "lepton_sf"
-                or variation_metadata.get("weight_category") == "lepton_sf"
-                or variation_base_str.startswith("lepton_sf_")
-            )
-            include_muon_sf_variations = include_lep_sf_variations and (
-                metadata_lepton_flavor in {"mu", "muon", "muons"}
-                or variation_base_str.endswith("muon")
-            )
-            include_elec_sf_variations = include_lep_sf_variations and (
-                metadata_lepton_flavor in {"e", "ele", "elec", "electron", "electrons"}
-                or variation_base_str.endswith("elec")
-                or variation_base_str.endswith("electron")
-            )
-            include_tau_real_sf_variations = include_lep_sf_variations and (
-                metadata_lepton_flavor in {"tau_real", "tau-real"}
-                or variation_base_str.endswith("tau_real")
-            )
-            include_tau_fake_sf_variations = include_lep_sf_variations and (
-                metadata_lepton_flavor in {"tau_fake", "tau-fake"}
-                or variation_base_str.endswith("tau_fake")
+        for request in variation_requests:
+            variation_state = self._initialize_variation_state(
+                request,
+                base_objects,
+                dataset,
+                object_systematics,
+                weight_systematics,
+                theory_systematics,
+                data_weight_systematics,
             )
 
             self._debug(
                 "Processing variation '%s' (type: %s, base: %s)",
-                variation_name,
-                variation_type,
-                variation_base,
+                variation_state.name,
+                variation_state.variation_type,
+                variation_state.base,
             )
 
-            object_variation = "nominal"
-            weight_variations_to_run = []
-            requested_data_weight_label = None
-
-            # Restore base physics objects before applying per-variation transforms.
-            met = copy.deepcopy(base_met)
-            ele = copy.deepcopy(base_ele)
-            mu = copy.deepcopy(base_mu)
-            tau = copy.deepcopy(base_tau)
-            jets = copy.deepcopy(base_jets)
-            l_loose = copy.deepcopy(base_l_loose)
-            l_fo = copy.deepcopy(base_l_fo)
-            l_fo_conept_sorted = copy.deepcopy(base_l_fo_conept_sorted)
-            if self.tau_h_analysis:
-                cleaning_taus = tau[tau["isLoose"] > 0]
-                nLtau = ak.num(tau[tau["isLoose"] > 0])
-                tau_padded = ak.pad_none(tau, 1)
-                tau0 = tau_padded[:, 0]
-            else:
-                cleaning_taus = None
-                nLtau = None
-                tau0 = None
-
-            sow_variation_key_map = {}
-            requested_sow_variations: set = set()
-            sow_variations = {"nominal": sow}
-
-            if variation is not None and self._systematic_variations and not isData:
-                group_mapping = self._metadata_to_mapping(getattr(variation, "group", None))
-                group_key = (variation.base, variation.component, variation.year)
-                group_info = group_mapping.get(group_key, {})
-                
-                if group_mapping:
-                    self._debug(
-                        "Variation group mapping for '%s': mapping=%s key=%s info=%s",
-                        variation_name,
-                        group_mapping,
-                        group_key,
-                        group_info,
-                    )
-                
-                if not group_info and variation.metadata.get("sum_of_weights"):
-                    group_info = {
-                        variation.name: {
-                            "sum_of_weights": variation.metadata["sum_of_weights"]
-                        }
-                    }
-                if group_info:
-                    requested_sow_variations = set(group_info.keys())
-                    sow_variation_key_map = {
-                        name: info.get("sum_of_weights")
-                        for name, info in group_info.items()
-                        if info.get("sum_of_weights")
-                    }
-
-            if self._systematic_variations and not isData:
-                for sow_label in requested_sow_variations:
-                    if is_lo_sample:
-                        sow_variations[sow_label] = sow
-                    else:
-                        key = sow_variation_key_map.get(sow_label)
-                        if key is not None and key in self._sample:
-                            sow_variations[sow_label] = self._sample[key]
-
-            if variation_type == "object":
-                if variation_name not in object_systematics:
-                    raise ValueError(
-                        f"Requested object systematic '{variation_name}' is not available in the mapping"
-                    )
-                object_variation = variation_name
-            elif variation_type in {"weight", "theory", "data_weight"}:
-                variation_pool = {
-                    "weight": weight_systematics,
-                    "theory": theory_systematics,
-                    "data_weight": data_weight_systematics,
-                }[variation_type]
-
-                if variation_name != "nominal":
-                    if variation_name not in variation_pool:
-                        raise ValueError(
-                            f"Requested {variation_type} systematic '{variation_name}' is not available in the mapping"
-                        )
-                    weight_variations_to_run = [variation_name]
-
-            if variation_type == "data_weight" and variation_name != "nominal":
-                requested_data_weight_label = variation_name
-                for _direction in ("Up", "Down"):
-                    if requested_data_weight_label.endswith(_direction):
-                        requested_data_weight_label = requested_data_weight_label[: -len(_direction)]
-                        break
-
-            # These weights can go outside of the outer syst loop since they do not depend on the
-            # reconstructed muon or jet pT. Build a single weights object; the consolidated MC-only
-            # block below will register the simulated-sample scale factors sequentially as we go.
-
-            weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-        
-            # print("\n\n\n\n")
-            # print("Running object systematic:", object_variation)
-            # print("Running weight systematics:", weight_variations_to_run)
-            # print("\n\n\n\n")
-
-            # In this block we add the pieces that depend on the object kinematics.
-            met_raw = met
-
-            #################### Jets ####################
-
-            # Jet cleaning, before any jet selection
-
-            if self.tau_h_analysis:
-                vetos_tocleanjets = ak.with_name(ak.concatenate([cleaning_taus, l_fo], axis=1), "PtEtaPhiMCandidate")
-            else:
-                vetos_tocleanjets = ak.with_name(l_fo, "PtEtaPhiMCandidate")
-            tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
-            cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]  # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
-
-            # Selecting jets and cleaning them
-            jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
-
-            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor) * cleanedJets.pt
-            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor) * cleanedJets.mass
-            cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
-
-            # Jet energy corrections
-            if not isData:
-                cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                if self.tau_h_analysis:
-                    tau["pt"], tau["mass"] = ApplyTESSystematic(year, tau, isData, object_variation)
-                    tau["pt"], tau["mass"] = ApplyFESSystematic(year, tau, isData, object_variation)
-                    cleaning_taus = tau[tau["isLoose"] > 0]
-                    nLtau = ak.num(tau[tau["isLoose"] > 0])
-                    tau_padded = ak.pad_none(tau, 1)
-                    tau0 = tau_padded[:, 0]
-
-            events_cache = events.caches[0]
-            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
-            cleanedJets = ApplyJetSystematics(year, cleanedJets, object_variation)
-            met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
-
-            cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
-            cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
-            goodJets = cleanedJets[cleanedJets.isGood]
-            fwdJets = cleanedJets[cleanedJets.isFwd]
-
-            # Count jets
-            njets = ak.num(goodJets)
-            nfwdj = ak.num(fwdJets)
-            if "ht" in self._var_def:
-                ht = ak.sum(goodJets.pt, axis=-1)
-            if "j0" in self._var_def:
-                j0 = goodJets[ak.argmax(goodJets.pt, axis=-1, keepdims=True)]
-
-            #################### Add variables into event object so that they persist ####################
-
-            # Put njets and l_fo_conept_sorted into events
-            events["njets"] = njets
-            events["l_fo_conept_sorted"] = l_fo_conept_sorted
-
-            # The event selection
-            te_es.add1lMaskAndSFs(events, year, isData, sampleType)
-            te_es.add2lMaskAndSFs(events, year, isData, sampleType)
-            te_es.add3lMaskAndSFs(events, year, isData, sampleType)
-            te_es.add4lMaskAndSFs(events, year, isData)
-            te_es.addLepCatMasks(events)
-
-            # Convenient to have l0, l1, l2 on hand
-            l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
-            l0 = l_fo_conept_sorted_padded[:,0]
-            l1 = l_fo_conept_sorted_padded[:,1]
-            l2 = l_fo_conept_sorted_padded[:,2]
-
-            ######### Event weights that do not depend on the lep cat ##########
-
-            # Workaround to use UL16APV SFs for UL16 for light jets
-            if year == "2016":
-                year_light = "2016APV"
-            else:
-                year_light = year
-
-            # Loose DeepJet WP
-            loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
-            btagwpl = get_tc_param(loose_tag)
-            isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
-            isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
-            nbtagsl = ak.num(goodJets[isBtagJetsLoose])
-
-            # Medium DeepJet WP
-            medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
-            btagwpm = get_tc_param(medium_tag)
-            isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
-            isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-            nbtagsm = ak.num(goodJets[isBtagJetsMedium])
-
-            isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
-
-            trigger_weight_label = f"triggerSF_{year}"
-
-            # Determine the lepton multiplicity category from the requested
-            # channel name (e.g. ``2lss_4j`` -> ``2l``).  This is used to know
-            # which set of weights to apply when attaching lepton scale factors
-            # below.
-            nlep_cat = re.match(r"\d+l", self.channel).group(0)
-            channel_prefix = nlep_cat[:2]
-
-            default_flavour_mask = ak.values_astype(
-                ak.zeros_like(goodJets.pt, highlevel=True), np.bool_
-            )
-
-            if not isData:
-                has_hadron_flavour = hasattr(goodJets, "hadronFlavour")
-                if has_hadron_flavour:
-                    light_mask = goodJets.hadronFlavour == 0
-                    bc_mask = goodJets.hadronFlavour > 0
-                else:
-                    logger.warning(
-                        "Missing 'hadronFlavour' for MC sample '%s'; defaulting to empty jet flavour masks.",
-                        dataset,
-                    )
-                    light_mask = default_flavour_mask
-                    bc_mask = default_flavour_mask
-
-                jets_light = goodJets[light_mask]
-                jets_bc = goodJets[bc_mask]
-
-                # Begin consolidated MC-only weight registration.
-
-                # If this is not an EFT sample, use the generator weight; otherwise
-                # default to unity.
-                if eft_coeffs is None:
-                    genw = self._ensure_ak_array(getattr(events, "genWeight", None), dtype=self._dtype)
-                    if genw is None:
-                        genw = ak.ones_like(events.event, dtype=self._dtype)
-                else:
-                    genw = ak.ones_like(events.event, dtype=self._dtype)
-
-                # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples.
-                lumi = 1000.0 * get_tc_param(f"lumi_{year}")
-                weights_object.add("norm", (xsec / sow) * genw * lumi)
-
-                if is_run2:
-                    l1prefiring_args = [
-                        events.L1PreFiringWeight.Nom,
-                        events.L1PreFiringWeight.Up,
-                        events.L1PreFiringWeight.Dn,
-                    ]
-                elif is_run3:
-                    l1prefiring_args = [
-                        ak.ones_like(events.nom),
-                        ak.ones_like(events.nom),
-                        ak.ones_like(events.nom),
-                    ]
-
-                have_systematics = bool(self._systematic_variations)
-                # Attach renorm/fact scale weights regardless of which variations are being evaluated.
-                tc_cor.AttachScaleWeights(events)  # Run3 ready (with caveat on "nominal")
-
-                theory_weight_arguments = apply_theory_weight_variations(
-                    events=events,
-                    variation=variation,
-                    variation_base=variation_base,
-                    have_systematics=have_systematics,
-                    sow=sow,
-                    sow_variations=sow_variations,
-                    sow_variation_key_map=sow_variation_key_map,
-                    is_lo_sample=is_lo_sample,
-                    hist_axis_name=histAxisName,
-                    sample=self._sample,
-                )
-
-                for label, args in theory_weight_arguments.items():
-                    weights_object.add(label, *args)
-
-                # Prefiring and pileup (prefire weights only available in nanoAODv9 for Run 2).
-                include_prefiring_vars = have_systematics and variation_base == "prefiring"
-                register_weight_variation(
-                    weights_object,
-                    "PreFiring",
-                    l1prefiring_args[0],
-                    up=lambda: l1prefiring_args[1],
-                    down=lambda: l1prefiring_args[2],
-                    active=include_prefiring_vars,
-                )
-
-                pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
-                include_pu_vars = have_systematics and variation_base == "pileup"
-                register_weight_variation(
-                    weights_object,
-                    "PU",
-                    pu_central,
-                    up=lambda: tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "up"),
-                    down=lambda: tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "down"),
-                    active=include_pu_vars,
-                )
-
-                if has_hadron_flavour:
-                    # B-tag efficiencies and central SFs are re-used for central and systematic weights.
-                    btag_effM_light = GetBtagEff(jets_light, year, "medium")
-                    btag_effM_bc = GetBtagEff(jets_bc, year, "medium")
-                    btag_effL_light = GetBtagEff(jets_light, year, "loose")
-                    btag_effL_bc = GetBtagEff(jets_bc, year, "loose")
-                    btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M", year_light, "deepJet_incl", "central")
-                    btag_sfM_bc = tc_cor.btag_sf_eval(jets_bc, "M", year, "deepJet_comb", "central")
-                    btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L", year_light, "deepJet_incl", "central")
-                    btag_sfL_bc = tc_cor.btag_sf_eval(jets_bc, "L", year, "deepJet_comb", "central")
-
-                    pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(
-                        btag_effM_light,
-                        btag_effL_light,
-                        btag_sfM_light,
-                        btag_sfL_light,
-                        isBtagJetsMedium[light_mask],
-                        isBtagJetsLooseNotMedium[light_mask],
-                        isNotBtagJetsLoose[light_mask],
-                    )
-                    btag_w_light = pData_light / pMC_light
-                    pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(
-                        btag_effM_bc,
-                        btag_effL_bc,
-                        btag_sfM_bc,
-                        btag_sfL_bc,
-                        isBtagJetsMedium[bc_mask],
-                        isBtagJetsLooseNotMedium[bc_mask],
-                        isNotBtagJetsLoose[bc_mask],
-                    )
-                    btag_w_bc = pData_bc / pMC_bc
-
-                    btag_result = register_btag_sf_weights(
-                        jets_light=jets_light,
-                        jets_bc=jets_bc,
-                        efficiencies={
-                            "light": {"M": btag_effM_light, "L": btag_effL_light},
-                            "bc": {"M": btag_effM_bc, "L": btag_effL_bc},
-                        },
-                        central_values={
-                            "light": {"weight": btag_w_light, "pMC": pMC_light},
-                            "bc": {"weight": btag_w_bc, "pMC": pMC_bc},
-                        },
-                        selection_masks={
-                            "medium": isBtagJetsMedium,
-                            "loose_not_medium": isBtagJetsLooseNotMedium,
-                            "not_loose": isNotBtagJetsLoose,
-                            "light": light_mask,
-                            "bc": bc_mask,
-                        },
-                        years={"light": year_light, "bc": year},
-                        systematic_descriptor={
-                            "has_systematics": bool(self._systematic_variations),
-                            "object_variation": object_variation,
-                            "variation_name": variation_name,
-                        },
-                    )
-                    weights_object.add("btagSF", btag_result.central)
-
-                    if btag_result.variation_label is not None:
-                        weights_object.add(
-                            btag_result.variation_label,
-                            events.nom,
-                            btag_result.variation_up,
-                            btag_result.variation_down,
-                        )
-                else:
-                    weights_object.add("btagSF", ak.ones_like(events.nom))
-
-                # Trigger SFs are only defined for simulated samples.
-                register_trigger_sf_weight(
-                    weights_object,
-                    year=year,
-                    events=events,
-                    lepton0=l0,
-                    lepton1=l1,
-                    label=trigger_weight_label,
-                    variation_descriptor={
-                        "has_systematics": bool(self._systematic_variations),
-                        "variation_base": variation_base,
-                        "variation_name": variation_name,
-                    },
-                    logger_obj=logger,
-                )
-
-                if self.tau_h_analysis and not isData:
-                    AttachTauSF(events, tau, year=year)
-
-                # Lepton (and optional tau) scale factors depend on the lepton category.
-                if channel_prefix == "1l":
-                    register_lepton_sf_weight(
-                        weights_object,
-                        events,
-                        "lepSF_muon",
-                        "sf_1l_muon",
-                        "sf_1l_hi_muon",
-                        "sf_1l_lo_muon",
-                        include_muon_sf_variations,
-                        variation_name=variation_name,
-                        logger_obj=logger,
-                    )
-                    register_lepton_sf_weight(
-                        weights_object,
-                        events,
-                        "lepSF_elec",
-                        "sf_1l_elec",
-                        "sf_1l_hi_elec",
-                        "sf_1l_lo_elec",
-                        include_elec_sf_variations,
-                        variation_name=variation_name,
-                        logger_obj=logger,
-                    )
-                    if self.tau_h_analysis:
-                        register_lepton_sf_weight(
-                            weights_object,
-                            events,
-                            "lepSF_taus_real",
-                            "sf_2l_taus_real",
-                            "sf_2l_taus_real_hi",
-                            "sf_2l_taus_real_lo",
-                            include_tau_real_sf_variations,
-                            variation_name=variation_name,
-                            logger_obj=logger,
-                        )
-                        register_lepton_sf_weight(
-                            weights_object,
-                            events,
-                            "lepSF_taus_fake",
-                            "sf_2l_taus_fake",
-                            "sf_2l_taus_fake_hi",
-                            "sf_2l_taus_fake_lo",
-                            include_tau_fake_sf_variations,
-                            variation_name=variation_name,
-                            logger_obj=logger,
-                        )
-                elif channel_prefix == "2l":
-                    register_lepton_sf_weight(
-                        weights_object,
-                        events,
-                        "lepSF_muon",
-                        "sf_2l_muon",
-                        "sf_2l_hi_muon",
-                        "sf_2l_lo_muon",
-                        include_muon_sf_variations,
-                        variation_name=variation_name,
-                        logger_obj=logger,
-                    )
-                    register_lepton_sf_weight(
-                        weights_object,
-                        events,
-                        "lepSF_elec",
-                        "sf_2l_elec",
-                        "sf_2l_hi_elec",
-                        "sf_2l_lo_elec",
-                        include_elec_sf_variations,
-                        variation_name=variation_name,
-                        logger_obj=logger,
-                    )
-                    if self.tau_h_analysis:
-                        register_lepton_sf_weight(
-                            weights_object,
-                            events,
-                            "lepSF_taus_real",
-                            "sf_2l_taus_real",
-                            "sf_2l_taus_real_hi",
-                            "sf_2l_taus_real_lo",
-                            include_tau_real_sf_variations,
-                            variation_name=variation_name,
-                            logger_obj=logger,
-                        )
-                        register_lepton_sf_weight(
-                            weights_object,
-                            events,
-                            "lepSF_taus_fake",
-                            "sf_2l_taus_fake",
-                            "sf_2l_taus_fake_hi",
-                            "sf_2l_taus_fake_lo",
-                            include_tau_fake_sf_variations,
-                            variation_name=variation_name,
-                            logger_obj=logger,
-                        )
-                elif channel_prefix == "3l":
-                    register_lepton_sf_weight(
-                        weights_object,
-                        events,
-                        "lepSF_muon",
-                        "sf_3l_muon",
-                        "sf_3l_hi_muon",
-                        "sf_3l_lo_muon",
-                        include_muon_sf_variations,
-                        variation_name=variation_name,
-                        logger_obj=logger,
-                    )
-                    register_lepton_sf_weight(
-                        weights_object,
-                        events,
-                        "lepSF_elec",
-                        "sf_3l_elec",
-                        "sf_3l_hi_elec",
-                        "sf_3l_lo_elec",
-                        include_elec_sf_variations,
-                        variation_name=variation_name,
-                        logger_obj=logger,
-                    )
-                    if self.tau_h_analysis:
-                        register_lepton_sf_weight(
-                            weights_object,
-                            events,
-                            "lepSF_taus_real",
-                            "sf_2l_taus_real",
-                            "sf_2l_taus_real_hi",
-                            "sf_2l_taus_real_lo",
-                            include_tau_real_sf_variations,
-                            variation_name=variation_name,
-                            logger_obj=logger,
-                        )
-                        register_lepton_sf_weight(
-                            weights_object,
-                            events,
-                            "lepSF_taus_fake",
-                            "sf_2l_taus_fake",
-                            "sf_2l_taus_fake_hi",
-                            "sf_2l_taus_fake_lo",
-                            include_tau_fake_sf_variations,
-                            variation_name=variation_name,
-                            logger_obj=logger,
-                        )
-                elif channel_prefix == "4l":
-                    register_lepton_sf_weight(
-                        weights_object,
-                        events,
-                        "lepSF_muon",
-                        "sf_4l_muon",
-                        "sf_4l_hi_muon",
-                        "sf_4l_lo_muon",
-                        include_muon_sf_variations,
-                        variation_name=variation_name,
-                        logger_obj=logger,
-                    )
-                    register_lepton_sf_weight(
-                        weights_object,
-                        events,
-                        "lepSF_elec",
-                        "sf_4l_elec",
-                        "sf_4l_hi_elec",
-                        "sf_4l_lo_elec",
-                        include_elec_sf_variations,
-                        variation_name=variation_name,
-                        logger_obj=logger,
-                    )
-                else:
-                    raise Exception(f"Unknown channel name: {nlep_cat}")
-
-            ######### Event weights that do depend on the lep cat ###########
-
-            # Attach the lepton-category specific pieces on top of the
-            # previously registered central and kinematic weights.
-
-            if channel_prefix in {"1l", "2l", "3l"}:
-                add_fake_factor_weights(
-                    weights_object,
-                    events,
-                    channel_prefix,
-                    year,
-                    requested_data_weight_label,
-                )
-
-            if self._systematic_variations and isData:
-                validate_data_weight_variations(
-                    weights_object,
-                    data_weight_systematics_set,
-                    requested_data_weight_label,
-                    variation_name,
-                )
-
-            # Additional data-only weights
-            if isData and channel_prefix == "2l" and ("os" not in self.channel):
-                weights_object.add("fliprate", events.flipfactor_2l)
-
-                central_modifiers = getattr(weights_object, "_weights", None).keys()
-
-                if central_modifiers is None or "fliprate" not in set(central_modifiers):
-                    raise AssertionError(
-                        "The 2l same-sign data branch must register the central 'fliprate' weight."
-                    )
-
-            ######### Masks we need for the selection ##########
-
-            # Get mask for events that have two sf os leps close to z peak
-            sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
-            sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
-            if self.offZ_3l_split:
-                sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
-                sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
-            sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
-            sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
-            if self.tau_h_analysis:
-                tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
-
-            # Pass trigger mask
-            pass_trg = tc_es.trg_pass_no_overlap(
+            variation_state = self._apply_object_variations(
                 events,
-                isData,
-                trigger_dataset,
-                str(year),
-                te_es.dataset_dict_top22006,
-                te_es.exclude_dict_top22006,
+                dataset,
+                variation_state,
+                events_cache,
             )
 
-            # b jet masks
-            bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
-            bmask_exactly0med = (nbtagsm==0) # Used for 3l CR and 2los Z CR
-            bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
-            bmask_exactly2med = (nbtagsm==2) # Used for CRtt
-            bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
-            bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
-            bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
-            fwdjet_mask       = (nfwdj > 0)  # Used for ttW EWK enriched regions
+            weights_object = self._register_weights_for_variation(
+                events,
+                dataset,
+                variation_state,
+                data_weight_systematics,
+                data_weight_systematics_set,
+            )
 
-            # Charge masks
-            chargel0_p = ak.fill_none(((l0.charge)>0),False)
-            chargel0_m = ak.fill_none(((l0.charge)<0),False)
-            charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
-            charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
-            charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
-            charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
-            if self.tau_h_analysis:
-                tau_F_mask = (ak.num(tau[tau["isVLoose"]>0]) >=1)
-                tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) >=1)
-                no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
+            self._fill_histograms_for_variation(
+                events,
+                dataset,
+                variation_state,
+                weights_object,
+                request.histogram_label,
+                data_weight_systematics_set,
+                hout,
+            )
 
-
-            ######### Store boolean masks with PackedSelection ##########
-
-            selections = PackedSelection(dtype='uint64')
-            preselections = PackedSelection(dtype='uint64')
-            # Lumi mask (for data)
-            selections.add("is_good_lumi",lumi_mask)
-            preselections.add("is_good_lumi",lumi_mask)
-
-            # 2lss selection
-            preselections.add("chargedl0", (chargel0_p | chargel0_m))
-            preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
-            preselections.add("2los", charge2l_0)
-            preselections.add("2lem", events.is_em)
-            preselections.add("2lee", events.is_ee)
-            preselections.add("2lmm", events.is_mm)
-            preselections.add("2l_onZ_as", sfasz_2l_mask)
-            preselections.add("2l_onZ", sfosz_2l_mask)
-            preselections.add("bmask_atleast3m", (bmask_atleast3med))
-            preselections.add("bmask_atleast1m2l", (bmask_atleast1med_atleast2loose))
-            preselections.add("bmask_atmost2m", (bmask_atmost2med))
-            preselections.add("fwdjet_mask", (fwdjet_mask))
-            preselections.add("~fwdjet_mask", (~fwdjet_mask))
-            if self.tau_h_analysis:
-                preselections.add("1l", (events.is1l & pass_trg))
-                preselections.add("1tau", (tau_L_mask))
-                preselections.add("1Ftau", (tau_F_mask))
-                preselections.add("0tau", (no_tau_mask))
-                preselections.add("onZ_tau", (tl_zpeak_mask))
-                preselections.add("offZ_tau", (~tl_zpeak_mask))
-            if self.fwd_analysis:
-                preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
-                preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
-                preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
-
-            # 2lss selection
-            preselections.add("2lss", (events.is2l & pass_trg))
-            preselections.add("2l_p", (chargel0_p))
-            preselections.add("2l_m", (chargel0_m))
-
-            # 3l selection
-            preselections.add("3l", (events.is3l & pass_trg))
-            preselections.add("bmask_exactly0m", (bmask_exactly0med))
-            preselections.add("bmask_exactly1m", (bmask_exactly1med))
-            preselections.add("bmask_exactly2m", (bmask_exactly2med))
-            preselections.add("bmask_atleast2m", (bmask_atleast2med))
-            preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
-            preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
-            preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
-
-            if self.offZ_3l_split:
-                preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
-                preselections.add("3l_offZ_high", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask))
-                preselections.add("3l_offZ_none", (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask))
-            else:
-                preselections.add("3l_offZ", (sfosz_3l_OffZ_mask))
-
-            # 4l selection
-            preselections.add("4l", (events.is4l & pass_trg))
-
-            # Build the channel mask from the provided channel definition list.
-            lep_ch = self._channel_dict["chan_def_lst"]
-            tempmask = None
-            chtag = lep_ch[0]
-            for chcut in lep_ch[1:]:
-                tempmask = tempmask & preselections.any(chcut) if tempmask is not None else preselections.any(chcut)
-            selections.add(chtag, tempmask)
-
-            del preselections
-
-            # Lep flavor selection
-            selections.add("e",  events.is_e)
-            selections.add("m",  events.is_m)
-            selections.add("ee",  events.is_ee)
-            selections.add("em",  events.is_em)
-            selections.add("mm",  events.is_mm)
-            selections.add("eee", events.is_eee)
-            selections.add("eem", events.is_eem)
-            selections.add("emm", events.is_emm)
-            selections.add("mmm", events.is_mmm)
-            selections.add("llll", (events.is_eeee | events.is_eeem | events.is_eemm | events.is_emmm | events.is_mmmm | events.is_gr4l)) # Not keepting track of these separately
-
-            # Njets selection
-            selections.add("exactly_0j", (njets==0))
-            selections.add("exactly_1j", (njets==1))
-            selections.add("exactly_2j", (njets==2))
-            selections.add("exactly_3j", (njets==3))
-            selections.add("exactly_4j", (njets==4))
-            selections.add("exactly_5j", (njets==5))
-            selections.add("exactly_6j", (njets==6))
-            selections.add("atleast_1j", (njets>=1))
-            selections.add("atleast_4j", (njets>=4))
-            selections.add("atleast_5j", (njets>=5))
-            selections.add("atleast_6j", (njets>=6))
-            selections.add("atleast_7j", (njets>=7))
-            selections.add("atleast_0j", (njets>=0))
-            selections.add("atmost_3j" , (njets<=3))
-
-            # AR/SR categories
-            selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
-            selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
-            selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
-            selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
-            selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
-            if self.tau_h_analysis:
-                selections.add("isSR_1l",    ( events.is1l_SR))
-
-            selections.add("isSR_3l",  events.is3l_SR)
-            selections.add("isAR_3l", ~events.is3l_SR)
-            selections.add("isSR_4l",  events.is4l_SR)
-
-            ######### Variables for the dense axes of the hists ##########
-
-            var_def = self.var_def
-
-            if ("ptbl" in var_def) or ("b0pt" in var_def) or ("bl0pt" in var_def):
-                ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
-                ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt, axis=-1, keepdims=True)]
-                ptbl_lep = l_fo_conept_sorted
-                ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
-                ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
-
-            if "ptz" in var_def:
-                ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-                if self.offZ_3l_split:
-                    ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-            if "ptz_wtau" in var_def:
-                ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
-
-            if "bl0pt" in var_def:
-                bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
-                bl_pairs = ak.cartesian({"b": bjetsl, "l": l_fo_conept_sorted})
-                blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
-                bl0pt = ak.flatten(blpt[ak.argmax(blpt, axis=-1, keepdims=True)])
-
-            need_lj_collection = any(t in var_def for t in ["o0pt", "lj0pt", "ljptsum"]) or (self._ecut_threshold is not None)
-            if need_lj_collection:
-                if self.tau_h_analysis:
-                    l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted, goodJets, cleaning_taus], axis=1), "PtEtaPhiMCollection")
-                else:
-                    l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted, goodJets], axis=1), "PtEtaPhiMCollection")
-                if "o0pt" in var_def:
-                    o0pt = ak.max(l_j_collection.pt, axis=-1)
-                if ("ljptsum" in var_def) or (self._ecut_threshold is not None):
-                    ljptsum = ak.sum(l_j_collection.pt, axis=-1)
-                if "lj0pt" in var_def:
-                    l_j_pairs = ak.combinations(l_j_collection, 2, fields=["o0","o1"])
-                    l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
-                    lj0pt = ak.max(l_j_pairs_pt, axis=-1)
-
-            if "lt" in var_def:
-                lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
-
-            if "mll_0_1" in var_def:
-                mll_0_1 = (l0 + l1).mass
-
-            if self._ecut_threshold is not None:
-                if "ljptsum" not in locals():
-                    ljptsum = ak.sum(l_j_collection.pt, axis=-1)
-                ecut_mask = (ljptsum < self._ecut_threshold)
-
-            counts = np.ones_like(events['event'])
-
-            ########## Fill the histograms ##########
-
-            dense_axis_name = self._var
-            dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
-
-            # Set up the list of systematic weight variations to loop over
-            if weight_variations_to_run:
-                wgt_var_lst = []
-            else:
-                wgt_var_lst = ["nominal"]
-            for name in weight_variations_to_run:
-                if name not in wgt_var_lst:
-                    wgt_var_lst.append(name)
-
-            lep_chan = self._channel_dict["chan_def_lst"][0]
-            jet_req = self._channel_dict["jet_selection"]
-            lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
-
-            # print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-            # # print("lep_chan:", lep_chan)
-            # # print("jet_req:", jet_req)
-            # # print("self._channel_dict:", self._channel_dict)
-            # # print("lep_flav_iter:", lep_flav_iter)
-            # # print("dense_axis_name:", dense_axis_name)
-            # # print("wgt_var_lst:", wgt_var_lst)
-            # #print("weights_object.weight:", weights_object.weight())
-            # #print(getattr(weights_object, "__dict__"))
-            # print("\nweights", getattr(weights_object, "_weights").keys())
-            # print("\n",dir(weights_object))
-            # print("\nweights_object.variations:", weights_object.variations)
-            # print("\n", getattr(weights_object, "_modifiers"))
-
-            # # print("weight_object:", weights_object.weight)
-            # # print("hist_variation_label:", hist_variation_label)
-            # print("\n\n\n\n\n")
-
-            for wgt_fluct in wgt_var_lst:
-                if wgt_fluct == "nominal":
-                    weight = weights_object.weight(None)
-                elif wgt_fluct in weights_object.variations:
-                    weight = weights_object.weight(wgt_fluct)
-                else:
-                    continue
-
-                # Skip filling SR histograms with data-driven variations
-                if self.appregion.startswith("isSR") and wgt_fluct in data_weight_systematics_set:
-                    continue
-
-                if wgt_fluct == "nominal":
-                    hist_variation_label = hist_label
-                else:
-                    hist_variation_label = self._histogram_label_lookup.get(
-                        wgt_fluct, wgt_fluct
-                    )
-
-                for lep_flav in lep_flav_iter:
-                    cuts_lst = [self.appregion, lep_chan]
-                    flav_ch = None
-                    njet_ch = None
-                    if isData:
-                        cuts_lst.append("is_good_lumi")
-                    if self._split_by_lepton_flavor:
-                        flav_ch = lep_flav
-                        cuts_lst.append(lep_flav)
-                    if dense_axis_name != "njets":
-                        njet_ch = jet_req
-                        cuts_lst.append(jet_req)
-
-                    ch_name, base_ch_name = self._build_channel_names(
-                        lep_chan, njet_ch, flav_ch
-                    )
-                    if base_ch_name != self.channel:
-                        continue
-
-                    if self._debug_logging:
-                        cut_pass_info = {cut: selections.all(cut) for cut in cuts_lst}
-                        self._debug(
-                            "Filling histograms for channel '%s' (base '%s') with cuts %s",
-                            ch_name,
-                            base_ch_name,
-                            cut_pass_info,
-                        )
-
-                    all_cuts_mask = selections.all(*cuts_lst)
-                    if self._ecut_threshold is not None:
-                        all_cuts_mask = (all_cuts_mask & ecut_mask)
-                    if isinstance(all_cuts_mask, ak.Array):
-                        mask_numpy = (
-                            ak.to_numpy(all_cuts_mask)
-                            if hasattr(ak, "to_numpy")
-                            else np.asarray(all_cuts_mask)
-                        )
-                    else:
-                        mask_numpy = np.asarray(all_cuts_mask)
-                    weights_flat = np.asarray(weight)[mask_numpy]
-                    eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
-
-                    axes_fill_info_dict = {
-                        dense_axis_name: dense_axis_vals[all_cuts_mask],
-                        "weight": weights_flat,
-                        "eft_coeff": eft_coeffs_cut,
-                    }
-
-                    histkey = (
-                        dense_axis_name,
-                        ch_name,
-                        self.appregion,
-                        dataset,
-                        hist_variation_label,
-                    )
-                
-                    if histkey not in hout:
-                        fallback_histkey = (
-                            dense_axis_name,
-                            base_ch_name,
-                            self.appregion,
-                            dataset,
-                            hist_variation_label,
-                        )
-                        if fallback_histkey not in hout:
-                            continue
-                        histkey = fallback_histkey
-                    
-                    hout[histkey].fill(**axes_fill_info_dict)
-
-                    if self._debug_logging:
-                        filled_count = int(np.count_nonzero(np.asarray(all_cuts_mask)))
-                        self._debug(
-                            "Filled histkey %s with %d selected events",
-                            histkey,
-                            filled_count,
-                        )
-
-                    axes_fill_info_dict = {
-                        dense_axis_name + "_sumw2": dense_axis_vals[all_cuts_mask],
-                        "weight": np.square(weights_flat),
-                        "eft_coeff": eft_coeffs_cut,
-                    }
-                    histkey = (
-                        dense_axis_name + "_sumw2",
-                        base_ch_name,
-                        self.appregion,
-                        dataset,
-                        hist_variation_label,
-                    )
-                    if histkey not in hout.keys():
-                        continue
-                    hout[histkey].fill(**axes_fill_info_dict)
         return hout
+
 
     def postprocess(self, accumulator):
         return accumulator

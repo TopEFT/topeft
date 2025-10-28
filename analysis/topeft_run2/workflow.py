@@ -773,6 +773,7 @@ class RunWorkflow:
                 systematic_variations=task.variations,
                 available_systematics=task.available_systematics,
                 metadata_path=self._metadata_path,
+                executor_mode=self._config.executor,
             )
 
             self._log_task_submission(task)
