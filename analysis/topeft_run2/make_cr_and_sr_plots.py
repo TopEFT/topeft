@@ -6,6 +6,7 @@ import argparse
 import re
 from collections import OrderedDict
 import logging
+from decimal import Decimal
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -57,14 +58,33 @@ LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
 PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
 
+YEAR_TOKEN_RULES = {
+    "2016": {
+        "mc_wl": ["UL16"],
+        "mc_bl": ["UL16APV"],
+        "data_wl": ["UL16"],
+        "data_bl": ["UL16APV"],
+    },
+    "2016APV": {
+        "mc_wl": ["UL16APV"],
+        "data_wl": ["UL16APV"],
+    },
+    "2017": {"mc_wl": ["UL17"], "data_wl": ["UL17"]},
+    "2018": {"mc_wl": ["UL18"], "data_wl": ["UL18"]},
+    "2022": {"mc_wl": ["2022"], "data_wl": ["2022"]},
+    "2022EE": {"mc_wl": ["2022EE"], "data_wl": ["2022EE"]},
+    "2023": {"mc_wl": ["2023"], "data_wl": ["2023"]},
+    "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
+}
+
 
 logger = logging.getLogger(__name__)
 
 # This script takes an input pkl file that should have both data and background MC included.
-# Use the -y option to specify a year, if no year is specified, all years will be included.
+# Use the -y option to specify one or more years; if no year is specified, all years will be included.
 # There are various other options available from the command line.
-# For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:
-#     python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
+# For example, to make unit normalized plots for 2017+2018, with the timestamp appended to the directory name, you would run:
+#     python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2017 2018 -t -u
 
 yt = YieldTools()
 
@@ -1040,7 +1060,7 @@ class RegionContext(object):
         self,
         name,
         dict_of_hists,
-        year,
+        years,
         channel_map,
         group_patterns,
         group_map,
@@ -1067,7 +1087,13 @@ class RegionContext(object):
     ):
         self.name = name
         self.dict_of_hists = dict_of_hists
-        self.year = year
+        self.years = None if years is None else tuple(years)
+        if self.years is None:
+            self.year = None
+        elif len(self.years) == 1:
+            self.year = self.years[0]
+        else:
+            self.year = self.years
         self.channel_map = channel_map
         self.group_patterns = group_patterns
         self.group_map = group_map
@@ -1108,7 +1134,54 @@ class RegionContext(object):
         self.use_mc_as_data_when_blinded = bool(use_mc_as_data_when_blinded)
 
 
-def build_region_context(region,dict_of_hists,year,unblind=None):
+def _format_decimal_string(value):
+    normalized = value.normalize()
+    # Decimal.normalize() may produce scientific notation for integers; format
+    # explicitly to keep plain strings such as "101.3".
+    formatted = format(normalized, "f")
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return formatted
+
+
+def _resolve_lumi_pair(year_tokens):
+    if not year_tokens:
+        return None
+
+    lumi_components = []
+    com_tags = set()
+    missing_metadata = []
+
+    for token in year_tokens:
+        pair = LUMI_COM_PAIRS.get(token)
+        if pair is None:
+            missing_metadata.append(token)
+            continue
+        lumi_components.append(Decimal(pair[0]))
+        com_tags.add(pair[1])
+
+    if missing_metadata and not lumi_components:
+        return None
+
+    if missing_metadata:
+        raise KeyError(
+            "No luminosity metadata available for year token(s): "
+            + ", ".join(sorted(set(missing_metadata)))
+        )
+
+    if len(com_tags) != 1:
+        raise ValueError(
+            "Inconsistent center-of-mass energies encountered while combining "
+            "years {}.".format(
+                ", ".join(year_tokens)
+            )
+        )
+
+    combined_lumi = sum(lumi_components, Decimal("0"))
+    return (_format_decimal_string(combined_lumi), com_tags.pop())
+
+
+def build_region_context(region,dict_of_hists,years,unblind=None):
     region_upper = region.upper()
     if region_upper not in ["CR","SR"]:
         raise ValueError(f"Unsupported region '{region}'.")
@@ -1117,36 +1190,58 @@ def build_region_context(region,dict_of_hists,year,unblind=None):
     mc_bl = ["data"]
     data_wl = ["data"]
     data_bl = []
-    if year is None:
-        pass
-    elif year == "2017":
-        mc_wl.append("UL17")
-        data_wl.append("UL17")
-    elif year == "2018":
-        mc_wl.append("UL18")
-        data_wl.append("UL18")
-    elif year == "2016":
-        mc_wl.append("UL16")
-        mc_bl.append("UL16APV")
-        data_wl.append("UL16")
-        data_bl.append("UL16APV")
-    elif year == "2016APV":
-        mc_wl.append("UL16APV")
-        data_wl.append("UL16APV")
-    elif year == "2022":
-        mc_wl.append("2022")
-        data_wl.append("2022")
-    elif year == "2022EE":
-        mc_wl.append("2022EE")
-        data_wl.append("2022EE")
-    elif year == "2023":
-        mc_wl.append("2023")
-        data_wl.append("2023")
-    elif year == "2023BPix":
-        mc_wl.append("2023BPix")
-        data_wl.append("2023BPix")
+    if years is None:
+        year_tokens = []
+    elif isinstance(years, str):
+        year_tokens = [years]
     else:
-        raise Exception(f"Error: Unknown year \"{year}\".")
+        year_tokens = list(years)
+
+    normalized_year_tokens = []
+    seen_years = set()
+    for token in year_tokens:
+        if token is None:
+            continue
+        cleaned = str(token).strip()
+        if not cleaned or cleaned in seen_years:
+            continue
+        if cleaned not in YEAR_TOKEN_RULES:
+            raise ValueError(
+                "Error: Unknown year token '{}' requested. Supported tokens: {}".format(
+                    cleaned, ", ".join(sorted(YEAR_TOKEN_RULES))
+                )
+            )
+        rules = YEAR_TOKEN_RULES[cleaned]
+
+        mc_wl_values = rules.get("mc_wl", [])
+        if mc_wl_values:
+            for value in mc_wl_values:
+                if value not in mc_wl:
+                    mc_wl.append(value)
+            mc_bl[:] = [value for value in mc_bl if value not in mc_wl_values]
+
+        mc_bl_values = rules.get("mc_bl", [])
+        if mc_bl_values:
+            for value in mc_bl_values:
+                if value in mc_wl or value in mc_bl:
+                    continue
+                mc_bl.append(value)
+
+        data_wl_values = rules.get("data_wl", [])
+        if data_wl_values:
+            for value in data_wl_values:
+                if value not in data_wl:
+                    data_wl.append(value)
+            data_bl[:] = [value for value in data_bl if value not in data_wl_values]
+
+        data_bl_values = rules.get("data_bl", [])
+        if data_bl_values:
+            for value in data_bl_values:
+                if value in data_wl or value in data_bl:
+                    continue
+                data_bl.append(value)
+        seen_years.add(cleaned)
+        normalized_year_tokens.append(cleaned)
 
     try:
         all_samples = yt.get_cat_lables(dict_of_hists, "process")
@@ -1154,12 +1249,31 @@ def build_region_context(region,dict_of_hists,year,unblind=None):
         ref_hist = _find_reference_hist_name(dict_of_hists)
         all_samples = yt.get_cat_lables(dict_of_hists, "process", h_name=ref_hist)
 
-    mc_samples = utils.filter_lst_of_strs(
-        all_samples, substr_whitelist=mc_wl, substr_blacklist=mc_bl
-    )
-    data_samples = utils.filter_lst_of_strs(
-        all_samples, substr_whitelist=data_wl, substr_blacklist=data_bl
-    )
+    def _filter_samples(all_labels, whitelist, blacklist):
+        """Return samples that satisfy blacklist rules and match any whitelist token."""
+
+        if len(whitelist) <= 1:
+            return utils.filter_lst_of_strs(
+                all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
+            )
+
+        # Ignore generic tokens that would match every label (e.g. "data") when
+        # performing multi-token filtering so that the year-specific substrings
+        # drive selection.
+        union_tokens = [token for token in whitelist if token.lower() != "data"]
+        if not union_tokens:
+            union_tokens = whitelist
+
+        filtered = []
+        for label in all_labels:
+            if any(token in label for token in blacklist):
+                continue
+            if any(token in label for token in union_tokens):
+                filtered.append(label)
+        return filtered
+
+    mc_samples = _filter_samples(all_samples, mc_wl, mc_bl)
+    data_samples = _filter_samples(all_samples, data_wl, data_bl)
     samples_to_remove = {
         "mc": [sample for sample in all_samples if sample not in mc_samples],
         "data": [sample for sample in all_samples if sample not in data_samples],
@@ -1171,7 +1285,10 @@ def build_region_context(region,dict_of_hists,year,unblind=None):
         if hist_name.endswith("_sumw2") and hist_name.count("sumw2") == 1
     }
 
-    lumi_pair = LUMI_COM_PAIRS.get(year)
+    try:
+        lumi_pair = _resolve_lumi_pair(normalized_year_tokens)
+    except KeyError as exc:
+        raise ValueError(str(exc)) from exc
 
     if unblind is None:
         resolved_unblind = region_upper == "CR"
@@ -1235,7 +1352,7 @@ def build_region_context(region,dict_of_hists,year,unblind=None):
     return RegionContext(
         region_upper,
         dict_of_hists,
-        year,
+        normalized_year_tokens if normalized_year_tokens else None,
         channel_map,
         group_patterns,
         group_map,
@@ -1650,7 +1767,10 @@ def produce_region_plots(region_ctx,save_dir_path,variables,skip_syst_errs,unit_
                     if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
                     else copy.deepcopy(hist_mc_integrated)
                 )
-                year_str = region_ctx.year if region_ctx.year is not None else "ULall"
+                if region_ctx.years:
+                    year_str = "_".join(region_ctx.years)
+                else:
+                    year_str = "ULall"
                 title = f"{hist_cat}_{var_name}_{year_str}"
                 bins_override = region_ctx.analysis_bins.get(var_name)
                 default_bins = axes_info[var_name]["variable"] if var_name in axes_info else None
@@ -2535,7 +2655,7 @@ def make_region_stacked_ratio_fig(
 def run_plots_for_region(
     region_name,
     dict_of_hists,
-    year,
+    years,
     save_dir_path,
     *,
     skip_syst_errs=False,
@@ -2546,7 +2666,7 @@ def run_plots_for_region(
     region_ctx = build_region_context(
         region_name,
         dict_of_hists,
-        year,
+        years,
         unblind=unblind,
     )
     produce_region_plots(
@@ -2566,7 +2686,13 @@ def main():
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
     parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
-    parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
+    parser.add_argument(
+        "-y",
+        "--year",
+        nargs="+",
+        default=None,
+        help="One or more year tokens to include (e.g. 2017 2018)",
+    )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip systematic error bands in plots")
     parser.add_argument(
@@ -2604,6 +2730,20 @@ def main():
         help="Optional list of histogram variables to plot",
     )
     args = parser.parse_args()
+
+    normalized_years = []
+    if args.year is not None:
+        seen_years = set()
+        for raw_value in args.year:
+            if raw_value is None:
+                continue
+            for token in str(raw_value).split(","):
+                cleaned = token.strip()
+                if not cleaned or cleaned in seen_years:
+                    continue
+                seen_years.add(cleaned)
+                normalized_years.append(cleaned)
+    selected_years = normalized_years if normalized_years else None
 
     def _detect_region_from_path(path):
         if not path:
@@ -2682,7 +2822,7 @@ def main():
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
 
-    print("\nMaking plots for year:",args.year)
+    print("\nMaking plots for years:", selected_years if selected_years else "All")
     print("Output dir:",save_dir_path)
     print("Variables to plot:", selected_variables if selected_variables else "All")
     print("\n\n")
@@ -2691,7 +2831,7 @@ def main():
     run_plots_for_region(
         resolved_region,
         hin_dict,
-        args.year,
+        selected_years,
         save_dir_path,
         skip_syst_errs=args.skip_syst,
         unit_norm_bool=unit_norm_bool,

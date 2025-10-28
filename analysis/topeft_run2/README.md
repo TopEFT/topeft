@@ -80,7 +80,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 * `make_cr_and_sr_plots.py`:
     - This script produces stacked yield and ratio plots for the configured analysis regions and can also drive dedicated comparison overlays.
     - The script takes as input a pkl file that should have both data and background MC included.
-    - Example usage: `python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2018 -t -u --variables lj0pt ptz`
+    - Example usage: `python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2017 2018 -t -u --variables lj0pt ptz`
     - Omitting `--variables` processes every histogram in the input pickle, while providing one or more names limits the run to those histograms.
     - Histograms with multiple dense axes (e.g. the `SparseHist`-based `lepton_pt_vs_eta`) are automatically rendered as CMS-style 2D heatmaps, while the 1D rebinning and systematic envelopes quietly skip them. The heatmap canvas now includes a dedicated Data/MC ratio panel so comparisons are available at a glance alongside the nominal MC and data projections.
 
@@ -97,9 +97,10 @@ Blinding is now governed by a single flag pair: `--unblind` always renders the d
 | `python make_cr_and_sr_plots.py` | Direct access to every CLI flag for notebook or batch workflows. |
 | [`./run_plotter.sh`](#run_plottersh-shell-wrapper-quickstart) | Convenience wrapper that mirrors the auto-detection logic and common flags. |
 
-Common invocation patterns:
+Common invocation patterns (`-y/--year` now accepts multiple tokens for combined campaigns):
 
 * Control-region scan with automatic blinding: `python make_cr_and_sr_plots.py -f histos/plotsCR_Run2.pkl.gz`
+* Summing luminosities across multiple years: `python make_cr_and_sr_plots.py -f histos/plotsCR_Run2.pkl.gz -y 2016APV 2016 2017 2018`
 * Signal-region pass where the filename already encodes `SR`: `python make_cr_and_sr_plots.py -f histos/SR2018.pkl.gz -o ~/www/sr --variables lj0pt ptz`
 * Overriding the heuristic and forcing a blinded SR workflow: `python make_cr_and_sr_plots.py -f histos/plotsTopEFT.pkl.gz --sr --blind`
 * Producing unblinded CR plots with explicit tagging and timestamped directories: `python make_cr_and_sr_plots.py -f histos/CR2018.pkl.gz --cr -t -n cr_2018_scan`
@@ -113,6 +114,7 @@ Wrapper options match the Python interface so that README guidance applies verba
 Example commands:
 
 * Auto-detected control-region plotting with timestamped outputs: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots --timestamp`
+* Combining Run-3 campaigns in one call: `./run_plotter.sh -f histos/CR2022_combo.pkl.gz -o ~/www/cr_run3 -y 2022 2022EE 2023 2023BPix`
 * Enforcing a blinded SR pass with specific variables: `./run_plotter.sh -f histos/plotsTopEFT.pkl.gz -o ~/www/sr -n sr_scan --sr --blind --variables lj0pt ptz`
 * Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 --unblind -- --do-errors`
 
