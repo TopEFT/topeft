@@ -16,10 +16,6 @@ By default, pytest only prints failure messages. The flags `-rP` will print all 
 Test the quadratic fit plotting script
 ### `tests/test_futures.py`
 The `test_futures` runs the analysis processor over a given file, `test_nonprompt()` runs the output from `test_topcoffea()` through `topcoffea/modules/dataDrivenEstimation.py`, `test_datacardmaker()` creates a test datacard. 
-### `test_work_queue()`
-Runs the main processor with the legacy Work Queue executor.  The production
-workflow defaults to TaskVine, but this test is kept to ensure backwards
-compatibility with the historical backend.
 ### `tests/test_taskvine_executor.py`
 Launches `analysis/topeft_run2/run_analysis.py` with the TaskVine executor using
 a minimal local manager.  The test provisions a single worker via

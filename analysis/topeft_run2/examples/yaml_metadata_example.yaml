@@ -6,7 +6,7 @@ metadata: ../../topeft/params/metadata.yml
 jsonFiles:
   - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
 prefix: ""
-executor: work_queue
+executor: taskvine
 nworkers: 4
 chunksize: 160000
 outpath: example_outputs_yaml

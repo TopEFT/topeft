@@ -23,7 +23,7 @@ The high-level flow is:
    ``(sample, channel, variable, application, systematic)`` tuples that will be
    processed.
 5. An :class:`analysis.topeft_run2.workflow.ExecutorFactory` creates the
-   requested backend runner (``futures``, ``work_queue`` or ``taskvine``).  Each
+   requested backend runner (``futures``, ``iterative`` or ``taskvine``).  Each
    histogram task is turned into an :class:`AnalysisProcessor` instance with the
    correct per-sample metadata and systematic configuration before being
    submitted to the executor.

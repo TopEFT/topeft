@@ -99,11 +99,11 @@ For a narrated walkthrough that ties environment preparation, tarball packaging,
        -M ${USER}-taskvine-coffea 10
    ```
 
-   The `remote_environment.get_environment()` helper returns the same tarball path that the workflow passes through the `environment_file` executor argument; pre-loading it with `--python-env` avoids transferring the archive every time a new worker connects. If `--python-env` is omitted, the manager still hands the environment off automatically via `environment_file`, which mirrors the legacy Work Queue flow.
+   The `remote_environment.get_environment()` helper returns the same tarball path that the workflow passes through the `environment_file` executor argument; pre-loading it with `--python-env` avoids transferring the archive every time a new worker connects. If `--python-env` is omitted, the manager still hands the environment off automatically via `environment_file`, matching the behaviour of older Work Queue deployments.
 
    For HTCondor-backed pools, `condor_submit_workers` and other submission helpers ship with TaskVine; point them at the same manager string and pass `--python-env` when the helper supports it. Refer to the [remote environment maintenance guide](docs/environment_packaging.md) for details on rebuilding the tarball whenever dependencies change.
 
-Work Queue remains supported for legacy deployments. The historic configuration guide is preserved in [README_WORKQUEUE.md](README_WORKQUEUE.md).
+Work Queue has been retired from the workflow helpers. A condensed record of the historic instructions is preserved in [README_WORKQUEUE.md](README_WORKQUEUE.md) for teams pinned to older releases.
 
 ### To run an example job
 
@@ -227,9 +227,9 @@ The helper resolves your samples, validates the requested scenario, and launches
 a short futures-based run.  Detailed explanations of each switch are covered in
 [docs/quickstart_run2.md](docs/quickstart_run2.md).  When you are ready to scale
 out, switch to the TaskVine executor described above so the packaged environment
-can be reused across distributed resources.  The legacy Work Queue workflow is
-still documented in [README_WORKQUEUE.md](README_WORKQUEUE.md) for historical
-setups that require it.
+can be reused across distributed resources.  A short legacy note is available in
+[README_WORKQUEUE.md](README_WORKQUEUE.md) for teams referencing the historical
+Work Queue setup.
 
 For local futures runs the CLI now exposes dedicated knobs for staging and
 recovery: ``--futures-prefetch`` limits the number of ROOT files staged per

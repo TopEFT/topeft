@@ -49,10 +49,8 @@ from typing import (
 from topeft.modules.executor import (
     build_futures_executor,
     build_taskvine_args,
-    build_work_queue_args,
     futures_runner_overrides,
     instantiate_taskvine_executor,
-    instantiate_work_queue_executor,
     parse_port_range,
     resolve_environment_file,
     taskvine_log_configurator,
@@ -72,7 +70,7 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type checking
     from topeft.modules.channel_metadata import ChannelMetadataHelper
     from topeft.modules.systematics import SystematicsHelper
 
-LST_OF_KNOWN_EXECUTORS = ["futures", "iterative", "work_queue", "taskvine"]
+LST_OF_KNOWN_EXECUTORS = ["futures", "iterative", "taskvine"]
 
 
 class ChannelPlanner:
@@ -507,7 +505,7 @@ class ExecutorFactory:
         from coffea.nanoevents import NanoAODSchema
         from topcoffea.modules import remote_environment
 
-        executor = (self._config.executor or "").lower()
+        executor = (self._config.executor or "taskvine").lower()
 
         def _build_runner(exec_instance: Any, **runner_kwargs: Any) -> Any:
             return processor.Runner(
@@ -543,7 +541,7 @@ class ExecutorFactory:
                 exec_instance = processor.iterative_executor()
             return _build_runner(exec_instance)
 
-        if executor in {"work_queue", "taskvine"}:
+        if executor == "taskvine":
             port_min, port_max = parse_port_range(self._config.port)
             staging_dir = self._distributed_staging_dir(executor)
             logs_dir = self._executor_logs_dir(executor, staging_dir)
@@ -558,35 +556,6 @@ class ExecutorFactory:
                 extra_pip_local={"topeft": ["topeft", "setup.py"]},
                 extra_conda=["pyyaml"],
             )
-
-            if executor == "work_queue":
-                executor_args = build_work_queue_args(
-                    staging_dir=staging_dir,
-                    logs_dir=logs_dir,
-                    manager_name=manager_name,
-                    port_range=(port_min, port_max),
-                    extra_input_files=["analysis_processor.py"],
-                    resource_monitor=self._config.resource_monitor,
-                    resources_mode=self._config.resources_mode,
-                    environment_file=environment_file,
-                )
-                try:
-                    exec_instance = instantiate_work_queue_executor(
-                        processor, executor_args
-                    )
-                except RuntimeError as exc:
-                    raise RuntimeError(
-                        "WorkQueueExecutor is not available in this Coffea installation. "
-                        "The Coffea 2025.7 release removed the bundled Work Queue backend; "
-                        "use the TaskVine executor or install a Coffea build that "
-                        "provides WorkQueueExecutor."
-                    ) from exc
-
-                return _build_runner(
-                    exec_instance,
-                    skipbadfiles=False,
-                    xrootdtimeout=180,
-                )
 
             taskvine_args = build_taskvine_args(
                 staging_dir=staging_dir,
@@ -649,10 +618,7 @@ class ExecutorFactory:
         logs_dir.mkdir(parents=True, exist_ok=True)
         return logs_dir
 
-    
-    
-    
-    
+class RunWorkflow:
     def __init__(
         self,
         *,
@@ -853,7 +819,7 @@ class ExecutorFactory:
 
         dt = time.time() - tstart
 
-        if self._config.executor in ["work_queue", "taskvine"] and nevts_total:
+        if self._config.executor == "taskvine" and nevts_total:
             print(
                 "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
                     nevts_total, dt, nevts_total / dt if dt else 0

@@ -1,8 +1,8 @@
 """Helpers for constructing coffea executors consistently.
 
 This module centralises the boilerplate required to launch coffea processors
-across the supported executors (futures, Work Queue, and TaskVine).  Several of
-the ``analysis`` entrypoints previously reimplemented the same dictionaries and
+across the supported executors (futures and TaskVine).  Several of the
+``analysis`` entrypoints previously reimplemented the same dictionaries and
 port negotiation logic; consolidating the helpers here keeps their behaviour in
 sync and makes it easier to roll out configuration updates across the scripts.
 """
@@ -124,42 +124,6 @@ def _base_distributed_args(
     return args
 
 
-def build_work_queue_args(
-    *,
-    staging_dir: Path,
-    logs_dir: Path,
-    manager_name: str,
-    port_range: Tuple[int, int],
-    extra_input_files: Sequence[str],
-    resource_monitor: Optional[str],
-    resources_mode: Optional[str],
-    environment_file: Optional[str],
-) -> Dict[str, Any]:
-    """Return Work Queue executor keyword arguments with shared defaults."""
-
-    port_min, port_max = port_range
-    args = _base_distributed_args(
-        staging_dir=staging_dir,
-        extra_input_files=extra_input_files,
-        resource_monitor=resource_monitor,
-        resources_mode=resources_mode,
-        environment_file=environment_file,
-    )
-    args.update(
-        {
-            "port": [int(port_min), int(port_max)],
-            "debug_log": str(logs_dir / "debug.log"),
-            "transactions_log": str(logs_dir / "transactions.log"),
-            "stats_log": str(logs_dir / "stats.log"),
-            "tasks_accum_log": str(logs_dir / "tasks.log"),
-            "chunks_per_accum": 25,
-            "chunks_accum_in_mem": 2,
-            "master_name": manager_name,
-        }
-    )
-    return args
-
-
 def build_taskvine_args(
     *,
     staging_dir: Path,
@@ -217,19 +181,6 @@ def taskvine_log_configurator(logs_dir: Path) -> Callable[[Any], None]:
                     )
 
     return _configure
-
-
-def instantiate_work_queue_executor(processor_module: Any, args: Dict[str, Any]) -> Any:
-    """Instantiate ``processor.WorkQueueExecutor`` with helpful errors."""
-
-    work_queue_cls = getattr(processor_module, "WorkQueueExecutor", None)
-    if work_queue_cls is None:
-        raise RuntimeError(
-            "WorkQueueExecutor is not available in this Coffea installation. "
-            "Use the TaskVine executor or install a Coffea build that provides "
-            "WorkQueueExecutor."
-        )
-    return work_queue_cls(**args)
 
 
 def instantiate_taskvine_executor(

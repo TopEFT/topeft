@@ -50,7 +50,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 ### Run scripts and processors
 
 * `run_topeft.py` for `topeft.py`:
-    - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses either the `work_queue` or the `futures` executors (with `futures` it uses 8 cores by default). The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`.
+    - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It supports the TaskVine executor for distributed deployments (the default) and the Coffea `futures` executor for single-node testing. TaskVine managers expect workers launched via `vine_submit_workers` (see the main README for command examples). You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`.
     - Example usage: `python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg`
 
 * `run_analysis.py`:

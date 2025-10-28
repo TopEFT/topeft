@@ -168,7 +168,7 @@ def coerce_optional_float(value: Any) -> Optional[float]:
 
 
 def coerce_port(value: Any) -> str:
-    """Return a Work Queue port specification as ``min-max``."""
+    """Return a TaskVine port specification as ``min-max``."""
 
     if value is None:
         return ""

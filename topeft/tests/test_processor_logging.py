@@ -1244,42 +1244,6 @@ def _install_stubs(monkeypatch):
             args["environment_file"] = environment_file
         return args
 
-    def _build_work_queue_args(
-        *,
-        staging_dir,
-        logs_dir,
-        manager_name,
-        port_range,
-        extra_input_files,
-        resource_monitor,
-        resources_mode,
-        environment_file,
-    ):
-        from pathlib import Path as _Path
-
-        port_min, port_max = _parse_port_range(port_range)
-        args = _base_executor_args(
-            staging_dir,
-            extra_input_files,
-            resource_monitor,
-            resources_mode,
-            environment_file,
-        )
-        logs_path = _Path(logs_dir)
-        args.update(
-            {
-                "port": [int(port_min), int(port_max)],
-                "debug_log": str(logs_path / "debug.log"),
-                "transactions_log": str(logs_path / "transactions.log"),
-                "stats_log": str(logs_path / "stats.log"),
-                "tasks_accum_log": str(logs_path / "tasks.log"),
-                "chunks_per_accum": 25,
-                "chunks_accum_in_mem": 2,
-                "master_name": manager_name,
-            }
-        )
-        return args
-
     def _build_taskvine_args(
         *,
         staging_dir,
@@ -1320,12 +1284,6 @@ def _install_stubs(monkeypatch):
             return manager
 
         return _configure
-
-    def _instantiate_work_queue_executor(processor_module, args):
-        work_queue_cls = getattr(processor_module, "WorkQueueExecutor", None)
-        if work_queue_cls is None:
-            raise RuntimeError("WorkQueueExecutor is not available")
-        return work_queue_cls(**args)
 
     def _instantiate_taskvine_executor(
         processor_module,
@@ -1368,10 +1326,8 @@ def _install_stubs(monkeypatch):
 
     executor_module.parse_port_range = _parse_port_range
     executor_module.resolve_environment_file = _resolve_environment_file
-    executor_module.build_work_queue_args = _build_work_queue_args
     executor_module.build_taskvine_args = _build_taskvine_args
     executor_module.taskvine_log_configurator = _taskvine_log_configurator
-    executor_module.instantiate_work_queue_executor = _instantiate_work_queue_executor
     executor_module.instantiate_taskvine_executor = _instantiate_taskvine_executor
     executor_module.build_futures_executor = _build_futures_executor
     executor_module.futures_runner_overrides = _futures_runner_overrides
