@@ -1971,8 +1971,9 @@ def make_region_stacked_ratio_fig(
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
     legend = ax.legend(
-        loc='lower center',
-        bbox_to_anchor=(0.5, 0.98),
+        loc='upper center',
+        bbox_to_anchor=(0.5, 0.99),
+        bbox_transform=fig.transFigure,
         ncol=4,
         fontsize=16,
         borderaxespad=0.6,
@@ -1991,6 +1992,7 @@ def make_region_stacked_ratio_fig(
 
     fig.canvas.draw()
     required_headroom = None
+    legend_is_figure_anchored = False
     if legend is not None:
         renderer = fig.canvas.get_renderer()
         legend_bbox = legend.get_window_extent(renderer=renderer)
@@ -1998,7 +2000,9 @@ def make_region_stacked_ratio_fig(
         legend_height = legend_box.height
         buffer = 0.01
         required_headroom = legend_height + buffer
-        top_target = 1.0 - required_headroom
+        legend_is_figure_anchored = True
+        subplot_params = fig.subplotpars
+        top_target = min(subplot_params.top, 1.0 - required_headroom)
         if top_target < 0.0:
             top_target = 0.0
         elif top_target > 1.0:
@@ -2016,6 +2020,7 @@ def make_region_stacked_ratio_fig(
         events_artist=None,
         ratio_anchor=None,
         events_anchor=None,
+        legend_is_figure=False,
     ):
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
@@ -2055,31 +2060,71 @@ def make_region_stacked_ratio_fig(
 
         if legend_box is not None and cms_bboxes:
             cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
-            target_gap = 0.01
-            gap = cms_box.y0 - legend_box.y1
-            if gap < target_gap:
-                delta = target_gap - gap
-                ax_box = ax.get_position()
-                rax_box = rax.get_position()
-                max_shift = max(0.0, min(ax_box.y0, rax_box.y0))
-                shift = min(delta, max_shift)
-                if shift > 0:
-                    ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
-                    rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
-                    for artist, fig_coords in cms_positions:
-                        artist.set_transform(fig.transFigure)
-                        artist.set_position(fig_coords)
-                    fig.canvas.draw()
-                    renderer = fig.canvas.get_renderer()
-                    legend_bbox = legend.get_window_extent(renderer=renderer)
-                    legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-                    cms_bboxes = []
-                    for artist in cms_artists:
-                        if hasattr(artist, "get_window_extent"):
-                            cms_bbox = artist.get_window_extent(renderer=renderer)
-                            cms_bboxes.append(cms_bbox)
-                    if cms_bboxes:
-                        cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+            if legend_is_figure:
+                vertical_overlap = legend_box.y0 < cms_box.y1 and legend_box.y1 > cms_box.y0
+                horizontal_overlap = legend_box.x0 < cms_box.x1 and legend_box.x1 > cms_box.x0
+                if vertical_overlap and horizontal_overlap and cms_positions:
+                    margin = 0.01
+                    target_right = max(0.0, legend_box.x0 - margin)
+                    shift = cms_box.x1 - target_right
+                    if shift > 0:
+                        updated_positions = []
+                        for artist, fig_coords in cms_positions:
+                            new_x = max(0.0, fig_coords[0] - shift)
+                            updated_positions.append((artist, (new_x, fig_coords[1])))
+                        for artist, (new_x, new_y) in updated_positions:
+                            artist.set_transform(fig.transFigure)
+                            artist.set_position((new_x, new_y))
+                        fig.canvas.draw()
+                        renderer = fig.canvas.get_renderer()
+                        cms_bboxes = []
+                        cms_positions = []
+                        for artist in cms_artists:
+                            if hasattr(artist, "get_window_extent"):
+                                cms_bbox = artist.get_window_extent(renderer=renderer)
+                                cms_bboxes.append(cms_bbox)
+                            if hasattr(artist, "get_position") and hasattr(artist, "get_transform"):
+                                try:
+                                    artist_pos = np.asarray(artist.get_position())
+                                except Exception:
+                                    continue
+                                artist_transform = artist.get_transform()
+                                if artist_transform is None:
+                                    continue
+                                try:
+                                    display_coords = artist_transform.transform(artist_pos)
+                                except Exception:
+                                    continue
+                                fig_coords = fig.transFigure.inverted().transform(display_coords)
+                                cms_positions.append((artist, fig_coords))
+                        if cms_bboxes:
+                            cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+            else:
+                target_gap = 0.01
+                gap = cms_box.y0 - legend_box.y1
+                if gap < target_gap:
+                    delta = target_gap - gap
+                    ax_box = ax.get_position()
+                    rax_box = rax.get_position()
+                    max_shift = max(0.0, min(ax_box.y0, rax_box.y0))
+                    shift = min(delta, max_shift)
+                    if shift > 0:
+                        ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
+                        rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
+                        for artist, fig_coords in cms_positions:
+                            artist.set_transform(fig.transFigure)
+                            artist.set_position(fig_coords)
+                        fig.canvas.draw()
+                        renderer = fig.canvas.get_renderer()
+                        legend_bbox = legend.get_window_extent(renderer=renderer)
+                        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+                        cms_bboxes = []
+                        for artist in cms_artists:
+                            if hasattr(artist, "get_window_extent"):
+                                cms_bbox = artist.get_window_extent(renderer=renderer)
+                                cms_bboxes.append(cms_bbox)
+                        if cms_bboxes:
+                            cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
 
         axis_bboxes = []
         for axis_obj in (ax, rax):
@@ -2274,6 +2319,7 @@ def make_region_stacked_ratio_fig(
             events_artist,
             ratio_label_fig,
             initial_events_anchor,
+            legend_is_figure_anchored,
         )
 
     return fig
