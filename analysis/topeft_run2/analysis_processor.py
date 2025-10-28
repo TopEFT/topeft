@@ -1396,7 +1396,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
 
             if self.tau_h_analysis:
-                AttachTauSF(events, year, isData)
+                AttachTauSF(
+                    events,
+                    variation_state.objects.taus,
+                    year,
+                )
                 register_weight_variation(
                     weights_object,
                     "tauID",
