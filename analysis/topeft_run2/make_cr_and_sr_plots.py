@@ -204,6 +204,693 @@ def populate_group_map(samples, pattern_map):
     return out
 
 
+def _safe_divide(num, denom, default, zero_over_zero=None):
+    """Safely divide two arrays while handling division by zero."""
+
+    num_arr = np.asarray(num, dtype=float)
+    denom_arr = np.asarray(denom, dtype=float)
+    out = np.full_like(num_arr, default, dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        valid = denom_arr != 0
+        np.divide(num_arr, denom_arr, out=out, where=valid)
+    if zero_over_zero is not None:
+        zero_zero_mask = (denom_arr == 0) & (num_arr == 0)
+        out[zero_zero_mask] = zero_over_zero
+    return out
+
+
+def _normalize_histograms(
+    h_mc,
+    h_data,
+    unit_norm_bool,
+    err_p,
+    err_m,
+    err_ratio_p,
+    err_ratio_m,
+    err_p_syst,
+    err_m_syst,
+    err_ratio_p_syst,
+    err_ratio_m_syst,
+    variable_name,
+):
+    """Scale MC and data histograms (and associated uncertainties) for unit-normalised plots."""
+
+    if err_p_syst is None and err_p is not None:
+        err_p_syst = np.asarray(err_p, dtype=float)
+    if err_m_syst is None and err_m is not None:
+        err_m_syst = np.asarray(err_m, dtype=float)
+    if err_ratio_p_syst is None and err_ratio_p is not None:
+        err_ratio_p_syst = np.asarray(err_ratio_p, dtype=float)
+    if err_ratio_m_syst is None and err_ratio_m is not None:
+        err_ratio_m_syst = np.asarray(err_ratio_m, dtype=float)
+
+    mc_norm_factor = 1.0
+    mc_scaled = False
+
+    if unit_norm_bool:
+        sum_mc = 0.0
+        sum_data = 0.0
+        for sample in h_mc.eval({}):
+            sum_mc += sum(h_mc.eval({})[sample])
+        for sample in h_data.eval({}):
+            sum_data += sum(h_data.eval({})[sample])
+
+        if not np.isfinite(sum_mc) or np.isclose(sum_mc, 0.0, atol=1e-12, rtol=1e-6):
+            logger.warning(
+                "Skipping MC unit normalization for variable '%s' because the total MC yield is zero.",
+                variable_name,
+            )
+        else:
+            mc_norm_factor = 1.0 / sum_mc
+            h_mc.scale(mc_norm_factor)
+            mc_scaled = True
+
+        if not np.isfinite(sum_data) or np.isclose(sum_data, 0.0, atol=1e-12, rtol=1e-6):
+            logger.warning(
+                "Skipping data unit normalization for variable '%s' because the total data yield is zero.",
+                variable_name,
+            )
+        else:
+            h_data.scale(1.0 / sum_data)
+
+        if mc_scaled:
+            if err_p is not None:
+                err_p = np.asarray(err_p, dtype=float) * mc_norm_factor
+            if err_m is not None:
+                err_m = np.asarray(err_m, dtype=float) * mc_norm_factor
+            if err_p_syst is not None:
+                err_p_syst = np.asarray(err_p_syst, dtype=float) * mc_norm_factor
+            if err_m_syst is not None:
+                err_m_syst = np.asarray(err_m_syst, dtype=float) * mc_norm_factor
+
+    return {
+        "err_p": err_p,
+        "err_m": err_m,
+        "err_ratio_p": err_ratio_p,
+        "err_ratio_m": err_ratio_m,
+        "err_p_syst": err_p_syst,
+        "err_m_syst": err_m_syst,
+        "err_ratio_p_syst": err_ratio_p_syst,
+        "err_ratio_m_syst": err_ratio_m_syst,
+        "mc_norm_factor": mc_norm_factor,
+        "mc_scaled": mc_scaled,
+    }
+
+
+def _draw_stacked_panel(
+    h_mc,
+    h_data,
+    grouping,
+    colors,
+    axis,
+    var,
+    unit_norm_bool,
+    lumitag,
+    comtag,
+    h_mc_sumw2,
+    mc_scaled,
+    mc_norm_factor,
+):
+    """Render the stacked MC panel and ratio subplot, returning figure objects and MC summaries."""
+
+    fig, (ax, rax) = plt.subplots(
+        nrows=2,
+        ncols=1,
+        figsize=(9, 8),
+        gridspec_kw={"height_ratios": (4, 1)},
+        sharex=True,
+    )
+    fig.subplots_adjust(hspace=0.07)
+
+    hep.style.use("CMS")
+    plt.sca(ax)
+    cms_label = hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
+
+    def _get_grouped_vals(hist_obj, grouping_map):
+        grouped_values = {}
+        for proc_name, members in grouping_map.items():
+            grouped_hist = hist_obj[{"process": members}][{"process": sum}]
+            grouped_values[proc_name] = grouped_hist.as_hist({}).values(flow=True)[1:]
+        return grouped_values
+
+    mc_vals = _get_grouped_vals(h_mc, grouping)
+    mc_sumw2_vals = {}
+    if h_mc_sumw2 is not None:
+        try:
+            available_processes = set(h_mc_sumw2.axes[axis])
+        except KeyError:
+            available_processes = set()
+        template = (
+            next(iter(mc_vals.values()))
+            if mc_vals
+            else h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
+        )
+        for proc_name, members in grouping.items():
+            valid_members = [m for m in members if m in available_processes]
+            missing_members = [m for m in members if m not in available_processes]
+
+            grouped_vals = np.zeros_like(template)
+            if valid_members:
+                grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
+                grouped_vals = grouped_hist.as_hist({}).values(flow=True)[1:]
+                if unit_norm_bool and mc_scaled:
+                    grouped_vals = grouped_vals * mc_norm_factor**2
+
+            fallback_vals = np.zeros_like(template)
+            if missing_members:
+                fallback_hist = h_mc[{"process": missing_members}][{"process": sum}]
+                fallback_vals = fallback_hist.as_hist({}).values(flow=True)[1:]
+                if unit_norm_bool and mc_scaled:
+                    fallback_vals = fallback_vals * mc_norm_factor
+
+            mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
+
+    bins = h_data[{"process": sum}].as_hist({}).axes[var].edges
+    bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2]) * 0.3])
+    hep.histplot(
+        list(mc_vals.values()),
+        ax=ax,
+        bins=bins,
+        stack=True,
+        density=unit_norm_bool,
+        label=list(mc_vals.keys()),
+        histtype="fill",
+        color=colors,
+    )
+
+    hep.histplot(
+        h_data[{"process": sum}].as_hist({}).values(flow=True)[1:],
+        ax=ax,
+        bins=bins,
+        stack=False,
+        density=unit_norm_bool,
+        label="Data",
+        histtype="errorbar",
+        **DATA_ERR_OPS,
+    )
+
+    data_vals_flow = h_data[{"process": sum}].as_hist({}).values(flow=True)
+    mc_vals_flow = h_mc[{"process": sum}].as_hist({}).values(flow=True)
+
+    ratio_vals_flow = _safe_divide(
+        data_vals_flow,
+        mc_vals_flow,
+        default=np.nan,
+        zero_over_zero=1.0,
+    )
+    ratio_yerr_flow = _safe_divide(np.sqrt(data_vals_flow), data_vals_flow, default=0.0)
+    ratio_yerr_flow[mc_vals_flow == 0] = np.nan
+
+    hep.histplot(
+        ratio_vals_flow[1:],
+        yerr=ratio_yerr_flow[1:],
+        ax=rax,
+        bins=bins,
+        stack=False,
+        density=unit_norm_bool,
+        histtype="errorbar",
+        **DATA_ERR_OPS,
+    )
+
+    mc_totals = h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
+
+    return {
+        "fig": fig,
+        "ax": ax,
+        "rax": rax,
+        "bins": bins,
+        "cms_label": cms_label,
+        "mc_sumw2_vals": mc_sumw2_vals,
+        "mc_totals": mc_totals,
+    }
+
+
+def _compute_uncertainty_bands(
+    ax,
+    rax,
+    bins,
+    mc_totals,
+    mc_sumw2_vals,
+    h_mc_sumw2,
+    unit_norm_bool,
+    mc_scaled,
+    mc_norm_factor,
+    err_p_syst,
+    err_m_syst,
+    err_ratio_p_syst,
+    err_ratio_m_syst,
+    syst_err,
+):
+    """Compute and draw statistical/systematic uncertainty bands for the stacked plot."""
+
+    if mc_totals.size == 0:
+        return {"main_band_handles": []}
+
+    if h_mc_sumw2 is not None:
+        if mc_sumw2_vals:
+            summed_mc_sumw2 = np.sum(list(mc_sumw2_vals.values()), axis=0)
+        else:
+            summed_mc_sumw2 = h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)[1:]
+            if unit_norm_bool and mc_scaled:
+                summed_mc_sumw2 = summed_mc_sumw2 * mc_norm_factor**2
+    else:
+        if unit_norm_bool and mc_scaled:
+            summed_mc_sumw2 = mc_totals * mc_norm_factor
+        else:
+            summed_mc_sumw2 = mc_totals
+
+    mc_stat_unc = np.sqrt(np.clip(summed_mc_sumw2, a_min=0, a_max=None))
+
+    has_syst_arrays = all(
+        arr is not None
+        for arr in (err_p_syst, err_m_syst, err_ratio_p_syst, err_ratio_m_syst)
+    )
+
+    valid_modes = {"stat", "syst", "total"}
+    if isinstance(syst_err, str) and syst_err.lower() in valid_modes:
+        band_mode = syst_err.lower()
+    elif isinstance(syst_err, bool):
+        if syst_err and has_syst_arrays:
+            band_mode = "total"
+        else:
+            band_mode = "stat"
+    else:
+        band_mode = "total" if has_syst_arrays else "stat"
+
+    def _append_last(arr):
+        if arr is None or len(arr) == 0:
+            return arr
+        return np.append(arr, arr[-1])
+
+    mc_stat_up = mc_totals + mc_stat_unc
+    mc_stat_down = np.clip(mc_totals - mc_stat_unc, a_min=0, a_max=None)
+    stat_fraction = _safe_divide(mc_stat_unc, mc_totals, default=0.0)
+    ratio_stat_up = 1 + stat_fraction
+    ratio_stat_down = 1 - stat_fraction
+
+    mc_stat_band_up = _append_last(mc_stat_up)
+    mc_stat_band_down = _append_last(mc_stat_down)
+    ratio_stat_band_up = _append_last(ratio_stat_up)
+    ratio_stat_band_down = _append_last(ratio_stat_down)
+
+    syst_up = syst_down = ratio_syst_up = ratio_syst_down = None
+    mc_total_band_up = mc_total_band_down = None
+    ratio_total_band_up = ratio_total_band_down = None
+    if has_syst_arrays:
+        syst_up = np.asarray(err_p_syst)
+        syst_down = np.asarray(err_m_syst)
+        ratio_syst_up = np.asarray(err_ratio_p_syst)
+        ratio_syst_down = np.asarray(err_ratio_m_syst)
+
+        syst_up_diff = np.clip(syst_up - mc_totals, a_min=0, a_max=None)
+        syst_down_diff = np.clip(mc_totals - syst_down, a_min=0, a_max=None)
+
+        total_unc_up = np.sqrt(mc_stat_unc**2 + syst_up_diff**2)
+        total_unc_down = np.sqrt(mc_stat_unc**2 + syst_down_diff**2)
+
+        mc_total_band_up = _append_last(mc_totals + total_unc_up)
+        mc_total_band_down = _append_last(
+            np.clip(mc_totals - total_unc_down, a_min=0, a_max=None)
+        )
+
+        total_up_fraction = _safe_divide(total_unc_up, mc_totals, default=0.0)
+        total_down_fraction = _safe_divide(total_unc_down, mc_totals, default=0.0)
+        ratio_total_up = 1 + total_up_fraction
+        ratio_total_down = 1 - total_down_fraction
+        ratio_total_band_up = _append_last(
+            np.clip(ratio_total_up, a_min=0, a_max=None)
+        )
+        ratio_total_band_down = _append_last(
+            np.clip(ratio_total_down, a_min=0, a_max=None)
+        )
+
+        ratio_syst_band_up = _append_last(ratio_syst_up)
+        ratio_syst_band_down = _append_last(ratio_syst_down)
+        mc_syst_band_up = _append_last(np.clip(syst_up, a_min=0, a_max=None))
+        mc_syst_band_down = _append_last(np.clip(syst_down, a_min=0, a_max=None))
+    else:
+        ratio_syst_band_up = ratio_syst_band_down = None
+        mc_syst_band_up = mc_syst_band_down = None
+
+    stat_label = "Stat. unc."
+    syst_label = "Syst. unc."
+    total_label = "Stat. $\\oplus$ syst. unc."
+
+    ratio_band_handles = []
+    main_band_handles = []
+
+    if band_mode == "syst" and has_syst_arrays:
+        if mc_syst_band_up is not None and mc_syst_band_down is not None:
+            ax.fill_between(
+                bins,
+                mc_syst_band_down,
+                mc_syst_band_up,
+                step="post",
+                facecolor="none",
+                edgecolor="gray",
+                label=syst_label,
+                hatch="////",
+            )
+        if ratio_syst_band_up is not None and ratio_syst_band_down is not None:
+            ratio_syst_handle = rax.fill_between(
+                bins,
+                ratio_syst_band_down,
+                ratio_syst_band_up,
+                step="post",
+                facecolor="none",
+                edgecolor="gray",
+                label=syst_label,
+                hatch="////",
+            )
+            ratio_band_handles.append(ratio_syst_handle)
+    else:
+        if mc_stat_band_up is not None and mc_stat_band_down is not None:
+            stat_handle_main = ax.fill_between(
+                bins,
+                mc_stat_band_down,
+                mc_stat_band_up,
+                step="post",
+                facecolor="gray",
+                alpha=0.3,
+                edgecolor="none",
+                label="_nolegend_",
+            )
+            main_band_handles.append((stat_handle_main, stat_label))
+        if ratio_stat_band_up is not None and ratio_stat_band_down is not None:
+            ratio_stat_handle = rax.fill_between(
+                bins,
+                ratio_stat_band_down,
+                ratio_stat_band_up,
+                step="post",
+                facecolor="gray",
+                alpha=0.3,
+                edgecolor="none",
+                label=stat_label,
+            )
+            ratio_band_handles.append(ratio_stat_handle)
+
+        show_total = band_mode == "total" and has_syst_arrays
+        if show_total:
+            if mc_total_band_up is not None and mc_total_band_down is not None:
+                total_handle_main = ax.fill_between(
+                    bins,
+                    mc_total_band_down,
+                    mc_total_band_up,
+                    step="post",
+                    facecolor="none",
+                    edgecolor="gray",
+                    label="_nolegend_",
+                    hatch="////",
+                )
+                main_band_handles.append((total_handle_main, total_label))
+            if ratio_total_band_up is not None and ratio_total_band_down is not None:
+                ratio_total_handle = rax.fill_between(
+                    bins,
+                    ratio_total_band_down,
+                    ratio_total_band_up,
+                    step="post",
+                    facecolor="none",
+                    edgecolor="gray",
+                    label=total_label,
+                    hatch="////",
+                )
+                ratio_band_handles.append(ratio_total_handle)
+
+    if ratio_band_handles:
+        rax.legend(
+            handles=ratio_band_handles,
+            loc="upper left",
+            fontsize=10,
+            frameon=False,
+            ncol=2,
+            columnspacing=1.0,
+        )
+
+    return {"main_band_handles": main_band_handles}
+
+
+
+def _finalize_layout(
+    fig,
+    ax,
+    rax,
+    legend,
+    cms_label,
+    display_label,
+    *,
+    label_artist=None,
+    events_artist=None,
+    ratio_anchor=None,
+    events_anchor=None,
+    legend_anchor=None,
+    legend_is_figure=False,
+):
+    """Align legends and axis annotations after all plotting calls."""
+
+    legend_anchor_local = list(legend_anchor) if legend_anchor is not None else None
+
+    def _draw_and_get_renderer():
+        fig.canvas.draw()
+        return fig.canvas.get_renderer()
+
+    renderer = _draw_and_get_renderer()
+
+    legend_box = None
+    if legend is not None:
+        legend_bbox = legend.get_window_extent(renderer=renderer)
+        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+    cms_artists = ()
+    if cms_label is not None:
+        cms_artists = cms_label if isinstance(cms_label, (list, tuple)) else (cms_label,)
+
+    cms_box = None
+    cms_bboxes = []
+    for artist in cms_artists:
+        if hasattr(artist, "get_window_extent"):
+            cms_bbox = artist.get_window_extent(renderer=renderer)
+            cms_bboxes.append(cms_bbox)
+    if cms_bboxes:
+        cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+
+    if legend_box is not None and cms_box is not None:
+        if legend_is_figure and legend_anchor_local is not None:
+            margin = 0.01
+            required_headroom = legend_box.height + margin
+            desired_anchor_y = cms_box.y1 + margin + legend_box.height
+            if not np.isclose(desired_anchor_y, legend_anchor_local[1]):
+                legend_anchor_local[1] = desired_anchor_y
+                legend.set_bbox_to_anchor(tuple(legend_anchor_local), fig.transFigure)
+                renderer = _draw_and_get_renderer()
+                legend_bbox = legend.get_window_extent(renderer=renderer)
+                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+            subplot_params = fig.subplotpars
+            available_top = max(0.0, 1.0 - required_headroom)
+            if subplot_params.top > available_top:
+                plt.subplots_adjust(
+                    bottom=subplot_params.bottom,
+                    top=available_top,
+                    left=subplot_params.left,
+                    right=subplot_params.right,
+                    hspace=subplot_params.hspace,
+                    wspace=subplot_params.wspace,
+                )
+                renderer = _draw_and_get_renderer()
+                legend_bbox = legend.get_window_extent(renderer=renderer)
+                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+        else:
+            horizontal_overlap = (
+                legend_box.x0 < cms_box.x1 and legend_box.x1 > cms_box.x0
+            )
+            vertical_overlap = legend_box.y0 < cms_box.y1 and legend_box.y1 > cms_box.y0
+            if horizontal_overlap and legend_anchor_local is not None:
+                legend_width = legend_box.width
+                margin = 0.01
+                space_right = 1.0 - margin - cms_box.x1
+                space_left = cms_box.x0 - margin
+                if space_right >= legend_width:
+                    new_left = cms_box.x1 + margin
+                elif space_left >= legend_width:
+                    new_left = max(margin, cms_box.x0 - margin - legend_width)
+                else:
+                    if space_right >= space_left:
+                        new_left = min(
+                            max(margin, cms_box.x1 + margin),
+                            max(0.0, 1.0 - legend_width),
+                        )
+                    else:
+                        new_left = max(
+                            margin,
+                            min(
+                                cms_box.x0 - margin - legend_width,
+                                max(0.0, 1.0 - legend_width),
+                            ),
+                        )
+                new_left = np.clip(new_left, 0.0, max(0.0, 1.0 - legend_width))
+                legend_anchor_local[0] = new_left + legend_width / 2.0
+                legend.set_bbox_to_anchor(tuple(legend_anchor_local), fig.transFigure)
+                renderer = _draw_and_get_renderer()
+                legend_bbox = legend.get_window_extent(renderer=renderer)
+                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+            if vertical_overlap:
+                shift = cms_box.y1 - legend_box.y0 + 0.01
+                if shift > 0:
+                    ax_box = ax.get_position()
+                    rax_box = rax.get_position()
+                    ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
+                    rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
+                    renderer = _draw_and_get_renderer()
+                    legend_bbox = legend.get_window_extent(renderer=renderer)
+                    legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+    axis_bboxes = []
+    for axis_obj in (ax, rax):
+        try:
+            bbox = axis_obj.get_tightbbox(renderer)
+        except Exception:
+            bbox = None
+        if bbox is None:
+            continue
+        axis_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+    if axis_bboxes:
+        rightmost_extent = max(bbox.x1 for bbox in axis_bboxes)
+    else:
+        rightmost_extent = max(ax.get_position().x1, rax.get_position().x1)
+
+    subplot_params = fig.subplotpars
+    effective_right = min(np.nextafter(1.0, 0.0), rightmost_extent + 0.003)
+    if not np.isclose(effective_right, subplot_params.right):
+        stored_positions = [ax.get_position().frozen(), rax.get_position().frozen()]
+        plt.subplots_adjust(
+            bottom=subplot_params.bottom,
+            top=subplot_params.top,
+            left=subplot_params.left,
+            right=effective_right,
+            hspace=subplot_params.hspace,
+            wspace=subplot_params.wspace,
+        )
+        renderer = _draw_and_get_renderer()
+        for axis_obj, original in zip((ax, rax), stored_positions):
+            updated = axis_obj.get_position()
+            delta_y = original.y0 - updated.y0
+            if not np.isclose(delta_y, 0.0):
+                axis_obj.set_position(
+                    [updated.x0, updated.y0 + delta_y, updated.width, updated.height]
+                )
+        renderer = _draw_and_get_renderer()
+
+    def _ratio_axis_min_y(current_renderer):
+        bboxes = []
+        for tick_label in rax.get_xticklabels():
+            if not tick_label.get_visible():
+                continue
+            text = tick_label.get_text()
+            if not text:
+                continue
+            bbox = tick_label.get_window_extent(renderer=current_renderer)
+            bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+        axis_label = rax.xaxis.label
+        if axis_label and axis_label.get_visible():
+            axis_bbox = axis_label.get_window_extent(renderer=current_renderer)
+            bboxes.append(axis_bbox.transformed(fig.transFigure.inverted()))
+        if bboxes:
+            return min(b.y0 for b in bboxes)
+        return rax.get_position().y0
+
+    label_fontsize = (
+        rax.yaxis.label.get_size() if rax.yaxis.label else plt.rcParams.get("axes.labelsize", 18)
+    )
+    renderer = _draw_and_get_renderer()
+    temp = fig.text(0, 0, display_label, fontsize=label_fontsize)
+    temp_bbox = temp.get_window_extent(renderer=renderer)
+    temp.remove()
+    measured_height = temp_bbox.transformed(fig.transFigure.inverted()).height
+    margin = 0.002
+    label_y = _ratio_axis_min_y(renderer) - measured_height - margin
+
+    subplot_params = fig.subplotpars
+    new_bottom = np.clip(max(0.0, label_y - margin), 0.0, 1.0)
+    if not np.isclose(new_bottom, subplot_params.bottom):
+        plt.subplots_adjust(
+            bottom=new_bottom,
+            top=subplot_params.top,
+            left=subplot_params.left,
+            right=subplot_params.right,
+            hspace=subplot_params.hspace,
+            wspace=subplot_params.wspace,
+        )
+        renderer = _draw_and_get_renderer()
+        label_y = _ratio_axis_min_y(renderer) - measured_height - margin
+
+    renderer = _draw_and_get_renderer()
+    ax_box = ax.get_position()
+    rax_box = rax.get_position()
+
+    ratio_label_fig = None
+    ratio_label = rax.yaxis.label
+    if ratio_label is not None:
+        try:
+            ratio_pos = np.asarray(ratio_label.get_position(), dtype=float)
+            ratio_transform = ratio_label.get_transform()
+            if ratio_transform is not None:
+                ratio_display = ratio_transform.transform([ratio_pos])[0]
+                ratio_label_fig = fig.transFigure.inverted().transform(ratio_display)
+        except Exception:
+            ratio_label_fig = None
+    if ratio_label_fig is None and ratio_anchor is not None:
+        ratio_label_fig = ratio_anchor
+
+    events_x, events_y = events_anchor if events_anchor is not None else (None, None)
+    if ratio_label_fig is not None:
+        label_y = ratio_label_fig[1]
+        events_x = ratio_label_fig[0]
+    if events_x is None:
+        events_x = rax_box.x0 + rax_box.width
+    current_events_y = ax_box.y0 + ax_box.height
+    if current_events_y is not None:
+        events_y = current_events_y
+    elif events_y is None:
+        events_y = rax_box.y0 + rax_box.height
+
+    if events_artist is None or not isinstance(events_artist, mpl.text.Text):
+        events_artist = fig.text(
+            events_x,
+            events_y,
+            "Events",
+            ha="right",
+            va="bottom",
+            fontsize=label_fontsize,
+            rotation=90,
+        )
+    else:
+        events_artist.set_position((events_x, events_y))
+        events_artist.set_text("Events")
+        events_artist.set_fontsize(label_fontsize)
+        events_artist.set_rotation(90)
+        events_artist.set_ha("right")
+        events_artist.set_va("bottom")
+
+    if label_artist is None or not isinstance(label_artist, mpl.text.Text):
+        label_artist = fig.text(
+            rax_box.x0 + rax_box.width,
+            label_y,
+            display_label,
+            ha="right",
+            va="bottom",
+            fontsize=label_fontsize,
+        )
+    else:
+        label_artist.set_position((rax_box.x0 + rax_box.width, label_y))
+        label_artist.set_text(display_label)
+        label_artist.set_fontsize(label_fontsize)
+        label_artist.set_ha("right")
+        label_artist.set_va("bottom")
+
+    return label_artist, events_artist, legend_anchor_local
+
+
 def _sample_in_signal_group(sample_name, sample_group_map, group_type):
     if group_type == "CR":
         return sample_name in sample_group_map.get("Signal", [])
@@ -1601,19 +2288,44 @@ def make_region_stacked_ratio_fig(
         bins = []
     if group is None:
         group = {}
+
+    if h_mc is None or h_data is None:
+        return None
+    if getattr(h_mc, "empty", False) and h_mc.empty():
+        return None
+    if getattr(h_data, "empty", False) and h_data.empty():
+        return None
+
     default_colors = [
-        "tab:blue", "darkgreen", "tab:orange", "tab:cyan", "tab:purple", "tab:pink",
-        "tan", "mediumseagreen", "tab:red", "brown", "goldenrod", "yellow",
-        "olive", "coral", "navy", "yellowgreen", "aquamarine", "black", "plum",
-        "gray"
+        "tab:blue",
+        "darkgreen",
+        "tab:orange",
+        "tab:cyan",
+        "tab:purple",
+        "tab:pink",
+        "tan",
+        "mediumseagreen",
+        "tab:red",
+        "brown",
+        "goldenrod",
+        "yellow",
+        "olive",
+        "coral",
+        "navy",
+        "yellowgreen",
+        "aquamarine",
+        "black",
+        "plum",
+        "gray",
     ]
 
-    # Determine which groups are actually present
     grouping = OrderedDict()
     for proc, members in group.items():
-        present_members = [p for p in members if p in h_mc.axes['process']]
+        present_members = [p for p in members if p in h_mc.axes[axis]]
         if present_members:
             grouping[proc] = present_members
+    if not grouping:
+        grouping = OrderedDict((proc, [proc]) for proc in h_mc.axes[axis])
 
     colors = []
     default_color_index = 0
@@ -1624,360 +2336,73 @@ def make_region_stacked_ratio_fig(
             default_color_index += 1
         colors.append(c)
 
-    if err_p_syst is None and err_p is not None:
-        err_p_syst = err_p
-    if err_m_syst is None and err_m is not None:
-        err_m_syst = err_m
-    if err_ratio_p_syst is None and err_ratio_p is not None:
-        err_ratio_p_syst = err_ratio_p
-    if err_ratio_m_syst is None and err_ratio_m is not None:
-        err_ratio_m_syst = err_ratio_m
-
     display_label = axes_info.get(var, {}).get("label", var)
 
-    # Normalize if we want to do that
-    mc_norm_factor = 1.0
-    mc_scaled = False
-    if unit_norm_bool:
-        sum_mc = 0
-        sum_data = 0
-        for sample in h_mc.eval({}):
-            sum_mc = sum_mc + sum(h_mc.eval({})[sample])
-        for sample in h_data.eval({}):
-            sum_data = sum_data + sum(h_data.eval({})[sample])
-        if not np.isfinite(sum_mc) or np.isclose(sum_mc, 0.0, atol=1e-12, rtol=1e-6):
-            logger.warning(
-                "Skipping MC unit normalization for variable '%s' because the total MC yield is zero.",
-                var,
-            )
-        else:
-            mc_norm_factor = 1.0 / sum_mc
-            h_mc.scale(mc_norm_factor)
-            mc_scaled = True
-
-        if not np.isfinite(sum_data) or np.isclose(sum_data, 0.0, atol=1e-12, rtol=1e-6):
-            logger.warning(
-                "Skipping data unit normalization for variable '%s' because the total data yield is zero.",
-                var,
-            )
-        else:
-            h_data.scale(1.0 / sum_data)
-
-        if mc_scaled:
-            if err_p is not None:
-                err_p = np.asarray(err_p, dtype=float) * mc_norm_factor
-            if err_m is not None:
-                err_m = np.asarray(err_m, dtype=float) * mc_norm_factor
-            if err_p_syst is not None:
-                err_p_syst = np.asarray(err_p_syst, dtype=float) * mc_norm_factor
-            if err_m_syst is not None:
-                err_m_syst = np.asarray(err_m_syst, dtype=float) * mc_norm_factor
-
-    # Create the figure
-    fig, (ax, rax) = plt.subplots(
-        nrows=2,
-        ncols=1,
-        figsize=(9, 8),
-        gridspec_kw={"height_ratios": (4, 1)},
-        sharex=True
-    )
-    fig.subplots_adjust(hspace=.07)
-
-    # Set up the colors for each stacked process
-
-    # Plot the MC
-    years = {}
-    for axis_name in h_mc.axes[axis]:
-        name = axis_name.split('UL')[0].replace('_private', '').replace('_central', '')
-        if name in years:
-            years[name].append(axis_name)
-        else:
-            years[name] = [axis_name]
-    hep.style.use("CMS")
-    plt.sca(ax)
-    cms_label = hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
-
-    # Use the grouping information determined above
-    def _get_grouped_vals(hist_obj, grouping_map):
-        grouped_values = {}
-        for proc_name, members in grouping_map.items():
-            grouped_hist = hist_obj[{"process": members}][{"process": sum}]
-            grouped_values[proc_name] = grouped_hist.as_hist({}).values(flow=True)[1:]
-        return grouped_values
-
-    mc_vals = _get_grouped_vals(h_mc, grouping)
-    mc_sumw2_vals = {}
-    if h_mc_sumw2 is not None:
-        try:
-            available_processes = set(h_mc_sumw2.axes[axis])
-        except KeyError:
-            available_processes = set()
-        template = next(iter(mc_vals.values())) if mc_vals else h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
-        for proc_name, members in grouping.items():
-            valid_members = [m for m in members if m in available_processes]
-            missing_members = [m for m in members if m not in available_processes]
-
-            grouped_vals = np.zeros_like(template)
-            if valid_members:
-                grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
-                grouped_vals = grouped_hist.as_hist({}).values(flow=True)[1:]
-                if unit_norm_bool and mc_scaled:
-                    grouped_vals = grouped_vals * mc_norm_factor**2
-
-            fallback_vals = np.zeros_like(template)
-            if missing_members:
-                fallback_hist = h_mc[{"process": missing_members}][{"process": sum}]
-                fallback_vals = fallback_hist.as_hist({}).values(flow=True)[1:]
-                if unit_norm_bool and mc_scaled:
-                    fallback_vals = fallback_vals * mc_norm_factor
-
-            mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
-
-    bins = h_data[{'process': sum}].as_hist({}).axes[var].edges
-    bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
-    hep.histplot(
-        list(mc_vals.values()),
-        ax=ax,
-        bins=bins,
-        stack=True,
-        density=unit_norm_bool,
-        label=list(mc_vals.keys()),
-        histtype='fill',
-        color=colors,
+    norm_info = _normalize_histograms(
+        h_mc,
+        h_data,
+        unit_norm_bool,
+        err_p,
+        err_m,
+        err_ratio_p,
+        err_ratio_m,
+        err_p_syst,
+        err_m_syst,
+        err_ratio_p_syst,
+        err_ratio_m_syst,
+        var,
     )
 
-    #Plot the data
-    hep.histplot(
-        h_data[{'process':sum}].as_hist({}).values(flow=True)[1:],
-        #error_opts = DATA_ERR_OPS,
-        ax=ax,
-        bins=bins,
-        stack=False,
-        density=unit_norm_bool,
-        label='Data',
-        #flow='show',
-        histtype='errorbar',
-        **DATA_ERR_OPS,
+    err_p_syst = norm_info["err_p_syst"]
+    err_m_syst = norm_info["err_m_syst"]
+    err_ratio_p_syst = norm_info["err_ratio_p_syst"]
+    err_ratio_m_syst = norm_info["err_ratio_m_syst"]
+    mc_norm_factor = norm_info["mc_norm_factor"]
+    mc_scaled = norm_info["mc_scaled"]
+
+    panel_info = _draw_stacked_panel(
+        h_mc,
+        h_data,
+        grouping,
+        colors,
+        axis,
+        var,
+        unit_norm_bool,
+        lumitag,
+        comtag,
+        h_mc_sumw2,
+        mc_scaled,
+        mc_norm_factor,
     )
 
-    # Make the ratio plot
-    data_vals_flow = h_data[{'process': sum}].as_hist({}).values(flow=True)
-    mc_vals_flow = h_mc[{"process": sum}].as_hist({}).values(flow=True)
+    fig = panel_info["fig"]
+    ax = panel_info["ax"]
+    rax = panel_info["rax"]
+    bins = panel_info["bins"]
+    cms_label = panel_info["cms_label"]
+    mc_sumw2_vals = panel_info["mc_sumw2_vals"]
+    mc_totals = panel_info["mc_totals"]
 
-    def _safe_divide(num, denom, default, zero_over_zero=None):
-        num_arr = np.asarray(num, dtype=float)
-        denom_arr = np.asarray(denom, dtype=float)
-        out = np.full_like(num_arr, default, dtype=float)
-        with np.errstate(divide='ignore', invalid='ignore'):
-            valid = denom_arr != 0
-            np.divide(num_arr, denom_arr, out=out, where=valid)
-        if zero_over_zero is not None:
-            zero_zero_mask = (denom_arr == 0) & (num_arr == 0)
-            out[zero_zero_mask] = zero_over_zero
-        return out
-
-    ratio_vals_flow = _safe_divide(
-        data_vals_flow,
-        mc_vals_flow,
-        default=np.nan,
-        zero_over_zero=1.0,
-    )
-    ratio_yerr_flow = _safe_divide(np.sqrt(data_vals_flow), data_vals_flow, default=0.0)
-    ratio_yerr_flow[mc_vals_flow == 0] = np.nan
-
-    hep.histplot(
-        ratio_vals_flow[1:],
-        yerr=ratio_yerr_flow[1:],
-        #error_opts = DATA_ERR_OPS,
-        ax=rax,
-        bins=bins,
-        stack=False,
-        density=unit_norm_bool,
-        #flow='show',
-        histtype='errorbar',
-        **DATA_ERR_OPS,
+    band_info = _compute_uncertainty_bands(
+        ax,
+        rax,
+        bins,
+        mc_totals,
+        mc_sumw2_vals,
+        h_mc_sumw2,
+        unit_norm_bool,
+        mc_scaled,
+        mc_norm_factor,
+        err_p_syst,
+        err_m_syst,
+        err_ratio_p_syst,
+        err_ratio_m_syst,
+        syst_err,
     )
 
-    # Plot the syst error
-    mc_totals = h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
-    if h_mc_sumw2 is not None:
-        if mc_sumw2_vals:
-            summed_mc_sumw2 = np.sum(list(mc_sumw2_vals.values()), axis=0)
-        else:
-            summed_mc_sumw2 = h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)[1:]
-            if unit_norm_bool and mc_scaled:
-                summed_mc_sumw2 = summed_mc_sumw2 * mc_norm_factor**2
-    else:
-        if unit_norm_bool and mc_scaled:
-            summed_mc_sumw2 = mc_totals * mc_norm_factor
-        else:
-            summed_mc_sumw2 = mc_totals
+    main_band_handles = band_info.get("main_band_handles", [])
 
-    mc_stat_unc = np.sqrt(np.clip(summed_mc_sumw2, a_min=0, a_max=None))
-
-    has_syst_arrays = all(
-        arr is not None
-        for arr in (err_p_syst, err_m_syst, err_ratio_p_syst, err_ratio_m_syst)
-    )
-
-    valid_modes = {"stat", "syst", "total"}
-    if isinstance(syst_err, str) and syst_err.lower() in valid_modes:
-        band_mode = syst_err.lower()
-    elif isinstance(syst_err, bool):
-        if syst_err and has_syst_arrays:
-            band_mode = "total"
-        else:
-            band_mode = "stat"
-    else:
-        if has_syst_arrays:
-            band_mode = "total"
-        else:
-            band_mode = "stat"
-
-    def _append_last(arr):
-        if arr is None or len(arr) == 0:
-            return arr
-        return np.append(arr, arr[-1])
-
-    mc_stat_up = mc_totals + mc_stat_unc
-    mc_stat_down = np.clip(mc_totals - mc_stat_unc, a_min=0, a_max=None)
-    stat_fraction = _safe_divide(mc_stat_unc, mc_totals, default=0.0)
-    ratio_stat_up = 1 + stat_fraction
-    ratio_stat_down = 1 - stat_fraction
-
-    mc_stat_band_up = _append_last(mc_stat_up)
-    mc_stat_band_down = _append_last(mc_stat_down)
-    ratio_stat_band_up = _append_last(ratio_stat_up)
-    ratio_stat_band_down = _append_last(ratio_stat_down)
-
-    syst_up = syst_down = ratio_syst_up = ratio_syst_down = None
-    mc_total_band_up = mc_total_band_down = None
-    ratio_total_band_up = ratio_total_band_down = None
-    if has_syst_arrays:
-        syst_up = np.asarray(err_p_syst)
-        syst_down = np.asarray(err_m_syst)
-        ratio_syst_up = np.asarray(err_ratio_p_syst)
-        ratio_syst_down = np.asarray(err_ratio_m_syst)
-
-        syst_up_diff = np.clip(syst_up - mc_totals, a_min=0, a_max=None)
-        syst_down_diff = np.clip(mc_totals - syst_down, a_min=0, a_max=None)
-
-        total_unc_up = np.sqrt(mc_stat_unc**2 + syst_up_diff**2)
-        total_unc_down = np.sqrt(mc_stat_unc**2 + syst_down_diff**2)
-
-        mc_total_band_up = _append_last(mc_totals + total_unc_up)
-        mc_total_band_down = _append_last(np.clip(mc_totals - total_unc_down, a_min=0, a_max=None))
-
-        total_up_fraction = _safe_divide(total_unc_up, mc_totals, default=0.0)
-        total_down_fraction = _safe_divide(total_unc_down, mc_totals, default=0.0)
-        ratio_total_up = 1 + total_up_fraction
-        ratio_total_down = 1 - total_down_fraction
-        ratio_total_band_up = _append_last(np.clip(ratio_total_up, a_min=0, a_max=None))
-        ratio_total_band_down = _append_last(np.clip(ratio_total_down, a_min=0, a_max=None))
-
-        ratio_syst_band_up = _append_last(ratio_syst_up)
-        ratio_syst_band_down = _append_last(ratio_syst_down)
-        mc_syst_band_up = _append_last(np.clip(syst_up, a_min=0, a_max=None))
-        mc_syst_band_down = _append_last(np.clip(syst_down, a_min=0, a_max=None))
-    else:
-        ratio_syst_band_up = ratio_syst_band_down = None
-        mc_syst_band_up = mc_syst_band_down = None
-
-    stat_label = "Stat. unc."
-    syst_label = "Syst. unc."
-    total_label = "Stat. $\oplus$ syst. unc."
-
-    ratio_band_handles = []
-    main_band_handles = []
-
-    if band_mode == "syst" and has_syst_arrays:
-        if mc_syst_band_up is not None and mc_syst_band_down is not None:
-            ax.fill_between(
-                bins,
-                mc_syst_band_down,
-                mc_syst_band_up,
-                step='post',
-                facecolor='none',
-                edgecolor='gray',
-                label=syst_label,
-                hatch='////',
-            )
-        if ratio_syst_band_up is not None and ratio_syst_band_down is not None:
-            ratio_syst_handle = rax.fill_between(
-                bins,
-                ratio_syst_band_down,
-                ratio_syst_band_up,
-                step='post',
-                facecolor='none',
-                edgecolor='gray',
-                label=syst_label,
-                hatch='////',
-            )
-            ratio_band_handles.append(ratio_syst_handle)
-    else:
-        if mc_stat_band_up is not None and mc_stat_band_down is not None:
-            stat_handle_main = ax.fill_between(
-                bins,
-                mc_stat_band_down,
-                mc_stat_band_up,
-                step='post',
-                facecolor='gray',
-                alpha=0.3,
-                edgecolor='none',
-                label='_nolegend_',
-            )
-            main_band_handles.append((stat_handle_main, stat_label))
-        if ratio_stat_band_up is not None and ratio_stat_band_down is not None:
-            ratio_stat_handle = rax.fill_between(
-                bins,
-                ratio_stat_band_down,
-                ratio_stat_band_up,
-                step='post',
-                facecolor='gray',
-                alpha=0.3,
-                edgecolor='none',
-                label=stat_label,
-            )
-            ratio_band_handles.append(ratio_stat_handle)
-
-        show_total = band_mode == "total" and has_syst_arrays
-        if show_total:
-            if mc_total_band_up is not None and mc_total_band_down is not None:
-                total_handle_main = ax.fill_between(
-                    bins,
-                    mc_total_band_down,
-                    mc_total_band_up,
-                    step='post',
-                    facecolor='none',
-                    edgecolor='gray',
-                    label='_nolegend_',
-                    hatch='////',
-                )
-                main_band_handles.append((total_handle_main, total_label))
-            if ratio_total_band_up is not None and ratio_total_band_down is not None:
-                ratio_total_handle = rax.fill_between(
-                    bins,
-                    ratio_total_band_down,
-                    ratio_total_band_up,
-                    step='post',
-                    facecolor='none',
-                    edgecolor='gray',
-                    label=total_label,
-                    hatch='////',
-                )
-                ratio_band_handles.append(ratio_total_handle)
-
-    if ratio_band_handles:
-        rax.legend(
-            handles=ratio_band_handles,
-            loc="upper left",
-            fontsize=10,
-            frameon=False,
-            ncol=2,
-            columnspacing=1.0,
-        )
-
-    # Scale the y axis and labels
+    ax.autoscale(axis='y')
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
     ax.tick_params(axis='both', labelsize=18, width=1.5, length=6)
@@ -2084,351 +2509,23 @@ def make_region_stacked_ratio_fig(
             legend_bbox = legend.get_window_extent(renderer=renderer)
             legend_box = legend_bbox.transformed(fig.transFigure.inverted())
 
-    def _finalize_layout(
-        fig,
-        ax,
-        rax,
-        legend,
-        cms_label,
-        display_label,
-        label_artist=None,
-        events_artist=None,
-        ratio_anchor=None,
-        events_anchor=None,
-        legend_is_figure=False,
-    ):
-        nonlocal legend_anchor
-        fig.canvas.draw()
-        renderer = fig.canvas.get_renderer()
-
-        legend_box = None
-        if legend is not None:
-            legend_bbox = legend.get_window_extent(renderer=renderer)
-            legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-
-        cms_artists = ()
-        if cms_label is not None:
-            if isinstance(cms_label, (list, tuple)):
-                cms_artists = tuple(cms_label)
-            else:
-                cms_artists = (cms_label,)
-
-        cms_bboxes = []
-        for artist in cms_artists:
-            if hasattr(artist, "get_window_extent"):
-                cms_bbox = artist.get_window_extent(renderer=renderer)
-                cms_bboxes.append(cms_bbox)
-
-        if legend_box is not None and cms_bboxes:
-            cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
-            if legend_is_figure:
-                margin = 0.01
-                if legend_anchor is not None:
-                    for _ in range(5):
-                        changed = False
-                        legend_height = legend_box.height
-                        desired_anchor_y = cms_box.y1 + margin + legend_height
-                        if not np.isclose(desired_anchor_y, legend_anchor[1]):
-                            legend_anchor[1] = desired_anchor_y
-                            legend.set_bbox_to_anchor(tuple(legend_anchor), fig.transFigure)
-                            fig.canvas.draw()
-                            renderer = fig.canvas.get_renderer()
-                            legend_bbox = legend.get_window_extent(renderer=renderer)
-                            legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-                            cms_bboxes = []
-                            for artist in cms_artists:
-                                if hasattr(artist, "get_window_extent"):
-                                    cms_bbox = artist.get_window_extent(renderer=renderer)
-                                    cms_bboxes.append(cms_bbox)
-                            if cms_bboxes:
-                                cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
-                            changed = True
-
-                        if legend_box.y1 > 1.0:
-                            subplot_params = fig.subplotpars
-                            required_headroom = legend_box.height + margin
-                            available_top = max(0.0, 1.0 - required_headroom)
-                            if subplot_params.top > available_top:
-                                plt.subplots_adjust(
-                                    bottom=subplot_params.bottom,
-                                    top=available_top,
-                                    left=subplot_params.left,
-                                    right=subplot_params.right,
-                                    hspace=subplot_params.hspace,
-                                    wspace=subplot_params.wspace,
-                                )
-                                fig.canvas.draw()
-                                renderer = fig.canvas.get_renderer()
-                                legend_bbox = legend.get_window_extent(renderer=renderer)
-                                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-                                cms_bboxes = []
-                                for artist in cms_artists:
-                                    if hasattr(artist, "get_window_extent"):
-                                        cms_bbox = artist.get_window_extent(renderer=renderer)
-                                        cms_bboxes.append(cms_bbox)
-                                if cms_bboxes:
-                                    cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
-                                changed = True
-
-                        if not changed:
-                            break
-
-                vertical_overlap = legend_box.y0 < cms_box.y1 and legend_box.y1 > cms_box.y0
-                horizontal_overlap = legend_box.x0 < cms_box.x1 and legend_box.x1 > cms_box.x0
-                if vertical_overlap and horizontal_overlap and legend_anchor is not None:
-                    legend_width = legend_box.width
-                    space_right = 1.0 - margin - cms_box.x1
-                    space_left = cms_box.x0 - margin
-
-                    if space_right >= legend_width:
-                        new_left = cms_box.x1 + margin
-                    elif space_left >= legend_width:
-                        new_left = max(margin, cms_box.x0 - margin - legend_width)
-                    else:
-                        if space_right >= space_left:
-                            new_left = min(max(margin, cms_box.x1 + margin), max(0.0, 1.0 - legend_width))
-                        else:
-                            new_left = max(margin, min(cms_box.x0 - margin - legend_width, max(0.0, 1.0 - legend_width)))
-
-                    new_left = np.clip(new_left, 0.0, max(0.0, 1.0 - legend_width))
-                    new_center = new_left + legend_width / 2.0
-                    min_center = legend_width / 2.0
-                    max_center = 1.0 - legend_width / 2.0
-                    new_center = np.clip(new_center, min_center, max_center)
-
-                    if not np.isclose(new_center, legend_anchor[0]):
-                        legend_anchor[0] = new_center
-                        legend.set_bbox_to_anchor(tuple(legend_anchor), fig.transFigure)
-                        fig.canvas.draw()
-                        renderer = fig.canvas.get_renderer()
-                        legend_bbox = legend.get_window_extent(renderer=renderer)
-                        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-                        cms_bboxes = []
-                        for artist in cms_artists:
-                            if hasattr(artist, "get_window_extent"):
-                                cms_bbox = artist.get_window_extent(renderer=renderer)
-                                cms_bboxes.append(cms_bbox)
-                        if cms_bboxes:
-                            cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
-            else:
-                target_gap = 0.01
-                gap = cms_box.y0 - legend_box.y1
-                if gap < target_gap:
-                    delta = target_gap - gap
-                    ax_box = ax.get_position()
-                    rax_box = rax.get_position()
-                    max_shift = max(0.0, min(ax_box.y0, rax_box.y0))
-                    shift = min(delta, max_shift)
-                    if shift > 0:
-                        ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
-                        rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
-                        fig.canvas.draw()
-                        renderer = fig.canvas.get_renderer()
-                        legend_bbox = legend.get_window_extent(renderer=renderer)
-                        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-                        cms_bboxes = []
-                        for artist in cms_artists:
-                            if hasattr(artist, "get_window_extent"):
-                                cms_bbox = artist.get_window_extent(renderer=renderer)
-                                cms_bboxes.append(cms_bbox)
-                        if cms_bboxes:
-                            cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
-
-        axis_bboxes = []
-        for axis_obj in (ax, rax):
-            try:
-                bbox = axis_obj.get_tightbbox(renderer)
-            except Exception:
-                bbox = None
-            if bbox is None:
-                continue
-            axis_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
-
-        if axis_bboxes:
-            rightmost_extent = max(bbox.x1 for bbox in axis_bboxes)
-        else:
-            rightmost_extent = max(ax.get_position().x1, rax.get_position().x1)
-
-        subplot_params = fig.subplotpars
-        safety_margin = 0.003
-        max_right = np.nextafter(1.0, 0.0)
-        effective_right = min(max_right, rightmost_extent + safety_margin)
-
-        if not np.isclose(effective_right, subplot_params.right):
-            stored_positions = [ax.get_position().frozen(), rax.get_position().frozen()]
-
-            plt.subplots_adjust(
-                bottom=subplot_params.bottom,
-                top=subplot_params.top,
-                left=subplot_params.left,
-                right=effective_right,
-                hspace=subplot_params.hspace,
-                wspace=subplot_params.wspace,
-            )
-
-            fig.canvas.draw()
-            renderer = fig.canvas.get_renderer()
-
-            adjusted = False
-            for axis_obj, original_pos in zip((ax, rax), stored_positions):
-                updated_pos = axis_obj.get_position()
-                delta_y = original_pos.y0 - updated_pos.y0
-                if not np.isclose(delta_y, 0.0):
-                    axis_obj.set_position(
-                        [
-                            updated_pos.x0,
-                            updated_pos.y0 + delta_y,
-                            updated_pos.width,
-                            updated_pos.height,
-                        ]
-                    )
-                    adjusted = True
-
-            if adjusted:
-                fig.canvas.draw()
-                renderer = fig.canvas.get_renderer()
-
-            subplot_params = fig.subplotpars
-
-        def _get_min_axis_y(renderer):
-            bboxes = []
-            for tick_label in rax.get_xticklabels():
-                if not tick_label.get_visible():
-                    continue
-                text = tick_label.get_text()
-                if not text:
-                    continue
-                bbox = tick_label.get_window_extent(renderer=renderer)
-                bboxes.append(bbox.transformed(fig.transFigure.inverted()))
-
-            axis_label = rax.xaxis.label
-            if axis_label and axis_label.get_visible():
-                axis_bbox = axis_label.get_window_extent(renderer=renderer)
-                bboxes.append(axis_bbox.transformed(fig.transFigure.inverted()))
-
-            if bboxes:
-                return min(bbox.y0 for bbox in bboxes)
-
-            return rax.get_position().y0
-
-        label_fontsize = rax.yaxis.label.get_size() if rax.yaxis.label else 18
-        renderer = fig.canvas.get_renderer()
-
-        temp_text = fig.text(0, 0, display_label, fontsize=label_fontsize)
-        temp_bbox = temp_text.get_window_extent(renderer=renderer)
-        temp_bbox = temp_bbox.transformed(fig.transFigure.inverted())
-        measured_height = temp_bbox.height
-        temp_text.remove()
-
-        margin = 0.002
-        min_axis_y = _get_min_axis_y(renderer)
-        label_y = min_axis_y - measured_height - margin
-
-        subplot_params = fig.subplotpars
-        new_bottom = max(0.0, label_y - margin)
-        new_bottom = np.clip(new_bottom, 0.0, 1.0)
-
-        if not np.isclose(new_bottom, subplot_params.bottom):
-            plt.subplots_adjust(
-                bottom=new_bottom,
-                top=subplot_params.top,
-                left=subplot_params.left,
-                right=subplot_params.right,
-                hspace=subplot_params.hspace,
-                wspace=subplot_params.wspace,
-            )
-
-            fig.canvas.draw()
-            renderer = fig.canvas.get_renderer()
-            min_axis_y = _get_min_axis_y(renderer)
-            label_y = min_axis_y - measured_height - margin
-
-        fig.canvas.draw()
-        renderer = fig.canvas.get_renderer()
-        ax_box = ax.get_position()
-        rax_box = rax.get_position()
-
-        ratio_label_fig_x = None
-        ratio_label = rax.yaxis.label
-        if ratio_label is not None:
-            try:
-                ratio_label_pos = np.asarray(ratio_label.get_position(), dtype=float)
-                ratio_label_transform = ratio_label.get_transform()
-                if ratio_label_transform is not None:
-                    ratio_label_display = ratio_label_transform.transform([ratio_label_pos])[0]
-                    ratio_label_fig = fig.transFigure.inverted().transform(ratio_label_display)
-                    ratio_label_fig_x = ratio_label_fig[0]
-            except Exception:
-                ratio_label_fig_x = None
-
-        if ratio_label_fig_x is None and ratio_anchor is not None:
-            ratio_label_fig_x = ratio_anchor[0]
-
-        events_x, events_y = events_anchor if events_anchor is not None else (None, None)
-
-        if ratio_label_fig_x is not None:
-            events_x = ratio_label_fig_x
-        if events_x is None:
-            events_x = rax_box.x0 + rax_box.width
-
-        current_events_y = ax_box.y0 + ax_box.height
-        if current_events_y is not None:
-            events_y = current_events_y
-        elif events_y is None:
-            events_y = rax_box.y0 + rax_box.height
-
-        if events_artist is None or not isinstance(events_artist, mpl.text.Text):
-            events_artist = fig.text(
-                events_x,
-                events_y,
-                "Events",
-                ha="right",
-                va="bottom",
-                fontsize=label_fontsize,
-                rotation=90,
-            )
-        else:
-            events_artist.set_position((events_x, events_y))
-            events_artist.set_text("Events")
-            events_artist.set_fontsize(label_fontsize)
-            events_artist.set_rotation(90)
-            events_artist.set_ha("right")
-            events_artist.set_va("bottom")
-
-        if label_artist is None or not isinstance(label_artist, mpl.text.Text):
-            label_artist = fig.text(
-                rax_box.x0 + rax_box.width,
-                label_y,
-                display_label,
-                ha="right",
-                va="bottom",
-                fontsize=label_fontsize,
-            )
-        else:
-            label_artist.set_position((rax_box.x0 + rax_box.width, label_y))
-            label_artist.set_text(display_label)
-            label_artist.set_fontsize(label_fontsize)
-            label_artist.set_ha("right")
-            label_artist.set_va("bottom")
-
-        return label_artist, events_artist
-
     label_artist = None
     events_artist = None
     iterations = 3 if top_adjusted else 2
     for _ in range(iterations):
-        label_artist, events_artist = _finalize_layout(
+        label_artist, events_artist, legend_anchor = _finalize_layout(
             fig,
             ax,
             rax,
             legend,
             cms_label,
             display_label,
-            label_artist,
-            events_artist,
-            ratio_label_fig,
-            initial_events_anchor,
-            legend_is_figure_anchored,
+            label_artist=label_artist,
+            events_artist=events_artist,
+            ratio_anchor=ratio_label_fig,
+            events_anchor=initial_events_anchor,
+            legend_anchor=legend_anchor,
+            legend_is_figure=legend_is_figure_anchored,
         )
 
     return fig
