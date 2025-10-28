@@ -2071,10 +2071,60 @@ def make_region_stacked_ratio_fig(
         if legend_box is not None and cms_bboxes:
             cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
             if legend_is_figure:
+                margin = 0.01
+                if legend_anchor is not None:
+                    for _ in range(5):
+                        changed = False
+                        legend_height = legend_box.height
+                        desired_anchor_y = cms_box.y1 + margin + legend_height
+                        if not np.isclose(desired_anchor_y, legend_anchor[1]):
+                            legend_anchor[1] = desired_anchor_y
+                            legend.set_bbox_to_anchor(tuple(legend_anchor), fig.transFigure)
+                            fig.canvas.draw()
+                            renderer = fig.canvas.get_renderer()
+                            legend_bbox = legend.get_window_extent(renderer=renderer)
+                            legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+                            cms_bboxes = []
+                            for artist in cms_artists:
+                                if hasattr(artist, "get_window_extent"):
+                                    cms_bbox = artist.get_window_extent(renderer=renderer)
+                                    cms_bboxes.append(cms_bbox)
+                            if cms_bboxes:
+                                cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+                            changed = True
+
+                        if legend_box.y1 > 1.0:
+                            subplot_params = fig.subplotpars
+                            required_headroom = legend_box.height + margin
+                            available_top = max(0.0, 1.0 - required_headroom)
+                            if subplot_params.top > available_top:
+                                plt.subplots_adjust(
+                                    bottom=subplot_params.bottom,
+                                    top=available_top,
+                                    left=subplot_params.left,
+                                    right=subplot_params.right,
+                                    hspace=subplot_params.hspace,
+                                    wspace=subplot_params.wspace,
+                                )
+                                fig.canvas.draw()
+                                renderer = fig.canvas.get_renderer()
+                                legend_bbox = legend.get_window_extent(renderer=renderer)
+                                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+                                cms_bboxes = []
+                                for artist in cms_artists:
+                                    if hasattr(artist, "get_window_extent"):
+                                        cms_bbox = artist.get_window_extent(renderer=renderer)
+                                        cms_bboxes.append(cms_bbox)
+                                if cms_bboxes:
+                                    cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+                                changed = True
+
+                        if not changed:
+                            break
+
                 vertical_overlap = legend_box.y0 < cms_box.y1 and legend_box.y1 > cms_box.y0
                 horizontal_overlap = legend_box.x0 < cms_box.x1 and legend_box.x1 > cms_box.x0
                 if vertical_overlap and horizontal_overlap and legend_anchor is not None:
-                    margin = 0.01
                     legend_width = legend_box.width
                     space_right = 1.0 - margin - cms_box.x1
                     space_left = cms_box.x0 - margin
