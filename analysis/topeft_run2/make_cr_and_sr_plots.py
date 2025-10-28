@@ -5,6 +5,7 @@ import datetime
 import argparse
 import re
 from collections import OrderedDict
+import logging
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -55,6 +56,9 @@ WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
 LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
 PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
+
+
+logger = logging.getLogger(__name__)
 
 # This script takes an input pkl file that should have both data and background MC included.
 # Use the -y option to specify a year, if no year is specified, all years will be included.
@@ -1616,6 +1620,44 @@ def make_region_stacked_ratio_fig(
 
     display_label = axes_info.get(var, {}).get("label", var)
 
+    # Normalize if we want to do that
+    mc_norm_factor = 1.0
+    mc_scaled = False
+    if unit_norm_bool:
+        sum_mc = 0
+        sum_data = 0
+        for sample in h_mc.eval({}):
+            sum_mc = sum_mc + sum(h_mc.eval({})[sample])
+        for sample in h_data.eval({}):
+            sum_data = sum_data + sum(h_data.eval({})[sample])
+        if not np.isfinite(sum_mc) or np.isclose(sum_mc, 0.0, atol=1e-12, rtol=1e-6):
+            logger.warning(
+                "Skipping MC unit normalization for variable '%s' because the total MC yield is zero.",
+                var,
+            )
+        else:
+            mc_norm_factor = 1.0 / sum_mc
+            h_mc.scale(mc_norm_factor)
+            mc_scaled = True
+
+        if not np.isfinite(sum_data) or np.isclose(sum_data, 0.0, atol=1e-12, rtol=1e-6):
+            logger.warning(
+                "Skipping data unit normalization for variable '%s' because the total data yield is zero.",
+                var,
+            )
+        else:
+            h_data.scale(1.0 / sum_data)
+
+        if mc_scaled:
+            if err_p is not None:
+                err_p = np.asarray(err_p, dtype=float) * mc_norm_factor
+            if err_m is not None:
+                err_m = np.asarray(err_m, dtype=float) * mc_norm_factor
+            if err_p_syst is not None:
+                err_p_syst = np.asarray(err_p_syst, dtype=float) * mc_norm_factor
+            if err_m_syst is not None:
+                err_m_syst = np.asarray(err_m_syst, dtype=float) * mc_norm_factor
+
     # Create the figure
     fig, (ax, rax) = plt.subplots(
         nrows=2,
@@ -1627,28 +1669,6 @@ def make_region_stacked_ratio_fig(
     fig.subplots_adjust(hspace=.07)
 
     # Set up the colors for each stacked process
-
-    # Normalize if we want to do that
-    mc_norm_factor = 1.0
-    if unit_norm_bool:
-        sum_mc = 0
-        sum_data = 0
-        for sample in h_mc.eval({}):
-            sum_mc = sum_mc + sum(h_mc.eval({})[sample])
-        for sample in h_data.eval({}):
-            sum_data = sum_data + sum(h_data.eval({})[sample])
-        mc_norm_factor = 1.0/sum_mc
-        h_mc.scale(mc_norm_factor)
-        h_data.scale(1.0/sum_data)
-
-        if err_p is not None:
-            err_p = np.asarray(err_p, dtype=float) * mc_norm_factor
-        if err_m is not None:
-            err_m = np.asarray(err_m, dtype=float) * mc_norm_factor
-        if err_p_syst is not None:
-            err_p_syst = np.asarray(err_p_syst, dtype=float) * mc_norm_factor
-        if err_m_syst is not None:
-            err_m_syst = np.asarray(err_m_syst, dtype=float) * mc_norm_factor
 
     # Plot the MC
     years = {}
@@ -1686,14 +1706,14 @@ def make_region_stacked_ratio_fig(
             if valid_members:
                 grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
                 grouped_vals = grouped_hist.as_hist({}).values(flow=True)[1:]
-                if unit_norm_bool:
+                if unit_norm_bool and mc_scaled:
                     grouped_vals = grouped_vals * mc_norm_factor**2
 
             fallback_vals = np.zeros_like(template)
             if missing_members:
                 fallback_hist = h_mc[{"process": missing_members}][{"process": sum}]
                 fallback_vals = fallback_hist.as_hist({}).values(flow=True)[1:]
-                if unit_norm_bool:
+                if unit_norm_bool and mc_scaled:
                     fallback_vals = fallback_vals * mc_norm_factor
 
             mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
@@ -1770,10 +1790,13 @@ def make_region_stacked_ratio_fig(
             summed_mc_sumw2 = np.sum(list(mc_sumw2_vals.values()), axis=0)
         else:
             summed_mc_sumw2 = h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)[1:]
-            if unit_norm_bool:
+            if unit_norm_bool and mc_scaled:
                 summed_mc_sumw2 = summed_mc_sumw2 * mc_norm_factor**2
     else:
-        summed_mc_sumw2 = mc_totals * (mc_norm_factor if unit_norm_bool else 1)
+        if unit_norm_bool and mc_scaled:
+            summed_mc_sumw2 = mc_totals * mc_norm_factor
+        else:
+            summed_mc_sumw2 = mc_totals
 
     mc_stat_unc = np.sqrt(np.clip(summed_mc_sumw2, a_min=0, a_max=None))
 
