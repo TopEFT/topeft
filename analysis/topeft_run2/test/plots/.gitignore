@@ -1,0 +1,6 @@
+# Ignore generated plot artifacts.
+*.png
+*.pdf
+*.svg
+*.jpg
+*.jpeg
