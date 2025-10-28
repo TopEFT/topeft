@@ -19,7 +19,8 @@ Required arguments:
 
 Optional arguments:
   -n, --name NAME           Name for the output directory (forwarded with -n)
-  -y, --year YEAR           Year or campaign tag forwarded to the plotter
+  -y, --year YEAR [YEAR ...]
+                           One or more year tokens forwarded to the plotter
   -t, --timestamp           Append a timestamp to the output directory name
   -s, --skip-syst           Skip systematic error bands
   -u, --unit-norm           Enable unit-normalized plotting
@@ -41,7 +42,7 @@ fi
 input_path=""
 output_dir=""
 output_name=""
-year=""
+declare -a years=()
 timestamp_tag=0
 skip_syst=0
 unit_norm=0
@@ -80,12 +81,34 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -y|--year)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: Missing value for $1" >&2
+            shift
+            if [[ $# -eq 0 ]]; then
+                echo "Error: Missing value for -y/--year" >&2
                 exit 1
             fi
-            year="$2"
-            shift 2
+            added_year=0
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --)
+                        break
+                        ;;
+                    --*)
+                        break
+                        ;;
+                    -*)
+                        break
+                        ;;
+                    *)
+                        years+=("$1")
+                        added_year=1
+                        shift
+                        ;;
+                esac
+            done
+            if [[ ${added_year} -eq 0 ]]; then
+                echo "Error: -y/--year requires at least one year token" >&2
+                exit 1
+            fi
             ;;
         -t|--timestamp)
             timestamp_tag=1
@@ -251,6 +274,10 @@ else
     echo "Resolved blinding mode: blinded (${blinding_source})"
 fi
 
+if (( ${#years[@]} > 0 )); then
+    echo "Selected years: ${years[*]}"
+fi
+
 if (( ${#variables[@]} > 0 )); then
     echo "Selected variables: ${variables[*]}"
 fi
@@ -262,8 +289,9 @@ cmd=("${PYTHON_BIN}" "${PLOTTER_SCRIPT}" "-f" "${input_path}" "-o" "${output_dir
 if [[ -n "${output_name}" ]]; then
     cmd+=("-n" "${output_name}")
 fi
-if [[ -n "${year}" ]]; then
-    cmd+=("-y" "${year}")
+if (( ${#years[@]} > 0 )); then
+    cmd+=("-y")
+    cmd+=("${years[@]}")
 fi
 if (( timestamp_tag )); then
     cmd+=("-t")
