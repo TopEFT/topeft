@@ -1369,6 +1369,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_object.add("btagSF", btag_result.central)
 
                 if btag_result.variation_label is not None:
+                    # ``register_btag_sf_weights`` returns variation weights that are already
+                    # expressed relative to the central value.  Register them as a unity
+                    # nominal correction so ``Weights`` exposes the ``Up``/``Down`` modifiers
+                    # required during histogram filling.
                     weights_object.add(
                         btag_result.variation_label,
                         events.nom,
