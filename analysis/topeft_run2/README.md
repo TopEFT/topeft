@@ -9,6 +9,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 - [Scripts for finding, comparing and plotting yields from histograms (from the processor)](#scripts-for-finding-comparing-and-plotting-yields-from-histograms-from-the-processor)
 - [Scripts for making and checking the datacards](#scripts-for-making-and-checking-the-datacards)
 - [CR/SR plotting CLI quickstart](#crsr-plotting-cli-quickstart)
+  - [run\_plotter.sh shell wrapper quickstart](#run_plottersh-shell-wrapper-quickstart)
 - [make_cr_and_sr_plots.py internals](#make_cr_and_sr_plotspy-internals)
 - [CR/SR metadata reference](#crsr-metadata-reference)
 
@@ -91,12 +92,29 @@ Two new mutually exclusive switches, `--cr` and `--sr`, allow you to override th
 
 Blinding is now governed by a single flag pair: `--unblind` always renders the data layer regardless of the region defaults, and `--blind` hides the data. When neither flag is provided the tool unblinds control-region plots and blinds signal-region plots, matching the standard analysis policy. The resolved region and blinding choice are echoed on start-up for clarity.
 
+| Entry point | When to use |
+| --- | --- |
+| `python make_cr_and_sr_plots.py` | Direct access to every CLI flag for notebook or batch workflows. |
+| [`./run_plotter.sh`](#run_plottersh-shell-wrapper-quickstart) | Convenience wrapper that mirrors the auto-detection logic and common flags. |
+
 Common invocation patterns:
 
 * Control-region scan with automatic blinding: `python make_cr_and_sr_plots.py -f histos/plotsCR_Run2.pkl.gz`
 * Signal-region pass where the filename already encodes `SR`: `python make_cr_and_sr_plots.py -f histos/SR2018.pkl.gz -o ~/www/sr --variables lj0pt ptz`
 * Overriding the heuristic and forcing a blinded SR workflow: `python make_cr_and_sr_plots.py -f histos/plotsTopEFT.pkl.gz --sr --blind`
 * Producing unblinded CR plots with explicit tagging and timestamped directories: `python make_cr_and_sr_plots.py -f histos/CR2018.pkl.gz --cr -t -n cr_2018_scan`
+
+#### run_plotter.sh shell wrapper quickstart
+
+The `run_plotter.sh` helper script lives alongside `make_cr_and_sr_plots.py` and reproduces the same filename-based auto-detection for control vs. signal regions. After resolving the region it appends the corresponding `--cr` or `--sr` flag before delegating to the Python CLI. When both `CR` and `SR` tokens appear in the filename the wrapper prints a warning and falls back to the control-region defaults unless you pass an explicit override.
+
+Wrapper options match the Python interface so that README guidance applies verbatim. `--variables` accepts the same list of histogram names, and `--blind` / `--unblind` toggle data visibility after the wrapper has selected a region. You can still provide manual `--cr` or `--sr` overrides, and everything after a literal `--` is forwarded untouched to `make_cr_and_sr_plots.py` for less common tweaks.
+
+Example commands:
+
+* Auto-detected control-region plotting with timestamped outputs: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots --timestamp`
+* Enforcing a blinded SR pass with specific variables: `./run_plotter.sh -f histos/plotsTopEFT.pkl.gz -o ~/www/sr -n sr_scan --sr --blind --variables lj0pt ptz`
+* Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 --unblind -- --do-errors`
 
 * `get_yield_json.py`:
     - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.
