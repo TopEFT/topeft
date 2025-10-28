@@ -1641,6 +1641,15 @@ def make_region_stacked_ratio_fig(
         h_mc.scale(mc_norm_factor)
         h_data.scale(1.0/sum_data)
 
+        if err_p is not None:
+            err_p = np.asarray(err_p, dtype=float) * mc_norm_factor
+        if err_m is not None:
+            err_m = np.asarray(err_m, dtype=float) * mc_norm_factor
+        if err_p_syst is not None:
+            err_p_syst = np.asarray(err_p_syst, dtype=float) * mc_norm_factor
+        if err_m_syst is not None:
+            err_m_syst = np.asarray(err_m_syst, dtype=float) * mc_norm_factor
+
     # Plot the MC
     years = {}
     for axis_name in h_mc.axes[axis]:
