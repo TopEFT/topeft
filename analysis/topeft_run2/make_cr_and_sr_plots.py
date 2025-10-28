@@ -1212,10 +1212,34 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
                 )
             )
         rules = YEAR_TOKEN_RULES[cleaned]
-        mc_wl.extend(rules.get("mc_wl", []))
-        mc_bl.extend(rules.get("mc_bl", []))
-        data_wl.extend(rules.get("data_wl", []))
-        data_bl.extend(rules.get("data_bl", []))
+
+        mc_wl_values = rules.get("mc_wl", [])
+        if mc_wl_values:
+            for value in mc_wl_values:
+                if value not in mc_wl:
+                    mc_wl.append(value)
+            mc_bl[:] = [value for value in mc_bl if value not in mc_wl_values]
+
+        mc_bl_values = rules.get("mc_bl", [])
+        if mc_bl_values:
+            for value in mc_bl_values:
+                if value in mc_wl or value in mc_bl:
+                    continue
+                mc_bl.append(value)
+
+        data_wl_values = rules.get("data_wl", [])
+        if data_wl_values:
+            for value in data_wl_values:
+                if value not in data_wl:
+                    data_wl.append(value)
+            data_bl[:] = [value for value in data_bl if value not in data_wl_values]
+
+        data_bl_values = rules.get("data_bl", [])
+        if data_bl_values:
+            for value in data_bl_values:
+                if value in data_wl or value in data_bl:
+                    continue
+                data_bl.append(value)
         seen_years.add(cleaned)
         normalized_year_tokens.append(cleaned)
 
