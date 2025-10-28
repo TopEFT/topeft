@@ -7,6 +7,7 @@ import re
 from collections import OrderedDict
 import logging
 from decimal import Decimal
+import inspect
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -2057,6 +2058,39 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
 #           * So there are two differences with respect to how these processes are grouped in the SR:
 #               1) Here TTToSemiLeptonic and TTTo2L2Nu are correlated with each other, but not with ttll
 #               2) Here TTZToLL_M1to10 is grouped as part of signal (as in SR) but here _all_ signal processes are uncorrleated so here TTZToLL_M1to10 is uncorrelated with ttll while in SR they would be correlated
+def _values_with_flow_or_overflow(hist_slice):
+    """Return histogram values including overflow bins for different histogram types."""
+
+    if isinstance(hist_slice, HistEFT):
+        evaluated = hist_slice.eval({})
+        if isinstance(evaluated, dict):
+            if () in evaluated:
+                return np.asarray(evaluated[()])
+            return np.asarray(next(iter(evaluated.values())))
+        return np.asarray(evaluated)
+
+    values_method = hist_slice.values
+
+    try:
+        signature = inspect.signature(values_method)
+    except (TypeError, ValueError):
+        values = values_method()
+    else:
+        if "overflow" in signature.parameters:
+            values = values_method(overflow="all")
+        elif "flow" in signature.parameters:
+            values = values_method(flow=True)
+        else:
+            values = values_method()
+
+    if isinstance(values, dict):
+        if () in values:
+            return np.asarray(values[()])
+        return np.asarray(next(iter(values.values())))
+
+    return np.asarray(values)
+
+
 def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,template_zeros_arr):
 
     # Initialize the array we will return (ok technically we return sqrt of this arr squared..)
@@ -2073,9 +2107,9 @@ def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,tem
             for proc_name in proc_lst:
                 if proc_name not in relevant_samples_lst: continue
 
-                n_arr_proc = base_histo.integrate("process", [proc_name]).integrate("systematic", "nominal").eval({})[()]
-                u_arr_proc = base_histo.integrate("process", [proc_name]).integrate("systematic", syst_name+"Up").eval({})[()]
-                d_arr_proc = base_histo.integrate("process", [proc_name]).integrate("systematic", syst_name+"Down").eval({})[()]
+                n_arr_proc = _values_with_flow_or_overflow(base_histo[{"process": proc_name, "systematic": "nominal"}])
+                u_arr_proc = _values_with_flow_or_overflow(base_histo[{"process": proc_name, "systematic": syst_name+"Up"}])
+                d_arr_proc = _values_with_flow_or_overflow(base_histo[{"process": proc_name, "systematic": syst_name+"Down"}])
 
                 u_arr_proc_rel = u_arr_proc - n_arr_proc
                 d_arr_proc_rel = d_arr_proc - n_arr_proc
