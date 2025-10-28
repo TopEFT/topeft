@@ -1367,6 +1367,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 )
 
                 weights_object.add("btagSF", btag_result.central)
+
+                if btag_result.variation_label is not None:
+                    weights_object.add(
+                        btag_result.variation_label,
+                        events.nom,
+                        btag_result.variation_up,
+                        btag_result.variation_down,
+                    )
             else:
                 weights_object.add("btagSF", ak.ones_like(events.nom))
 
