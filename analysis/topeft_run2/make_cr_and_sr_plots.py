@@ -1257,11 +1257,18 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
                 all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
             )
 
+        # Ignore generic tokens that would match every label (e.g. "data") when
+        # performing multi-token filtering so that the year-specific substrings
+        # drive selection.
+        union_tokens = [token for token in whitelist if token.lower() != "data"]
+        if not union_tokens:
+            union_tokens = whitelist
+
         filtered = []
         for label in all_labels:
             if any(token in label for token in blacklist):
                 continue
-            if any(token in label for token in whitelist):
+            if any(token in label for token in union_tokens):
                 filtered.append(label)
         return filtered
 
