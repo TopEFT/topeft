@@ -2,10 +2,10 @@
 
 # PrintUsage: display script usage information
 PrintUsage() {
-  echo "Usage: $0 [-y YEAR] [-t TAG] --cr | --sr [run_analysis options]"
+  echo "Usage: $0 [-y YEAR [YEAR ...]] [-t TAG] --cr | --sr [run_analysis options]"
   echo
   echo "Options:"
-  echo "  -y YEAR    Year identifier (e.g., 2022, 2022EE, 2023, 2023BPix)"
+  echo "  -y YEAR    Year identifier (repeat or list multiple years)"
   echo "  -t TAG     Git tag or commit identifier"
   echo "  --cr       Generate control-region histograms"
   echo "  --sr       Generate signal-region histograms"
@@ -21,15 +21,30 @@ DEFAULT_TAG="fec79a60_PNet"
 FLAG_CR=false
 FLAG_SR=false
 EXTRA_ARGS=()
+YEARS=()
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -y)
-      YEAR="$2"
-      shift 2
+    -y|--year)
+      shift
+      if [[ $# -eq 0 || "$1" == -* ]]; then
+        echo "Error: -y|--year requires at least one argument"
+        exit 1
+      fi
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          -*)
+            break
+            ;;
+          *)
+            YEARS+=("$1")
+            shift
+            ;;
+        esac
+      done
       ;;
-    -t)
+    -t|--tag)
       TAG="$2"
       shift 2
       ;;
@@ -61,9 +76,9 @@ if [[ "$FLAG_CR" == "false" && "$FLAG_SR" == "false" ]] || [[ "$FLAG_CR" == "tru
 fi
 
 # Apply defaults with warnings if not provided
-if [[ -z "$YEAR" ]]; then
+if [[ ${#YEARS[@]} -eq 0 ]]; then
   echo "Warning: YEAR not provided, using default YEAR=$DEFAULT_YEAR"
-  YEAR="$DEFAULT_YEAR"
+  YEARS=("$DEFAULT_YEAR")
 fi
 
 if [[ -z "$TAG" ]]; then
@@ -72,18 +87,29 @@ if [[ -z "$TAG" ]]; then
 fi
 
 # Define output name based on mode
+YEAR_LABEL=$(IFS=-; echo "${YEARS[*]}")
+
 if [[ "$FLAG_CR" == "true" ]]; then
-  OUT_NAME="${YEAR}CRs_${TAG}"
+  OUT_NAME="${YEAR_LABEL}CRs_${TAG}"
 else
-  OUT_NAME="${YEAR}SRs_${TAG}"
+  OUT_NAME="${YEAR_LABEL}SRs_${TAG}"
 fi
 
 echo "OUT_NAME: $OUT_NAME"
 
 # Build the configuration file list
 CFGS_PATH="../../input_samples/cfgs"
-CFGS="${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg,${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg,${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
-#CFGS="${CFGS_PATH}/NDSkim_${YEAR}_background_samples_loc.cfg"
+CFGS_LIST=()
+for YEAR in "${YEARS[@]}"; do
+  CFGS_LIST+=(
+    "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
+    "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
+    "${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
+  )
+done
+CFGS=$(IFS=,; echo "${CFGS_LIST[*]}")
+
+echo "Resolved CFGS: $CFGS"
 
 # Define options based on mode
 if [[ "$FLAG_CR" == "true" ]]; then
@@ -93,7 +119,7 @@ else
 fi
 
 # Build and run the command
-RUN_CMD=(python run_analysis.py $CFGS $OPTIONS "${EXTRA_ARGS[@]}")
+RUN_CMD=(python run_analysis.py "$CFGS" $OPTIONS "${EXTRA_ARGS[@]}")
 
 printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
 
