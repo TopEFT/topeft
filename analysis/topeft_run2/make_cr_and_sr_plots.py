@@ -77,6 +77,11 @@ YEAR_TOKEN_RULES = {
     "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
 }
 
+YEAR_WHITELIST_OPTIONALS = set()
+for _year_rule in YEAR_TOKEN_RULES.values():
+    YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("mc_wl", []))
+    YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("data_wl", []))
+
 
 logger = logging.getLogger(__name__)
 
@@ -1250,26 +1255,36 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         all_samples = yt.get_cat_lables(dict_of_hists, "process", h_name=ref_hist)
 
     def _filter_samples(all_labels, whitelist, blacklist):
-        """Return samples that satisfy blacklist rules and match any whitelist token."""
+        """Return samples that satisfy blacklist rules and multi-token requirements."""
 
         if len(whitelist) <= 1:
             return utils.filter_lst_of_strs(
                 all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
             )
 
-        # Ignore generic tokens that would match every label (e.g. "data") when
-        # performing multi-token filtering so that the year-specific substrings
-        # drive selection.
-        union_tokens = [token for token in whitelist if token.lower() != "data"]
-        if not union_tokens:
-            union_tokens = whitelist
+        must_have_tokens = []
+        optional_tokens = []
+        for token in whitelist:
+            if token is None:
+                continue
+            if token.lower() == "data" or token not in YEAR_WHITELIST_OPTIONALS:
+                must_have_tokens.append(token)
+            else:
+                optional_tokens.append(token)
+
+        # Remove duplicates while preserving ordering to keep predictable filtering.
+        must_have_tokens = list(dict.fromkeys(must_have_tokens))
+        optional_tokens = list(dict.fromkeys(optional_tokens))
 
         filtered = []
         for label in all_labels:
             if any(token in label for token in blacklist):
                 continue
-            if any(token in label for token in union_tokens):
-                filtered.append(label)
+            if must_have_tokens and any(token not in label for token in must_have_tokens):
+                continue
+            if optional_tokens and not any(token in label for token in optional_tokens):
+                continue
+            filtered.append(label)
         return filtered
 
     mc_samples = _filter_samples(all_samples, mc_wl, mc_bl)
