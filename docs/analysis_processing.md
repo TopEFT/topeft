@@ -4,7 +4,9 @@ This page documents how the ``analysis/topeft_run2`` helpers cooperate once the
 configuration is built.  It focuses on the execution phase that starts inside
 :func:`analysis.topeft_run2.workflow.run_workflow`, covers the systematic
 handshake with :class:`analysis.topeft_run2.analysis_processor.AnalysisProcessor`,
-and highlights the primary extension points.
+and highlights the primary extension points.  For a primer on the dataclasses
+and metadata structures produced before this stage, see the
+[Run configuration dataclasses and metadata overview](dataclasses_and_metadata.md).
 
 The high-level flow is:
 

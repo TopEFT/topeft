@@ -4,7 +4,9 @@ The Run 2 workflow consumes per-sample JSON manifests to learn where files live,
 which histogram axis labels to assign, and how to normalize the resulting event
 weights.  This page summarizes the required keys, optional systematic payloads,
 and common pitfalls so you can validate inputs without digging through the
-loader implementation.
+loader implementation.  For a system-level view of how these manifests feed the
+dataclasses used by the workflow, see the
+[Run configuration dataclasses and metadata overview](dataclasses_and_metadata.md).
 
 ## Required keys
 
@@ -37,6 +39,9 @@ match the variations extracted from ``topeft/params/metadata.yml`` via
 :func:`analysis.topeft_run2.run_analysis_helpers.weight_variations_from_metadata`.
 Any variation found in the JSON is converted to ``float`` before being attached
 to the sample record. 【F:analysis/topeft_run2/run_analysis_helpers.py†L232-L241】
+The resulting payload is carried directly into the histogram planning
+dataclasses described in the
+[Run configuration dataclasses and metadata overview](dataclasses_and_metadata.md).
 
 A compact MC manifest with ISR, FSR, and scale variations would therefore look
 like:

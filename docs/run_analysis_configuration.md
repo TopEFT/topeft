@@ -4,7 +4,9 @@ The ``analysis/topeft_run2/run_analysis.py`` entry point stitches together the
 command line, metadata bundles, and Coffea execution helpers that drive the Run 2
 analysis.  This page documents how the configuration is normalized, how the
 helpers cooperate, and which extension points are available when adapting the
-workflow to new samples or channels.
+workflow to new samples or channels.  Readers looking for a catalog of the
+dataclasses and metadata payloads that emerge from this process should start
+with the [Run configuration dataclasses and metadata overview](dataclasses_and_metadata.md).
 
 If you only need a quick lookup of supported CLI flags and YAML keys, jump to
 the dedicated [`run_analysis.py` CLI and YAML reference](run_analysis_cli_reference.md).
