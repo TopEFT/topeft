@@ -196,6 +196,43 @@ class VariationState:
     include_tau_fake_sf: bool = False
 
 
+_LEPTON_SF_WEIGHT_SPECS: Dict[str, Tuple[Tuple[str, str, str, str, str], ...]] = {
+    "1l": (
+        ("lepSF_muon", "sf_1l_muon", "sf_1l_hi_muon", "sf_1l_lo_muon", "include_muon_sf"),
+        ("lepSF_elec", "sf_1l_elec", "sf_1l_hi_elec", "sf_1l_lo_elec", "include_elec_sf"),
+    ),
+    "2l": (
+        ("lepSF_muon", "sf_2l_muon", "sf_2l_hi_muon", "sf_2l_lo_muon", "include_muon_sf"),
+        ("lepSF_elec", "sf_2l_elec", "sf_2l_hi_elec", "sf_2l_lo_elec", "include_elec_sf"),
+    ),
+    "3l": (
+        ("lepSF_muon", "sf_3l_muon", "sf_3l_hi_muon", "sf_3l_lo_muon", "include_muon_sf"),
+        ("lepSF_elec", "sf_3l_elec", "sf_3l_hi_elec", "sf_3l_lo_elec", "include_elec_sf"),
+    ),
+    "4l": (
+        ("lepSF_muon", "sf_4l_muon", "sf_4l_hi_muon", "sf_4l_lo_muon", "include_muon_sf"),
+        ("lepSF_elec", "sf_4l_elec", "sf_4l_hi_elec", "sf_4l_lo_elec", "include_elec_sf"),
+    ),
+}
+
+_TAU_SF_WEIGHT_SPECS: Tuple[Tuple[str, str, str, str, str], ...] = (
+    (
+        "lepSF_taus_real",
+        "sf_2l_taus_real",
+        "sf_2l_taus_real_hi",
+        "sf_2l_taus_real_lo",
+        "include_tau_real_sf",
+    ),
+    (
+        "lepSF_taus_fake",
+        "sf_2l_taus_fake",
+        "sf_2l_taus_fake_hi",
+        "sf_2l_taus_fake_lo",
+        "include_tau_fake_sf",
+    ),
+)
+
+
 class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(
@@ -1055,6 +1092,61 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return variation_state
 
+    def _register_lepton_sf_weights(
+        self,
+        *,
+        events,
+        weights_object,
+        lepton_category: str,
+        channel_prefix: str,
+        variation_state: VariationState,
+        variation_name: str,
+    ) -> None:
+        weight_specs = _LEPTON_SF_WEIGHT_SPECS.get(channel_prefix)
+        if weight_specs is None:
+            raise Exception(f"Unknown channel name: {lepton_category}")
+
+        for (
+            label,
+            central_attr,
+            up_attr,
+            down_attr,
+            include_attr,
+        ) in weight_specs:
+            include_variations = getattr(variation_state, include_attr)
+            register_lepton_sf_weight(
+                weights_object,
+                events,
+                label,
+                central_attr,
+                up_attr,
+                down_attr,
+                include_variations,
+                variation_name=variation_name,
+                logger_obj=logger,
+            )
+
+        if self.tau_h_analysis and channel_prefix in {"1l", "2l", "3l"}:
+            for (
+                label,
+                central_attr,
+                up_attr,
+                down_attr,
+                include_attr,
+            ) in _TAU_SF_WEIGHT_SPECS:
+                include_variations = getattr(variation_state, include_attr)
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
+                    label,
+                    central_attr,
+                    up_attr,
+                    down_attr,
+                    include_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
+                )
+
     def _register_weights_for_variation(
         self,
         events,
@@ -1278,12 +1370,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             else:
                 weights_object.add("btagSF", ak.ones_like(events.nom))
 
-            register_lepton_sf_weight(
-                weights_object,
-                events,
-                variation_name,
-                variation_state.include_muon_sf,
-                variation_state.include_elec_sf,
+            self._register_lepton_sf_weights(
+                events=events,
+                weights_object=weights_object,
+                lepton_category=nlep_cat,
+                channel_prefix=channel_prefix,
+                variation_state=variation_state,
+                variation_name=variation_name,
             )
 
             register_trigger_sf_weight(
