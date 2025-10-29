@@ -26,6 +26,8 @@ Optional arguments:
   -u, --unit-norm           Enable unit-normalized plotting
       --variables VAR [VAR...]  Limit plotting to the listed histogram variables
       --workers N          Number of worker processes for parallel plotting (default: 1; start with 2-4; higher values use more memory)
+  -v, --verbose            Forward --verbose to enable detailed diagnostics
+      --quiet              Forward --quiet to suppress per-variable chatter (default)
       --cr | --sr           Override the auto-detected region
       --blind | --unblind   Force blinding or unblinding regardless of region
       --dry-run             Print the resolved command without executing it
@@ -52,6 +54,7 @@ blind_override=""
 declare -a variables=()
 workers=1
 dry_run=0
+verbosity=""
 
 # Collect positional passthrough arguments after '--'.
 extra_args=()
@@ -168,6 +171,14 @@ while [[ $# -gt 0 ]]; do
             fi
             workers="$2"
             shift 2
+            ;;
+        -v|--verbose)
+            verbosity="verbose"
+            shift
+            ;;
+        -q|--quiet)
+            verbosity="quiet"
+            shift
             ;;
         --dry-run)
             dry_run=1
@@ -296,6 +307,15 @@ if [[ -n "${workers}" && "${workers}" != "1" ]]; then
     echo "Worker processes: ${workers}"
 fi
 
+case "${verbosity}" in
+    verbose)
+        echo "Verbose diagnostics enabled."
+        ;;
+    quiet)
+        echo "Quiet mode enforced."
+        ;;
+esac
+
 mkdir -p "${output_dir}"
 
 cmd=("${PYTHON_BIN}" "${PLOTTER_SCRIPT}" "-f" "${input_path}" "-o" "${output_dir}")
@@ -331,6 +351,14 @@ if (( ${#variables[@]} > 0 )); then
     cmd+=("${variables[@]}")
 fi
 cmd+=("--workers" "${workers}")
+case "${verbosity}" in
+    verbose)
+        cmd+=("--verbose")
+        ;;
+    quiet)
+        cmd+=("--quiet")
+        ;;
+esac
 if (( ${#extra_args[@]} > 0 )); then
     cmd+=("--")
     cmd+=("${extra_args[@]}")

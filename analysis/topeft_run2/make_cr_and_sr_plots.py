@@ -186,6 +186,7 @@ def _initialize_render_worker(
     skip_syst_errs,
     unit_norm_bool,
     unblind_flag,
+    verbose,
 ):
     """Store shared plotting context inside a worker process."""
 
@@ -196,6 +197,7 @@ def _initialize_render_worker(
         "skip_syst_errs": skip_syst_errs,
         "unit_norm_bool": unit_norm_bool,
         "unblind_flag": unblind_flag,
+        "verbose": bool(verbose),
     }
 
 
@@ -220,6 +222,7 @@ def _render_variable_from_worker(payload):
         ctx["skip_syst_errs"],
         ctx["unit_norm_bool"],
         ctx["unblind_flag"],
+        verbose=ctx.get("verbose", False),
         category=category,
     )
 
@@ -232,6 +235,7 @@ def _render_variable(
     unit_norm_bool,
     unblind_flag,
     *,
+    verbose=False,
     category=None,
 ):
     """Render plots for *var_name* and return summary accounting."""
@@ -248,7 +252,8 @@ def _render_variable(
         is_sparse2d = False
 
     label = region_ctx.variable_label
-    print(f"\n{label}: {var_name}")
+    if verbose:
+        print(f"\n{label}: {var_name}")
 
     channel_transformations = _resolve_channel_transformations(region_ctx, var_name)
     channel_dict = _apply_channel_dict_transformations(
@@ -281,7 +286,7 @@ def _render_variable(
                 "process", region_ctx.signal_samples
             )
 
-    if region_ctx.debug_channel_lists:
+    if region_ctx.debug_channel_lists and verbose:
         try:
             channels_lst = yt.get_cat_lables(dict_of_hists[var_name], "channel")
         except Exception:
@@ -321,6 +326,7 @@ def _render_variable(
             skip_syst_errs=skip_syst_errs,
             unit_norm_bool=unit_norm_bool,
             unblind_flag=unblind_flag,
+            verbose=verbose,
         )
         stat_only_plots += stat_only
         stat_and_syst_plots += stat_and_syst
@@ -344,6 +350,7 @@ def _render_variable_category(
     skip_syst_errs,
     unit_norm_bool,
     unblind_flag,
+    verbose=False,
 ):
     """Render a single (variable, category) pair and return bookkeeping totals."""
 
@@ -364,7 +371,8 @@ def _render_variable_category(
     stat_and_syst_plots = 0
     html_dirs = set()
 
-    if region_ctx.channel_mode == "aggregate":
+    if region_ctx.channel_mode == "aggregate" and verbose:
+        # Category headings are mainly useful when debugging channel regrouping.
         print(f"\n\tCategory: {hist_cat}")
 
         axes_to_integrate_dict = {"channel": channel_bins}
@@ -2073,19 +2081,21 @@ def produce_region_plots(
     unblind=None,
     *,
     workers=1,
+    verbose=False,
 ):
     dict_of_hists = region_ctx.dict_of_hists
     context_label = f"{region_ctx.name} region"
     variables_to_plot = _resolve_requested_variables(
         dict_of_hists, variables, context_label
     )
-    if variables is not None:
+    if verbose and variables is not None:
         print("Filtered variables:", variables_to_plot)
 
-    print("\n\nAll samples:", region_ctx.all_samples)
-    print("\nMC samples:", region_ctx.mc_samples)
-    print("\nData samples:", region_ctx.data_samples)
-    print("\nVariables:", list(dict_of_hists.keys()))
+    if verbose:
+        print("\n\nAll samples:", region_ctx.all_samples)
+        print("\nMC samples:", region_ctx.mc_samples)
+        print("\nData samples:", region_ctx.data_samples)
+        print("\nVariables:", list(dict_of_hists.keys()))
 
     unblind_flag = region_ctx.unblind_default if unblind is None else bool(unblind)
 
@@ -2107,6 +2117,17 @@ def produce_region_plots(
     worker_count = max(int(workers or 1), 1)
     tasks = list(eligible_variables)
     category_dirs = set(region_ctx.channel_map.keys()) if save_dir_path else set()
+    if not verbose:
+        if tasks:
+            print(
+                "[{}] Rendering {} variable{}...".format(
+                    region_ctx.name,
+                    len(tasks),
+                    "s" if len(tasks) != 1 else "",
+                )
+            )
+        else:
+            print(f"[{region_ctx.name}] No eligible variables to render.")
     if worker_count > 1 and eligible_variables:
         variable_categories = {}
         for var_name in eligible_variables:
@@ -2142,6 +2163,7 @@ def produce_region_plots(
                 skip_syst_errs,
                 unit_norm_bool,
                 unblind_flag,
+                verbose,
             ),
         ) as executor:
             futures = [
@@ -2162,6 +2184,7 @@ def produce_region_plots(
                 skip_syst_errs,
                 unit_norm_bool,
                 unblind_flag,
+                verbose=verbose,
             )
             stat_only_plots += stat_only
             stat_and_syst_plots += stat_and_syst
@@ -3060,6 +3083,7 @@ def run_plots_for_region(
     variables=None,
     unblind=None,
     workers=1,
+    verbose=False,
 ):
     region_ctx = build_region_context(
         region_name,
@@ -3075,6 +3099,7 @@ def run_plots_for_region(
         unit_norm_bool,
         unblind=unblind,
         workers=workers,
+        verbose=verbose,
     )
 
 def main():
@@ -3106,7 +3131,6 @@ def main():
         action="store_false",
         help="Force plots to hide data yields even in normally unblinded regions.",
     )
-    parser.set_defaults(unblind=None)
     region_group = parser.add_mutually_exclusive_group()
     region_group.add_argument(
         "--cr",
@@ -3134,8 +3158,21 @@ def main():
         default=1,
         help="Number of worker processes for parallel variable rendering (default: 1).",
     )
+    verbosity_group = parser.add_mutually_exclusive_group()
+    verbosity_group.add_argument(
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="Enable detailed diagnostic output (variable lists, channel dumps).",
+    )
+    verbosity_group.add_argument(
+        "--quiet",
+        dest="verbose",
+        action="store_false",
+        help="Limit output to high-level progress messages (default).",
+    )
+    parser.set_defaults(unblind=None, verbose=False)
     args = parser.parse_args()
-
     normalized_years = []
     if args.year is not None:
         seen_years = set()
@@ -3243,6 +3280,7 @@ def main():
         variables=selected_variables,
         unblind=resolved_unblind,
         workers=args.workers,
+        verbose=args.verbose,
     )
 if __name__ == "__main__":
     main()
