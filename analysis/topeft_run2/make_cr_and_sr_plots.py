@@ -37,6 +37,36 @@ import yaml
 with open(topeft_path("params/cr_sr_plots_metadata.yml")) as f:
     _META = yaml.safe_load(f)
 
+
+def _compile_data_driven_prefixes(raw_specs):
+    """Return compiled regex objects for each configured data-driven prefix."""
+
+    matchers = []
+    for spec in raw_specs or ():
+        if spec is None:
+            continue
+        if isinstance(spec, str):
+            value = spec.strip()
+            if not value:
+                continue
+            matchers.append(re.compile(rf"^{re.escape(value)}"))
+        elif isinstance(spec, dict):
+            pattern = spec.get("pattern")
+            prefix = spec.get("prefix")
+            if pattern:
+                matchers.append(re.compile(pattern))
+            elif prefix:
+                matchers.append(re.compile(rf"^{re.escape(prefix)}"))
+        else:
+            raise TypeError(
+                "Unsupported DATA_DRIVEN_PREFIXES entry type '{}'.".format(type(spec).__name__)
+            )
+    return tuple(matchers)
+
+
+DATA_DRIVEN_MATCHERS = _compile_data_driven_prefixes(
+    _META.get("DATA_DRIVEN_PREFIXES", [])
+)
 DATA_ERR_OPS = _META["DATA_ERR_OPS"]
 MC_ERROR_OPS = _META["MC_ERROR_OPS"]
 if isinstance(MC_ERROR_OPS.get("edgecolor"), list):
@@ -1286,6 +1316,17 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
             if optional_tokens and not any(token in label for token in optional_tokens):
                 continue
             filtered.append(label)
+
+        if DATA_DRIVEN_MATCHERS:
+            filtered_set = set(filtered)
+            for label in all_labels:
+                if label in filtered_set:
+                    continue
+                if any(token in label for token in blacklist):
+                    continue
+                if any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
+                    filtered.append(label)
+                    filtered_set.add(label)
         return filtered
 
     mc_samples = _filter_samples(all_samples, mc_wl, mc_bl)
