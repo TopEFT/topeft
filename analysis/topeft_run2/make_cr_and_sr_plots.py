@@ -372,9 +372,10 @@ def _render_variable_category(
     stat_and_syst_plots = 0
     html_dirs = set()
 
-    if region_ctx.channel_mode == "aggregate" and verbose:
-        # Category headings are mainly useful when debugging channel regrouping.
-        print(f"\n\tCategory: {hist_cat}")
+    if region_ctx.channel_mode == "aggregate":
+        if verbose:
+            # Category headings are mainly useful when debugging channel regrouping.
+            print(f"\n\tCategory: {hist_cat}")
 
         axes_to_integrate_dict = {"channel": channel_bins}
         try:
