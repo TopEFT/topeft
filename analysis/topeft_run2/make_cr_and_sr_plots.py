@@ -374,7 +374,7 @@ def _draw_stacked_panel(
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(9, 8),
+        figsize=(10, 8),
         gridspec_kw={"height_ratios": (4, 1)},
         sharex=True,
     )
