@@ -1288,7 +1288,7 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
     def _filter_samples(all_labels, whitelist, blacklist, *, allow_data_driven_reinsertion=False):
         """Return samples that satisfy blacklist rules and multi-token requirements."""
 
-        if len(whitelist) <= 1:
+        if len(whitelist) <= 1 and not allow_data_driven_reinsertion:
             return utils.filter_lst_of_strs(
                 all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
             )
@@ -1306,31 +1306,47 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         # Remove duplicates while preserving ordering to keep predictable filtering.
         must_have_tokens = list(dict.fromkeys(must_have_tokens))
         optional_tokens = list(dict.fromkeys(optional_tokens))
+        optional_token_set = set(optional_tokens)
 
-        filtered = []
-        for label in all_labels:
+        def _label_contains_disallowed_year(label):
+            if not optional_tokens:
+                return False
+            return any(
+                year_token not in optional_token_set
+                for year_token in YEAR_WHITELIST_OPTIONALS
+                if year_token in label
+            )
+
+        def _label_passes(label, *, require_optional_tokens):
             if any(token in label for token in blacklist):
-                continue
+                return False
             if must_have_tokens and any(token not in label for token in must_have_tokens):
-                continue
-            if optional_tokens and not any(token in label for token in optional_tokens):
-                continue
-            filtered.append(label)
+                return False
+            if _label_contains_disallowed_year(label):
+                return False
+            if require_optional_tokens and optional_tokens and not any(
+                token in label for token in optional_tokens
+            ):
+                return False
+            return True
+
+        filtered = [
+            label
+            for label in all_labels
+            if _label_passes(label, require_optional_tokens=True)
+        ]
 
         if allow_data_driven_reinsertion and DATA_DRIVEN_MATCHERS:
             filtered_set = set(filtered)
             for label in all_labels:
                 if label in filtered_set:
                     continue
-                if any(token in label for token in blacklist):
+                if not any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
                     continue
-                if must_have_tokens and any(token not in label for token in must_have_tokens):
+                if not _label_passes(label, require_optional_tokens=False):
                     continue
-                if optional_tokens and not any(token in label for token in optional_tokens):
-                    continue
-                if any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
-                    filtered.append(label)
-                    filtered_set.add(label)
+                filtered.append(label)
+                filtered_set.add(label)
         return filtered
 
     mc_samples = _filter_samples(
