@@ -177,6 +177,47 @@ def _close_figure_payload(fig_payload):
         plt.close('all')
 
 
+_WORKER_RENDER_CONTEXT = None
+
+
+def _initialize_render_worker(
+    region_ctx,
+    save_dir_path,
+    skip_syst_errs,
+    unit_norm_bool,
+    unblind_flag,
+):
+    """Store shared plotting context inside a worker process."""
+
+    global _WORKER_RENDER_CONTEXT
+    _WORKER_RENDER_CONTEXT = {
+        "region_ctx": region_ctx,
+        "save_dir_path": save_dir_path,
+        "skip_syst_errs": skip_syst_errs,
+        "unit_norm_bool": unit_norm_bool,
+        "unblind_flag": unblind_flag,
+    }
+
+
+def _render_variable_from_worker(var_name):
+    """Delegate variable rendering using the worker-local cached context."""
+
+    if _WORKER_RENDER_CONTEXT is None:
+        raise RuntimeError(
+            "Worker render context is not initialised; expected ProcessPoolExecutor initializer to set it."
+        )
+
+    ctx = _WORKER_RENDER_CONTEXT
+    return _render_variable(
+        var_name,
+        ctx["region_ctx"],
+        ctx["save_dir_path"],
+        ctx["skip_syst_errs"],
+        ctx["unit_norm_bool"],
+        ctx["unblind_flag"],
+    )
+
+
 def _render_variable(
     var_name,
     region_ctx,
@@ -1989,19 +2030,23 @@ def produce_region_plots(
     eligible_count = len(eligible_variables)
     if worker_count > 1 and eligible_count > 1:
         from concurrent.futures import ProcessPoolExecutor
-        from itertools import repeat
 
         max_workers = min(worker_count, eligible_count)
 
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        with ProcessPoolExecutor(
+            max_workers=max_workers,
+            initializer=_initialize_render_worker,
+            initargs=(
+                region_ctx,
+                save_dir_path,
+                skip_syst_errs,
+                unit_norm_bool,
+                unblind_flag,
+            ),
+        ) as executor:
             results = executor.map(
-                _render_variable,
+                _render_variable_from_worker,
                 eligible_variables,
-                repeat(region_ctx),
-                repeat(save_dir_path),
-                repeat(skip_syst_errs),
-                repeat(unit_norm_bool),
-                repeat(unblind_flag),
             )
             for stat_only, stat_and_syst, html_set in results:
                 stat_only_plots += stat_only
