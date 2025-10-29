@@ -1324,6 +1324,10 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
                     continue
                 if any(token in label for token in blacklist):
                     continue
+                if must_have_tokens and any(token not in label for token in must_have_tokens):
+                    continue
+                if optional_tokens and not any(token in label for token in optional_tokens):
+                    continue
                 if any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
                     filtered.append(label)
                     filtered_set.add(label)
