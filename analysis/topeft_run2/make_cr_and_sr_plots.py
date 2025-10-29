@@ -201,7 +201,7 @@ def _initialize_render_worker(
     }
 
 
-def _render_variable_from_worker(payload):
+def _render_variable_from_worker(task_id, payload):
     """Delegate variable rendering using the worker-local cached context."""
 
     if _WORKER_RENDER_CONTEXT is None:
@@ -215,7 +215,7 @@ def _render_variable_from_worker(payload):
         var_name, category = payload, None
 
     ctx = _WORKER_RENDER_CONTEXT
-    return _render_variable(
+    stat_only, stat_and_syst, html_set = _render_variable(
         var_name,
         ctx["region_ctx"],
         ctx["save_dir_path"],
@@ -225,6 +225,7 @@ def _render_variable_from_worker(payload):
         verbose=ctx.get("verbose", False),
         category=category,
     )
+    return task_id, stat_only, stat_and_syst, html_set
 
 
 def _render_variable(
@@ -2149,6 +2150,33 @@ def produce_region_plots(
             os.makedirs(os.path.join(save_dir_path, hist_cat), exist_ok=True)
 
     total_tasks = len(tasks)
+    task_specs = []
+    for task_index, payload in enumerate(tasks, start=1):
+        if isinstance(payload, tuple):
+            var_name, hist_cat = payload
+        else:
+            var_name, hist_cat = payload, None
+        label = f"{var_name} [{hist_cat}]" if hist_cat else var_name
+        task_specs.append((task_index, payload, label, var_name, hist_cat))
+
+    progress_total = total_tasks
+    progress_done = 0
+    progress_enabled = bool(verbose and progress_total)
+
+    def _report_progress(task_label):
+        nonlocal progress_done
+        if not progress_enabled:
+            return
+        progress_done += 1
+        print(
+            "[{}] [{}/{}] Completed {}".format(
+                region_ctx.name,
+                progress_done,
+                progress_total,
+                task_label,
+            )
+        )
+
     if worker_count > 1 and total_tasks > 1:
         from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -2166,17 +2194,25 @@ def produce_region_plots(
                 verbose,
             ),
         ) as executor:
+            id_to_label = {
+                task_id: label for task_id, _, label, _, _ in task_specs
+            }
             futures = [
-                executor.submit(_render_variable_from_worker, payload)
-                for payload in tasks
+                executor.submit(
+                    _render_variable_from_worker,
+                    task_id,
+                    payload,
+                )
+                for task_id, payload, _, _, _ in task_specs
             ]
             for future in as_completed(futures):
-                stat_only, stat_and_syst, html_set = future.result()
+                task_id, stat_only, stat_and_syst, html_set = future.result()
                 stat_only_plots += stat_only
                 stat_and_syst_plots += stat_and_syst
                 html_dirs.update(html_set)
+                _report_progress(id_to_label.get(task_id, str(task_id)))
     else:
-        for var_name in eligible_variables:
+        for _, _, label, var_name, hist_cat in task_specs:
             stat_only, stat_and_syst, html_set = _render_variable(
                 var_name,
                 region_ctx,
@@ -2185,10 +2221,12 @@ def produce_region_plots(
                 unit_norm_bool,
                 unblind_flag,
                 verbose=verbose,
+                category=hist_cat,
             )
             stat_only_plots += stat_only
             stat_and_syst_plots += stat_and_syst
             html_dirs.update(html_set)
+            _report_progress(label)
 
     for html_dir in sorted(html_dirs):
         try:
@@ -2196,8 +2234,20 @@ def produce_region_plots(
         except Exception as exc:
             print(f"Warning: Failed to refresh HTML in {html_dir}: {exc}")
 
+    if progress_enabled and progress_done < progress_total:
+        progress_done = progress_total
+
+    if progress_total:
+        summary_suffix = (
+            f" after completing {progress_total} rendering task"
+            f"{'s' if progress_total != 1 else ''}"
+        )
+    else:
+        summary_suffix = "; no rendering tasks were executed"
+
     print(
-        f"[{region_ctx.name}] Produced {stat_and_syst_plots} plots with stat⊕syst uncertainties and {stat_only_plots} plots with stat-only bands",
+        f"[{region_ctx.name}] Produced {stat_and_syst_plots} plots with stat⊕syst uncertainties and {stat_only_plots} plots with stat-only bands"
+        f"{summary_suffix}",
         end="",
     )
     if save_dir_path:
