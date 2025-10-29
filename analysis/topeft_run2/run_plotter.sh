@@ -25,7 +25,7 @@ Optional arguments:
   -s, --skip-syst           Skip systematic error bands
   -u, --unit-norm           Enable unit-normalized plotting
       --variables VAR [VAR...]  Limit plotting to the listed histogram variables
-      --workers N          Number of worker processes for variable-level plotting (default: 1; higher values use more memory)
+      --workers N          Number of worker processes for parallel plotting (default: 1; start with 2-4; higher values use more memory)
       --cr | --sr           Override the auto-detected region
       --blind | --unblind   Force blinding or unblinding regardless of region
       --dry-run             Print the resolved command without executing it
