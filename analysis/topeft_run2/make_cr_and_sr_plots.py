@@ -2719,13 +2719,16 @@ def make_region_stacked_ratio_fig(
             if label not in filtered:
                 filtered[label] = handle
         if filtered:
+            max_rows = 3
+            n_entries = len(filtered)
+            ncol = max(1, (n_entries + max_rows - 1) // max_rows)
             legend = fig.legend(
                 list(filtered.values()),
                 list(filtered.keys()),
                 loc='upper center',
                 bbox_to_anchor=(0.5, 1.0),
                 borderaxespad=0.0,
-                ncol=4,
+                ncol=ncol,
                 fontsize=16,
             )
     if main_band_handles:
