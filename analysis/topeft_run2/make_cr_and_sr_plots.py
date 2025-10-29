@@ -1285,7 +1285,7 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         ref_hist = _find_reference_hist_name(dict_of_hists)
         all_samples = yt.get_cat_lables(dict_of_hists, "process", h_name=ref_hist)
 
-    def _filter_samples(all_labels, whitelist, blacklist):
+    def _filter_samples(all_labels, whitelist, blacklist, *, allow_data_driven_reinsertion=False):
         """Return samples that satisfy blacklist rules and multi-token requirements."""
 
         if len(whitelist) <= 1:
@@ -1317,7 +1317,7 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
                 continue
             filtered.append(label)
 
-        if DATA_DRIVEN_MATCHERS:
+        if allow_data_driven_reinsertion and DATA_DRIVEN_MATCHERS:
             filtered_set = set(filtered)
             for label in all_labels:
                 if label in filtered_set:
@@ -1329,8 +1329,18 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
                     filtered_set.add(label)
         return filtered
 
-    mc_samples = _filter_samples(all_samples, mc_wl, mc_bl)
-    data_samples = _filter_samples(all_samples, data_wl, data_bl)
+    mc_samples = _filter_samples(
+        all_samples,
+        mc_wl,
+        mc_bl,
+        allow_data_driven_reinsertion=True,
+    )
+    data_samples = _filter_samples(
+        all_samples,
+        data_wl,
+        data_bl,
+        allow_data_driven_reinsertion=False,
+    )
     samples_to_remove = {
         "mc": [sample for sample in all_samples if sample not in mc_samples],
         "data": [sample for sample in all_samples if sample not in data_samples],
