@@ -1986,11 +1986,14 @@ def produce_region_plots(
     html_dirs = set()
 
     worker_count = max(int(workers or 1), 1)
-    if worker_count > 1 and len(eligible_variables) > 1:
+    eligible_count = len(eligible_variables)
+    if worker_count > 1 and eligible_count > 1:
         from concurrent.futures import ProcessPoolExecutor
         from itertools import repeat
 
-        with ProcessPoolExecutor(max_workers=worker_count) as executor:
+        max_workers = min(worker_count, eligible_count)
+
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
             results = executor.map(
                 _render_variable,
                 eligible_variables,
