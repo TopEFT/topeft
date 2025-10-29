@@ -37,6 +37,36 @@ import yaml
 with open(topeft_path("params/cr_sr_plots_metadata.yml")) as f:
     _META = yaml.safe_load(f)
 
+
+def _compile_data_driven_prefixes(raw_specs):
+    """Return compiled regex objects for each configured data-driven prefix."""
+
+    matchers = []
+    for spec in raw_specs or ():
+        if spec is None:
+            continue
+        if isinstance(spec, str):
+            value = spec.strip()
+            if not value:
+                continue
+            matchers.append(re.compile(rf"^{re.escape(value)}"))
+        elif isinstance(spec, dict):
+            pattern = spec.get("pattern")
+            prefix = spec.get("prefix")
+            if pattern:
+                matchers.append(re.compile(pattern))
+            elif prefix:
+                matchers.append(re.compile(rf"^{re.escape(prefix)}"))
+        else:
+            raise TypeError(
+                "Unsupported DATA_DRIVEN_PREFIXES entry type '{}'.".format(type(spec).__name__)
+            )
+    return tuple(matchers)
+
+
+DATA_DRIVEN_MATCHERS = _compile_data_driven_prefixes(
+    _META.get("DATA_DRIVEN_PREFIXES", [])
+)
 DATA_ERR_OPS = _META["DATA_ERR_OPS"]
 MC_ERROR_OPS = _META["MC_ERROR_OPS"]
 if isinstance(MC_ERROR_OPS.get("edgecolor"), list):
@@ -1255,10 +1285,10 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         ref_hist = _find_reference_hist_name(dict_of_hists)
         all_samples = yt.get_cat_lables(dict_of_hists, "process", h_name=ref_hist)
 
-    def _filter_samples(all_labels, whitelist, blacklist):
+    def _filter_samples(all_labels, whitelist, blacklist, *, allow_data_driven_reinsertion=False):
         """Return samples that satisfy blacklist rules and multi-token requirements."""
 
-        if len(whitelist) <= 1:
+        if len(whitelist) <= 1 and not allow_data_driven_reinsertion:
             return utils.filter_lst_of_strs(
                 all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
             )
@@ -1276,20 +1306,87 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         # Remove duplicates while preserving ordering to keep predictable filtering.
         must_have_tokens = list(dict.fromkeys(must_have_tokens))
         optional_tokens = list(dict.fromkeys(optional_tokens))
+        optional_token_set = set(optional_tokens)
 
-        filtered = []
-        for label in all_labels:
+        year_token_cache = {}
+
+        def _present_year_tokens(label):
+            cached = year_token_cache.get(label)
+            if cached is not None:
+                return cached
+
+            detected_tokens = {
+                year_token
+                for year_token in YEAR_WHITELIST_OPTIONALS
+                if year_token in label
+            }
+            if len(detected_tokens) <= 1:
+                result = frozenset(detected_tokens)
+                year_token_cache[label] = result
+                return result
+
+            resolved_tokens = set(detected_tokens)
+            for token in list(detected_tokens):
+                for other_token in detected_tokens:
+                    if token == other_token:
+                        continue
+                    if token in other_token:
+                        resolved_tokens.discard(token)
+                        break
+
+            result = frozenset(resolved_tokens)
+            year_token_cache[label] = result
+            return result
+
+        def _label_contains_disallowed_year(present_tokens):
+            if not optional_tokens or not present_tokens:
+                return False
+            return any(token not in optional_token_set for token in present_tokens)
+
+        def _label_passes(label, *, require_optional_tokens):
             if any(token in label for token in blacklist):
-                continue
+                return False
             if must_have_tokens and any(token not in label for token in must_have_tokens):
-                continue
-            if optional_tokens and not any(token in label for token in optional_tokens):
-                continue
-            filtered.append(label)
+                return False
+            present_tokens = _present_year_tokens(label)
+            if _label_contains_disallowed_year(present_tokens):
+                return False
+            if require_optional_tokens and optional_tokens:
+                if not present_tokens.intersection(optional_token_set):
+                    return False
+            return True
+
+        filtered = [
+            label
+            for label in all_labels
+            if _label_passes(label, require_optional_tokens=True)
+        ]
+
+        if allow_data_driven_reinsertion and DATA_DRIVEN_MATCHERS:
+            filtered_set = set(filtered)
+            for label in all_labels:
+                if label in filtered_set:
+                    continue
+                if not any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
+                    continue
+                if not _label_passes(label, require_optional_tokens=False):
+                    continue
+                filtered.append(label)
+                filtered_set.add(label)
         return filtered
 
-    mc_samples = _filter_samples(all_samples, mc_wl, mc_bl)
-    data_samples = _filter_samples(all_samples, data_wl, data_bl)
+    mc_samples = _filter_samples(
+        all_samples,
+        mc_wl,
+        mc_bl,
+        allow_data_driven_reinsertion=True,
+    )
+    data_samples = _filter_samples(
+        all_samples,
+        data_wl,
+        data_bl,
+        allow_data_driven_reinsertion=False,
+    )
     samples_to_remove = {
         "mc": [sample for sample in all_samples if sample not in mc_samples],
         "data": [sample for sample in all_samples if sample not in data_samples],

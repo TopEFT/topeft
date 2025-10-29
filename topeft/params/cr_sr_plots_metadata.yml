@@ -10,6 +10,9 @@ MC_ERROR_OPS:
   facecolor: none
   edgecolor: [0,0,0,0.5]
   linewidth: 0
+DATA_DRIVEN_PREFIXES:
+  - nonprompt
+  - flips
 CR_CHAN_DICT:
   cr_2los_Z:
     - 2los_ee_CRZ_0j
