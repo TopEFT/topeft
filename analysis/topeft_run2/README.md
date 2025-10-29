@@ -82,6 +82,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - The script takes as input a pkl file that should have both data and background MC included.
     - Example usage: `python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2017 2018 -t -u --variables lj0pt ptz`
     - Omitting `--variables` processes every histogram in the input pickle, while providing one or more names limits the run to those histograms.
+    - `--workers N` enables variable-level multiprocessing when `N>1`; each worker process renders a subset of the histograms so large runs can finish faster at the cost of proportional memory usage per worker.
     - Histograms with multiple dense axes (e.g. the `SparseHist`-based `lepton_pt_vs_eta`) are automatically rendered as CMS-style 2D heatmaps, while the 1D rebinning and systematic envelopes quietly skip them. The heatmap canvas now includes a dedicated Data/MC ratio panel so comparisons are available at a glance alongside the nominal MC and data projections.
 
 ### CR/SR plotting CLI quickstart
@@ -91,6 +92,8 @@ The `make_cr_and_sr_plots.py` entry point auto-detects whether the supplied pick
 Two new mutually exclusive switches, `--cr` and `--sr`, allow you to override the auto-detected mode. They are especially useful when the filename contains multiple year or campaign tags that would otherwise confuse the heuristic, or when a generic filename (e.g. `plotsTopEFT.pkl.gz`) is reused for multiple region exports.
 
 Blinding is now governed by a single flag pair: `--unblind` always renders the data layer regardless of the region defaults, and `--blind` hides the data. When neither flag is provided the tool unblinds control-region plots and blinds signal-region plots, matching the standard analysis policy. The resolved region and blinding choice are echoed on start-up for clarity.
+
+Long pickle sweeps can opt into multiprocessing with `--workers N`. When set above one the script fans the variable list out across a `ProcessPoolExecutor` and then aggregates the per-worker statistics before printing the summary counts. Each worker unpickles the histogram dictionary, so memory consumption increases roughly linearly with the worker count—start with a small value (e.g. `--workers 2`) and scale up only if the machine has headroom.
 
 | Entry point | When to use |
 | --- | --- |
@@ -110,6 +113,8 @@ Common invocation patterns (`-y/--year` now accepts multiple tokens for combined
 The `run_plotter.sh` helper script lives alongside `make_cr_and_sr_plots.py` and reproduces the same filename-based auto-detection for control vs. signal regions. After resolving the region it appends the corresponding `--cr` or `--sr` flag before delegating to the Python CLI. When both `CR` and `SR` tokens appear in the filename the wrapper prints a warning and falls back to the control-region defaults unless you pass an explicit override.
 
 Wrapper options match the Python interface so that README guidance applies verbatim. `--variables` accepts the same list of histogram names, and `--blind` / `--unblind` toggle data visibility after the wrapper has selected a region. You can still provide manual `--cr` or `--sr` overrides, and everything after a literal `--` is forwarded untouched to `make_cr_and_sr_plots.py` for less common tweaks.
+
+The wrapper also exposes the new `--workers` flag; the argument is forwarded directly to the Python CLI, so the same memory-usage caveat applies when you request more than one worker.
 
 Example commands:
 
