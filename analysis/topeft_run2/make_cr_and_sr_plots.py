@@ -459,6 +459,14 @@ def _render_variable_category(
                 )
             syst_err_mode = "total" if unblind_flag else True
 
+        def _hist_has_content(hist):
+            hist_view = hist.view(flow=True)
+            values = hist_view.value if hasattr(hist_view, "value") else hist_view
+            finite_mask = np.isfinite(values)
+            if not np.any(finite_mask):
+                return False
+            return np.any(~np.isclose(values[finite_mask], 0.0, atol=1e-12))
+
         if is_sparse2d:
             hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate(
                 "systematic", "nominal"
@@ -466,14 +474,18 @@ def _render_variable_category(
             hist_data_nominal = hist_data_integrated[{"process": sum}].integrate(
                 "systematic", "nominal"
             )
-            if hist_mc_nominal.empty():
-                print(
-                    f"Empty histogram for hist_cat={hist_cat} var_name={var_name}, skipping 2D plot."
+            if not _hist_has_content(hist_mc_nominal):
+                logger.warning(
+                    "Empty histogram for hist_cat=%s var_name=%s, skipping 2D plot.",
+                    hist_cat,
+                    var_name,
                 )
                 return 0, 0, html_dirs
-            if hist_data_nominal.empty():
-                print(
-                    f"Empty data histogram for hist_cat={hist_cat} var_name={var_name}, skipping 2D plot."
+            if not _hist_has_content(hist_data_nominal):
+                logger.warning(
+                    "Empty data histogram for hist_cat=%s var_name=%s, skipping 2D plot.",
+                    hist_cat,
+                    var_name,
                 )
                 return 0, 0, html_dirs
             fig = make_sparse2d_fig(
@@ -496,11 +508,19 @@ def _render_variable_category(
             hist_data_integrated = hist_data_integrated.integrate(
                 "systematic", "nominal"
             )
-            if hist_mc_integrated.empty():
-                print(f"Empty {hist_mc_integrated=}")
+            if not _hist_has_content(hist_mc_integrated):
+                logger.warning(
+                    "Empty histogram for hist_cat=%s var_name=%s, skipping plot.",
+                    hist_cat,
+                    var_name,
+                )
                 return 0, 0, html_dirs
-            if hist_data_integrated.empty():
-                print(f"Empty {hist_data_integrated=}")
+            if not _hist_has_content(hist_data_integrated):
+                logger.warning(
+                    "Empty data histogram for hist_cat=%s var_name=%s, skipping plot.",
+                    hist_cat,
+                    var_name,
+                )
                 return 0, 0, html_dirs
             x_range = (0, 250) if var_name == "ht" else None
             group = {k: v for k, v in region_ctx.group_map.items() if v}
