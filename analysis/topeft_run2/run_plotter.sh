@@ -25,6 +25,7 @@ Optional arguments:
   -s, --skip-syst           Skip systematic error bands
   -u, --unit-norm           Enable unit-normalized plotting
       --variables VAR [VAR...]  Limit plotting to the listed histogram variables
+      --workers N          Number of worker processes for variable-level plotting (default: 1; higher values use more memory)
       --cr | --sr           Override the auto-detected region
       --blind | --unblind   Force blinding or unblinding regardless of region
       --dry-run             Print the resolved command without executing it
@@ -49,6 +50,7 @@ unit_norm=0
 region_override=""
 blind_override=""
 declare -a variables=()
+workers=1
 dry_run=0
 
 # Collect positional passthrough arguments after '--'.
@@ -158,6 +160,14 @@ while [[ $# -gt 0 ]]; do
                         ;;
                 esac
             done
+            ;;
+        --workers)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: Missing value for --workers" >&2
+                exit 1
+            fi
+            workers="$2"
+            shift 2
             ;;
         --dry-run)
             dry_run=1
@@ -282,6 +292,10 @@ if (( ${#variables[@]} > 0 )); then
     echo "Selected variables: ${variables[*]}"
 fi
 
+if [[ -n "${workers}" && "${workers}" != "1" ]]; then
+    echo "Worker processes: ${workers}"
+fi
+
 mkdir -p "${output_dir}"
 
 cmd=("${PYTHON_BIN}" "${PLOTTER_SCRIPT}" "-f" "${input_path}" "-o" "${output_dir}")
@@ -316,6 +330,7 @@ if (( ${#variables[@]} > 0 )); then
     cmd+=("--variables")
     cmd+=("${variables[@]}")
 fi
+cmd+=("--workers" "${workers}")
 if (( ${#extra_args[@]} > 0 )); then
     cmd+=("--")
     cmd+=("${extra_args[@]}")
