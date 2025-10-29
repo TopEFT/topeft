@@ -82,7 +82,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - The script takes as input a pkl file that should have both data and background MC included.
     - Example usage: `python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2017 2018 -t -u --variables lj0pt ptz`
     - Omitting `--variables` processes every histogram in the input pickle, while providing one or more names limits the run to those histograms.
-    - `--workers N` enables variable-level multiprocessing when `N>1`; each worker process renders a subset of the histograms so large runs can finish faster at the cost of proportional memory usage per worker.
+    - `--workers N` enables variable-level multiprocessing when `N>1`; each worker process renders a subset of the histograms so large runs can finish faster at the cost of proportional memory usage per worker. The CLI automatically caps the worker pool to the number of eligible variables so that no extra processes sit idle.
     - Histograms with multiple dense axes (e.g. the `SparseHist`-based `lepton_pt_vs_eta`) are automatically rendered as CMS-style 2D heatmaps, while the 1D rebinning and systematic envelopes quietly skip them. The heatmap canvas now includes a dedicated Data/MC ratio panel so comparisons are available at a glance alongside the nominal MC and data projections.
 
 ### CR/SR plotting CLI quickstart
