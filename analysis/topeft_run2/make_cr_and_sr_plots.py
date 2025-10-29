@@ -5,6 +5,7 @@ import datetime
 import argparse
 import re
 from collections import OrderedDict
+from collections.abc import Mapping
 import logging
 from decimal import Decimal
 import inspect
@@ -461,11 +462,33 @@ def _render_variable_category(
 
         def _hist_has_content(hist):
             hist_view = hist.view(flow=True)
-            values = hist_view.value if hasattr(hist_view, "value") else hist_view
-            finite_mask = np.isfinite(values)
-            if not np.any(finite_mask):
-                return False
-            return np.any(~np.isclose(values[finite_mask], 0.0, atol=1e-12))
+
+            def _collect_arrays(view):
+                if isinstance(view, Mapping):
+                    arrays = []
+                    for subview in view.values():
+                        arrays.extend(_collect_arrays(subview))
+                    return arrays
+                data = view.value if hasattr(view, "value") else view
+                try:
+                    arr = np.asarray(data, dtype=float)
+                except (TypeError, ValueError):
+                    try:
+                        arr = np.asarray(data)
+                    except (TypeError, ValueError):
+                        return []
+                return [arr]
+
+            for values in _collect_arrays(hist_view):
+                try:
+                    finite_mask = np.isfinite(values)
+                except (TypeError, ValueError):
+                    continue
+                if not np.any(finite_mask):
+                    continue
+                if np.any(~np.isclose(values[finite_mask], 0.0, atol=1e-12)):
+                    return True
+            return False
 
         if is_sparse2d:
             hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate(
