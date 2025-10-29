@@ -8,6 +8,8 @@ from collections import OrderedDict
 import logging
 from decimal import Decimal
 import inspect
+import math
+import warnings
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -2720,16 +2722,26 @@ def make_region_stacked_ratio_fig(
                 filtered[label] = handle
         if filtered:
             max_rows = 3
-            n_entries = len(filtered)
-            ncol = max(1, (n_entries + max_rows - 1) // max_rows)
+            ncol = 5
+            entries = list(filtered.items())
+            nrows = math.ceil(len(entries) / ncol)
+            if nrows > max_rows:
+                warnings.warn(
+                    "Legend contains more than 15 entries; truncating to fit a 5x3 layout.",
+                    RuntimeWarning,
+                )
+                entries = entries[: ncol * max_rows]
+                nrows = max_rows
             legend = fig.legend(
-                list(filtered.values()),
-                list(filtered.keys()),
+                [handle for _, handle in entries],
+                [label for label, _ in entries],
                 loc='upper center',
                 bbox_to_anchor=(0.5, 1.0),
-                borderaxespad=0.0,
+                borderaxespad=0.15,
                 ncol=ncol,
                 fontsize=16,
+                columnspacing=0.8,
+                handletextpad=0.6,
             )
     if main_band_handles:
         unc_handles, unc_labels = zip(*main_band_handles)
