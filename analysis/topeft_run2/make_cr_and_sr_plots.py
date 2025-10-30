@@ -1100,13 +1100,10 @@ def _draw_stacked_panel(
     log_y_baseline = None
     if log_scale_requested and plot_arrays:
         totals_for_plot = np.sum(plot_arrays, axis=0)
+        positive_totals = totals_for_plot[totals_for_plot > 0]
+        epsilon = max(np.min(positive_totals) * 0.01, 1e-6) if positive_totals.size else 1e-6
         nonpositive_mask = totals_for_plot <= 0
         if np.any(nonpositive_mask):
-            positive_totals = totals_for_plot[totals_for_plot > 0]
-            if positive_totals.size:
-                epsilon = max(np.min(positive_totals) * 0.01, 1e-6)
-            else:
-                epsilon = 1e-6
             warnings.warn(
                 "Stacked MC totals for '%s' contain non-positive bins; "
                 "lifting them slightly to enable log scaling." % var,
@@ -1122,6 +1119,8 @@ def _draw_stacked_panel(
                     )
             totals_for_plot = np.sum(plot_arrays, axis=0)
         positive_totals = totals_for_plot[totals_for_plot > 0]
+        if positive_totals.size:
+            epsilon = max(np.min(positive_totals) * 0.01, epsilon)
         if positive_totals.size == 0:
             logger.warning(
                 "Unable to apply log scaling to '%s' stacked panel: no positive MC totals remain after adjustment.",
@@ -1130,9 +1129,64 @@ def _draw_stacked_panel(
             log_scale_requested = False
             plot_arrays = [arr.copy() for arr in stacked_arrays]
         else:
-            ax.set_yscale("log")
-            min_positive = np.min(positive_totals)
-            log_y_baseline = max(min_positive * 0.5, 1e-6)
+            stacked_matrix = np.array(plot_arrays, dtype=float)
+            divisor = max(stacked_matrix.shape[0], 1)
+            per_group_floor = epsilon / divisor
+            for idx in range(stacked_matrix.shape[1]):
+                column = stacked_matrix[:, idx]
+                neg_mask = column <= 0
+                if not np.any(neg_mask):
+                    continue
+                pos_mask = column > 0
+                if not np.any(pos_mask):
+                    logger.warning(
+                        "Unable to apply log scaling to '%s' stacked panel: bin %d has no positive MC contributions after adjustment.",
+                        var,
+                        idx,
+                    )
+                    log_scale_requested = False
+                    break
+                lifted_negatives = np.full(np.count_nonzero(neg_mask), per_group_floor)
+                difference = np.sum(lifted_negatives - column[neg_mask])
+                positive_sum = np.sum(column[pos_mask])
+                if positive_sum <= difference:
+                    logger.warning(
+                        "Unable to apply log scaling to '%s' stacked panel: insufficient positive yield to offset negative contributions in bin %d.",
+                        var,
+                        idx,
+                    )
+                    log_scale_requested = False
+                    break
+                scale = (positive_sum - difference) / positive_sum
+                adjusted_column = column.copy()
+                adjusted_column[neg_mask] = per_group_floor
+                adjusted_column[pos_mask] = column[pos_mask] * scale
+                if np.any(adjusted_column[pos_mask] <= 0):
+                    logger.warning(
+                        "Unable to apply log scaling to '%s' stacked panel: rescaled positive contributions became non-positive in bin %d.",
+                        var,
+                        idx,
+                    )
+                    log_scale_requested = False
+                    break
+                stacked_matrix[:, idx] = adjusted_column
+            if log_scale_requested:
+                plot_arrays = [stacked_matrix[i, :] for i in range(stacked_matrix.shape[0])]
+                totals_after_adjustment = np.sum(stacked_matrix, axis=0)
+                positive_totals_after = totals_after_adjustment[totals_after_adjustment > 0]
+                if positive_totals_after.size == 0:
+                    logger.warning(
+                        "Unable to apply log scaling to '%s' stacked panel: adjustments removed all positive totals.",
+                        var,
+                    )
+                    log_scale_requested = False
+                    plot_arrays = [arr.copy() for arr in stacked_arrays]
+                else:
+                    ax.set_yscale("log")
+                    min_positive = np.min(positive_totals_after)
+                    log_y_baseline = max(min_positive * 0.5, 1e-6)
+            if not log_scale_requested:
+                plot_arrays = [arr.copy() for arr in stacked_arrays]
     elif log_scale_requested and not plot_arrays:
         logger.warning(
             "Requested log scaling for '%s' but no MC groups were available; falling back to linear scale.",
