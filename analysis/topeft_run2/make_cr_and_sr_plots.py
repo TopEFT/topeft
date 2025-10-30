@@ -1197,9 +1197,10 @@ def _draw_stacked_panel(
         )
         log_scale_requested = False
 
-    if log_scale_requested and not log_axis_enabled and plot_arrays:
+    if log_scale_requested and plot_arrays:
         log_axis_enabled = True
-        adjusted_mc_totals = np.sum(plot_arrays, axis=0)
+        if adjusted_mc_totals is None:
+            adjusted_mc_totals = np.sum(plot_arrays, axis=0)
 
     if log_axis_enabled:
         ax.set_yscale("log")
