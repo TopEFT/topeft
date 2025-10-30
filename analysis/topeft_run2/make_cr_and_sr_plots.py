@@ -223,6 +223,7 @@ def _initialize_render_worker(
     skip_syst_errs,
     unit_norm_bool,
     unblind_flag,
+    stacked_log_y,
     verbose,
 ):
     """Store shared plotting context inside a worker process."""
@@ -234,6 +235,7 @@ def _initialize_render_worker(
         "skip_syst_errs": skip_syst_errs,
         "unit_norm_bool": unit_norm_bool,
         "unblind_flag": unblind_flag,
+        "stacked_log_y": stacked_log_y,
         "verbose": bool(verbose),
     }
 
@@ -258,6 +260,7 @@ def _render_variable_from_worker(task_id, payload):
         ctx["save_dir_path"],
         ctx["skip_syst_errs"],
         ctx["unit_norm_bool"],
+        ctx["stacked_log_y"],
         ctx["unblind_flag"],
         verbose=ctx.get("verbose", False),
         category=category,
@@ -271,6 +274,7 @@ def _render_variable(
     save_dir_path,
     skip_syst_errs,
     unit_norm_bool,
+    stacked_log_y,
     unblind_flag,
     *,
     verbose=False,
@@ -363,6 +367,7 @@ def _render_variable(
             save_dir_path=save_dir_path,
             skip_syst_errs=skip_syst_errs,
             unit_norm_bool=unit_norm_bool,
+            stacked_log_y=stacked_log_y,
             unblind_flag=unblind_flag,
             verbose=verbose,
         )
@@ -387,6 +392,7 @@ def _render_variable_category(
     save_dir_path,
     skip_syst_errs,
     unit_norm_bool,
+    stacked_log_y,
     unblind_flag,
     verbose=False,
 ):
@@ -592,6 +598,7 @@ def _render_variable_category(
                 "err_ratio_m_syst": m_err_arr_ratio,
                 "unblind": unblind_flag,
                 "set_x_lim": x_range,
+                "log_scale": stacked_log_y,
             }
             bins_override = region_ctx.analysis_bins.get(var_name)
             if bins_override is not None:
@@ -757,6 +764,7 @@ def _render_variable_category(
             "err_ratio_p_syst": err_ratio_p_syst,
             "err_ratio_m_syst": err_ratio_m_syst,
             "unblind": unblind_flag,
+            "log_scale": stacked_log_y,
         }
         bins_to_use = bins_override if bins_override is not None else default_bins
         if bins_to_use is not None:
@@ -1026,6 +1034,8 @@ def _draw_stacked_panel(
     h_mc_sumw2,
     mc_scaled,
     mc_norm_factor,
+    *,
+    log_scale=False,
 ):
     """Render the stacked MC panel and ratio subplot, returning figure objects and MC summaries."""
 
@@ -1050,6 +1060,8 @@ def _draw_stacked_panel(
         return grouped_values
 
     mc_vals = _get_grouped_vals(h_mc, grouping)
+    stacked_arrays = [np.asarray(values, dtype=float) for values in mc_vals.values()]
+    plot_arrays = [arr.copy() for arr in stacked_arrays]
     mc_sumw2_vals = {}
     if h_mc_sumw2 is not None:
         try:
@@ -1083,8 +1095,53 @@ def _draw_stacked_panel(
 
     bins = h_data[{"process": sum}].as_hist({}).axes[var].edges
     bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2]) * 0.3])
+
+    log_scale_requested = bool(log_scale)
+    log_y_baseline = None
+    if log_scale_requested and plot_arrays:
+        totals_for_plot = np.sum(plot_arrays, axis=0)
+        nonpositive_mask = totals_for_plot <= 0
+        if np.any(nonpositive_mask):
+            positive_totals = totals_for_plot[totals_for_plot > 0]
+            if positive_totals.size:
+                epsilon = max(np.min(positive_totals) * 0.01, 1e-6)
+            else:
+                epsilon = 1e-6
+            warnings.warn(
+                "Stacked MC totals for '%s' contain non-positive bins; "
+                "lifting them slightly to enable log scaling." % var,
+                RuntimeWarning,
+            )
+            divisor = max(len(plot_arrays), 1)
+            for arr in plot_arrays:
+                if arr.size:
+                    arr[nonpositive_mask] = np.where(
+                        arr[nonpositive_mask] > 0,
+                        arr[nonpositive_mask],
+                        epsilon / divisor,
+                    )
+            totals_for_plot = np.sum(plot_arrays, axis=0)
+        positive_totals = totals_for_plot[totals_for_plot > 0]
+        if positive_totals.size == 0:
+            logger.warning(
+                "Unable to apply log scaling to '%s' stacked panel: no positive MC totals remain after adjustment.",
+                var,
+            )
+            log_scale_requested = False
+            plot_arrays = [arr.copy() for arr in stacked_arrays]
+        else:
+            ax.set_yscale("log")
+            min_positive = np.min(positive_totals)
+            log_y_baseline = max(min_positive * 0.5, 1e-6)
+    elif log_scale_requested and not plot_arrays:
+        logger.warning(
+            "Requested log scaling for '%s' but no MC groups were available; falling back to linear scale.",
+            var,
+        )
+        log_scale_requested = False
+
     hep.histplot(
-        list(mc_vals.values()),
+        plot_arrays if plot_arrays else list(mc_vals.values()),
         ax=ax,
         bins=bins,
         stack=True,
@@ -1093,6 +1150,8 @@ def _draw_stacked_panel(
         histtype="fill",
         color=colors,
     )
+    if log_y_baseline is not None:
+        ax.set_ylim(bottom=log_y_baseline)
 
     hep.histplot(
         h_data[{"process": sum}].as_hist({}).values(flow=True)[1:],
@@ -2172,6 +2231,7 @@ def produce_region_plots(
     variables,
     skip_syst_errs,
     unit_norm_bool,
+    stacked_log_y,
     unblind=None,
     *,
     workers=1,
@@ -2283,6 +2343,7 @@ def produce_region_plots(
                 save_dir_path,
                 skip_syst_errs,
                 unit_norm_bool,
+                stacked_log_y,
                 unblind_flag,
                 verbose,
             ),
@@ -2312,6 +2373,7 @@ def produce_region_plots(
                 save_dir_path,
                 skip_syst_errs,
                 unit_norm_bool,
+                stacked_log_y,
                 unblind_flag,
                 verbose=verbose,
                 category=hist_cat,
@@ -2951,6 +3013,7 @@ def make_region_stacked_ratio_fig(
     err_m_syst=None,
     err_ratio_p_syst=None,
     err_ratio_m_syst=None,
+    log_scale=False,
     unblind=False,
 ):
     if bins is None:
@@ -3042,6 +3105,7 @@ def make_region_stacked_ratio_fig(
         h_mc_sumw2,
         mc_scaled,
         mc_norm_factor,
+        log_scale=log_scale,
     )
 
     fig = panel_info["fig"]
@@ -3298,6 +3362,7 @@ def run_plots_for_region(
     *,
     skip_syst_errs=False,
     unit_norm_bool=False,
+    stacked_log_y=False,
     variables=None,
     unblind=None,
     workers=1,
@@ -3315,6 +3380,7 @@ def run_plots_for_region(
         variables,
         skip_syst_errs,
         unit_norm_bool,
+        stacked_log_y,
         unblind=unblind,
         workers=workers,
         verbose=verbose,
@@ -3336,6 +3402,12 @@ def main():
         help="One or more year tokens to include (e.g. 2017 2018)",
     )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
+    parser.add_argument(
+        "--log-y",
+        dest="log_y",
+        action="store_true",
+        help="Use a logarithmic y-axis for the stacked (upper) panel; the ratio subplot remains linear.",
+    )
     parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip systematic error bands in plots")
     parser.add_argument(
         "--unblind",
@@ -3495,6 +3567,7 @@ def main():
         save_dir_path,
         skip_syst_errs=args.skip_syst,
         unit_norm_bool=unit_norm_bool,
+        stacked_log_y=args.log_y,
         variables=selected_variables,
         unblind=resolved_unblind,
         workers=args.workers,
