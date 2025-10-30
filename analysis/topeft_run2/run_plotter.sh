@@ -24,6 +24,7 @@ Optional arguments:
   -t, --timestamp           Append a timestamp to the output directory name
   -s, --skip-syst           Skip systematic error bands
   -u, --unit-norm           Enable unit-normalized plotting
+      --log-y              Use a logarithmic y-axis for the stacked panel
       --variables VAR [VAR...]  Limit plotting to the listed histogram variables
       --workers N          Number of worker processes for parallel plotting (default: 1; start with 2-4; higher values use more memory)
   -v, --verbose            Forward --verbose to enable detailed diagnostics
@@ -49,6 +50,7 @@ declare -a years=()
 timestamp_tag=0
 skip_syst=0
 unit_norm=0
+log_y=0
 region_override=""
 blind_override=""
 declare -a variables=()
@@ -125,6 +127,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -u|--unit-norm)
             unit_norm=1
+            shift
+            ;;
+        --log-y)
+            log_y=1
             shift
             ;;
         --cr)
@@ -303,6 +309,10 @@ if (( ${#variables[@]} > 0 )); then
     echo "Selected variables: ${variables[*]}"
 fi
 
+if (( log_y )); then
+    echo "Stacked panel will use a logarithmic y-axis."
+fi
+
 if [[ -n "${workers}" && "${workers}" != "1" ]]; then
     echo "Worker processes: ${workers}"
 fi
@@ -335,6 +345,9 @@ if (( skip_syst )); then
 fi
 if (( unit_norm )); then
     cmd+=("-u")
+fi
+if (( log_y )); then
+    cmd+=("--log-y")
 fi
 if [[ "${resolved_region}" == "CR" ]]; then
     cmd+=("--cr")
