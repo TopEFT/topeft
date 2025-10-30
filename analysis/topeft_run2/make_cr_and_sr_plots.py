@@ -1081,9 +1081,12 @@ def _draw_stacked_panel(
     ratio_yerr_flow = _safe_divide(np.sqrt(data_vals_flow), data_vals_flow, default=0.0)
     ratio_yerr_flow[mc_vals_flow == 0] = np.nan
 
+    ratio_vals = ratio_vals_flow[1:]
+    ratio_yerr = ratio_yerr_flow[1:]
+
     hep.histplot(
-        ratio_vals_flow[1:],
-        yerr=ratio_yerr_flow[1:],
+        ratio_vals,
+        yerr=ratio_yerr,
         ax=rax,
         bins=bins,
         stack=False,
@@ -1102,6 +1105,8 @@ def _draw_stacked_panel(
         "cms_label": cms_label,
         "mc_sumw2_vals": mc_sumw2_vals,
         "mc_totals": mc_totals,
+        "ratio_values": ratio_vals,
+        "ratio_errors": ratio_yerr,
     }
 
 
@@ -1306,7 +1311,15 @@ def _compute_uncertainty_bands(
             columnspacing=1.0,
         )
 
-    return {"main_band_handles": main_band_handles}
+    return {
+        "main_band_handles": main_band_handles,
+        "ratio_stat_band_up": ratio_stat_band_up,
+        "ratio_stat_band_down": ratio_stat_band_down,
+        "ratio_syst_band_up": ratio_syst_band_up,
+        "ratio_syst_band_down": ratio_syst_band_down,
+        "ratio_total_band_up": ratio_total_band_up,
+        "ratio_total_band_down": ratio_total_band_down,
+    }
 
 
 
@@ -3022,6 +3035,77 @@ def make_region_stacked_ratio_fig(
 
     main_band_handles = band_info.get("main_band_handles", [])
 
+    ratio_arrays = []
+    data_ratio_arrays = []
+
+    ratio_values = panel_info.get("ratio_values")
+    ratio_errors = panel_info.get("ratio_errors")
+    if ratio_values is not None:
+        ratio_arrays.append(np.asarray(ratio_values, dtype=float))
+        data_ratio_arrays.append(np.asarray(ratio_values, dtype=float))
+        if ratio_errors is not None:
+            ratio_lower = np.asarray(ratio_values, dtype=float) - np.asarray(
+                ratio_errors, dtype=float
+            )
+            ratio_upper = np.asarray(ratio_values, dtype=float) + np.asarray(
+                ratio_errors, dtype=float
+            )
+            ratio_arrays.extend([ratio_lower, ratio_upper])
+            data_ratio_arrays.extend([ratio_lower, ratio_upper])
+
+    for key in (
+        "ratio_stat_band_down",
+        "ratio_stat_band_up",
+        "ratio_syst_band_down",
+        "ratio_syst_band_up",
+        "ratio_total_band_down",
+        "ratio_total_band_up",
+    ):
+        arr = band_info.get(key)
+        if arr is not None:
+            ratio_arrays.append(np.asarray(arr, dtype=float))
+
+    default_ratio_limits = (0.5, 1.5)
+    finite_segments = []
+    for arr in ratio_arrays:
+        if arr is None:
+            continue
+        finite_mask = np.isfinite(arr)
+        if np.any(finite_mask):
+            finite_segments.append(arr[finite_mask])
+
+    if finite_segments:
+        combined = np.concatenate(finite_segments)
+        min_val = np.min(combined)
+        max_val = np.max(combined)
+        max_abs_excursion = max(abs(min_val - 1.0), abs(max_val - 1.0))
+        clipped_excursion = min(max_abs_excursion, 3.0)
+        if clipped_excursion > 0:
+            ratio_limits = (1.0 - clipped_excursion, 1.0 + clipped_excursion)
+        else:
+            ratio_limits = default_ratio_limits
+    else:
+        ratio_limits = default_ratio_limits
+
+    data_finite_segments = []
+    for arr in data_ratio_arrays:
+        if arr is None:
+            continue
+        finite_mask = np.isfinite(arr)
+        if np.any(finite_mask):
+            data_finite_segments.append(arr[finite_mask])
+
+    if data_finite_segments:
+        data_combined = np.concatenate(data_finite_segments)
+        data_min = np.min(data_combined)
+        data_max = np.max(data_combined)
+        cap_low, cap_high = 1.0 - 3.0, 1.0 + 3.0
+        if data_min < cap_low or data_max > cap_high:
+            warnings.warn(
+                "Ratio data exceed the ±3.0 cap; values outside the plotted range will be clipped.",
+                RuntimeWarning,
+            )
+
     ax.autoscale(axis='y')
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
@@ -3032,7 +3116,7 @@ def make_region_stacked_ratio_fig(
     ax.yaxis.offsetText.set_fontsize(18)
 
     rax.set_ylabel('Ratio', loc='center', fontsize=18)
-    rax.set_ylim(0.5,1.5)
+    rax.set_ylim(*ratio_limits)
     rax.tick_params(axis='both', labelsize=18, width=1.5, length=6)
 
     fig.canvas.draw()
