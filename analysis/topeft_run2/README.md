@@ -97,6 +97,8 @@ Blinding is now governed by a single flag pair: `--unblind` always renders the d
 
 Long pickle sweeps can opt into multiprocessing with `--workers N`. When set above one the script fans the variable list out across a `ProcessPoolExecutor`, pre-creates the output directories, and aggregates the per-worker statistics before printing the summary counts. If idle slots remain, the work queue expands to `(variable, category)` pairs so that categories render in parallel. Each worker unpickles the histogram dictionary, so memory consumption increases roughly linearly with the worker count—start with a small value (e.g. `--workers 2` or `--workers 4` on machines with plenty of RAM) and scale up only if the host has headroom.
 
+Add `--log-y` to either entry point when you need the stacked yields on a logarithmic scale. The plotter automatically rescales bins with zero or negative MC content so the log axis is well-defined while leaving the ratio panel on a linear scale for readability.
+
 Console verbosity is now controlled by mutually exclusive `--verbose` and `--quiet` switches. Quiet mode remains the default and prints only high-level progress (region resolution, worker counts, summary statistics). Add `--verbose` to include the per-variable headings, sample inventories, and channel lists that previously flooded the terminal.
 
 | Entry point | When to use |
@@ -129,6 +131,7 @@ Example commands:
 * Combining Run-3 campaigns in one call: `./run_plotter.sh -f histos/CR2022_combo.pkl.gz -o ~/www/cr_run3 -y 2022 2022EE 2023 2023BPix`
 * Enforcing a blinded SR pass with specific variables: `./run_plotter.sh -f histos/plotsTopEFT.pkl.gz -o ~/www/sr -n sr_scan --sr --blind --variables lj0pt ptz`
 * Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 --unblind -- --do-errors`
+* Switching the stacked panel to a log scale via the wrapper: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots --log-y`
 
 * `get_yield_json.py`:
     - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.

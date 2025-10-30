@@ -1203,7 +1203,7 @@ def _draw_stacked_panel(
             adjusted_mc_totals = np.sum(plot_arrays, axis=0)
 
     if log_axis_enabled:
-        ax.set_yscale("log")
+        ax.set_yscale("log", nonpositive="clip")
 
     hep.histplot(
         plot_arrays if plot_arrays else list(mc_vals.values()),
