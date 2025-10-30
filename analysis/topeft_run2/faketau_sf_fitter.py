@@ -933,20 +933,11 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
 
-    # print("\n\n\n\n\n")
-    # print("all samples = ", all_samples)
-    # print("mc samples = ", mc_sample_lst)
-    # print("data samples = ", data_sample_lst)
-
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
-
-    # print("samples to rm from mc hist = ", samples_to_rm_from_mc_hist)
-    # print("samples to rm from data hist = ", samples_to_rm_from_data_hist)
-    # print("\n\n\n\n\n")
 
     var_name = "tau0pt"
     tau_hist = dict_of_hists[var_name]
@@ -992,11 +983,6 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
                 f"{var_name}_sumw2",
             )
 
-    # print("AFTER: tau_hist axes = ", [ax.name for ax in tau_hist.axes])
-    # for ax in tau_hist.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\n\n\n\n\n")
-
     hist_mc = tau_hist.remove("process",samples_to_rm_from_mc_hist)
     hist_data = tau_hist.remove("process",samples_to_rm_from_data_hist)
 
@@ -1006,14 +992,6 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     else:
         hist_mc_sumw2 = None
         hist_data_sumw2 = None
-
-    # print("AFTERREMOVAL\nhist_mc axes = ", [ax.name for ax in hist_mc.axes])
-    # for ax in hist_mc.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\nhist_data axes = ", [ax.name for ax in hist_data.axes])
-    # for ax in hist_data.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\n\n\n\n\n")
 
     # Integrate to get the categories we want
     mc_fake     = hist_mc.integrate("channel", ftau_channels)[{"channel": sum}]
@@ -1034,20 +1012,6 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     else:
         data_fake_sumw2 = None
         data_tight_sumw2 = None
-
-    # print("AFTERINTEGRATE\nmc_fake axes = ", [ax.name for ax in mc_fake.axes])
-    # for ax in mc_fake.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\nmc_tight axes = ", [ax.name for ax in mc_tight.axes])
-    # for ax in mc_tight.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\ndata_fake axes = ", [ax.name for ax in data_fake.axes])
-    # for ax in data_fake.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\ndata_tight axes = ", [ax.name for ax in data_tight.axes])
-    # for ax in data_tight.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\n\n\n\n\n")
 
     # Build fresh grouping maps derived from the current histogram contents so we only
     # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
@@ -1072,9 +1036,6 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
             process_name = str(process)
             if process_name.startswith("data"):
                 _append_process(data_group_map["Data"], process_name)
-
-    # print("mc_group_map = ", mc_group_map)
-    # print("data_group_map = ", data_group_map)
 
     mc_fake     = group_bins(mc_fake,mc_group_map,"process",drop_unspecified=True)
     mc_tight    = group_bins(mc_tight,mc_group_map,"process",drop_unspecified=True)

@@ -345,6 +345,7 @@ def _render_variable(
     hist_mc = histo.remove("process", region_ctx.samples_to_remove["mc"])
     hist_data = histo.remove("process", region_ctx.samples_to_remove["data"])
     hist_mc_sumw2_orig = region_ctx.sumw2_hists.get(var_name)
+
     if hist_mc_sumw2_orig is not None:
         hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
             "process", region_ctx.samples_to_remove["mc"]

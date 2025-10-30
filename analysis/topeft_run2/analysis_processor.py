@@ -1420,7 +1420,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             for dense_axis_name, dense_axis_vals in varnames.items():
                 fill_base_hist = dense_axis_name in self._hist_lst
-                fill_sumw2_hist = (dense_axis_name+"_sumw2") in self._hist_lst
+                fill_sumw2_hist = dense_axis_name in self._hist_lst
                 if not (fill_base_hist or fill_sumw2_hist):
                     continue
 
@@ -1615,15 +1615,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             }
                                             if self._hist_requires_eft.get(dense_axis_name, False):
                                                 axes_fill_info_dict["eft_coeff"] = eft_coeffs_cut
-
-                                            # print("\n\n\n\n\n\n\n")
-                                            # print(f"Filling hist {dense_axis_name} for process {histAxisName}, channel {ch_name}, appl {appl}, systematic {wgt_fluct}, n events {len(axes_fill_info_dict['weight'])}")
-                                            # print(axes_fill_info_dict)
-                                            
                                             hout[dense_axis_name].fill(**axes_fill_info_dict)
-                                            
-                                            # print("Done\n\n\n\n\n\n\n\n\n\n\n\n")
-                                        
+                                                                                    
                                         if fill_sumw2_hist:
                                             sumw2_fill_info = {
                                                 **sumw2_values_cut_map,
