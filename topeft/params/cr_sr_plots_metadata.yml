@@ -409,6 +409,60 @@ PROC_WITHOUT_PDF_RATE_SYST:
   - Triboson
   - tWZ
   - convs
+STACKED_RATIO_STYLE:
+  defaults:
+    figure:
+      figsize: [10, 8]
+      height_ratios: [4, 1]
+      hspace: 0.07
+    cms:
+      fontsize: 18.0
+      overlap_margin: 0.01
+    axes:
+      label_fontsize: 18
+      tick_labelsize: 18
+      ratio_tick_labelsize: 18
+      tick_width: 1.5
+      tick_length: 6
+      y_offset: -0.07
+      offset_fontsize: 18
+      ratio_label: "Ratio"
+      ratio_label_fontsize: 18
+      ratio_label_margin: 0.002
+      ticklabel_format:
+        style: scientific
+        scilimits: [0, 6]
+        useMathText: true
+      overflow_label: ">500"
+      apply_secondary_ticks:
+        x: true
+        y: true
+    legend:
+      ncol: 5
+      max_rows: 3
+      fontsize: 16
+      columnspacing: 0.8
+      handletextpad: 0.6
+      loc: upper center
+      bbox_to_anchor: [0.5, 1.0]
+      borderaxespad: 0.15
+      top_margin_min: 0.01
+      top_margin_scale: 0.25
+      overlap_margin: 0.01
+    uncertainty_legend:
+      loc: upper right
+      bbox_to_anchor: [0.98, 0.98]
+      fontsize: 10
+      ncol: 2
+      columnspacing: 1.0
+      frameon: false
+    ratio_band_legend:
+      loc: upper left
+      fontsize: 10
+      frameon: false
+      ncol: 2
+      columnspacing: 1.0
+  per_region: {}
 REGION_PLOTTING:
   CR:
     variable_label: "Var name"
