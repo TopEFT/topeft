@@ -2397,8 +2397,8 @@ def produce_region_plots(
                 save_dir_path,
                 skip_syst_errs,
                 unit_norm_bool,
-                stacked_log_y,
                 unblind_flag,
+                stacked_log_y,
                 verbose,
             ),
         ) as executor:
