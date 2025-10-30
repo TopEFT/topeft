@@ -14,6 +14,7 @@ import warnings
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 from matplotlib.ticker import FixedFormatter, FixedLocator
 from cycler import cycler
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -3203,6 +3204,7 @@ def make_region_stacked_ratio_fig(
     mc_totals = panel_info["mc_totals"]
     adjusted_mc_totals = panel_info.get("adjusted_mc_totals")
     log_axis_enabled = panel_info.get("log_axis_enabled", False)
+    use_log_y = log_axis_enabled
     log_y_baseline = panel_info.get("log_y_baseline")
 
     band_info = _compute_uncertainty_bands(
@@ -3302,7 +3304,10 @@ def make_region_stacked_ratio_fig(
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
     ax.tick_params(axis='both', labelsize=18, width=1.5, length=6)
-    ax.ticklabel_format(axis='y', style='scientific', scilimits=(0,6), useMathText=True)
+    if not use_log_y:
+        ax.ticklabel_format(axis='y', style='scientific', scilimits=(0,6), useMathText=True)
+    else:
+        ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext())
     ax.yaxis.set_offset_position("left")
     ax.yaxis.offsetText.set_x(-0.07)
     ax.yaxis.offsetText.set_fontsize(18)
