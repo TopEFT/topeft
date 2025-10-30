@@ -1255,11 +1255,7 @@ def _draw_stacked_panel(
         **DATA_ERR_OPS,
     )
 
-    mc_totals = (
-        adjusted_mc_totals
-        if adjusted_mc_totals is not None
-        else h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
-    )
+    mc_totals = h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
 
     return {
         "fig": fig,
@@ -1269,6 +1265,9 @@ def _draw_stacked_panel(
         "cms_label": cms_label,
         "mc_sumw2_vals": mc_sumw2_vals,
         "mc_totals": mc_totals,
+        "adjusted_mc_totals": adjusted_mc_totals,
+        "log_axis_enabled": log_axis_enabled,
+        "log_y_baseline": log_y_baseline,
         "ratio_values": ratio_vals,
         "ratio_errors": ratio_yerr,
     }
@@ -1289,6 +1288,10 @@ def _compute_uncertainty_bands(
     err_ratio_p_syst,
     err_ratio_m_syst,
     syst_err,
+    *,
+    display_mc_totals=None,
+    log_axis_enabled=False,
+    log_y_baseline=None,
 ):
     """Compute and draw statistical/systematic uncertainty bands for the stacked plot."""
 
@@ -1388,12 +1391,26 @@ def _compute_uncertainty_bands(
     ratio_band_handles = []
     main_band_handles = []
 
+    if display_mc_totals is None:
+        display_mc_totals = mc_totals
+
+    display_mc_totals_appended = _append_last(display_mc_totals)
+
+    def _ensure_log_safe(arr):
+        if arr is None or not log_axis_enabled:
+            return arr
+        baseline = log_y_baseline if log_y_baseline is not None else 1e-6
+        safe = np.asarray(arr, dtype=float)
+        safe = np.clip(safe, a_min=baseline, a_max=None)
+        reference = np.clip(display_mc_totals_appended, a_min=baseline, a_max=None)
+        return np.maximum(safe, reference)
+
     if band_mode == "syst" and has_syst_arrays:
         if mc_syst_band_up is not None and mc_syst_band_down is not None:
             ax.fill_between(
                 bins,
-                mc_syst_band_down,
-                mc_syst_band_up,
+                _ensure_log_safe(mc_syst_band_down),
+                _ensure_log_safe(mc_syst_band_up),
                 step="post",
                 facecolor="none",
                 edgecolor="gray",
@@ -1416,8 +1433,8 @@ def _compute_uncertainty_bands(
         if mc_stat_band_up is not None and mc_stat_band_down is not None:
             stat_handle_main = ax.fill_between(
                 bins,
-                mc_stat_band_down,
-                mc_stat_band_up,
+                _ensure_log_safe(mc_stat_band_down),
+                _ensure_log_safe(mc_stat_band_up),
                 step="post",
                 facecolor="gray",
                 alpha=0.3,
@@ -1443,8 +1460,8 @@ def _compute_uncertainty_bands(
             if mc_total_band_up is not None and mc_total_band_down is not None:
                 total_handle_main = ax.fill_between(
                     bins,
-                    mc_total_band_down,
-                    mc_total_band_up,
+                    _ensure_log_safe(mc_total_band_down),
+                    _ensure_log_safe(mc_total_band_up),
                     step="post",
                     facecolor="none",
                     edgecolor="gray",
@@ -3184,6 +3201,9 @@ def make_region_stacked_ratio_fig(
     cms_label = panel_info["cms_label"]
     mc_sumw2_vals = panel_info["mc_sumw2_vals"]
     mc_totals = panel_info["mc_totals"]
+    adjusted_mc_totals = panel_info.get("adjusted_mc_totals")
+    log_axis_enabled = panel_info.get("log_axis_enabled", False)
+    log_y_baseline = panel_info.get("log_y_baseline")
 
     band_info = _compute_uncertainty_bands(
         ax,
@@ -3200,6 +3220,9 @@ def make_region_stacked_ratio_fig(
         err_ratio_p_syst,
         err_ratio_m_syst,
         syst_err,
+        display_mc_totals=adjusted_mc_totals,
+        log_axis_enabled=log_axis_enabled,
+        log_y_baseline=log_y_baseline,
     )
 
     main_band_handles = band_info.get("main_band_handles", [])
