@@ -339,7 +339,7 @@ def _ensure_dense_histogram(histogram):
     return working_hist
 
 
-def _extract_tau_counts(histogram, expected_bins, variances_override=None):
+def _extract_tau_counts(histogram, expected_bins, sumw2_input=None):
     """Evaluate tau yields and variances, keeping only the SM quadratic term."""
 
     working_hist = _ensure_dense_histogram(histogram)
@@ -355,9 +355,26 @@ def _extract_tau_counts(histogram, expected_bins, variances_override=None):
     if "quadratic_term" in axis_names:
         values = _collapse_quadratic_axis(values, working_hist, axis_names)
 
-    if variances_override is not None:
-        variances = np.asarray(variances_override, dtype=float)
-    else:
+    variances = None
+
+    if sumw2_input is not None:
+        if isinstance(sumw2_input, (np.ndarray, list, tuple)):
+            variances = np.asarray(sumw2_input, dtype=float)
+        else:
+            sumw2_hist = _ensure_dense_histogram(sumw2_input)
+            if sumw2_hist is not None:
+                sumw2_axis_names = tuple(
+                    getattr(axis, "name", None) for axis in getattr(sumw2_hist, "axes", ())
+                )
+                variances = np.asarray(sumw2_hist.values(flow=True), dtype=float)
+                if "quadratic_term" in sumw2_axis_names:
+                    variances = _collapse_quadratic_axis(
+                        variances,
+                        sumw2_hist,
+                        sumw2_axis_names,
+                    )
+
+    if variances is None:
         variances = working_hist.variances(flow=True)
         if variances is not None:
             variances = np.asarray(variances, dtype=float)
@@ -813,7 +830,16 @@ def _validate_histogram_axes(histogram, expected_axes, hist_name):
     if recognised_axes and not canonical_axes:
         canonical_axes.update(recognised_axes)
 
-    missing_axes = [axis for axis in expected_axes if axis not in canonical_axes]
+    canonical_expected = set()
+    for axis in expected_axes:
+        if isinstance(axis, str):
+            canonical_expected.add(axis)
+            if axis.endswith("_sumw2") and len(axis) > 6:
+                canonical_expected.add(axis[:-6])
+        else:
+            canonical_expected.add(axis)
+
+    missing_axes = [axis for axis in canonical_expected if axis not in canonical_axes]
 
     if missing_axes:
         available = ", ".join(sorted(present_axes)) if present_axes else "<none>"
@@ -843,7 +869,13 @@ def _validate_tau_channel_coverage(
 
     channel_axis = None
     for axis in histogram.axes:
-        if axis.name == channel_axis_name:
+        axis_name = getattr(axis, "name", None)
+        if not axis_name:
+            continue
+        if axis_name == channel_axis_name:
+            channel_axis = axis
+            break
+        if axis_name.endswith("_sumw2") and axis_name[:-6] == channel_axis_name:
             channel_axis = axis
             break
 
@@ -1091,16 +1123,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         proc_sumw2_hist = (
             mc_fake_sumw2[{"process": process}] if mc_fake_sumw2 is not None else None
         )
-        proc_sumw2_vals = None
-        if proc_sumw2_hist is not None:
-            proc_sumw2_vals, _ = _extract_tau_counts(
-                proc_sumw2_hist,
-                expected_bins,
-            )
         proc_vals, proc_vars = _extract_tau_counts(
             proc_hist,
             expected_bins,
-            variances_override=proc_sumw2_vals,
+            sumw2_input=proc_sumw2_hist,
         )
         mc_fake_vals_map[proc_name] = proc_vals
         mc_fake_err_map[proc_name] = _variance_to_errors(proc_vars)
@@ -1111,16 +1137,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         proc_sumw2_hist = (
             mc_tight_sumw2[{"process": process}] if mc_tight_sumw2 is not None else None
         )
-        proc_sumw2_vals = None
-        if proc_sumw2_hist is not None:
-            proc_sumw2_vals, _ = _extract_tau_counts(
-                proc_sumw2_hist,
-                expected_bins,
-            )
         proc_vals, proc_vars = _extract_tau_counts(
             proc_hist,
             expected_bins,
-            variances_override=proc_sumw2_vals,
+            sumw2_input=proc_sumw2_hist,
         )
         mc_tight_vals_map[proc_name] = proc_vals
         mc_tight_err_map[proc_name] = _variance_to_errors(proc_vars)
@@ -1151,16 +1171,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         proc_sumw2_hist = (
             data_fake_sumw2[{"process": process}] if data_fake_sumw2 is not None else None
         )
-        proc_sumw2_vals = None
-        if proc_sumw2_hist is not None:
-            proc_sumw2_vals, _ = _extract_tau_counts(
-                proc_sumw2_hist,
-                expected_bins,
-            )
         proc_vals, proc_vars = _extract_tau_counts(
             proc_hist,
             expected_bins,
-            variances_override=proc_sumw2_vals,
+            sumw2_input=proc_sumw2_hist,
         )
         data_fake_vals_map[proc_name] = proc_vals
         data_fake_err_map[proc_name] = _variance_to_errors(proc_vars)
@@ -1171,16 +1185,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         proc_sumw2_hist = (
             data_tight_sumw2[{"process": process}] if data_tight_sumw2 is not None else None
         )
-        proc_sumw2_vals = None
-        if proc_sumw2_hist is not None:
-            proc_sumw2_vals, _ = _extract_tau_counts(
-                proc_sumw2_hist,
-                expected_bins,
-            )
         proc_vals, proc_vars = _extract_tau_counts(
             proc_hist,
             expected_bins,
-            variances_override=proc_sumw2_vals,
+            sumw2_input=proc_sumw2_hist,
         )
         data_tight_vals_map[proc_name] = proc_vals
         data_tight_err_map[proc_name] = _variance_to_errors(proc_vars)
