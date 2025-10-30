@@ -1098,6 +1098,8 @@ def _draw_stacked_panel(
 
     log_scale_requested = bool(log_scale)
     log_y_baseline = None
+    adjusted_mc_totals = None
+    log_axis_enabled = False
     if log_scale_requested and plot_arrays:
         totals_for_plot = np.sum(plot_arrays, axis=0)
         positive_totals = totals_for_plot[totals_for_plot > 0]
@@ -1182,9 +1184,10 @@ def _draw_stacked_panel(
                     log_scale_requested = False
                     plot_arrays = [arr.copy() for arr in stacked_arrays]
                 else:
-                    ax.set_yscale("log")
                     min_positive = np.min(positive_totals_after)
                     log_y_baseline = max(min_positive * 0.5, 1e-6)
+                    adjusted_mc_totals = totals_after_adjustment
+                    log_axis_enabled = True
             if not log_scale_requested:
                 plot_arrays = [arr.copy() for arr in stacked_arrays]
     elif log_scale_requested and not plot_arrays:
@@ -1193,6 +1196,13 @@ def _draw_stacked_panel(
             var,
         )
         log_scale_requested = False
+
+    if log_scale_requested and not log_axis_enabled and plot_arrays:
+        log_axis_enabled = True
+        adjusted_mc_totals = np.sum(plot_arrays, axis=0)
+
+    if log_axis_enabled:
+        ax.set_yscale("log")
 
     hep.histplot(
         plot_arrays if plot_arrays else list(mc_vals.values()),
@@ -1244,7 +1254,11 @@ def _draw_stacked_panel(
         **DATA_ERR_OPS,
     )
 
-    mc_totals = h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
+    mc_totals = (
+        adjusted_mc_totals
+        if adjusted_mc_totals is not None
+        else h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
+    )
 
     return {
         "fig": fig,
