@@ -53,6 +53,15 @@ LOGGER = logging.getLogger(__name__)
 _TAU_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0pt")
 
 
+class HistogramAxisError(RuntimeError):
+    """Exception raised when a histogram is missing required axes."""
+
+    def __init__(self, message, *, missing_axes=None, present_axes=None):
+        super().__init__(message)
+        self.missing_axes = tuple(missing_axes or ())
+        self.present_axes = tuple(present_axes or ())
+
+
 def _extract_jet_suffix(jet_label):
     jet_digits = "".join(ch for ch in jet_label if ch.isdigit())
     if not jet_digits:
@@ -162,12 +171,23 @@ def _gather_axis_alias_tokens(mapping):
 
 
 def _resolve_histogram_axis_names(histogram):
-    """Return the actual axis names along with recognised aliases."""
+    """Return the actual axis names, recognised aliases, and canonicalised names."""
 
     present_axes = set()
     recognised_axes = set()
+    canonical_axes = set()
 
-    for axis in getattr(histogram, "axes", ()): 
+    alias_mapping = {}
+    metadata = getattr(histogram, "metadata", None)
+    if isinstance(metadata, dict):
+        alias_mapping = metadata.get("_hist_sumw2_axis_mapping") or {}
+        if alias_mapping:
+            recognised_axes.update(_gather_axis_alias_tokens(alias_mapping))
+
+    if not isinstance(alias_mapping, dict):
+        alias_mapping = {}
+
+    for axis in getattr(histogram, "axes", ()):
         axis_name = getattr(axis, "name", None)
         if not axis_name:
             continue
@@ -178,13 +198,21 @@ def _resolve_histogram_axis_names(histogram):
             if base_name:
                 recognised_axes.add(base_name)
 
-    metadata = getattr(histogram, "metadata", None)
-    if isinstance(metadata, dict):
-        alias_mapping = metadata.get("_hist_sumw2_axis_mapping")
-        if alias_mapping:
-            recognised_axes.update(_gather_axis_alias_tokens(alias_mapping))
+        canonical_name = alias_mapping.get(axis_name)
+        if isinstance(canonical_name, str):
+            canonical_axes.add(canonical_name)
+        elif isinstance(canonical_name, (list, tuple, set)):
+            for entry in canonical_name:
+                if isinstance(entry, str):
+                    canonical_axes.add(entry)
 
-    return present_axes, recognised_axes
+        if not canonical_name:
+            if axis_name.endswith("_sumw2") and len(axis_name) > 6:
+                canonical_axes.add(axis_name[:-6])
+            else:
+                canonical_axes.add(axis_name)
+
+    return present_axes, recognised_axes, canonical_axes
 
 def _strip_tau_flow(array, expected_bins):
     """Trim under/overflow entries from a tau histogram projection."""
@@ -780,8 +808,12 @@ def compute_fake_rates(
 def _validate_histogram_axes(histogram, expected_axes, hist_name):
     """Ensure the histogram contains the expected axes for the tau fake-rate workflow."""
 
-    present_axes, recognised_axes = _resolve_histogram_axis_names(histogram)
-    missing_axes = [axis for axis in expected_axes if axis not in recognised_axes]
+    present_axes, recognised_axes, canonical_axes = _resolve_histogram_axis_names(histogram)
+
+    if recognised_axes and not canonical_axes:
+        canonical_axes.update(recognised_axes)
+
+    missing_axes = [axis for axis in expected_axes if axis not in canonical_axes]
 
     if missing_axes:
         available = ", ".join(sorted(present_axes)) if present_axes else "<none>"
@@ -791,7 +823,13 @@ def _validate_histogram_axes(histogram, expected_axes, hist_name):
             "Regenerate the histogram pickle with these axes enabled before running tauFitter."
         )
         LOGGER.error(summary)
-        raise RuntimeError(summary)
+        raise HistogramAxisError(
+            summary,
+            missing_axes=missing_axes,
+            present_axes=sorted(present_axes),
+        )
+
+    return set(canonical_axes)
 
 
 def _validate_tau_channel_coverage(
@@ -882,7 +920,11 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     tau_hist = dict_of_hists[var_name]
     tau_sumw2_hist = dict_of_hists.get(f"{var_name}_sumw2")
 
-    _validate_histogram_axes(tau_hist, _TAU_HISTOGRAM_REQUIRED_AXES, var_name)
+    tau_canonical_axes = _validate_histogram_axes(
+        tau_hist,
+        _TAU_HISTOGRAM_REQUIRED_AXES,
+        var_name,
+    )
     _validate_tau_channel_coverage(
         tau_hist,
         "channel",
@@ -892,18 +934,31 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
     )
 
     if tau_sumw2_hist is not None:
-        _validate_histogram_axes(
-            tau_sumw2_hist,
-            _TAU_HISTOGRAM_REQUIRED_AXES,
-            f"{var_name}_sumw2",
-        )
-        _validate_tau_channel_coverage(
-            tau_sumw2_hist,
-            "channel",
-            ftau_channels,
-            ttau_channels,
-            f"{var_name}_sumw2",
-        )
+        try:
+            _validate_histogram_axes(
+                tau_sumw2_hist,
+                tau_canonical_axes,
+                f"{var_name}_sumw2",
+            )
+        except HistogramAxisError as exc:
+            if set(exc.missing_axes) == {"tau0pt"}:
+                LOGGER.warning(
+                    "The '%s' histogram is missing the '%s' axis; "
+                    "falling back to Poisson counting uncertainties.",
+                    f"{var_name}_sumw2",
+                    "tau0pt",
+                )
+                tau_sumw2_hist = None
+            else:
+                raise
+        else:
+            _validate_tau_channel_coverage(
+                tau_sumw2_hist,
+                "channel",
+                ftau_channels,
+                ttau_channels,
+                f"{var_name}_sumw2",
+            )
 
     # print("AFTER: tau_hist axes = ", [ax.name for ax in tau_hist.axes])
     # for ax in tau_hist.axes:
