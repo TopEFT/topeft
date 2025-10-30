@@ -160,6 +160,42 @@ def _apply_channel_transforms(channel_name, transformations):
     return transformed
 
 
+def _apply_secondary_ticks(ax, axis="x"):
+    """Install evenly spaced secondary ticks between existing major ticks."""
+
+    if axis not in {"x", "y"}:
+        raise ValueError(f"Unsupported axis '{axis}'. Expected 'x' or 'y'.")
+
+    axis_obj = ax.xaxis if axis == "x" else ax.yaxis
+
+    try:
+        major_ticks = np.asarray(axis_obj.get_ticklocs(minor=False), dtype=float)
+    except Exception:
+        return
+
+    if major_ticks.size < 2:
+        return
+
+    unique_ticks = np.unique(major_ticks)
+    if unique_ticks.size < 2:
+        return
+
+    unique_ticks.sort()
+    deltas = np.diff(unique_ticks)
+    valid_mask = deltas > 0
+    if not np.any(valid_mask):
+        return
+
+    minor_ticks = []
+    for start, delta in zip(unique_ticks[:-1][valid_mask], deltas[valid_mask]):
+        step = delta / 5.0
+        minor_ticks.extend(start + step * np.arange(1, 5))
+
+    if not minor_ticks:
+        return
+
+    axis_obj.set_minor_locator(FixedLocator(sorted(minor_ticks)))
+
 
 def _close_figure_payload(fig_payload):
     """Close matplotlib figures contained in *fig_payload*."""
@@ -3126,6 +3162,10 @@ def make_region_stacked_ratio_fig(
         xtick_labels[-1] = '>500'
         rax.xaxis.set_major_locator(FixedLocator(xticks))
         rax.xaxis.set_major_formatter(FixedFormatter(xtick_labels))
+
+    for axis_name in ("x", "y"):
+        _apply_secondary_ticks(ax, axis=axis_name)
+        _apply_secondary_ticks(rax, axis=axis_name)
 
     ax_box = ax.get_position()
     rax_box = rax.get_position()
