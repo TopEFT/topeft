@@ -92,6 +92,7 @@ WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
 LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
 PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
+STACKED_RATIO_STYLE = _META.get("STACKED_RATIO_STYLE", {})
 
 YEAR_TOKEN_RULES = {
     "2016": {
@@ -196,6 +197,44 @@ def _apply_secondary_ticks(ax, axis="x"):
         return
 
     axis_obj.set_minor_locator(FixedLocator(sorted(minor_ticks)))
+
+
+def _merge_mappings(base, updates):
+    if not isinstance(base, dict) or not isinstance(updates, Mapping):
+        return base
+    for key, value in updates.items():
+        if isinstance(value, Mapping):
+            nested = base.get(key)
+            if not isinstance(nested, dict):
+                nested = {}
+            base[key] = _merge_mappings(nested, value)
+        else:
+            base[key] = copy.deepcopy(value)
+    return base
+
+
+def _style_get(style, path, default=None):
+    current = style
+    for key in path:
+        if not isinstance(current, Mapping) or key not in current:
+            return default
+        current = current[key]
+    return current
+
+
+def _resolve_stacked_ratio_style(region_name, overrides=None):
+    style_cfg = STACKED_RATIO_STYLE if isinstance(STACKED_RATIO_STYLE, Mapping) else {}
+    defaults = style_cfg.get("defaults", {})
+    resolved = copy.deepcopy(defaults) if isinstance(defaults, Mapping) else {}
+
+    per_region = style_cfg.get("per_region", {})
+    if isinstance(per_region, Mapping) and region_name in per_region:
+        resolved = _merge_mappings(resolved, per_region[region_name])
+
+    if overrides and isinstance(overrides, Mapping):
+        resolved = _merge_mappings(resolved, overrides)
+
+    return resolved
 
 
 def _close_figure_payload(fig_payload):
@@ -600,6 +639,7 @@ def _render_variable_category(
                 "unblind": unblind_flag,
                 "set_x_lim": x_range,
                 "log_scale": stacked_log_y,
+                "style": region_ctx.stacked_ratio_style,
             }
             bins_override = region_ctx.analysis_bins.get(var_name)
             if bins_override is not None:
@@ -766,6 +806,7 @@ def _render_variable_category(
             "err_ratio_m_syst": err_ratio_m_syst,
             "unblind": unblind_flag,
             "log_scale": stacked_log_y,
+            "style": region_ctx.stacked_ratio_style,
         }
         bins_to_use = bins_override if bins_override is not None else default_bins
         if bins_to_use is not None:
@@ -1037,21 +1078,30 @@ def _draw_stacked_panel(
     mc_norm_factor,
     *,
     log_scale=False,
+    style=None,
 ):
     """Render the stacked MC panel and ratio subplot, returning figure objects and MC summaries."""
 
+    style = {} if style is None else style
+    figure_style = _style_get(style, ("figure",), {})
+    figsize = tuple(figure_style.get("figsize", (10, 8)))
+    height_ratios = tuple(figure_style.get("height_ratios", (4, 1)))
+    if len(height_ratios) != 2:
+        height_ratios = (4, 1)
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(10, 8),
-        gridspec_kw={"height_ratios": (4, 1)},
+        figsize=figsize,
+        gridspec_kw={"height_ratios": height_ratios},
         sharex=True,
     )
-    fig.subplots_adjust(hspace=0.07)
+    fig.subplots_adjust(hspace=figure_style.get("hspace", 0.07))
 
     hep.style.use("CMS")
     plt.sca(ax)
-    cms_label = hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
+    cms_style = _style_get(style, ("cms",), {})
+    cms_fontsize = cms_style.get("fontsize", 18.0)
+    cms_label = hep.cms.label(lumi=lumitag, com=comtag, fontsize=cms_fontsize)
 
     def _get_grouped_vals(hist_obj, grouping_map):
         grouped_values = {}
@@ -1293,8 +1343,11 @@ def _compute_uncertainty_bands(
     display_mc_totals=None,
     log_axis_enabled=False,
     log_y_baseline=None,
+    style=None,
 ):
     """Compute and draw statistical/systematic uncertainty bands for the stacked plot."""
+
+    style = {} if style is None else style
 
     if mc_totals.size == 0:
         return {"main_band_handles": []}
@@ -1484,14 +1537,21 @@ def _compute_uncertainty_bands(
                 ratio_band_handles.append(ratio_total_handle)
 
     if ratio_band_handles:
-        rax.legend(
-            handles=ratio_band_handles,
-            loc="upper left",
-            fontsize=10,
-            frameon=False,
-            ncol=2,
-            columnspacing=1.0,
-        )
+        ratio_legend_style = _style_get(style, ("ratio_band_legend",), {})
+        legend_kwargs = {
+            "loc": ratio_legend_style.get("loc", "upper left"),
+            "fontsize": ratio_legend_style.get("fontsize", 10),
+            "frameon": ratio_legend_style.get("frameon", False),
+            "ncol": ratio_legend_style.get("ncol", 2),
+            "columnspacing": ratio_legend_style.get("columnspacing", 1.0),
+        }
+        handletextpad = ratio_legend_style.get("handletextpad")
+        if handletextpad is not None:
+            legend_kwargs["handletextpad"] = handletextpad
+        bbox_to_anchor = ratio_legend_style.get("bbox_to_anchor")
+        if bbox_to_anchor is not None:
+            legend_kwargs["bbox_to_anchor"] = tuple(bbox_to_anchor)
+        rax.legend(handles=ratio_band_handles, **legend_kwargs)
 
     return {
         "main_band_handles": main_band_handles,
@@ -1519,10 +1579,19 @@ def _finalize_layout(
     events_anchor=None,
     legend_anchor=None,
     legend_is_figure=False,
+    style=None,
 ):
     """Align legends and axis annotations after all plotting calls."""
 
     legend_anchor_local = list(legend_anchor) if legend_anchor is not None else None
+    style = {} if style is None else style
+    legend_style = _style_get(style, ("legend",), {})
+    cms_style = _style_get(style, ("cms",), {})
+    axes_style = _style_get(style, ("axes",), {})
+    legend_overlap_margin = legend_style.get("overlap_margin", 0.01)
+    top_margin_min = legend_style.get("top_margin_min", 0.01)
+    top_margin_scale = legend_style.get("top_margin_scale", 0.25)
+    ratio_label_margin = axes_style.get("ratio_label_margin", 0.002)
 
     def _draw_and_get_renderer():
         fig.canvas.draw()
@@ -1550,9 +1619,9 @@ def _finalize_layout(
 
     if legend_box is not None and cms_box is not None:
         if legend_is_figure and legend_anchor_local is not None:
-            margin = 0.01
-            required_headroom = legend_box.height + margin
-            desired_anchor_y = cms_box.y1 + margin + legend_box.height
+            buffer = max(top_margin_min, top_margin_scale * legend_box.height)
+            required_headroom = legend_box.height + buffer
+            desired_anchor_y = cms_box.y1 + buffer + legend_box.height
             if not np.isclose(desired_anchor_y, legend_anchor_local[1]):
                 legend_anchor_local[1] = desired_anchor_y
                 legend.set_bbox_to_anchor(tuple(legend_anchor_local), fig.transFigure)
@@ -1581,24 +1650,26 @@ def _finalize_layout(
             vertical_overlap = legend_box.y0 < cms_box.y1 and legend_box.y1 > cms_box.y0
             if horizontal_overlap and legend_anchor_local is not None:
                 legend_width = legend_box.width
-                margin = 0.01
-                space_right = 1.0 - margin - cms_box.x1
-                space_left = cms_box.x0 - margin
+                space_right = 1.0 - legend_overlap_margin - cms_box.x1
+                space_left = cms_box.x0 - legend_overlap_margin
                 if space_right >= legend_width:
-                    new_left = cms_box.x1 + margin
+                    new_left = cms_box.x1 + legend_overlap_margin
                 elif space_left >= legend_width:
-                    new_left = max(margin, cms_box.x0 - margin - legend_width)
+                    new_left = max(
+                        legend_overlap_margin,
+                        cms_box.x0 - legend_overlap_margin - legend_width,
+                    )
                 else:
                     if space_right >= space_left:
                         new_left = min(
-                            max(margin, cms_box.x1 + margin),
+                            max(legend_overlap_margin, cms_box.x1 + legend_overlap_margin),
                             max(0.0, 1.0 - legend_width),
                         )
                     else:
                         new_left = max(
-                            margin,
+                            legend_overlap_margin,
                             min(
-                                cms_box.x0 - margin - legend_width,
+                                cms_box.x0 - legend_overlap_margin - legend_width,
                                 max(0.0, 1.0 - legend_width),
                             ),
                         )
@@ -1610,7 +1681,7 @@ def _finalize_layout(
                 legend_box = legend_bbox.transformed(fig.transFigure.inverted())
 
             if vertical_overlap:
-                shift = cms_box.y1 - legend_box.y0 + 0.01
+                shift = cms_box.y1 - legend_box.y0 + legend_overlap_margin
                 if shift > 0:
                     ax_box = ax.get_position()
                     rax_box = rax.get_position()
@@ -1674,19 +1745,21 @@ def _finalize_layout(
             return min(b.y0 for b in bboxes)
         return rax.get_position().y0
 
-    label_fontsize = (
-        rax.yaxis.label.get_size() if rax.yaxis.label else plt.rcParams.get("axes.labelsize", 18)
+    default_label_size = (
+        rax.yaxis.label.get_size()
+        if rax.yaxis.label
+        else plt.rcParams.get("axes.labelsize", 18)
     )
+    label_fontsize = axes_style.get("label_fontsize", default_label_size)
     renderer = _draw_and_get_renderer()
     temp = fig.text(0, 0, display_label, fontsize=label_fontsize)
     temp_bbox = temp.get_window_extent(renderer=renderer)
     temp.remove()
     measured_height = temp_bbox.transformed(fig.transFigure.inverted()).height
-    margin = 0.002
-    label_y = _ratio_axis_min_y(renderer) - measured_height - margin
+    label_y = _ratio_axis_min_y(renderer) - measured_height - ratio_label_margin
 
     subplot_params = fig.subplotpars
-    new_bottom = np.clip(max(0.0, label_y - margin), 0.0, 1.0)
+    new_bottom = np.clip(max(0.0, label_y - ratio_label_margin), 0.0, 1.0)
     if not np.isclose(new_bottom, subplot_params.bottom):
         plt.subplots_adjust(
             bottom=new_bottom,
@@ -1697,7 +1770,7 @@ def _finalize_layout(
             wspace=subplot_params.wspace,
         )
         renderer = _draw_and_get_renderer()
-        label_y = _ratio_axis_min_y(renderer) - measured_height - margin
+        label_y = _ratio_axis_min_y(renderer) - measured_height - ratio_label_margin
 
     renderer = _draw_and_get_renderer()
     ax_box = ax.get_position()
@@ -1929,6 +2002,7 @@ class RegionContext(object):
         lumi_pair,
         skip_variables=None,
         analysis_bins=None,
+        stacked_ratio_style=None,
         channel_rules=None,
         sample_removal_rules=None,
         category_skip_rules=None,
@@ -1963,6 +2037,11 @@ class RegionContext(object):
         self.skip_variables = set() if skip_variables is None else set(skip_variables)
         self.analysis_bins = (
             {} if analysis_bins is None else copy.deepcopy(analysis_bins)
+        )
+        self.stacked_ratio_style = (
+            copy.deepcopy(stacked_ratio_style)
+            if isinstance(stacked_ratio_style, Mapping)
+            else {}
         )
         default_channel_rules = {"default": [], "variables": {}, "conditional": []}
         self.channel_rules = copy.deepcopy(
@@ -2228,6 +2307,9 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         resolved_unblind = bool(unblind)
 
     region_plot_cfg = REGION_PLOTTING.get(region_upper, {})
+    stacked_ratio_style = _resolve_stacked_ratio_style(
+        region_upper, region_plot_cfg.get("stacked_ratio_style")
+    )
 
     skip_variables = set(region_plot_cfg.get("skip_variables", []))
     analysis_bins = {}
@@ -2298,6 +2380,7 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         lumi_pair,
         skip_variables,
         analysis_bins,
+        stacked_ratio_style=stacked_ratio_style,
         channel_rules=channel_rules,
         sample_removal_rules=sample_removal_rules,
         category_skip_rules=category_skip_rules,
@@ -3102,11 +3185,33 @@ def make_region_stacked_ratio_fig(
     err_ratio_m_syst=None,
     log_scale=False,
     unblind=False,
+    style=None,
 ):
     if bins is None:
         bins = []
     if group is None:
         group = {}
+
+    style = copy.deepcopy(style) if isinstance(style, Mapping) else {}
+    axes_style = _style_get(style, ("axes",), {})
+    legend_style = _style_get(style, ("legend",), {})
+    uncertainty_legend_style = _style_get(style, ("uncertainty_legend",), {})
+    legend_top_margin_min = legend_style.get("top_margin_min", 0.01)
+    legend_top_margin_scale = legend_style.get("top_margin_scale", 0.25)
+    tick_labelsize = axes_style.get("tick_labelsize", 18)
+    tick_width = axes_style.get("tick_width", 1.5)
+    tick_length = axes_style.get("tick_length", 6)
+    axis_label_fontsize = axes_style.get("label_fontsize", 18)
+    ratio_tick_labelsize = axes_style.get("ratio_tick_labelsize", tick_labelsize)
+    ratio_label_text = axes_style.get("ratio_label", "Ratio")
+    ratio_label_fontsize = axes_style.get(
+        "ratio_label_fontsize", axis_label_fontsize
+    )
+    offset_fontsize = axes_style.get("offset_fontsize", axis_label_fontsize)
+    y_offset = axes_style.get("y_offset", -0.07)
+    overflow_label = axes_style.get("overflow_label", ">500")
+    ticklabel_format_cfg = axes_style.get("ticklabel_format")
+    secondary_ticks_cfg = axes_style.get("apply_secondary_ticks", {})
 
     if h_mc is None or h_data is None:
         return None
@@ -3139,12 +3244,28 @@ def make_region_stacked_ratio_fig(
     ]
 
     grouping = OrderedDict()
+    axis_collection = getattr(h_mc, "axes", None)
+    axis_entries = None
+    axis_entry_set = None
+    if axis_collection is not None:
+        try:
+            axis_entries = axis_collection[axis]
+            axis_entry_set = set(axis_entries)
+        except Exception:
+            axis_entries = None
+            axis_entry_set = None
     for proc, members in group.items():
-        present_members = [p for p in members if p in h_mc.axes[axis]]
+        if axis_entry_set is None:
+            present_members = list(members)
+        else:
+            present_members = [p for p in members if p in axis_entry_set]
         if present_members:
             grouping[proc] = present_members
     if not grouping:
-        grouping = OrderedDict((proc, [proc]) for proc in h_mc.axes[axis])
+        if axis_entries is not None:
+            grouping = OrderedDict((proc, [proc]) for proc in axis_entries)
+        else:
+            grouping = OrderedDict()
 
     colors = []
     default_color_index = 0
@@ -3193,6 +3314,7 @@ def make_region_stacked_ratio_fig(
         mc_scaled,
         mc_norm_factor,
         log_scale=log_scale,
+        style=style,
     )
 
     fig = panel_info["fig"]
@@ -3225,6 +3347,7 @@ def make_region_stacked_ratio_fig(
         display_mc_totals=adjusted_mc_totals,
         log_axis_enabled=log_axis_enabled,
         log_y_baseline=log_y_baseline,
+        style=style,
     )
 
     main_band_handles = band_info.get("main_band_handles", [])
@@ -3300,33 +3423,55 @@ def make_region_stacked_ratio_fig(
                 RuntimeWarning,
             )
 
-    ax.autoscale(axis='y')
-    ax.autoscale(axis='y')
+    ax.autoscale(axis="y")
+    ax.autoscale(axis="y")
     ax.set_xlabel(None)
-    ax.tick_params(axis='both', labelsize=18, width=1.5, length=6)
+    ax.tick_params(axis="both", labelsize=tick_labelsize, width=tick_width, length=tick_length)
     if not use_log_y:
-        ax.ticklabel_format(axis='y', style='scientific', scilimits=(0,6), useMathText=True)
+        if isinstance(ticklabel_format_cfg, Mapping):
+            format_kwargs = dict(ticklabel_format_cfg)
+            scilimits = format_kwargs.get("scilimits")
+            if isinstance(scilimits, (list, tuple)):
+                format_kwargs["scilimits"] = tuple(scilimits)
+            format_kwargs.setdefault("axis", "y")
+            ax.ticklabel_format(**format_kwargs)
+        else:
+            ax.ticklabel_format(
+                axis="y", style="scientific", scilimits=(0, 6), useMathText=True
+            )
     else:
         ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext())
     ax.yaxis.set_offset_position("left")
-    ax.yaxis.offsetText.set_x(-0.07)
-    ax.yaxis.offsetText.set_fontsize(18)
+    if y_offset is not None:
+        ax.yaxis.offsetText.set_x(y_offset)
+    ax.yaxis.offsetText.set_fontsize(offset_fontsize)
 
-    rax.set_ylabel('Ratio', loc='center', fontsize=18)
+    rax.set_ylabel(ratio_label_text, loc="center", fontsize=ratio_label_fontsize)
     rax.set_ylim(*ratio_limits)
-    rax.tick_params(axis='both', labelsize=18, width=1.5, length=6)
+    rax.tick_params(
+        axis="both", labelsize=ratio_tick_labelsize, width=tick_width, length=tick_length
+    )
 
     fig.canvas.draw()
     xticks = rax.get_xticks()
     xtick_labels = [tick.get_text() for tick in rax.get_xticklabels()]
-    if xtick_labels and len(xtick_labels) == len(xticks):
-        xtick_labels[-1] = '>500'
+    if (
+        overflow_label is not None
+        and xtick_labels
+        and len(xtick_labels) == len(xticks)
+    ):
+        xtick_labels[-1] = overflow_label
         rax.xaxis.set_major_locator(FixedLocator(xticks))
         rax.xaxis.set_major_formatter(FixedFormatter(xtick_labels))
 
-    for axis_name in ("x", "y"):
-        _apply_secondary_ticks(ax, axis=axis_name)
-        _apply_secondary_ticks(rax, axis=axis_name)
+    apply_minor_x = bool(secondary_ticks_cfg.get("x", True))
+    apply_minor_y = bool(secondary_ticks_cfg.get("y", True))
+    if apply_minor_x:
+        _apply_secondary_ticks(ax, axis="x")
+        _apply_secondary_ticks(rax, axis="x")
+    if apply_minor_y:
+        _apply_secondary_ticks(ax, axis="y")
+        _apply_secondary_ticks(rax, axis="y")
 
     ax_box = ax.get_position()
     rax_box = rax.get_position()
@@ -3359,8 +3504,10 @@ def make_region_stacked_ratio_fig(
             if label not in filtered:
                 filtered[label] = handle
         if filtered:
-            max_rows = 3
-            ncol = 5
+            max_rows = legend_style.get("max_rows", 3)
+            ncol = legend_style.get("ncol", 5)
+            if not isinstance(ncol, int) or ncol <= 0:
+                ncol = 1
             entries = list(filtered.items())
             nrows = math.ceil(len(entries) / ncol)
             if nrows > max_rows:
@@ -3370,28 +3517,45 @@ def make_region_stacked_ratio_fig(
                 )
                 entries = entries[: ncol * max_rows]
                 nrows = max_rows
+            bbox_to_anchor = legend_style.get("bbox_to_anchor", (0.5, 1.0))
+            if isinstance(bbox_to_anchor, (list, tuple)):
+                bbox_to_anchor = tuple(bbox_to_anchor)
+            legend_kwargs = {
+                "loc": legend_style.get("loc", "upper center"),
+                "bbox_to_anchor": bbox_to_anchor,
+                "borderaxespad": legend_style.get("borderaxespad", 0.15),
+                "ncol": ncol,
+                "fontsize": legend_style.get("fontsize", 16),
+                "columnspacing": legend_style.get("columnspacing", 0.8),
+                "handletextpad": legend_style.get("handletextpad", 0.6),
+            }
+            labelspacing = legend_style.get("labelspacing")
+            if labelspacing is not None:
+                legend_kwargs["labelspacing"] = labelspacing
+            frameon = legend_style.get("frameon")
+            if frameon is not None:
+                legend_kwargs["frameon"] = frameon
             legend = fig.legend(
                 [handle for _, handle in entries],
                 [label for label, _ in entries],
-                loc='upper center',
-                bbox_to_anchor=(0.5, 1.0),
-                borderaxespad=0.15,
-                ncol=ncol,
-                fontsize=16,
-                columnspacing=0.8,
-                handletextpad=0.6,
+                **legend_kwargs,
             )
     if main_band_handles:
         unc_handles, unc_labels = zip(*main_band_handles)
+        unc_bbox = uncertainty_legend_style.get("bbox_to_anchor", (0.98, 0.98))
+        if isinstance(unc_bbox, (list, tuple)):
+            unc_bbox = tuple(unc_bbox)
+        else:
+            unc_bbox = (0.98, 0.98)
         _ = ax.legend(
             handles=list(unc_handles),
             labels=list(unc_labels),
-            loc="upper right",
-            bbox_to_anchor=(0.98, 0.98),
-            frameon=False,
-            fontsize=10,
-            ncol=2,
-            columnspacing=1.0,
+            loc=uncertainty_legend_style.get("loc", "upper right"),
+            bbox_to_anchor=unc_bbox,
+            frameon=uncertainty_legend_style.get("frameon", False),
+            fontsize=uncertainty_legend_style.get("fontsize", 10),
+            ncol=uncertainty_legend_style.get("ncol", 2),
+            columnspacing=uncertainty_legend_style.get("columnspacing", 1.0),
         )
 
     fig.canvas.draw()
@@ -3404,7 +3568,7 @@ def make_region_stacked_ratio_fig(
         legend_bbox = legend.get_window_extent(renderer=renderer)
         legend_box = legend_bbox.transformed(fig.transFigure.inverted())
         measured_height = legend_box.height
-        buffer = max(0.01, 0.25 * measured_height)
+        buffer = max(legend_top_margin_min, legend_top_margin_scale * measured_height)
         anchor_y = max(0.0, 1.0 - buffer)
         legend_anchor = [0.5, anchor_y]
         legend.set_bbox_to_anchor(tuple(legend_anchor), fig.transFigure)
@@ -3413,7 +3577,7 @@ def make_region_stacked_ratio_fig(
         legend_bbox = legend.get_window_extent(renderer=renderer)
         legend_box = legend_bbox.transformed(fig.transFigure.inverted())
         legend_height = legend_box.height
-        buffer = max(buffer, 0.01)
+        buffer = max(buffer, legend_top_margin_min)
         required_headroom = legend_height + buffer
         legend_is_figure_anchored = True
         subplot_params = fig.subplotpars
@@ -3444,6 +3608,7 @@ def make_region_stacked_ratio_fig(
             events_anchor=initial_events_anchor,
             legend_anchor=legend_anchor,
             legend_is_figure=legend_is_figure_anchored,
+            style=style,
         )
 
     return fig
