@@ -1230,101 +1230,101 @@ class AnalysisProcessor(processor.ProcessorABC):
             lepton0_pt_raw = l0.pt_raw 
             lepton0_abseta = abs(l0.eta) 
 
-            if not isData:
-                l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
-                l1_gen_pdgId = ak.fill_none(l1["gen_pdgId"], -1)
-                l2_gen_pdgId = ak.fill_none(l2["gen_pdgId"], -1)
-                l0_genParent_pdgId = ak.fill_none(l0["genParent_pdgId"], -1)
-                l1_genParent_pdgId = ak.fill_none(l1["genParent_pdgId"], -1)
-                l2_genParent_pdgId = ak.fill_none(l2["genParent_pdgId"], -1)
+            # if not isData:
+            #     l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
+            #     l1_gen_pdgId = ak.fill_none(l1["gen_pdgId"], -1)
+            #     l2_gen_pdgId = ak.fill_none(l2["gen_pdgId"], -1)
+            #     l0_genParent_pdgId = ak.fill_none(l0["genParent_pdgId"], -1)
+            #     l1_genParent_pdgId = ak.fill_none(l1["genParent_pdgId"], -1)
+            #     l2_genParent_pdgId = ak.fill_none(l2["genParent_pdgId"], -1)
 
-                b0l_hFlav = ak.fill_none(b0l.hadronFlavour, -1) 
-                b0l_pFlav = ak.fill_none(b0l.partonFlavour, -1)
-                b1l_hFlav = ak.fill_none(b1l.hadronFlavour, -1) 
-                b1l_pFlav = ak.fill_none(b1l.partonFlavour, -1)
-                b0l_genhFlav = ak.fill_none(b0l.matched_gen.hadronFlavour, -1) 
-                b0l_genpFlav = ak.fill_none(b0l.matched_gen.partonFlavour, -1)
-                b1l_genhFlav = ak.fill_none(b1l.matched_gen.hadronFlavour, -1) 
-                b1l_genpFlav = ak.fill_none(b1l.matched_gen.partonFlavour, -1)
+            #     b0l_hFlav = ak.fill_none(b0l.hadronFlavour, -1) 
+            #     b0l_pFlav = ak.fill_none(b0l.partonFlavour, -1)
+            #     b1l_hFlav = ak.fill_none(b1l.hadronFlavour, -1) 
+            #     b1l_pFlav = ak.fill_none(b1l.partonFlavour, -1)
+            #     b0l_genhFlav = ak.fill_none(b0l.matched_gen.hadronFlavour, -1) 
+            #     b0l_genpFlav = ak.fill_none(b0l.matched_gen.partonFlavour, -1)
+            #     b1l_genhFlav = ak.fill_none(b1l.matched_gen.hadronFlavour, -1) 
+            #     b1l_genpFlav = ak.fill_none(b1l.matched_gen.partonFlavour, -1)
 
-                b0m_hFlav = ak.fill_none(b0m.hadronFlavour, -1) 
-                b0m_pFlav = ak.fill_none(b0m.partonFlavour, -1)
-                b1m_hFlav = ak.fill_none(b1m.hadronFlavour, -1) 
-                b1m_pFlav = ak.fill_none(b1m.partonFlavour, -1)
-                b0m_genhFlav = ak.fill_none(b0m.matched_gen.hadronFlavour, -1) 
-                b0m_genpFlav = ak.fill_none(b0m.matched_gen.partonFlavour, -1)
-                b1m_genhFlav = ak.fill_none(b1m.matched_gen.hadronFlavour, -1) 
-                b1m_genpFlav = ak.fill_none(b1m.matched_gen.partonFlavour, -1)
+            #     b0m_hFlav = ak.fill_none(b0m.hadronFlavour, -1) 
+            #     b0m_pFlav = ak.fill_none(b0m.partonFlavour, -1)
+            #     b1m_hFlav = ak.fill_none(b1m.hadronFlavour, -1) 
+            #     b1m_pFlav = ak.fill_none(b1m.partonFlavour, -1)
+            #     b0m_genhFlav = ak.fill_none(b0m.matched_gen.hadronFlavour, -1) 
+            #     b0m_genpFlav = ak.fill_none(b0m.matched_gen.partonFlavour, -1)
+            #     b1m_genhFlav = ak.fill_none(b1m.matched_gen.hadronFlavour, -1) 
+            #     b1m_genpFlav = ak.fill_none(b1m.matched_gen.partonFlavour, -1)
 
-            else:
-                l0_gen_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
-                l1_gen_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
-                l2_gen_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
-                l0_genParent_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
-                l1_genParent_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
-                l2_genParent_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+            # else:
+            #     l0_gen_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+            #     l1_gen_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+            #     l2_gen_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+            #     l0_genParent_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+            #     l1_genParent_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+            #     l2_genParent_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
 
-                b0l_hFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b0l_pFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b1l_hFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
-                b1l_pFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
-                b0l_genhFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b0l_genpFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b1l_genhFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
-                b1l_genpFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+            #     b0l_hFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+            #     b0l_pFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+            #     b1l_hFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+            #     b1l_pFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+            #     b0l_genhFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+            #     b0l_genpFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+            #     b1l_genhFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+            #     b1l_genpFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
                 
-                b0m_hFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b0m_pFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b1m_hFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
-                b1m_pFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
-                b0m_genhFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b0m_genpFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b1m_genhFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
-                b1m_genpFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+            #     b0m_hFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+            #     b0m_pFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+            #     b1m_hFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+            #     b1m_pFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+            #     b0m_genhFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+            #     b0m_genpFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+            #     b1m_genhFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+            #     b1m_genpFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
 
-            varnames["l0_gen_pdgId"] = l0_gen_pdgId
-            varnames["l1_gen_pdgId"] = l1_gen_pdgId
-            varnames["l2_gen_pdgId"] = l2_gen_pdgId
-            varnames["l0_genParent_pdgId"] = l0_genParent_pdgId
-            varnames["l1_genParent_pdgId"] = l1_genParent_pdgId
-            varnames["l2_genParent_pdgId"] = l2_genParent_pdgId
+            # varnames["l0_gen_pdgId"] = l0_gen_pdgId
+            # varnames["l1_gen_pdgId"] = l1_gen_pdgId
+            # varnames["l2_gen_pdgId"] = l2_gen_pdgId
+            # varnames["l0_genParent_pdgId"] = l0_genParent_pdgId
+            # varnames["l1_genParent_pdgId"] = l1_genParent_pdgId
+            # varnames["l2_genParent_pdgId"] = l2_genParent_pdgId
             
-            varnames["b0l_hFlav"] = b0l_hFlav
-            varnames["b0l_pFlav"] = b0l_pFlav
-            varnames["b1l_hFlav"] = b1l_hFlav
-            varnames["b1l_pFlav"] = b1l_pFlav
-            varnames["b0l_genhFlav"] = b0l_genhFlav
-            varnames["b0l_genpFlav"] = b0l_genpFlav
-            varnames["b1l_genhFlav"] = b1l_genhFlav
-            varnames["b1l_genpFlav"] = b1l_genpFlav
-            varnames["b0m_hFlav"] = b0m_hFlav
-            varnames["b0m_pFlav"] = b0m_pFlav
-            varnames["b1m_hFlav"] = b1m_hFlav
-            varnames["b1m_pFlav"] = b1m_pFlav
-            varnames["b0m_genhFlav"] = b0m_genhFlav
-            varnames["b0m_genpFlav"] = b0m_genpFlav
-            varnames["b1m_genhFlav"] = b1m_genhFlav
-            varnames["b1m_genpFlav"] = b1m_genpFlav
-            varnames["lepton_pt_vs_eta"] = {
-                "lepton_pt_vs_eta_pt": lepton0_pt_raw,
-                "lepton_pt_vs_eta_abseta": lepton0_abseta,
-            }
-            varnames["l0_SeedEtaOrX_vs_SeedPhiOrY"] = {
-                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l0_seed_etaorx,
-                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l0_seed_phiory,
-            }
-            varnames["l0_eta_vs_phi"] = {
-                "l0_eta_vs_phi_eta": l0.eta,
-                "l0_eta_vs_phi_phi": l0.phi,
-            }
-            varnames["l1_SeedEtaOrX_vs_SeedPhiOrY"] = {
-                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l1_seed_etaorx,
-                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l1_seed_phiory,
-            }
-            varnames["l1_eta_vs_phi"] = {
-                "l1_eta_vs_phi_eta": l1.eta,
-                "l1_eta_vs_phi_phi": l1.phi,
-            }
+            # varnames["b0l_hFlav"] = b0l_hFlav
+            # varnames["b0l_pFlav"] = b0l_pFlav
+            # varnames["b1l_hFlav"] = b1l_hFlav
+            # varnames["b1l_pFlav"] = b1l_pFlav
+            # varnames["b0l_genhFlav"] = b0l_genhFlav
+            # varnames["b0l_genpFlav"] = b0l_genpFlav
+            # varnames["b1l_genhFlav"] = b1l_genhFlav
+            # varnames["b1l_genpFlav"] = b1l_genpFlav
+            # varnames["b0m_hFlav"] = b0m_hFlav
+            # varnames["b0m_pFlav"] = b0m_pFlav
+            # varnames["b1m_hFlav"] = b1m_hFlav
+            # varnames["b1m_pFlav"] = b1m_pFlav
+            # varnames["b0m_genhFlav"] = b0m_genhFlav
+            # varnames["b0m_genpFlav"] = b0m_genpFlav
+            # varnames["b1m_genhFlav"] = b1m_genhFlav
+            # varnames["b1m_genpFlav"] = b1m_genpFlav
+            # varnames["lepton_pt_vs_eta"] = {
+            #     "lepton_pt_vs_eta_pt": lepton0_pt_raw,
+            #     "lepton_pt_vs_eta_abseta": lepton0_abseta,
+            # }
+            # varnames["l0_SeedEtaOrX_vs_SeedPhiOrY"] = {
+            #     "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l0_seed_etaorx,
+            #     "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l0_seed_phiory,
+            # }
+            # varnames["l0_eta_vs_phi"] = {
+            #     "l0_eta_vs_phi_eta": l0.eta,
+            #     "l0_eta_vs_phi_phi": l0.phi,
+            # }
+            # varnames["l1_SeedEtaOrX_vs_SeedPhiOrY"] = {
+            #     "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l1_seed_etaorx,
+            #     "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l1_seed_phiory,
+            # }
+            # varnames["l1_eta_vs_phi"] = {
+            #     "l1_eta_vs_phi_eta": l1.eta,
+            #     "l1_eta_vs_phi_phi": l1.phi,
+            # }
 
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
