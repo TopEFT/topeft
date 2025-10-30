@@ -3382,7 +3382,13 @@ def make_region_stacked_ratio_fig(
         if arr is not None:
             ratio_arrays.append(np.asarray(arr, dtype=float))
 
-    default_ratio_limits = (0.5, 1.5)
+    ratio_windows = (
+        (0.5, 1.5),
+        (0.0, 2.0),
+        (-1.0, 3.0),
+    )
+    ratio_window_deviations = (0.5, 1.0, 2.0)
+    largest_low, largest_high = ratio_windows[-1]
     finite_segments = []
     for arr in ratio_arrays:
         if arr is None:
@@ -3391,18 +3397,30 @@ def make_region_stacked_ratio_fig(
         if np.any(finite_mask):
             finite_segments.append(arr[finite_mask])
 
+    ratio_limits = ratio_windows[0]
+    tolerance = 1e-12
+    exceeds_largest_window = False
     if finite_segments:
         combined = np.concatenate(finite_segments)
-        min_val = np.min(combined)
-        max_val = np.max(combined)
-        max_abs_excursion = max(abs(min_val - 1.0), abs(max_val - 1.0))
-        clipped_excursion = min(max_abs_excursion, 3.0)
-        if clipped_excursion > 0:
-            ratio_limits = (1.0 - clipped_excursion, 1.0 + clipped_excursion)
-        else:
-            ratio_limits = default_ratio_limits
-    else:
-        ratio_limits = default_ratio_limits
+        min_val = float(np.min(combined))
+        max_val = float(np.max(combined))
+        max_abs_deviation = float(np.max(np.abs(combined - 1.0)))
+
+        selected_limits = ratio_windows[-1]
+        for (low, high), allowed_deviation in zip(ratio_windows, ratio_window_deviations):
+            if (
+                max_abs_deviation <= allowed_deviation + tolerance
+                and min_val >= low - tolerance
+                and max_val <= high + tolerance
+            ):
+                selected_limits = (low, high)
+                break
+
+        ratio_limits = selected_limits
+
+        exceeds_largest_window = (
+            min_val < largest_low - tolerance or max_val > largest_high + tolerance
+        )
 
     data_finite_segments = []
     for arr in data_ratio_arrays:
@@ -3412,16 +3430,20 @@ def make_region_stacked_ratio_fig(
         if np.any(finite_mask):
             data_finite_segments.append(arr[finite_mask])
 
+    data_exceeds_largest_window = False
     if data_finite_segments:
         data_combined = np.concatenate(data_finite_segments)
-        data_min = np.min(data_combined)
-        data_max = np.max(data_combined)
-        cap_low, cap_high = 1.0 - 3.0, 1.0 + 3.0
-        if data_min < cap_low or data_max > cap_high:
-            warnings.warn(
-                "Ratio data exceed the ±3.0 cap; values outside the plotted range will be clipped.",
-                RuntimeWarning,
-            )
+        data_min = float(np.min(data_combined))
+        data_max = float(np.max(data_combined))
+        data_exceeds_largest_window = (
+            data_min < largest_low - tolerance or data_max > largest_high + tolerance
+        )
+
+    if exceeds_largest_window or data_exceeds_largest_window:
+        warnings.warn(
+            "Ratio data exceed the [-1.0, 3.0] limits; values outside the plotted range will be clipped.",
+            RuntimeWarning,
+        )
 
     ax.autoscale(axis="y")
     ax.autoscale(axis="y")
