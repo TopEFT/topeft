@@ -53,6 +53,31 @@ LOGGER = logging.getLogger(__name__)
 _TAU_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0pt")
 
 
+YEAR_TOKEN_RULES = {
+    "2016": {
+        "mc_wl": ["UL16", "2016"],
+        "mc_bl": ["UL16APV", "2016APV"],
+        "data_wl": ["UL16", "2016"],
+        "data_bl": ["UL16APV", "2016APV"],
+    },
+    "2016APV": {
+        "mc_wl": ["UL16APV", "2016APV"],
+        "data_wl": ["UL16APV", "2016APV"],
+    },
+    "2017": {"mc_wl": ["UL17", "2017"], "data_wl": ["UL17", "2017"]},
+    "2018": {"mc_wl": ["UL18", "2018"], "data_wl": ["UL18", "2018"]},
+    "2022": {"mc_wl": ["2022"], "data_wl": ["2022"]},
+    "2022EE": {"mc_wl": ["2022EE"], "data_wl": ["2022EE"]},
+    "2023": {"mc_wl": ["2023"], "data_wl": ["2023"]},
+    "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
+}
+
+YEAR_WHITELIST_OPTIONALS = set()
+for _year_rule in YEAR_TOKEN_RULES.values():
+    YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("mc_wl", []))
+    YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("data_wl", []))
+
+
 class HistogramAxisError(RuntimeError):
     """Exception raised when a histogram is missing required axes."""
 
@@ -168,6 +193,151 @@ def _gather_axis_alias_tokens(mapping):
         for entry in mapping:
             tokens.update(_gather_axis_alias_tokens(entry))
     return tokens
+
+
+def _resolve_year_filters(year_args):
+    """Normalise CLI year arguments and build per-sample filter lists."""
+
+    mc_wl = []
+    mc_bl = ["data"]
+    data_wl = ["data"]
+    data_bl = []
+
+    if year_args is None:
+        normalized = None
+    else:
+        if isinstance(year_args, str):
+            raw_tokens = [year_args]
+        else:
+            raw_tokens = list(year_args)
+
+        normalized = []
+        seen = set()
+        for token in raw_tokens:
+            if token is None:
+                continue
+            cleaned = str(token).strip()
+            if not cleaned or cleaned in seen:
+                continue
+            if cleaned not in YEAR_TOKEN_RULES:
+                raise ValueError(
+                    "Unknown year token '{}' requested. Supported tokens: {}".format(
+                        cleaned, ", ".join(sorted(YEAR_TOKEN_RULES))
+                    )
+                )
+
+            rules = YEAR_TOKEN_RULES[cleaned]
+
+            mc_wl_values = rules.get("mc_wl", [])
+            for value in mc_wl_values:
+                if value not in mc_wl:
+                    mc_wl.append(value)
+            mc_bl = [value for value in mc_bl if value not in mc_wl_values]
+
+            mc_bl_values = rules.get("mc_bl", [])
+            for value in mc_bl_values:
+                if value not in mc_bl:
+                    mc_bl.append(value)
+
+            data_wl_values = rules.get("data_wl", [])
+            for value in data_wl_values:
+                if value not in data_wl:
+                    data_wl.append(value)
+            data_bl = [value for value in data_bl if value not in data_wl_values]
+
+            data_bl_values = rules.get("data_bl", [])
+            for value in data_bl_values:
+                if value not in data_bl:
+                    data_bl.append(value)
+
+            normalized.append(cleaned)
+            seen.add(cleaned)
+
+        if not normalized:
+            normalized = None
+
+    mc_bl = list(dict.fromkeys(mc_bl))
+    data_bl = list(dict.fromkeys(data_bl))
+
+    return {
+        "selected_years": normalized,
+        "mc_whitelist": mc_wl,
+        "mc_blacklist": mc_bl,
+        "data_whitelist": data_wl,
+        "data_blacklist": data_bl,
+    }
+
+
+def _filter_samples(all_labels, whitelist, blacklist):
+    """Return samples that satisfy blacklist rules and multi-token requirements."""
+
+    if len(whitelist) <= 1:
+        return utils.filter_lst_of_strs(
+            all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
+        )
+
+    must_have_tokens = []
+    optional_tokens = []
+    for token in whitelist:
+        if token is None:
+            continue
+        if token.lower() == "data" or token not in YEAR_WHITELIST_OPTIONALS:
+            must_have_tokens.append(token)
+        else:
+            optional_tokens.append(token)
+
+    must_have_tokens = list(dict.fromkeys(must_have_tokens))
+    optional_tokens = list(dict.fromkeys(optional_tokens))
+    optional_token_set = set(optional_tokens)
+
+    year_token_cache = {}
+
+    def _present_year_tokens(label):
+        cached = year_token_cache.get(label)
+        if cached is not None:
+            return cached
+
+        detected_tokens = {
+            year_token
+            for year_token in YEAR_WHITELIST_OPTIONALS
+            if year_token in label
+        }
+        if len(detected_tokens) <= 1:
+            result = frozenset(detected_tokens)
+            year_token_cache[label] = result
+            return result
+
+        resolved_tokens = set(detected_tokens)
+        for token in list(detected_tokens):
+            for other_token in detected_tokens:
+                if token == other_token:
+                    continue
+                if token in other_token:
+                    resolved_tokens.discard(token)
+                    break
+
+        result = frozenset(resolved_tokens)
+        year_token_cache[label] = result
+        return result
+
+    def _label_contains_disallowed_year(present_tokens):
+        if not optional_tokens or not present_tokens:
+            return False
+        return any(token not in optional_token_set for token in present_tokens)
+
+    def _label_passes(label):
+        if any(token in label for token in blacklist):
+            return False
+        if must_have_tokens and any(token not in label for token in must_have_tokens):
+            return False
+        present_tokens = _present_year_tokens(label)
+        if _label_contains_disallowed_year(present_tokens):
+            return False
+        if optional_tokens and not present_tokens.intersection(optional_token_set):
+            return False
+        return True
+
+    return [label for label in all_labels if _label_passes(label)]
 
 
 def _resolve_histogram_axis_names(histogram):
@@ -433,6 +603,26 @@ def _format_bin_label(edges, start_index, stop_index):
 def _print_section_header(title):
     print(f"\n{title}")
     print("=" * len(title))
+
+
+def _print_year_filter_summary(summary):
+    _print_section_header("Year selection summary")
+
+    selected_years = summary.get("selected_years")
+    if selected_years:
+        print("Requested year tokens : " + ", ".join(selected_years))
+    else:
+        print("Requested year tokens : <all available>")
+
+    retained_mc = summary.get("mc_samples") or []
+    retained_data = summary.get("data_samples") or []
+    removed_mc = summary.get("mc_removed") or []
+    removed_data = summary.get("data_removed") or []
+
+    print("Retained MC processes   : " + (", ".join(retained_mc) if retained_mc else "<none>"))
+    print("Retained data processes : " + (", ".join(retained_data) if retained_data else "<none>"))
+    print("Removed MC processes    : " + (", ".join(removed_mc) if removed_mc else "<none>"))
+    print("Removed data processes  : " + (", ".join(removed_data) if removed_data else "<none>"))
 
 
 def _print_yield_table(title, bin_labels, yields, errors):
@@ -919,19 +1109,20 @@ def _validate_tau_channel_coverage(
         raise RuntimeError(summary)
 
 
-def getPoints(dict_of_hists, ftau_channels, ttau_channels):
-    # Construct list of MC samples
-    mc_wl = []
-    mc_bl = ["data"]
-    data_wl = ["data"]
-    data_bl = []
+def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=None):
+    if sample_filters is None:
+        sample_filters = _resolve_year_filters(None)
 
-    # Get the list of samples we want to plot
+    mc_wl = list(sample_filters.get("mc_whitelist", ()))
+    mc_bl = list(sample_filters.get("mc_blacklist", ()))
+    data_wl = list(sample_filters.get("data_whitelist", ()))
+    data_bl = list(sample_filters.get("data_blacklist", ()))
+
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"process")
-    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    all_samples = yt.get_cat_lables(dict_of_hists, "process")
+    mc_sample_lst = _filter_samples(all_samples, mc_wl, mc_bl)
+    data_sample_lst = _filter_samples(all_samples, data_wl, data_bl)
 
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
@@ -1197,6 +1388,14 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         for start, stop in (entry["slice"] for entry in mc_regroup_summary)
     ]
 
+    year_filter_summary = {
+        "selected_years": sample_filters.get("selected_years"),
+        "mc_samples": sorted(mc_sample_lst),
+        "data_samples": sorted(data_sample_lst),
+        "mc_removed": sorted(samples_to_rm_from_mc_hist),
+        "data_removed": sorted(samples_to_rm_from_data_hist),
+    }
+
     stage_details = {
         "native_bin_labels": native_bin_labels,
         "native_yields": {
@@ -1208,6 +1407,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         "regroup_labels": regroup_labels,
         "mc_regroup_summary": mc_regroup_summary,
         "data_regroup_summary": data_regroup_summary,
+        "year_filter": year_filter_summary,
     }
 
     return mc_x, mc_y, mc_e, data_x, data_y, data_e, stage_details
@@ -1226,6 +1426,13 @@ def main():
         ),
     )
     parser.add_argument(
+        "-y",
+        "--year",
+        nargs="+",
+        default=None,
+        help="One or more year tokens to include (e.g. 2017 2018).",
+    )
+    parser.add_argument(
         "--dump-channels",
         nargs="?",
         const="-",
@@ -1236,6 +1443,11 @@ def main():
         ),
     )
     args = parser.parse_args()
+
+    try:
+        sample_filters = _resolve_year_filters(args.year)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     # Whether or not to unit norm the plots
     #unit_norm_bool = args.unit_norm
@@ -1267,7 +1479,12 @@ def main():
         hin_dict,
         ftau_channels,
         ttau_channels,
+        sample_filters=sample_filters,
     )
+
+    year_filter_summary = stage_details.get("year_filter")
+    if year_filter_summary:
+        _print_year_filter_summary(year_filter_summary)
 
     for label, (values, errors) in stage_details["native_yields"].items():
         _print_yield_table(
