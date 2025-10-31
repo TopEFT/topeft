@@ -66,7 +66,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Example usage: `python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg`
 
 * `run_analysis.py`:
-    - Thin wrapper around `analysis_processor.py` used for the standard CR/analysis histogram production. The canned histogram lists now include the 2D `lepton_pt_vs_eta` observable (and `lepton_pt_vs_eta_sumw2` when `--do-errors` is set) so downstream tools can rely on a consistent pt vs $|\eta|$ binning description.
+    - Thin wrapper around `analysis_processor.py` used for the standard CR/analysis histogram production. The canned histogram lists now include the 2D `lepton_pt_vs_eta` observable (and keep the matching `_sumw2` companion unless `--no-sumw2` is passed) so downstream tools can rely on a consistent pt vs $|\eta|$ binning description.
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
@@ -130,7 +130,7 @@ Example commands:
 * Auto-detected control-region plotting with timestamped outputs: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots --timestamp`
 * Combining Run-3 campaigns in one call: `./run_plotter.sh -f histos/CR2022_combo.pkl.gz -o ~/www/cr_run3 -y 2022 2022EE 2023 2023BPix`
 * Enforcing a blinded SR pass with specific variables: `./run_plotter.sh -f histos/plotsTopEFT.pkl.gz -o ~/www/sr -n sr_scan --sr --blind --variables lj0pt ptz`
-* Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 --unblind -- --do-errors`
+* Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 --unblind -- --no-sumw2`
 * Switching the stacked panel to a log scale via the wrapper: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots --log-y`
 
 * `get_yield_json.py`:
