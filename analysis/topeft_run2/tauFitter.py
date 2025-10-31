@@ -435,6 +435,9 @@ def main():
         sf_var = (np.divide(yerr_data, y_mc, out=np.zeros_like(yerr_data), where=y_mc != 0) ** 2 +
                   (np.divide(y_data * yerr_mc, y_mc**2, out=np.zeros_like(y_data), where=y_mc != 0)) ** 2)
     SF_e = np.sqrt(np.clip(sf_var, 0.0, None))
+    # Guard against zero-uncertainty bins (e.g. empty high-pt tails) that
+    # would otherwise make curve_fit's sigma division blow up.
+    SF_e = np.maximum(SF_e, 1e-3)
     print('SF',SF)
     print('sfERR',SF_e)
     print('x',x_data)
