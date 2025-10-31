@@ -468,7 +468,7 @@ if __name__ == "__main__":
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
-            "manager_name": f"{os.environ['USER']}-workqueue-coffea",
+            "manager_name": f"{os.environ['USER']}-{executor}-coffea",
             # find a port to run work queue in this range:
             "port": port,
             "debug_log": "debug.log",
@@ -509,7 +509,7 @@ if __name__ == "__main__":
             # 'disk': 8000,   #MB
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
-            "treereduction": 10,
+            #"treereduction": 10,
             #'chunks_per_accum': 25,
             #'chunks_accum_in_mem': 2,
             # terminate workers on which tasks have been running longer than average.

@@ -128,7 +128,6 @@ if __name__ == '__main__':
         fout = uproot.open(fout)
 
     rename = {'tllq': 'tZq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
-    #rename = {} #Used to rename things like ttZ to ttll and ttHnobb to ttH
     for proc in ['tllq']:
         for fname in files:
             fname += '_' + var
