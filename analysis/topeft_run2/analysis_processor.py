@@ -59,7 +59,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True, tau_run_mode="standard"):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True, tau_run_mode="standard"):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -71,6 +71,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.tau_run_mode = tau_run_mode
         # self._tau_wp_checked = False
 
+        self._fill_sumw2_hist = bool(fill_sumw2_hist)  # Whether to fill the w**2 companion histograms
         self._hist_axis_map = {}
         self._hist_sumw2_axis_mapping = {}
         self._hist_requires_eft = {}
@@ -112,19 +113,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                 label=r"Events",
             )
             self._hist_axis_map[name] = [dense_axis.name]
-            histograms[name+"_sumw2"] = HistEFT(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                sumw2_axis,
-                wc_names=wc_names_lst,
-                label=r"Events",
-            )
-            self._hist_axis_map[name+"_sumw2"] = [sumw2_axis.name]
-            self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
+            if self._fill_sumw2_hist:
+                histograms[name+"_sumw2"] = HistEFT(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    sumw2_axis,
+                    wc_names=wc_names_lst,
+                    label=r"Events",
+                )
+                self._hist_axis_map[name+"_sumw2"] = [sumw2_axis.name]
+                self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
+                self._hist_requires_eft[name+"_sumw2"] = True
             self._hist_requires_eft[name] = True
-            self._hist_requires_eft[name+"_sumw2"] = True
         for name, axes_cfg in axes_info_2d.items():
             dense_axes = []
             axis_names = []
@@ -154,17 +156,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axes.append(sumw2_axis)
                 sumw2_axis_names.append(sumw2_axis.name)
                 sumw2_axis_mapping[sumw2_axis.name] = base_axis_name
-            histograms[name+"_sumw2"] = SparseHist(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                *sumw2_axes,
-                storage="Double",
-            )
-            self._hist_axis_map[name+"_sumw2"] = sumw2_axis_names
-            self._hist_sumw2_axis_mapping[name] = sumw2_axis_mapping
-            self._hist_requires_eft[name+"_sumw2"] = False
+            if self._fill_sumw2_hist:
+                histograms[name+"_sumw2"] = SparseHist(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    *sumw2_axes,
+                    storage="Double",
+                )
+                self._hist_axis_map[name+"_sumw2"] = sumw2_axis_names
+                self._hist_sumw2_axis_mapping[name] = sumw2_axis_mapping
+                self._hist_requires_eft[name+"_sumw2"] = False
         self._accumulator = histograms
 
         # Set the list of hists to fill
@@ -182,7 +185,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._ecut_threshold = ecut_threshold
 
         # Set the booleans
-        self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
@@ -361,7 +363,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Check to see if the ordering of WCs for this sample matches what want
             if self._samples[dataset]["WCnames"] != self._wc_names_lst:
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
-        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
+        eft_w2_coeffs = (
+            efth.calc_w2_coeffs(eft_coeffs, self._dtype)
+            if (self._fill_sumw2_hist and eft_coeffs is not None)
+            else None
+        )
         # Initialize the out object
         hout = self.accumulator
 
@@ -1420,7 +1426,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             for dense_axis_name, dense_axis_vals in varnames.items():
                 fill_base_hist = dense_axis_name in self._hist_lst
-                fill_sumw2_hist = dense_axis_name in self._hist_lst
+                fill_sumw2_hist = self._fill_sumw2_hist and (dense_axis_name in self._hist_lst)
                 if not (fill_base_hist or fill_sumw2_hist):
                     continue
 

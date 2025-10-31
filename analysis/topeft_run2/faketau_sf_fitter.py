@@ -1134,6 +1134,12 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
     tau_hist = dict_of_hists[var_name]
     tau_sumw2_hist = dict_of_hists.get(f"{var_name}_sumw2")
 
+    if tau_sumw2_hist is None:
+        LOGGER.warning(
+            "Histogram '%s_sumw2' is missing; falling back to Poisson statistical uncertainties.",
+            var_name,
+        )
+
     tau_canonical_axes = _validate_histogram_axes(
         tau_hist,
         _TAU_HISTOGRAM_REQUIRED_AXES,

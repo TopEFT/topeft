@@ -2297,6 +2297,11 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         if hist_name.endswith("_sumw2") and hist_name.count("sumw2") == 1
     }
 
+    if not sumw2_hists:
+        logger.warning(
+            "No sumw² histograms found in the input. Statistical uncertainties will default to Poisson counting errors."
+        )
+
     try:
         lumi_pair = _resolve_lumi_pair(normalized_year_tokens)
     except KeyError as exc:
@@ -3727,7 +3732,13 @@ def main():
         action="store_true",
         help="Use a logarithmic y-axis for the stacked (upper) panel; the ratio subplot remains linear.",
     )
-    parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip systematic error bands in plots")
+    parser.add_argument(
+        "-s",
+        "--skip-syst",
+        default=False,
+        action="store_true",
+        help="Skip systematic error bands in plots (statistical bands fall back to Poisson when sumw² histograms are absent)",
+    )
     parser.add_argument(
         "--unblind",
         dest="unblind",
