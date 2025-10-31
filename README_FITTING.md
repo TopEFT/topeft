@@ -33,6 +33,9 @@ does not write output files—so the printed tables are the main products.
   (`topeft/channels/ch_lst.json`). Use `--channels-json` to point to a custom
   configuration, and `--dump-channels OUTPUT.json` to inspect the resolved Ftau
   and Ttau channel names.
+* Optional year tokens passed via `-y/--year` to restrict both MC and data
+  histograms before computing the fake-rate points. Supported tokens include
+  `2016`, `2016APV`, `2017`, `2018`, `2022`, `2022EE`, `2023`, and `2023BPix`.
 
 ### Running the script
 
@@ -42,6 +45,15 @@ Run the fitter from the repository root so relative paths resolve correctly:
 python analysis/topeft_run2/tauFitter.py \
   -f /path/to/plotsTopEFT.pkl.gz \
   --channels-json /path/to/ch_lst.json
+```
+
+To focus on a subset of years, provide one or more year tokens. The fitter
+prints a dedicated summary that lists the retained and removed samples:
+
+```bash
+python analysis/topeft_run2/tauFitter.py \
+  -f /path/to/plotsTopEFT.pkl.gz \
+  -y 2017 2018
 ```
 
 The regrouped tau-pT binning defaults to

@@ -1,6 +1,6 @@
-import sys
 import pathlib
 import logging
+import sys
 
 import pytest
 
@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
 import analysis.topeft_run2.faketau_sf_fitter as fitter
 
 
-def _build_tau_histograms():
+def _build_tau_histograms(process_weights=None):
     tau_edges = [20, 30, 40, 50, 60, 80, 100, 200]
     proc_axis = hist.axis.StrCategory([], name="process", growth=True)
     channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
@@ -52,10 +52,13 @@ def _build_tau_histograms():
         "2los_ee_1tau_Ftau_2j": 1.0,
         "2los_ee_1tau_Ttau_2j": 0.6,
     }
-    base_weights = {
-        "ttbar": [12.0, 11.0, 10.0, 9.0, 8.0, 7.0, 6.0],
-        "data2018": [18.0, 16.0, 15.0, 13.0, 11.0, 9.0, 8.0],
-    }
+    if process_weights is None:
+        base_weights = {
+            "ttbar": [12.0, 11.0, 10.0, 9.0, 8.0, 7.0, 6.0],
+            "data2018": [18.0, 16.0, 15.0, 13.0, 11.0, 9.0, 8.0],
+        }
+    else:
+        base_weights = dict(process_weights)
 
     def _fill(target, axis_name, process, channel, entries):
         for value, weight in entries:
@@ -115,3 +118,31 @@ def test_tau_sumw2_histogram_passes_validation(caplog):
     assert data_fake_errors == pytest.approx(expected_errors[("Data", "fake")])
     assert mc_e.size == len(mc_fake_errors)
     assert data_e.size == len(data_fake_errors)
+    assert stage_details["year_filter"]["selected_years"] is None
+
+
+def test_year_filter_limits_samples():
+    custom_weights = {
+        "ttbarUL16": [12.0, 11.0, 10.0, 9.0, 8.0, 7.0, 6.0],
+        "ttbarUL18": [11.0, 10.0, 9.0, 8.0, 7.0, 6.0, 5.0],
+        "data2017": [17.0, 15.0, 14.0, 12.0, 10.0, 8.0, 7.0],
+        "data2018": [18.0, 16.0, 15.0, 13.0, 11.0, 9.0, 8.0],
+    }
+    histograms, _ = _build_tau_histograms(custom_weights)
+    ftau_channels = ["2los_ee_1tau_Ftau_2j"]
+    ttau_channels = ["2los_ee_1tau_Ttau_2j"]
+
+    sample_filters = fitter._resolve_year_filters(["2018"])
+    _mc_x, _mc_y, _mc_e, _data_x, _data_y, _data_e, stage_details = fitter.getPoints(
+        histograms,
+        ftau_channels,
+        ttau_channels,
+        sample_filters=sample_filters,
+    )
+
+    summary = stage_details["year_filter"]
+    assert summary["selected_years"] == ["2018"]
+    assert summary["mc_samples"] == ["ttbarUL18"]
+    assert summary["data_samples"] == ["data2018"]
+    assert "ttbarUL16" in summary["mc_removed"]
+    assert "data2017" in summary["data_removed"]
