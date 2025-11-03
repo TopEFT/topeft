@@ -3,13 +3,23 @@
 `diboson_sf_run3.py` derives diboson scale factors from the `njets` distribution.
 The default binning is `[0, 1, 2, 3, 4, 5, 6]`.
 
+The script requires the nominal `njets` histogram **and** its `_sumw2`
+companion so the per-bin statistical uncertainties remain available. Make sure
+your processing step keeps the sum of weights squared histograms by avoiding
+`--no-sumw2` when running
+[`run_analysis.py`](../topeft_run2/README.md#run-scripts-and-processors). The
+tau fake-rate fitter documents the same requirement for its
+`tau0pt_sumw2` input, so keeping the sumw² companions benefits both workflows;
+see the [tau fitter notes](../../README_FITTING.md#tau-fake-rate-fitter).
+
 ## Scale factor calculation
 
-For each requested year, the script loads the `njets` histogram, removes any
-flip-control samples (`flip*` processes), and subtracts the remaining
-non-diboson backgrounds from the data template.  The diboson prediction is
-built by summing the `WZTo*`, `ZZTo*`, and `WWTo*` processes, so the scale
-factors are computed as `(data − other) / diboson` on a bin-by-bin basis.
+For each requested year, the script loads the `njets` histogram (and its
+`njets_sumw2` twin), removes any flip-control samples (`flip*` processes), and
+subtracts the remaining non-diboson backgrounds from the data template.  The
+diboson prediction is built by summing the `WZTo*`, `ZZTo*`, and `WWTo*`
+processes, so the scale factors are computed as `(data − other) / diboson` on a
+bin-by-bin basis with uncertainties propagated from the stored sumw² values.
 Both the filtering of the diboson samples and the flip-sample exclusion are
 implemented in `process_year` within `diboson_sf_run3.py`.
 
