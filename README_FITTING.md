@@ -29,6 +29,12 @@ does not write output files—so the printed tables are the main products.
 * A histogram pickle (`plotsTopEFT.pkl.gz` by default) containing the
   Ftau/Ttau control-region histograms with the required axes:
   `process`, `channel`, `systematic`, and `tau0pt`.
+* The matching `tau0pt_sumw2` histogram so the fitter can propagate the
+  statistical uncertainties. Produce your histograms with
+  `run_analysis.py` (or any equivalent processor invocation) **without**
+  `--no-sumw2`; see the
+  [Run 2 analysis README](analysis/topeft_run2/README.md#run-scripts-and-processors)
+  for a summary of the sumw² guidance shared with the plotting tools.
 * The standard tau channel configuration JSON
   (`topeft/channels/ch_lst.json`). Use `--channels-json` to point to a custom
   configuration, and `--dump-channels OUTPUT.json` to inspect the resolved Ftau
@@ -36,6 +42,8 @@ does not write output files—so the printed tables are the main products.
 * Optional year tokens passed via `-y/--year` to restrict both MC and data
   histograms before computing the fake-rate points. Supported tokens include
   `2016`, `2016APV`, `2017`, `2018`, `2022`, `2022EE`, `2023`, and `2023BPix`.
+  Passing `--year` now prints a summary of the retained processes so you can
+  confirm the filter caught the intended campaigns.
 
 ### Running the script
 

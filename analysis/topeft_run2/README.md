@@ -67,6 +67,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 * `run_analysis.py`:
     - Thin wrapper around `analysis_processor.py` used for the standard CR/analysis histogram production. The canned histogram lists now include the 2D `lepton_pt_vs_eta` observable (and keep the matching `_sumw2` companion unless `--no-sumw2` is passed) so downstream tools can rely on a consistent pt vs $|\eta|$ binning description.
+    - Leave the default `sumw²` companions enabled whenever you plan to run downstream uncertainty-aware tooling such as the tau fake-rate fitter or the diboson scale-factor extractor. Disabling them with `--no-sumw2` drops the `*_sumw2` histograms (for example `tau0pt_sumw2`), which causes those utilities to fail or to lose their statistical error propagation. If you need to trim the histogram list, remove individual observables instead of the sumw² accumulators.
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
@@ -82,8 +83,9 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - The script takes as input a pkl file that should have both data and background MC included.
     - Example usage: `python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2017 2018 -t -u --variables lj0pt ptz`
     - Omitting `--variables` processes every histogram in the input pickle, while providing one or more names limits the run to those histograms.
+    - `--year YEAR [YEAR ...]` filters both MC and data histograms to the selected campaign tokens before plotting. The resolver mirrors the datacard utilities, accepts Run 2 and Run 3 tokens, and prints a summary of the samples that were retained or vetoed.
     - `--workers N` enables multiprocessing when `N>1`. The plotter distributes the requested variables across worker processes and, when spare capacity remains, further fans out over `(variable, category)` pairs so SR-sized channel maps can render in parallel. Start with 2–4 workers; each process keeps a full copy of the histogram dictionary so memory usage still grows roughly linearly with `N`.
-    - Pass `--log-y` to draw the stacked yields with a logarithmic y-axis (the ratio panel remains linear). The flag defaults to off so existing plots keep their linear scale unless explicitly requested.
+    - Pass `--log-y` to draw the stacked yields with a logarithmic y-axis (the ratio panel remains linear). The flag defaults to off so existing plots keep their linear scale unless explicitly requested, and is available both on the Python CLI and via `run_plotter.sh`.
     - Pass `--verbose` when you need detailed diagnostics (sample inventories, per-variable channel dumps). The default `--quiet` mode keeps the console output to high-level progress summaries.
     - Histograms with multiple dense axes (e.g. the `SparseHist`-based `lepton_pt_vs_eta`) are automatically rendered as CMS-style 2D heatmaps, while the 1D rebinning and systematic envelopes quietly skip them. The heatmap canvas now includes a dedicated Data/MC ratio panel so comparisons are available at a glance alongside the nominal MC and data projections.
 
@@ -92,6 +94,8 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 The `make_cr_and_sr_plots.py` entry point auto-detects whether the supplied pickle corresponds to control- or signal-region histograms by looking for `CR` or `SR` tokens in the filename. Detection is case-insensitive and accepts suffixes such as `SR2018`; it defaults to control-region mode when no clear token is present. If both tokens are found the script falls back to the control-region configuration and prints a warning recommending an explicit override.
 
 Two new mutually exclusive switches, `--cr` and `--sr`, allow you to override the auto-detected mode. They are especially useful when the filename contains multiple year or campaign tags that would otherwise confuse the heuristic, or when a generic filename (e.g. `plotsTopEFT.pkl.gz`) is reused for multiple region exports.
+
+Filtering the pickle to a subset of campaigns is now built into both the Python CLI and the wrapper. Pass `-y/--year` with one or more tokens (e.g. `2017 2018 2022EE`) to restrict the MC and data samples before any plotting or yield aggregation. The script echoes a summary of the retained and vetoed samples so it is easy to verify the filter matched the intended years.
 
 Blinding is now governed by a single flag pair: `--unblind` always renders the data layer regardless of the region defaults, and `--blind` hides the data. When neither flag is provided the tool unblinds control-region plots and blinds signal-region plots, matching the standard analysis policy. The resolved region and blinding choice are echoed on start-up for clarity.
 
