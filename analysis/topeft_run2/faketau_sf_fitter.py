@@ -17,7 +17,6 @@
 
 import numpy as np
 import os
-import copy
 import argparse
 import json
 import logging
@@ -807,15 +806,9 @@ def _ensure_list(values):
 
 
 def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
-    # print("\n\n\n\n\n")
-    # print("INGROUPBINS\nhisto axes = ", [ax.name for ax in histo.axes])
-    # for ax in histo.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\n\n\n\n\n")
-    bin_map_copy = copy.deepcopy(bin_map)  # Avoid editing original
     normalized_map = OrderedDict(
         (group, _ensure_list(categories))
-        for group, categories in bin_map_copy.items()
+        for group, categories in bin_map.items()
     )
 
     axis_categories = list(histo.axes[axis_name])
