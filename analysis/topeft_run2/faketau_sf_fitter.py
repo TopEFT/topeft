@@ -24,18 +24,11 @@ import json
 import logging
 import math
 from collections import OrderedDict
-from cycler import cycler
-
 #from coffea import hist
 import hist
 
 import sys
 import re
-import matplotlib
-#matplotlib.use('Qt4Agg')
-
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from  numpy.linalg import eig
 from scipy.odr import *
