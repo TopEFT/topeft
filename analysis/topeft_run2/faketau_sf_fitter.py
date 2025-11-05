@@ -31,7 +31,6 @@ import sys
 import re
 from scipy.optimize import curve_fit
 from  numpy.linalg import eig
-from scipy.odr import *
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.yield_tools import YieldTools
@@ -714,22 +713,10 @@ def _print_fit_summary(
 def linear(x,a,b):
     return b*x+a
 
-def linear2(B,x):
-    return B[1]*x+B[0]
-
 def SF_fit(SF,SF_e,x):
 
     params, cov = curve_fit(linear,x,SF,sigma=SF_e,absolute_sigma=True)
     return params[0],params[1], cov
-
-def SF_fit_alt(SF,SF_e,x):
-    x_err = [0.1]*len(x)
-    linear_model = Model(linear2)
-    data = RealData(x, SF, sx=x_err, sy=SF_e)
-    odr = ODR(data, linear_model, beta0=[0.4, 0.4])
-    out = odr.run()
-    c0,c1,cov, = out.Output()
-    return c0,c1,cov
 
 def _ensure_list(values):
     if isinstance(values, str):
