@@ -214,6 +214,28 @@ def _integrate_tau_channels(histogram, channels):
     return histogram.integrate("channel", channels)[{"channel": sum}]
 
 
+def _extend_unique(target, values):
+    """Append values to target while preserving order and avoiding duplicates."""
+
+    if not values:
+        return target
+
+    for value in values:
+        if value not in target:
+            target.append(value)
+    return target
+
+
+def _prune_tokens(target, forbidden):
+    """Return a list excluding forbidden tokens while preserving order."""
+
+    if not forbidden:
+        return list(target)
+
+    forbidden_set = set(forbidden)
+    return [token for token in target if token not in forbidden_set]
+
+
 def _resolve_year_filters(year_args):
     """Normalise CLI year arguments and build per-sample filter lists."""
 
@@ -248,26 +270,18 @@ def _resolve_year_filters(year_args):
             rules = YEAR_TOKEN_RULES[cleaned]
 
             mc_wl_values = rules.get("mc_wl", [])
-            for value in mc_wl_values:
-                if value not in mc_wl:
-                    mc_wl.append(value)
-            mc_bl = [value for value in mc_bl if value not in mc_wl_values]
+            _extend_unique(mc_wl, mc_wl_values)
+            mc_bl = _prune_tokens(mc_bl, mc_wl_values)
 
             mc_bl_values = rules.get("mc_bl", [])
-            for value in mc_bl_values:
-                if value not in mc_bl:
-                    mc_bl.append(value)
+            _extend_unique(mc_bl, mc_bl_values)
 
             data_wl_values = rules.get("data_wl", [])
-            for value in data_wl_values:
-                if value not in data_wl:
-                    data_wl.append(value)
-            data_bl = [value for value in data_bl if value not in data_wl_values]
+            _extend_unique(data_wl, data_wl_values)
+            data_bl = _prune_tokens(data_bl, data_wl_values)
 
             data_bl_values = rules.get("data_bl", [])
-            for value in data_bl_values:
-                if value not in data_bl:
-                    data_bl.append(value)
+            _extend_unique(data_bl, data_bl_values)
 
             normalized.append(cleaned)
             seen.add(cleaned)
