@@ -205,6 +205,25 @@ def _collect_processes(histograms, predicate):
     return collected
 
 
+def _group_all(histograms, mapping):
+    """Regroup histograms in a tuple while preserving order and ``None`` entries."""
+
+    regrouped = []
+    for histogram in histograms:
+        if histogram is None:
+            regrouped.append(None)
+        else:
+            regrouped.append(
+                group_bins(
+                    histogram,
+                    mapping,
+                    "process",
+                    drop_unspecified=True,
+                )
+            )
+    return tuple(regrouped)
+
+
 def _integrate_tau_channels(histogram, channels):
     """Integrate tau histograms over the requested channels with safe None handling."""
 
@@ -1299,17 +1318,17 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
     mc_group_map = OrderedDict((("Ttbar", mc_processes),))
     data_group_map = OrderedDict((("Data", data_processes),))
 
-    mc_fake     = group_bins(mc_fake,mc_group_map,"process",drop_unspecified=True)
-    mc_tight    = group_bins(mc_tight,mc_group_map,"process",drop_unspecified=True)
-    data_fake   = group_bins(data_fake,data_group_map,"process",drop_unspecified=True)
-    data_tight  = group_bins(data_tight,data_group_map,"process",drop_unspecified=True)
+    mc_fake, mc_tight = _group_all((mc_fake, mc_tight), mc_group_map)
+    data_fake, data_tight = _group_all((data_fake, data_tight), data_group_map)
 
-    if mc_fake_sumw2 is not None:
-        mc_fake_sumw2 = group_bins(mc_fake_sumw2, mc_group_map, "process", drop_unspecified=True)
-        mc_tight_sumw2 = group_bins(mc_tight_sumw2, mc_group_map, "process", drop_unspecified=True)
-    if data_fake_sumw2 is not None:
-        data_fake_sumw2 = group_bins(data_fake_sumw2, data_group_map, "process", drop_unspecified=True)
-        data_tight_sumw2 = group_bins(data_tight_sumw2, data_group_map, "process", drop_unspecified=True)
+    (
+        mc_fake_sumw2,
+        mc_tight_sumw2,
+    ) = _group_all((mc_fake_sumw2, mc_tight_sumw2), mc_group_map)
+    (
+        data_fake_sumw2,
+        data_tight_sumw2,
+    ) = _group_all((data_fake_sumw2, data_tight_sumw2), data_group_map)
 
     mc_fake     = mc_fake.integrate("systematic","nominal")
     mc_tight    = mc_tight.integrate("systematic","nominal")
