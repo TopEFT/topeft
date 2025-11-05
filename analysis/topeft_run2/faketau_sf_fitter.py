@@ -205,6 +205,15 @@ def _collect_processes(histograms, predicate):
     return collected
 
 
+def _integrate_tau_channels(histogram, channels):
+    """Integrate tau histograms over the requested channels with safe None handling."""
+
+    if histogram is None or channels is None:
+        return None
+
+    return histogram.integrate("channel", channels)[{"channel": sum}]
+
+
 def _resolve_year_filters(year_args):
     """Normalise CLI year arguments and build per-sample filter lists."""
 
@@ -1248,24 +1257,16 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         hist_data_sumw2 = None
 
     # Integrate to get the categories we want
-    mc_fake     = hist_mc.integrate("channel", ftau_channels)[{"channel": sum}]
-    mc_tight    = hist_mc.integrate("channel", ttau_channels)[{"channel": sum}]
-    data_fake   = hist_data.integrate("channel", ftau_channels)[{"channel": sum}]
-    data_tight  = hist_data.integrate("channel", ttau_channels)[{"channel": sum}]
+    mc_fake = _integrate_tau_channels(hist_mc, ftau_channels)
+    mc_tight = _integrate_tau_channels(hist_mc, ttau_channels)
+    data_fake = _integrate_tau_channels(hist_data, ftau_channels)
+    data_tight = _integrate_tau_channels(hist_data, ttau_channels)
 
-    if hist_mc_sumw2 is not None:
-        mc_fake_sumw2 = hist_mc_sumw2.integrate("channel", ftau_channels)[{"channel": sum}]
-        mc_tight_sumw2 = hist_mc_sumw2.integrate("channel", ttau_channels)[{"channel": sum}]
-    else:
-        mc_fake_sumw2 = None
-        mc_tight_sumw2 = None
+    mc_fake_sumw2 = _integrate_tau_channels(hist_mc_sumw2, ftau_channels)
+    mc_tight_sumw2 = _integrate_tau_channels(hist_mc_sumw2, ttau_channels)
 
-    if hist_data_sumw2 is not None:
-        data_fake_sumw2 = hist_data_sumw2.integrate("channel", ftau_channels)[{"channel": sum}]
-        data_tight_sumw2 = hist_data_sumw2.integrate("channel", ttau_channels)[{"channel": sum}]
-    else:
-        data_fake_sumw2 = None
-        data_tight_sumw2 = None
+    data_fake_sumw2 = _integrate_tau_channels(hist_data_sumw2, ftau_channels)
+    data_tight_sumw2 = _integrate_tau_channels(hist_data_sumw2, ttau_channels)
 
     # Build fresh grouping maps derived from the current histogram contents so we only
     # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
