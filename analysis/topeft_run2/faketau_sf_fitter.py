@@ -1466,11 +1466,6 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
 
-    # Whether or not to unit norm the plots
-    #unit_norm_bool = args.unit_norm
-
-    # Make a tmp output directory in curren dir a different dir is not specified
-
     ftau_channels, ttau_channels = load_tau_control_channels(args.channels_json)
 
     if args.dump_channels is not None:
