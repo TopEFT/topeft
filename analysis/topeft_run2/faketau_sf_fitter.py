@@ -577,6 +577,69 @@ def _variance_to_errors(variances):
     return np.sqrt(np.clip(variances, 0.0, None))
 
 
+def _extract_grouped_tau_yields(
+    fake_hist,
+    tight_hist,
+    expected_bins,
+    *,
+    fake_sumw2_hist=None,
+    tight_sumw2_hist=None,
+    sample_kind,
+):
+    """Collect tau yields and uncertainties for a grouped sample."""
+
+    fake_vals_map = {}
+    fake_err_map = {}
+    for process in fake_hist.axes["process"]:
+        proc_name = str(process)
+        proc_hist = fake_hist[{"process": process}]
+        proc_sumw2_hist = (
+            fake_sumw2_hist[{"process": process}] if fake_sumw2_hist is not None else None
+        )
+        proc_vals, proc_vars = _extract_tau_counts(
+            proc_hist,
+            expected_bins,
+            sumw2_input=proc_sumw2_hist,
+        )
+        fake_vals_map[proc_name] = proc_vals
+        fake_err_map[proc_name] = _variance_to_errors(proc_vars)
+
+    tight_vals_map = {}
+    tight_err_map = {}
+    for process in tight_hist.axes["process"]:
+        proc_name = str(process)
+        proc_hist = tight_hist[{"process": process}]
+        proc_sumw2_hist = (
+            tight_sumw2_hist[{"process": process}] if tight_sumw2_hist is not None else None
+        )
+        proc_vals, proc_vars = _extract_tau_counts(
+            proc_hist,
+            expected_bins,
+            sumw2_input=proc_sumw2_hist,
+        )
+        tight_vals_map[proc_name] = proc_vals
+        tight_err_map[proc_name] = _variance_to_errors(proc_vars)
+
+    if fake_vals_map.keys() != tight_vals_map.keys():
+        raise RuntimeError(
+            f"Inconsistent {sample_kind} processes found between fake and tight histograms: "
+            f"{sorted(fake_vals_map)} vs {sorted(tight_vals_map)}"
+        )
+    if len(fake_vals_map) != 1:
+        raise RuntimeError(
+            f"Expected a single {sample_kind} process after grouping; found "
+            f"{sorted(fake_vals_map)}."
+        )
+
+    proc_name = next(iter(fake_vals_map))
+    fake_vals = fake_vals_map[proc_name]
+    fake_err = fake_err_map[proc_name]
+    tight_vals = tight_vals_map[proc_name]
+    tight_err = tight_err_map[proc_name]
+
+    return fake_vals, fake_err, tight_vals, tight_err
+
+
 def _format_bin_edge(edge):
     if math.isinf(edge):
         return "∞"
@@ -1251,101 +1314,28 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
             "MC and data tau pt axes define different native edges."
         )
 
-    mc_fake_vals_map = {}
-    mc_fake_err_map = {}
-    mc_tight_vals_map = {}
-    mc_tight_err_map = {}
-    for process in mc_fake.axes["process"]:
-        proc_name = str(process)
-        proc_hist = mc_fake[{"process": process}]
-        proc_sumw2_hist = (
-            mc_fake_sumw2[{"process": process}] if mc_fake_sumw2 is not None else None
-        )
-        proc_vals, proc_vars = _extract_tau_counts(
-            proc_hist,
-            expected_bins,
-            sumw2_input=proc_sumw2_hist,
-        )
-        mc_fake_vals_map[proc_name] = proc_vals
-        mc_fake_err_map[proc_name] = _variance_to_errors(proc_vars)
+    mc_fake_vals, mc_fake_e, mc_tight_vals, mc_tight_e = _extract_grouped_tau_yields(
+        mc_fake,
+        mc_tight,
+        expected_bins,
+        fake_sumw2_hist=mc_fake_sumw2,
+        tight_sumw2_hist=mc_tight_sumw2,
+        sample_kind="MC",
+    )
 
-    for process in mc_tight.axes["process"]:
-        proc_name = str(process)
-        proc_hist = mc_tight[{"process": process}]
-        proc_sumw2_hist = (
-            mc_tight_sumw2[{"process": process}] if mc_tight_sumw2 is not None else None
-        )
-        proc_vals, proc_vars = _extract_tau_counts(
-            proc_hist,
-            expected_bins,
-            sumw2_input=proc_sumw2_hist,
-        )
-        mc_tight_vals_map[proc_name] = proc_vals
-        mc_tight_err_map[proc_name] = _variance_to_errors(proc_vars)
-
-    if mc_fake_vals_map.keys() != mc_tight_vals_map.keys():
-        raise RuntimeError(
-            "Inconsistent MC processes found between fake and tight histograms: "
-            f"{sorted(mc_fake_vals_map)} vs {sorted(mc_tight_vals_map)}"
-        )
-    if len(mc_fake_vals_map) != 1:
-        raise RuntimeError(
-            "Expected a single MC process after grouping; found "
-            f"{sorted(mc_fake_vals_map)}."
-        )
-    mc_proc = next(iter(mc_fake_vals_map))
-    mc_fake_e = mc_fake_err_map[mc_proc]
-    mc_fake_vals = mc_fake_vals_map[mc_proc]
-    mc_tight_e = mc_tight_err_map[mc_proc]
-    mc_tight_vals = mc_tight_vals_map[mc_proc]
-
-    data_fake_vals_map = {}
-    data_fake_err_map = {}
-    data_tight_vals_map = {}
-    data_tight_err_map = {}
-    for process in data_fake.axes["process"]:
-        proc_name = str(process)
-        proc_hist = data_fake[{"process": process}]
-        proc_sumw2_hist = (
-            data_fake_sumw2[{"process": process}] if data_fake_sumw2 is not None else None
-        )
-        proc_vals, proc_vars = _extract_tau_counts(
-            proc_hist,
-            expected_bins,
-            sumw2_input=proc_sumw2_hist,
-        )
-        data_fake_vals_map[proc_name] = proc_vals
-        data_fake_err_map[proc_name] = _variance_to_errors(proc_vars)
-
-    for process in data_tight.axes["process"]:
-        proc_name = str(process)
-        proc_hist = data_tight[{"process": process}]
-        proc_sumw2_hist = (
-            data_tight_sumw2[{"process": process}] if data_tight_sumw2 is not None else None
-        )
-        proc_vals, proc_vars = _extract_tau_counts(
-            proc_hist,
-            expected_bins,
-            sumw2_input=proc_sumw2_hist,
-        )
-        data_tight_vals_map[proc_name] = proc_vals
-        data_tight_err_map[proc_name] = _variance_to_errors(proc_vars)
-
-    if data_fake_vals_map.keys() != data_tight_vals_map.keys():
-        raise RuntimeError(
-            "Inconsistent data processes found between fake and tight histograms: "
-            f"{sorted(data_fake_vals_map)} vs {sorted(data_tight_vals_map)}"
-        )
-    if len(data_fake_vals_map) != 1:
-        raise RuntimeError(
-            "Expected a single data process after grouping; found "
-            f"{sorted(data_fake_vals_map)}."
-        )
-    data_proc = next(iter(data_fake_vals_map))
-    data_fake_e = data_fake_err_map[data_proc]
-    data_fake_vals = data_fake_vals_map[data_proc]
-    data_tight_e = data_tight_err_map[data_proc]
-    data_tight_vals = data_tight_vals_map[data_proc]
+    (
+        data_fake_vals,
+        data_fake_e,
+        data_tight_vals,
+        data_tight_e,
+    ) = _extract_grouped_tau_yields(
+        data_fake,
+        data_tight,
+        expected_bins,
+        fake_sumw2_hist=data_fake_sumw2,
+        tight_sumw2_hist=data_tight_sumw2,
+        sample_kind="data",
+    )
 
     mc_y, mc_e, mc_regroup_summary = compute_fake_rates(
         mc_fake_vals,
