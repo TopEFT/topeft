@@ -1052,10 +1052,11 @@ def compute_fake_rates(
             ratio_err = 0.0
 
         ratios.append(ratio)
-        if ratio != 0.0 and (ratio + ratio_err) / ratio < 1.02:
-            # Enforce a minimum ~2% relative uncertainty so the subsequent fit
-            # does not see artificially precise inputs.
-            errors.append(1.02 * ratio - ratio)
+        if ratio > 0.0:
+            # Preserve the historical minimum ~2% relative uncertainty by
+            # picking the larger of the propagated error and the enforced
+            # floor.
+            errors.append(max(ratio_err, 0.02 * ratio))
         else:
             errors.append(ratio_err)
 
