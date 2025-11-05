@@ -186,6 +186,26 @@ def _gather_axis_alias_tokens(mapping):
     return tokens
 
 
+def _collect_processes(histograms, predicate):
+    """Collect unique process names from histograms preserving first-seen order."""
+
+    collected = []
+
+    def _append_process(process_name):
+        if process_name not in collected:
+            collected.append(process_name)
+
+    for histogram in histograms:
+        if histogram is None:
+            continue
+        for process in histogram.axes["process"]:
+            process_name = str(process)
+            if predicate(process_name):
+                _append_process(process_name)
+
+    return collected
+
+
 def _resolve_year_filters(year_args):
     """Normalise CLI year arguments and build per-sample filter lists."""
 
@@ -1258,25 +1278,17 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
     # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
     # MC map free of any ``data{year}`` entries while the data map only keeps those
     # ``data{year}`` labels.
-    mc_group_map = OrderedDict((("Ttbar", []),))
-    data_group_map = OrderedDict((("Data", []),))
+    mc_processes = _collect_processes(
+        (mc_fake, mc_tight),
+        lambda name: not name.startswith("data"),
+    )
+    data_processes = _collect_processes(
+        (data_fake, data_tight),
+        lambda name: name.startswith("data"),
+    )
 
-    def _append_process(target_list, process_name):
-        if process_name not in target_list:
-            target_list.append(process_name)
-
-    for hist in (mc_fake, mc_tight):
-        for process in hist.axes["process"]:
-            process_name = str(process)
-            if process_name.startswith("data"):
-                continue
-            _append_process(mc_group_map["Ttbar"], process_name)
-
-    for hist in (data_fake, data_tight):
-        for process in hist.axes["process"]:
-            process_name = str(process)
-            if process_name.startswith("data"):
-                _append_process(data_group_map["Data"], process_name)
+    mc_group_map = OrderedDict((("Ttbar", mc_processes),))
+    data_group_map = OrderedDict((("Data", data_processes),))
 
     mc_fake     = group_bins(mc_fake,mc_group_map,"process",drop_unspecified=True)
     mc_tight    = group_bins(mc_tight,mc_group_map,"process",drop_unspecified=True)
