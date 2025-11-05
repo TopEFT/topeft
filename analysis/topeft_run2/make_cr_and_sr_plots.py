@@ -3481,11 +3481,12 @@ def make_region_stacked_ratio_fig(
     )
 
     # Ensure the ratio axis always includes a unity tick while preserving the
-    # spacing chosen by the existing locator.
+    # spacing chosen by the existing locator and enforcing ticks at the bounds.
     ratio_major_locator = rax.yaxis.get_major_locator()
     ratio_major_formatter = rax.yaxis.get_major_formatter()
     ratio_low, ratio_high = rax.get_ylim()
     include_unity = ratio_low <= 1.0 <= ratio_high
+
     major_ticks = None
     if ratio_major_locator is not None:
         try:
@@ -3497,22 +3498,27 @@ def make_region_stacked_ratio_fig(
     if major_ticks is None or not np.size(major_ticks):
         major_ticks = np.asarray(rax.get_yticks(), dtype=float)
 
-    if include_unity:
-        ticks = np.asarray(major_ticks, dtype=float)
-        finite_mask = np.isfinite(ticks)
-        ticks = ticks[finite_mask]
-        # Filter to ticks that are compatible with the current display range.
-        in_range_mask = (ticks >= ratio_low) & (ticks <= ratio_high)
-        ticks = ticks[in_range_mask]
-        if not np.any(np.isclose(ticks, 1.0, rtol=1e-9, atol=1e-12)):
-            ticks = np.append(ticks, 1.0)
-        if ticks.size:
-            ticks = np.unique(ticks)
-            ticks.sort()
-            rax.yaxis.set_major_locator(FixedLocator(ticks.tolist()))
-            # Reapply the formatter to preserve styling (e.g., mathtext/scientific).
-            if ratio_major_formatter is not None:
-                rax.yaxis.set_major_formatter(ratio_major_formatter)
+    ticks = np.asarray(major_ticks, dtype=float)
+    finite_mask = np.isfinite(ticks)
+    ticks = ticks[finite_mask]
+    # Filter to ticks that are compatible with the current display range.
+    in_range_mask = (ticks >= ratio_low) & (ticks <= ratio_high)
+    ticks = ticks[in_range_mask]
+
+    for bound in (ratio_low, ratio_high):
+        if not np.any(np.isclose(ticks, bound, rtol=1e-9, atol=1e-12)):
+            ticks = np.append(ticks, bound)
+
+    if include_unity and not np.any(np.isclose(ticks, 1.0, rtol=1e-9, atol=1e-12)):
+        ticks = np.append(ticks, 1.0)
+
+    if ticks.size:
+        ticks = np.unique(ticks)
+        ticks.sort()
+        rax.yaxis.set_major_locator(FixedLocator(ticks.tolist()))
+        # Reapply the formatter to preserve styling (e.g., mathtext/scientific).
+        if ratio_major_formatter is not None:
+            rax.yaxis.set_major_formatter(ratio_major_formatter)
 
     fig.canvas.draw()
     xticks = rax.get_xticks()
