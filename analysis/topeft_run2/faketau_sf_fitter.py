@@ -18,7 +18,6 @@
 import numpy as np
 import os
 import copy
-import datetime
 import argparse
 import json
 import logging
@@ -1429,13 +1428,6 @@ def main():
     #unit_norm_bool = args.unit_norm
 
     # Make a tmp output directory in curren dir a different dir is not specified
-    timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    #save_dir_path = args.output_path
-    #outdir_name = args.output_name
-    #if args.include_timestamp_tag:
-    #    outdir_name = outdir_name + "_" + timestamp_tag
-    #save_dir_path = os.path.join(save_dir_path,outdir_name)
-    #os.mkdir(save_dir_path)
 
     ftau_channels, ttau_channels = load_tau_control_channels(args.channels_json)
 
