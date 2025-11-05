@@ -1160,17 +1160,19 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
     data_wl = list(sample_filters.get("data_whitelist", ()))
     data_bl = list(sample_filters.get("data_blacklist", ()))
 
-    samples_to_rm_from_mc_hist = []
-    samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists, "process")
     mc_sample_lst = _filter_samples(all_samples, mc_wl, mc_bl)
     data_sample_lst = _filter_samples(all_samples, data_wl, data_bl)
 
-    for sample_name in all_samples:
-        if sample_name not in mc_sample_lst:
-            samples_to_rm_from_mc_hist.append(sample_name)
-        if sample_name not in data_sample_lst:
-            samples_to_rm_from_data_hist.append(sample_name)
+    mc_keep = set(mc_sample_lst)
+    data_keep = set(data_sample_lst)
+
+    samples_to_rm_from_mc_hist = [
+        sample_name for sample_name in all_samples if sample_name not in mc_keep
+    ]
+    samples_to_rm_from_data_hist = [
+        sample_name for sample_name in all_samples if sample_name not in data_keep
+    ]
 
     var_name = "tau0pt"
     tau_hist = dict_of_hists[var_name]
