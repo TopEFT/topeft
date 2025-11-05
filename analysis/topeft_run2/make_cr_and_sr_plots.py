@@ -930,12 +930,6 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
-    var = "lj0pt"
-    if var not in dict_of_hists:
-        for hist_var in dict_of_hists:
-            if not dict_of_hists[hist_var].empty():
-                var = hist_var
-                break
     all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name=var)
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
