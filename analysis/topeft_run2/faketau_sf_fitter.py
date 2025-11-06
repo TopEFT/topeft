@@ -1442,7 +1442,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         "mc_regroup_summary": mc_regroup_summary,
         "data_regroup_summary": data_regroup_summary,
         "year_filter": year_filter_summary,
-        "tau_pt_bin_starts": pt_bin_starts,
+        "tau_pt_bin_starts": tuple(pt_bin_starts.tolist()),
     }
 
     return mc_x, mc_y, mc_e, data_x, data_y, data_e, stage_details
