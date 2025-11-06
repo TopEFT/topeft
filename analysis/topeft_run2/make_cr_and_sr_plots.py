@@ -3480,7 +3480,6 @@ def make_region_stacked_ratio_fig(
         )
 
     ax.autoscale(axis="y")
-    ax.autoscale(axis="y")
     ax.set_xlabel(None)
     ax.tick_params(axis="both", labelsize=tick_labelsize, width=tick_width, length=tick_length)
     if not use_log_y:
