@@ -194,10 +194,12 @@ def _collect_processes(histograms, predicate):
     """Collect unique process names from histograms preserving first-seen order."""
 
     collected = []
+    seen = set()
 
     def _append_process(process_name):
-        if process_name not in collected:
+        if process_name not in seen:
             collected.append(process_name)
+            seen.add(process_name)
 
     for histogram in histograms:
         if histogram is None:
