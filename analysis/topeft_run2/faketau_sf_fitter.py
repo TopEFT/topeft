@@ -1606,7 +1606,7 @@ def main():
         y_data,
         y_mc,
         out=np.full_like(y_data, np.nan, dtype=float),
-        where=np.asarray(y_mc) != 0,
+        where=y_mc != 0,
     )
     SF_e = _combine_ratio_uncertainty_array(
         y_data,
