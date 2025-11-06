@@ -647,11 +647,23 @@ def _variance_to_errors(variances):
     return np.sqrt(np.clip(variances, 0.0, None))
 
 
-def _collect_grouped_counts(hist, sumw2_hist, expected_bins):
+def _collect_grouped_counts(hist, sumw2_hist, expected_bins, *, hist_label="grouped histogram"):
     """Collect tau counts and errors for each process in a grouped histogram."""
 
+    if hist is None:
+        raise RuntimeError(
+            f"Missing {hist_label}; expected a grouped histogram with a 'process' axis."
+        )
+
+    try:
+        process_axis = hist.axes["process"]
+    except (KeyError, AttributeError, TypeError):
+        raise RuntimeError(
+            f"The {hist_label} is not grouped by process; expected a histogram with a 'process' axis."
+        )
+
     grouped_counts = {}
-    for process in hist.axes["process"]:
+    for process in process_axis:
         proc_name = str(process)
         proc_hist = hist[{"process": process}]
         proc_sumw2_hist = sumw2_hist[{"process": process}] if sumw2_hist is not None else None
@@ -680,11 +692,13 @@ def _extract_grouped_tau_yields(
         fake_hist,
         fake_sumw2_hist,
         expected_bins,
+        hist_label=f"{sample_kind} fake grouped histogram",
     )
     tight_counts = _collect_grouped_counts(
         tight_hist,
         tight_sumw2_hist,
         expected_bins,
+        hist_label=f"{sample_kind} tight grouped histogram",
     )
 
     if fake_counts.keys() != tight_counts.keys():
