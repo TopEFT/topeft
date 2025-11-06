@@ -1363,6 +1363,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         mc_fake.axes["tau0pt"],
         TAU_PT_BIN_EDGES,
     )
+    pt_bin_starts = np.asarray(tau_pt_edges[:-1], dtype=float)
     expected_bins = len(tau_pt_edges) - 1
 
     data_tau_pt_edges = _extract_tau_pt_edges(data_fake.axes["tau0pt"])
@@ -1409,8 +1410,8 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         regroup_slices,
     )
 
-    mc_x = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
-    data_x = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
+    mc_x = pt_bin_starts.copy()
+    data_x = pt_bin_starts.copy()
 
     native_bin_labels = [
         _format_bin_label(tau_pt_edges, index, index + 1)
@@ -1576,9 +1577,9 @@ def main():
 
     report_pt_values = raw_x_data.copy()
     if report_pt_values.size == 0:
-        report_pt_values = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
-    elif report_pt_values.size != len(TAU_PT_BIN_EDGES) - 1:
-        alt_pt_values = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
+        report_pt_values = pt_bin_starts.copy()
+    elif report_pt_values.size != pt_bin_starts.size:
+        alt_pt_values = pt_bin_starts.copy()
         if alt_pt_values.size == report_pt_values.size:
             report_pt_values = alt_pt_values
     report_pt_values = report_pt_values[valid]
