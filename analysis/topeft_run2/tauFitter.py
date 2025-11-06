@@ -31,6 +31,13 @@ from scipy.odr import *
 
 from topeft.modules.yield_tools import YieldTools
 import topcoffea.modules.utils as utils
+from . import faketau_sf_fitter as _faketau
+from .faketau_sf_fitter import (
+    TAU_PT_BIN_EDGES,
+    _TAU_HISTOGRAM_REQUIRED_AXES,
+    _validate_histogram_axes,
+    _validate_tau_channel_coverage,
+)
 
 yt = YieldTools()
 
@@ -119,6 +126,40 @@ CR_GRP_MAP_full = {
 }
 
 
+def compute_fake_rates(
+    fake_vals,
+    fake_errs,
+    tight_vals,
+    tight_errs,
+    regroup_slices=None,
+):
+    """Compatibility wrapper that trims extra tau-flow bins when needed."""
+
+    fake_vals = np.asarray(fake_vals, dtype=float)
+    fake_errs = np.asarray(fake_errs, dtype=float)
+    tight_vals = np.asarray(tight_vals, dtype=float)
+    tight_errs = np.asarray(tight_errs, dtype=float)
+
+    if regroup_slices is None:
+        expected_bins = len(TAU_PT_BIN_EDGES) - 1
+        n_bins = fake_vals.shape[-1]
+        if n_bins >= expected_bins:
+            start_index = max(0, n_bins - expected_bins)
+            if start_index:
+                fake_vals = fake_vals[start_index:]
+                fake_errs = fake_errs[start_index:]
+                tight_vals = tight_vals[start_index:]
+                tight_errs = tight_errs[start_index:]
+
+    return _faketau.compute_fake_rates(
+        fake_vals,
+        fake_errs,
+        tight_vals,
+        tight_errs,
+        regroup_slices,
+    )
+
+
 def linear(x,a,b):
     return b*x+a
 
@@ -167,7 +208,14 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
     # Build new bin_map that only contains categories that exist in the hist
     new_bin_map = {}
     for grp_name, cat_list in bin_map.items():
-        filtered = [c for c in cat_list if c in axis_cats]  # Only keep existing categories
+        missing = [category for category in cat_list if category not in axis_cats]
+        if missing and drop_unspecified:
+            raise ValueError(
+                "Requested categories are missing from the histogram: "
+                + ", ".join(missing)
+            )
+
+        filtered = [category for category in cat_list if category in axis_cats]
         if filtered:
             new_bin_map[grp_name] = filtered
 
