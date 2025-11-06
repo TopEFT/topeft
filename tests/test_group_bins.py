@@ -107,10 +107,10 @@ def _toy_histogram_arrays():
     fake_errs = np.zeros(length)
     tight_errs = np.zeros(length)
 
-    fake_vals[2] = 100.0
-    tight_vals[2] = 50.0
-    fake_errs[2] = 10.0
-    tight_errs[2] = 5.0
+    fake_vals[1] = 100.0
+    tight_vals[1] = 50.0
+    fake_errs[1] = 10.0
+    tight_errs[1] = 5.0
 
     return fake_vals, fake_errs, tight_vals, tight_errs
 

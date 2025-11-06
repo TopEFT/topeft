@@ -143,13 +143,23 @@ def compute_fake_rates(
     if regroup_slices is None:
         expected_bins = len(TAU_PT_BIN_EDGES) - 1
         n_bins = fake_vals.shape[-1]
-        if n_bins >= expected_bins:
-            start_index = max(0, n_bins - expected_bins)
-            if start_index:
-                fake_vals = fake_vals[start_index:]
-                fake_errs = fake_errs[start_index:]
-                tight_vals = tight_vals[start_index:]
-                tight_errs = tight_errs[start_index:]
+
+        if n_bins == expected_bins + 2:
+            # Histograms that preserve both the underflow and overflow entries
+            # need to drop one bin from each edge to expose the physical range.
+            fake_vals = fake_vals[1:-1]
+            fake_errs = fake_errs[1:-1]
+            tight_vals = tight_vals[1:-1]
+            tight_errs = tight_errs[1:-1]
+        elif n_bins > expected_bins:
+            # Fall back to trimming from the leading edge to keep the newest
+            # behaviour as close as possible to the legacy wrapper.
+            start_index = n_bins - expected_bins
+            stop_index = start_index + expected_bins
+            fake_vals = fake_vals[start_index:stop_index]
+            fake_errs = fake_errs[start_index:stop_index]
+            tight_vals = tight_vals[start_index:stop_index]
+            tight_errs = tight_errs[start_index:stop_index]
 
     return _faketau.compute_fake_rates(
         fake_vals,
