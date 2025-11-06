@@ -87,16 +87,32 @@ def test_removed_sr_helpers_are_absent():
     assert not hasattr(mcp, "make_all_sr_sys_plots")
 
 
-@pytest.mark.parametrize("group_fn", [mcp.group_bins, tau.group_bins])
-def test_group_bins_raises_for_unknown_sources(group_fn):
+@pytest.mark.parametrize(
+    "group_fn,expect_raise",
+    [
+        (mcp.group_bins, True),
+        (tau.group_bins, False),
+    ],
+)
+def test_group_bins_handles_unknown_sources(group_fn, expect_raise):
     histo = _make_hist()
-    with pytest.raises(ValueError, match="missing"):
-        group_fn(
+
+    if expect_raise:
+        with pytest.raises(ValueError, match="missing"):
+            group_fn(
+                histo,
+                {"combo": ["missing"]},
+                axis_name="process",
+                drop_unspecified=True,
+            )
+    else:
+        grouped = group_fn(
             histo,
             {"combo": ["missing"]},
             axis_name="process",
             drop_unspecified=True,
         )
+        assert grouped is histo
 
 
 def _toy_histogram_arrays():

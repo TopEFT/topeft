@@ -218,16 +218,13 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
     # Build new bin_map that only contains categories that exist in the hist
     new_bin_map = {}
     for grp_name, cat_list in bin_map.items():
-        missing = [category for category in cat_list if category not in axis_cats]
-        if missing and drop_unspecified:
-            raise ValueError(
-                "Requested categories are missing from the histogram: "
-                + ", ".join(missing)
-            )
-
         filtered = [category for category in cat_list if category in axis_cats]
         if filtered:
             new_bin_map[grp_name] = filtered
+
+    if not new_bin_map:
+        if drop_unspecified:
+            return histo
 
     if not drop_unspecified:
         specified_cats = [c for lst in new_bin_map.values() for c in lst]
