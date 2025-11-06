@@ -1428,7 +1428,6 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         regroup_slices,
     )
 
-    mc_x = pt_bin_starts.copy()
     data_x = pt_bin_starts.copy()
 
     native_bin_labels = [
@@ -1463,7 +1462,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         "tau_pt_bin_starts": tuple(pt_bin_starts.tolist()),
     }
 
-    return mc_x, mc_y, mc_e, data_x, data_y, data_e, stage_details
+    return mc_y, mc_e, data_x, data_y, data_e, stage_details
 
 def main():
 
@@ -1519,7 +1518,7 @@ def main():
 
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
-    x_mc, y_mc, yerr_mc, x_data, y_data, yerr_data, stage_details = getPoints(
+    y_mc, yerr_mc, x_data, y_data, yerr_data, stage_details = getPoints(
         hin_dict,
         ftau_channels,
         ttau_channels,

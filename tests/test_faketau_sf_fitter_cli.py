@@ -100,7 +100,7 @@ def test_tau_sumw2_histogram_passes_validation(caplog):
     ttau_channels = ["2los_ee_1tau_Ttau_2j"]
 
     with caplog.at_level(logging.WARNING):
-        _mc_x, _mc_y, mc_e, _data_x, _data_y, data_e, stage_details = fitter.getPoints(
+        _mc_y, mc_e, _data_x, _data_y, data_e, stage_details = fitter.getPoints(
             histograms,
             ftau_channels,
             ttau_channels,
@@ -133,7 +133,7 @@ def test_year_filter_limits_samples():
     ttau_channels = ["2los_ee_1tau_Ttau_2j"]
 
     sample_filters = fitter._resolve_year_filters(["2018"])
-    _mc_x, _mc_y, _mc_e, _data_x, _data_y, _data_e, stage_details = fitter.getPoints(
+    _mc_y, _mc_e, _data_x, _data_y, _data_e, stage_details = fitter.getPoints(
         histograms,
         ftau_channels,
         ttau_channels,
