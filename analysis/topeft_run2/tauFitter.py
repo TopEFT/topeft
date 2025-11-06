@@ -494,7 +494,12 @@ def main():
     print("fr data = ", y_data)
     print("fr mc = ", y_mc)
     with np.errstate(divide='ignore', invalid='ignore'):
-        SF = np.divide(y_data, y_mc, out=np.zeros_like(y_data), where=y_mc != 0)
+        SF = np.divide(
+            y_data,
+            y_mc,
+            out=np.zeros_like(y_data),
+            where=y_mc != 0,
+        )
         sf_var = (np.divide(yerr_data, y_mc, out=np.zeros_like(yerr_data), where=y_mc != 0) ** 2 +
                   (np.divide(y_data * yerr_mc, y_mc**2, out=np.zeros_like(y_data), where=y_mc != 0)) ** 2)
     SF_e = np.sqrt(np.clip(sf_var, 0.0, None))
