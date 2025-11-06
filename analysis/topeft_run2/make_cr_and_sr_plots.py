@@ -3286,6 +3286,9 @@ def make_region_stacked_ratio_fig(
     tick_labelsize = axes_style.get("tick_labelsize", 18)
     tick_width = axes_style.get("tick_width", 1.5)
     tick_length = axes_style.get("tick_length", 6)
+    minor_tick_length = axes_style.get("minor_tick_length")
+    if minor_tick_length is None:
+        minor_tick_length = tick_length * 0.6 if tick_length else 0
     axis_label_fontsize = axes_style.get("label_fontsize", 18)
     ratio_tick_labelsize = axes_style.get("ratio_tick_labelsize", tick_labelsize)
     ratio_label_text = axes_style.get("ratio_label", "Ratio")
@@ -3482,6 +3485,7 @@ def make_region_stacked_ratio_fig(
     ax.autoscale(axis="y")
     ax.set_xlabel(None)
     ax.tick_params(axis="both", labelsize=tick_labelsize, width=tick_width, length=tick_length)
+    ax.tick_params(axis="both", which="minor", width=tick_width, length=minor_tick_length)
     if not use_log_y:
         if isinstance(ticklabel_format_cfg, Mapping):
             format_kwargs = dict(ticklabel_format_cfg)
@@ -3506,6 +3510,7 @@ def make_region_stacked_ratio_fig(
     rax.tick_params(
         axis="both", labelsize=ratio_tick_labelsize, width=tick_width, length=tick_length
     )
+    rax.tick_params(axis="both", which="minor", width=tick_width, length=minor_tick_length)
 
     # Ensure the ratio axis always includes a unity tick while preserving the
     # spacing chosen by the existing locator and enforcing ticks at the bounds.
