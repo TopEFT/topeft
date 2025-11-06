@@ -1154,6 +1154,7 @@ def _draw_stacked_panel(
     height_ratios = tuple(figure_style.get("height_ratios", (4, 1)))
     if len(height_ratios) != 2:
         height_ratios = (4, 1)
+    hep.style.use("CMS")
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
@@ -1163,7 +1164,6 @@ def _draw_stacked_panel(
     )
     fig.subplots_adjust(hspace=figure_style.get("hspace", 0.07))
 
-    hep.style.use("CMS")
     plt.sca(ax)
     cms_style = _style_get(style, ("cms",), {})
     cms_fontsize = cms_style.get("fontsize", 18.0)
