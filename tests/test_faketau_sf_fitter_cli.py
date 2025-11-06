@@ -181,3 +181,22 @@ def test_get_points_raises_when_filters_remove_all_processes(
             ttau_channels,
             sample_filters=sample_filters,
         )
+
+
+def test_get_points_raises_when_tau_histogram_missing():
+    histograms, _ = _build_tau_histograms()
+    histograms = dict(histograms)
+    histograms.pop("tau0pt")
+    ftau_channels = ["2los_ee_1tau_Ftau_2j"]
+    ttau_channels = ["2los_ee_1tau_Ttau_2j"]
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fitter.getPoints(
+            histograms,
+            ftau_channels,
+            ttau_channels,
+        )
+
+    message = str(excinfo.value)
+    assert "missing the required 'tau0pt' histogram" in message
+    assert "Available histograms: tau0pt_sumw2" in message
