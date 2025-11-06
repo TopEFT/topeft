@@ -1648,10 +1648,6 @@ def main():
     report_pt_values = full_x_data.copy()
     if report_pt_values.size == 0:
         report_pt_values = pt_bin_starts.copy()
-    elif report_pt_values.size != pt_bin_starts.size:
-        alt_pt_values = pt_bin_starts.copy()
-        if alt_pt_values.size == report_pt_values.size:
-            report_pt_values = alt_pt_values
     report_pt_values = report_pt_values[valid]
 
     SF = SF[valid]
