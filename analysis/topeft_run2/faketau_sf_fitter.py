@@ -1524,6 +1524,7 @@ def main():
     y_data = _as_flat_float(y_data)
     yerr_data = _as_flat_float(yerr_data)
     x_data = _as_flat_float(x_data)
+    full_x_data = x_data
 
     year_filter_summary = stage_details.get("year_filter")
     if year_filter_summary:
@@ -1570,20 +1571,18 @@ def main():
 
     SF_e = np.where(SF_e <= 0, 1e-3, SF_e)
 
-    raw_x_data = x_data.copy()
-
     valid = (
         np.isfinite(SF)
         & np.isfinite(SF_e)
         & (SF_e > 0)
-        & np.isfinite(raw_x_data)
+        & np.isfinite(full_x_data)
         & np.isfinite(y_mc)
         & (y_mc > 0)
         & np.isfinite(y_data)
     )
 
     if not np.all(valid):
-        dropped_bins = raw_x_data[~valid]
+        dropped_bins = full_x_data[~valid]
         if dropped_bins.size:
             LOGGER.warning(
                 "Dropping %d tau pT bin(s) from fit due to invalid scale factors: %s",
@@ -1597,7 +1596,7 @@ def main():
     else:
         pt_bin_starts = np.asarray(pt_bin_starts, dtype=float)
 
-    report_pt_values = raw_x_data.copy()
+    report_pt_values = full_x_data.copy()
     if report_pt_values.size == 0:
         report_pt_values = pt_bin_starts.copy()
     elif report_pt_values.size != pt_bin_starts.size:
