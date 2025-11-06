@@ -2348,10 +2348,16 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
 
     removed_mc_samples = set(samples_to_remove.get("mc", ()))
     removed_data_samples = set(samples_to_remove.get("data", ()))
-    filtered_group_samples = [
+    filtered_mc_samples = [
+        sample for sample in mc_samples if sample not in removed_mc_samples
+    ]
+    filtered_data_samples = [
+        sample for sample in data_samples if sample not in removed_data_samples
+    ]
+    filtered_group_samples = filtered_mc_samples + [
         sample
-        for sample in all_samples
-        if sample not in removed_mc_samples and sample not in removed_data_samples
+        for sample in filtered_data_samples
+        if sample not in filtered_mc_samples
     ]
 
     if region_upper == "CR":
