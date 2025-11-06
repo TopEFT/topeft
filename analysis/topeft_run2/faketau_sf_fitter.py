@@ -23,7 +23,6 @@ import logging
 import math
 from collections import OrderedDict
 import functools
-#from coffea import hist
 import hist
 
 import sys
