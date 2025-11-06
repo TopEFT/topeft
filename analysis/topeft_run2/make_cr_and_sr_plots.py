@@ -199,6 +199,67 @@ def _apply_secondary_ticks(ax, axis="x"):
     axis_obj.set_minor_locator(FixedLocator(sorted(minor_ticks)))
 
 
+def _determine_ratio_window(ratio_arrays, data_ratio_arrays, *, tolerance=1e-12):
+    """Return ratio axis limits and warning flags given MC/data ratio samples."""
+
+    ratio_windows = (
+        (0.5, 1.5),
+        (0.0, 2.0),
+        (-1.0, 3.0),
+    )
+    ratio_window_deviations = (0.5, 1.0, 2.0)
+    largest_low, largest_high = ratio_windows[-1]
+
+    def _finite_segments(arrays):
+        segments = []
+        for arr in arrays or ():
+            if arr is None:
+                continue
+            arr = np.asarray(arr, dtype=float)
+            finite_mask = np.isfinite(arr)
+            if np.any(finite_mask):
+                segments.append(arr[finite_mask])
+        return segments
+
+    finite_segments = _finite_segments(ratio_arrays)
+
+    ratio_limits = ratio_windows[0]
+    exceeds_largest_window = False
+    if finite_segments:
+        combined = np.concatenate(finite_segments)
+        min_val = float(np.min(combined))
+        max_val = float(np.max(combined))
+        max_abs_deviation = float(np.max(np.abs(combined - 1.0)))
+
+        selected_limits = ratio_windows[-1]
+        for (low, high), allowed_deviation in zip(ratio_windows, ratio_window_deviations):
+            if (
+                max_abs_deviation <= allowed_deviation + tolerance
+                and min_val >= low - tolerance
+                and max_val <= high + tolerance
+            ):
+                selected_limits = (low, high)
+                break
+
+        ratio_limits = selected_limits
+
+        exceeds_largest_window = (
+            min_val < largest_low - tolerance or max_val > largest_high + tolerance
+        )
+
+    data_finite_segments = _finite_segments(data_ratio_arrays)
+    data_exceeds_largest_window = False
+    if data_finite_segments:
+        data_combined = np.concatenate(data_finite_segments)
+        data_min = float(np.min(data_combined))
+        data_max = float(np.max(data_combined))
+        data_exceeds_largest_window = (
+            data_min < largest_low - tolerance or data_max > largest_high + tolerance
+        )
+
+    return ratio_limits, exceeds_largest_window, data_exceeds_largest_window
+
+
 def _merge_mappings(base, updates):
     if not isinstance(base, dict) or not isinstance(updates, Mapping):
         return base
@@ -3406,62 +3467,11 @@ def make_region_stacked_ratio_fig(
         if arr is not None:
             ratio_arrays.append(np.asarray(arr, dtype=float))
 
-    ratio_windows = (
-        (0.5, 1.5),
-        (0.0, 2.0),
-        (-1.0, 3.0),
-    )
-    ratio_window_deviations = (0.5, 1.0, 2.0)
-    largest_low, largest_high = ratio_windows[-1]
-    finite_segments = []
-    for arr in ratio_arrays:
-        if arr is None:
-            continue
-        finite_mask = np.isfinite(arr)
-        if np.any(finite_mask):
-            finite_segments.append(arr[finite_mask])
-
-    ratio_limits = ratio_windows[0]
-    tolerance = 1e-12
-    exceeds_largest_window = False
-    if finite_segments:
-        combined = np.concatenate(finite_segments)
-        min_val = float(np.min(combined))
-        max_val = float(np.max(combined))
-        max_abs_deviation = float(np.max(np.abs(combined - 1.0)))
-
-        selected_limits = ratio_windows[-1]
-        for (low, high), allowed_deviation in zip(ratio_windows, ratio_window_deviations):
-            if (
-                max_abs_deviation <= allowed_deviation + tolerance
-                and min_val >= low - tolerance
-                and max_val <= high + tolerance
-            ):
-                selected_limits = (low, high)
-                break
-
-        ratio_limits = selected_limits
-
-        exceeds_largest_window = (
-            min_val < largest_low - tolerance or max_val > largest_high + tolerance
-        )
-
-    data_finite_segments = []
-    for arr in data_ratio_arrays:
-        if arr is None:
-            continue
-        finite_mask = np.isfinite(arr)
-        if np.any(finite_mask):
-            data_finite_segments.append(arr[finite_mask])
-
-    data_exceeds_largest_window = False
-    if data_finite_segments:
-        data_combined = np.concatenate(data_finite_segments)
-        data_min = float(np.min(data_combined))
-        data_max = float(np.max(data_combined))
-        data_exceeds_largest_window = (
-            data_min < largest_low - tolerance or data_max > largest_high + tolerance
-        )
+    (
+        ratio_limits,
+        exceeds_largest_window,
+        data_exceeds_largest_window,
+    ) = _determine_ratio_window(ratio_arrays, data_ratio_arrays)
 
     if exceeds_largest_window or data_exceeds_largest_window:
         warnings.warn(
