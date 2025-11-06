@@ -288,7 +288,15 @@ def getPoints(dict_of_hists):
     if var_name_sumw2 not in dict_of_hists:
         raise KeyError(f"Missing required histogram '{var_name_sumw2}' in input")
 
-    hist_mc_nominal = dict_of_hists[var_name].copy()
+    try:
+        hist_mc_nominal = dict_of_hists[var_name].copy()
+    except KeyError as exc:
+        available = ", ".join(sorted(dict_of_hists)) or "<none>"
+        message = (
+            "The histogram pickle is missing the required 'tau0pt' histogram. "
+            f"Available histograms: {available}"
+        )
+        raise RuntimeError(message) from exc
     hist_mc_sumw2 = dict_of_hists[var_name_sumw2].copy()
     hist_data_nominal = dict_of_hists[var_name].copy()
     hist_data_sumw2 = dict_of_hists[var_name_sumw2].copy()
