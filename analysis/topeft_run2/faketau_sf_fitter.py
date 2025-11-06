@@ -1649,7 +1649,8 @@ def main():
     report_pt_values = full_x_data.copy()
     if report_pt_values.size == 0:
         report_pt_values = pt_bin_starts.copy()
-    report_pt_values = report_pt_values[valid]
+    else:
+        report_pt_values = report_pt_values[valid]
 
     SF = SF[valid]
     SF_e = SF_e[valid]
