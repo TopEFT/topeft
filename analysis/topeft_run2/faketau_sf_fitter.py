@@ -1442,6 +1442,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         "mc_regroup_summary": mc_regroup_summary,
         "data_regroup_summary": data_regroup_summary,
         "year_filter": year_filter_summary,
+        "tau_pt_bin_starts": pt_bin_starts,
     }
 
     return mc_x, mc_y, mc_e, data_x, data_y, data_e, stage_details
@@ -1574,6 +1575,12 @@ def main():
                 dropped_bins.size,
                 ", ".join(str(bin_edge) for bin_edge in dropped_bins),
             )
+
+    pt_bin_starts = stage_details.get("tau_pt_bin_starts")
+    if pt_bin_starts is None:
+        pt_bin_starts = np.asarray(TAU_PT_BIN_EDGES[:-1], dtype=float)
+    else:
+        pt_bin_starts = np.asarray(pt_bin_starts, dtype=float)
 
     report_pt_values = raw_x_data.copy()
     if report_pt_values.size == 0:
