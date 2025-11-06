@@ -1078,11 +1078,12 @@ def compute_fake_rates(
             for index in range(first_index, stop_index)
         ]
 
-    ratios = []
-    errors = []
+    n_groups = len(regroup_slices)
+    ratios = np.empty(n_groups, dtype=float)
+    errors = np.empty(n_groups, dtype=float)
     summary = []
 
-    for start, stop in regroup_slices:
+    for index, (start, stop) in enumerate(regroup_slices):
         fake_slice = slice(start, stop)
         # Sum yields inside the requested regrouping window.  ``np.sum`` already
         # copes with single-bin windows so no special handling is needed here.
@@ -1109,14 +1110,14 @@ def compute_fake_rates(
             ratio = 0.0
             ratio_err = 0.0
 
-        ratios.append(ratio)
+        ratios[index] = ratio
         if ratio > 0.0:
             # Preserve the historical minimum ~2% relative uncertainty by
             # picking the larger of the propagated error and the enforced
             # floor.
-            errors.append(max(ratio_err, 0.02 * ratio))
+            errors[index] = max(ratio_err, 0.02 * ratio)
         else:
-            errors.append(ratio_err)
+            errors[index] = ratio_err
 
         summary.append(
             {
@@ -1129,8 +1130,8 @@ def compute_fake_rates(
         )
 
     return (
-        np.array(ratios, dtype=float),
-        np.array(errors, dtype=float),
+        ratios,
+        errors,
         summary,
     )
 

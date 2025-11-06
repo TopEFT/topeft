@@ -31,6 +31,13 @@ from scipy.odr import *
 
 from topeft.modules.yield_tools import YieldTools
 import topcoffea.modules.utils as utils
+from . import faketau_sf_fitter as _faketau
+from .faketau_sf_fitter import (
+    TAU_PT_BIN_EDGES,
+    _TAU_HISTOGRAM_REQUIRED_AXES,
+    _validate_histogram_axes,
+    _validate_tau_channel_coverage,
+)
 
 yt = YieldTools()
 
@@ -119,6 +126,50 @@ CR_GRP_MAP_full = {
 }
 
 
+def compute_fake_rates(
+    fake_vals,
+    fake_errs,
+    tight_vals,
+    tight_errs,
+    regroup_slices=None,
+):
+    """Compatibility wrapper that trims extra tau-flow bins when needed."""
+
+    fake_vals = np.asarray(fake_vals, dtype=float)
+    fake_errs = np.asarray(fake_errs, dtype=float)
+    tight_vals = np.asarray(tight_vals, dtype=float)
+    tight_errs = np.asarray(tight_errs, dtype=float)
+
+    if regroup_slices is None:
+        expected_bins = len(TAU_PT_BIN_EDGES) - 1
+        n_bins = fake_vals.shape[-1]
+
+        if n_bins == expected_bins + 2:
+            # Histograms that preserve both the underflow and overflow entries
+            # need to drop one bin from each edge to expose the physical range.
+            fake_vals = fake_vals[1:-1]
+            fake_errs = fake_errs[1:-1]
+            tight_vals = tight_vals[1:-1]
+            tight_errs = tight_errs[1:-1]
+        elif n_bins > expected_bins:
+            # Fall back to trimming from the leading edge to keep the newest
+            # behaviour as close as possible to the legacy wrapper.
+            start_index = n_bins - expected_bins
+            stop_index = start_index + expected_bins
+            fake_vals = fake_vals[start_index:stop_index]
+            fake_errs = fake_errs[start_index:stop_index]
+            tight_vals = tight_vals[start_index:stop_index]
+            tight_errs = tight_errs[start_index:stop_index]
+
+    return _faketau.compute_fake_rates(
+        fake_vals,
+        fake_errs,
+        tight_vals,
+        tight_errs,
+        regroup_slices,
+    )
+
+
 def linear(x,a,b):
     return b*x+a
 
@@ -167,9 +218,13 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
     # Build new bin_map that only contains categories that exist in the hist
     new_bin_map = {}
     for grp_name, cat_list in bin_map.items():
-        filtered = [c for c in cat_list if c in axis_cats]  # Only keep existing categories
+        filtered = [category for category in cat_list if category in axis_cats]
         if filtered:
             new_bin_map[grp_name] = filtered
+
+    if not new_bin_map:
+        if drop_unspecified:
+            return histo
 
     if not drop_unspecified:
         specified_cats = [c for lst in new_bin_map.values() for c in lst]
