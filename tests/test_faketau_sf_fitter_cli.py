@@ -1,5 +1,6 @@
 import pathlib
 import logging
+import re
 import sys
 
 import pytest
@@ -146,3 +147,37 @@ def test_year_filter_limits_samples():
     assert summary["data_samples"] == ["data2018"]
     assert "ttbarUL16" in summary["mc_removed"]
     assert "data2017" in summary["data_removed"]
+
+
+@pytest.mark.parametrize(
+    "sample_filter_updates, expected_message",
+    [
+        (
+            {"mc_whitelist": ["data"], "mc_blacklist": []},
+            "No MC processes remain after applying sample filters. "
+            "Filtered MC samples: ['data2018']",
+        ),
+        (
+            {"data_whitelist": ["ttbar"], "data_blacklist": []},
+            "No data processes remain after applying sample filters. "
+            "Filtered data samples: ['ttbar']",
+        ),
+    ],
+)
+def test_get_points_raises_when_filters_remove_all_processes(
+    sample_filter_updates, expected_message
+):
+    histograms, _ = _build_tau_histograms()
+    ftau_channels = ["2los_ee_1tau_Ftau_2j"]
+    ttau_channels = ["2los_ee_1tau_Ttau_2j"]
+
+    sample_filters = fitter._resolve_year_filters(None)
+    sample_filters.update(sample_filter_updates)
+
+    with pytest.raises(RuntimeError, match=re.escape(expected_message)):
+        fitter.getPoints(
+            histograms,
+            ftau_channels,
+            ttau_channels,
+            sample_filters=sample_filters,
+        )

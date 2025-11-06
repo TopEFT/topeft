@@ -1348,6 +1348,18 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         lambda name: name.startswith("data"),
     )
 
+    if not mc_processes:
+        raise RuntimeError(
+            "No MC processes remain after applying sample filters. "
+            f"Filtered MC samples: {sorted(mc_sample_lst)!r}"
+        )
+
+    if not data_processes:
+        raise RuntimeError(
+            "No data processes remain after applying sample filters. "
+            f"Filtered data samples: {sorted(data_sample_lst)!r}"
+        )
+
     mc_group_map = OrderedDict((("Ttbar", mc_processes),))
     data_group_map = OrderedDict((("Data", data_processes),))
 
