@@ -204,6 +204,15 @@ def _collect_processes(histograms, predicate):
     return collected
 
 
+def _maybe_remove_processes(histogram, axis_name, labels):
+    """Return the original histogram when no removal is required."""
+
+    if histogram is None or not labels:
+        return histogram
+
+    return histogram.remove(axis_name, labels)
+
+
 def _group_all(histograms, mapping):
     """Regroup histograms in a tuple while preserving order and ``None`` entries."""
 
@@ -1278,26 +1287,24 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
 
     # Remove any processes that should not contribute to the MC or data histograms.
     # When no removals are needed, reuse the existing histogram instead of cloning it.
-    if samples_to_rm_from_mc_hist:
-        hist_mc = tau_hist.remove("process", samples_to_rm_from_mc_hist)
-    else:
-        hist_mc = tau_hist
-
-    if samples_to_rm_from_data_hist:
-        hist_data = tau_hist.remove("process", samples_to_rm_from_data_hist)
-    else:
-        hist_data = tau_hist
+    hist_mc = _maybe_remove_processes(
+        tau_hist, "process", samples_to_rm_from_mc_hist
+    )
+    hist_data = _maybe_remove_processes(
+        tau_hist, "process", samples_to_rm_from_data_hist
+    )
 
     if tau_sumw2_hist is not None:
-        if samples_to_rm_from_mc_hist:
-            hist_mc_sumw2 = tau_sumw2_hist.remove("process", samples_to_rm_from_mc_hist)
-        else:
-            hist_mc_sumw2 = tau_sumw2_hist
-
-        if samples_to_rm_from_data_hist:
-            hist_data_sumw2 = tau_sumw2_hist.remove("process", samples_to_rm_from_data_hist)
-        else:
-            hist_data_sumw2 = tau_sumw2_hist
+        hist_mc_sumw2 = _maybe_remove_processes(
+            tau_sumw2_hist,
+            "process",
+            samples_to_rm_from_mc_hist,
+        )
+        hist_data_sumw2 = _maybe_remove_processes(
+            tau_sumw2_hist,
+            "process",
+            samples_to_rm_from_data_hist,
+        )
     else:
         hist_mc_sumw2 = None
         hist_data_sumw2 = None
