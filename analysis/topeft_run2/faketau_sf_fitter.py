@@ -1646,10 +1646,10 @@ def main():
         pt_bin_starts = np.asarray(pt_bin_starts, dtype=float)
 
     report_pt_values = full_x_data.copy()
-    if report_pt_values.size == 0:
-        report_pt_values = pt_bin_starts.copy()
-    else:
+    if report_pt_values.size:
         report_pt_values = report_pt_values[valid]
+    else:
+        report_pt_values = pt_bin_starts.copy()
 
     SF = SF[valid]
     SF_e = SF_e[valid]
