@@ -141,6 +141,10 @@ def load_tau_control_channels(channels_json_path=None):
     ftau_channels = []
     ttau_channels = []
 
+    jet_suffixes = {
+        jet_label: _extract_jet_suffix(jet_label) for jet_label in jet_bins
+    }
+
     for chan_def in lep_chans:
         if not chan_def:
             continue
@@ -155,9 +159,11 @@ def load_tau_control_channels(channels_json_path=None):
                 "Expected names ending with '_Ftau' or '_Ttau'."
             )
 
-        for flavor in lep_flavs:
+        flavored_bases = [_insert_flavor(base_name, flavor) for flavor in lep_flavs]
+
+        for flavored_base in flavored_bases:
             for jet_label in jet_bins:
-                channel_name = f"{_insert_flavor(base_name, flavor)}_{_extract_jet_suffix(jet_label)}"
+                channel_name = f"{flavored_base}_{jet_suffixes[jet_label]}"
                 target_list.append(channel_name)
 
     if not ftau_channels or not ttau_channels:
