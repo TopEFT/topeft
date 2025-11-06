@@ -1262,12 +1262,12 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
     try:
         tau_hist = dict_of_hists[var_name]
     except KeyError as exc:
-        available = sorted(dict_of_hists)
-        message = (
+        available_keys = sorted(dict_of_hists)
+        available_desc = ", ".join(available_keys) if available_keys else "<none>"
+        raise RuntimeError(
             "The histogram pickle is missing the required 'tau0pt' histogram. "
-            f"Available histograms: {available if available else '<none>'}"
-        )
-        raise RuntimeError(message) from exc
+            f"Available histograms: {available_desc}."
+        ) from exc
     tau_sumw2_hist = dict_of_hists.get(f"{var_name}_sumw2")
 
     if tau_sumw2_hist is None:
