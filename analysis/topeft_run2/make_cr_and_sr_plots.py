@@ -1015,12 +1015,16 @@ def _normalize_histograms(
     mc_scaled = False
 
     if unit_norm_bool:
+        mc_eval = h_mc.eval({})
+        data_eval = h_data.eval({})
+
         sum_mc = 0.0
+        for values in mc_eval.values():
+            sum_mc += float(np.sum(np.asarray(values, dtype=float)))
+
         sum_data = 0.0
-        for sample in h_mc.eval({}):
-            sum_mc += sum(h_mc.eval({})[sample])
-        for sample in h_data.eval({}):
-            sum_data += sum(h_data.eval({})[sample])
+        for values in data_eval.values():
+            sum_data += float(np.sum(np.asarray(values, dtype=float)))
 
         if not np.isfinite(sum_mc) or np.isclose(sum_mc, 0.0, atol=1e-12, rtol=1e-6):
             logger.warning(
