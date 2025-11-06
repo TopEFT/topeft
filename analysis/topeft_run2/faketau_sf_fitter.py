@@ -1451,6 +1451,9 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
 
 def main():
 
+    def _as_flat_float(array):
+        return np.asarray(array, dtype=float).reshape(-1)
+
     # Set up the command line parser
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
@@ -1507,6 +1510,12 @@ def main():
         sample_filters=sample_filters,
     )
 
+    y_mc = _as_flat_float(y_mc)
+    yerr_mc = _as_flat_float(yerr_mc)
+    y_data = _as_flat_float(y_data)
+    yerr_data = _as_flat_float(yerr_data)
+    x_data = _as_flat_float(x_data)
+
     year_filter_summary = stage_details.get("year_filter")
     if year_filter_summary:
         _print_year_filter_summary(year_filter_summary)
@@ -1529,17 +1538,12 @@ def main():
     _print_fake_rate_table(
         "Fake rates by tau pT bin",
         stage_details["regroup_labels"],
-        np.asarray(y_mc, dtype=float).flatten(),
-        np.asarray(yerr_mc, dtype=float).flatten(),
-        np.asarray(y_data, dtype=float).flatten(),
-        np.asarray(yerr_data, dtype=float).flatten(),
+        y_mc,
+        yerr_mc,
+        y_data,
+        yerr_data,
     )
 
-    y_data = np.array(y_data, dtype=float).flatten()
-    y_mc   = np.array(y_mc, dtype=float).flatten()
-    yerr_data = np.array(yerr_data, dtype=float).flatten()
-    yerr_mc   = np.array(yerr_mc, dtype=float).flatten()
-    x_data    = np.array(x_data, dtype=float).flatten()
     regroup_labels = np.array(stage_details["regroup_labels"], dtype=object)
 
     SF = np.divide(
