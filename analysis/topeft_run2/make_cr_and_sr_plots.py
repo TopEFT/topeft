@@ -2346,10 +2346,24 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
         "use_mc_as_data_when_blinded", False
     )
 
+    removed_mc_samples = set(samples_to_remove.get("mc", ()))
+    removed_data_samples = set(samples_to_remove.get("data", ()))
+    filtered_mc_samples = [
+        sample for sample in mc_samples if sample not in removed_mc_samples
+    ]
+    filtered_data_samples = [
+        sample for sample in data_samples if sample not in removed_data_samples
+    ]
+    filtered_group_samples = filtered_mc_samples + [
+        sample
+        for sample in filtered_data_samples
+        if sample not in filtered_mc_samples
+    ]
+
     if region_upper == "CR":
         group_patterns = CR_GRP_PATTERNS
         channel_map = CR_CHAN_DICT
-        group_map = populate_group_map(all_samples, group_patterns)
+        group_map = populate_group_map(filtered_group_samples, group_patterns)
         signal_samples = sorted(set(group_map.get("Signal", [])))
         unblind_default = resolved_unblind
         global CR_GRP_MAP
