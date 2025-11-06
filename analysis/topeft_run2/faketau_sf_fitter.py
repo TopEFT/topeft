@@ -22,6 +22,7 @@ import json
 import logging
 import math
 from collections import OrderedDict
+import functools
 #from coffea import hist
 import hist
 
@@ -351,13 +352,8 @@ def _filter_samples(all_labels, whitelist, blacklist):
     optional_tokens = list(dict.fromkeys(optional_tokens))
     optional_token_set = set(optional_tokens)
 
-    year_token_cache = {}
-
+    @functools.lru_cache(maxsize=None)
     def _present_year_tokens(label):
-        cached = year_token_cache.get(label)
-        if cached is not None:
-            return cached
-
         detected_tokens = {
             year_token
             for year_token in YEAR_WHITELIST_OPTIONALS
@@ -365,7 +361,6 @@ def _filter_samples(all_labels, whitelist, blacklist):
         }
         if len(detected_tokens) <= 1:
             result = frozenset(detected_tokens)
-            year_token_cache[label] = result
             return result
 
         resolved_tokens = set(detected_tokens)
@@ -378,7 +373,6 @@ def _filter_samples(all_labels, whitelist, blacklist):
                     break
 
         result = frozenset(resolved_tokens)
-        year_token_cache[label] = result
         return result
 
     def _label_contains_disallowed_year(present_tokens):
