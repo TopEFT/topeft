@@ -1363,7 +1363,9 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         mc_fake.axes["tau0pt"],
         TAU_PT_BIN_EDGES,
     )
-    pt_bin_starts = np.asarray(tau_pt_edges[:-1], dtype=float)
+    pt_bin_starts = np.asarray(
+        [tau_pt_edges[start] for start, _ in regroup_slices], dtype=float
+    )
     expected_bins = len(tau_pt_edges) - 1
 
     data_tau_pt_edges = _extract_tau_pt_edges(data_fake.axes["tau0pt"])
