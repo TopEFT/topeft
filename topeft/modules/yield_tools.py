@@ -1,9 +1,12 @@
 import numpy as np
 import copy
+import logging
 from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
 import topcoffea.modules.utils as utils
 from topeft.modules.compatibility import add_sumw2_stub
+
+logger = logging.getLogger(__name__)
 
 class YieldTools():
 
@@ -383,7 +386,7 @@ class YieldTools():
                 raise Exception(f"Error: Category \"{lep_cat}\" is not known.")
             histo_integrated = histo.integrate("appl",sr_bin)
         else:
-            print("Already integrated out the appl axis. Continuing...")
+            logger.debug("Already integrated out the appl axis. Continuing...")
         return histo_integrated
 
 
