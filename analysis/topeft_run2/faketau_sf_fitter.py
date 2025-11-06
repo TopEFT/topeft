@@ -28,7 +28,6 @@ import hist
 import sys
 import re
 from scipy.optimize import curve_fit
-from  numpy.linalg import eig
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.yield_tools import YieldTools
@@ -1628,7 +1627,7 @@ def main():
 
     c0, c1, cov = SF_fit(SF, SF_e, x_data)
 
-    eigenvalues, eigenvectors = eig(cov)
+    eigenvalues, eigenvectors = np.linalg.eig(cov)
     lv0 = np.sqrt(abs(eigenvalues.dot(eigenvectors[0])))
     lv1 = np.sqrt(abs(eigenvalues.dot(eigenvectors[1])))
     perr = np.sqrt(np.diag(cov))
