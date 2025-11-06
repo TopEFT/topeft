@@ -224,6 +224,15 @@ def _group_all(histograms, mapping):
     return tuple(regrouped)
 
 
+def _integrate_nominal(histogram):
+    """Integrate the nominal systematic axis while preserving ``None`` inputs."""
+
+    if histogram is None:
+        return None
+
+    return histogram.integrate("systematic", "nominal")
+
+
 def _integrate_tau_channels(histogram, channels):
     """Integrate tau histograms over the requested channels with safe None handling."""
 
@@ -1325,18 +1334,30 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         data_tight_sumw2,
     ) = _group_all((data_fake_sumw2, data_tight_sumw2), data_group_map)
 
-    mc_fake     = mc_fake.integrate("systematic","nominal")
-    mc_tight    = mc_tight.integrate("systematic","nominal")
-    data_fake   = data_fake.integrate("systematic","nominal")
+    (
+        mc_fake,
+        mc_tight,
+        data_fake,
+        data_tight,
+    ) = tuple(
+        _integrate_nominal(hist)
+        for hist in (mc_fake, mc_tight, data_fake, data_tight)
+    )
 
-    data_tight  = data_tight.integrate("systematic","nominal")
-
-    if mc_fake_sumw2 is not None:
-        mc_fake_sumw2 = mc_fake_sumw2.integrate("systematic", "nominal")
-        mc_tight_sumw2 = mc_tight_sumw2.integrate("systematic", "nominal")
-    if data_fake_sumw2 is not None:
-        data_fake_sumw2 = data_fake_sumw2.integrate("systematic", "nominal")
-        data_tight_sumw2 = data_tight_sumw2.integrate("systematic", "nominal")
+    (
+        mc_fake_sumw2,
+        mc_tight_sumw2,
+        data_fake_sumw2,
+        data_tight_sumw2,
+    ) = tuple(
+        _integrate_nominal(hist)
+        for hist in (
+            mc_fake_sumw2,
+            mc_tight_sumw2,
+            data_fake_sumw2,
+            data_tight_sumw2,
+        )
+    )
 
     tau_pt_edges, regroup_slices = _resolve_tau_pt_bins(
         mc_fake.axes["tau0pt"],
