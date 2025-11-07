@@ -1654,7 +1654,11 @@ def _draw_stacked_panel(
         default=np.nan,
         zero_over_zero=1.0,
     )
-    ratio_yerr_flow = _safe_divide(np.sqrt(data_vals_flow), data_vals_flow, default=0.0)
+    ratio_yerr_flow = _safe_divide(
+        np.sqrt(data_vals_flow),
+        mc_vals_flow,
+        default=0.0,
+    )
     ratio_yerr_flow[mc_vals_flow == 0] = np.nan
 
     ratio_vals = ratio_vals_flow[1:]
