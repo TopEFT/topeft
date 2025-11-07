@@ -6,6 +6,7 @@ import argparse
 import re
 from collections import OrderedDict
 from collections.abc import Mapping
+
 import logging
 from decimal import Decimal
 import inspect
@@ -197,6 +198,304 @@ def _apply_secondary_ticks(ax, axis="x"):
         return
 
     axis_obj.set_minor_locator(FixedLocator(sorted(minor_ticks)))
+
+
+def _validate_bin_edges(edges):
+    """Return a 1D numpy array of strictly increasing bin edges."""
+
+    array = np.asarray(edges, dtype=float)
+    if array.ndim != 1 or array.size < 2:
+        raise ValueError("Bin edges must be a 1D sequence with at least two entries.")
+
+    deltas = np.diff(array)
+    if not np.all(np.isfinite(array)):
+        raise ValueError("Bin edges must be finite values.")
+    if not np.all(deltas > 0):
+        raise ValueError("Bin edges must be strictly increasing.")
+
+    return array
+
+
+def _build_variable_axis_like(axis, edges):
+    """Construct a Variable axis matching the metadata of an existing dense axis."""
+
+    metadata = getattr(axis, "metadata", None)
+    label = getattr(axis, "label", "")
+    traits = getattr(axis, "traits", None)
+    underflow = getattr(traits, "underflow", None)
+    overflow = getattr(traits, "overflow", None)
+    flow = bool(underflow or overflow)
+
+    return hist.axis.Variable(
+        tuple(edges),
+        name=getattr(axis, "name", None) or axis.name,
+        label=label,
+        metadata=metadata,
+        flow=flow,
+        underflow=underflow,
+        overflow=overflow,
+    )
+
+
+def _rebin_flow_content(values_flow, variances_flow, original_edges, target_edges):
+    """Aggregate flow-inclusive histogram contents onto a new edge definition."""
+
+    original_edges = np.asarray(original_edges, dtype=float)
+    target_edges = np.asarray(target_edges, dtype=float)
+
+    edge_indices = []
+    for edge in target_edges:
+        matches = np.where(np.isclose(original_edges, edge, rtol=1e-9, atol=1e-12))[0]
+        if matches.size == 0:
+            raise ValueError(f"Requested edge {edge} not found in source histogram edges.")
+        edge_indices.append(int(matches[0]))
+
+    if any(next_idx <= idx for idx, next_idx in zip(edge_indices, edge_indices[1:])):
+        raise ValueError("Target bin edges must be strictly increasing and align with source edges.")
+
+    values_flow = np.asarray(values_flow, dtype=float)
+    variances_flow = None if variances_flow is None else np.asarray(variances_flow, dtype=float)
+
+    first_idx = edge_indices[0]
+    last_idx = edge_indices[-1]
+
+    underflow = values_flow[0] + values_flow[1 : 1 + first_idx].sum(axis=0)
+    overflow = values_flow[-1] + values_flow[1 + last_idx : -1].sum(axis=0)
+
+    rebinned_bins = [
+        values_flow[1 + start : 1 + stop].sum(axis=0)
+        for start, stop in zip(edge_indices[:-1], edge_indices[1:])
+    ]
+
+    rebinned_values = np.concatenate(
+        [
+            underflow[np.newaxis, ...],
+            *[bin_values[np.newaxis, ...] for bin_values in rebinned_bins],
+            overflow[np.newaxis, ...],
+        ],
+        axis=0,
+    )
+
+    rebinned_variances = None
+    if variances_flow is not None:
+        under_var = variances_flow[0] + variances_flow[1 : 1 + first_idx].sum(axis=0)
+        over_var = variances_flow[-1] + variances_flow[1 + last_idx : -1].sum(axis=0)
+        rebinned_vars = [
+            variances_flow[1 + start : 1 + stop].sum(axis=0)
+            for start, stop in zip(edge_indices[:-1], edge_indices[1:])
+        ]
+        rebinned_variances = np.concatenate(
+            [
+                under_var[np.newaxis, ...],
+                *[var[np.newaxis, ...] for var in rebinned_vars],
+                over_var[np.newaxis, ...],
+            ],
+            axis=0,
+        )
+
+    return rebinned_values, rebinned_variances
+
+
+def _rebin_dense_histogram(dense_hist, axis_name, target_edges):
+    """Return a rebinned copy of a dense hist.Hist along the specified axis."""
+
+    try:
+        axis_index = dense_hist.axes.index(axis_name)
+    except ValueError as exc:  # pragma: no cover - defensive guard
+        raise ValueError(f"Axis '{axis_name}' not found in histogram.") from exc
+
+    original_axis = dense_hist.axes[axis_index]
+    new_axes = []
+    for idx, axis in enumerate(dense_hist.axes):
+        if idx == axis_index:
+            new_axes.append(_build_variable_axis_like(axis, target_edges))
+        else:
+            new_axes.append(axis)
+
+    storage_type = dense_hist.storage_type
+    new_hist = hist.Hist(*new_axes, storage=storage_type())
+
+    values_flow = np.asarray(dense_hist.values(flow=True), dtype=float)
+    variances_flow_raw = dense_hist.variances(flow=True)
+    variances_flow = (
+        None
+        if variances_flow_raw is None
+        else np.asarray(variances_flow_raw, dtype=float)
+    )
+
+    values_reordered = np.moveaxis(values_flow, axis_index, 0)
+    variances_reordered = (
+        None
+        if variances_flow is None
+        else np.moveaxis(variances_flow, axis_index, 0)
+    )
+
+    rebinned_values_reordered, rebinned_variances_reordered = _rebin_flow_content(
+        values_reordered, variances_reordered, original_axis.edges, target_edges
+    )
+
+    rebinned_values = np.moveaxis(rebinned_values_reordered, 0, axis_index)
+    rebinned_variances = (
+        None
+        if rebinned_variances_reordered is None
+        else np.moveaxis(rebinned_variances_reordered, 0, axis_index)
+    )
+
+    view = new_hist.view(flow=True)
+    if hasattr(view, "value"):
+        view.value = rebinned_values
+        if hasattr(view, "variance") and rebinned_variances is not None:
+            view.variance = rebinned_variances
+    else:
+        view[...] = rebinned_values
+
+    if hasattr(dense_hist, "label"):
+        new_hist.label = dense_hist.label
+
+    return new_hist
+
+
+def _rebin_sparse_histogram(sparse_hist, axis_name, target_edges):
+    """Return a rebinned copy of a SparseHist/HistEFT along a dense axis."""
+
+    dense_axes = []
+    replaced = False
+    for axis in sparse_hist.dense_axes:
+        if axis.name == axis_name:
+            dense_axes.append(_build_variable_axis_like(axis, target_edges))
+            replaced = True
+        else:
+            dense_axes.append(axis)
+
+    if not replaced:
+        raise ValueError(f"Axis '{axis_name}' not found in histogram dense axes.")
+
+    rebinned_hist = sparse_hist.empty_from_axes(dense_axes=dense_axes)
+
+    for index_key, dense_hist in sparse_hist._dense_hists.items():
+        categories = sparse_hist.index_to_categories(index_key)
+        new_index = rebinned_hist._fill_bookkeep(*categories)
+        rebinned_hist._dense_hists[new_index] = _rebin_dense_histogram(
+            dense_hist, axis_name, target_edges
+        )
+
+    if hasattr(sparse_hist, "label"):
+        rebinned_hist.label = sparse_hist.label
+
+    return rebinned_hist
+
+
+def _clone_with_rebinned_axis(histogram, axis_name, target_edges):
+    """Clone a histogram (dense or sparse) with rebinned dense axis."""
+
+    if histogram is None:
+        return None
+
+    if hasattr(histogram, "_dense_hists"):
+        return _rebin_sparse_histogram(histogram, axis_name, target_edges)
+
+    if isinstance(histogram, hist.Hist):
+        return _rebin_dense_histogram(histogram, axis_name, target_edges)
+
+    raise TypeError(
+        f"Unsupported histogram type '{type(histogram).__name__}' for rebinning operations."
+    )
+
+
+def _rebin_uncertainty_array(
+    values,
+    original_edges,
+    target_edges,
+    *,
+    nominal=None,
+    direction=None,
+):
+    """Aggregate a 1D uncertainty array according to new bin edges.
+
+    When ``nominal`` is provided the ``values`` array is treated as a nominal yield
+    shifted by an uncertainty (``direction`` must then be ``"up"`` or ``"down"``).
+    The rebinned result preserves the nominal contribution and combines the
+    bin-wise deviations in quadrature so uncorrelated uncertainties do not grow
+    linearly when bins are merged.
+    """
+
+    if values is None:
+        return None
+
+    array = np.asarray(values, dtype=float)
+    if array.ndim != 1:
+        raise ValueError("Uncertainty arrays must be one-dimensional for rebinning.")
+
+    original_edges = np.asarray(original_edges, dtype=float)
+    if original_edges.ndim != 1:
+        raise ValueError("Original bin edges must form a one-dimensional array.")
+    n_source_bins = original_edges.size - 1
+    if array.size not in {n_source_bins, n_source_bins + 1}:
+        raise ValueError(
+            "Uncertainty arrays must match the source binning (with or without overflow)."
+        )
+
+    includes_overflow = array.size == n_source_bins + 1
+
+    def _to_flow(arr):
+        arr = np.asarray(arr, dtype=float)
+        if arr.size == n_source_bins:
+            return np.concatenate(([0.0], arr, [0.0]))
+        return np.concatenate(([0.0], arr[:-1], [arr[-1]]))
+
+    def _trim_flow(flow_array):
+        visible_and_overflow = flow_array[1:]
+        if includes_overflow:
+            return visible_and_overflow
+        return visible_and_overflow[:-1]
+
+    if nominal is None:
+        values_flow = _to_flow(array)
+        rebinned_values, _ = _rebin_flow_content(
+            values_flow, None, original_edges, target_edges
+        )
+        return _trim_flow(rebinned_values)
+
+    reference = np.asarray(nominal, dtype=float)
+    if reference.ndim != 1:
+        raise ValueError("Nominal arrays must be one-dimensional for rebinning.")
+    if reference.shape != array.shape:
+        raise ValueError("Nominal and uncertainty arrays must share the same shape.")
+
+    if direction not in {"up", "down"}:
+        raise ValueError(
+            "Direction must be 'up' or 'down' when rebinding nominal-shifted uncertainties."
+        )
+
+    reference_flow = _to_flow(reference)
+    rebinned_reference, _ = _rebin_flow_content(
+        reference_flow, None, original_edges, target_edges
+    )
+
+    delta = array - reference
+    if direction == "up":
+        diff = np.clip(delta, a_min=0.0, a_max=None)
+        sign = 1.0
+    else:
+        diff = np.clip(-delta, a_min=0.0, a_max=None)
+        sign = -1.0
+
+    diff_sq_flow = _to_flow(diff**2)
+    zeros_flow = np.zeros_like(diff_sq_flow)
+    _, rebinned_diff_sq = _rebin_flow_content(
+        zeros_flow, diff_sq_flow, original_edges, target_edges
+    )
+
+    rebinned_reference = _trim_flow(rebinned_reference)
+    rebinned_diff = np.sqrt(
+        np.clip(_trim_flow(rebinned_diff_sq), a_min=0.0, a_max=None)
+    )
+
+    rebinned = rebinned_reference + sign * rebinned_diff
+    if direction == "down":
+        rebinned = np.clip(rebinned, a_min=0.0, a_max=None)
+
+    return rebinned
 
 
 def _determine_ratio_window(ratio_arrays, data_ratio_arrays, *, tolerance=1e-12):
@@ -1136,6 +1435,7 @@ def _draw_stacked_panel(
     colors,
     axis,
     var,
+    bins,
     unit_norm_bool,
     lumitag,
     comtag,
@@ -1210,8 +1510,7 @@ def _draw_stacked_panel(
 
             mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
 
-    bins = h_data[{"process": sum}].as_hist({}).axes[var].edges
-    bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2]) * 0.3])
+    bins = np.asarray(bins, dtype=float)
 
     log_scale_requested = bool(log_scale)
     log_y_baseline = None
@@ -3274,8 +3573,83 @@ def make_region_stacked_ratio_fig(
 ):
     if bins is None:
         bins = []
+    else:
+        bins = list(bins)
     if group is None:
         group = {}
+
+    recompute_syst_ratio_arrays = False
+
+    if bins:
+        target_edges = _validate_bin_edges(bins)
+
+        mc_projection = h_mc[{"process": sum}].as_hist({})
+        original_edges = mc_projection.axes[var].edges
+        original_mc_totals = mc_projection.values(flow=True)[1:]
+
+        ratio_up_input = None if err_ratio_p_syst is None else np.asarray(err_ratio_p_syst, dtype=float)
+        ratio_down_input = None if err_ratio_m_syst is None else np.asarray(err_ratio_m_syst, dtype=float)
+
+        def _ensure_absolute(up_values, down_values, up_ratio, down_ratio):
+            up_array = None if up_values is None else np.asarray(up_values, dtype=float)
+            down_array = None if down_values is None else np.asarray(down_values, dtype=float)
+
+            if up_array is None and up_ratio is not None:
+                up_array = up_ratio * original_mc_totals
+            if down_array is None and down_ratio is not None:
+                down_array = down_ratio * original_mc_totals
+
+            return up_array, down_array
+
+        err_p_syst, err_m_syst = _ensure_absolute(
+            err_p_syst,
+            err_m_syst,
+            ratio_up_input,
+            ratio_down_input,
+        )
+
+        err_p = _rebin_uncertainty_array(
+            err_p,
+            original_edges,
+            target_edges,
+            nominal=original_mc_totals,
+            direction="up",
+        )
+        err_m = _rebin_uncertainty_array(
+            err_m,
+            original_edges,
+            target_edges,
+            nominal=original_mc_totals,
+            direction="down",
+        )
+        err_p_syst = _rebin_uncertainty_array(
+            err_p_syst,
+            original_edges,
+            target_edges,
+            nominal=original_mc_totals,
+            direction="up",
+        )
+        err_m_syst = _rebin_uncertainty_array(
+            err_m_syst,
+            original_edges,
+            target_edges,
+            nominal=original_mc_totals,
+            direction="down",
+        )
+
+        recompute_syst_ratio_arrays = any(
+            arr is not None for arr in (err_p_syst, err_m_syst)
+        )
+        if recompute_syst_ratio_arrays:
+            err_ratio_p_syst = None
+            err_ratio_m_syst = None
+
+        h_mc = _clone_with_rebinned_axis(h_mc, var, target_edges)
+        h_data = _clone_with_rebinned_axis(h_data, var, target_edges)
+        if h_mc_sumw2 is not None:
+            h_mc_sumw2 = _clone_with_rebinned_axis(h_mc_sumw2, var, target_edges)
+    else:
+        target_edges = None
 
     style = copy.deepcopy(style) if isinstance(style, Mapping) else {}
     axes_style = _style_get(style, ("axes",), {})
@@ -3366,6 +3740,17 @@ def make_region_stacked_ratio_fig(
 
     display_label = axes_info.get(var, {}).get("label", var)
 
+    axis_edges = (
+        target_edges
+        if target_edges is not None
+        else h_data[{"process": sum}].as_hist({}).axes[var].edges
+    )
+    axis_edges = np.asarray(axis_edges, dtype=float)
+    if axis_edges.size < 2:
+        raise ValueError("Histogram axis has fewer than two edges; cannot determine binning.")
+    last_width = axis_edges[-1] - axis_edges[-2]
+    plot_bins = np.append(axis_edges, [axis_edges[-1] + last_width * 0.3])
+
     norm_info = _normalize_histograms(
         h_mc,
         h_data,
@@ -3395,6 +3780,7 @@ def make_region_stacked_ratio_fig(
         colors,
         axis,
         var,
+        plot_bins,
         unit_norm_bool,
         lumitag,
         comtag,
@@ -3416,6 +3802,22 @@ def make_region_stacked_ratio_fig(
     log_axis_enabled = panel_info.get("log_axis_enabled", False)
     use_log_y = log_axis_enabled
     log_y_baseline = panel_info.get("log_y_baseline")
+
+    if recompute_syst_ratio_arrays:
+        mc_totals_array = np.asarray(mc_totals, dtype=float)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            if err_p_syst is not None:
+                err_ratio_p_syst = np.where(
+                    mc_totals_array > 0,
+                    np.asarray(err_p_syst, dtype=float) / mc_totals_array,
+                    1.0,
+                )
+            if err_m_syst is not None:
+                err_ratio_m_syst = np.where(
+                    mc_totals_array > 0,
+                    np.asarray(err_m_syst, dtype=float) / mc_totals_array,
+                    1.0,
+                )
 
     band_info = _compute_uncertainty_bands(
         ax,
