@@ -3693,11 +3693,37 @@ def make_region_stacked_ratio_fig(
     legend_top_margin_min = legend_style.get("top_margin_min", 0.01)
     legend_top_margin_scale = legend_style.get("top_margin_scale", 0.25)
     tick_labelsize = axes_style.get("tick_labelsize", 18)
-    tick_width = axes_style.get("tick_width", 1.5)
-    tick_length = axes_style.get("tick_length", 6)
-    minor_tick_length = axes_style.get("minor_tick_length")
-    if minor_tick_length is None:
-        minor_tick_length = tick_length * 0.6 if tick_length else 0
+    tick_width = axes_style.get("tick_width", 1.0)
+    tick_length = axes_style.get("tick_length", 4)
+
+    default_tick_length = None
+    if isinstance(STACKED_RATIO_STYLE, Mapping):
+        default_tick_length = _style_get(
+            STACKED_RATIO_STYLE, ("defaults", "axes", "tick_length"), None
+        )
+
+    raw_minor_tick_length = axes_style.get("minor_tick_length")
+    minor_tick_ratio = axes_style.get("minor_tick_ratio")
+    if (
+        minor_tick_ratio is None
+        and raw_minor_tick_length is not None
+        and tick_length
+    ):
+        reference_length = axes_style.get("tick_length")
+        if not isinstance(reference_length, (int, float)) or reference_length <= 0:
+            reference_length = default_tick_length
+        if (
+            isinstance(default_tick_length, (int, float))
+            and reference_length == default_tick_length
+        ):
+            reference_length = 6.0
+        if not isinstance(reference_length, (int, float)) or reference_length <= 0:
+            reference_length = 6.0
+        minor_tick_ratio = raw_minor_tick_length / reference_length
+    if minor_tick_ratio is None:
+        minor_tick_ratio = 0.6
+    minor_tick_length = tick_length * minor_tick_ratio if tick_length else 0
+    spine_width = axes_style.get("spine_width", tick_width)
     axis_label_fontsize = axes_style.get("label_fontsize", 18)
     ratio_tick_labelsize = axes_style.get("ratio_tick_labelsize", tick_labelsize)
     ratio_label_text = axes_style.get("ratio_label", "Ratio")
@@ -3923,6 +3949,8 @@ def make_region_stacked_ratio_fig(
     ax.set_xlabel(None)
     ax.tick_params(axis="both", labelsize=tick_labelsize, width=tick_width, length=tick_length)
     ax.tick_params(axis="both", which="minor", width=tick_width, length=minor_tick_length)
+    for spine in ax.spines.values():
+        spine.set_linewidth(spine_width)
     if not use_log_y:
         if isinstance(ticklabel_format_cfg, Mapping):
             format_kwargs = dict(ticklabel_format_cfg)
@@ -3948,6 +3976,8 @@ def make_region_stacked_ratio_fig(
         axis="both", labelsize=ratio_tick_labelsize, width=tick_width, length=tick_length
     )
     rax.tick_params(axis="both", which="minor", width=tick_width, length=minor_tick_length)
+    for spine in rax.spines.values():
+        spine.set_linewidth(spine_width)
 
     # Ensure the ratio axis always includes a unity tick while preserving the
     # spacing chosen by the existing locator and enforcing ticks at the bounds.
