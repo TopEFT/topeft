@@ -3455,9 +3455,13 @@ def make_region_stacked_ratio_fig(
                 h_mc_sumw2 = h_mc_sumw2.rebin(axis_name, new_axis)
             except Exception:
                 logger.warning(
-                    "Failed to rebin MC sumw2 histogram for variable '%s'; proceeding without rebinning.",
+                    (
+                        "Failed to rebin MC sumw2 histogram for variable '%s'; "
+                        "disabling MC statistical uncertainty for rebinned plots."
+                    ),
                     var,
                 )
+                h_mc_sumw2 = None
 
         if any(
             arr is not None
