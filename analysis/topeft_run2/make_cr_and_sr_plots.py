@@ -6,6 +6,7 @@ import argparse
 import re
 from collections import OrderedDict
 from collections.abc import Mapping
+
 import logging
 from decimal import Decimal
 import inspect
@@ -197,6 +198,164 @@ def _apply_secondary_ticks(ax, axis="x"):
         return
 
     axis_obj.set_minor_locator(FixedLocator(sorted(minor_ticks)))
+
+
+def _validate_bin_edges(edges):
+    """Return a 1D numpy array of strictly increasing bin edges."""
+
+    array = np.asarray(edges, dtype=float)
+    if array.ndim != 1 or array.size < 2:
+        raise ValueError("Bin edges must be a 1D sequence with at least two entries.")
+
+    deltas = np.diff(array)
+    if not np.all(np.isfinite(array)):
+        raise ValueError("Bin edges must be finite values.")
+    if not np.all(deltas > 0):
+        raise ValueError("Bin edges must be strictly increasing.")
+
+    return array
+
+
+def _build_variable_axis_like(axis, edges):
+    """Construct a Variable axis matching the metadata of an existing dense axis."""
+
+    metadata = getattr(axis, "metadata", None)
+    label = getattr(axis, "label", "")
+    traits = getattr(axis, "traits", None)
+    underflow = getattr(traits, "underflow", None)
+    overflow = getattr(traits, "overflow", None)
+    flow = bool(underflow or overflow)
+
+    return hist.axis.Variable(
+        tuple(edges),
+        name=getattr(axis, "name", None) or axis.name,
+        label=label,
+        metadata=metadata,
+        flow=flow,
+        underflow=underflow,
+        overflow=overflow,
+    )
+
+
+def _rebin_flow_content(values_flow, variances_flow, original_edges, target_edges):
+    """Aggregate flow-inclusive histogram contents onto a new edge definition."""
+
+    original_edges = np.asarray(original_edges, dtype=float)
+    target_edges = np.asarray(target_edges, dtype=float)
+
+    edge_indices = []
+    for edge in target_edges:
+        matches = np.where(np.isclose(original_edges, edge, rtol=1e-9, atol=1e-12))[0]
+        if matches.size == 0:
+            raise ValueError(f"Requested edge {edge} not found in source histogram edges.")
+        edge_indices.append(int(matches[0]))
+
+    if any(next_idx <= idx for idx, next_idx in zip(edge_indices, edge_indices[1:])):
+        raise ValueError("Target bin edges must be strictly increasing and align with source edges.")
+
+    values_flow = np.asarray(values_flow, dtype=float)
+    variances_flow = None if variances_flow is None else np.asarray(variances_flow, dtype=float)
+
+    first_idx = edge_indices[0]
+    last_idx = edge_indices[-1]
+
+    underflow = values_flow[0] + values_flow[1 : 1 + first_idx].sum()
+    overflow = values_flow[-1] + values_flow[1 + last_idx : -1].sum()
+
+    rebinned_bins = [
+        values_flow[1 + start : 1 + stop].sum()
+        for start, stop in zip(edge_indices[:-1], edge_indices[1:])
+    ]
+
+    rebinned_values = np.concatenate(([underflow], rebinned_bins, [overflow]))
+
+    rebinned_variances = None
+    if variances_flow is not None:
+        under_var = variances_flow[0] + variances_flow[1 : 1 + first_idx].sum()
+        over_var = variances_flow[-1] + variances_flow[1 + last_idx : -1].sum()
+        rebinned_vars = [
+            variances_flow[1 + start : 1 + stop].sum()
+            for start, stop in zip(edge_indices[:-1], edge_indices[1:])
+        ]
+        rebinned_variances = np.concatenate(([under_var], rebinned_vars, [over_var]))
+
+    return rebinned_values, rebinned_variances
+
+
+def _rebin_dense_histogram(dense_hist, axis_name, target_edges):
+    """Return a rebinned copy of a dense hist.Hist along the specified axis."""
+
+    original_axis = dense_hist.axes[axis_name]
+    new_axis = _build_variable_axis_like(original_axis, target_edges)
+
+    storage_type = dense_hist.storage_type
+    new_hist = hist.Hist(new_axis, storage=storage_type())
+
+    values_flow = dense_hist.values(flow=True)
+    variances_flow = dense_hist.variances(flow=True)
+    rebinned_values, rebinned_variances = _rebin_flow_content(
+        values_flow, variances_flow, original_axis.edges, target_edges
+    )
+
+    view = new_hist.view(flow=True)
+    if hasattr(view, "value"):
+        view.value = rebinned_values
+        if hasattr(view, "variance") and rebinned_variances is not None:
+            view.variance = rebinned_variances
+    else:
+        view[...] = rebinned_values
+
+    if hasattr(dense_hist, "label"):
+        new_hist.label = dense_hist.label
+
+    return new_hist
+
+
+def _rebin_sparse_histogram(sparse_hist, axis_name, target_edges):
+    """Return a rebinned copy of a SparseHist/HistEFT along a dense axis."""
+
+    dense_axes = []
+    replaced = False
+    for axis in sparse_hist.dense_axes:
+        if axis.name == axis_name:
+            dense_axes.append(_build_variable_axis_like(axis, target_edges))
+            replaced = True
+        else:
+            dense_axes.append(axis)
+
+    if not replaced:
+        raise ValueError(f"Axis '{axis_name}' not found in histogram dense axes.")
+
+    rebinned_hist = sparse_hist.empty_from_axes(dense_axes=dense_axes)
+
+    for index_key, dense_hist in sparse_hist._dense_hists.items():
+        categories = sparse_hist.index_to_categories(index_key)
+        new_index = rebinned_hist._fill_bookkeep(*categories)
+        rebinned_hist._dense_hists[new_index] = _rebin_dense_histogram(
+            dense_hist, axis_name, target_edges
+        )
+
+    if hasattr(sparse_hist, "label"):
+        rebinned_hist.label = sparse_hist.label
+
+    return rebinned_hist
+
+
+def _clone_with_rebinned_axis(histogram, axis_name, target_edges):
+    """Clone a histogram (dense or sparse) with rebinned dense axis."""
+
+    if histogram is None:
+        return None
+
+    if hasattr(histogram, "_dense_hists"):
+        return _rebin_sparse_histogram(histogram, axis_name, target_edges)
+
+    if isinstance(histogram, hist.Hist):
+        return _rebin_dense_histogram(histogram, axis_name, target_edges)
+
+    raise TypeError(
+        f"Unsupported histogram type '{type(histogram).__name__}' for rebinning operations."
+    )
 
 
 def _determine_ratio_window(ratio_arrays, data_ratio_arrays, *, tolerance=1e-12):
@@ -1136,6 +1295,7 @@ def _draw_stacked_panel(
     colors,
     axis,
     var,
+    bins,
     unit_norm_bool,
     lumitag,
     comtag,
@@ -1210,8 +1370,7 @@ def _draw_stacked_panel(
 
             mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
 
-    bins = h_data[{"process": sum}].as_hist({}).axes[var].edges
-    bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2]) * 0.3])
+    bins = np.asarray(bins, dtype=float)
 
     log_scale_requested = bool(log_scale)
     log_y_baseline = None
@@ -3274,8 +3433,19 @@ def make_region_stacked_ratio_fig(
 ):
     if bins is None:
         bins = []
+    else:
+        bins = list(bins)
     if group is None:
         group = {}
+
+    if bins:
+        target_edges = _validate_bin_edges(bins)
+        h_mc = _clone_with_rebinned_axis(h_mc, var, target_edges)
+        h_data = _clone_with_rebinned_axis(h_data, var, target_edges)
+        if h_mc_sumw2 is not None:
+            h_mc_sumw2 = _clone_with_rebinned_axis(h_mc_sumw2, var, target_edges)
+    else:
+        target_edges = None
 
     style = copy.deepcopy(style) if isinstance(style, Mapping) else {}
     axes_style = _style_get(style, ("axes",), {})
@@ -3366,6 +3536,17 @@ def make_region_stacked_ratio_fig(
 
     display_label = axes_info.get(var, {}).get("label", var)
 
+    axis_edges = (
+        target_edges
+        if target_edges is not None
+        else h_data[{"process": sum}].as_hist({}).axes[var].edges
+    )
+    axis_edges = np.asarray(axis_edges, dtype=float)
+    if axis_edges.size < 2:
+        raise ValueError("Histogram axis has fewer than two edges; cannot determine binning.")
+    last_width = axis_edges[-1] - axis_edges[-2]
+    plot_bins = np.append(axis_edges, [axis_edges[-1] + last_width * 0.3])
+
     norm_info = _normalize_histograms(
         h_mc,
         h_data,
@@ -3395,6 +3576,7 @@ def make_region_stacked_ratio_fig(
         colors,
         axis,
         var,
+        plot_bins,
         unit_norm_bool,
         lumitag,
         comtag,
