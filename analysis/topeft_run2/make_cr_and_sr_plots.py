@@ -3181,19 +3181,27 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
         if syst_name == "renormfact": continue
 
         relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "process") # The samples relevant to this syst
-        n_arr = base_histo.integrate("process",relevant_samples_lst)[{'process': sum}].integrate("systematic","nominal").eval({})[()] # Sum of all samples for nominal variation
+        proc_projection = base_histo.integrate("process", relevant_samples_lst)[{"process": sum}]
+        n_arr = proc_projection.integrate("systematic", "nominal").eval({})[()] # Sum of all samples for nominal variation
+        u_arr_sum = proc_projection.integrate("systematic", syst_name+"Up").eval({})[()]
+        d_arr_sum = proc_projection.integrate("systematic", syst_name+"Down").eval({})[()]
 
         # Special handling of renorm and fact
         # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
         if (syst_name == "renorm") or (syst_name == "fact"):
             grp_map = CR_GRP_MAP if group_type == "CR" else SR_GRP_MAP
-            p_arr_rel,m_arr_rel = get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,n_arr)
+            p_arr_rel,m_arr_rel = get_decorrelated_uncty(
+                syst_name,
+                grp_map,
+                relevant_samples_lst,
+                base_histo,
+                n_arr,
+                total_up_arr=u_arr_sum,
+                total_down_arr=d_arr_sum,
+            )
 
         # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
         else:
-            u_arr_sum = base_histo.integrate("process",relevant_samples_lst)[{"process": sum}].integrate("systematic",syst_name+"Up").eval({})[()]   # Sum of all samples for up variation
-            d_arr_sum = base_histo.integrate("process",relevant_samples_lst)[{"process": sum}].integrate("systematic",syst_name+"Down").eval({})[()] # Sum of all samples for down variation
-
             u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
             d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
             p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
@@ -3253,10 +3261,25 @@ def _values_with_flow_or_overflow(hist_slice):
     return np.asarray(values)
 
 
-def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,template_zeros_arr):
+def get_decorrelated_uncty(
+    syst_name,
+    grp_map,
+    relevant_samples_lst,
+    base_histo,
+    template_zeros_arr,
+    *,
+    total_up_arr=None,
+    total_down_arr=None,
+):
 
     # Initialize the array we will return (ok technically we return sqrt of this arr squared..)
-    a_arr_sum = np.zeros_like(template_zeros_arr) # Just using this template_zeros_arr for its size
+    if total_up_arr is None:
+        total_up_arr = template_zeros_arr
+    if total_down_arr is None:
+        total_down_arr = template_zeros_arr
+
+    result_dtype = np.result_type(template_zeros_arr, total_up_arr, total_down_arr)
+    a_arr_sum = np.zeros_like(template_zeros_arr, dtype=result_dtype) # Just using this template_zeros_arr for its size
 
     # Loop over the groups of processes, generally the processes in the groups will be correlated and the different groups will be uncorrelated
     for proc_grp in grp_map.keys():
