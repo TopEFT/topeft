@@ -1142,6 +1142,7 @@ def _draw_stacked_panel(
     h_mc_sumw2,
     mc_scaled,
     mc_norm_factor,
+    bins,
     *,
     log_scale=False,
     style=None,
@@ -1210,8 +1211,7 @@ def _draw_stacked_panel(
 
             mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
 
-    bins = h_data[{"process": sum}].as_hist({}).axes[var].edges
-    bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2]) * 0.3])
+    bins = np.array(bins, dtype=float, copy=True)
 
     log_scale_requested = bool(log_scale)
     log_y_baseline = None
@@ -3308,6 +3308,206 @@ def make_region_stacked_ratio_fig(
     if getattr(h_data, "empty", False) and h_data.empty():
         return None
 
+    def _clone_histogram(obj):
+        if obj is None:
+            return None
+        if hasattr(obj, "copy"):
+            return obj.copy()
+        return copy.deepcopy(obj)
+
+    def _extract_nominal_histogram_edges(histogram, axis_name):
+        try:
+            hist_view = histogram[{"process": sum}].as_hist({})
+            edges = np.array(hist_view.axes[axis_name].edges, dtype=float, copy=True)
+            values = np.asarray(hist_view.values(flow=True), dtype=float)
+            if values.size >= 2:
+                values = values[1:-1]
+            else:
+                values = np.asarray(hist_view.values(), dtype=float)
+            return edges, values
+        except Exception:
+            return None, None
+
+    def _locate_edge_index(edges, value):
+        matches = np.nonzero(np.isclose(edges, value, rtol=0, atol=1e-9))[0]
+        if matches.size:
+            return int(matches[0])
+        raise ValueError
+
+    def _rebin_syst_arrays(
+        err_up,
+        err_down,
+        ratio_up,
+        ratio_down,
+        nominal_values,
+        old_edges,
+        new_edges,
+    ):
+        if (
+            nominal_values is None
+            or old_edges is None
+            or new_edges is None
+            or nominal_values.size != max(len(old_edges) - 1, 0)
+        ):
+            return err_up, err_down, ratio_up, ratio_down
+
+        old_edge_count = len(old_edges)
+        new_edge_count = len(new_edges)
+        if old_edge_count < 2 or new_edge_count < 2:
+            return err_up, err_down, ratio_up, ratio_down
+
+        try:
+            start_indices = [
+                _locate_edge_index(old_edges, new_edges[idx])
+                for idx in range(new_edge_count - 1)
+            ]
+            end_indices = [
+                _locate_edge_index(old_edges, new_edges[idx + 1])
+                for idx in range(new_edge_count - 1)
+            ]
+        except ValueError:
+            logger.warning(
+                "Unable to rebin systematic arrays: custom bin edges do not align with the original histogram binning."
+            )
+            return err_up, err_down, ratio_up, ratio_down
+
+        nominal_values = np.asarray(nominal_values, dtype=float)
+        rebinned_nominal = np.zeros(new_edge_count - 1, dtype=float)
+
+        if err_up is not None:
+            err_up = np.asarray(err_up, dtype=float)
+            syst_up_deltas = np.clip(err_up - nominal_values, a_min=0, a_max=None)
+            rebinned_err_up = np.zeros_like(rebinned_nominal)
+        else:
+            syst_up_deltas = None
+            rebinned_err_up = None
+
+        if err_down is not None:
+            err_down = np.asarray(err_down, dtype=float)
+            syst_down_deltas = np.clip(nominal_values - err_down, a_min=0, a_max=None)
+            rebinned_err_down = np.zeros_like(rebinned_nominal)
+        else:
+            syst_down_deltas = None
+            rebinned_err_down = None
+
+        for idx, (start, end) in enumerate(zip(start_indices, end_indices)):
+            if end < start:
+                start, end = end, start
+            rebinned_nominal[idx] = nominal_values[start:end].sum()
+            if rebinned_err_up is not None:
+                delta = syst_up_deltas[start:end]
+                rebinned_err_up[idx] = np.clip(
+                    rebinned_nominal[idx] + np.sqrt(np.sum(delta**2)),
+                    a_min=0,
+                    a_max=None,
+                )
+            if rebinned_err_down is not None:
+                delta = syst_down_deltas[start:end]
+                rebinned_err_down[idx] = np.clip(
+                    rebinned_nominal[idx] - np.sqrt(np.sum(delta**2)),
+                    a_min=0,
+                    a_max=None,
+                )
+
+        if rebinned_err_up is not None:
+            rebinned_ratio_up = _safe_divide(
+                rebinned_err_up,
+                rebinned_nominal,
+                default=1.0,
+                zero_over_zero=1.0,
+            )
+        else:
+            rebinned_ratio_up = ratio_up
+
+        if rebinned_err_down is not None:
+            rebinned_ratio_down = _safe_divide(
+                rebinned_err_down,
+                rebinned_nominal,
+                default=1.0,
+                zero_over_zero=1.0,
+            )
+        else:
+            rebinned_ratio_down = ratio_down
+
+        return (
+            rebinned_err_up if rebinned_err_up is not None else err_up,
+            rebinned_err_down if rebinned_err_down is not None else err_down,
+            rebinned_ratio_up,
+            rebinned_ratio_down,
+        )
+
+    orig_edges, orig_nominal_vals = _extract_nominal_histogram_edges(h_mc, var)
+    bins_array = None
+    if bins:
+        rebin_edges = np.array(bins, dtype=float, copy=True)
+        axis_name = var
+        try:
+            axis_name = getattr(h_mc.axes[var], "name", var)
+        except Exception:
+            axis_name = var
+
+        new_axis = hist.axis.Variable(rebin_edges, name=axis_name)
+
+        h_mc = _clone_histogram(h_mc)
+        h_data = _clone_histogram(h_data)
+        h_mc = h_mc.rebin(axis_name, new_axis)
+        h_data = h_data.rebin(axis_name, new_axis)
+
+        if h_mc_sumw2 is not None:
+            h_mc_sumw2 = _clone_histogram(h_mc_sumw2)
+            try:
+                h_mc_sumw2 = h_mc_sumw2.rebin(axis_name, new_axis)
+            except Exception:
+                logger.warning(
+                    (
+                        "Failed to rebin MC sumw2 histogram for variable '%s'; "
+                        "disabling MC statistical uncertainty for rebinned plots."
+                    ),
+                    var,
+                )
+                h_mc_sumw2 = None
+
+        if any(
+            arr is not None
+            for arr in (err_p_syst, err_m_syst, err_ratio_p_syst, err_ratio_m_syst)
+        ):
+            (
+                err_p_syst,
+                err_m_syst,
+                err_ratio_p_syst,
+                err_ratio_m_syst,
+            ) = _rebin_syst_arrays(
+                err_p_syst,
+                err_m_syst,
+                err_ratio_p_syst,
+                err_ratio_m_syst,
+                orig_nominal_vals,
+                orig_edges,
+                rebin_edges,
+            )
+
+        if rebin_edges.size:
+            if rebin_edges.size >= 2:
+                last_width = rebin_edges[-1] - rebin_edges[-2]
+            else:
+                last_width = rebin_edges[-1]
+            bins_array = np.append(rebin_edges, [rebin_edges[-1] + last_width * 0.3])
+        else:
+            bins_array = rebin_edges
+    else:
+        default_edges = h_data[{"process": sum}].as_hist({}).axes[var].edges
+        default_edges = np.array(default_edges, dtype=float, copy=True)
+        if default_edges.size:
+            if default_edges.size >= 2:
+                last_width = default_edges[-1] - default_edges[-2]
+            else:
+                last_width = default_edges[-1]
+            bins_array = np.append(
+                default_edges, [default_edges[-1] + last_width * 0.3]
+            )
+        else:
+            bins_array = default_edges
+
     default_colors = [
         "tab:blue",
         "darkgreen",
@@ -3401,6 +3601,7 @@ def make_region_stacked_ratio_fig(
         h_mc_sumw2,
         mc_scaled,
         mc_norm_factor,
+        bins_array,
         log_scale=log_scale,
         style=style,
     )
