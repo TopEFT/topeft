@@ -3124,7 +3124,7 @@ def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
     cached_rates = []
     for sample_name in process_labels:
         nominal_hist = (
-            base_histo.integrate("process", sample_name)[{"process": sum}]
+            base_histo.integrate("process", sample_name)
             .integrate("systematic", "nominal")
         )
         thissample_nom_arr = nominal_hist.eval({})[()]
