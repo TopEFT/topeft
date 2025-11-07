@@ -3319,7 +3319,11 @@ def make_region_stacked_ratio_fig(
         try:
             hist_view = histogram[{"process": sum}].as_hist({})
             edges = np.array(hist_view.axes[axis_name].edges, dtype=float, copy=True)
-            values = np.asarray(hist_view.values(flow=True)[1:], dtype=float)
+            values = np.asarray(hist_view.values(flow=True), dtype=float)
+            if values.size >= 2:
+                values = values[1:-1]
+            else:
+                values = np.asarray(hist_view.values(), dtype=float)
             return edges, values
         except Exception:
             return None, None
