@@ -1142,6 +1142,7 @@ def _draw_stacked_panel(
     h_mc_sumw2,
     mc_scaled,
     mc_norm_factor,
+    bins,
     *,
     log_scale=False,
     style=None,
@@ -1210,8 +1211,7 @@ def _draw_stacked_panel(
 
             mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
 
-    bins = h_data[{"process": sum}].as_hist({}).axes[var].edges
-    bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2]) * 0.3])
+    bins = np.array(bins, dtype=float, copy=True)
 
     log_scale_requested = bool(log_scale)
     log_y_baseline = None
@@ -3308,6 +3308,61 @@ def make_region_stacked_ratio_fig(
     if getattr(h_data, "empty", False) and h_data.empty():
         return None
 
+    def _clone_histogram(obj):
+        if obj is None:
+            return None
+        if hasattr(obj, "copy"):
+            return obj.copy()
+        return copy.deepcopy(obj)
+
+    bins_array = None
+    if bins:
+        rebin_edges = np.array(bins, dtype=float, copy=True)
+        axis_name = var
+        try:
+            axis_name = getattr(h_mc.axes[var], "name", var)
+        except Exception:
+            axis_name = var
+
+        new_axis = hist.axis.Variable(rebin_edges, name=axis_name)
+
+        h_mc = _clone_histogram(h_mc)
+        h_data = _clone_histogram(h_data)
+        h_mc = h_mc.rebin(axis_name, new_axis)
+        h_data = h_data.rebin(axis_name, new_axis)
+
+        if h_mc_sumw2 is not None:
+            h_mc_sumw2 = _clone_histogram(h_mc_sumw2)
+            try:
+                h_mc_sumw2 = h_mc_sumw2.rebin(axis_name, new_axis)
+            except Exception:
+                logger.warning(
+                    "Failed to rebin MC sumw2 histogram for variable '%s'; proceeding without rebinning.",
+                    var,
+                )
+
+        if rebin_edges.size:
+            if rebin_edges.size >= 2:
+                last_width = rebin_edges[-1] - rebin_edges[-2]
+            else:
+                last_width = rebin_edges[-1]
+            bins_array = np.append(rebin_edges, [rebin_edges[-1] + last_width * 0.3])
+        else:
+            bins_array = rebin_edges
+    else:
+        default_edges = h_data[{"process": sum}].as_hist({}).axes[var].edges
+        default_edges = np.array(default_edges, dtype=float, copy=True)
+        if default_edges.size:
+            if default_edges.size >= 2:
+                last_width = default_edges[-1] - default_edges[-2]
+            else:
+                last_width = default_edges[-1]
+            bins_array = np.append(
+                default_edges, [default_edges[-1] + last_width * 0.3]
+            )
+        else:
+            bins_array = default_edges
+
     default_colors = [
         "tab:blue",
         "darkgreen",
@@ -3401,6 +3456,7 @@ def make_region_stacked_ratio_fig(
         h_mc_sumw2,
         mc_scaled,
         mc_norm_factor,
+        bins_array,
         log_scale=log_scale,
         style=style,
     )
