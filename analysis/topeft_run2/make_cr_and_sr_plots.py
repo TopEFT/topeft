@@ -259,25 +259,39 @@ def _rebin_flow_content(values_flow, variances_flow, original_edges, target_edge
     first_idx = edge_indices[0]
     last_idx = edge_indices[-1]
 
-    underflow = values_flow[0] + values_flow[1 : 1 + first_idx].sum()
-    overflow = values_flow[-1] + values_flow[1 + last_idx : -1].sum()
+    underflow = values_flow[0] + values_flow[1 : 1 + first_idx].sum(axis=0)
+    overflow = values_flow[-1] + values_flow[1 + last_idx : -1].sum(axis=0)
 
     rebinned_bins = [
-        values_flow[1 + start : 1 + stop].sum()
+        values_flow[1 + start : 1 + stop].sum(axis=0)
         for start, stop in zip(edge_indices[:-1], edge_indices[1:])
     ]
 
-    rebinned_values = np.concatenate(([underflow], rebinned_bins, [overflow]))
+    rebinned_values = np.concatenate(
+        [
+            underflow[np.newaxis, ...],
+            *[bin_values[np.newaxis, ...] for bin_values in rebinned_bins],
+            overflow[np.newaxis, ...],
+        ],
+        axis=0,
+    )
 
     rebinned_variances = None
     if variances_flow is not None:
-        under_var = variances_flow[0] + variances_flow[1 : 1 + first_idx].sum()
-        over_var = variances_flow[-1] + variances_flow[1 + last_idx : -1].sum()
+        under_var = variances_flow[0] + variances_flow[1 : 1 + first_idx].sum(axis=0)
+        over_var = variances_flow[-1] + variances_flow[1 + last_idx : -1].sum(axis=0)
         rebinned_vars = [
-            variances_flow[1 + start : 1 + stop].sum()
+            variances_flow[1 + start : 1 + stop].sum(axis=0)
             for start, stop in zip(edge_indices[:-1], edge_indices[1:])
         ]
-        rebinned_variances = np.concatenate(([under_var], rebinned_vars, [over_var]))
+        rebinned_variances = np.concatenate(
+            [
+                under_var[np.newaxis, ...],
+                *[var[np.newaxis, ...] for var in rebinned_vars],
+                over_var[np.newaxis, ...],
+            ],
+            axis=0,
+        )
 
     return rebinned_values, rebinned_variances
 
@@ -285,16 +299,46 @@ def _rebin_flow_content(values_flow, variances_flow, original_edges, target_edge
 def _rebin_dense_histogram(dense_hist, axis_name, target_edges):
     """Return a rebinned copy of a dense hist.Hist along the specified axis."""
 
-    original_axis = dense_hist.axes[axis_name]
-    new_axis = _build_variable_axis_like(original_axis, target_edges)
+    try:
+        axis_index = dense_hist.axes.index(axis_name)
+    except ValueError as exc:  # pragma: no cover - defensive guard
+        raise ValueError(f"Axis '{axis_name}' not found in histogram.") from exc
+
+    original_axis = dense_hist.axes[axis_index]
+    new_axes = []
+    for idx, axis in enumerate(dense_hist.axes):
+        if idx == axis_index:
+            new_axes.append(_build_variable_axis_like(axis, target_edges))
+        else:
+            new_axes.append(axis)
 
     storage_type = dense_hist.storage_type
-    new_hist = hist.Hist(new_axis, storage=storage_type())
+    new_hist = hist.Hist(*new_axes, storage=storage_type())
 
-    values_flow = dense_hist.values(flow=True)
-    variances_flow = dense_hist.variances(flow=True)
-    rebinned_values, rebinned_variances = _rebin_flow_content(
-        values_flow, variances_flow, original_axis.edges, target_edges
+    values_flow = np.asarray(dense_hist.values(flow=True), dtype=float)
+    variances_flow_raw = dense_hist.variances(flow=True)
+    variances_flow = (
+        None
+        if variances_flow_raw is None
+        else np.asarray(variances_flow_raw, dtype=float)
+    )
+
+    values_reordered = np.moveaxis(values_flow, axis_index, 0)
+    variances_reordered = (
+        None
+        if variances_flow is None
+        else np.moveaxis(variances_flow, axis_index, 0)
+    )
+
+    rebinned_values_reordered, rebinned_variances_reordered = _rebin_flow_content(
+        values_reordered, variances_reordered, original_axis.edges, target_edges
+    )
+
+    rebinned_values = np.moveaxis(rebinned_values_reordered, 0, axis_index)
+    rebinned_variances = (
+        None
+        if rebinned_variances_reordered is None
+        else np.moveaxis(rebinned_variances_reordered, 0, axis_index)
     )
 
     view = new_hist.view(flow=True)
