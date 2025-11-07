@@ -1683,6 +1683,15 @@ def _draw_stacked_panel(
     )
     ratio_yerr_flow[mc_vals_flow == 0] = np.nan
 
+    mc_nonpositive_mask_flow = mc_vals_flow <= 0
+    zero_over_zero_mask_flow = (mc_vals_flow == 0) & (data_vals_flow == 0)
+    mask_for_nan = mc_nonpositive_mask_flow & ~zero_over_zero_mask_flow
+    if np.any(mask_for_nan):
+        ratio_vals_flow = ratio_vals_flow.astype(float, copy=True)
+        ratio_yerr_flow = ratio_yerr_flow.astype(float, copy=True)
+        ratio_vals_flow[mask_for_nan] = np.nan
+        ratio_yerr_flow[mask_for_nan] = np.nan
+
     ratio_vals = ratio_vals_flow[1:]
     ratio_yerr = ratio_yerr_flow[1:]
 
