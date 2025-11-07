@@ -1469,6 +1469,25 @@ def _draw_stacked_panel(
     cms_fontsize = cms_style.get("fontsize", 18.0)
     cms_label = hep.cms.label(lumi=lumitag, com=comtag, fontsize=cms_fontsize)
 
+    summed_mc = h_mc[{"process": sum}]
+    summed_data = h_data[{"process": sum}]
+
+    summed_mc_hist = summed_mc.as_hist({})
+    summed_data_hist = summed_data.as_hist({})
+
+    summed_mc_values_flow = summed_mc_hist.values(flow=True)
+    summed_data_values_flow = summed_data_hist.values(flow=True)
+
+    try:
+        summed_mc_edges = summed_mc_hist.axes[var].edges
+    except KeyError:
+        summed_mc_edges = None
+
+    try:
+        summed_data_edges = summed_data_hist.axes[var].edges
+    except KeyError:
+        summed_data_edges = summed_mc_edges
+
     def _get_grouped_vals(hist_obj, grouping_map):
         grouped_values = {}
         for proc_name, members in grouping_map.items():
@@ -1488,7 +1507,7 @@ def _draw_stacked_panel(
         template = (
             next(iter(mc_vals.values()))
             if mc_vals
-            else h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
+            else summed_mc_values_flow[1:]
         )
         for proc_name, members in grouping.items():
             valid_members = [m for m in members if m in available_processes]
@@ -1510,7 +1529,10 @@ def _draw_stacked_panel(
 
             mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
 
-    bins = np.asarray(bins, dtype=float)
+    default_bins = summed_data_edges if bins is None else bins
+    if default_bins is None:
+        raise ValueError("Histogram axis has fewer than two edges; cannot determine binning.")
+    bins = np.asarray(default_bins, dtype=float)
 
     log_scale_requested = bool(log_scale)
     log_y_baseline = None
@@ -1635,7 +1657,7 @@ def _draw_stacked_panel(
         ax.set_ylim(bottom=log_y_baseline)
 
     hep.histplot(
-        h_data[{"process": sum}].as_hist({}).values(flow=True)[1:],
+        summed_data_values_flow[1:],
         ax=ax,
         bins=bins,
         stack=False,
@@ -1645,8 +1667,8 @@ def _draw_stacked_panel(
         **DATA_ERR_OPS,
     )
 
-    data_vals_flow = h_data[{"process": sum}].as_hist({}).values(flow=True)
-    mc_vals_flow = h_mc[{"process": sum}].as_hist({}).values(flow=True)
+    data_vals_flow = summed_data_values_flow
+    mc_vals_flow = summed_mc_values_flow
 
     ratio_vals_flow = _safe_divide(
         data_vals_flow,
@@ -1675,7 +1697,7 @@ def _draw_stacked_panel(
         **DATA_ERR_OPS,
     )
 
-    mc_totals = h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
+    mc_totals = summed_mc_values_flow[1:]
 
     return {
         "fig": fig,
