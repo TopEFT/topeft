@@ -422,8 +422,9 @@ STACKED_RATIO_STYLE:
       label_fontsize: 18
       tick_labelsize: 18
       ratio_tick_labelsize: 18
-      tick_width: 1.5
-      tick_length: 6
+      tick_width: 1.0
+      tick_length: 4
+      spine_width: 1.0
       y_offset: -0.07
       offset_fontsize: 18
       ratio_label: "Ratio"
