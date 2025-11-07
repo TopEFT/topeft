@@ -245,9 +245,9 @@ class DatacardMaker():
             For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet'
             group 3 matches '_njet'.
         """
-        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
+        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[1-7]j)|(_[1-7]j$)")
 
-        m = rgx.search(s)
+        m = rgx.search(s.replace('_fwd', ''))
         if m.group(1) and m.group(2) is None and m.group(3) is None:
             # The order is '_Nj_Mb'
             _,j,b = m.group(1).split("_")
@@ -995,10 +995,10 @@ class DatacardMaker():
                 # obtain the scalings for scalings.json file
                 if p in self.SIGNALS:
                     if self.wc_scalings:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(flow='show', wc_list=self.wc_scalings)
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
                     else:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling()
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(flow='show')
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
@@ -1086,7 +1086,7 @@ class DatacardMaker():
                     proc_name = self.get_process(p) # Strips off any "_sm" or "_lin_*" junk
                     # Need to handle certain systematics in a special way
                     if syst_name == "diboson_njets":
-                        v = rate_syst.get_process(proc_name,num_j)
+                        v = rate_syst.get_process(proc_name,min(num_j + (1 if 'fwd' in outf_root_name else 0), 7)) # fwd jet is an extra jet
                         # v = rate_syst.get_process(proc_name)
                         # if isinstance(v,dict):
                         #     v = v[str(num_j)]
@@ -1112,6 +1112,8 @@ class DatacardMaker():
                                 ch_key = f"{num_l}l{num_b}b_p"
                             elif "_m_offZ" in ch:
                                 ch_key = f"{num_l}l{num_b}b_m"
+                            elif "tau" in ch:
+                                ch_key = f"{num_l}l_sfz_{num_b}b"
                             else:
                                 raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
                         elif num_l == 4:
@@ -1138,6 +1140,12 @@ class DatacardMaker():
                 f.write("* autoMCStats 10\n")
             else:
                 f.write("* autoMCStats -1\n")
+
+        outf_json_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="json")
+        with open(os.path.join(self.out_dir,f"{outf_json_name}"),"w") as f:
+            print('making', os.path.join(self.out_dir,f"{outf_json_name}"))
+            json.dump(self.scalings_json, f, indent=4)
+
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
         print(f"Total Hists Written: {num_h}")

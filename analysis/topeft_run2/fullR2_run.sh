@@ -9,10 +9,11 @@ CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/
 OPTIONS="--hist-list ana --skip-cr --do-systs -s 20000 --do-np -o $OUT_NAME --tau_h_analysis" # For analysis
 
 
+
 # Build the run command for filling CR histos
 #OUT_NAME+="_CRs"
 #CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_cr_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
-#OPTIONS="--hist-list cr --skip-sr --do-systs --do-np --wc-list ctG -o $OUT_NAME --split-lep-flavor" # For CR plots
+#OPTIONS="--hist-list cr --skip-sr --do-systs --do-np --wc-list ctG -o $OUT_NAME" # For CR plots
 
 echo "OUT_NAME:" $OUT_NAME
 
