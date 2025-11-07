@@ -3304,9 +3304,16 @@ def get_decorrelated_uncty(
 
         # Otherwise corrleated across groups (e.g. ZZ and WZ, as datacard maker does in SR)
         else:
-            n_arr_grp = base_histo.integrate("process",proc_lst)[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-            u_arr_grp = base_histo.integrate("process",proc_lst)[{"process": sum}].integrate("systematic",syst_name+"Up").eval({})[()]
-            d_arr_grp = base_histo.integrate("process",proc_lst)[{"process": sum}].integrate("systematic",syst_name+"Down").eval({})[()]
+            group_projection = base_histo.integrate("process", proc_lst)[{"process": sum}]
+            n_arr_grp = _values_with_flow_or_overflow(
+                group_projection.integrate("systematic", "nominal")
+            )
+            u_arr_grp = _values_with_flow_or_overflow(
+                group_projection.integrate("systematic", syst_name + "Up")
+            )
+            d_arr_grp = _values_with_flow_or_overflow(
+                group_projection.integrate("systematic", syst_name + "Down")
+            )
             u_arr_grp_rel = u_arr_grp - n_arr_grp
             d_arr_grp_rel = d_arr_grp - n_arr_grp
             a_arr_grp_rel = (abs(u_arr_grp_rel) + abs(d_arr_grp_rel))/2.0
