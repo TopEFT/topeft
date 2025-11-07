@@ -426,12 +426,35 @@ def _rebin_uncertainty_array(
     if array.ndim != 1:
         raise ValueError("Uncertainty arrays must be one-dimensional for rebinning.")
 
+    original_edges = np.asarray(original_edges, dtype=float)
+    if original_edges.ndim != 1:
+        raise ValueError("Original bin edges must form a one-dimensional array.")
+    n_source_bins = original_edges.size - 1
+    if array.size not in {n_source_bins, n_source_bins + 1}:
+        raise ValueError(
+            "Uncertainty arrays must match the source binning (with or without overflow)."
+        )
+
+    includes_overflow = array.size == n_source_bins + 1
+
+    def _to_flow(arr):
+        arr = np.asarray(arr, dtype=float)
+        if arr.size == n_source_bins:
+            return np.concatenate(([0.0], arr, [0.0]))
+        return np.concatenate(([0.0], arr[:-1], [arr[-1]]))
+
+    def _trim_flow(flow_array):
+        visible_and_overflow = flow_array[1:]
+        if includes_overflow:
+            return visible_and_overflow
+        return visible_and_overflow[:-1]
+
     if nominal is None:
-        values_flow = np.concatenate(([0.0], array, [0.0]))
+        values_flow = _to_flow(array)
         rebinned_values, _ = _rebin_flow_content(
             values_flow, None, original_edges, target_edges
         )
-        return rebinned_values[1:]
+        return _trim_flow(rebinned_values)
 
     reference = np.asarray(nominal, dtype=float)
     if reference.ndim != 1:
@@ -444,7 +467,7 @@ def _rebin_uncertainty_array(
             "Direction must be 'up' or 'down' when rebinding nominal-shifted uncertainties."
         )
 
-    reference_flow = np.concatenate(([0.0], reference, [0.0]))
+    reference_flow = _to_flow(reference)
     rebinned_reference, _ = _rebin_flow_content(
         reference_flow, None, original_edges, target_edges
     )
@@ -457,14 +480,16 @@ def _rebin_uncertainty_array(
         diff = np.clip(-delta, a_min=0.0, a_max=None)
         sign = -1.0
 
-    diff_sq_flow = np.concatenate(([0.0], diff**2, [0.0]))
+    diff_sq_flow = _to_flow(diff**2)
     zeros_flow = np.zeros_like(diff_sq_flow)
     _, rebinned_diff_sq = _rebin_flow_content(
         zeros_flow, diff_sq_flow, original_edges, target_edges
     )
 
-    rebinned_reference = rebinned_reference[1:]
-    rebinned_diff = np.sqrt(np.clip(rebinned_diff_sq[1:], a_min=0.0, a_max=None))
+    rebinned_reference = _trim_flow(rebinned_reference)
+    rebinned_diff = np.sqrt(
+        np.clip(_trim_flow(rebinned_diff_sq), a_min=0.0, a_max=None)
+    )
 
     rebinned = rebinned_reference + sign * rebinned_diff
     if direction == "down":
