@@ -431,7 +431,7 @@ def _rebin_uncertainty_array(
         rebinned_values, _ = _rebin_flow_content(
             values_flow, None, original_edges, target_edges
         )
-        return rebinned_values[1:-1]
+        return rebinned_values[1:]
 
     reference = np.asarray(nominal, dtype=float)
     if reference.ndim != 1:
@@ -463,8 +463,8 @@ def _rebin_uncertainty_array(
         zeros_flow, diff_sq_flow, original_edges, target_edges
     )
 
-    rebinned_reference = rebinned_reference[1:-1]
-    rebinned_diff = np.sqrt(np.clip(rebinned_diff_sq[1:-1], a_min=0.0, a_max=None))
+    rebinned_reference = rebinned_reference[1:]
+    rebinned_diff = np.sqrt(np.clip(rebinned_diff_sq[1:], a_min=0.0, a_max=None))
 
     rebinned = rebinned_reference + sign * rebinned_diff
     if direction == "down":
