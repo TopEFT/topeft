@@ -358,6 +358,24 @@ def _clone_with_rebinned_axis(histogram, axis_name, target_edges):
     )
 
 
+def _rebin_uncertainty_array(values, original_edges, target_edges):
+    """Aggregate a 1D uncertainty array according to new bin edges."""
+
+    if values is None:
+        return None
+
+    array = np.asarray(values, dtype=float)
+    if array.ndim != 1:
+        raise ValueError("Uncertainty arrays must be one-dimensional for rebinning.")
+
+    values_flow = np.concatenate(([0.0], array, [0.0]))
+    rebinned_values, _ = _rebin_flow_content(
+        values_flow, None, original_edges, target_edges
+    )
+
+    return rebinned_values[1:-1]
+
+
 def _determine_ratio_window(ratio_arrays, data_ratio_arrays, *, tolerance=1e-12):
     """Return ratio axis limits and warning flags given MC/data ratio samples."""
 
@@ -3438,8 +3456,48 @@ def make_region_stacked_ratio_fig(
     if group is None:
         group = {}
 
+    recompute_syst_ratio_arrays = False
+
     if bins:
         target_edges = _validate_bin_edges(bins)
+
+        mc_projection = h_mc[{"process": sum}].as_hist({})
+        original_edges = mc_projection.axes[var].edges
+        original_mc_totals = mc_projection.values(flow=True)[1:]
+
+        ratio_up_input = None if err_ratio_p_syst is None else np.asarray(err_ratio_p_syst, dtype=float)
+        ratio_down_input = None if err_ratio_m_syst is None else np.asarray(err_ratio_m_syst, dtype=float)
+
+        def _ensure_absolute(up_values, down_values, up_ratio, down_ratio):
+            up_array = None if up_values is None else np.asarray(up_values, dtype=float)
+            down_array = None if down_values is None else np.asarray(down_values, dtype=float)
+
+            if up_array is None and up_ratio is not None:
+                up_array = up_ratio * original_mc_totals
+            if down_array is None and down_ratio is not None:
+                down_array = down_ratio * original_mc_totals
+
+            return up_array, down_array
+
+        err_p_syst, err_m_syst = _ensure_absolute(
+            err_p_syst,
+            err_m_syst,
+            ratio_up_input,
+            ratio_down_input,
+        )
+
+        err_p = _rebin_uncertainty_array(err_p, original_edges, target_edges)
+        err_m = _rebin_uncertainty_array(err_m, original_edges, target_edges)
+        err_p_syst = _rebin_uncertainty_array(err_p_syst, original_edges, target_edges)
+        err_m_syst = _rebin_uncertainty_array(err_m_syst, original_edges, target_edges)
+
+        recompute_syst_ratio_arrays = any(
+            arr is not None for arr in (err_p_syst, err_m_syst)
+        )
+        if recompute_syst_ratio_arrays:
+            err_ratio_p_syst = None
+            err_ratio_m_syst = None
+
         h_mc = _clone_with_rebinned_axis(h_mc, var, target_edges)
         h_data = _clone_with_rebinned_axis(h_data, var, target_edges)
         if h_mc_sumw2 is not None:
@@ -3598,6 +3656,22 @@ def make_region_stacked_ratio_fig(
     log_axis_enabled = panel_info.get("log_axis_enabled", False)
     use_log_y = log_axis_enabled
     log_y_baseline = panel_info.get("log_y_baseline")
+
+    if recompute_syst_ratio_arrays:
+        mc_totals_array = np.asarray(mc_totals, dtype=float)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            if err_p_syst is not None:
+                err_ratio_p_syst = np.where(
+                    mc_totals_array > 0,
+                    np.asarray(err_p_syst, dtype=float) / mc_totals_array,
+                    1.0,
+                )
+            if err_m_syst is not None:
+                err_ratio_m_syst = np.where(
+                    mc_totals_array > 0,
+                    np.asarray(err_m_syst, dtype=float) / mc_totals_array,
+                    1.0,
+                )
 
     band_info = _compute_uncertainty_bands(
         ax,
