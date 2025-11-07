@@ -402,8 +402,22 @@ def _clone_with_rebinned_axis(histogram, axis_name, target_edges):
     )
 
 
-def _rebin_uncertainty_array(values, original_edges, target_edges):
-    """Aggregate a 1D uncertainty array according to new bin edges."""
+def _rebin_uncertainty_array(
+    values,
+    original_edges,
+    target_edges,
+    *,
+    nominal=None,
+    direction=None,
+):
+    """Aggregate a 1D uncertainty array according to new bin edges.
+
+    When ``nominal`` is provided the ``values`` array is treated as a nominal yield
+    shifted by an uncertainty (``direction`` must then be ``"up"`` or ``"down"``).
+    The rebinned result preserves the nominal contribution and combines the
+    bin-wise deviations in quadrature so uncorrelated uncertainties do not grow
+    linearly when bins are merged.
+    """
 
     if values is None:
         return None
@@ -412,12 +426,51 @@ def _rebin_uncertainty_array(values, original_edges, target_edges):
     if array.ndim != 1:
         raise ValueError("Uncertainty arrays must be one-dimensional for rebinning.")
 
-    values_flow = np.concatenate(([0.0], array, [0.0]))
-    rebinned_values, _ = _rebin_flow_content(
-        values_flow, None, original_edges, target_edges
+    if nominal is None:
+        values_flow = np.concatenate(([0.0], array, [0.0]))
+        rebinned_values, _ = _rebin_flow_content(
+            values_flow, None, original_edges, target_edges
+        )
+        return rebinned_values[1:-1]
+
+    reference = np.asarray(nominal, dtype=float)
+    if reference.ndim != 1:
+        raise ValueError("Nominal arrays must be one-dimensional for rebinning.")
+    if reference.shape != array.shape:
+        raise ValueError("Nominal and uncertainty arrays must share the same shape.")
+
+    if direction not in {"up", "down"}:
+        raise ValueError(
+            "Direction must be 'up' or 'down' when rebinding nominal-shifted uncertainties."
+        )
+
+    reference_flow = np.concatenate(([0.0], reference, [0.0]))
+    rebinned_reference, _ = _rebin_flow_content(
+        reference_flow, None, original_edges, target_edges
     )
 
-    return rebinned_values[1:-1]
+    delta = array - reference
+    if direction == "up":
+        diff = np.clip(delta, a_min=0.0, a_max=None)
+        sign = 1.0
+    else:
+        diff = np.clip(-delta, a_min=0.0, a_max=None)
+        sign = -1.0
+
+    diff_sq_flow = np.concatenate(([0.0], diff**2, [0.0]))
+    zeros_flow = np.zeros_like(diff_sq_flow)
+    _, rebinned_diff_sq = _rebin_flow_content(
+        zeros_flow, diff_sq_flow, original_edges, target_edges
+    )
+
+    rebinned_reference = rebinned_reference[1:-1]
+    rebinned_diff = np.sqrt(np.clip(rebinned_diff_sq[1:-1], a_min=0.0, a_max=None))
+
+    rebinned = rebinned_reference + sign * rebinned_diff
+    if direction == "down":
+        rebinned = np.clip(rebinned, a_min=0.0, a_max=None)
+
+    return rebinned
 
 
 def _determine_ratio_window(ratio_arrays, data_ratio_arrays, *, tolerance=1e-12):
@@ -3530,10 +3583,34 @@ def make_region_stacked_ratio_fig(
             ratio_down_input,
         )
 
-        err_p = _rebin_uncertainty_array(err_p, original_edges, target_edges)
-        err_m = _rebin_uncertainty_array(err_m, original_edges, target_edges)
-        err_p_syst = _rebin_uncertainty_array(err_p_syst, original_edges, target_edges)
-        err_m_syst = _rebin_uncertainty_array(err_m_syst, original_edges, target_edges)
+        err_p = _rebin_uncertainty_array(
+            err_p,
+            original_edges,
+            target_edges,
+            nominal=original_mc_totals,
+            direction="up",
+        )
+        err_m = _rebin_uncertainty_array(
+            err_m,
+            original_edges,
+            target_edges,
+            nominal=original_mc_totals,
+            direction="down",
+        )
+        err_p_syst = _rebin_uncertainty_array(
+            err_p_syst,
+            original_edges,
+            target_edges,
+            nominal=original_mc_totals,
+            direction="up",
+        )
+        err_m_syst = _rebin_uncertainty_array(
+            err_m_syst,
+            original_edges,
+            target_edges,
+            nominal=original_mc_totals,
+            direction="down",
+        )
 
         recompute_syst_ratio_arrays = any(
             arr is not None for arr in (err_p_syst, err_m_syst)
