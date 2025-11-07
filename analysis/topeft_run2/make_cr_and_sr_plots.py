@@ -3119,15 +3119,25 @@ def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
     rate_syst_arr_dict = {}
+    process_labels = yt.get_cat_lables(base_histo, "process")
+
+    cached_rates = []
+    for sample_name in process_labels:
+        nominal_hist = (
+            base_histo.integrate("process", sample_name)
+            .integrate("systematic", "nominal")
+        )
+        thissample_nom_arr = nominal_hist.eval({})[()]
+        rate_syst_dict = get_rate_systs(sample_name, proc_group_map, group_type=group_type)
+        cached_rates.append((sample_name, thissample_nom_arr, rate_syst_dict))
+
     for rate_sys_type in grs.get_syst_lst():
         rate_syst_arr_dict[rate_sys_type] = {}
-        for sample_name in yt.get_cat_lables(base_histo,"process"):
+        for sample_name, thissample_nom_arr, rate_syst_dict in cached_rates:
 
             # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
-            rate_syst_dict = get_rate_systs(sample_name,proc_group_map,group_type=group_type)
-            thissample_nom_arr = base_histo.integrate("process",sample_name).integrate("systematic","nominal").eval({})[()]
-            p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
-            m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
+            p_arr = thissample_nom_arr * (rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
+            m_arr = thissample_nom_arr * (rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
 
             # Put the arrays into the correlation dict (organizing correlated ones together)
             correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map,group_type=group_type)
