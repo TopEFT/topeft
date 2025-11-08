@@ -3787,7 +3787,8 @@ def make_region_stacked_ratio_fig(
     else:
         target_edges = None
 
-    style = copy.deepcopy(style) if isinstance(style, Mapping) else {}
+    if style is None:
+        style = {}
     axes_style = _style_get(style, ("axes",), {})
     legend_style = _style_get(style, ("legend",), {})
     uncertainty_legend_style = _style_get(style, ("uncertainty_legend",), {})
