@@ -928,20 +928,10 @@ def _render_variable_category(
                 )
             )
             sqrt_sum_p = np.sqrt(
-                _values_without_flow(
-                    shape_systs_summed_arr_p + rate_systs_summed_arr_p,
-                    reference_hist=hist_mc_integrated.integrate(
-                        "systematic", "nominal"
-                    )
-                )
+                shape_systs_summed_arr_p + rate_systs_summed_arr_p
             )
             sqrt_sum_m = np.sqrt(
-                _values_without_flow(
-                    shape_systs_summed_arr_m + rate_systs_summed_arr_m,
-                    reference_hist=hist_mc_integrated.integrate(
-                        "systematic", "nominal"
-                    )
-                )
+                shape_systs_summed_arr_m + rate_systs_summed_arr_m
             )
             p_err_arr = nom_arr_all + sqrt_sum_p
             m_err_arr = nom_arr_all - sqrt_sum_m
@@ -3222,13 +3212,19 @@ def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
             all_rates_p_sumw2_lst.append(sum_p_arrs*sum_p_arrs)
             all_rates_m_sumw2_lst.append(sum_m_arrs*sum_m_arrs)
 
-    summed_m = sum(all_rates_m_sumw2_lst)
-    summed_p = sum(all_rates_p_sumw2_lst)
-    reference_hist = base_histo.integrate("systematic", "nominal")
-    return [
-        _values_without_flow(summed_m, reference_hist=reference_hist),
-        _values_without_flow(summed_p, reference_hist=reference_hist),
-    ]
+    if all_rates_m_sumw2_lst:
+        summed_m = sum(all_rates_m_sumw2_lst)
+    else:
+        template = cached_rates[0][1] if cached_rates else np.array([])
+        summed_m = np.zeros_like(template)
+
+    if all_rates_p_sumw2_lst:
+        summed_p = sum(all_rates_p_sumw2_lst)
+    else:
+        template = cached_rates[0][1] if cached_rates else np.array([])
+        summed_p = np.zeros_like(template)
+
+    return [summed_m, summed_p]
 
 # Wrapper for getting plus and minus shape arrs
 def get_shape_syst_arrs(base_histo,group_type="CR"):
@@ -3287,13 +3283,19 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
-    summed_m = sum(m_arr_rel_lst)
-    summed_p = sum(p_arr_rel_lst)
-    reference_hist = base_histo.integrate("systematic", "nominal")
-    return [
-        _values_without_flow(summed_m, reference_hist=reference_hist),
-        _values_without_flow(summed_p, reference_hist=reference_hist),
-    ]
+    if m_arr_rel_lst:
+        summed_m = sum(m_arr_rel_lst)
+    else:
+        template = p_arr_rel_lst[0] if p_arr_rel_lst else np.array([])
+        summed_m = np.zeros_like(template)
+
+    if p_arr_rel_lst:
+        summed_p = sum(p_arr_rel_lst)
+    else:
+        template = m_arr_rel_lst[0] if m_arr_rel_lst else np.array([])
+        summed_p = np.zeros_like(template)
+
+    return [summed_m, summed_p]
 
 
 # Special case for renorm and fact, as these are decorrelated across processes
