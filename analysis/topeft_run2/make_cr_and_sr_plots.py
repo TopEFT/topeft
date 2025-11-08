@@ -3726,12 +3726,17 @@ def make_region_stacked_ratio_fig(
             ratio_down_input,
         )
 
-        same_binning = np.allclose(
-            np.asarray(target_edges, dtype=float),
-            np.asarray(original_edges, dtype=float),
-            rtol=1e-12,
-            atol=1e-12,
-        )
+        target_edges_array = np.asarray(target_edges, dtype=float)
+        original_edges_array = np.asarray(original_edges, dtype=float)
+
+        same_binning = False
+        if target_edges_array.shape == original_edges_array.shape:
+            same_binning = np.allclose(
+                target_edges_array,
+                original_edges_array,
+                rtol=1e-12,
+                atol=1e-12,
+            )
 
         if any(arr is not None for arr in (err_p_syst, err_m_syst)):
             recompute_syst_ratio_arrays = True
