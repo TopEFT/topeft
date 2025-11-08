@@ -120,6 +120,39 @@ for _year_rule in YEAR_TOKEN_RULES.values():
     YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("data_wl", []))
 
 
+def _hist_has_content(histogram):
+    """Return True if *histogram* contains any finite, non-zero entries."""
+
+    hist_view = histogram.view(flow=True)
+
+    def _collect_arrays(view):
+        if isinstance(view, Mapping):
+            arrays = []
+            for subview in view.values():
+                arrays.extend(_collect_arrays(subview))
+            return arrays
+        data = view.value if hasattr(view, "value") else view
+        try:
+            arr = np.asarray(data, dtype=float)
+        except (TypeError, ValueError):
+            try:
+                arr = np.asarray(data)
+            except (TypeError, ValueError):
+                return []
+        return [arr]
+
+    for values in _collect_arrays(hist_view):
+        try:
+            finite_mask = np.isfinite(values)
+        except (TypeError, ValueError):
+            continue
+        if not np.any(finite_mask):
+            continue
+        if np.any(~np.isclose(values[finite_mask], 0.0, atol=1e-12)):
+            return True
+    return False
+
+
 logger = logging.getLogger(__name__)
 
 # This script takes an input pkl file that should have both data and background MC included.
@@ -909,36 +942,6 @@ def _render_variable_category(
                 )
             syst_err_mode = "total" if unblind_flag else True
 
-        def _hist_has_content(hist):
-            hist_view = hist.view(flow=True)
-
-            def _collect_arrays(view):
-                if isinstance(view, Mapping):
-                    arrays = []
-                    for subview in view.values():
-                        arrays.extend(_collect_arrays(subview))
-                    return arrays
-                data = view.value if hasattr(view, "value") else view
-                try:
-                    arr = np.asarray(data, dtype=float)
-                except (TypeError, ValueError):
-                    try:
-                        arr = np.asarray(data)
-                    except (TypeError, ValueError):
-                        return []
-                return [arr]
-
-            for values in _collect_arrays(hist_view):
-                try:
-                    finite_mask = np.isfinite(values)
-                except (TypeError, ValueError):
-                    continue
-                if not np.any(finite_mask):
-                    continue
-                if np.any(~np.isclose(values[finite_mask], 0.0, atol=1e-12)):
-                    return True
-            return False
-
         if is_sparse2d:
             hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate(
                 "systematic", "nominal"
@@ -1140,10 +1143,10 @@ def _render_variable_category(
                     )
                 syst_err = True
 
-        if not hist_mc_integrated.eval({}):
+        if not _hist_has_content(hist_mc_integrated):
             print("Warning: empty mc histo, continuing")
             return 0, 0, html_dirs
-        if unblind_flag and not hist_data_integrated.eval({}):
+        if unblind_flag and not _hist_has_content(hist_data_integrated):
             print("Warning: empty data histo, continuing")
             return 0, 0, html_dirs
 
