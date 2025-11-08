@@ -909,10 +909,10 @@ def _render_variable_category(
             if var_name == "njets":
                 diboson_samples = region_ctx.group_map.get("Diboson", [])
                 if diboson_samples:
-                    db_hist = _values_with_flow_or_overflow(
+                    db_hist = _values_without_flow(
                         hist_mc_integrated.integrate("process", diboson_samples)[{'process': sum}]
                         .integrate("systematic", "nominal")
-                    )[1:]
+                    )
                     diboson_njets_syst = get_diboson_njets_syst_arr(
                         db_hist, bin0_njets=0
                     )
@@ -922,17 +922,27 @@ def _render_variable_category(
                     shape_systs_summed_arr_m = (
                         shape_systs_summed_arr_m + diboson_njets_syst
                     )
-            nom_arr_all = _values_with_flow_or_overflow(
+            nom_arr_all = _values_without_flow(
                 hist_mc_integrated[{"process": sum}].integrate(
                     "systematic", "nominal"
                 )
-            )[1:]
+            )
             sqrt_sum_p = np.sqrt(
-                shape_systs_summed_arr_p + rate_systs_summed_arr_p
-            )[1:]
+                _values_without_flow(
+                    shape_systs_summed_arr_p + rate_systs_summed_arr_p,
+                    reference_hist=hist_mc_integrated.integrate(
+                        "systematic", "nominal"
+                    )
+                )
+            )
             sqrt_sum_m = np.sqrt(
-                shape_systs_summed_arr_m + rate_systs_summed_arr_m
-            )[1:]
+                _values_without_flow(
+                    shape_systs_summed_arr_m + rate_systs_summed_arr_m,
+                    reference_hist=hist_mc_integrated.integrate(
+                        "systematic", "nominal"
+                    )
+                )
+            )
             p_err_arr = nom_arr_all + sqrt_sum_p
             m_err_arr = nom_arr_all - sqrt_sum_m
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -1123,17 +1133,26 @@ def _render_variable_category(
                     f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
                 )
             else:
-                nom_arr_all = _values_with_flow_or_overflow(
+                nom_arr_all = _values_without_flow(
                     hist_mc_channel[{"process": sum}].integrate(
                         "systematic", "nominal"
                     )
-                )[1:]
+                )
+                nominal_reference = hist_mc_channel[{"process": sum}].integrate(
+                    "systematic", "nominal"
+                )
                 sqrt_sum_p = np.sqrt(
-                    shape_systs_summed_arr_p + rate_systs_summed_arr_p
-                )[1:]
+                    _values_without_flow(
+                        shape_systs_summed_arr_p + rate_systs_summed_arr_p,
+                        reference_hist=nominal_reference,
+                    )
+                )
                 sqrt_sum_m = np.sqrt(
-                    shape_systs_summed_arr_m + rate_systs_summed_arr_m
-                )[1:]
+                    _values_without_flow(
+                        shape_systs_summed_arr_m + rate_systs_summed_arr_m,
+                        reference_hist=nominal_reference,
+                    )
+                )
                 err_p_syst = nom_arr_all + sqrt_sum_p
                 err_m_syst = nom_arr_all - sqrt_sum_m
                 with np.errstate(divide="ignore", invalid="ignore"):
@@ -3172,7 +3191,7 @@ def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
             base_histo.integrate("process", sample_name)
             .integrate("systematic", "nominal")
         )
-        thissample_nom_arr = _values_with_flow_or_overflow(nominal_hist)
+        thissample_nom_arr = _values_without_flow(nominal_hist)
         rate_syst_dict = get_rate_systs(sample_name, proc_group_map, group_type=group_type)
         cached_rates.append((sample_name, thissample_nom_arr, rate_syst_dict))
 
@@ -3203,7 +3222,13 @@ def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
             all_rates_p_sumw2_lst.append(sum_p_arrs*sum_p_arrs)
             all_rates_m_sumw2_lst.append(sum_m_arrs*sum_m_arrs)
 
-    return [sum(all_rates_m_sumw2_lst),sum(all_rates_p_sumw2_lst)]
+    summed_m = sum(all_rates_m_sumw2_lst)
+    summed_p = sum(all_rates_p_sumw2_lst)
+    reference_hist = base_histo.integrate("systematic", "nominal")
+    return [
+        _values_without_flow(summed_m, reference_hist=reference_hist),
+        _values_without_flow(summed_p, reference_hist=reference_hist),
+    ]
 
 # Wrapper for getting plus and minus shape arrs
 def get_shape_syst_arrs(base_histo,group_type="CR"):
@@ -3227,13 +3252,13 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
 
         relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "process") # The samples relevant to this syst
         proc_projection = base_histo.integrate("process", relevant_samples_lst)[{"process": sum}]
-        n_arr = _values_with_flow_or_overflow(
+        n_arr = _values_without_flow(
             proc_projection.integrate("systematic", "nominal")
         )  # Sum of all samples for nominal variation
-        u_arr_sum = _values_with_flow_or_overflow(
+        u_arr_sum = _values_without_flow(
             proc_projection.integrate("systematic", syst_name + "Up")
         )
-        d_arr_sum = _values_with_flow_or_overflow(
+        d_arr_sum = _values_without_flow(
             proc_projection.integrate("systematic", syst_name + "Down")
         )
 
@@ -3262,7 +3287,13 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
-    return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
+    summed_m = sum(m_arr_rel_lst)
+    summed_p = sum(p_arr_rel_lst)
+    reference_hist = base_histo.integrate("systematic", "nominal")
+    return [
+        _values_without_flow(summed_m, reference_hist=reference_hist),
+        _values_without_flow(summed_p, reference_hist=reference_hist),
+    ]
 
 
 # Special case for renorm and fact, as these are decorrelated across processes
@@ -3312,6 +3343,41 @@ def _values_with_flow_or_overflow(hist_slice):
     return np.asarray(values)
 
 
+def _values_without_flow(hist_or_values, reference_hist=None):
+    """Return histogram values with underflow/overflow bins removed."""
+
+    if isinstance(hist_or_values, np.ndarray):
+        values = hist_or_values
+        hist_for_axes = reference_hist
+    else:
+        values = _values_with_flow_or_overflow(hist_or_values)
+        hist_for_axes = hist_or_values
+
+    if reference_hist is not None:
+        hist_for_axes = reference_hist
+
+    axes = getattr(hist_for_axes, "axes", None)
+    if axes is None or values.ndim < len(axes):
+        return values
+
+    slices = []
+    trimmed = False
+    for axis in axes:
+        traits = getattr(axis, "traits", None)
+        has_underflow = bool(getattr(traits, "underflow", False)) if traits else False
+        has_overflow = bool(getattr(traits, "overflow", False)) if traits else False
+        start = 1 if has_underflow else 0
+        stop = -1 if has_overflow else None
+        if start != 0 or stop is not None:
+            trimmed = True
+        slices.append(slice(start, stop))
+
+    if not trimmed:
+        return values
+
+    return values[tuple(slices)]
+
+
 def get_decorrelated_uncty(
     syst_name,
     grp_map,
@@ -3343,9 +3409,9 @@ def get_decorrelated_uncty(
             for proc_name in proc_lst:
                 if proc_name not in relevant_samples_lst: continue
 
-                n_arr_proc = _values_with_flow_or_overflow(base_histo[{"process": proc_name, "systematic": "nominal"}])
-                u_arr_proc = _values_with_flow_or_overflow(base_histo[{"process": proc_name, "systematic": syst_name+"Up"}])
-                d_arr_proc = _values_with_flow_or_overflow(base_histo[{"process": proc_name, "systematic": syst_name+"Down"}])
+                n_arr_proc = _values_without_flow(base_histo[{"process": proc_name, "systematic": "nominal"}])
+                u_arr_proc = _values_without_flow(base_histo[{"process": proc_name, "systematic": syst_name+"Up"}])
+                d_arr_proc = _values_without_flow(base_histo[{"process": proc_name, "systematic": syst_name+"Down"}])
 
                 u_arr_proc_rel = u_arr_proc - n_arr_proc
                 d_arr_proc_rel = d_arr_proc - n_arr_proc
@@ -3356,13 +3422,13 @@ def get_decorrelated_uncty(
         # Otherwise corrleated across groups (e.g. ZZ and WZ, as datacard maker does in SR)
         else:
             group_projection = base_histo.integrate("process", proc_lst)[{"process": sum}]
-            n_arr_grp = _values_with_flow_or_overflow(
+            n_arr_grp = _values_without_flow(
                 group_projection.integrate("systematic", "nominal")
             )
-            u_arr_grp = _values_with_flow_or_overflow(
+            u_arr_grp = _values_without_flow(
                 group_projection.integrate("systematic", syst_name + "Up")
             )
-            d_arr_grp = _values_with_flow_or_overflow(
+            d_arr_grp = _values_without_flow(
                 group_projection.integrate("systematic", syst_name + "Down")
             )
             u_arr_grp_rel = u_arr_grp - n_arr_grp
