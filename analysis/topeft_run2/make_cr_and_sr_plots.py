@@ -3354,12 +3354,24 @@ def _values_without_flow(hist_or_values, reference_hist=None):
 
     slices = []
     trimmed = False
-    for axis in axes:
+    for dim_idx, axis in enumerate(axes):
         traits = getattr(axis, "traits", None)
         has_underflow = bool(getattr(traits, "underflow", False)) if traits else False
         has_overflow = bool(getattr(traits, "overflow", False)) if traits else False
-        start = 1 if has_underflow else 0
-        stop = -1 if has_overflow else None
+        axis_bins = len(axis)
+        dim_size = values.shape[dim_idx]
+        expected_with_flow = axis_bins
+        if has_underflow:
+            expected_with_flow += 1
+        if has_overflow:
+            expected_with_flow += 1
+
+        if dim_size == expected_with_flow:
+            start = 1 if has_underflow else 0
+            stop = -1 if has_overflow else None
+        else:
+            start = 0
+            stop = None
         if start != 0 or stop is not None:
             trimmed = True
         slices.append(slice(start, stop))
