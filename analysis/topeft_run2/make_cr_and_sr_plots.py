@@ -914,11 +914,14 @@ def _render_variable_category(
                         .integrate("systematic", "nominal")
                         .eval({})[()]
                     )
-                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(
+                    diboson_njets_syst = get_diboson_njets_syst_arr(
                         db_hist, bin0_njets=0
                     )
-                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(
-                        db_hist, bin0_njets=0
+                    shape_systs_summed_arr_p = (
+                        shape_systs_summed_arr_p + diboson_njets_syst
+                    )
+                    shape_systs_summed_arr_m = (
+                        shape_systs_summed_arr_m + diboson_njets_syst
                     )
             nom_arr_all = (
                 hist_mc_integrated[{"process": sum}]
