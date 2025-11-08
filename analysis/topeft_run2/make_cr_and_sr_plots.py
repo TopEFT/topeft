@@ -200,6 +200,21 @@ def _apply_secondary_ticks(ax, axis="x"):
     axis_obj.set_minor_locator(FixedLocator(sorted(minor_ticks)))
 
 
+def _integrate_category(histogram, hist_cat, axes_to_integrate):
+    """Integrate a histogram over the provided axes, returning None on failure."""
+
+    if histogram is None:
+        return None
+
+    try:
+        integrated = yt.integrate_out_appl(histogram, hist_cat)
+        integrated = yt.integrate_out_cats(integrated, axes_to_integrate)[{"channel": sum}]
+    except Exception:
+        return None
+
+    return integrated
+
+
 def _validate_bin_edges(edges):
     """Return a 1D numpy array of strictly increasing bin edges."""
 
@@ -822,26 +837,17 @@ def _render_variable_category(
             print(f"\n\tCategory: {hist_cat}")
 
         axes_to_integrate_dict = {"channel": channel_bins}
-        try:
-            hist_mc_integrated = yt.integrate_out_cats(
-                yt.integrate_out_appl(hist_mc, hist_cat),
-                axes_to_integrate_dict,
-            )[{'channel': sum}]
-            hist_data_integrated = yt.integrate_out_cats(
-                yt.integrate_out_appl(hist_data, hist_cat),
-                axes_to_integrate_dict,
-            )[{'channel': sum}]
-        except Exception:
+        hist_mc_integrated = _integrate_category(hist_mc, hist_cat, axes_to_integrate_dict)
+        hist_data_integrated = _integrate_category(
+            hist_data, hist_cat, axes_to_integrate_dict
+        )
+        if hist_mc_integrated is None or hist_data_integrated is None:
             return 0, 0, html_dirs
         hist_mc_sumw2_integrated = None
         if hist_mc_sumw2_orig is not None:
-            try:
-                hist_mc_sumw2_integrated = yt.integrate_out_cats(
-                    yt.integrate_out_appl(hist_mc_sumw2_orig, hist_cat),
-                    axes_to_integrate_dict,
-                )[{'channel': sum}]
-            except Exception:
-                hist_mc_sumw2_integrated = None
+            hist_mc_sumw2_integrated = _integrate_category(
+                hist_mc_sumw2_orig, hist_cat, axes_to_integrate_dict
+            )
 
         samples_to_rm = _collect_samples_to_remove(
             region_ctx.sample_removal_rules, hist_cat, region_ctx
