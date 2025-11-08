@@ -3360,18 +3360,17 @@ def _values_without_flow(hist_or_values, reference_hist=None):
         has_overflow = bool(getattr(traits, "overflow", False)) if traits else False
         axis_bins = len(axis)
         dim_size = values.shape[dim_idx]
-        expected_with_flow = axis_bins
-        if has_underflow:
-            expected_with_flow += 1
-        if has_overflow:
-            expected_with_flow += 1
+        if dim_size < axis_bins:
+            return values
 
-        if dim_size == expected_with_flow:
-            start = 1 if has_underflow else 0
-            stop = -1 if has_overflow else None
-        else:
-            start = 0
-            stop = None
+        start = 0
+        stop = None
+        effective_size = dim_size
+        if has_underflow and effective_size > axis_bins:
+            start = 1
+            effective_size -= 1
+        if has_overflow and effective_size > axis_bins:
+            stop = -1
         if start != 0 or stop is not None:
             trimmed = True
         slices.append(slice(start, stop))
