@@ -912,7 +912,7 @@ def _render_variable_category(
                     db_hist = _values_with_flow_or_overflow(
                         hist_mc_integrated.integrate("process", diboson_samples)[{'process': sum}]
                         .integrate("systematic", "nominal")
-                    )
+                    )[1:]
                     diboson_njets_syst = get_diboson_njets_syst_arr(
                         db_hist, bin0_njets=0
                     )
