@@ -3733,6 +3733,9 @@ def make_region_stacked_ratio_fig(
             atol=1e-12,
         )
 
+        if any(arr is not None for arr in (err_p_syst, err_m_syst)):
+            recompute_syst_ratio_arrays = True
+
         if not same_binning:
             err_p = _rebin_uncertainty_array(
                 err_p,
