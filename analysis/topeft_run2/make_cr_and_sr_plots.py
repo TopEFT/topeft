@@ -3726,46 +3726,56 @@ def make_region_stacked_ratio_fig(
             ratio_down_input,
         )
 
-        err_p = _rebin_uncertainty_array(
-            err_p,
-            original_edges,
-            target_edges,
-            nominal=original_mc_totals,
-            direction="up",
-        )
-        err_m = _rebin_uncertainty_array(
-            err_m,
-            original_edges,
-            target_edges,
-            nominal=original_mc_totals,
-            direction="down",
-        )
-        err_p_syst = _rebin_uncertainty_array(
-            err_p_syst,
-            original_edges,
-            target_edges,
-            nominal=original_mc_totals,
-            direction="up",
-        )
-        err_m_syst = _rebin_uncertainty_array(
-            err_m_syst,
-            original_edges,
-            target_edges,
-            nominal=original_mc_totals,
-            direction="down",
+        same_binning = np.allclose(
+            np.asarray(target_edges, dtype=float),
+            np.asarray(original_edges, dtype=float),
+            rtol=1e-12,
+            atol=1e-12,
         )
 
-        recompute_syst_ratio_arrays = any(
-            arr is not None for arr in (err_p_syst, err_m_syst)
-        )
-        if recompute_syst_ratio_arrays:
-            err_ratio_p_syst = None
-            err_ratio_m_syst = None
+        if not same_binning:
+            err_p = _rebin_uncertainty_array(
+                err_p,
+                original_edges,
+                target_edges,
+                nominal=original_mc_totals,
+                direction="up",
+            )
+            err_m = _rebin_uncertainty_array(
+                err_m,
+                original_edges,
+                target_edges,
+                nominal=original_mc_totals,
+                direction="down",
+            )
+            err_p_syst = _rebin_uncertainty_array(
+                err_p_syst,
+                original_edges,
+                target_edges,
+                nominal=original_mc_totals,
+                direction="up",
+            )
+            err_m_syst = _rebin_uncertainty_array(
+                err_m_syst,
+                original_edges,
+                target_edges,
+                nominal=original_mc_totals,
+                direction="down",
+            )
 
-        h_mc = _clone_with_rebinned_axis(h_mc, var, target_edges)
-        h_data = _clone_with_rebinned_axis(h_data, var, target_edges)
-        if h_mc_sumw2 is not None:
-            h_mc_sumw2 = _clone_with_rebinned_axis(h_mc_sumw2, var, target_edges)
+            recompute_syst_ratio_arrays = any(
+                arr is not None for arr in (err_p_syst, err_m_syst)
+            )
+            if recompute_syst_ratio_arrays:
+                err_ratio_p_syst = None
+                err_ratio_m_syst = None
+
+            h_mc = _clone_with_rebinned_axis(h_mc, var, target_edges)
+            h_data = _clone_with_rebinned_axis(h_data, var, target_edges)
+            if h_mc_sumw2 is not None:
+                h_mc_sumw2 = _clone_with_rebinned_axis(
+                    h_mc_sumw2, var, target_edges
+                )
     else:
         target_edges = None
 
