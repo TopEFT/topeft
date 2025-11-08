@@ -1123,25 +1123,15 @@ def _render_variable_category(
                     f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
                 )
             else:
-                nom_arr_all = _values_without_flow(
-                    hist_mc_channel[{"process": sum}].integrate(
-                        "systematic", "nominal"
-                    )
-                )
-                nominal_reference = hist_mc_channel[{"process": sum}].integrate(
+                nominal_projection = hist_mc_channel[{"process": sum}].integrate(
                     "systematic", "nominal"
                 )
+                nom_arr_all = _values_without_flow(nominal_projection)
                 sqrt_sum_p = np.sqrt(
-                    _values_without_flow(
-                        shape_systs_summed_arr_p + rate_systs_summed_arr_p,
-                        reference_hist=nominal_reference,
-                    )
+                    shape_systs_summed_arr_p + rate_systs_summed_arr_p
                 )
                 sqrt_sum_m = np.sqrt(
-                    _values_without_flow(
-                        shape_systs_summed_arr_m + rate_systs_summed_arr_m,
-                        reference_hist=nominal_reference,
-                    )
+                    shape_systs_summed_arr_m + rate_systs_summed_arr_m
                 )
                 err_p_syst = nom_arr_all + sqrt_sum_p
                 err_m_syst = nom_arr_all - sqrt_sum_m
