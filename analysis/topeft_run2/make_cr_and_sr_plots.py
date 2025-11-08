@@ -909,10 +909,9 @@ def _render_variable_category(
             if var_name == "njets":
                 diboson_samples = region_ctx.group_map.get("Diboson", [])
                 if diboson_samples:
-                    db_hist = (
+                    db_hist = _values_with_flow_or_overflow(
                         hist_mc_integrated.integrate("process", diboson_samples)[{'process': sum}]
                         .integrate("systematic", "nominal")
-                        .eval({})[()]
                     )
                     diboson_njets_syst = get_diboson_njets_syst_arr(
                         db_hist, bin0_njets=0
@@ -923,11 +922,11 @@ def _render_variable_category(
                     shape_systs_summed_arr_m = (
                         shape_systs_summed_arr_m + diboson_njets_syst
                     )
-            nom_arr_all = (
-                hist_mc_integrated[{"process": sum}]
-                .integrate("systematic", "nominal")
-                .eval({})[()][1:]
-            )
+            nom_arr_all = _values_with_flow_or_overflow(
+                hist_mc_integrated[{"process": sum}].integrate(
+                    "systematic", "nominal"
+                )
+            )[1:]
             sqrt_sum_p = np.sqrt(
                 shape_systs_summed_arr_p + rate_systs_summed_arr_p
             )[1:]
@@ -1124,11 +1123,11 @@ def _render_variable_category(
                     f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
                 )
             else:
-                nom_arr_all = (
-                    hist_mc_channel[{"process": sum}]
-                    .integrate("systematic", "nominal")
-                    .eval({})[()][1:]
-                )
+                nom_arr_all = _values_with_flow_or_overflow(
+                    hist_mc_channel[{"process": sum}].integrate(
+                        "systematic", "nominal"
+                    )
+                )[1:]
                 sqrt_sum_p = np.sqrt(
                     shape_systs_summed_arr_p + rate_systs_summed_arr_p
                 )[1:]
@@ -3173,7 +3172,7 @@ def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
             base_histo.integrate("process", sample_name)
             .integrate("systematic", "nominal")
         )
-        thissample_nom_arr = nominal_hist.eval({})[()]
+        thissample_nom_arr = _values_with_flow_or_overflow(nominal_hist)
         rate_syst_dict = get_rate_systs(sample_name, proc_group_map, group_type=group_type)
         cached_rates.append((sample_name, thissample_nom_arr, rate_syst_dict))
 
@@ -3228,9 +3227,15 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
 
         relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "process") # The samples relevant to this syst
         proc_projection = base_histo.integrate("process", relevant_samples_lst)[{"process": sum}]
-        n_arr = proc_projection.integrate("systematic", "nominal").eval({})[()] # Sum of all samples for nominal variation
-        u_arr_sum = proc_projection.integrate("systematic", syst_name+"Up").eval({})[()]
-        d_arr_sum = proc_projection.integrate("systematic", syst_name+"Down").eval({})[()]
+        n_arr = _values_with_flow_or_overflow(
+            proc_projection.integrate("systematic", "nominal")
+        )  # Sum of all samples for nominal variation
+        u_arr_sum = _values_with_flow_or_overflow(
+            proc_projection.integrate("systematic", syst_name + "Up")
+        )
+        d_arr_sum = _values_with_flow_or_overflow(
+            proc_projection.integrate("systematic", syst_name + "Down")
+        )
 
         # Special handling of renorm and fact
         # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
