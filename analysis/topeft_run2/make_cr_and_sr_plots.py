@@ -1539,25 +1539,38 @@ def _prepare_log_scaled_stacks(
     log_y_baseline = None
     adjusted_mc_totals = None
 
-    totals_for_plot = np.sum(plot_arrays, axis=0)
+    stacked_matrix = np.asarray(plot_arrays, dtype=float)
+    if stacked_matrix.ndim == 1:
+        if plot_arrays:
+            stacked_matrix = stacked_matrix[np.newaxis, :]
+        else:
+            stacked_matrix = stacked_matrix.reshape(0, 0)
+
+    if stacked_matrix.size:
+        totals_for_plot = np.sum(stacked_matrix, axis=0)
+    else:
+        totals_for_plot = (
+            np.zeros_like(stacked_arrays[0], dtype=float)
+            if stacked_arrays
+            else np.zeros(0, dtype=float)
+        )
+
     positive_totals = totals_for_plot[totals_for_plot > 0]
     epsilon = max(np.min(positive_totals) * 0.01, 1e-6) if positive_totals.size else 1e-6
     nonpositive_mask = totals_for_plot <= 0
-    if np.any(nonpositive_mask):
+    if np.any(nonpositive_mask) and stacked_matrix.size:
         warnings.warn(
             "Stacked MC totals for '%s' contain non-positive bins; "
             "lifting them slightly to enable log scaling." % var,
             RuntimeWarning,
         )
-        divisor = max(len(plot_arrays), 1)
-        for arr in plot_arrays:
-            if arr.size:
-                arr[nonpositive_mask] = np.where(
-                    arr[nonpositive_mask] > 0,
-                    arr[nonpositive_mask],
-                    epsilon / divisor,
-                )
-        totals_for_plot = np.sum(plot_arrays, axis=0)
+        divisor = max(stacked_matrix.shape[0], 1)
+        stacked_matrix[:, nonpositive_mask] = np.where(
+            stacked_matrix[:, nonpositive_mask] > 0,
+            stacked_matrix[:, nonpositive_mask],
+            epsilon / divisor,
+        )
+        totals_for_plot = np.sum(stacked_matrix, axis=0)
     positive_totals = totals_for_plot[totals_for_plot > 0]
     if positive_totals.size:
         epsilon = max(np.min(positive_totals) * 0.01, epsilon)
@@ -1569,7 +1582,6 @@ def _prepare_log_scaled_stacks(
         log_scale_requested = False
         plot_arrays = [arr.copy() for arr in stacked_arrays]
     else:
-        stacked_matrix = np.array(plot_arrays, dtype=float)
         divisor = max(stacked_matrix.shape[0], 1)
         per_group_floor = epsilon / divisor
         for idx in range(stacked_matrix.shape[1]):
