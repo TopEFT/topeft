@@ -2401,6 +2401,9 @@ def _resolve_channel_transformations(region_ctx, var_name):
 
 
 def _apply_channel_dict_transformations(channel_dict, transformations):
+    if not transformations:
+        return dict(channel_dict)
+
     transformed_dict = copy.deepcopy(channel_dict)
     for transform in transformations:
         if transform == "njets":
