@@ -685,6 +685,7 @@ def _initialize_render_worker(
         "unblind_flag": unblind_flag,
         "stacked_log_y": stacked_log_y,
         "verbose": bool(verbose),
+        "prepared_variables": {},
     }
 
 
@@ -702,48 +703,74 @@ def _render_variable_from_worker(task_id, payload):
         var_name, category = payload, None
 
     ctx = _WORKER_RENDER_CONTEXT
-    stat_only, stat_and_syst, html_set = _render_variable(
-        var_name,
-        ctx["region_ctx"],
-        ctx["save_dir_path"],
-        ctx["skip_syst_errs"],
-        ctx["unit_norm_bool"],
-        ctx["stacked_log_y"],
-        ctx["unblind_flag"],
-        verbose=ctx.get("verbose", False),
-        category=category,
-    )
+    verbose = ctx.get("verbose", False)
+
+    if category is None:
+        stat_only, stat_and_syst, html_set = _render_variable(
+            var_name,
+            ctx["region_ctx"],
+            ctx["save_dir_path"],
+            ctx["skip_syst_errs"],
+            ctx["unit_norm_bool"],
+            ctx["stacked_log_y"],
+            ctx["unblind_flag"],
+            verbose=verbose,
+            category=category,
+        )
+    else:
+        prepared_cache = ctx.setdefault("prepared_variables", {})
+        variable_payload = prepared_cache.get(var_name)
+        if var_name not in prepared_cache:
+            variable_payload = _prepare_variable_payload(
+                var_name,
+                ctx["region_ctx"],
+                verbose=verbose,
+                unblind_flag=ctx["unblind_flag"],
+            )
+            prepared_cache[var_name] = variable_payload
+
+        if not variable_payload:
+            stat_only, stat_and_syst, html_set = 0, 0, set()
+        else:
+            region_ctx = ctx["region_ctx"]
+            channel_bins = variable_payload["channel_dict"].get(category)
+            if channel_bins is None or _should_skip_category(
+                region_ctx.category_skip_rules, category, var_name
+            ):
+                stat_only, stat_and_syst, html_set = 0, 0, set()
+            else:
+                stat_only, stat_and_syst, html_set = _render_variable_category(
+                    var_name,
+                    category,
+                    channel_bins,
+                    region_ctx=region_ctx,
+                    channel_transformations=variable_payload["channel_transformations"],
+                    hist_mc=variable_payload["hist_mc"],
+                    hist_data=variable_payload["hist_data"],
+                    hist_mc_sumw2_orig=variable_payload["hist_mc_sumw2_orig"],
+                    is_sparse2d=variable_payload["is_sparse2d"],
+                    save_dir_path=ctx["save_dir_path"],
+                    skip_syst_errs=ctx["skip_syst_errs"],
+                    unit_norm_bool=ctx["unit_norm_bool"],
+                    stacked_log_y=ctx["stacked_log_y"],
+                    unblind_flag=ctx["unblind_flag"],
+                    verbose=verbose,
+                )
     return task_id, stat_only, stat_and_syst, html_set
 
 
-def _render_variable(
-    var_name,
-    region_ctx,
-    save_dir_path,
-    skip_syst_errs,
-    unit_norm_bool,
-    stacked_log_y,
-    unblind_flag,
-    *,
-    verbose=False,
-    category=None,
-):
-    """Render plots for *var_name* and return summary accounting."""
+def _prepare_variable_payload(var_name, region_ctx, *, verbose=False, unblind_flag=False):
+    """Prepare variable-level plotting inputs shared across categories."""
 
-    dict_of_hists = region_ctx.dict_of_hists
-    histo = dict_of_hists[var_name]
+    histo = region_ctx.dict_of_hists[var_name]
     is_sparse2d = _is_sparse_2d_hist(histo)
     if is_sparse2d and region_ctx.skip_sparse_2d:
-        return 0, 0, set()
+        return None
     if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
         print(
             f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting."
         )
         is_sparse2d = False
-
-    label = region_ctx.variable_label
-    if verbose:
-        print(f"\n{label}: {var_name}")
 
     channel_transformations = _resolve_channel_transformations(region_ctx, var_name)
     channel_dict = _apply_channel_dict_transformations(
@@ -779,10 +806,49 @@ def _render_variable(
 
     if region_ctx.debug_channel_lists and verbose:
         try:
-            channels_lst = yt.get_cat_lables(dict_of_hists[var_name], "channel")
+            channels_lst = yt.get_cat_lables(histo, "channel")
         except Exception:
             channels_lst = []
         print("channels:", channels_lst)
+
+    return {
+        "channel_dict": channel_dict,
+        "channel_transformations": channel_transformations,
+        "hist_mc": hist_mc,
+        "hist_data": hist_data,
+        "hist_mc_sumw2_orig": hist_mc_sumw2_orig,
+        "is_sparse2d": is_sparse2d,
+    }
+
+
+def _render_variable(
+    var_name,
+    region_ctx,
+    save_dir_path,
+    skip_syst_errs,
+    unit_norm_bool,
+    stacked_log_y,
+    unblind_flag,
+    *,
+    verbose=False,
+    category=None,
+):
+    """Render plots for *var_name* and return summary accounting."""
+
+    label = region_ctx.variable_label
+    if verbose:
+        print(f"\n{label}: {var_name}")
+
+    variable_payload = _prepare_variable_payload(
+        var_name,
+        region_ctx,
+        verbose=verbose,
+        unblind_flag=unblind_flag,
+    )
+    if not variable_payload:
+        return 0, 0, set()
+
+    channel_dict = variable_payload["channel_dict"]
 
     stat_only_plots = 0
     stat_and_syst_plots = 0
@@ -808,11 +874,11 @@ def _render_variable(
             hist_cat,
             channel_bins,
             region_ctx=region_ctx,
-            channel_transformations=channel_transformations,
-            hist_mc=hist_mc,
-            hist_data=hist_data,
-            hist_mc_sumw2_orig=hist_mc_sumw2_orig,
-            is_sparse2d=is_sparse2d,
+            channel_transformations=variable_payload["channel_transformations"],
+            hist_mc=variable_payload["hist_mc"],
+            hist_data=variable_payload["hist_data"],
+            hist_mc_sumw2_orig=variable_payload["hist_mc_sumw2_orig"],
+            is_sparse2d=variable_payload["is_sparse2d"],
             save_dir_path=save_dir_path,
             skip_syst_errs=skip_syst_errs,
             unit_norm_bool=unit_norm_bool,
@@ -3003,18 +3069,55 @@ def produce_region_plots(
                 html_dirs.update(html_set)
                 _report_progress(id_to_label.get(task_id, str(task_id)))
     else:
+        prepared_payloads = {}
         for _, _, label, var_name, hist_cat in task_specs:
-            stat_only, stat_and_syst, html_set = _render_variable(
-                var_name,
-                region_ctx,
-                save_dir_path,
-                skip_syst_errs,
-                unit_norm_bool,
-                stacked_log_y,
-                unblind_flag,
-                verbose=verbose,
-                category=hist_cat,
-            )
+            if hist_cat is None:
+                stat_only, stat_and_syst, html_set = _render_variable(
+                    var_name,
+                    region_ctx,
+                    save_dir_path,
+                    skip_syst_errs,
+                    unit_norm_bool,
+                    stacked_log_y,
+                    unblind_flag,
+                    verbose=verbose,
+                    category=hist_cat,
+                )
+            else:
+                if var_name not in prepared_payloads:
+                    prepared_payloads[var_name] = _prepare_variable_payload(
+                        var_name,
+                        region_ctx,
+                        verbose=verbose,
+                        unblind_flag=unblind_flag,
+                    )
+                variable_payload = prepared_payloads[var_name]
+                if not variable_payload:
+                    stat_only, stat_and_syst, html_set = 0, 0, set()
+                else:
+                    channel_bins = variable_payload["channel_dict"].get(hist_cat)
+                    if channel_bins is None or _should_skip_category(
+                        region_ctx.category_skip_rules, hist_cat, var_name
+                    ):
+                        stat_only, stat_and_syst, html_set = 0, 0, set()
+                    else:
+                        stat_only, stat_and_syst, html_set = _render_variable_category(
+                            var_name,
+                            hist_cat,
+                            channel_bins,
+                            region_ctx=region_ctx,
+                            channel_transformations=variable_payload["channel_transformations"],
+                            hist_mc=variable_payload["hist_mc"],
+                            hist_data=variable_payload["hist_data"],
+                            hist_mc_sumw2_orig=variable_payload["hist_mc_sumw2_orig"],
+                            is_sparse2d=variable_payload["is_sparse2d"],
+                            save_dir_path=save_dir_path,
+                            skip_syst_errs=skip_syst_errs,
+                            unit_norm_bool=unit_norm_bool,
+                            stacked_log_y=stacked_log_y,
+                            unblind_flag=unblind_flag,
+                            verbose=verbose,
+                        )
             stat_only_plots += stat_only
             stat_and_syst_plots += stat_and_syst
             html_dirs.update(html_set)
