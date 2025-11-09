@@ -3163,10 +3163,9 @@ def _ensure_list(values):
 # Group bins in a hist, returns a new hist
 def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 
-    bin_map_copy = copy.deepcopy(bin_map)  # Don't want to edit the original
     normalized_map = OrderedDict(
-        (group, _ensure_list(bins)) for group, bins in bin_map_copy.items()
-    )
+        (group, _ensure_list(bins)) for group, bins in bin_map.items()
+    )  # _ensure_list copies each sequence to avoid mutating caller data
 
     axis_categories = list(histo.axes[axis_name])
     axis_category_set = set(axis_categories)
