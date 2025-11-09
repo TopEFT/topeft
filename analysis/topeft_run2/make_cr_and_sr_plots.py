@@ -3211,14 +3211,22 @@ def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
     if all_rates_m_sumw2_lst:
         summed_m = sum(all_rates_m_sumw2_lst)
     else:
-        template = cached_rates[0][1] if cached_rates else np.array([])
-        summed_m = np.zeros_like(template)
+        template = cached_rates[0][1] if cached_rates else None
+        summed_m = (
+            np.zeros_like(template)
+            if template is not None
+            else np.array(0.0)
+        )
 
     if all_rates_p_sumw2_lst:
         summed_p = sum(all_rates_p_sumw2_lst)
     else:
-        template = cached_rates[0][1] if cached_rates else np.array([])
-        summed_p = np.zeros_like(template)
+        template = cached_rates[0][1] if cached_rates else None
+        summed_p = (
+            np.zeros_like(template)
+            if template is not None
+            else np.array(0.0)
+        )
 
     return [summed_m, summed_p]
 
