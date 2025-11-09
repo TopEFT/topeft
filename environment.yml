@@ -1,4 +1,4 @@
-name: coffea
+zname: coffea
 channels:
   - conda-forge
 dependencies:
@@ -14,3 +14,4 @@ dependencies:
   - pyyaml
   - setuptools==70.3.0
   - pytest
+  - time
