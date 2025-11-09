@@ -1663,27 +1663,35 @@ def _draw_stacked_panel(
     summed_mc = h_mc[{"process": sum}]
     summed_data = h_data[{"process": sum}]
 
-    summed_mc_hist = summed_mc.as_hist({})
-    summed_data_hist = summed_data.as_hist({})
+    summed_mc_values_flow = _values_with_flow_or_overflow(summed_mc)
+    summed_data_values_flow = _values_with_flow_or_overflow(summed_data)
 
-    summed_mc_values_flow = summed_mc_hist.values(flow=True)
-    summed_data_values_flow = summed_data_hist.values(flow=True)
+    summed_mc_edges = None
+    if hasattr(summed_mc, "axes"):
+        try:
+            summed_mc_edges = summed_mc.axes[var].edges
+        except KeyError:
+            summed_mc_edges = None
 
-    try:
-        summed_mc_edges = summed_mc_hist.axes[var].edges
-    except KeyError:
-        summed_mc_edges = None
+    summed_data_edges = None
+    if hasattr(summed_data, "axes"):
+        try:
+            summed_data_edges = summed_data.axes[var].edges
+        except KeyError:
+            summed_data_edges = None
 
-    try:
-        summed_data_edges = summed_data_hist.axes[var].edges
-    except KeyError:
+    if summed_mc_edges is None:
+        summed_mc_edges = summed_data_edges
+    if summed_data_edges is None:
         summed_data_edges = summed_mc_edges
 
     def _get_grouped_vals(hist_obj, grouping_map):
         grouped_values = {}
         for proc_name, members in grouping_map.items():
             grouped_hist = hist_obj[{"process": members}][{"process": sum}]
-            grouped_values[proc_name] = grouped_hist.as_hist({}).values(flow=True)[1:]
+            grouped_values[proc_name] = _values_without_flow(
+                grouped_hist, include_overflow=True
+            )
         return grouped_values
 
     mc_vals = _get_grouped_vals(h_mc, grouping)
@@ -1707,14 +1715,18 @@ def _draw_stacked_panel(
             grouped_vals = np.zeros_like(template)
             if valid_members:
                 grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
-                grouped_vals = grouped_hist.as_hist({}).values(flow=True)[1:]
+                grouped_vals = _values_without_flow(
+                    grouped_hist, include_overflow=True
+                )
                 if unit_norm_bool and mc_scaled:
                     grouped_vals = grouped_vals * mc_norm_factor**2
 
             fallback_vals = np.zeros_like(template)
             if missing_members:
                 fallback_hist = h_mc[{"process": missing_members}][{"process": sum}]
-                fallback_vals = fallback_hist.as_hist({}).values(flow=True)[1:]
+                fallback_vals = _values_without_flow(
+                    fallback_hist, include_overflow=True
+                )
                 if unit_norm_bool and mc_scaled:
                     fallback_vals = fallback_vals * mc_norm_factor
 
@@ -4145,11 +4157,19 @@ def make_region_stacked_ratio_fig(
 
     display_label = axes_info.get(var, {}).get("label", var)
 
-    axis_edges = (
-        target_edges
-        if target_edges is not None
-        else h_data[{"process": sum}].as_hist({}).axes[var].edges
-    )
+    axis_edges = target_edges
+    if axis_edges is None:
+        try:
+            axis_edges = h_data.axes[var].edges
+        except KeyError:
+            axis_edges = None
+        except AttributeError:
+            axis_edges = None
+    if axis_edges is None:
+        try:
+            axis_edges = h_mc.axes[var].edges
+        except (KeyError, AttributeError):
+            axis_edges = None
     axis_edges = np.asarray(axis_edges, dtype=float)
     if axis_edges.size < 2:
         raise ValueError("Histogram axis has fewer than two edges; cannot determine binning.")
