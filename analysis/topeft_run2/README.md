@@ -91,6 +91,16 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 ### CR/SR plotting CLI quickstart
 
+#### Outputs
+
+Plots land under the directory you pass via `-o/--output-dir`. The plotter keeps things tidy by creating per-category subfolders when a histogram spans several channels, so the rendered figures stay grouped with their companions.
+
+Each render currently emits the stat-only view plus the stat⊕syst variant when the inputs include systematics. Files are written using Matplotlib's default extension for the active backend (typically `.png`), so you can preview them with any standard image viewer.
+
+Once a batch finishes, the CLI asks `make_html` to rebuild an `index.html` page in every output folder. Open those summaries directly from the filesystem with your web browser or serve the directory with `python -m http.server` if you prefer to share a link.
+
+Re-running the same command rewrites matching figures and extends the same directory tree, making it easy to update plots without hunting for old outputs.
+
 The `make_cr_and_sr_plots.py` entry point auto-detects whether the supplied pickle corresponds to control- or signal-region histograms by looking for `CR` or `SR` tokens in the filename. Detection is case-insensitive and accepts suffixes such as `SR2018`; it defaults to control-region mode when no clear token is present. If both tokens are found the script falls back to the control-region configuration and prints a warning recommending an explicit override.
 
 Two new mutually exclusive switches, `--cr` and `--sr`, allow you to override the auto-detected mode. They are especially useful when the filename contains multiple year or campaign tags that would otherwise confuse the heuristic, or when a generic filename (e.g. `plotsTopEFT.pkl.gz`) is reused for multiple region exports.
