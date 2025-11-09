@@ -3780,7 +3780,7 @@ def make_region_stacked_ratio_fig(
 
         mc_projection = h_mc[{"process": sum}].as_hist({})
         original_edges = mc_projection.axes[var].edges
-        original_mc_totals = mc_projection.values(flow=True)[1:]
+        original_mc_totals = _values_without_flow(mc_projection)
 
         ratio_up_input = None if err_ratio_p_syst is None else np.asarray(err_ratio_p_syst, dtype=float)
         ratio_down_input = None if err_ratio_m_syst is None else np.asarray(err_ratio_m_syst, dtype=float)
