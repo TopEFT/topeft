@@ -3235,7 +3235,20 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
             if syst_name_base not in syst_var_lst:
                 syst_var_lst.append(syst_name_base)
 
-    # Sum each systematic's contribtuions for all samples together (e.g. the ISR for all samples is summed linearly)
+    # Prepare a template array so that we can fall back to zeros matching the
+    # nominal histogram shape when no systematic variations are present.
+    fallback_template = None
+    process_labels = yt.get_cat_lables(base_histo, "process")
+    if process_labels:
+        nominal_hist_example = (
+            base_histo.integrate("process", process_labels[0])
+            .integrate("systematic", "nominal")
+        )
+        fallback_template = np.zeros_like(
+            _values_without_flow(nominal_hist_example, include_overflow=True)
+        )
+
+    # Sum each systematic's contributions for all samples together (e.g. the ISR for all samples is summed linearly)
     p_arr_rel_lst = []
     m_arr_rel_lst = []
     for syst_name in syst_var_lst:
@@ -3256,6 +3269,9 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
             proc_projection.integrate("systematic", syst_name + "Down"),
             include_overflow=True,
         )
+
+        if fallback_template is None:
+            fallback_template = np.zeros_like(n_arr)
 
         # Special handling of renorm and fact
         # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
@@ -3285,14 +3301,20 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
     if m_arr_rel_lst:
         summed_m = sum(m_arr_rel_lst)
     else:
-        template = p_arr_rel_lst[0] if p_arr_rel_lst else np.array([])
-        summed_m = np.zeros_like(template)
+        summed_m = (
+            fallback_template.copy()
+            if fallback_template is not None
+            else np.array(0.0)
+        )
 
     if p_arr_rel_lst:
         summed_p = sum(p_arr_rel_lst)
     else:
-        template = m_arr_rel_lst[0] if m_arr_rel_lst else np.array([])
-        summed_p = np.zeros_like(template)
+        summed_p = (
+            fallback_template.copy()
+            if fallback_template is not None
+            else np.array(0.0)
+        )
 
     return [summed_m, summed_p]
 
