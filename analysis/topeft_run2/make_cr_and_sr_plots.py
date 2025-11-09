@@ -89,6 +89,28 @@ SIGNAL_WC_MATCHES = ("ttH", "tllq", "ttlnu", "ttll", "tHq", "tttt")
 CR_KNOWN_CHANNELS = {chan for chans in CR_CHAN_DICT.values() for chan in chans}
 SR_KNOWN_CHANNELS = {chan for chans in SR_CHAN_DICT.values() for chan in chans}
 FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.items()}
+DEFAULT_STACK_COLORS = (
+    "tab:blue",
+    "darkgreen",
+    "tab:orange",
+    "tab:cyan",
+    "tab:purple",
+    "tab:pink",
+    "tan",
+    "mediumseagreen",
+    "tab:red",
+    "brown",
+    "goldenrod",
+    "yellow",
+    "olive",
+    "coral",
+    "navy",
+    "yellowgreen",
+    "aquamarine",
+    "black",
+    "plum",
+    "gray",
+)
 WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
 LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
 PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
@@ -4099,28 +4121,7 @@ def make_region_stacked_ratio_fig(
     if getattr(h_data, "empty", False) and h_data.empty():
         return None
 
-    default_colors = [
-        "tab:blue",
-        "darkgreen",
-        "tab:orange",
-        "tab:cyan",
-        "tab:purple",
-        "tab:pink",
-        "tan",
-        "mediumseagreen",
-        "tab:red",
-        "brown",
-        "goldenrod",
-        "yellow",
-        "olive",
-        "coral",
-        "navy",
-        "yellowgreen",
-        "aquamarine",
-        "black",
-        "plum",
-        "gray",
-    ]
+    default_colors = DEFAULT_STACK_COLORS
 
     grouping = OrderedDict()
     axis_collection = getattr(h_mc, "axes", None)
