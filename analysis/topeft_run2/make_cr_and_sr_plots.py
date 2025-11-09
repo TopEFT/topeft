@@ -695,6 +695,7 @@ def _initialize_render_worker(
     unblind_flag,
     stacked_log_y,
     verbose,
+    prepared_payloads,
 ):
     """Store shared plotting context inside a worker process."""
 
@@ -707,7 +708,7 @@ def _initialize_render_worker(
         "unblind_flag": unblind_flag,
         "stacked_log_y": stacked_log_y,
         "verbose": bool(verbose),
-        "prepared_variables": {},
+        "prepared_variables": dict(prepared_payloads or {}),
     }
 
 
@@ -727,6 +728,17 @@ def _render_variable_from_worker(task_id, payload):
     ctx = _WORKER_RENDER_CONTEXT
     verbose = ctx.get("verbose", False)
 
+    prepared_cache = ctx.setdefault("prepared_variables", {})
+    variable_payload = prepared_cache.get(var_name)
+    if var_name not in prepared_cache:
+        variable_payload = _prepare_variable_payload(
+            var_name,
+            ctx["region_ctx"],
+            verbose=verbose,
+            unblind_flag=ctx["unblind_flag"],
+        )
+        prepared_cache[var_name] = variable_payload
+
     if category is None:
         stat_only, stat_and_syst, html_set = _render_variable(
             var_name,
@@ -738,19 +750,9 @@ def _render_variable_from_worker(task_id, payload):
             ctx["unblind_flag"],
             verbose=verbose,
             category=category,
+            variable_payload=variable_payload,
         )
     else:
-        prepared_cache = ctx.setdefault("prepared_variables", {})
-        variable_payload = prepared_cache.get(var_name)
-        if var_name not in prepared_cache:
-            variable_payload = _prepare_variable_payload(
-                var_name,
-                ctx["region_ctx"],
-                verbose=verbose,
-                unblind_flag=ctx["unblind_flag"],
-            )
-            prepared_cache[var_name] = variable_payload
-
         if not variable_payload:
             stat_only, stat_and_syst, html_set = 0, 0, set()
         else:
@@ -854,6 +856,7 @@ def _render_variable(
     *,
     verbose=False,
     category=None,
+    variable_payload=None,
 ):
     """Render plots for *var_name* and return summary accounting."""
 
@@ -861,12 +864,13 @@ def _render_variable(
     if verbose:
         print(f"\n{label}: {var_name}")
 
-    variable_payload = _prepare_variable_payload(
-        var_name,
-        region_ctx,
-        verbose=verbose,
-        unblind_flag=unblind_flag,
-    )
+    if variable_payload is None:
+        variable_payload = _prepare_variable_payload(
+            var_name,
+            region_ctx,
+            verbose=verbose,
+            unblind_flag=unblind_flag,
+        )
     if not variable_payload:
         return 0, 0, set()
 
@@ -1309,27 +1313,6 @@ def _render_variable_category(
         html_dirs.add(save_dir_path_tmp)
 
     return stat_only_plots, stat_and_syst_plots, html_dirs
-
-
-def _enumerate_variable_categories(region_ctx, var_name):
-    """Return the list of categories that will be processed for *var_name*."""
-
-    channel_transformations = _resolve_channel_transformations(region_ctx, var_name)
-    channel_dict = _apply_channel_dict_transformations(
-        region_ctx.channel_map, channel_transformations
-    )
-
-    categories = []
-    for hist_cat, channel_bins in channel_dict.items():
-        if channel_bins is None:
-            continue
-        if _should_skip_category(region_ctx.category_skip_rules, hist_cat, var_name):
-            continue
-        categories.append(hist_cat)
-    return categories
-
-
-
 def _resolve_requested_variables(dict_of_hists, variables, context):
     """Return the ordered list of variables to process for a plotting function."""
 
@@ -2993,16 +2976,39 @@ def produce_region_plots(
 
     unblind_flag = region_ctx.unblind_default if unblind is None else bool(unblind)
 
+    variable_payloads = {}
+    variable_categories = {}
     eligible_variables = []
+    category_dirs = set(region_ctx.channel_map.keys()) if save_dir_path else set()
     for var_name in variables_to_plot:
         if "sumw2" in var_name:
             continue
         if var_name in region_ctx.skip_variables:
             continue
-        histo = dict_of_hists[var_name]
-        if _is_sparse_2d_hist(histo) and region_ctx.skip_sparse_2d:
+
+        variable_payload = _prepare_variable_payload(
+            var_name,
+            region_ctx,
+            verbose=verbose,
+            unblind_flag=unblind_flag,
+        )
+        variable_payloads[var_name] = variable_payload
+        if not variable_payload:
             continue
+
         eligible_variables.append(var_name)
+
+        categories = [
+            hist_cat
+            for hist_cat, channel_bins in variable_payload["channel_dict"].items()
+            if channel_bins is not None
+            and not _should_skip_category(
+                region_ctx.category_skip_rules, hist_cat, var_name
+            )
+        ]
+        variable_categories[var_name] = categories
+        if save_dir_path:
+            category_dirs.update(categories)
 
     stat_only_plots = 0
     stat_and_syst_plots = 0
@@ -3010,7 +3016,6 @@ def produce_region_plots(
 
     worker_count = max(int(workers or 1), 1)
     tasks = list(eligible_variables)
-    category_dirs = set(region_ctx.channel_map.keys()) if save_dir_path else set()
     if not verbose:
         if tasks:
             print(
@@ -3023,14 +3028,9 @@ def produce_region_plots(
         else:
             print(f"[{region_ctx.name}] No eligible variables to render.")
     if worker_count > 1 and eligible_variables:
-        variable_categories = {}
-        for var_name in eligible_variables:
-            categories = _enumerate_variable_categories(region_ctx, var_name)
-            variable_categories[var_name] = categories
-            category_dirs.update(categories)
-
         category_tasks = []
-        for var_name, categories in variable_categories.items():
+        for var_name in eligible_variables:
+            categories = variable_categories.get(var_name, [])
             if categories:
                 category_tasks.extend((var_name, hist_cat) for hist_cat in categories)
             else:
@@ -3086,6 +3086,7 @@ def produce_region_plots(
                 unblind_flag,
                 stacked_log_y,
                 verbose,
+                variable_payloads,
             ),
         ) as executor:
             id_to_label = {
@@ -3106,8 +3107,8 @@ def produce_region_plots(
                 html_dirs.update(html_set)
                 _report_progress(id_to_label.get(task_id, str(task_id)))
     else:
-        prepared_payloads = {}
         for _, _, label, var_name, hist_cat in task_specs:
+            variable_payload = variable_payloads.get(var_name)
             if hist_cat is None:
                 stat_only, stat_and_syst, html_set = _render_variable(
                     var_name,
@@ -3119,16 +3120,9 @@ def produce_region_plots(
                     unblind_flag,
                     verbose=verbose,
                     category=hist_cat,
+                    variable_payload=variable_payload,
                 )
             else:
-                if var_name not in prepared_payloads:
-                    prepared_payloads[var_name] = _prepare_variable_payload(
-                        var_name,
-                        region_ctx,
-                        verbose=verbose,
-                        unblind_flag=unblind_flag,
-                    )
-                variable_payload = prepared_payloads[var_name]
                 if not variable_payload:
                     stat_only, stat_and_syst, html_set = 0, 0, set()
                 else:
