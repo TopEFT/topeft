@@ -695,7 +695,7 @@ def _initialize_render_worker(
     unblind_flag,
     stacked_log_y,
     verbose,
-    prepared_payloads,
+    prepared_payloads=None,
 ):
     """Store shared plotting context inside a worker process."""
 
@@ -783,7 +783,14 @@ def _render_variable_from_worker(task_id, payload):
     return task_id, stat_only, stat_and_syst, html_set
 
 
-def _prepare_variable_payload(var_name, region_ctx, *, verbose=False, unblind_flag=False):
+def _prepare_variable_payload(
+    var_name,
+    region_ctx,
+    *,
+    verbose=False,
+    unblind_flag=False,
+    metadata_only=False,
+):
     """Prepare variable-level plotting inputs shared across categories."""
 
     histo = region_ctx.dict_of_hists[var_name]
@@ -800,6 +807,13 @@ def _prepare_variable_payload(var_name, region_ctx, *, verbose=False, unblind_fl
     channel_dict = _apply_channel_dict_transformations(
         region_ctx.channel_map, channel_transformations
     )
+
+    if metadata_only:
+        return {
+            "channel_dict": channel_dict,
+            "channel_transformations": channel_transformations,
+            "is_sparse2d": is_sparse2d,
+        }
 
     hist_mc = histo.remove("process", region_ctx.samples_to_remove["mc"])
     hist_data = histo.remove("process", region_ctx.samples_to_remove["data"])
@@ -2976,7 +2990,7 @@ def produce_region_plots(
 
     unblind_flag = region_ctx.unblind_default if unblind is None else bool(unblind)
 
-    variable_payloads = {}
+    variable_payload_cache = {}
     variable_categories = {}
     eligible_variables = []
     category_dirs = set(region_ctx.channel_map.keys()) if save_dir_path else set()
@@ -2986,21 +3000,21 @@ def produce_region_plots(
         if var_name in region_ctx.skip_variables:
             continue
 
-        variable_payload = _prepare_variable_payload(
+        variable_metadata = _prepare_variable_payload(
             var_name,
             region_ctx,
             verbose=verbose,
             unblind_flag=unblind_flag,
+            metadata_only=True,
         )
-        variable_payloads[var_name] = variable_payload
-        if not variable_payload:
+        if not variable_metadata:
             continue
 
         eligible_variables.append(var_name)
 
         categories = [
             hist_cat
-            for hist_cat, channel_bins in variable_payload["channel_dict"].items()
+            for hist_cat, channel_bins in variable_metadata["channel_dict"].items()
             if channel_bins is not None
             and not _should_skip_category(
                 region_ctx.category_skip_rules, hist_cat, var_name
@@ -3056,6 +3070,16 @@ def produce_region_plots(
     progress_done = 0
     progress_enabled = bool(verbose and progress_total)
 
+    def _get_variable_payload(var_name):
+        if var_name not in variable_payload_cache:
+            variable_payload_cache[var_name] = _prepare_variable_payload(
+                var_name,
+                region_ctx,
+                verbose=verbose,
+                unblind_flag=unblind_flag,
+            )
+        return variable_payload_cache[var_name]
+
     def _report_progress(task_label):
         nonlocal progress_done
         if not progress_enabled:
@@ -3086,7 +3110,7 @@ def produce_region_plots(
                 unblind_flag,
                 stacked_log_y,
                 verbose,
-                variable_payloads,
+                None,
             ),
         ) as executor:
             id_to_label = {
@@ -3108,7 +3132,7 @@ def produce_region_plots(
                 _report_progress(id_to_label.get(task_id, str(task_id)))
     else:
         for _, _, label, var_name, hist_cat in task_specs:
-            variable_payload = variable_payloads.get(var_name)
+            variable_payload = _get_variable_payload(var_name)
             if hist_cat is None:
                 stat_only, stat_and_syst, html_set = _render_variable(
                     var_name,
