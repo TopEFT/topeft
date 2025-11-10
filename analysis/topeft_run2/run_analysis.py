@@ -189,6 +189,15 @@ if __name__ == "__main__":
         default=None,
         help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence",
     )
+    parser.add_argument(
+        "--analysis-mode",
+        choices=["standard", "taufitter"],
+        default="standard",
+        help=(
+            "Select the analysis workflow configuration. Use 'standard' for the default behaviour "
+            "or 'taufitter' to enable tau fitter specific handling."
+        ),
+    )
 
     args = parser.parse_args()
     jsonFiles = args.jsonFiles
@@ -217,6 +226,7 @@ if __name__ == "__main__":
     ecut = args.ecut
     port = args.port
     hist_list = args.hist_list
+    analysis_mode = args.analysis_mode
 
     if args.options:
         import yaml
@@ -247,6 +257,7 @@ if __name__ == "__main__":
         hist_list = ops.pop("hist_list",hist_list)
         port = ops.pop("port",port)
         ecut = ops.pop("ecut",ecut)
+        analysis_mode = ops.pop("analysis_mode", analysis_mode)
 
     # Check if we have valid options
     if executor not in LST_OF_KNOWN_EXECUTORS:
@@ -301,6 +312,26 @@ if __name__ == "__main__":
             hist_lst.append("tau0pt")
         if fwd_analysis:
             hist_lst.append("lt")
+        if "lepton_pt_vs_eta" not in hist_lst:
+            hist_lst.append("lepton_pt_vs_eta")
+        if "l0_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY")
+        if "l0_eta_vs_phi" not in hist_lst:
+            hist_lst.append("l0_eta_vs_phi")
+        if "l1_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
+        if "l1_eta_vs_phi" not in hist_lst:
+            hist_lst.append("l1_eta_vs_phi")
+        if do_errors and "lepton_pt_vs_eta_sumw2" not in hist_lst:
+            hist_lst.append("lepton_pt_vs_eta_sumw2")
+        if do_errors and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        if do_errors and "l0_eta_vs_phi_sumw2" not in hist_lst:
+            hist_lst.append("l0_eta_vs_phi_sumw2")
+        if do_errors and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        if do_errors and "l1_eta_vs_phi_sumw2" not in hist_lst:
+            hist_lst.append("l1_eta_vs_phi_sumw2")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
@@ -309,8 +340,12 @@ if __name__ == "__main__":
             "met",
             "ljptsum",
             "l0pt",
+            "l0ptcorr",
+            "l0conept",
             "l0eta",
             "l1pt",
+            "l1ptcorr",
+            "l1conept",
             "l1eta",
             "j0pt",
             "j0eta",
@@ -318,11 +353,37 @@ if __name__ == "__main__":
             "nbtagsl",
             "invmass",
             "npvs",
-            "npvsGood"
+            "npvsGood",
+            "l0_gen_pdgId",
+            "l1_gen_pdgId",
+            "l2_gen_pdgId",
+            "l0_genParent_pdgId",
+            "l1_genParent_pdgId",
+            "l2_genParent_pdgId",
+            "b0l_hFlav",
+            "b0m_hFlav",
+            "b0l_pFlav",
+            "b0m_pFlav",
+            "b1l_hFlav",
+            "b1m_hFlav",
+            "b1l_pFlav",
+            "b1m_pFlav",
+            "b0l_genhFlav",
+            "b0m_genhFlav",
+            "b0l_genpFlav",
+            "b0m_genpFlav",
+            "b1l_genhFlav",
+            "b1m_genhFlav",
+            "b1l_genpFlav",
+            "b1m_genpFlav",
+            "lepton_pt_vs_eta",
+            "l0_SeedEtaOrX_vs_SeedPhiOrY",
+            "l0_eta_vs_phi",
+            "l1_SeedEtaOrX_vs_SeedPhiOrY",
+            "l1_eta_vs_phi",
         ]
         if tau_h_analysis:
             hist_lst.append("tau0pt")
-            hist_lst.append("ptz_wtau")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
@@ -387,6 +448,7 @@ if __name__ == "__main__":
                         else:
                             LoadJsonToSampleName(l, prefix)
 
+        
     flist = {}
     nevts_total = 0
     for sname in samplesdict.keys():
@@ -431,6 +493,9 @@ if __name__ == "__main__":
         for fname in samplesdict[sname]["files"]:
             print("     %s" % fname)
 
+        if executor == "futures":
+            break
+            
     if pretend:
         print("pretending...")
         exit()
@@ -467,7 +532,8 @@ if __name__ == "__main__":
         offZ_split=offZ_split,
         tau_h_analysis=tau_h_analysis,
         fwd_analysis=fwd_analysis,
-        useRun3MVA=useRun3MVA
+        useRun3MVA=useRun3MVA,
+        tau_run_mode=analysis_mode
     )
 
     if executor in ["work_queue", "taskvine"]:
@@ -487,7 +553,7 @@ if __name__ == "__main__":
             # use mid-range compression for chunks results.
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            "compression": 0,
+            "compression": 8,
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
             # tasks. on resource exhaustion, they are retried with the maximum resource
@@ -567,6 +633,8 @@ if __name__ == "__main__":
         )
 
     output = runner(flist, treename, processor_instance)
+
+    print("Finished running the processor...")
 
     dt = time.time() - tstart
 

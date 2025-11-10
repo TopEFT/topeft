@@ -1,6 +1,7 @@
 import numpy as np
 import copy
 from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.sparseHist import SparseHist
 import topcoffea.modules.utils as utils
 from topeft.modules.compatibility import add_sumw2_stub
 
@@ -30,7 +31,7 @@ class YieldTools():
             "tttt"  : ["tttt_centralUL16APV"   ,"tttt_centralUL16"   ,"tttt_centralUL17","tttt_centralUL18", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV", "TTTT_central2022", "TTTT_central2022EE"],
 
             "flips" : ["flipsUL16"            ,"flipsUL16APV"            ,"flipsUL17"            ,"flipsUL18"           ,"flips2022"        ,"flips2022EE"      ,"flips2023"        ,"flips2023BPix"],
-            "fakes" : ["nonpromptUL16"        ,"nonpromptUL16APV"        ,"nonpromptUL17"        ,"nonpromptUL18"       ,"nonprompt2022"    ,"nonpromtp2022EE"      ,"nonprompt2023"        ,"nonprompt2023BPix"],
+            "fakes" : ["nonpromptUL16"        ,"nonpromptUL16APV"        ,"nonpromptUL17"        ,"nonpromptUL18"       ,"nonprompt2022"    ,"nonprompt2022EE"      ,"nonprompt2023"        ,"nonprompt2023BPix"],
             "conv"  : ["TTGamma_centralUL16"  ,"TTGamma_centralUL16APV"  ,"TTGamma_centralUL17"  ,"TTGamma_centralUL18"  ,"TTGamma_central2022"],
             "WW"    : ["WWTo2L2Nu_centralUL16","WWTo2L2Nu_centralUL16APV","WWTo2L2Nu_centralUL17","WWTo2L2Nu_centralUL18","WWTo2L2Nu_central2022", "WWTo2L2Nu_central2022EE", "WWTo2L2Nu_central2023", "WWTo2L2Nu_central2023BPix"],
             "WZ"    : ["WZTo3LNu_centralUL16" ,"WZTo3LNu_centralUL16APV" ,"WZTo3LNu_centralUL17" ,"WZTo3LNu_centralUL18","WZTo3LNu_central2022","WZTo3LNu_central2022EE", "WZTo3LNu_central2023", "WZTo3LNu_central2023BPix"],
@@ -274,9 +275,10 @@ class YieldTools():
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
 
-        # If the hin is not a histo, then get one of the histos from inside of it
-        if not isinstance(hin_dict,HistEFT):
-
+        histo = None
+        if isinstance(hin_dict, (HistEFT, SparseHist)):
+            histo = hin_dict
+        else:
             # If no hist specified, just choose the first one
             if h_name is None:
                 all_hists = self.get_hist_list(hin_dict)
@@ -284,16 +286,17 @@ class YieldTools():
                     if h != "SumOfEFTweights":
                         h_name = h
                         break
-
-                # If we failed to find a hist, raise exception
                 if h_name is None:
                     raise Exception("There are no hists in this hist dict")
+            if isinstance(hin_dict, dict):
+                histo = hin_dict[h_name]
+            else:
+                histo = hin_dict
 
-            # Chek if what we have is the output of the processsor, if so, get a specific hist from it
-            if isinstance(hin_dict,dict):
-                hin_dict = hin_dict[h_name]
+        if not isinstance(histo, (HistEFT, SparseHist)):
+            raise TypeError(f"Unsupported histogram container type: {type(histo)}")
 
-        return list(hin_dict.axes[axis])
+        return list(histo.axes[axis])
 
     # Remove the njet component of a category name, returns a new str
     def get_str_without_njet(self,in_str):

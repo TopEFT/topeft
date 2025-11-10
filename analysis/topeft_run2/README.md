@@ -50,8 +50,11 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 ### Run scripts and processors
 
 * `run_topeft.py` for `topeft.py`:
-    - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses either the `work_queue` or the `futures` executors (with `futures` it uses 8 cores by default). The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`. 
-    - Example usage: `python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg`  
+    - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses either the `work_queue` or the `futures` executors (with `futures` it uses 8 cores by default). The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`.
+    - Example usage: `python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg`
+
+* `run_analysis.py`:
+    - Thin wrapper around `analysis_processor.py` used for the standard CR/analysis histogram production. The canned histogram lists now include the 2D `lepton_pt_vs_eta` observable (and `lepton_pt_vs_eta_sumw2` when `--do-errors` is set) so downstream tools can rely on a consistent pt vs $|\eta|$ binning description.
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
@@ -63,9 +66,10 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 ### Scripts for finding, comparing and plotting yields from histograms (from the processor)
 
 * `make_cr_and_sr_plots.py`:
-    - This script makes plots for all CRs categories, also has the ability to make SR plots. 
+    - This script makes plots for all CRs categories, also has the ability to make SR plots.
     - The script takes as input a pkl file that should have both data and background MC included.
     - Example usage: `python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2018 -t -u`
+    - Histograms with multiple dense axes (e.g. the `SparseHist`-based `lepton_pt_vs_eta`) are automatically rendered as CMS-style 2D heatmaps, while the 1D rebinning and systematic envelopes quietly skip them. The heatmap canvas now includes a dedicated Data/MC ratio panel so comparisons are available at a glance alongside the nominal MC and data projections.
 
 * `get_yield_json.py`:
     - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.
