@@ -7,7 +7,7 @@ PYTHON_BIN=${PYTHON_BIN:-${PYTHON:-python}}
 
 show_help() {
     cat <<'USAGE'
-Usage: run_plotter.sh -f PICKLE -o OUTPUT_DIR [options]
+Usage: run_plotter.sh -f PICKLE -o OUTPUT_DIR -y YEAR [YEAR ...] [options]
 
 Wrapper around make_cr_and_sr_plots.py with filename-based region detection.
 Consult the "CR/SR plotting CLI quickstart" section of analysis/topeft_run2/README.md
@@ -16,11 +16,14 @@ for more workflow examples.
 Required arguments:
   -f, --input PATH          Input histogram pickle (e.g. histos/plotsCR_Run2.pkl.gz)
   -o, --output-dir PATH     Directory where plots will be written
+  -y, --year YEAR [YEAR ...]
+                           One or more year tokens forwarded to the plotter.
+                           Aggregate aliases expand as follows:
+                             run2 → 2016 2016APV 2017 2018
+                             run3 → 2022 2022EE 2023 2023BPix
 
 Optional arguments:
   -n, --name NAME           Name for the output directory (forwarded with -n)
-  -y, --year YEAR [YEAR ...]
-                           One or more year tokens forwarded to the plotter
   -t, --timestamp           Append a timestamp to the output directory name
   -s, --skip-syst           Skip systematic error bands
   -u, --unit-norm           Enable unit-normalized plotting
@@ -57,6 +60,65 @@ declare -a variables=()
 workers=1
 dry_run=0
 verbosity=""
+
+trim_whitespace() {
+    local value="$1"
+    value="${value#${value%%[![:space:]]*}}"
+    value="${value%${value##*[![:space:]]}}"
+    printf '%s' "$value"
+}
+
+declare -A YEAR_CANONICAL_MAP=(
+    [2016]=2016
+    [ul16]=2016
+    [2016apv]=2016APV
+    [ul16apv]=2016APV
+    [2017]=2017
+    [ul17]=2017
+    [2018]=2018
+    [ul18]=2018
+    [2022]=2022
+    [2022ee]=2022EE
+    [2023]=2023
+    [2023bpix]=2023BPix
+)
+
+declare -A YEAR_AGGREGATE_ALIASES=(
+    [run2]="2016 2016APV 2017 2018"
+    [run3]="2022 2022EE 2023 2023BPix"
+)
+
+normalize_year_tokens() {
+    local -a raw_tokens=("$@")
+    local -a normalized=()
+    declare -A seen=()
+
+    local raw token trimmed lowered expansion_tokens canonical candidate
+    for raw in "${raw_tokens[@]}"; do
+        IFS=',' read -r -a token_parts <<<"$raw"
+        for token in "${token_parts[@]}"; do
+            trimmed=$(trim_whitespace "$token")
+            if [[ -z "$trimmed" ]]; then
+                continue
+            fi
+            lowered="${trimmed,,}"
+            if [[ -n "${YEAR_AGGREGATE_ALIASES[$lowered]+x}" ]]; then
+                read -r -a expansion_tokens <<<"${YEAR_AGGREGATE_ALIASES[$lowered]}"
+            else
+                expansion_tokens=("$trimmed")
+            fi
+            for candidate in "${expansion_tokens[@]}"; do
+                canonical="${YEAR_CANONICAL_MAP[${candidate,,}]:-$candidate}"
+                if [[ -z "${seen[$canonical]+x}" ]]; then
+                    normalized+=("$canonical")
+                    seen[$canonical]=1
+                fi
+            done
+        done
+    done
+
+    printf '%s\n' "${normalized[@]}"
+}
 
 # Collect positional passthrough arguments after '--'.
 extra_args=()
@@ -206,6 +268,15 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if (( ${#years[@]} > 0 )); then
+    mapfile -t years < <(normalize_year_tokens "${years[@]}")
+fi
+
+if (( ${#years[@]} == 0 )); then
+    echo "Error: At least one year must be provided with -y/--year." >&2
+    exit 1
+fi
 
 if [[ -z "${input_path}" ]]; then
     echo "Error: An input pickle must be provided with -f/--input." >&2
