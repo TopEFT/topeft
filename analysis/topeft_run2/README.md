@@ -179,6 +179,14 @@ The plotting behaviour is configured by `topeft/params/cr_sr_plots_metadata.yml`
 
 Other keys provide cohesive styling—e.g. `DATA_ERR_OPS`, `MC_ERROR_OPS`, `LUMI_COM_PAIRS`, and `WCPT_EXAMPLE`—and are consumed when building the `RegionContext`. Treat the YAML as the single source of truth for both category definitions and plot appearance to keep CR and SR outputs synchronized.
 
+#### Styling quickstart: `STACKED_RATIO_STYLE`
+
+If you want to tweak how the stacked-yield + ratio figures look, start with the `STACKED_RATIO_STYLE` block in `topeft/params/cr_sr_plots_metadata.yml`. The `defaults.figure` keys (such as `figsize`, `height_ratios`, and `hspace`) set the canvas geometry, so widening the plot is as simple as changing the first value in `figsize`. Axis cosmetics live under `defaults.axes`: adjust `label_fontsize`, `tick_labelsize`, or the `tick_length`/`tick_width` pair to make the layout friendlier for talks, and toggle `apply_secondary_ticks.x`/`.y` if you prefer primary ticks only. Legends are controlled by `defaults.legend` and its siblings—`ncol`, `fontsize`, and `bbox_to_anchor` reposition the main legend, while `uncertainty_legend` and `ratio_band_legend` handle the smaller annotation boxes. Once you have a layout you like, keep the edits inside the relevant nested dictionary so future readers can relate each number directly to the YAML keys mentioned here.
+
+#### Understanding `analysis_bins`
+
+The `analysis_bins` map inside `REGION_PLOTTING` (for example the `SR` block’s `analysis_bins` entry pointing to `ptz` and `lj0pt`) tells the plotter to replace the default histogram binning with the analysis-approved bin definitions in `axes_info`. Add a new key/value pair whenever you introduce a histogram that should adopt those curated bin edges—typically because it feeds a datacard or a physics note. If a variable can rely on the raw processor binning, leave it out; expanding the map is only necessary when the plotting output must match a named entry in the axes metadata. Remember to reuse the exact axis name from `cr_sr_plots_metadata.yml` so the lookup succeeds.
+
 
 ### Scripts for making and checking the datacards
 
