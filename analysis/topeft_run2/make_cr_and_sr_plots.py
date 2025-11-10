@@ -3681,7 +3681,11 @@ def _values_with_flow_or_overflow(hist_slice):
 
     values_method = hist_slice.values
 
-    method_key = getattr(values_method, "__func__", values_method)
+    method_key = getattr(values_method, "__func__", None)
+    if method_key is None:
+        method_owner = type(hist_slice)
+        method_name = getattr(values_method, "__name__", "values")
+        method_key = (method_owner, method_name)
     capability = _VALUES_METHOD_CAPS.get(method_key)
 
     if capability is None:
