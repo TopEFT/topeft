@@ -777,11 +777,11 @@ def _close_figure_payload(fig_payload):
         plt.close('all')
 
 
+_SHARED_REGION_CTX = None
 _WORKER_RENDER_CONTEXT = None
 
 
 def _initialize_render_worker(
-    region_ctx,
     save_dir_path,
     skip_syst_errs,
     unit_norm_bool,
@@ -792,9 +792,14 @@ def _initialize_render_worker(
 ):
     """Store shared plotting context inside a worker process."""
 
+    if _SHARED_REGION_CTX is None:
+        raise RuntimeError(
+            "Worker render context is not initialised; shared region context was not set."
+        )
+
     global _WORKER_RENDER_CONTEXT
     _WORKER_RENDER_CONTEXT = {
-        "region_ctx": region_ctx,
+        "region_ctx": _SHARED_REGION_CTX,
         "save_dir_path": save_dir_path,
         "skip_syst_errs": skip_syst_errs,
         "unit_norm_bool": unit_norm_bool,
@@ -3347,37 +3352,41 @@ def produce_region_plots(
 
         max_workers = min(worker_count, total_tasks)
 
-        with ProcessPoolExecutor(
-            max_workers=max_workers,
-            initializer=_initialize_render_worker,
-            initargs=(
-                region_ctx,
-                save_dir_path,
-                skip_syst_errs,
-                unit_norm_bool,
-                unblind_flag,
-                stacked_log_y,
-                verbose,
-                None,
-            ),
-        ) as executor:
-            id_to_label = {
-                task_id: label for task_id, _, label, _, _ in task_specs
-            }
-            futures = [
-                executor.submit(
-                    _render_variable_from_worker,
-                    task_id,
-                    payload,
-                )
-                for task_id, payload, _, _, _ in task_specs
-            ]
-            for future in as_completed(futures):
-                task_id, stat_only, stat_and_syst, html_set = future.result()
-                stat_only_plots += stat_only
-                stat_and_syst_plots += stat_and_syst
-                html_dirs.update(html_set)
-                _report_progress(id_to_label.get(task_id, str(task_id)))
+        global _SHARED_REGION_CTX
+        _SHARED_REGION_CTX = region_ctx
+        try:
+            with ProcessPoolExecutor(
+                max_workers=max_workers,
+                initializer=_initialize_render_worker,
+                initargs=(
+                    save_dir_path,
+                    skip_syst_errs,
+                    unit_norm_bool,
+                    unblind_flag,
+                    stacked_log_y,
+                    verbose,
+                    None,
+                ),
+            ) as executor:
+                id_to_label = {
+                    task_id: label for task_id, _, label, _, _ in task_specs
+                }
+                futures = [
+                    executor.submit(
+                        _render_variable_from_worker,
+                        task_id,
+                        payload,
+                    )
+                    for task_id, payload, _, _, _ in task_specs
+                ]
+                for future in as_completed(futures):
+                    task_id, stat_only, stat_and_syst, html_set = future.result()
+                    stat_only_plots += stat_only
+                    stat_and_syst_plots += stat_and_syst
+                    html_dirs.update(html_set)
+                    _report_progress(id_to_label.get(task_id, str(task_id)))
+        finally:
+            _SHARED_REGION_CTX = None
     else:
         for _, _, label, var_name, hist_cat in task_specs:
             variable_payload = _get_variable_payload(var_name)
