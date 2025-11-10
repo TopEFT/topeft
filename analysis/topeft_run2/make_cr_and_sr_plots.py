@@ -3610,8 +3610,8 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
         else:
             u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
             d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
-            p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
-            m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
+            p_arr_rel = np.maximum.reduce([u_arr_rel, d_arr_rel, 0.0])
+            m_arr_rel = np.minimum.reduce([u_arr_rel, d_arr_rel, 0.0])
 
         # Square and append this syst to the return lists
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
