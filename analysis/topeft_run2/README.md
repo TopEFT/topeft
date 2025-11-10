@@ -68,12 +68,15 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 * `run_analysis.py`:
     - Thin wrapper around `analysis_processor.py` used for the standard CR/analysis histogram production. The canned histogram lists now include the 2D `lepton_pt_vs_eta` observable (and keep the matching `_sumw2` companion unless `--no-sumw2` is passed) so downstream tools can rely on a consistent pt vs $|\eta|$ binning description.
     - Leave the default `sumw²` companions enabled whenever you plan to run downstream uncertainty-aware tooling such as the tau fake-rate fitter or the diboson scale-factor extractor. Disabling them with `--no-sumw2` drops the `*_sumw2` histograms (for example `tau0pt_sumw2`), which causes those utilities to fail or to lose their statistical error propagation. If you need to trim the histogram list, remove individual observables instead of the sumw² accumulators.
+    - Pass `--years YEAR [YEAR ...]` to filter the loaded JSON samples to the requested campaign tokens. Supported values are `2016`, `2016APV`, `2017`, `2018`, `2022`, `2022EE`, `2023`, `2023BPix` and their UL aliases (`UL16`, `UL16APV`, `UL17`, `UL18`). Run 2 aliases are interchangeable (e.g. asking for `UL18` keeps the same samples as `2018`), and when the option is absent every sample in the configuration is retained as before.
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
     - Example usage: `python run_sow.py ../../topcoffea/json/signal_samples/private_UL/UL17_tHq_b1.json --xrd root://deepthought.crc.nd.edu/`
 
-* `fullR2_run.sh`: Wrapper script for making the full TOP-22-006 pkl file with `run_topeft.py`. 
+* `fullR2_run.sh`: Wrapper script for making the full TOP-22-006 pkl file with `run_topeft.py`.
+* `fullR3_run.sh`: Wrapper script for the Run 3 hist production that also understands how to stitch Run 2 inputs when you request those campaign tokens.
+    - Whenever the Run 2 bundle is activated (any of `2016`, `2016APV`, `2017`, `2018`, `UL16`, `UL16APV`, `UL17`, or `UL18` appear in `-y/--year`), the wrapper forwards the matching Run 2 payload to `run_analysis.py` via `--years`. Aliases are resolved so that `UL16` behaves like `2016`, `UL16APV` like `2016APV`, and similarly for `UL17`/`2017` and `UL18`/`2018`.
 
 
 ### Scripts for finding, comparing and plotting yields from histograms (from the processor)

@@ -95,6 +95,12 @@ if __name__ == "__main__":
         help="Name of the output directory",
     )
     parser.add_argument(
+        "--years",
+        "-y",
+        nargs="+",
+        help="Limit processing to the specified data-taking years",
+    )
+    parser.add_argument(
         "--treename",
         default="Events",
         help="Name of the tree inside the files",
@@ -453,6 +459,57 @@ if __name__ == "__main__":
                             prefix = l
                         else:
                             LoadJsonToSampleName(l, prefix)
+
+    requested_years = None
+    if args.years:
+        valid_year_choices = {
+            "UL16",
+            "UL16APV",
+            "UL17",
+            "UL18",
+            "2016",
+            "2016APV",
+            "2017",
+            "2018",
+            "2022",
+            "2022EE",
+            "2023",
+            "2023BPix",
+        }
+        year_synonyms = {
+            "2016": {"2016", "UL16"},
+            "UL16": {"2016", "UL16"},
+            "2016APV": {"2016APV", "UL16APV"},
+            "UL16APV": {"2016APV", "UL16APV"},
+            "2017": {"2017", "UL17"},
+            "UL17": {"2017", "UL17"},
+            "2018": {"2018", "UL18"},
+            "UL18": {"2018", "UL18"},
+        }
+
+        requested_years = set()
+        for year in args.years:
+            year_str = str(year)
+            if year_str not in valid_year_choices:
+                raise ValueError(
+                    "Invalid year selection \"{}\". Valid choices are: {}".format(
+                        year_str, ", ".join(sorted(valid_year_choices))
+                    )
+                )
+
+            requested_years.update(year_synonyms.get(year_str, {year_str}))
+
+    if requested_years is not None:
+        samplesdict = {
+            name: sample
+            for name, sample in samplesdict.items()
+            if str(sample.get("year")) in requested_years
+        }
+
+        if not samplesdict:
+            raise ValueError(
+                "No samples remaining after applying the requested year filter."
+            )
 
         
     flist = {}
