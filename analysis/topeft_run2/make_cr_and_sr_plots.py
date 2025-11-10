@@ -2088,6 +2088,23 @@ def _compute_uncertainty_bands(
         ratio_syst_up = np.asarray(err_ratio_p_syst)
         ratio_syst_down = np.asarray(err_ratio_m_syst)
 
+        def _trim_overflow(arr):
+            if arr is None:
+                return arr
+            arr = np.asarray(arr)
+            if arr.ndim == 0:
+                return arr
+            if arr.shape[0] == mc_totals.shape[0]:
+                return arr
+            if arr.shape[0] == mc_totals.shape[0] + 1:
+                return arr[:-1]
+            return arr
+
+        syst_up = _trim_overflow(syst_up)
+        syst_down = _trim_overflow(syst_down)
+        ratio_syst_up = _trim_overflow(ratio_syst_up)
+        ratio_syst_down = _trim_overflow(ratio_syst_down)
+
         syst_up_diff = np.clip(syst_up - mc_totals, a_min=0, a_max=None)
         syst_down_diff = np.clip(mc_totals - syst_down, a_min=0, a_max=None)
 
