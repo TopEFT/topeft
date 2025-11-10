@@ -3593,6 +3593,31 @@ def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
 
     return [summed_m, summed_p]
 
+def _match_variation_length(nominal, variation):
+    """Return *variation* resized to match the length of *nominal*.
+
+    Any overflow entries beyond the nominal length are trimmed. When the
+    variation is shorter, the remainder is zero-padded so downstream
+    operations can rely on consistent shapes.
+    """
+
+    nominal = np.asarray(nominal)
+    variation = np.asarray(variation)
+
+    if variation.shape == nominal.shape:
+        return variation
+
+    target_len = nominal.shape[0]
+    trimmed = variation[:target_len]
+
+    if trimmed.shape[0] == target_len:
+        return trimmed
+
+    result = np.zeros(target_len, dtype=np.result_type(nominal, variation))
+    result[: trimmed.shape[0]] = trimmed
+    return result
+
+
 # Wrapper for getting plus and minus shape arrs
 def get_shape_syst_arrs(base_histo,group_type="CR"):
 
@@ -3618,11 +3643,17 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
         n_arr = _eval_without_underflow(
             proc_projection.integrate("systematic", "nominal")
         )  # Sum of all samples for nominal variation
-        u_arr_sum = _eval_without_underflow(
-            proc_projection.integrate("systematic", syst_name + "Up")
+        u_arr_sum = _match_variation_length(
+            n_arr,
+            _eval_without_underflow(
+                proc_projection.integrate("systematic", syst_name + "Up")
+            ),
         )
-        d_arr_sum = _eval_without_underflow(
-            proc_projection.integrate("systematic", syst_name + "Down")
+        d_arr_sum = _match_variation_length(
+            n_arr,
+            _eval_without_underflow(
+                proc_projection.integrate("systematic", syst_name + "Down")
+            ),
         )
 
         # Special handling of renorm and fact
@@ -3643,8 +3674,8 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
         else:
             u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
             d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
-            p_arr_rel = np.maximum.reduce([u_arr_rel, d_arr_rel, 0.0])
-            m_arr_rel = np.minimum.reduce([u_arr_rel, d_arr_rel, 0.0])
+            p_arr_rel = np.maximum(np.maximum(u_arr_rel, d_arr_rel), 0.0)
+            m_arr_rel = np.minimum(np.minimum(u_arr_rel, d_arr_rel), 0.0)
 
         # Square and append this syst to the return lists
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
