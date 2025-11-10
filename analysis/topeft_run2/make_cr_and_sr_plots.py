@@ -32,6 +32,41 @@ from topcoffea.scripts.make_html import make_html
 import topcoffea.modules.utils as utils
 from topeft.modules.yield_tools import YieldTools
 
+
+_logger = logging.getLogger(__name__)
+_ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = SparseHist._read_from_reduce.__func__
+
+
+def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
+    """Fast reconstruction helper used to patch :class:`SparseHist` pickles."""
+
+    try:
+        histogram = cls(*cat_axes, *dense_axes, **init_args)
+
+        if dense_hists:
+            categorical_axes = histogram.categorical_axes
+            if categorical_axes:
+                fill_payload = {axis.name: [] for axis in categorical_axes}
+                for index_key in dense_hists:
+                    categories = histogram.index_to_categories(index_key)
+                    for axis, category in zip(categorical_axes, categories):
+                        fill_payload[axis.name].append(category)
+
+                hist.Hist.fill(histogram, **fill_payload)
+
+        histogram._dense_hists = (
+            dense_hists.copy() if hasattr(dense_hists, "copy") else dict(dense_hists)
+        )
+        return histogram
+    except Exception:  # pragma: no cover - defensive fallback
+        _logger.exception("Falling back to the original SparseHist deserializer.")
+        return _ORIGINAL_SPARSEHIST_READ_FROM_REDUCE(
+            cls, cat_axes, dense_axes, init_args, dense_hists
+        )
+
+
+SparseHist._read_from_reduce = classmethod(_fast_sparsehist_from_reduce)
+
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
 import topeft.modules.get_rate_systs as grs
