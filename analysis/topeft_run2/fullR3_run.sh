@@ -100,12 +100,69 @@ echo "OUT_NAME: $OUT_NAME"
 # Build the configuration file list
 CFGS_PATH="../../input_samples/cfgs"
 CFGS_LIST=()
+
+declare -A RUN2_YEAR_MAP=(
+  [2016]=1
+  [2016APV]=1
+  [2017]=1
+  [2018]=1
+)
+
+RUN2_CFGS_SR=(
+  "${CFGS_PATH}/mc_signal_samples_NDSkim.cfg"
+  "${CFGS_PATH}/mc_background_samples_NDSkim.cfg"
+  "${CFGS_PATH}/data_samples_NDSkim.cfg"
+)
+
+RUN2_CFGS_CR=(
+  "${CFGS_PATH}/mc_signal_samples_NDSkim.cfg"
+  "${CFGS_PATH}/mc_background_samples_NDSkim.cfg"
+  "${CFGS_PATH}/mc_background_samples_cr_NDSkim.cfg"
+  "${CFGS_PATH}/data_samples_NDSkim.cfg"
+)
+
+declare -A SEEN_CFGS=()
+RUN2_BUNDLE_ADDED=false
+
+add_cfg() {
+  local cfg_file="$1"
+  if [[ ! -f "$cfg_file" ]]; then
+    echo "Error: Required cfg file not found: $cfg_file" >&2
+    exit 1
+  fi
+  if [[ -n "${SEEN_CFGS[$cfg_file]}" ]]; then
+    return
+  fi
+  CFGS_LIST+=("$cfg_file")
+  SEEN_CFGS[$cfg_file]=1
+}
+
 for YEAR in "${YEARS[@]}"; do
-  CFGS_LIST+=(
+  if [[ -n "${RUN2_YEAR_MAP[$YEAR]}" ]]; then
+    if [[ "$RUN2_BUNDLE_ADDED" == "false" ]]; then
+      if [[ "$FLAG_CR" == "true" ]]; then
+        for CFG in "${RUN2_CFGS_CR[@]}"; do
+          add_cfg "$CFG"
+        done
+      else
+        for CFG in "${RUN2_CFGS_SR[@]}"; do
+          add_cfg "$CFG"
+        done
+      fi
+      RUN2_BUNDLE_ADDED=true
+    fi
+    continue
+  fi
+
+  YEAR_CFGS=(
+    "${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
     "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
     "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-    "${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
   )
+
+  for CFG in "${YEAR_CFGS[@]}"; do
+    add_cfg "$CFG"
+  done
 done
 CFGS=$(IFS=,; echo "${CFGS_LIST[*]}")
 
@@ -113,13 +170,29 @@ echo "Resolved CFGS: $CFGS"
 
 # Define options based on mode
 if [[ "$FLAG_CR" == "true" ]]; then
-  OPTIONS="--hist-list cr --skip-sr -s 50000 --split-lep-flavor -p /scratch365/$USER/ -o $OUT_NAME -x work_queue"
+  OPTIONS=(
+    --hist-list cr
+    --skip-sr
+    -s 50000
+    --split-lep-flavor
+    -p "/scratch365/$USER/"
+    -o "$OUT_NAME"
+    -x work_queue
+  )
 else
-  OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 -o $OUT_NAME"
+  OPTIONS=(
+    --hist-list ana
+    --skip-cr
+    --do-systs
+    -s 50000
+    -o "$OUT_NAME"
+  )
 fi
 
 # Build and run the command
-RUN_CMD=(python run_analysis.py "$CFGS" $OPTIONS "${EXTRA_ARGS[@]}")
+RUN_CMD=(python run_analysis.py "$CFGS")
+RUN_CMD+=("${OPTIONS[@]}")
+RUN_CMD+=("${EXTRA_ARGS[@]}")
 
 printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
 
