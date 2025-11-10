@@ -19,7 +19,7 @@ Required arguments:
   -y, --year YEAR [YEAR ...]
                            One or more year tokens forwarded to the plotter.
                            Aggregate aliases expand as follows:
-                             run2 → 2016 2016APV 2017 2018
+                             run2 → UL16 UL16APV UL17 UL18
                              run3 → 2022 2022EE 2023 2023BPix
                            The flag is required; omitting it raises an error.
 
@@ -85,7 +85,7 @@ declare -A YEAR_CANONICAL_MAP=(
 )
 
 declare -A YEAR_AGGREGATE_ALIASES=(
-    [run2]="2016 2016APV 2017 2018"
+    [run2]="UL16 UL16APV UL17 UL18"
     [run3]="2022 2022EE 2023 2023BPix"
 )
 
