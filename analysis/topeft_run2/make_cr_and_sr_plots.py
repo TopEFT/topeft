@@ -61,30 +61,29 @@ def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_his
 
                     fill_payload = {name: [] for name in axis_names}
                     convert_index = histogram.index_to_categories
+                    max_batch = 500_000
+
+                    def _flush_batch():
+                        if fill_payload[axis_names[0]]:
+                            hist.Hist.fill(histogram, **fill_payload)
+                            for values in fill_payload.values():
+                                values.clear()
+
                     for index_key in dense_hists.keys():
                         categories = tuple(convert_index(index_key))
+                        appended = False
                         for axis, category, grows in zip(
                             categorical_axes, categories, axis_growth_flags
                         ):
                             if grows:
                                 fill_payload[axis.name].append(category)
+                                appended = True
+
+                        if appended and len(fill_payload[axis_names[0]]) >= max_batch:
+                            _flush_batch()
 
                     if fill_payload and axis_names:
-                        sample_size = len(fill_payload[axis_names[0]])
-                        if sample_size:
-                            max_batch = 500_000
-                            if sample_size <= max_batch:
-                                hist.Hist.fill(histogram, **fill_payload)
-                            else:
-                                for start in range(0, sample_size, max_batch):
-                                    stop = start + max_batch
-                                    hist.Hist.fill(
-                                        histogram,
-                                        **{
-                                            name: values[start:stop]
-                                            for name, values in fill_payload.items()
-                                        },
-                                    )
+                        _flush_batch()
 
         histogram._dense_hists = (
             dense_hists.copy() if hasattr(dense_hists, "copy") else dict(dense_hists)
