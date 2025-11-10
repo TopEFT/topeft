@@ -6,6 +6,8 @@ PrintUsage() {
   echo
   echo "Options:"
   echo "  -y YEAR    Year identifier (repeat or list multiple years)"
+  echo "             Bundles: run2 -> UL16 UL16APV UL17 UL18;"
+  echo "                      run3 -> 2022 2022EE 2023 2023BPix"
   echo "  -t TAG     Git tag or commit identifier"
   echo "  --cr       Generate control-region histograms"
   echo "  --sr       Generate signal-region histograms"
@@ -22,6 +24,8 @@ FLAG_CR=false
 FLAG_SR=false
 EXTRA_ARGS=()
 YEARS=()
+EXPANDED_YEARS=()
+RESOLVED_YEARS=()
 USER_CHUNK_OVERRIDE=false
 
 # Parse command-line arguments
@@ -92,13 +96,40 @@ if [[ ${#YEARS[@]} -eq 0 ]]; then
   YEARS=("$DEFAULT_YEAR")
 fi
 
+for YEAR in "${YEARS[@]}"; do
+  case "${YEAR,,}" in
+    run2)
+      EXPANDED_YEARS+=(UL16 UL16APV UL17 UL18)
+      ;;
+    run3)
+      EXPANDED_YEARS+=(2022 2022EE 2023 2023BPix)
+      ;;
+    *)
+      EXPANDED_YEARS+=("$YEAR")
+      ;;
+  esac
+done
+
+declare -A YEAR_SEEN=()
+for YEAR in "${EXPANDED_YEARS[@]}"; do
+  if [[ -z "${YEAR_SEEN[$YEAR]}" ]]; then
+    RESOLVED_YEARS+=("$YEAR")
+    YEAR_SEEN[$YEAR]=1
+  fi
+done
+
+if [[ ${#RESOLVED_YEARS[@]} -eq 0 ]]; then
+  echo "Error: No years resolved from the provided arguments." >&2
+  exit 1
+fi
+
 if [[ -z "$TAG" ]]; then
   echo "Warning: TAG not provided, using default TAG=$DEFAULT_TAG"
   TAG="$DEFAULT_TAG"
 fi
 
 # Define output name based on mode
-YEAR_LABEL=$(IFS=-; echo "${YEARS[*]}")
+YEAR_LABEL=$(IFS=-; echo "${RESOLVED_YEARS[*]}")
 
 if [[ "$FLAG_CR" == "true" ]]; then
   OUT_NAME="${YEAR_LABEL}CRs_${TAG}"
@@ -137,8 +168,6 @@ RUN2_CFGS_CR=(
 )
 
 declare -A SEEN_CFGS=()
-declare -A FILTER_YEAR_SEEN=()
-RUN2_FILTER_YEARS=()
 RUN2_BUNDLE_ADDED=false
 
 add_cfg() {
@@ -154,8 +183,7 @@ add_cfg() {
   SEEN_CFGS[$cfg_file]=1
 }
 
-for YEAR in "${YEARS[@]}"; do
-  filter_year=""
+for YEAR in "${RESOLVED_YEARS[@]}"; do
   if [[ -n "${RUN2_YEAR_MAP[$YEAR]}" ]]; then
     if [[ "$RUN2_BUNDLE_ADDED" == "false" ]]; then
       if [[ "$FLAG_CR" == "true" ]]; then
@@ -169,7 +197,6 @@ for YEAR in "${YEARS[@]}"; do
       fi
       RUN2_BUNDLE_ADDED=true
     fi
-    filter_year="${RUN2_YEAR_MAP[$YEAR]}"
   else
     YEAR_CFGS=(
       "${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
@@ -180,16 +207,12 @@ for YEAR in "${YEARS[@]}"; do
     for CFG in "${YEAR_CFGS[@]}"; do
       add_cfg "$CFG"
     done
-    filter_year="$YEAR"
   fi
 
-  if [[ -n "$filter_year" && -z "${FILTER_YEAR_SEEN[$filter_year]}" ]]; then
-    RUN2_FILTER_YEARS+=("$filter_year")
-    FILTER_YEAR_SEEN[$filter_year]=1
-  fi
 done
 CFGS=$(IFS=,; echo "${CFGS_LIST[*]}")
 
+echo "Resolved years: ${RESOLVED_YEARS[*]}"
 echo "Resolved CFGS: $CFGS"
 
 # Define options based on mode
@@ -221,10 +244,8 @@ fi
 
 # Build and run the command
 RUN_CMD=(python run_analysis.py "$CFGS")
+RUN_CMD+=(--years "${RESOLVED_YEARS[@]}")
 RUN_CMD+=("${OPTIONS[@]}")
-if [[ "$RUN2_BUNDLE_ADDED" == "true" ]]; then
-  RUN_CMD+=(--years "${RUN2_FILTER_YEARS[@]}")
-fi
 RUN_CMD+=("${EXTRA_ARGS[@]}")
 
 printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
