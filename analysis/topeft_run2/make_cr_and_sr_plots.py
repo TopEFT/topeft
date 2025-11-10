@@ -891,8 +891,23 @@ def _prepare_variable_payload(
     verbose=False,
     unblind_flag=False,
     metadata_only=False,
+    prepared_cache=None,
 ):
     """Prepare variable-level plotting inputs shared across categories."""
+
+    if prepared_cache is not None and var_name in prepared_cache:
+        cached_payload = prepared_cache[var_name]
+        if cached_payload is None:
+            return None
+        if metadata_only:
+            return {
+                "channel_dict": cached_payload["channel_dict"],
+                "channel_transformations": cached_payload[
+                    "channel_transformations"
+                ],
+                "is_sparse2d": cached_payload["is_sparse2d"],
+            }
+        return cached_payload
 
     histo = region_ctx.dict_of_hists[var_name]
     is_sparse2d = _is_sparse_2d_hist(histo)
@@ -3261,9 +3276,30 @@ def produce_region_plots(
             verbose=verbose,
             unblind_flag=unblind_flag,
             metadata_only=True,
+            prepared_cache=variable_payload_cache,
         )
         if not variable_metadata:
+            variable_payload_cache.setdefault(var_name, None)
             continue
+
+        if var_name not in variable_payload_cache:
+            variable_payload_cache[var_name] = _prepare_variable_payload(
+                var_name,
+                region_ctx,
+                verbose=verbose,
+                unblind_flag=unblind_flag,
+                prepared_cache=variable_payload_cache,
+            )
+
+        variable_payload = variable_payload_cache.get(var_name)
+        if not variable_payload:
+            continue
+
+        variable_metadata = {
+            "channel_dict": variable_payload["channel_dict"],
+            "channel_transformations": variable_payload["channel_transformations"],
+            "is_sparse2d": variable_payload["is_sparse2d"],
+        }
 
         eligible_variables.append(var_name)
 
@@ -3371,7 +3407,7 @@ def produce_region_plots(
                     unblind_flag,
                     stacked_log_y,
                     verbose,
-                    None,
+                    variable_payload_cache,
                     shared_region_ctx,
                 ),
             ) as executor:
