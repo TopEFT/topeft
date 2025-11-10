@@ -176,9 +176,14 @@ def cached_get_jet_dependent_syst_dict(process="Diboson"):
     return MappingProxyType(dict(source))
 
 
-_existing_all = globals().get("__all__", [])
+_existing_all = globals().get("__all__")
+if isinstance(_existing_all, (list, tuple)):
+    _base_exports = list(_existing_all)
+else:
+    _base_exports = [name for name in globals() if not name.startswith("_")]
+
 __all__ = [
-    *(_existing_all if isinstance(_existing_all, list) else list(_existing_all)),
+    *_base_exports,
     "cached_get_syst",
     "cached_get_syst_lst",
     "cached_get_correlation_tag",
