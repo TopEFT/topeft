@@ -1694,9 +1694,6 @@ def _draw_stacked_panel(
     summed_mc = h_mc[{"process": sum}]
     summed_data = h_data[{"process": sum}]
 
-    summed_mc_values_flow = _values_with_flow_or_overflow(summed_mc)
-    summed_data_values_flow = _values_with_flow_or_overflow(summed_data)
-
     summed_mc_edges = None
     if hasattr(summed_mc, "axes"):
         try:
@@ -1716,12 +1713,131 @@ def _draw_stacked_panel(
     if summed_data_edges is None:
         summed_data_edges = summed_mc_edges
 
+    default_bins = summed_data_edges if bins is None else bins
+    if default_bins is None:
+        raise ValueError("Histogram axis has fewer than two edges; cannot determine binning.")
+    bins = np.asarray(default_bins, dtype=float)
+    n_bins = max(bins.size - 1, 0)
+
+    axis_traits = None
+    axis_obj = None
+    for candidate in (summed_mc, summed_data, h_mc, h_data):
+        axes = getattr(candidate, "axes", None)
+        if axes is None:
+            continue
+        try:
+            axis_obj = axes[var]
+        except (KeyError, TypeError):
+            continue
+        else:
+            break
+
+    if axis_obj is not None:
+        axis_traits = getattr(axis_obj, "traits", None)
+
+    axis_has_underflow = (
+        bool(getattr(axis_traits, "underflow", False)) if axis_traits is not None else None
+    )
+    axis_has_overflow = (
+        bool(getattr(axis_traits, "overflow", False)) if axis_traits is not None else None
+    )
+    axis_nominal_bins = len(axis_obj) if axis_obj is not None else None
+    includes_overflow_hint = (
+        None
+        if axis_nominal_bins is None
+        else bool(n_bins > axis_nominal_bins)
+    )
+
+    def _visible_from_flow(
+        flow_array,
+        n_bins,
+        *,
+        has_underflow=None,
+        has_overflow=None,
+        include_overflow_hint=None,
+    ):
+        flow_values = np.asarray(flow_array, dtype=float)
+        if flow_values.ndim == 0:
+            return flow_values
+
+        size = flow_values.size
+        if size == n_bins:
+            return flow_values
+
+        if n_bins <= 0:
+            return np.zeros(max(n_bins, 0), dtype=flow_values.dtype)
+
+        drop_front = 0
+        drop_back = 0
+        target = n_bins
+
+        if has_underflow is True and size > target:
+            drop_front = 1
+
+        keep_overflow = include_overflow_hint
+        if has_overflow is True:
+            if keep_overflow is False:
+                if size - drop_front > target:
+                    drop_back = 1
+            elif keep_overflow is None and size - drop_front > target:
+                drop_back = 1
+        elif has_overflow is False:
+            drop_back = 0
+
+        remaining = size - drop_front - drop_back - target
+        if remaining > 0:
+            if keep_overflow is True or (keep_overflow is None and has_underflow in (True, None)):
+                extra_front = min(remaining, size - drop_front - drop_back)
+                drop_front += extra_front
+                remaining -= extra_front
+        if remaining > 0:
+            drop_back += remaining
+
+        start = min(drop_front, size)
+        end = size - min(drop_back, max(size - start, 0))
+        visible = flow_values[start:end]
+
+        if visible.size > n_bins:
+            trim = visible.size - n_bins
+            if keep_overflow is True:
+                visible = visible[trim:]
+            else:
+                visible = visible[:n_bins]
+        elif visible.size < n_bins and n_bins > 0:
+            padded = np.zeros(n_bins, dtype=flow_values.dtype)
+            padded[: visible.size] = visible
+            visible = padded
+
+        return visible
+
+    summed_mc_values_flow = _values_with_flow_or_overflow(summed_mc)
+    summed_data_values_flow = _values_with_flow_or_overflow(summed_data)
+    summed_mc_values = _visible_from_flow(
+        summed_mc_values_flow,
+        n_bins,
+        has_underflow=axis_has_underflow,
+        has_overflow=axis_has_overflow,
+        include_overflow_hint=includes_overflow_hint,
+    )
+    summed_data_values = _visible_from_flow(
+        summed_data_values_flow,
+        n_bins,
+        has_underflow=axis_has_underflow,
+        has_overflow=axis_has_overflow,
+        include_overflow_hint=includes_overflow_hint,
+    )
+
     def _get_grouped_vals(hist_obj, grouping_map):
         grouped_values = {}
         for proc_name, members in grouping_map.items():
             grouped_hist = hist_obj[{"process": members}][{"process": sum}]
-            grouped_values[proc_name] = _values_without_flow(
-                grouped_hist, include_overflow=True
+            flow_vals = _values_with_flow_or_overflow(grouped_hist)
+            grouped_values[proc_name] = _visible_from_flow(
+                flow_vals,
+                n_bins,
+                has_underflow=axis_has_underflow,
+                has_overflow=axis_has_overflow,
+                include_overflow_hint=includes_overflow_hint,
             )
         return grouped_values
 
@@ -1734,11 +1850,7 @@ def _draw_stacked_panel(
             available_processes = set(h_mc_sumw2.axes[axis])
         except KeyError:
             available_processes = set()
-        template = (
-            next(iter(mc_vals.values()))
-            if mc_vals
-            else summed_mc_values_flow[1:]
-        )
+        template = next(iter(mc_vals.values())) if mc_vals else summed_mc_values
         for proc_name, members in grouping.items():
             valid_members = [m for m in members if m in available_processes]
             missing_members = [m for m in members if m not in available_processes]
@@ -1746,8 +1858,13 @@ def _draw_stacked_panel(
             grouped_vals = np.zeros_like(template)
             if valid_members:
                 grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
-                grouped_vals = _values_without_flow(
-                    grouped_hist, include_overflow=True
+                flow_vals = _values_with_flow_or_overflow(grouped_hist)
+                grouped_vals = _visible_from_flow(
+                    flow_vals,
+                    n_bins,
+                    has_underflow=axis_has_underflow,
+                    has_overflow=axis_has_overflow,
+                    include_overflow_hint=includes_overflow_hint,
                 )
                 if unit_norm_bool and mc_scaled:
                     grouped_vals = grouped_vals * mc_norm_factor**2
@@ -1755,18 +1872,18 @@ def _draw_stacked_panel(
             fallback_vals = np.zeros_like(template)
             if missing_members:
                 fallback_hist = h_mc[{"process": missing_members}][{"process": sum}]
-                fallback_vals = _values_without_flow(
-                    fallback_hist, include_overflow=True
+                fallback_flow = _values_with_flow_or_overflow(fallback_hist)
+                fallback_vals = _visible_from_flow(
+                    fallback_flow,
+                    n_bins,
+                    has_underflow=axis_has_underflow,
+                    has_overflow=axis_has_overflow,
+                    include_overflow_hint=includes_overflow_hint,
                 )
                 if unit_norm_bool and mc_scaled:
                     fallback_vals = fallback_vals * mc_norm_factor
 
             mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
-
-    default_bins = summed_data_edges if bins is None else bins
-    if default_bins is None:
-        raise ValueError("Histogram axis has fewer than two edges; cannot determine binning.")
-    bins = np.asarray(default_bins, dtype=float)
 
     log_scale_requested = bool(log_scale)
     log_y_baseline = None
@@ -1814,7 +1931,7 @@ def _draw_stacked_panel(
         ax.set_ylim(bottom=log_y_baseline)
 
     hep.histplot(
-        summed_data_values_flow[1:],
+        summed_data_values,
         ax=ax,
         bins=bins,
         stack=False,
@@ -1824,33 +1941,30 @@ def _draw_stacked_panel(
         **DATA_ERR_OPS,
     )
 
-    data_vals_flow = summed_data_values_flow
-    mc_vals_flow = summed_mc_values_flow
+    data_vals = summed_data_values
+    mc_vals_total = summed_mc_values
 
-    ratio_vals_flow = _safe_divide(
-        data_vals_flow,
-        mc_vals_flow,
+    ratio_vals = _safe_divide(
+        data_vals,
+        mc_vals_total,
         default=np.nan,
         zero_over_zero=1.0,
     )
-    ratio_yerr_flow = _safe_divide(
-        np.sqrt(data_vals_flow),
-        mc_vals_flow,
+    ratio_yerr = _safe_divide(
+        np.sqrt(data_vals),
+        mc_vals_total,
         default=0.0,
     )
-    ratio_yerr_flow[mc_vals_flow == 0] = np.nan
+    ratio_yerr[mc_vals_total == 0] = np.nan
 
-    mc_nonpositive_mask_flow = mc_vals_flow <= 0
-    zero_over_zero_mask_flow = (mc_vals_flow == 0) & (data_vals_flow == 0)
-    mask_for_nan = mc_nonpositive_mask_flow & ~zero_over_zero_mask_flow
+    mc_nonpositive_mask = mc_vals_total <= 0
+    zero_over_zero_mask = (mc_vals_total == 0) & (data_vals == 0)
+    mask_for_nan = mc_nonpositive_mask & ~zero_over_zero_mask
     if np.any(mask_for_nan):
-        ratio_vals_flow = ratio_vals_flow.astype(float, copy=True)
-        ratio_yerr_flow = ratio_yerr_flow.astype(float, copy=True)
-        ratio_vals_flow[mask_for_nan] = np.nan
-        ratio_yerr_flow[mask_for_nan] = np.nan
-
-    ratio_vals = ratio_vals_flow[1:]
-    ratio_yerr = ratio_yerr_flow[1:]
+        ratio_vals = ratio_vals.astype(float, copy=True)
+        ratio_yerr = ratio_yerr.astype(float, copy=True)
+        ratio_vals[mask_for_nan] = np.nan
+        ratio_yerr[mask_for_nan] = np.nan
 
     hep.histplot(
         ratio_vals,
@@ -1863,7 +1977,7 @@ def _draw_stacked_panel(
         **DATA_ERR_OPS,
     )
 
-    mc_totals = summed_mc_values_flow[1:]
+    mc_totals = mc_vals_total
 
     return {
         "fig": fig,
@@ -1909,11 +2023,39 @@ def _compute_uncertainty_bands(
     if mc_totals.size == 0:
         return {"main_band_handles": []}
 
+    def _align_with_mc_totals(array):
+        if array is None:
+            return None
+        values = np.asarray(array, dtype=float)
+        if values.size == mc_totals.size:
+            return values
+        if values.size > mc_totals.size:
+            return values[: mc_totals.size]
+        if values.size < mc_totals.size:
+            padded = np.zeros_like(mc_totals, dtype=float)
+            padded[: values.size] = values
+            return padded
+        return values
+
+    err_p_syst = _align_with_mc_totals(err_p_syst)
+    err_m_syst = _align_with_mc_totals(err_m_syst)
+    err_ratio_p_syst = _align_with_mc_totals(err_ratio_p_syst)
+    err_ratio_m_syst = _align_with_mc_totals(err_ratio_m_syst)
+
     if h_mc_sumw2 is not None:
         if mc_sumw2_vals:
             summed_mc_sumw2 = np.sum(list(mc_sumw2_vals.values()), axis=0)
         else:
-            summed_mc_sumw2 = h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)[1:]
+            summed_mc_sumw2_flow = (
+                h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)
+            )
+            summed_mc_sumw2 = np.asarray(summed_mc_sumw2_flow, dtype=float)[1:]
+            if summed_mc_sumw2.size > mc_totals.size:
+                summed_mc_sumw2 = summed_mc_sumw2[: mc_totals.size]
+            elif summed_mc_sumw2.size < mc_totals.size:
+                padded = np.zeros_like(mc_totals, dtype=float)
+                padded[: summed_mc_sumw2.size] = summed_mc_sumw2
+                summed_mc_sumw2 = padded
             if unit_norm_bool and mc_scaled:
                 summed_mc_sumw2 = summed_mc_sumw2 * mc_norm_factor**2
     else:
@@ -4261,17 +4403,33 @@ def make_region_stacked_ratio_fig(
 
     if recompute_syst_ratio_arrays:
         mc_totals_array = np.asarray(mc_totals, dtype=float)
+
+        def _match_visible_bins(values):
+            if values is None:
+                return None
+            array = np.asarray(values, dtype=float)
+            if array.size == mc_totals_array.size:
+                return array
+            if array.size > mc_totals_array.size:
+                return array[: mc_totals_array.size]
+            padded = np.zeros_like(mc_totals_array, dtype=float)
+            padded[: array.size] = array
+            return padded
+
+        err_p_syst = _match_visible_bins(err_p_syst)
+        err_m_syst = _match_visible_bins(err_m_syst)
+
         with np.errstate(divide="ignore", invalid="ignore"):
             if err_p_syst is not None:
                 err_ratio_p_syst = np.where(
                     mc_totals_array > 0,
-                    np.asarray(err_p_syst, dtype=float) / mc_totals_array,
+                    err_p_syst / mc_totals_array,
                     1.0,
                 )
             if err_m_syst is not None:
                 err_ratio_m_syst = np.where(
                     mc_totals_array > 0,
-                    np.asarray(err_m_syst, dtype=float) / mc_totals_array,
+                    err_m_syst / mc_totals_array,
                     1.0,
                 )
 
