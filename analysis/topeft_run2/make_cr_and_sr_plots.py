@@ -35,6 +35,7 @@ from topeft.modules.yield_tools import YieldTools
 
 _logger = logging.getLogger(__name__)
 _ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = SparseHist._read_from_reduce.__func__
+_VALUES_METHOD_CAPS = {}
 
 
 def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
@@ -3680,17 +3681,29 @@ def _values_with_flow_or_overflow(hist_slice):
 
     values_method = hist_slice.values
 
-    try:
-        signature = inspect.signature(values_method)
-    except (TypeError, ValueError):
-        values = values_method()
-    else:
-        if "overflow" in signature.parameters:
-            values = values_method(overflow="all")
-        elif "flow" in signature.parameters:
-            values = values_method(flow=True)
+    method_key = getattr(values_method, "__func__", values_method)
+    capability = _VALUES_METHOD_CAPS.get(method_key)
+
+    if capability is None:
+        try:
+            signature = inspect.signature(values_method)
+        except (TypeError, ValueError):
+            capability = "none"
         else:
-            values = values_method()
+            if "overflow" in signature.parameters:
+                capability = "overflow"
+            elif "flow" in signature.parameters:
+                capability = "flow"
+            else:
+                capability = "none"
+        _VALUES_METHOD_CAPS[method_key] = capability
+
+    if capability == "overflow":
+        values = values_method(overflow="all")
+    elif capability == "flow":
+        values = values_method(flow=True)
+    else:
+        values = values_method()
 
     if isinstance(values, dict):
         if () in values:
