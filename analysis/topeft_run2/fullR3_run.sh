@@ -127,8 +127,8 @@ RUN2_BUNDLE_ADDED=false
 add_cfg() {
   local cfg_file="$1"
   if [[ ! -f "$cfg_file" ]]; then
-    echo "Warning: Missing cfg file: $cfg_file" >&2
-    return
+    echo "Error: Required cfg file not found: $cfg_file" >&2
+    exit 1
   fi
   if [[ -n "${SEEN_CFGS[$cfg_file]}" ]]; then
     return
