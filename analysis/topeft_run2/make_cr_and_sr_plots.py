@@ -4769,7 +4769,6 @@ def main():
         "-y",
         "--year",
         nargs="+",
-        required=True,
         help="One or more year tokens or aggregates to include (e.g. 2017 2018, run2, run3)",
     )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
@@ -4841,7 +4840,7 @@ def main():
     parser.set_defaults(unblind=None, verbose=False)
     args = parser.parse_args()
     normalized_years = _normalize_year_tokens(args.year)
-    if not normalized_years:
+    if args.year and not normalized_years:
         parser.error(
             "No valid year tokens were provided; expected one or more of: {}".format(
                 ", ".join(sorted(YEAR_TOKEN_RULES))
