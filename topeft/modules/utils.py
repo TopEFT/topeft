@@ -1,11 +1,20 @@
+"""General utility helpers for :mod:`topeft`.
+
+This module also exposes cached wrappers for the rate systematic helpers so
+callers do not re-read ``params/rate_systs.json`` on every invocation.
+"""
+
 import os
 import re
 import json
 import gzip
 import pickle
+import time
+from functools import lru_cache
+from types import MappingProxyType
+
 import cloudpickle
 import uproot
-import time
 
 
 pjoin = os.path.join
@@ -118,6 +127,68 @@ def get_files(top_dir,**kwargs):
             fpath = os.path.join(root,f)
             found.append(fpath)
     return found
+
+
+# Cached rate systematic helpers ################################################
+
+from topeft.modules.get_rate_systs import (
+    get_correlation_tag as _get_correlation_tag,
+    get_jet_dependent_syst_dict as _get_jet_dependent_syst_dict,
+    get_syst as _get_syst,
+    get_syst_lst as _get_syst_lst,
+)
+
+
+@lru_cache(maxsize=None)
+def cached_get_syst(syst_name, proc_name=None, literal=False):
+    """Cached variant of :func:`topeft.modules.get_rate_systs.get_syst`.
+
+    Returns:
+        str | tuple[float, float]: Either the literal systematic string or an
+        immutable pair of down/up scaling factors, depending on *literal*.
+    """
+
+    result = _get_syst(syst_name, proc_name=proc_name, literal=literal)
+    if literal:
+        return result
+    return tuple(result)
+
+
+@lru_cache(maxsize=None)
+def cached_get_syst_lst():
+    """Cached variant of :func:`topeft.modules.get_rate_systs.get_syst_lst`."""
+
+    return tuple(_get_syst_lst())
+
+
+@lru_cache(maxsize=None)
+def cached_get_correlation_tag(syst_type, proc_name):
+    """Cached variant of :func:`topeft.modules.get_rate_systs.get_correlation_tag`."""
+
+    return _get_correlation_tag(syst_type, proc_name)
+
+
+@lru_cache(maxsize=None)
+def cached_get_jet_dependent_syst_dict(process="Diboson"):
+    """Cached variant of :func:`topeft.modules.get_rate_systs.get_jet_dependent_syst_dict`."""
+
+    source = _get_jet_dependent_syst_dict(process)
+    return MappingProxyType(dict(source))
+
+
+_existing_all = globals().get("__all__")
+if isinstance(_existing_all, (list, tuple)):
+    _base_exports = list(_existing_all)
+else:
+    _base_exports = [name for name in globals() if not name.startswith("_")]
+
+__all__ = [
+    *_base_exports,
+    "cached_get_syst",
+    "cached_get_syst_lst",
+    "cached_get_correlation_tag",
+    "cached_get_jet_dependent_syst_dict",
+]
 
 # Extracts event information from a root file
 '''
