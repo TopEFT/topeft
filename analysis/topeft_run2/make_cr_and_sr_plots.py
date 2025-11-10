@@ -3277,6 +3277,7 @@ def produce_region_plots(
 
     worker_count = max(int(workers or 1), 1)
     tasks = list(eligible_variables)
+    base_task_count = len(tasks)
     if not verbose:
         if tasks:
             print(
@@ -3296,7 +3297,7 @@ def produce_region_plots(
                 category_tasks.extend((var_name, hist_cat) for hist_cat in categories)
             else:
                 category_tasks.append(var_name)
-        if len(category_tasks) > len(tasks):
+        if worker_count > base_task_count and len(category_tasks) > base_task_count:
             tasks = category_tasks
 
     if save_dir_path:
