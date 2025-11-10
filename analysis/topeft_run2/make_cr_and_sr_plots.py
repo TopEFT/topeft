@@ -818,11 +818,13 @@ def _initialize_render_worker(
             "Worker render context is not initialised; shared region context was not set."
         )
 
+    shared_payloads = _SHARED_VARIABLE_PAYLOADS
     if prepared_payloads:
         prepared_variables = dict(prepared_payloads)
+    elif shared_payloads is not None:
+        prepared_variables = shared_payloads
     else:
-        shared_payloads = _SHARED_VARIABLE_PAYLOADS
-        prepared_variables = shared_payloads if shared_payloads is not None else {}
+        prepared_variables = {}
 
     global _WORKER_RENDER_CONTEXT
     _WORKER_RENDER_CONTEXT = {
@@ -3461,9 +3463,11 @@ def produce_region_plots(
 
         global _SHARED_REGION_CTX, _SHARED_VARIABLE_PAYLOADS
         _SHARED_REGION_CTX = region_ctx
-        _SHARED_VARIABLE_PAYLOADS = (
-            variable_payload_cache if start_method in (None, "fork") else None
-        )
+        if start_method in (None, "fork"):
+            shared_payloads = variable_payload_cache
+        else:
+            shared_payloads = None
+        _SHARED_VARIABLE_PAYLOADS = shared_payloads
         try:
             with ProcessPoolExecutor(
                 max_workers=max_workers,
