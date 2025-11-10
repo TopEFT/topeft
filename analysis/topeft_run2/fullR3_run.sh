@@ -231,7 +231,7 @@ if [[ "$FLAG_CR" == "true" ]]; then
     OPTIONS+=(-s 50000)
   fi
   OPTIONS+=(
-    --split-lep-flavor
+    #--split-lep-flavor
     -p "/scratch365/$USER/"
     -o "$OUT_NAME"
     -x work_queue

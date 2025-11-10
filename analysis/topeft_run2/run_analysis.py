@@ -348,7 +348,7 @@ if __name__ == "__main__":
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
             "lj0pt",
-            "ptz",
+            # "ptz",
             "met",
             # "ljptsum",
             # "l0pt",
@@ -358,14 +358,14 @@ if __name__ == "__main__":
             # "l1pt",
             # "l1ptcorr",
             "l1conept",
-            "l1eta",
+            # "l1eta",
             "j0pt",
             "j0eta",
             "njets",
-            "nbtagsl",
+            # "nbtagsl",
             "invmass",
-            "npvs",
-            "npvsGood",
+            # "npvs",
+            # "npvsGood",
             # "l0_gen_pdgId",
             # "l1_gen_pdgId",
             # "l2_gen_pdgId",
@@ -594,6 +594,8 @@ if __name__ == "__main__":
             print("Wilson Coefficients: {}.".format(wc_print))
     else:
         print("No Wilson coefficients specified")
+
+    print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
 
     processor_instance = analysis_processor.AnalysisProcessor(
         samplesdict,
