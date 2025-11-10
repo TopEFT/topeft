@@ -790,6 +790,7 @@ def _close_figure_payload(fig_payload):
 
 
 _SHARED_REGION_CTX = None
+_SHARED_VARIABLE_PAYLOADS = None
 _WORKER_RENDER_CONTEXT = None
 
 
@@ -811,6 +812,12 @@ def _initialize_render_worker(
             "Worker render context is not initialised; shared region context was not set."
         )
 
+    if prepared_payloads:
+        prepared_variables = dict(prepared_payloads)
+    else:
+        shared_payloads = _SHARED_VARIABLE_PAYLOADS
+        prepared_variables = shared_payloads if shared_payloads is not None else {}
+
     global _WORKER_RENDER_CONTEXT
     _WORKER_RENDER_CONTEXT = {
         "region_ctx": region_ctx,
@@ -820,7 +827,7 @@ def _initialize_render_worker(
         "unblind_flag": unblind_flag,
         "stacked_log_y": stacked_log_y,
         "verbose": bool(verbose),
-        "prepared_variables": dict(prepared_payloads or {}),
+        "prepared_variables": prepared_variables,
     }
 
 
@@ -842,7 +849,15 @@ def _render_variable_from_worker(task_id, payload):
 
     prepared_cache = ctx.setdefault("prepared_variables", {})
     variable_payload = prepared_cache.get(var_name)
+    needs_payload = False
     if var_name not in prepared_cache:
+        needs_payload = True
+    elif variable_payload is None:
+        needs_payload = True
+    elif isinstance(variable_payload, Mapping) and "hist_mc" not in variable_payload:
+        needs_payload = True
+
+    if needs_payload:
         variable_payload = _prepare_variable_payload(
             var_name,
             ctx["region_ctx"],
@@ -3425,8 +3440,24 @@ def produce_region_plots(
         start_method = multiprocessing.get_start_method(allow_none=True)
         shared_region_ctx = None if start_method in (None, "fork") else region_ctx
 
-        global _SHARED_REGION_CTX
+        if start_method in (None, "fork"):
+            prepared_payloads = None
+        else:
+            prepared_payloads = {
+                var_name: {
+                    "channel_dict": payload["channel_dict"],
+                    "channel_transformations": payload["channel_transformations"],
+                    "is_sparse2d": payload["is_sparse2d"],
+                }
+                for var_name, payload in variable_payload_cache.items()
+                if payload
+            }
+
+        global _SHARED_REGION_CTX, _SHARED_VARIABLE_PAYLOADS
         _SHARED_REGION_CTX = region_ctx
+        _SHARED_VARIABLE_PAYLOADS = (
+            variable_payload_cache if start_method in (None, "fork") else None
+        )
         try:
             with ProcessPoolExecutor(
                 max_workers=max_workers,
@@ -3438,7 +3469,7 @@ def produce_region_plots(
                     unblind_flag,
                     stacked_log_y,
                     verbose,
-                    variable_payload_cache,
+                    prepared_payloads,
                     shared_region_ctx,
                 ),
             ) as executor:
@@ -3461,6 +3492,7 @@ def produce_region_plots(
                     _report_progress(id_to_label.get(task_id, str(task_id)))
         finally:
             _SHARED_REGION_CTX = None
+            _SHARED_VARIABLE_PAYLOADS = None
     else:
         for _, _, label, var_name, hist_cat in task_specs:
             variable_payload = _get_variable_payload(var_name)
