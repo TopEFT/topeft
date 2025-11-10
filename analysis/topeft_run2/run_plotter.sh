@@ -21,6 +21,7 @@ Required arguments:
                            Aggregate aliases expand as follows:
                              run2 → 2016 2016APV 2017 2018
                              run3 → 2022 2022EE 2023 2023BPix
+                           The flag is required; omitting it raises an error.
 
 Optional arguments:
   -n, --name NAME           Name for the output directory (forwarded with -n)
