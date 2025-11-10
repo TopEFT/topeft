@@ -1741,36 +1741,68 @@ def _draw_stacked_panel(
     axis_has_overflow = (
         bool(getattr(axis_traits, "overflow", False)) if axis_traits is not None else None
     )
+    axis_nominal_bins = len(axis_obj) if axis_obj is not None else None
+    includes_overflow_hint = (
+        None
+        if axis_nominal_bins is None
+        else bool(n_bins > axis_nominal_bins)
+    )
 
-    def _visible_from_flow(flow_array, n_bins, *, has_underflow=None, has_overflow=None):
+    def _visible_from_flow(
+        flow_array,
+        n_bins,
+        *,
+        has_underflow=None,
+        has_overflow=None,
+        include_overflow_hint=None,
+    ):
         flow_values = np.asarray(flow_array, dtype=float)
-        if flow_values.ndim == 0 or flow_values.size == n_bins:
+        if flow_values.ndim == 0:
             return flow_values
 
         size = flow_values.size
+        if size == n_bins:
+            return flow_values
 
-        if has_underflow is None:
-            if size == n_bins + 2:
-                has_underflow = True
-            elif size == n_bins + 1:
-                has_underflow = False
-            else:
-                has_underflow = False
+        if n_bins <= 0:
+            return np.zeros(max(n_bins, 0), dtype=flow_values.dtype)
 
-        if has_overflow is None:
-            if size == n_bins + 2:
-                has_overflow = True
-            elif size == n_bins + 1:
-                has_overflow = not has_underflow
-            else:
-                has_overflow = False
+        drop_front = 0
+        drop_back = 0
+        target = n_bins
 
-        start = 1 if has_underflow and size > 0 else 0
-        end = size - (1 if has_overflow and size - start > n_bins else 0)
+        if has_underflow is True and size > target:
+            drop_front = 1
+
+        keep_overflow = include_overflow_hint
+        if has_overflow is True:
+            if keep_overflow is False:
+                if size - drop_front > target:
+                    drop_back = 1
+            elif keep_overflow is None and size - drop_front > target:
+                drop_back = 1
+        elif has_overflow is False:
+            drop_back = 0
+
+        remaining = size - drop_front - drop_back - target
+        if remaining > 0:
+            if keep_overflow is True or (keep_overflow is None and has_underflow in (True, None)):
+                extra_front = min(remaining, size - drop_front - drop_back)
+                drop_front += extra_front
+                remaining -= extra_front
+        if remaining > 0:
+            drop_back += remaining
+
+        start = min(drop_front, size)
+        end = size - min(drop_back, max(size - start, 0))
         visible = flow_values[start:end]
 
         if visible.size > n_bins:
-            visible = visible[:n_bins]
+            trim = visible.size - n_bins
+            if keep_overflow is True:
+                visible = visible[trim:]
+            else:
+                visible = visible[:n_bins]
         elif visible.size < n_bins and n_bins > 0:
             padded = np.zeros(n_bins, dtype=flow_values.dtype)
             padded[: visible.size] = visible
@@ -1785,12 +1817,14 @@ def _draw_stacked_panel(
         n_bins,
         has_underflow=axis_has_underflow,
         has_overflow=axis_has_overflow,
+        include_overflow_hint=includes_overflow_hint,
     )
     summed_data_values = _visible_from_flow(
         summed_data_values_flow,
         n_bins,
         has_underflow=axis_has_underflow,
         has_overflow=axis_has_overflow,
+        include_overflow_hint=includes_overflow_hint,
     )
 
     def _get_grouped_vals(hist_obj, grouping_map):
@@ -1803,6 +1837,7 @@ def _draw_stacked_panel(
                 n_bins,
                 has_underflow=axis_has_underflow,
                 has_overflow=axis_has_overflow,
+                include_overflow_hint=includes_overflow_hint,
             )
         return grouped_values
 
@@ -1829,6 +1864,7 @@ def _draw_stacked_panel(
                     n_bins,
                     has_underflow=axis_has_underflow,
                     has_overflow=axis_has_overflow,
+                    include_overflow_hint=includes_overflow_hint,
                 )
                 if unit_norm_bool and mc_scaled:
                     grouped_vals = grouped_vals * mc_norm_factor**2
@@ -1842,6 +1878,7 @@ def _draw_stacked_panel(
                     n_bins,
                     has_underflow=axis_has_underflow,
                     has_overflow=axis_has_overflow,
+                    include_overflow_hint=includes_overflow_hint,
                 )
                 if unit_norm_bool and mc_scaled:
                     fallback_vals = fallback_vals * mc_norm_factor
