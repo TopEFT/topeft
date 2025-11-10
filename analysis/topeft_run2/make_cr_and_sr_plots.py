@@ -200,6 +200,17 @@ YEAR_AGGREGATE_ALIASES = {
     "run3": ("2022", "2022EE", "2023", "2023BPix"),
 }
 
+CHANNEL_OUTPUT_CHOICES = {
+    "merged": ("aggregate",),
+    "split": ("per-channel",),
+    "both": ("aggregate", "per-channel"),
+}
+
+CHANNEL_MODE_LABELS = {
+    "aggregate": "merged",
+    "per-channel": "split",
+}
+
 _YEAR_TOKEN_CANONICAL = {token.lower(): token for token in YEAR_TOKEN_RULES}
 
 YEAR_WHITELIST_OPTIONALS = set()
@@ -2933,7 +2944,7 @@ def _resolve_lumi_pair(year_tokens):
     return (_format_decimal_string(combined_lumi), com_tags.pop())
 
 
-def build_region_context(region,dict_of_hists,years,unblind=None):
+def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mode_override=None):
     region_upper = region.upper()
     if region_upper not in ["CR","SR"]:
         raise ValueError(f"Unsupported region '{region}'.")
@@ -3153,6 +3164,14 @@ def build_region_context(region,dict_of_hists,years,unblind=None):
     category_skip_rules = region_plot_cfg.get("category_skips", [])
     skip_sparse_2d = region_plot_cfg.get("skip_sparse_2d", False)
     channel_mode = region_plot_cfg.get("channel_mode", "per-channel")
+    if channel_mode_override is not None:
+        if channel_mode_override not in ("aggregate", "per-channel"):
+            raise ValueError(
+                "Unsupported channel_mode_override '{}'. Expected 'aggregate' or 'per-channel'.".format(
+                    channel_mode_override
+                )
+            )
+        channel_mode = channel_mode_override
     variable_label = region_plot_cfg.get("variable_label", "Variable")
     debug_channel_lists = region_plot_cfg.get("debug_channel_lists", False)
     sumw2_remove_signal = region_plot_cfg.get("sumw2_remove_signal", False)
@@ -4902,24 +4921,42 @@ def run_plots_for_region(
     unblind=None,
     workers=1,
     verbose=False,
+    channel_output="merged",
 ):
-    region_ctx = build_region_context(
-        region_name,
-        dict_of_hists,
-        years,
-        unblind=unblind,
-    )
-    produce_region_plots(
-        region_ctx,
-        save_dir_path,
-        variables,
-        skip_syst_errs,
-        unit_norm_bool,
-        stacked_log_y,
-        unblind=unblind,
-        workers=workers,
-        verbose=verbose,
-    )
+    requested_channel_modes = CHANNEL_OUTPUT_CHOICES.get(channel_output)
+    if requested_channel_modes is None:
+        raise ValueError(
+            "Unsupported channel_output '{}' requested. Expected one of: {}".format(
+                channel_output, ", ".join(sorted(CHANNEL_OUTPUT_CHOICES))
+            )
+        )
+
+    multi_mode = len(requested_channel_modes) > 1 or channel_output != "merged"
+
+    for channel_mode in requested_channel_modes:
+        region_ctx = build_region_context(
+            region_name,
+            dict_of_hists,
+            years,
+            unblind=unblind,
+            channel_mode_override=channel_mode,
+        )
+
+        if multi_mode:
+            mode_label = CHANNEL_MODE_LABELS.get(channel_mode, channel_mode)
+            print(f"\n[{region_ctx.name}] Channel output mode: {mode_label}")
+
+        produce_region_plots(
+            region_ctx,
+            save_dir_path,
+            variables,
+            skip_syst_errs,
+            unit_norm_bool,
+            stacked_log_y,
+            unblind=unblind,
+            workers=workers,
+            verbose=verbose,
+        )
 
 def main():
 
@@ -4934,6 +4971,15 @@ def main():
         "--year",
         nargs="+",
         help="One or more year tokens or aggregates to include (e.g. 2017 2018, run2, run3)",
+    )
+    parser.add_argument(
+        "--channel-output",
+        choices=("merged", "split", "both"),
+        default="merged",
+        help=(
+            "Control how channel categories are rendered: 'merged' integrates each category before plotting, "
+            "'split' keeps the individual channels, and 'both' renders both sets (default: merged)."
+        ),
     )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     parser.add_argument(
@@ -5057,6 +5103,7 @@ def main():
             "unblinded" if resolved_unblind else "blinded", blinding_source
         )
     )
+    print(f"Channel output selection: {args.channel_output}")
 
     normalized_variables = []
     if args.variables is not None:
@@ -5120,6 +5167,7 @@ def main():
         unblind=resolved_unblind,
         workers=args.workers,
         verbose=args.verbose,
+        channel_output=args.channel_output,
     )
 if __name__ == "__main__":
     main()

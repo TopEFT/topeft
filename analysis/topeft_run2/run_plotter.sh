@@ -31,6 +31,7 @@ Optional arguments:
       --log-y              Use a logarithmic y-axis for the stacked panel
       --variables VAR [VAR...]  Limit plotting to the listed histogram variables
       --workers N          Number of worker processes for parallel plotting (default: 1; start with 2-4; higher values use more memory)
+      --channel-output MODE  Forward merged/split channel selection (merged, split, both; default: merged)
   -v, --verbose            Forward --verbose to enable detailed diagnostics
       --quiet              Forward --quiet to suppress per-variable chatter (default)
       --cr | --sr           Override the auto-detected region
@@ -61,6 +62,7 @@ declare -a variables=()
 workers=1
 dry_run=0
 verbosity=""
+channel_output=""
 
 trim_whitespace() {
     local value="$1"
@@ -241,6 +243,22 @@ while [[ $# -gt 0 ]]; do
             workers="$2"
             shift 2
             ;;
+        --channel-output)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: Missing value for --channel-output" >&2
+                exit 1
+            fi
+            channel_output="${2,,}"
+            case "${channel_output}" in
+                merged|split|both)
+                    ;;
+                *)
+                    echo "Error: --channel-output expects one of: merged, split, both" >&2
+                    exit 1
+                    ;;
+            esac
+            shift 2
+            ;;
         -v|--verbose)
             verbosity="verbose"
             shift
@@ -380,6 +398,9 @@ fi
 if (( ${#variables[@]} > 0 )); then
     echo "Selected variables: ${variables[*]}"
 fi
+if [[ -n "${channel_output}" ]]; then
+    echo "Channel output selection: ${channel_output}"
+fi
 
 if (( log_y )); then
     echo "Stacked panel will use a logarithmic y-axis."
@@ -436,6 +457,9 @@ if (( ${#variables[@]} > 0 )); then
     cmd+=("${variables[@]}")
 fi
 cmd+=("--workers" "${workers}")
+if [[ -n "${channel_output}" ]]; then
+    cmd+=("--channel-output" "${channel_output}")
+fi
 case "${verbosity}" in
     verbose)
         cmd+=("--verbose")
