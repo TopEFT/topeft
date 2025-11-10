@@ -13,6 +13,7 @@ import inspect
 import math
 import warnings
 import itertools
+import multiprocessing
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -789,17 +790,19 @@ def _initialize_render_worker(
     stacked_log_y,
     verbose,
     prepared_payloads=None,
+    shared_region_ctx=None,
 ):
     """Store shared plotting context inside a worker process."""
 
-    if _SHARED_REGION_CTX is None:
+    region_ctx = _SHARED_REGION_CTX or shared_region_ctx
+    if region_ctx is None:
         raise RuntimeError(
             "Worker render context is not initialised; shared region context was not set."
         )
 
     global _WORKER_RENDER_CONTEXT
     _WORKER_RENDER_CONTEXT = {
-        "region_ctx": _SHARED_REGION_CTX,
+        "region_ctx": region_ctx,
         "save_dir_path": save_dir_path,
         "skip_syst_errs": skip_syst_errs,
         "unit_norm_bool": unit_norm_bool,
@@ -3352,6 +3355,9 @@ def produce_region_plots(
 
         max_workers = min(worker_count, total_tasks)
 
+        start_method = multiprocessing.get_start_method(allow_none=True)
+        shared_region_ctx = None if start_method in (None, "fork") else region_ctx
+
         global _SHARED_REGION_CTX
         _SHARED_REGION_CTX = region_ctx
         try:
@@ -3366,6 +3372,7 @@ def produce_region_plots(
                     stacked_log_y,
                     verbose,
                     None,
+                    shared_region_ctx,
                 ),
             ) as executor:
                 id_to_label = {
