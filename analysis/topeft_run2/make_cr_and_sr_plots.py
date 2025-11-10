@@ -47,25 +47,35 @@ def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_his
 
         if dense_hists:
             categorical_axes = histogram.categorical_axes
-            if categorical_axes and all(getattr(axis.traits, "growth", False) for axis in categorical_axes):
-                axis_names = tuple(axis.name for axis in categorical_axes)
+            if categorical_axes:
+                axis_growth_flags = tuple(
+                    getattr(axis.traits, "growth", False) for axis in categorical_axes
+                )
+                growth_axes = tuple(
+                    axis for axis, grows in zip(categorical_axes, axis_growth_flags) if grows
+                )
+                if growth_axes:
+                    axis_names = tuple(axis.name for axis in growth_axes)
 
-                def _chunked(iterable, size):
-                    iterator = iter(iterable)
-                    while True:
-                        batch = list(itertools.islice(iterator, size))
-                        if not batch:
-                            break
-                        yield batch
+                    def _chunked(iterable, size):
+                        iterator = iter(iterable)
+                        while True:
+                            batch = list(itertools.islice(iterator, size))
+                            if not batch:
+                                break
+                            yield batch
 
-                for batch_keys in _chunked(dense_hists.keys(), 2048):
-                    fill_payload = {name: [] for name in axis_names}
-                    for index_key in batch_keys:
-                        categories = histogram.index_to_categories(index_key)
-                        for axis_name, category in zip(axis_names, categories):
-                            fill_payload[axis_name].append(category)
+                    for batch_keys in _chunked(dense_hists.keys(), 2048):
+                        fill_payload = {name: [] for name in axis_names}
+                        for index_key in batch_keys:
+                            categories = histogram.index_to_categories(index_key)
+                            for axis, category, grows in zip(
+                                categorical_axes, categories, axis_growth_flags
+                            ):
+                                if grows:
+                                    fill_payload[axis.name].append(category)
 
-                    hist.Hist.fill(histogram, **fill_payload)
+                        hist.Hist.fill(histogram, **fill_payload)
 
         histogram._dense_hists = (
             dense_hists.copy() if hasattr(dense_hists, "copy") else dict(dense_hists)
