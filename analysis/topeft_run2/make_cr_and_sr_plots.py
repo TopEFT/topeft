@@ -957,6 +957,7 @@ def _prepare_variable_payload(
     channel_dict = _apply_channel_dict_transformations(
         region_ctx.channel_map, channel_transformations
     )
+    channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
 
     if metadata_only:
         return {
@@ -2758,6 +2759,63 @@ def _apply_channel_dict_transformations(channel_dict, transformations):
     return transformed_dict
 
 
+def _categorize_channel_dict_entries(channel_dict):
+    """Return the sets of aggregate and per-channel keys for *channel_dict*."""
+
+    normalized = []
+    for key, channel_bins in channel_dict.items():
+        if channel_bins is None:
+            bin_values = ()
+        else:
+            bin_values = tuple(channel_bins)
+        normalized.append((key, frozenset(bin_values)))
+
+    aggregate_keys = set()
+    per_channel_keys = set()
+
+    for key, bin_set in normalized:
+        is_subset = False
+        is_superset = False
+        for other_key, other_set in normalized:
+            if key == other_key:
+                continue
+            if bin_set < other_set:
+                is_subset = True
+            if bin_set > other_set:
+                is_superset = True
+            if is_subset and is_superset:
+                break
+        if not is_subset:
+            aggregate_keys.add(key)
+        if not is_superset:
+            per_channel_keys.add(key)
+
+    return aggregate_keys, per_channel_keys
+
+
+def _filter_channel_dict_for_mode(channel_dict, region_ctx):
+    """Return *channel_dict* filtered according to the region channel mode."""
+
+    channel_mode = region_ctx.channel_mode
+    if channel_mode not in {"aggregate", "per-channel"}:
+        return dict(channel_dict)
+
+    aggregate_keys, per_channel_keys = _categorize_channel_dict_entries(channel_dict)
+    if channel_mode == "aggregate":
+        allowed_keys = aggregate_keys
+    else:
+        allowed_keys = per_channel_keys
+
+    if not allowed_keys:
+        return dict(channel_dict)
+
+    return {
+        key: channel_dict[key]
+        for key in channel_dict
+        if key in allowed_keys
+    }
+
+
 def _match_category(hist_cat, categories_cfg):
     if not categories_cfg:
         return True
@@ -3317,7 +3375,7 @@ def produce_region_plots(
     variable_payload_cache = {}
     variable_categories = {}
     eligible_variables = []
-    category_dirs = set(region_ctx.channel_map.keys()) if save_dir_path else set()
+    category_dirs = set()
     for var_name in variables_to_plot:
         if "sumw2" in var_name:
             continue
