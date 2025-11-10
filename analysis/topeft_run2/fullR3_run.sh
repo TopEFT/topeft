@@ -102,10 +102,14 @@ CFGS_PATH="../../input_samples/cfgs"
 CFGS_LIST=()
 
 declare -A RUN2_YEAR_MAP=(
-  [2016]=1
-  [2016APV]=1
-  [2017]=1
-  [2018]=1
+  [2016]=2016
+  [UL16]=2016
+  [2016APV]=2016APV
+  [UL16APV]=2016APV
+  [2017]=2017
+  [UL17]=2017
+  [2018]=2018
+  [UL18]=2018
 )
 
 RUN2_CFGS_SR=(
@@ -122,6 +126,8 @@ RUN2_CFGS_CR=(
 )
 
 declare -A SEEN_CFGS=()
+declare -A FILTER_YEAR_SEEN=()
+RUN2_FILTER_YEARS=()
 RUN2_BUNDLE_ADDED=false
 
 add_cfg() {
@@ -138,6 +144,7 @@ add_cfg() {
 }
 
 for YEAR in "${YEARS[@]}"; do
+  filter_year=""
   if [[ -n "${RUN2_YEAR_MAP[$YEAR]}" ]]; then
     if [[ "$RUN2_BUNDLE_ADDED" == "false" ]]; then
       if [[ "$FLAG_CR" == "true" ]]; then
@@ -151,18 +158,24 @@ for YEAR in "${YEARS[@]}"; do
       fi
       RUN2_BUNDLE_ADDED=true
     fi
-    continue
+    filter_year="${RUN2_YEAR_MAP[$YEAR]}"
+  else
+    YEAR_CFGS=(
+      "${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
+      "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
+      "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
+    )
+
+    for CFG in "${YEAR_CFGS[@]}"; do
+      add_cfg "$CFG"
+    done
+    filter_year="$YEAR"
   fi
 
-  YEAR_CFGS=(
-    "${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
-    "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
-    "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-  )
-
-  for CFG in "${YEAR_CFGS[@]}"; do
-    add_cfg "$CFG"
-  done
+  if [[ -n "$filter_year" && -z "${FILTER_YEAR_SEEN[$filter_year]}" ]]; then
+    RUN2_FILTER_YEARS+=("$filter_year")
+    FILTER_YEAR_SEEN[$filter_year]=1
+  fi
 done
 CFGS=$(IFS=,; echo "${CFGS_LIST[*]}")
 
@@ -192,6 +205,9 @@ fi
 # Build and run the command
 RUN_CMD=(python run_analysis.py "$CFGS")
 RUN_CMD+=("${OPTIONS[@]}")
+if [[ "$RUN2_BUNDLE_ADDED" == "true" ]]; then
+  RUN_CMD+=(--years "${RUN2_FILTER_YEARS[@]}")
+fi
 RUN_CMD+=("${EXTRA_ARGS[@]}")
 
 printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
