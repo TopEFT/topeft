@@ -886,14 +886,16 @@ def _prepare_variable_payload(
             "is_sparse2d": is_sparse2d,
         }
 
-    hist_mc = histo.remove("process", region_ctx.samples_to_remove["mc"])
-    hist_data = histo.remove("process", region_ctx.samples_to_remove["data"])
+    mc_to_remove = tuple(region_ctx.samples_to_remove.get("mc") or ())
+    data_to_remove = tuple(region_ctx.samples_to_remove.get("data") or ())
+
+    hist_mc = histo if not mc_to_remove else histo.remove("process", mc_to_remove)
+    hist_data = histo if not data_to_remove else histo.remove("process", data_to_remove)
     hist_mc_sumw2_orig = region_ctx.sumw2_hists.get(var_name)
 
     if hist_mc_sumw2_orig is not None:
-        hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
-            "process", region_ctx.samples_to_remove["mc"]
-        )
+        if mc_to_remove:
+            hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", mc_to_remove)
         if region_ctx.sumw2_remove_signal and region_ctx.signal_samples:
             existing_signal = [
                 sample
