@@ -32,7 +32,7 @@ from topeft.modules.axes import info_2d as axes_info_2d
 
 from topcoffea.scripts.make_html import make_html
 #import topcoffea.modules.utils as utils
-import topeft.modules.utils as utils
+import topeft.modules.utils as te_utils
 from topeft.modules.yield_tools import YieldTools
 
 
@@ -94,7 +94,6 @@ SparseHist._read_from_reduce = classmethod(_fast_sparsehist_from_reduce)
 
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
-import topeft.modules.get_rate_systs as grs
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 import yaml
@@ -1137,6 +1136,7 @@ def _render_variable_category(
                 hist_mc_integrated,
                 region_ctx.group_map,
                 group_type=region_ctx.name,
+                rate_syst_by_sample=region_ctx.rate_syst_by_sample,
             )
             shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
                 hist_mc_integrated,
@@ -1351,6 +1351,7 @@ def _render_variable_category(
                     hist_mc_channel,
                     region_ctx.group_map,
                     group_type=region_ctx.name,
+                    rate_syst_by_sample=region_ctx.rate_syst_by_sample,
                 )
                 shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
                     hist_mc_channel,
@@ -2843,6 +2844,7 @@ class RegionContext(object):
         sumw2_remove_signal=False,
         sumw2_remove_signal_when_blinded=False,
         use_mc_as_data_when_blinded=False,
+        rate_syst_by_sample=None,
     ):
         self.name = name
         self.dict_of_hists = dict_of_hists
@@ -2896,6 +2898,7 @@ class RegionContext(object):
             sumw2_remove_signal_when_blinded
         )
         self.use_mc_as_data_when_blinded = bool(use_mc_as_data_when_blinded)
+        self.rate_syst_by_sample = rate_syst_by_sample
 
 
 def _format_decimal_string(value):
@@ -3017,7 +3020,7 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
         """Return samples that satisfy blacklist rules and multi-token requirements."""
 
         if len(whitelist) <= 1 and not allow_data_driven_reinsertion:
-            return utils.filter_lst_of_strs(
+            return te_utils.filter_lst_of_strs(
                 all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
             )
 
@@ -3220,6 +3223,13 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
         global SR_GRP_MAP
         SR_GRP_MAP = group_map
 
+    rate_syst_by_sample = {
+        sample_name: get_rate_systs(
+            sample_name, group_map, group_type=region_upper
+        )
+        for sample_name in dict.fromkeys(filtered_mc_samples or [])
+    }
+
     return RegionContext(
         region_upper,
         dict_of_hists,
@@ -3248,6 +3258,7 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
         sumw2_remove_signal=sumw2_remove_signal,
         sumw2_remove_signal_when_blinded=sumw2_remove_signal_when_blinded,
         use_mc_as_data_when_blinded=use_mc_as_data_when_blinded,
+        rate_syst_by_sample=rate_syst_by_sample,
     )
 
 
@@ -3596,7 +3607,9 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type="
                 # Would be better to handle this in a more general way
                 corr_tag = None
             else:
-                corr_tag = grs.get_correlation_tag(uncertainty_name,proc_name_in_json)
+                corr_tag = te_utils.cached_get_correlation_tag(
+                    uncertainty_name, proc_name_in_json
+                )
     return corr_tag
 
 # This function gets all of the the rate systematics from the json file
@@ -3608,55 +3621,64 @@ def get_rate_systs(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type=group_type)
 
     # Get the lumi uncty for this sample (same for all samles)
-    lumi_uncty = grs.get_syst("lumi")
+    lumi_uncty = te_utils.cached_get_syst("lumi")
 
     # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if sample_name in sample_group_map["Flips"]:
-        flip_uncty = grs.get_syst("charge_flips","charge_flips_sm")
+        flip_uncty = te_utils.cached_get_syst("charge_flips", "charge_flips_sm")
     else:
-        flip_uncty = [1.0,1,0]
+        flip_uncty = (1.0, 1, 0)
 
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
         if scale_name_for_json in PROC_WITHOUT_PDF_RATE_SYST:
             # Special cases for when we do not have a pdf uncty (this is a really brittle workaround)
             # NOTE Someday should fix this, it's a really hardcoded and brittle and bad workaround
-            pdf_uncty = [1.0,1,0]
+            pdf_uncty = (1.0, 1, 0)
         else:
-            pdf_uncty = grs.get_syst("pdf_scale",scale_name_for_json)
+            pdf_uncty = te_utils.cached_get_syst("pdf_scale", scale_name_for_json)
         if scale_name_for_json == "convs":
             # Special case for conversions, since we estimate these from a LO sample, so we don't have an NLO uncty here
             # Would be better to handle this in a more general way
-            qcd_uncty = [1.0,1,0]
+            qcd_uncty = (1.0, 1, 0)
         else:
             # In all other cases, use the qcd scale uncty that we have for the process
-            qcd_uncty = grs.get_syst("qcd_scale",scale_name_for_json)
+            qcd_uncty = te_utils.cached_get_syst("qcd_scale", scale_name_for_json)
     else:
-        pdf_uncty = [1.0,1,0]
-        qcd_uncty = [1.0,1,0]
+        pdf_uncty = (1.0, 1, 0)
+        qcd_uncty = (1.0, 1, 0)
 
     out_dict = {"pdf_scale":pdf_uncty, "qcd_scale":qcd_uncty, "lumi":lumi_uncty, "charge_flips":flip_uncty}
     return out_dict
 
 
 # Wrapper for getting plus and minus rate arrs
-def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
+def get_rate_syst_arrs(
+    base_histo,
+    proc_group_map,
+    group_type="CR",
+    rate_syst_by_sample=None,
+):
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
     rate_syst_arr_dict = {}
     process_labels = yt.get_cat_lables(base_histo, "process")
 
+    nominal_projection = base_histo.integrate("systematic", "nominal")
     cached_rates = []
     for sample_name in process_labels:
-        nominal_hist = (
-            base_histo.integrate("process", sample_name)
-            .integrate("systematic", "nominal")
+        thissample_nom_arr = _eval_without_underflow(
+            nominal_projection[{"process": sample_name}]
         )
-        thissample_nom_arr = _eval_without_underflow(nominal_hist)
-        rate_syst_dict = get_rate_systs(sample_name, proc_group_map, group_type=group_type)
+        if rate_syst_by_sample and sample_name in rate_syst_by_sample:
+            rate_syst_dict = rate_syst_by_sample[sample_name]
+        else:
+            rate_syst_dict = get_rate_systs(
+                sample_name, proc_group_map, group_type=group_type
+            )
         cached_rates.append((sample_name, thissample_nom_arr, rate_syst_dict))
 
-    for rate_sys_type in grs.get_syst_lst():
+    for rate_sys_type in te_utils.cached_get_syst_lst():
         rate_syst_arr_dict[rate_sys_type] = {}
         for sample_name, thissample_nom_arr, rate_syst_dict in cached_rates:
 
@@ -3990,7 +4012,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
     # Get the list of njets vals for which we have SFs
     sf_int_lst = []
-    diboson_njets_dict = grs.get_jet_dependent_syst_dict()
+    diboson_njets_dict = te_utils.cached_get_jet_dependent_syst_dict()
     sf_str_lst = list(diboson_njets_dict.keys())
     for s in sf_str_lst: sf_int_lst.append(int(s))
     min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
@@ -5137,7 +5159,7 @@ def main():
         print(
             f"[{load_start_time:%H:%M:%S}] Loading histograms from '{args.pkl_file_path}'..."
         )
-    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path, allow_empty=False)
+    hin_dict = te_utils.get_hist_from_pkl(args.pkl_file_path, allow_empty=False)
     if args.verbose:
         load_finish_time = datetime.datetime.now()
         print(
