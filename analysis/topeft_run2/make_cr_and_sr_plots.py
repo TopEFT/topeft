@@ -136,10 +136,45 @@ YEAR_TOKEN_RULES = {
     "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
 }
 
+YEAR_AGGREGATE_ALIASES = {
+    "run2": ("2016", "2016APV", "2017", "2018"),
+    "run3": ("2022", "2022EE", "2023", "2023BPix"),
+}
+
+_YEAR_TOKEN_CANONICAL = {token.lower(): token for token in YEAR_TOKEN_RULES}
+
 YEAR_WHITELIST_OPTIONALS = set()
 for _year_rule in YEAR_TOKEN_RULES.values():
     YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("mc_wl", []))
     YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("data_wl", []))
+
+
+def _normalize_year_tokens(raw_values):
+    """Return canonical year tokens expanded from *raw_values*.
+
+    Aggregate aliases such as ``run2``/``run3`` are expanded, inputs are
+    interpreted case-insensitively, and the returned sequence contains only
+    tokens known to :data:`YEAR_TOKEN_RULES`.
+    """
+
+    normalized = []
+    seen = set()
+    for raw_value in raw_values or ():
+        if raw_value is None:
+            continue
+        for token in str(raw_value).split(","):
+            cleaned = token.strip()
+            if not cleaned:
+                continue
+            lowered = cleaned.lower()
+            expansion = YEAR_AGGREGATE_ALIASES.get(lowered, (cleaned,))
+            for expanded in expansion:
+                canonical = _YEAR_TOKEN_CANONICAL.get(str(expanded).strip().lower())
+                if canonical is None or canonical in seen:
+                    continue
+                seen.add(canonical)
+                normalized.append(canonical)
+    return normalized
 
 
 def _hist_has_content(histogram):
@@ -178,7 +213,7 @@ def _hist_has_content(histogram):
 logger = logging.getLogger(__name__)
 
 # This script takes an input pkl file that should have both data and background MC included.
-# Use the -y option to specify one or more years; if no year is specified, all years will be included.
+# Use the -y option to specify one or more years.
 # There are various other options available from the command line.
 # For example, to make unit normalized plots for 2017+2018, with the timestamp appended to the directory name, you would run:
 #     python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2017 2018 -t -u
@@ -4734,8 +4769,8 @@ def main():
         "-y",
         "--year",
         nargs="+",
-        default=None,
-        help="One or more year tokens to include (e.g. 2017 2018)",
+        required=True,
+        help="One or more year tokens or aggregates to include (e.g. 2017 2018, run2, run3)",
     )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     parser.add_argument(
@@ -4805,19 +4840,14 @@ def main():
     )
     parser.set_defaults(unblind=None, verbose=False)
     args = parser.parse_args()
-    normalized_years = []
-    if args.year is not None:
-        seen_years = set()
-        for raw_value in args.year:
-            if raw_value is None:
-                continue
-            for token in str(raw_value).split(","):
-                cleaned = token.strip()
-                if not cleaned or cleaned in seen_years:
-                    continue
-                seen_years.add(cleaned)
-                normalized_years.append(cleaned)
-    selected_years = normalized_years if normalized_years else None
+    normalized_years = _normalize_year_tokens(args.year)
+    if not normalized_years:
+        parser.error(
+            "No valid year tokens were provided; expected one or more of: {}".format(
+                ", ".join(sorted(YEAR_TOKEN_RULES))
+            )
+        )
+    selected_years = normalized_years
 
     def _detect_region_from_path(path):
         if not path:
