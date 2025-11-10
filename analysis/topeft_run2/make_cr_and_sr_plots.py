@@ -59,25 +59,31 @@ def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_his
                 if growth_axes:
                     axis_names = tuple(axis.name for axis in growth_axes)
 
-                    def _chunked(iterable, size):
-                        iterator = iter(iterable)
-                        while True:
-                            batch = list(itertools.islice(iterator, size))
-                            if not batch:
-                                break
-                            yield batch
+                    fill_payload = {name: [] for name in axis_names}
+                    convert_index = histogram.index_to_categories
+                    max_batch = 500_000
 
-                    for batch_keys in _chunked(dense_hists.keys(), 2048):
-                        fill_payload = {name: [] for name in axis_names}
-                        for index_key in batch_keys:
-                            categories = histogram.index_to_categories(index_key)
-                            for axis, category, grows in zip(
-                                categorical_axes, categories, axis_growth_flags
-                            ):
-                                if grows:
-                                    fill_payload[axis.name].append(category)
+                    def _flush_batch():
+                        if fill_payload[axis_names[0]]:
+                            hist.Hist.fill(histogram, **fill_payload)
+                            for values in fill_payload.values():
+                                values.clear()
 
-                        hist.Hist.fill(histogram, **fill_payload)
+                    for index_key in dense_hists.keys():
+                        categories = tuple(convert_index(index_key))
+                        appended = False
+                        for axis, category, grows in zip(
+                            categorical_axes, categories, axis_growth_flags
+                        ):
+                            if grows:
+                                fill_payload[axis.name].append(category)
+                                appended = True
+
+                        if appended and len(fill_payload[axis_names[0]]) >= max_batch:
+                            _flush_batch()
+
+                    if fill_payload and axis_names:
+                        _flush_batch()
 
         histogram._dense_hists = (
             dense_hists.copy() if hasattr(dense_hists, "copy") else dict(dense_hists)
