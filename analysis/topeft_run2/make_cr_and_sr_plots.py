@@ -4291,17 +4291,33 @@ def make_region_stacked_ratio_fig(
 
     if recompute_syst_ratio_arrays:
         mc_totals_array = np.asarray(mc_totals, dtype=float)
+
+        def _match_visible_bins(values):
+            if values is None:
+                return None
+            array = np.asarray(values, dtype=float)
+            if array.size == mc_totals_array.size:
+                return array
+            if array.size > mc_totals_array.size:
+                return array[: mc_totals_array.size]
+            padded = np.zeros_like(mc_totals_array, dtype=float)
+            padded[: array.size] = array
+            return padded
+
+        err_p_syst = _match_visible_bins(err_p_syst)
+        err_m_syst = _match_visible_bins(err_m_syst)
+
         with np.errstate(divide="ignore", invalid="ignore"):
             if err_p_syst is not None:
                 err_ratio_p_syst = np.where(
                     mc_totals_array > 0,
-                    np.asarray(err_p_syst, dtype=float) / mc_totals_array,
+                    err_p_syst / mc_totals_array,
                     1.0,
                 )
             if err_m_syst is not None:
                 err_ratio_m_syst = np.where(
                     mc_totals_array > 0,
-                    np.asarray(err_m_syst, dtype=float) / mc_totals_array,
+                    err_m_syst / mc_totals_array,
                     1.0,
                 )
 
