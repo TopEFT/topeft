@@ -22,6 +22,7 @@ FLAG_CR=false
 FLAG_SR=false
 EXTRA_ARGS=()
 YEARS=()
+USER_CHUNK_OVERRIDE=false
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -63,6 +64,16 @@ while [[ $# -gt 0 ]]; do
     *)
       EXTRA_ARGS+=("$1")
       shift
+      ;;
+  esac
+done
+
+# Detect if a user-specified chunk size was provided
+for ARG in "${EXTRA_ARGS[@]}"; do
+  case "$ARG" in
+    -s|--chunksize|--chunksize=*)
+      USER_CHUNK_OVERRIDE=true
+      break
       ;;
   esac
 done
@@ -186,7 +197,11 @@ if [[ "$FLAG_CR" == "true" ]]; then
   OPTIONS=(
     --hist-list cr
     --skip-sr
-    -s 50000
+  )
+  if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
+    OPTIONS+=(-s 50000)
+  fi
+  OPTIONS+=(
     --split-lep-flavor
     -p "/scratch365/$USER/"
     -o "$OUT_NAME"
@@ -197,9 +212,11 @@ else
     --hist-list ana
     --skip-cr
     --do-systs
-    -s 50000
-    -o "$OUT_NAME"
   )
+  if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
+    OPTIONS+=(-s 50000)
+  fi
+  OPTIONS+=(-o "$OUT_NAME")
 fi
 
 # Build and run the command
