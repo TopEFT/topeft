@@ -12,6 +12,7 @@ from decimal import Decimal
 import inspect
 import math
 import warnings
+import itertools
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -47,13 +48,34 @@ def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_his
         if dense_hists:
             categorical_axes = histogram.categorical_axes
             if categorical_axes:
-                fill_payload = {axis.name: [] for axis in categorical_axes}
-                for index_key in dense_hists:
-                    categories = histogram.index_to_categories(index_key)
-                    for axis, category in zip(categorical_axes, categories):
-                        fill_payload[axis.name].append(category)
+                axis_growth_flags = tuple(
+                    getattr(axis.traits, "growth", False) for axis in categorical_axes
+                )
+                growth_axes = tuple(
+                    axis for axis, grows in zip(categorical_axes, axis_growth_flags) if grows
+                )
+                if growth_axes:
+                    axis_names = tuple(axis.name for axis in growth_axes)
 
-                hist.Hist.fill(histogram, **fill_payload)
+                    def _chunked(iterable, size):
+                        iterator = iter(iterable)
+                        while True:
+                            batch = list(itertools.islice(iterator, size))
+                            if not batch:
+                                break
+                            yield batch
+
+                    for batch_keys in _chunked(dense_hists.keys(), 2048):
+                        fill_payload = {name: [] for name in axis_names}
+                        for index_key in batch_keys:
+                            categories = histogram.index_to_categories(index_key)
+                            for axis, category, grows in zip(
+                                categorical_axes, categories, axis_growth_flags
+                            ):
+                                if grows:
+                                    fill_payload[axis.name].append(category)
+
+                        hist.Hist.fill(histogram, **fill_payload)
 
         histogram._dense_hists = (
             dense_hists.copy() if hasattr(dense_hists, "copy") else dict(dense_hists)
@@ -4221,91 +4243,95 @@ def make_region_stacked_ratio_fig(
     if bins:
         target_edges = _validate_bin_edges(bins)
 
-        mc_projection = h_mc[{"process": sum}].as_hist({})
-        original_edges = mc_projection.axes[var].edges
-        original_mc_totals = _values_without_flow(
-            mc_projection, include_overflow=True
-        )
-
-        ratio_up_input = None if err_ratio_p_syst is None else np.asarray(err_ratio_p_syst, dtype=float)
-        ratio_down_input = None if err_ratio_m_syst is None else np.asarray(err_ratio_m_syst, dtype=float)
-
-        def _ensure_absolute(up_values, down_values, up_ratio, down_ratio):
-            up_array = None if up_values is None else np.asarray(up_values, dtype=float)
-            down_array = None if down_values is None else np.asarray(down_values, dtype=float)
-
-            if up_array is None and up_ratio is not None:
-                up_array = up_ratio * original_mc_totals
-            if down_array is None and down_ratio is not None:
-                down_array = down_ratio * original_mc_totals
-
-            return up_array, down_array
-
-        err_p_syst, err_m_syst = _ensure_absolute(
-            err_p_syst,
-            err_m_syst,
-            ratio_up_input,
-            ratio_down_input,
-        )
-
-        target_edges_array = np.asarray(target_edges, dtype=float)
-        original_edges_array = np.asarray(original_edges, dtype=float)
-
-        same_binning = False
-        if target_edges_array.shape == original_edges_array.shape:
-            same_binning = np.allclose(
-                target_edges_array,
-                original_edges_array,
-                rtol=1e-12,
-                atol=1e-12,
+        try:
+            mc_projection = h_mc[{"process": sum}].as_hist({})
+        except (TypeError, AttributeError):
+            mc_projection = None
+        if mc_projection is not None:
+            original_edges = mc_projection.axes[var].edges
+            original_mc_totals = _values_without_flow(
+                mc_projection, include_overflow=True
             )
 
-        if any(arr is not None for arr in (err_p_syst, err_m_syst)):
-            recompute_syst_ratio_arrays = True
+            ratio_up_input = None if err_ratio_p_syst is None else np.asarray(err_ratio_p_syst, dtype=float)
+            ratio_down_input = None if err_ratio_m_syst is None else np.asarray(err_ratio_m_syst, dtype=float)
 
-        if not same_binning:
-            err_p = _rebin_uncertainty_array(
-                err_p,
-                original_edges,
-                target_edges,
-                nominal=original_mc_totals,
-                direction="up",
-            )
-            err_m = _rebin_uncertainty_array(
-                err_m,
-                original_edges,
-                target_edges,
-                nominal=original_mc_totals,
-                direction="down",
-            )
-            err_p_syst = _rebin_uncertainty_array(
+            def _ensure_absolute(up_values, down_values, up_ratio, down_ratio):
+                up_array = None if up_values is None else np.asarray(up_values, dtype=float)
+                down_array = None if down_values is None else np.asarray(down_values, dtype=float)
+
+                if up_array is None and up_ratio is not None:
+                    up_array = up_ratio * original_mc_totals
+                if down_array is None and down_ratio is not None:
+                    down_array = down_ratio * original_mc_totals
+
+                return up_array, down_array
+
+            err_p_syst, err_m_syst = _ensure_absolute(
                 err_p_syst,
-                original_edges,
-                target_edges,
-                nominal=original_mc_totals,
-                direction="up",
-            )
-            err_m_syst = _rebin_uncertainty_array(
                 err_m_syst,
-                original_edges,
-                target_edges,
-                nominal=original_mc_totals,
-                direction="down",
+                ratio_up_input,
+                ratio_down_input,
             )
 
-            recompute_syst_ratio_arrays = any(
-                arr is not None for arr in (err_p_syst, err_m_syst)
-            )
-            if recompute_syst_ratio_arrays:
-                err_ratio_p_syst = None
-                err_ratio_m_syst = None
+            target_edges_array = np.asarray(target_edges, dtype=float)
+            original_edges_array = np.asarray(original_edges, dtype=float)
 
-            h_mc = _clone_with_rebinned_axis(h_mc, var, target_edges)
-            h_data = _clone_with_rebinned_axis(h_data, var, target_edges)
-            if h_mc_sumw2 is not None:
-                h_mc_sumw2 = _clone_with_rebinned_axis(
-                    h_mc_sumw2, var, target_edges
+            same_binning = False
+            if target_edges_array.shape == original_edges_array.shape:
+                same_binning = np.allclose(
+                    target_edges_array,
+                    original_edges_array,
+                    rtol=1e-12,
+                    atol=1e-12,
                 )
+
+            if any(arr is not None for arr in (err_p_syst, err_m_syst)):
+                recompute_syst_ratio_arrays = True
+
+            if not same_binning:
+                err_p = _rebin_uncertainty_array(
+                    err_p,
+                    original_edges,
+                    target_edges,
+                    nominal=original_mc_totals,
+                    direction="up",
+                )
+                err_m = _rebin_uncertainty_array(
+                    err_m,
+                    original_edges,
+                    target_edges,
+                    nominal=original_mc_totals,
+                    direction="down",
+                )
+                err_p_syst = _rebin_uncertainty_array(
+                    err_p_syst,
+                    original_edges,
+                    target_edges,
+                    nominal=original_mc_totals,
+                    direction="up",
+                )
+                err_m_syst = _rebin_uncertainty_array(
+                    err_m_syst,
+                    original_edges,
+                    target_edges,
+                    nominal=original_mc_totals,
+                    direction="down",
+                )
+
+                recompute_syst_ratio_arrays = any(
+                    arr is not None for arr in (err_p_syst, err_m_syst)
+                )
+                if recompute_syst_ratio_arrays:
+                    err_ratio_p_syst = None
+                    err_ratio_m_syst = None
+
+                h_mc = _clone_with_rebinned_axis(h_mc, var, target_edges)
+                h_data = _clone_with_rebinned_axis(h_data, var, target_edges)
+                if h_mc_sumw2 is not None:
+                    h_mc_sumw2 = _clone_with_rebinned_axis(
+                        h_mc_sumw2, var, target_edges
+                    )
     else:
         target_edges = None
 
@@ -5005,7 +5031,20 @@ def main():
     os.mkdir(save_dir_path)
 
     # Get the histograms
-    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    load_start_time = datetime.datetime.now()
+    if args.verbose:
+        print(
+            f"[{load_start_time:%H:%M:%S}] Loading histograms from '{args.pkl_file_path}'..."
+        )
+    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path, allow_empty=False)
+    if args.verbose:
+        load_finish_time = datetime.datetime.now()
+        print(
+            "[{}] Histogram load completed in {:.2f}s".format(
+                load_finish_time.strftime("%H:%M:%S"),
+                (load_finish_time - load_start_time).total_seconds(),
+            )
+        )
     # Print info about histos
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
