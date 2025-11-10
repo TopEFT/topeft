@@ -1,12 +1,13 @@
-"""Tau fake-rate fitter utilities.
+##############################################################
+# Script for creating the fake tau scale factors
+# To use, run command python tauFitter.py -f /path/to/pkl/file
+# pkl file should have CRs listed below and have all other
+# corrections aside from fake tau SFs
+# output is in the form of linear fit y = mx+b
+# where m and b are in numerical form, y is the SF, and x is the tau pt
+# pt bins are from [20, 30], [30, 40], [40, 50], [50, 60], [60, 80], [80, 100], [100, 200]
 
-This module consumes histograms containing both the nominal yields and the
-associated ``_sumw2`` accumulators (storing the sum of weights squared per bin).
-The fake-rate and scale-factor uncertainties are derived directly from the
-square root of the aggregated ``sumw2`` bins, so the input pkl must provide the
-``tau0pt`` and ``tau0pt_sumw2`` histograms with matching axes.
-"""
-
+import numpy as np
 import os
 import copy
 import datetime
@@ -31,19 +32,15 @@ from scipy.odr import *
 
 from topeft.modules.yield_tools import YieldTools
 import topcoffea.modules.utils as utils
-from . import faketau_sf_fitter as _faketau
-from .faketau_sf_fitter import (
-    TAU_PT_BIN_EDGES,
-    _TAU_HISTOGRAM_REQUIRED_AXES,
-    _validate_histogram_axes,
-    _validate_tau_channel_coverage,
-)
 
 yt = YieldTools()
 
 
 Ftau = ["2los_ee_1tau_Ftau_2j", "2los_em_1tau_Ftau_2j", "2los_mm_1tau_Ftau_2j", "2los_ee_1tau_Ftau_3j", "2los_em_1tau_Ftau_3j", "2los_mm_1tau_Ftau_3j", "2los_ee_1tau_Ftau_4j", "2los_em_1tau_Ftau_4j", "2los_mm_1tau_Ftau_4j"]
 Ttau = ["2los_ee_1tau_Ttau_2j", "2los_em_1tau_Ttau_2j", "2los_mm_1tau_Ttau_2j", "2los_ee_1tau_Ttau_3j", "2los_em_1tau_Ttau_3j", "2los_mm_1tau_Ttau_3j", "2los_ee_1tau_Ttau_4j", "2los_em_1tau_Ttau_4j", "2los_mm_1tau_Ttau_4j"]
+
+#Ftau = ["2los_ee_1tau_Ftau_2j"]
+#Ttau = ["2los_ee_1tau_Ttau_2j"]
 
 #CR_GRP_MAP = {
 #    "DY" : [],
@@ -66,109 +63,17 @@ CR_GRP_MAP = {
         "Ttbar" : [],
     }
 
-CR_GRP_MAP_full = {
-    "DY": [
-        "DYJetsToLL_MLL-50_central2022",
-        "DYJetsToLL_MLL-10to50_central2022"
-    ],
-    "Ttbar": [
-        "TTto2L2Nu_central2022",
-        "TTtoLNu2Q_central2022",
-        "TTto4Q_central2022",
-        "TTLL_MLL-4to50_central2022"
-    ],
-    "ZGamma": [
-        "ZGto2LG-1Jets_ntgc_5f_central2022"
-    ],
-    "Diboson": [
-        "ZZTo4L_central2022",
-        "WWTo2L2Nu_central2022",
-        "WZTo3LNu_central2022",
-        "WWZ_central2022",
-        "WZZ_central2022",
-        "ggToZZTo2mu2tau_central2022",
-        "ggToZZTo2e2tau_central2022",
-        "ggToZZTo4e_central2022",
-        "ggToZZTo4mu_central2022",
-        "ggToZZTo4tau_central2022"
-    ],
-    "Triboson": [
-        "WWW_central2022",
-        "ZZZ_central2022",
-        "TWZ_Tto2Q_WtoLNu_Zto2L_central2022",
-        "TWZ_TtoLNu_WtoLNu_Zto2L_central2022"
-    ],
-    "Single top": [
-        "ST_tW_Leptonic_central2022",
-        "ST_tW_Semileptonic_central2022",
-        "ST_tbarW_Leptonic_central2022",
-        "ST_tbarW_Semileptonic_central2022",
-        "ST_top_s-channel_central2022",
-        "ST_top_t-channel_central2022",
-        "ST_antitop_t-channel_central2022"
-    ],
-    "Singleboson": [
-        "WJetsToLNu_central2022"
-    ],
-    "TtG": [
-        "TTG-1Jets_PTG-10to100_central2022",
-        "TTG-1Jets_PTG-100to200_central2022",
-        "TTG-1Jets_PTG-200_central2022"
-    ],
-    "Nonprompt": ["nonprompt2022"],
-    "Flips": ["flips2022"],
-    "Signal": [
-        "TWZ_TtoLNu_Wto2Q_Zto2L_central2022"  # fill with your actual signal samples if needed
-    ],
-    "Data": [
-        "data2022"
-    ]
-}
+
+#def sqrt_list(numbers):
+#    return [math.sqrt(num) for num in numbers]
 
 
-def compute_fake_rates(
-    fake_vals,
-    fake_errs,
-    tight_vals,
-    tight_errs,
-    regroup_slices=None,
-):
-    """Compatibility wrapper that trims extra tau-flow bins when needed."""
+def sqrt_list(numbers):
+    return [math.sqrt(max(num, 0)) for num in numbers]
 
-    fake_vals = np.asarray(fake_vals, dtype=float)
-    fake_errs = np.asarray(fake_errs, dtype=float)
-    tight_vals = np.asarray(tight_vals, dtype=float)
-    tight_errs = np.asarray(tight_errs, dtype=float)
-
-    if regroup_slices is None:
-        expected_bins = len(TAU_PT_BIN_EDGES) - 1
-        n_bins = fake_vals.shape[-1]
-
-        if n_bins == expected_bins + 2:
-            # Histograms that preserve both the underflow and overflow entries
-            # need to drop one bin from each edge to expose the physical range.
-            fake_vals = fake_vals[1:-1]
-            fake_errs = fake_errs[1:-1]
-            tight_vals = tight_vals[1:-1]
-            tight_errs = tight_errs[1:-1]
-        elif n_bins > expected_bins:
-            # Fall back to trimming from the leading edge to keep the newest
-            # behaviour as close as possible to the legacy wrapper.
-            start_index = n_bins - expected_bins
-            stop_index = start_index + expected_bins
-            fake_vals = fake_vals[start_index:stop_index]
-            fake_errs = fake_errs[start_index:stop_index]
-            tight_vals = tight_vals[start_index:stop_index]
-            tight_errs = tight_errs[start_index:stop_index]
-
-    return _faketau.compute_fake_rates(
-        fake_vals,
-        fake_errs,
-        tight_vals,
-        tight_errs,
-        regroup_slices,
-    )
-
+def sqrt_list2(numbers):
+    numbers = np.array(numbers)
+    return np.sqrt(np.clip(numbers, 0, None))
 
 def linear(x,a,b):
     return b*x+a
@@ -192,7 +97,7 @@ def SF_fit_alt(SF,SF_e,x):
 
 def group_bins_original(histo,bin_map,axis_name="sample",drop_unspecified=True):
 
-    bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
+    bin_map = copy.deepcopy(bin_map)
 
     # Construct the map of bins to remap
     bins_to_remap_lst = []
@@ -211,20 +116,15 @@ def group_bins_original(histo,bin_map,axis_name="sample",drop_unspecified=True):
     return new_histo
 
 def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
-    bin_map = copy.deepcopy(bin_map)  # Avoid editing original
+    bin_map = copy.deepcopy(bin_map)
 
     axis_cats = list(histo.axes[axis_name])
 
-    # Build new bin_map that only contains categories that exist in the hist
     new_bin_map = {}
     for grp_name, cat_list in bin_map.items():
-        filtered = [category for category in cat_list if category in axis_cats]
+        filtered = [c for c in cat_list if c in axis_cats]
         if filtered:
             new_bin_map[grp_name] = filtered
-
-    if not new_bin_map:
-        if drop_unspecified:
-            return histo
 
     if not drop_unspecified:
         specified_cats = [c for lst in new_bin_map.values() for c in lst]
@@ -278,188 +178,188 @@ def getPoints(dict_of_hists):
     for proc_name in all_samples:
         if "data" in proc_name:
             CR_GRP_MAP["Data"].append(proc_name)
-        #elif "TTTo" in proc_name:
-        #    CR_GRP_MAP["Ttbar"].append(proc_name)
         else:
             CR_GRP_MAP["Ttbar"].append(proc_name)
 
     var_name = "tau0pt"
-    var_name_sumw2 = f"{var_name}_sumw2"
-    if var_name_sumw2 not in dict_of_hists:
-        raise KeyError(f"Missing required histogram '{var_name_sumw2}' in input")
 
-    try:
-        hist_mc_nominal = dict_of_hists[var_name].copy()
-    except KeyError as exc:
-        available = ", ".join(sorted(dict_of_hists)) or "<none>"
-        message = (
-            "The histogram pickle is missing the required 'tau0pt' histogram. "
-            f"Available histograms: {available}"
-        )
-        raise RuntimeError(message) from exc
-    hist_mc_sumw2 = dict_of_hists[var_name_sumw2].copy()
-    hist_data_nominal = dict_of_hists[var_name].copy()
-    hist_data_sumw2 = dict_of_hists[var_name_sumw2].copy()
+    hist_mc = dict_of_hists[var_name].remove("process",samples_to_rm_from_mc_hist)
+    hist_data = dict_of_hists[var_name].remove("process",samples_to_rm_from_data_hist)
 
-    # Apply the common filtering and grouping directly for each histogram variant.
-    mc_fake = hist_mc_nominal.copy()
-    mc_fake = mc_fake.remove("process", samples_to_rm_from_mc_hist)
-    mc_fake = mc_fake.integrate("channel", Ftau)
-    mc_fake = group_bins(mc_fake, CR_GRP_MAP, "process", drop_unspecified=True)
-    mc_fake = mc_fake.integrate("systematic", "nominal")
+    hist_mc_sumw2 = dict_of_hists[var_name + '_sumw2'].remove("process",samples_to_rm_from_mc_hist)
+    hist_data_sumw2 = dict_of_hists[var_name + '_sumw2'].remove("process",samples_to_rm_from_data_hist)
 
-    mc_tight = hist_mc_nominal.copy()
-    mc_tight = mc_tight.remove("process", samples_to_rm_from_mc_hist)
-    mc_tight = mc_tight.integrate("channel", Ttau)
-    mc_tight = group_bins(mc_tight, CR_GRP_MAP, "process", drop_unspecified=True)
-    mc_tight = mc_tight.integrate("systematic", "nominal")
 
-    mc_fake_sumw2 = hist_mc_sumw2.copy()
-    mc_fake_sumw2 = mc_fake_sumw2.remove("process", samples_to_rm_from_mc_hist)
-    mc_fake_sumw2 = mc_fake_sumw2.integrate("channel", Ftau)
-    mc_fake_sumw2 = group_bins(mc_fake_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
-    mc_fake_sumw2 = mc_fake_sumw2.integrate("systematic", "nominal")
+    mc_fake_all = None
+    mc_fake_sumw2_all = None
+    mc_tight_all = None
+    mc_tight_sumw2_all = None
 
-    mc_tight_sumw2 = hist_mc_sumw2.copy()
-    mc_tight_sumw2 = mc_tight_sumw2.remove("process", samples_to_rm_from_mc_hist)
-    mc_tight_sumw2 = mc_tight_sumw2.integrate("channel", Ttau)
-    mc_tight_sumw2 = group_bins(mc_tight_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
-    mc_tight_sumw2 = mc_tight_sumw2.integrate("systematic", "nominal")
+    for ftau in Ftau:
+        mc_fake = hist_mc.integrate("channel", ftau)
+        mc_fake_sumw2 = hist_mc_sumw2.integrate("channel", ftau)
+        data_fake = hist_data.integrate("channel", ftau)
+        data_fake_sumw2 = hist_data_sumw2.integrate("channel", ftau)
 
-    data_fake = hist_data_nominal.copy()
-    data_fake = data_fake.remove("process", samples_to_rm_from_data_hist)
-    data_fake = data_fake.integrate("channel", Ftau)
-    data_fake = group_bins(data_fake, CR_GRP_MAP, "process", drop_unspecified=True)
-    data_fake = data_fake.integrate("systematic", "nominal")
+        mc_fake = group_bins(mc_fake, CR_GRP_MAP, "process", drop_unspecified=True)
+        mc_fake_sumw2 = group_bins(mc_fake_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
+        data_fake = group_bins(data_fake, CR_GRP_MAP, "process", drop_unspecified=True)
+        data_fake_sumw2 = group_bins(data_fake_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
 
-    data_tight = hist_data_nominal.copy()
-    data_tight = data_tight.remove("process", samples_to_rm_from_data_hist)
-    data_tight = data_tight.integrate("channel", Ttau)
-    data_tight = group_bins(data_tight, CR_GRP_MAP, "process", drop_unspecified=True)
-    data_tight = data_tight.integrate("systematic", "nominal")
+        mc_fake = mc_fake.integrate("systematic", "nominal")
+        mc_fake_sumw2 = mc_fake_sumw2.integrate("systematic", "nominal")
+        data_fake = data_fake.integrate("systematic", "nominal")
+        data_fake_sumw2 = data_fake_sumw2.integrate("systematic", "nominal")
 
-    data_fake_sumw2 = hist_data_sumw2.copy()
-    data_fake_sumw2 = data_fake_sumw2.remove("process", samples_to_rm_from_data_hist)
-    data_fake_sumw2 = data_fake_sumw2.integrate("channel", Ftau)
-    data_fake_sumw2 = group_bins(data_fake_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
-    data_fake_sumw2 = data_fake_sumw2.integrate("systematic", "nominal")
+        if mc_fake_all is None:
+            mc_fake_all = mc_fake.copy()
+            mc_fake_sumw2_all = mc_fake_sumw2.copy()
+            data_fake_all = data_fake.copy()
+            data_fake_sumw2_all = data_fake_sumw2.copy()
+        else:
+            mc_fake_all += mc_fake
+            mc_fake_sumw2_all += mc_fake_sumw2
+            data_fake_all += data_fake
+            data_fake_sumw2_all += data_fake_sumw2
 
-    data_tight_sumw2 = hist_data_sumw2.copy()
-    data_tight_sumw2 = data_tight_sumw2.remove("process", samples_to_rm_from_data_hist)
-    data_tight_sumw2 = data_tight_sumw2.integrate("channel", Ttau)
-    data_tight_sumw2 = group_bins(data_tight_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
-    data_tight_sumw2 = data_tight_sumw2.integrate("systematic", "nominal")
+    mc_fake_view = mc_fake_all.view()
+    mc_fake_sumw2_view = mc_fake_sumw2_all.view()
+    data_fake_view = data_fake_all.view()
+    data_fake_sumw2_view = data_fake_sumw2_all.view()
 
-    # Collapse everything onto the tau0pt axis, summing over the remaining axes.
-    hist_pairs = {
-        "mc_fake": (mc_fake, mc_fake_sumw2),
-        "mc_tight": (mc_tight, mc_tight_sumw2),
-        "data_fake": (data_fake, data_fake_sumw2),
-        "data_tight": (data_tight, data_tight_sumw2),
-    }
 
-    collapsed = {}
-    for key, (hist_nominal, hist_sumw2) in hist_pairs.items():
-        values = np.asarray(hist_nominal.values(flow=False), dtype=float)
-        sumw2 = np.asarray(hist_sumw2.values(flow=False), dtype=float)
 
-        if values.shape != sumw2.shape:
-            raise ValueError("Nominal histogram and sumw2 histogram shapes do not match")
+    for ttau in Ttau:
+        mc_tight = hist_mc.integrate("channel", ttau)
+        mc_tight_sumw2 = hist_mc_sumw2.integrate("channel", ttau)
+        data_tight = hist_data.integrate("channel", ttau)
+        data_tight_sumw2 = hist_data_sumw2.integrate("channel", ttau)
 
-        axis_names = [axis.name for axis in hist_nominal.axes]
-        # Sum over every axis except for tau0pt so we are left with a single dimension.
-        for axis_name in list(axis_names):
-            if axis_name == "tau0pt":
-                continue
-            axis_idx = axis_names.index(axis_name)
-            values = values.sum(axis=axis_idx)
-            sumw2 = sumw2.sum(axis=axis_idx)
-            axis_names.pop(axis_idx)
+        mc_tight = group_bins(mc_tight, CR_GRP_MAP, "process", drop_unspecified=True)
+        mc_tight_sumw2 = group_bins(mc_tight_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
+        data_tight = group_bins(data_tight, CR_GRP_MAP, "process", drop_unspecified=True)
+        data_tight_sumw2 = group_bins(data_tight_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
 
-        collapsed[key] = (values, sumw2)
+        mc_tight = mc_tight.integrate("systematic", "nominal")
+        mc_tight_sumw2 = mc_tight_sumw2.integrate("systematic", "nominal")
+        data_tight = data_tight.integrate("systematic", "nominal")
+        data_tight_sumw2 = data_tight_sumw2.integrate("systematic", "nominal")
 
-    tau_edges = mc_fake.axes["tau0pt"].edges
+        if mc_tight_all is None:
+            mc_tight_all = mc_tight.copy()
+            mc_tight_sumw2_all = mc_tight_sumw2.copy()
+            data_tight_all = data_tight.copy()
+            data_tight_sumw2_all = data_tight_sumw2.copy()
+        else:
+            mc_tight_all += mc_tight
+            mc_tight_sumw2_all += mc_tight_sumw2
+            data_tight_all += data_tight
+            data_tight_sumw2_all += data_tight_sumw2
 
-    # Regroup the tau pt bins into the historical coarse boundaries while carrying sumw2.
-    coarse_boundaries = [30, 40, 50, 60, 80, 100, 200]
-    min_edge = 20
 
-    regrouped = {}
-    for key, (values, sumw2_vals) in collapsed.items():
-        regrouped_values = []
-        regrouped_sumw2 = []
+    mc_tight_view = mc_tight_all.view()
+    mc_tight_sumw2_view = mc_tight_sumw2_all.view()
+    data_tight_view = data_tight_all.view()
+    data_tight_sumw2_view = data_tight_sumw2_all.view()
 
-        boundary_iter = iter(coarse_boundaries)
-        current_boundary = next(boundary_iter, None)
-        accumulator = 0.0
-        accumulator_sumw2 = 0.0
+    for key, vals in mc_fake_view.items():
+        mc_fake_vals = vals
 
-        for _, high, val, var in zip(tau_edges[:-1], tau_edges[1:], values, sumw2_vals):
-            if high <= min_edge:
-                continue
 
-            accumulator += val
-            accumulator_sumw2 += var
+    for key, vals in mc_fake_sumw2_view.items():
+        mc_fake_e = sqrt_list(vals)
 
-            while current_boundary is not None and (high >= current_boundary or np.isclose(high, current_boundary)):
-                regrouped_values.append(accumulator)
-                regrouped_sumw2.append(accumulator_sumw2)
-                accumulator = 0.0
-                accumulator_sumw2 = 0.0
-                current_boundary = next(boundary_iter, None)
-                break
 
-        if accumulator or accumulator_sumw2:
-            regrouped_values.append(accumulator)
-            regrouped_sumw2.append(accumulator_sumw2)
+    for key, vals in mc_tight_view.items():
+        mc_tight_vals = vals
 
-        regrouped[key] = (np.array(regrouped_values, dtype=float), np.array(regrouped_sumw2, dtype=float))
+    for key, vals in mc_tight_sumw2_view.items():
+        mc_tight_e = sqrt_list(vals)
 
-    mc_fake_vals, mc_fake_sumw2_vals = regrouped["mc_fake"]
-    mc_tight_vals, mc_tight_sumw2_vals = regrouped["mc_tight"]
-    data_fake_vals, data_fake_sumw2_vals = regrouped["data_fake"]
-    data_tight_vals, data_tight_sumw2_vals = regrouped["data_tight"]
+    for key, vals in data_fake_view.items():
+        data_fake_vals = vals
 
-    # Compute fake rates and their uncertainties from the aggregated values.
-    mc_fake_rates = []
-    mc_fake_rate_errs = []
-    for tight, tight_var, fake, fake_var in zip(mc_tight_vals, mc_tight_sumw2_vals, mc_fake_vals, mc_fake_sumw2_vals):
-        if fake <= 0:
-            mc_fake_rates.append(0.0)
-            mc_fake_rate_errs.append(0.0)
-            continue
+    for key, vals in data_fake_sumw2_view.items():
+        data_fake_e = sqrt_list(vals)
 
-        tight_err = math.sqrt(max(tight_var, 0.0))
-        fake_err = math.sqrt(max(fake_var, 0.0))
-        rate = tight / fake
-        variance = (tight_err / fake) ** 2 + (tight * fake_err / (fake ** 2)) ** 2
-        mc_fake_rates.append(rate)
-        mc_fake_rate_errs.append(math.sqrt(max(variance, 0.0)))
+    for key, vals in data_tight_view.items():
+        data_tight_vals = vals
 
-    data_fake_rates = []
-    data_fake_rate_errs = []
-    for tight, tight_var, fake, fake_var in zip(data_tight_vals, data_tight_sumw2_vals, data_fake_vals, data_fake_sumw2_vals):
-        if fake <= 0:
-            data_fake_rates.append(0.0)
-            data_fake_rate_errs.append(0.0)
-            continue
+    for key, vals in data_tight_sumw2_view.items():
+        data_tight_e = sqrt_list(vals)
 
-        tight_err = math.sqrt(max(tight_var, 0.0))
-        fake_err = math.sqrt(max(fake_var, 0.0))
-        rate = tight / fake
-        variance = (tight_err / fake) ** 2 + (tight * fake_err / (fake ** 2)) ** 2
-        data_fake_rates.append(rate)
-        data_fake_rate_errs.append(math.sqrt(max(variance, 0.0)))
+    mc_x = [20, 30, 40, 50, 60, 80, 100]
+    mc_y = []
+    mc_e = []
+    x = 20
+    bin_div = [30, 40, 50, 60, 80, 100, 200]
+    fake = 0
+    tight = 0
+    f_err = 0
+    t_err = 0
 
-    mc_fake_rates = np.array(mc_fake_rates, dtype=float)
-    mc_fake_rate_errs = np.array(mc_fake_rate_errs, dtype=float)
-    data_fake_rates = np.array(data_fake_rates, dtype=float)
-    data_fake_rate_errs = np.array(data_fake_rate_errs, dtype=float)
+    for index in range(2, len(mc_fake_vals)):
+        fake  += mc_fake_vals[index]
+        tight += mc_tight_vals[index]
+        f_err += mc_fake_e[index]
+        t_err += mc_tight_e[index]
+        x += 10
+        if x in bin_div:
+            if fake != 0.0:
+                y = tight/fake
+                #y_err = t_err/fake + tight*f_err/(fake*fake)
+                y_err = math.sqrt((t_err / fake)**2 + (tight * f_err / (fake**2))**2)
+            else:
+                y = 0.0
+                y_err = 0.0
+            mc_y.append(y)
+            if y != 0.0:
+                if (y + y_err) / y < 1.02:
+                    mc_e.append(1.02 * y - y)
+                else:
+                    mc_e.append(y_err)
+            else:
+                mc_e.append(0.0)
+            fake = 0.0
+            tight = 0.0
+            f_err = 0.0
+            t_err = 0.0
+    data_x = [20, 30, 40, 50, 60, 80, 100]
+    data_y = []
+    data_e = []
+    x = 20
+    fake = 0.0
+    tight = 0.0
 
-    mc_x = np.array([20, 30, 40, 50, 60, 80, 100], dtype=float)
-    data_x = np.array([20, 30, 40, 50, 60, 80, 100], dtype=float)
+    for index in range(2, len(data_fake_vals)):
+        fake  += data_fake_vals[index]
+        tight += data_tight_vals[index]
+        f_err += data_fake_e[index]
+        t_err += data_tight_e[index]
+        x += 10
+        if x in bin_div:
+            if fake != 0.0:
+                y = tight/fake
+                print("check t/f: ", y)
+                #y_err =t_err/fake + tight*f_err/(fake*fake)
+                y_err = math.sqrt((t_err / fake)**2 + (tight * f_err / (fake**2))**2)
 
-    return mc_x, mc_fake_rates, mc_fake_rate_errs, data_x, data_fake_rates, data_fake_rate_errs
+            else:
+                y = 0.0
+                y_err =0.0
+            data_y.append(y)
+            if y != 0.0:
+                if (y + y_err) / y < 1.02:
+                    data_e.append(1.02 * y - y)
+                else:
+                    data_e.append(y_err)
+            else:
+                data_e.append(0.0)
+            fake = 0.0
+            tight = 0.0
+            f_err = 0.0
+            t_err = 0.0
+    return np.array(mc_x), np.array(mc_y), np.array(mc_e), np.array(data_x), np.array(data_y), np.array(data_e)
 
 def main():
 
@@ -468,20 +368,10 @@ def main():
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
     args = parser.parse_args()
 
-    # Whether or not to unit norm the plots
-    #unit_norm_bool = args.unit_norm
-
-    # Make a tmp output directory in curren dir a different dir is not specified
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    #save_dir_path = args.output_path
-    #outdir_name = args.output_name
-    #if args.include_timestamp_tag:
-    #    outdir_name = outdir_name + "_" + timestamp_tag
-    #save_dir_path = os.path.join(save_dir_path,outdir_name)
-    #os.mkdir(save_dir_path)
 
-    # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+
     x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict)
 
     y_data = np.array(y_data, dtype=float).flatten()
@@ -493,28 +383,14 @@ def main():
 
     print("fr data = ", y_data)
     print("fr mc = ", y_mc)
-    nonzero_mc = y_mc != 0
-
-    with np.errstate(divide='ignore', invalid='ignore'):
-        SF = np.divide(
-            y_data,
-            y_mc,
-            out=np.zeros_like(y_data),
-            where=y_mc != 0,
-        )
-        sf_var = (
-            np.divide(yerr_data, y_mc, out=np.zeros_like(yerr_data), where=nonzero_mc) ** 2
-            + np.divide(
-                y_data * yerr_mc,
-                y_mc**2,
-                out=np.zeros_like(y_data),
-                where=nonzero_mc,
-            ) ** 2
-        )
-    SF_e = np.sqrt(np.clip(sf_var, 0.0, None))
-    # Guard against zero-uncertainty bins (e.g. empty high-pt tails) that
-    # would otherwise make curve_fit's sigma division blow up.
-    SF_e = np.maximum(SF_e, 1e-3)
+    print("d error", yerr_data)
+    print("mc error", yerr_mc)
+    print("x data", x_data)
+    SF = y_data/y_mc
+    #SF_e = yerr_data/y_mc + y_data*yerr_mc/(y_mc**2)
+    SF_e = np.sqrt((yerr_data / y_mc)**2 + (y_data * yerr_mc / (y_mc**2))**2)
+    
+    SF_e = np.where(SF_e <= 0, 1e-3, SF_e)
     print('SF',SF)
     print('sfERR',SF_e)
     print('x',x_data)
