@@ -819,7 +819,7 @@ def _initialize_render_worker(
         )
 
     shared_payloads = _SHARED_VARIABLE_PAYLOADS
-    if prepared_payloads:
+    if prepared_payloads is not None:
         prepared_variables = dict(prepared_payloads)
     elif shared_payloads is not None:
         prepared_variables = shared_payloads
@@ -3463,11 +3463,9 @@ def produce_region_plots(
 
         global _SHARED_REGION_CTX, _SHARED_VARIABLE_PAYLOADS
         _SHARED_REGION_CTX = region_ctx
-        if start_method in (None, "fork"):
-            shared_payloads = variable_payload_cache
-        else:
-            shared_payloads = None
-        _SHARED_VARIABLE_PAYLOADS = shared_payloads
+        _SHARED_VARIABLE_PAYLOADS = (
+            variable_payload_cache if start_method in (None, "fork") else None
+        )
         try:
             with ProcessPoolExecutor(
                 max_workers=max_workers,
