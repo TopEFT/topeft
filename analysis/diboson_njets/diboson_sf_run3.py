@@ -180,11 +180,11 @@ def get_yields_in_bins(
     else:
         processes_to_scan = proc_list
 
-    bin_edges_cache = None
-    bin_index_cache = None
-
-    for proc in processes_to_scan:
-
+    for proc in proc_list:
+        if whitelist_set is not None and proc not in whitelist_set:
+            continue
+        if ("flip") in proc:
+            continue  # Skip flip samples 
         try:
             selection = {
                 "process": proc,
@@ -202,8 +202,8 @@ def get_yields_in_bins(
                 raise KeyError(
                     f"Histogram '{hist_name}' axis not present after slicing for process "
                     f"'{proc}'. Remaining axes: {axis_names}"
-                ) from exc
-
+                )
+            values_ak = h_sel.values(flow=False)
             try:
                 values_np = ak.to_numpy(h_sel.values(flow=False))
             except Exception as exc:
@@ -536,7 +536,7 @@ def process_year(
         if proc.startswith("WZTo") or proc.startswith("ZZTo") or proc.startswith("WWTo"):
             diboson = [x + (val or 0.0) for x, (val, _) in zip(diboson, vals)]
         elif "data" in proc:
-            data = [val or 0.0 for val, _ in vals]
+            data = [x + (val or 0.0) for x, (val, _) in zip(data,vals)]
         else:
             other = [x + (val or 0.0) for x, (val, _) in zip(other, vals)]
 
@@ -594,7 +594,7 @@ def main():
         "-y",
         "--year",
         nargs="+",
-        default=["2022"],
+        default=["2022","2022EE", "2023", "2023BPix"],
         help=(
             "One or more data-taking years to process. With a shared file, using "
             "'all' causes the script to discover every year token embedded in the "
