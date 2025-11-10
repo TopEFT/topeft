@@ -17,6 +17,12 @@ PrintUsage() {
   echo "to run_analysis.py, allowing access to its full set of arguments."
 }
 
+# Early exit when no arguments are provided
+if [[ $# -eq 0 ]]; then
+  PrintUsage
+  exit 0
+fi
+
 # Default values
 DEFAULT_YEAR="2022"
 DEFAULT_TAG="fec79a60_PNet"
