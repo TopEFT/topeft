@@ -97,6 +97,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if self._fill_sumw2_hist:
                     _add_hist_name(f"{base_name}{sumw2_suffix}")
             self._hist_lst = ordered_base_hist_names.copy()
+            if self._fill_sumw2_hist:
+                self._hist_lst += [f"{base_name}{sumw2_suffix}" for base_name in ordered_base_hist_names]
         else:
             base_hist_list = []
             base_seen = set()
@@ -109,24 +111,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                         f"Error: Cannot specify hist \"{requested_hist}\", it is not defined in the processor."
                     )
 
-                if requested_hist.endswith(sumw2_suffix):
-                    base_name = requested_hist[: -len(sumw2_suffix)]
-                    if base_name in available_base_hist_names and base_name not in base_seen:
-                        base_hist_list.append(base_name)
-                        base_seen.add(base_name)
-                        _add_hist_name(base_name)
+                _add_hist_name(requested_hist)
 
+                if requested_hist.endswith(sumw2_suffix):
                     if requested_hist not in sumw2_seen:
                         explicit_sumw2.append(requested_hist)
                         sumw2_seen.add(requested_hist)
-                    _add_hist_name(requested_hist)
                 else:
                     if requested_hist not in base_seen:
                         base_hist_list.append(requested_hist)
                         base_seen.add(requested_hist)
-                    _add_hist_name(requested_hist)
-                    if self._fill_sumw2_hist:
-                        _add_hist_name(f"{requested_hist}{sumw2_suffix}")
 
             self._hist_lst = base_hist_list + explicit_sumw2
 
@@ -1481,7 +1475,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             for dense_axis_name, dense_axis_vals in varnames.items():
                 fill_base_hist = dense_axis_name in self._hist_lst
-                fill_sumw2_hist = self._fill_sumw2_hist and (dense_axis_name in self._hist_lst)
+                fill_sumw2_hist = self._fill_sumw2_hist and (
+                    f"{dense_axis_name}_sumw2" in self._hist_lst
+                )
                 if not (fill_base_hist or fill_sumw2_hist):
                     continue
 
