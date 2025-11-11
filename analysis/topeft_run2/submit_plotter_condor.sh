@@ -14,12 +14,15 @@ The script validates the plotting arguments using run_plotter.sh --dry-run
 before creating a lightweight Condor sandbox.
 
 Condor-specific options:
-  --queue N           Number of jobs to queue (default: 1)
-  --log-dir PATH      Directory where Condor log/stdout/stderr are written
-  --ceph-root PATH    Location of the topeft repository on CephFS
-                      (default: /users/apiccine/work/correction-lib/topeft)
-  --dry-run           Print the generated job files instead of submitting
-  -h, --help          Show this help message and exit
+  --queue N                 Number of jobs to queue (default: 1)
+  --request-cpus N          Number of CPU cores to request from Condor
+  --request-memory VALUE    Memory request (e.g. 4GB, 8192MB)
+  --log-dir PATH            Directory where Condor log/stdout/stderr are written
+  --sandbox PATH            Additional file or directory to transfer with the job
+  --ceph-root PATH          Location of the topeft repository on CephFS
+                            (default: /users/apiccine/work/correction-lib/topeft)
+  --dry-run                 Print the generated job files instead of submitting
+  -h, --help                Show this help message and exit
 
 All other options are forwarded directly to run_plotter.sh. The required
 run_plotter flags (-f/--input, -o/--output-dir, -y/--year) must be supplied.
@@ -32,7 +35,10 @@ if [[ ! -x "${RUN_PLOTTER}" ]]; then
 fi
 
 queue_count=1
+request_cpus=""
+request_memory=""
 log_dir=""
+sandbox_paths=()
 ceph_root="${DEFAULT_CEPH_ROOT}"
 condor_dry_run=0
 plotter_args=()
@@ -47,12 +53,36 @@ while [[ $# -gt 0 ]]; do
             queue_count="$2"
             shift 2
             ;;
+        --request-cpus)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --request-cpus requires a value" >&2
+                exit 1
+            fi
+            request_cpus="$2"
+            shift 2
+            ;;
+        --request-memory)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --request-memory requires a value" >&2
+                exit 1
+            fi
+            request_memory="$2"
+            shift 2
+            ;;
         --log-dir)
             if [[ $# -lt 2 ]]; then
                 echo "Error: --log-dir requires a value" >&2
                 exit 1
             fi
             log_dir="$2"
+            shift 2
+            ;;
+        --sandbox)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --sandbox requires a value" >&2
+                exit 1
+            fi
+            sandbox_paths+=("$2")
             shift 2
             ;;
         --ceph-root)
@@ -122,6 +152,30 @@ if [[ ! -d "${ceph_root}" ]]; then
     exit 1
 fi
 
+sandbox_inputs=()
+for sandbox_path in "${sandbox_paths[@]}"; do
+    resolved_sandbox=$(python3 - "${sandbox_path}" "${original_cwd}" <<'PY'
+import os
+import sys
+
+path = sys.argv[1]
+base = sys.argv[2]
+if path.startswith('~'):
+    path = os.path.expanduser(path)
+elif not os.path.isabs(path):
+    path = os.path.join(base, path)
+print(os.path.abspath(path))
+PY
+    )
+
+    if [[ ! -e "${resolved_sandbox}" ]]; then
+        echo "Error: sandbox path '${sandbox_path}' does not exist." >&2
+        exit 1
+    fi
+
+    sandbox_inputs+=("${resolved_sandbox}")
+done
+
 validation_output=""
 if ! validation_output=$("${RUN_PLOTTER}" "${plotter_args[@]}" --dry-run 2>&1); then
     echo "Validation failed while invoking run_plotter.sh:" >&2
@@ -167,6 +221,34 @@ error                   = "${log_dir}/plotter.\$(Cluster).\$(Process).err"
 initialdir              = "${ceph_root}"
 should_transfer_files   = YES
 when_to_transfer_output = ON_EXIT
+SUB
+
+transfer_input_files=""
+if (( ${#sandbox_inputs[@]} )); then
+    transfer_input_files=$(python3 - "${sandbox_inputs[@]}" <<'PY'
+import sys
+
+def quote(token: str) -> str:
+    if any(ch in token for ch in (' ', ',', '"')):
+        return '"' + token.replace('"', '\\"') + '"'
+    return token
+
+print(','.join(quote(arg) for arg in sys.argv[1:]))
+PY
+    )
+fi
+
+if [[ -n "${request_cpus}" ]]; then
+    echo "request_cpus           = ${request_cpus}" >>"${submission_file}"
+fi
+if [[ -n "${request_memory}" ]]; then
+    echo "request_memory         = ${request_memory}" >>"${submission_file}"
+fi
+if [[ -n "${transfer_input_files}" ]]; then
+    echo "transfer_input_files   = ${transfer_input_files}" >>"${submission_file}"
+fi
+
+cat >>"${submission_file}" <<SUB
 queue ${queue_count}
 SUB
 
