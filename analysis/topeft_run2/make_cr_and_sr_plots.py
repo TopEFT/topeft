@@ -2690,13 +2690,27 @@ def _finalize_layout(
     return label_artist, events_artist, legend_anchor_local
 
 
+def _sample_in_group(sample_name, candidates, canonical_sample=None):
+    canonical_sample = canonical_sample or te_utils.canonicalize_process_name(sample_name)
+    return any(
+        canonical_sample == te_utils.canonicalize_process_name(candidate)
+        for candidate in (candidates or [])
+    )
+
+
 def _sample_in_signal_group(sample_name, sample_group_map, group_type):
+    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+
     if group_type == "CR":
-        return sample_name in sample_group_map.get("Signal", [])
+        return _sample_in_group(
+            sample_name, sample_group_map.get("Signal", []), canonical_sample
+        )
 
     if group_type == "SR":
         for grp_key in SR_SIGNAL_GROUP_KEYS:
-            if sample_name in sample_group_map.get(grp_key, []):
+            if _sample_in_group(
+                sample_name, sample_group_map.get(grp_key, []), canonical_sample
+            ):
                 return True
 
     return False
@@ -3673,11 +3687,12 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 # Will return None if a match is not found
 def get_scale_name(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = None
-    if sample_name in sample_group_map.get("Conv", []):
+    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+    if _sample_in_group(sample_name, sample_group_map.get("Conv", []), canonical_sample):
         scale_name_for_json = "convs"
-    elif sample_name in sample_group_map.get("Diboson", []):
+    elif _sample_in_group(sample_name, sample_group_map.get("Diboson", []), canonical_sample):
         scale_name_for_json = "Diboson"
-    elif sample_name in sample_group_map.get("Triboson", []):
+    elif _sample_in_group(sample_name, sample_group_map.get("Triboson", []), canonical_sample):
         scale_name_for_json = "Triboson"
     elif _sample_in_signal_group(sample_name, sample_group_map, group_type):
         wc_matches = [proc_str for proc_str in SIGNAL_WC_MATCHES if proc_str in sample_name]
@@ -3717,12 +3732,13 @@ def get_rate_systs(sample_name,sample_group_map,group_type="CR"):
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
     scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type=group_type)
+    canonical_sample = te_utils.canonicalize_process_name(sample_name)
 
     # Get the lumi uncty for this sample (same for all samles)
     lumi_uncty = te_utils.cached_get_syst("lumi")
 
     # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
-    if sample_name in sample_group_map["Flips"]:
+    if _sample_in_group(sample_name, sample_group_map["Flips"], canonical_sample):
         flip_uncty = te_utils.cached_get_syst("charge_flips", "charge_flips_sm")
     else:
         flip_uncty = (1.0, 1, 0)
