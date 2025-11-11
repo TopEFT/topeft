@@ -230,6 +230,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                 self._hist_requires_eft[name+"_sumw2"] = False
         self._accumulator = histograms
 
+        # Ensure the histogram list only tracks objects that actually exist in the
+        # accumulator.  Downstream filling logic consults ``self._hist_lst`` to
+        # decide whether to touch a given histogram, so stale entries would lead
+        # to ``KeyError`` exceptions when the corresponding accumulator key is
+        # absent (for example when a filtered ``hist_lst`` omits most
+        # histograms).  Restricting the list here keeps the book-keeping
+        # consistent with the constructed accumulator contents.
+        accumulator_keys = set(self._accumulator.keys())
+        self._hist_lst = [name for name in self._hist_lst if name in accumulator_keys]
+
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
 
