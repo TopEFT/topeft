@@ -1561,10 +1561,11 @@ def populate_group_map(samples, pattern_map):
     fallback_groups = OrderedDict()
 
     for proc_name in samples:
+        canonical_name = te_utils.canonicalize_process_name(proc_name)
         matched = False
         for grp, patterns in pattern_map.items():
             for pat in patterns:
-                if pat in proc_name:
+                if pat in canonical_name or pat in proc_name:
                     out[grp].append(proc_name)
                     matched = True
                     break
