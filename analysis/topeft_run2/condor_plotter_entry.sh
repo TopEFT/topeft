@@ -3,8 +3,9 @@ set -euo pipefail
 
 unset PYTHONPATH
 
-REPO_ROOT="/users/apiccine/work/correction-lib/topeft"
-ENTRY_DIR="${REPO_ROOT}/analysis/topeft_run2"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT="${TOPEFT_REPO_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+ENTRY_DIR="${TOPEFT_ENTRY_DIR:-${SCRIPT_DIR}}"
 
 cd "${REPO_ROOT}"
 
