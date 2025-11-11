@@ -1,5 +1,7 @@
 import pytest
 
+cloudpickle = pytest.importorskip("cloudpickle")
+
 from analysis.topeft_run2 import analysis_processor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
@@ -24,6 +26,7 @@ def test_accumulator_keys_without_hist_filter():
     expected_keys.update(f"{name}_sumw2" for name in base_names)
 
     assert set(processor.accumulator.keys()) == expected_keys
+    assert set(processor._hist_lst) == expected_keys
     assert set(processor._hist_axis_map.keys()) == expected_keys
     assert set(processor._hist_requires_eft.keys()) == expected_keys
 
@@ -41,8 +44,13 @@ def test_filtered_hist_construction(requested_hists):
     expected_keys = set(requested_hists)
 
     assert set(processor.accumulator.keys()) == expected_keys
+    assert set(processor._hist_lst) == expected_keys
     assert set(processor._hist_axis_map.keys()) == expected_keys
     assert set(processor._hist_requires_eft.keys()) == expected_keys
+
+    serialized = cloudpickle.dumps(processor.accumulator)
+    restored = cloudpickle.loads(serialized)
+    assert set(restored.keys()) == expected_keys
 
     if any(name.endswith("_sumw2") for name in requested_hists):
         # The mapping is stored with the base histogram name so that the
