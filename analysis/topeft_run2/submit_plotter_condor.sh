@@ -153,27 +153,66 @@ if [[ ! -d "${ceph_root}" ]]; then
 fi
 
 sandbox_inputs=()
+declare -a sandbox_relative_paths=()
+declare -A sandbox_dest_seen=()
 for sandbox_path in "${sandbox_paths[@]}"; do
-    resolved_sandbox=$(python3 - "${sandbox_path}" "${original_cwd}" <<'PY'
+    mapfile -t sandbox_info < <(python3 - "${sandbox_path}" "${original_cwd}" <<'PY'
 import os
 import sys
 
 path = sys.argv[1]
 base = sys.argv[2]
+
 if path.startswith('~'):
-    path = os.path.expanduser(path)
-elif not os.path.isabs(path):
-    path = os.path.join(base, path)
-print(os.path.abspath(path))
+    expanded = os.path.expanduser(path)
+elif os.path.isabs(path):
+    expanded = path
+else:
+    expanded = os.path.join(base, path)
+
+resolved = os.path.abspath(expanded)
+if not os.path.exists(resolved):
+    print(f"Error: sandbox path '{path}' does not exist.", file=sys.stderr)
+    sys.exit(1)
+
+if os.path.isabs(path):
+    relative = os.path.basename(path)
+else:
+    relative = os.path.normpath(path)
+    if relative.startswith('..') or '..' in relative.split('/'):  # prevent escaping the repo root
+        print(
+            f"Error: --sandbox path '{path}' must not reference parent directories (.. components are unsupported).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if relative in ('', '.'):
+        relative = os.path.basename(resolved)
+
+relative = relative.strip('/')
+if not relative:
+    relative = os.path.basename(resolved)
+
+print(resolved)
+print(relative)
 PY
     )
 
-    if [[ ! -e "${resolved_sandbox}" ]]; then
-        echo "Error: sandbox path '${sandbox_path}' does not exist." >&2
+    resolved_sandbox="${sandbox_info[0]}"
+    relative_target="${sandbox_info[1]}"
+
+    if [[ -z "${relative_target}" ]]; then
+        echo "Error: Unable to derive sandbox destination for '${sandbox_path}'." >&2
         exit 1
     fi
 
+    if [[ -n "${sandbox_dest_seen["${relative_target}"]+x}" ]]; then
+        echo "Error: Multiple --sandbox entries map to '${relative_target}'." >&2
+        exit 1
+    fi
+    sandbox_dest_seen["${relative_target}"]=1
+
     sandbox_inputs+=("${resolved_sandbox}")
+    sandbox_relative_paths+=("${relative_target}")
 done
 
 validation_output=""
@@ -200,12 +239,58 @@ cleanup() {
 }
 trap cleanup EXIT
 
+sandbox_archive=""
+sandbox_archive_name=""
+if (( ${#sandbox_inputs[@]} )); then
+    sandbox_staging="${work_dir}/sandbox_stage"
+    mkdir -p "${sandbox_staging}"
+
+    for idx in "${!sandbox_inputs[@]}"; do
+        source_path="${sandbox_inputs[$idx]}"
+        relative_target="${sandbox_relative_paths[$idx]}"
+        destination_path="${sandbox_staging}/${relative_target}"
+
+        if [[ -d "${source_path}" ]]; then
+            mkdir -p "${destination_path}"
+            cp -a "${source_path}/." "${destination_path}/"
+        else
+            mkdir -p "$(dirname -- "${destination_path}")"
+            cp -a "${source_path}" "${destination_path}"
+        fi
+    done
+
+    sandbox_archive="${work_dir}/plotter_sandbox.tar.gz"
+    (
+        cd "${sandbox_staging}"
+        tar -czf "${sandbox_archive}" .
+    )
+    sandbox_archive_name=$(basename -- "${sandbox_archive}")
+fi
+
+sandbox_extract_block=""
+if [[ -n "${sandbox_archive_name}" ]]; then
+    printf -v sandbox_archive_name_quoted '%q' "${sandbox_archive_name}"
+    sandbox_extract_format=$(cat <<'EOS'
+sandbox_archive=%s
+if [[ -f "${sandbox_archive}" ]]; then
+    tar -xzf "${sandbox_archive}" -C "${ceph_root}"
+else
+    echo "Warning: sandbox archive '${sandbox_archive}' was not transferred." >&2
+fi
+
+EOS
+    )
+    printf -v sandbox_extract_block "${sandbox_extract_format}" "${sandbox_archive_name_quoted}"
+    sandbox_extract_block+=$'\n'
+fi
+
 job_script="${work_dir}/plotter_job.sh"
 cat >"${job_script}" <<JOB
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd ${ceph_root_quoted}
+ceph_root=${ceph_root_quoted}
+${sandbox_extract_block}cd "${ceph_root}"
 exec ./analysis/topeft_run2/run_plotter.sh${plotter_arg_string}
 JOB
 chmod +x "${job_script}"
@@ -224,8 +309,8 @@ when_to_transfer_output = ON_EXIT
 SUB
 
 transfer_input_files=""
-if (( ${#sandbox_inputs[@]} )); then
-    transfer_input_files=$(python3 - "${sandbox_inputs[@]}" <<'PY'
+if [[ -n "${sandbox_archive}" ]]; then
+    transfer_input_files=$(python3 - "${sandbox_archive}" <<'PY'
 import sys
 
 def quote(token: str) -> str:
