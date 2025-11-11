@@ -41,7 +41,18 @@ def test_accumulator_keys_without_hist_filter():
 )
 def test_filtered_hist_construction(requested_hists):
     processor = _make_processor(hist_lst=requested_hists)
+    sumw2_suffix = "_sumw2"
+    fill_sumw2_hist = processor._fill_sumw2_hist
+
+    base_names = {
+        name[: -len(sumw2_suffix)] if name.endswith(sumw2_suffix) else name
+        for name in requested_hists
+    }
     expected_keys = set(requested_hists)
+    for base_name in base_names:
+        expected_keys.add(base_name)
+        if fill_sumw2_hist:
+            expected_keys.add(f"{base_name}{sumw2_suffix}")
 
     assert set(processor.accumulator.keys()) == expected_keys
     assert set(processor._hist_lst) == expected_keys
@@ -52,13 +63,9 @@ def test_filtered_hist_construction(requested_hists):
     restored = cloudpickle.loads(serialized)
     assert set(restored.keys()) == expected_keys
 
-    if any(name.endswith("_sumw2") for name in requested_hists):
-        # The mapping is stored with the base histogram name so that the
-        # filling logic can look up the dense axis associated with the sumw2
-        # histogram.
-        base_names = {
-            name[: -len("_sumw2")] for name in requested_hists if name.endswith("_sumw2")
-        }
+    # The mapping is stored with the base histogram name so that the filling
+    # logic can look up the dense axis associated with the sumw2 histogram.
+    if fill_sumw2_hist:
         assert set(processor._hist_sumw2_axis_mapping.keys()) == base_names
     else:
         assert not processor._hist_sumw2_axis_mapping

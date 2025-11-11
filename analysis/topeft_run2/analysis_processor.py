@@ -1497,9 +1497,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             for dense_axis_name, dense_axis_vals in varnames.items():
                 fill_base_hist = dense_axis_name in self._base_hist_name_set
-                fill_sumw2_hist = self._fill_sumw2_hist and (
-                    f"{dense_axis_name}_sumw2" in self._expanded_hist_name_set
+                companion_axis_mapping = self._hist_sumw2_axis_mapping.get(
+                    dense_axis_name
                 )
+                fill_sumw2_hist = self._fill_sumw2_hist and bool(companion_axis_mapping)
                 if not (fill_base_hist or fill_sumw2_hist):
                     continue
 
@@ -1598,30 +1599,23 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         axis_names = self._hist_axis_map.get(
                                             dense_axis_name,
                                         )
-                                        sumw2_axis_mapping = None
                                         if axis_names is None:
-                                            sumw2_axis_mapping = self._hist_sumw2_axis_mapping.get(
-                                                dense_axis_name,
-                                            )
-                                            if sumw2_axis_mapping:
-                                                axis_names = list(sumw2_axis_mapping.values())
+                                            if companion_axis_mapping:
+                                                axis_names = list(companion_axis_mapping.values())
                                             else:
                                                 axis_names = [dense_axis_name]
-                                        else:
-                                            sumw2_axis_mapping = None
                                         sumw2_axis_names = self._hist_axis_map.get(
                                             dense_axis_name+"_sumw2",
                                             [dense_axis_name+"_sumw2"],
                                         )
+                                        sumw2_axis_mapping = companion_axis_mapping
                                         if sumw2_axis_mapping is None:
-                                            sumw2_axis_mapping = self._hist_sumw2_axis_mapping.get(
-                                                dense_axis_name,
-                                                {
+                                            if sumw2_axis_names and axis_names:
+                                                sumw2_axis_mapping = {
                                                     sumw2_axis_names[0]: axis_names[0]
                                                 }
-                                                if (sumw2_axis_names and axis_names)
-                                                else {},
-                                            )
+                                            else:
+                                                sumw2_axis_mapping = {}
 
                                         base_values_cut = None
                                         prepared_axis_vals, axis_validity = _prepare_axis_values(dense_axis_vals)
