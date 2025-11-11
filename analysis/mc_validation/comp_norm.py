@@ -70,6 +70,8 @@ parser.add_argument('--skip'   , action='store_true' , help = 'Use private key f
 parser.add_argument('json'     , default='', help = 'Json file(s) containing files and metadata')
 parser.add_argument('--small'   , action='store_true', help = 'Remove all |WCs| >100')
 parser.add_argument('--no-lumi' , action='store_true', help = 'Don\t rescale the lumi')
+parser.add_argument('--info'    , action='store_true', help = 'Print summary info')
+parser.add_argument('--start'   , action='store_true', help = 'Use starting point')
 args  = parser.parse_args()
 fin1   = args.fin1
 fin2   = args.fin2
@@ -189,12 +191,14 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
 
     # Infer lumi from file name
     def extract_year(s):
-        match = re.search(r'(?:UL(\d{2})|(\d{4}))[A-Za-z]*', s)
+        match = re.search(r'(?:UL(\d{2})|(\d{4}))(?:[A-Za-z]+)?', s)
         if match:
             if match.group(1):  # Matched ULxx
-                return int("20" + match.group(1))  # Convert UL17 -> 2017
+                return "20" + match.group(1)  # Convert UL17 -> 2017
+            if match.group(0):  # Matched ULxx
+                return match.group(0)
             else:  # Matched yyyy
-                return int(match.group(2))
+                return match.group(2)
         return None
     lumi1, lumi2 = 0, 0
     year1 = extract_year(args.fin1)
@@ -256,7 +260,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if printout and var=='photon_pt':# and args.private:
         if args.private: c = hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True) / hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)
         else: c = hists2[var][{'process': [s for s in hists2[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True) / hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)
-        print('photon pT corrections', c)
+        print('photon pT corrections (shape only)', c / (np.sum(hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)) / np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True))))
     if printout and var=='dral':
         print('Removing lj0pt<10: hist1 / (hist>10) / xsec', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)) / np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)[10:]) / 2.2471)
     if printout:
@@ -272,6 +276,15 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     #hists1[var] *= 10.7 / 1.513
     eft = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}]
     err = np.sqrt(eft.as_hist({}).variances()[()])#/np.sum(eft.values()[()])
+
+    if args.info:
+        tab = '    '
+        max_lumi = max(lumi1, lumi2)
+        print('\n\nSummary information:')
+        print(f'{tab}{args.fin1} with lumi removed {np.round(np.sum(eft.eval({})[()]) / max_lumi, 3)}')
+        print(f'{tab}{args.fin2} with lumi removed {np.round(np.sum(sm.values(flow=True)[()]) / max_lumi, 3)}')
+        print('\n\n')
+
 
     #eft.as_hist({}).plot1d(yerr=False, label='nanoAOD gen-level to SM', ax=ax, density=density)#, flow='show')
     st_pt = {'ctq1': 0.64, 'ctq8': 0.86, 'cQq81': 0.79, 'cQq83': -1.19, 'ctW': 1.49, 'cpQM': -1.02, 'ctZ': 0.94, 'ctG': 0.24, 'cQq13': 0.51, 'cQq11': -0.53, 'cpt': 1.5}
@@ -309,7 +322,8 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
             if 'StPt' in j:
                 st_pt = j['StPt']
 
-    val = [1.0] * len(wc)
+    if not args.start:
+        val = [1.0] * len(wc)
 
     if st_pt is None:
         st_pt = dict(zip(wc, val))
