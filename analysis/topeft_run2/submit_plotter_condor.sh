@@ -399,6 +399,16 @@ if [[ ! -x "${entry_helper}" ]]; then
     exit 1
 fi
 
+if [[ ! -d "\${scratch_dir}" ]]; then
+    echo "Error: Condor scratch directory '\${scratch_dir}' is missing." >&2
+    exit 1
+fi
+
+if ! cd "\${scratch_dir}"; then
+    echo "Error: Failed to enter Condor scratch directory '\${scratch_dir}'." >&2
+    exit 1
+fi
+
 payload_archive_path="\${scratch_dir}/\${payload_archive}"
 
 if [[ ! -f "\${payload_archive_path}" ]]; then
