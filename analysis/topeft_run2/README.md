@@ -10,6 +10,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 - [Scripts for making and checking the datacards](#scripts-for-making-and-checking-the-datacards)
 - [CR/SR plotting CLI quickstart](#crsr-plotting-cli-quickstart)
   - [run\_plotter.sh shell wrapper quickstart](#run_plottersh-shell-wrapper-quickstart)
+- [HTCondor plotting on Glados](#htcondor-plotting-on-glados)
 - [make_cr_and_sr_plots.py internals](#make_cr_and_sr_plotspy-internals)
 - [CR/SR metadata reference](#crsr-metadata-reference)
 
@@ -155,51 +156,38 @@ Example commands:
 * Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 -y 2018 --unblind -- --no-sumw2`
 * Switching the stacked panel to a log scale via the wrapper: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots -y run2 --log-y`
 
-#### Running the plotter on Glados HTCondor
+#### HTCondor plotting on Glados
 
-The `submit_plotter_condor.sh` helper wraps `run_plotter.sh` in a Condor submit description so you can reuse the same CLI on Glados batch slots.
+`submit_plotter_condor.sh` builds a Condor submit description around `run_plotter.sh` so the same plotting CLI can run on Glados batch slots. The helper performs a `--dry-run` validation, constructs a lightweight sandbox, and records the commands it will execute before handing everything to `condor_submit`.
 
 **Prerequisites**
 
-* Glados login with an active UW-Madison Kerberos credential (`kinit <netid>@AD.WISC.EDU`) and an `aklog` refresh so AFS paths are readable on the worker nodes.
-* Input and output directories must live on shared storage visible to the pool—AFS (`/afs/hep.wisc.edu/...`) works well and avoids staging results back from ephemeral scratch.
-* The plotting pickle and any auxiliary inputs referenced through `--sandbox` need world-readable permissions (e.g. `chmod 644 file.pkl.gz`).
+* A Glados login with valid UW–Madison Kerberos/AFS tokens (`kinit <netid>@AD.WISC.EDU` followed by `aklog`).
+* A CephFS checkout of this repository that the worker nodes can reach. The helper defaults to `/users/apiccine/work/correction-lib/topeft`; override it with `--ceph-root /cephfs/<group>/<netid>/topeft` if your clone lives elsewhere.
+* An accessible Conda installation that contains the `clib-env` environment. Pass its prefix with `--conda-prefix /cephfs/<group>/<netid>/mambaforge/envs/clib-env`; the script discovers `conda.sh`, normalises the path, and activates `clib-env` inside the job. Make sure `etc/profile.d/conda.sh` is readable.
+* Input histogram pickles, log directories, and optional sandboxes placed on shared storage (CephFS or AFS) with world-readable permissions so the execute node can fetch them.
 
-**1. Stage the pickle on shared storage**
-
-Copy the histogram pickle to a pool-visible path. AFS keeps everything mounted on the Glados execute nodes, so a simple copy is enough:
-
-```bash
-mkdir -p /afs/hep.wisc.edu/user/<netid>/public/topeft/pickles
-cp histos/plotsCR_Run2.pkl.gz /afs/hep.wisc.edu/user/<netid>/public/topeft/pickles/
-```
-
-**2. Submit the Condor job**
-
-Run `submit_plotter_condor.sh`, passing any Condor resource requests first, then a literal `--`, and finally the regular `run_plotter.sh` arguments. A complete example (swap in your username and desired variables):
+**Example submission**
 
 ```bash
 ./submit_plotter_condor.sh \
-  --request-cpus 2 --request-memory 6GB --log-dir /afs/hep.wisc.edu/user/<netid>/public/topeft/logs \
+  --ceph-root /cephfs/<group>/<netid>/topeft \
+  --conda-prefix /cephfs/<group>/<netid>/mambaforge/envs/clib-env \
+  --request-cpus 2 --request-memory 6GB \
+  --log-dir /cephfs/<group>/<netid>/topeft/logs \
   -- \
-  -f /afs/hep.wisc.edu/user/<netid>/public/topeft/pickles/plotsCR_Run2.pkl.gz \
-  -o /afs/hep.wisc.edu/user/<netid>/public/topeft/plots/run2_combo \
+  -f /cephfs/<group>/<netid>/topeft/pickles/plotsCR_Run2.pkl.gz \
+  -o /cephfs/<group>/<netid>/topeft/plots/run2_combo \
   -y run2 --variables lj0pt ptz
 ```
 
-Add `--sandbox /afs/.../my_extra_templates` to ship additional files with the job. The `--queue N` switch launches multiple identical submissions when sweeping several pickles at once.
+Prefix the command with `--dry-run` when you want to review the generated job wrapper and `.sub` file without actually queueing the job. Add `--queue N` to launch an array of identical submissions or `--sandbox /cephfs/.../templates` to ship extra payload files alongside the job.
 
-**Tuning resources**
+**Inspecting jobs and logs**
 
-* `--request-cpus` controls the Condor slot size. Match it to `--workers` in your forwarded arguments (default is 1) so the job keeps the allocated cores busy.
-* Increase `--request-memory` for large pickles or many variables. 4–8 GB per job usually covers Run 2 payloads; start higher for Run 3 combinations.
-* If you expect long render times, consider `condor_qedit <cluster> periodic_hold False` to prevent watchdog holds, or set `+MaxRuntime` in a custom submit tweak via `--sandbox`.
+`submit_plotter_condor.sh` prints the Condor cluster ID on success. Use `condor_q <netid>` or `condor_q -af:j ClusterId ProcId JobStatus` to watch the queue; status codes follow the standard convention (1 = idle, 2 = running, 4 = completed). Each job writes `plotter.<cluster>.<proc>.{log,out,err}` into the `--log-dir` directory. The `.out` file streams the `condor_plotter_entry.sh` chatter—including the `unset PYTHONPATH` guard and `conda activate clib-env` activation—followed by the `run_plotter.sh` logs, so `tail -f` is the quickest way to monitor progress.
 
-**3. Monitor the submission**
-
-`submit_plotter_condor.sh` prints the Condor cluster ID. Track progress with `condor_q <netid>` or `condor_q -af:j ClusterId ProcId JobStatus`. JobStatus values follow the usual Condor codes (1 = idle, 2 = running, 4 = completed). Log, stdout, and stderr files land under the directory passed via `--log-dir`, named `plotter_<cluster>_<proc>.{log,out,err}`. Use `tail -f plotter_12345_0.out` to watch the forwarded `run_plotter.sh` output as the job progresses.
-
-**4. Retrieve the plots**
+**Retrieving the plots**
 
 Outputs appear directly under the `-o/--output-dir` you forwarded through the wrapper (e.g. `/afs/.../plots/run2_combo`). Condor populates the folder once the job finishes, so you can browse the rendered plots or host them with `python -m http.server` without additional copy steps.
 
