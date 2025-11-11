@@ -251,7 +251,10 @@ class YieldTools():
         ret_name = None
         canonical_long_name = canonicalize_process_name(long_name)
         for short_name,long_name_lst in self.PROC_MAP.items():
-            if canonical_long_name in long_name_lst:
+            if any(
+                canonical_long_name == canonicalize_process_name(candidate_name)
+                for candidate_name in long_name_lst
+            ):
                 ret_name = short_name
                 break
         return ret_name
@@ -266,8 +269,10 @@ class YieldTools():
             for long_name_in in long_name_lst_in
         }
         for long_name in self.PROC_MAP[short_name_in]:
-            if long_name in canonical_candidates:
-                ret_name = canonical_candidates[long_name]
+            canonical_long_name = canonicalize_process_name(long_name)
+            if canonical_long_name in canonical_candidates:
+                ret_name = canonical_candidates[canonical_long_name]
+                break
         return ret_name
 
 
