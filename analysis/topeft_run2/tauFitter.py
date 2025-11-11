@@ -39,6 +39,9 @@ yt = YieldTools()
 Ftau = ["2los_ee_1tau_Ftau_2j", "2los_em_1tau_Ftau_2j", "2los_mm_1tau_Ftau_2j", "2los_ee_1tau_Ftau_3j", "2los_em_1tau_Ftau_3j", "2los_mm_1tau_Ftau_3j", "2los_ee_1tau_Ftau_4j", "2los_em_1tau_Ftau_4j", "2los_mm_1tau_Ftau_4j"]
 Ttau = ["2los_ee_1tau_Ttau_2j", "2los_em_1tau_Ttau_2j", "2los_mm_1tau_Ttau_2j", "2los_ee_1tau_Ttau_3j", "2los_em_1tau_Ttau_3j", "2los_mm_1tau_Ttau_3j", "2los_ee_1tau_Ttau_4j", "2los_em_1tau_Ttau_4j", "2los_mm_1tau_Ttau_4j"]
 
+#Ftau = ["2los_ee_1tau_Ftau_2j"]
+#Ttau = ["2los_ee_1tau_Ttau_2j"]
+
 #CR_GRP_MAP = {
 #    "DY" : [],
 #    "Ttbar" : [],
@@ -60,74 +63,17 @@ CR_GRP_MAP = {
         "Ttbar" : [],
     }
 
-CR_GRP_MAP_full = {
-    "DY": [
-        "DYJetsToLL_MLL-50_central2022",
-        "DYJetsToLL_MLL-10to50_central2022"
-    ],
-    "Ttbar": [
-        "TTto2L2Nu_central2022",
-        "TTtoLNu2Q_central2022",
-        "TTto4Q_central2022",
-        "TTLL_MLL-4to50_central2022"
-    ],
-    "ZGamma": [
-        "ZGto2LG-1Jets_ntgc_5f_central2022"
-    ],
-    "Diboson": [
-        "ZZTo4L_central2022",
-        "WWTo2L2Nu_central2022",
-        "WZTo3LNu_central2022",
-        "WWZ_central2022",
-        "WZZ_central2022",
-        "ggToZZTo2mu2tau_central2022",
-        "ggToZZTo2e2tau_central2022",
-        "ggToZZTo4e_central2022",
-        "ggToZZTo4mu_central2022",
-        "ggToZZTo4tau_central2022"
-    ],
-    "Triboson": [
-        "WWW_central2022",
-        "ZZZ_central2022",
-        "TWZ_Tto2Q_WtoLNu_Zto2L_central2022",
-        "TWZ_TtoLNu_WtoLNu_Zto2L_central2022"
-    ],
-    "Single top": [
-        "ST_tW_Leptonic_central2022",
-        "ST_tW_Semileptonic_central2022",
-        "ST_tbarW_Leptonic_central2022",
-        "ST_tbarW_Semileptonic_central2022",
-        "ST_top_s-channel_central2022",
-        "ST_top_t-channel_central2022",
-        "ST_antitop_t-channel_central2022"
-    ],
-    "Singleboson": [
-        "WJetsToLNu_central2022"
-    ],
-    "TtG": [
-        "TTG-1Jets_PTG-10to100_central2022",
-        "TTG-1Jets_PTG-100to200_central2022",
-        "TTG-1Jets_PTG-200_central2022"
-    ],
-    "Nonprompt": ["nonprompt2022"],
-    "Flips": ["flips2022"],
-    "Signal": [
-        "TWZ_TtoLNu_Wto2Q_Zto2L_central2022"  # fill with your actual signal samples if needed
-    ],
-    "Data": [
-        "data2022"
-    ]
-}
-
 
 #def sqrt_list(numbers):
 #    return [math.sqrt(num) for num in numbers]
 
-def sqrt_list(numbers):
-    arr = np.array(numbers.flatten())
-    arr = np.clip(arr, 0, None)
-    return arr.tolist()
 
+def sqrt_list(numbers):
+    return [math.sqrt(max(num, 0)) for num in numbers]
+
+def sqrt_list2(numbers):
+    numbers = np.array(numbers)
+    return np.sqrt(np.clip(numbers, 0, None))
 
 def linear(x,a,b):
     return b*x+a
@@ -151,7 +97,7 @@ def SF_fit_alt(SF,SF_e,x):
 
 def group_bins_original(histo,bin_map,axis_name="sample",drop_unspecified=True):
 
-    bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
+    bin_map = copy.deepcopy(bin_map)
 
     # Construct the map of bins to remap
     bins_to_remap_lst = []
@@ -170,14 +116,13 @@ def group_bins_original(histo,bin_map,axis_name="sample",drop_unspecified=True):
     return new_histo
 
 def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
-    bin_map = copy.deepcopy(bin_map)  # Avoid editing original
+    bin_map = copy.deepcopy(bin_map)
 
     axis_cats = list(histo.axes[axis_name])
 
-    # Build new bin_map that only contains categories that exist in the hist
     new_bin_map = {}
     for grp_name, cat_list in bin_map.items():
-        filtered = [c for c in cat_list if c in axis_cats]  # Only keep existing categories
+        filtered = [c for c in cat_list if c in axis_cats]
         if filtered:
             new_bin_map[grp_name] = filtered
 
@@ -233,61 +178,115 @@ def getPoints(dict_of_hists):
     for proc_name in all_samples:
         if "data" in proc_name:
             CR_GRP_MAP["Data"].append(proc_name)
-        #elif "TTTo" in proc_name:
-        #    CR_GRP_MAP["Ttbar"].append(proc_name)
         else:
             CR_GRP_MAP["Ttbar"].append(proc_name)
 
     var_name = "tau0pt"
+
     hist_mc = dict_of_hists[var_name].remove("process",samples_to_rm_from_mc_hist)
     hist_data = dict_of_hists[var_name].remove("process",samples_to_rm_from_data_hist)
 
+    hist_mc_sumw2 = dict_of_hists[var_name + '_sumw2'].remove("process",samples_to_rm_from_mc_hist)
+    hist_data_sumw2 = dict_of_hists[var_name + '_sumw2'].remove("process",samples_to_rm_from_data_hist)
 
-    # Integrate to get the categories we want
-    mc_fake     = hist_mc.integrate("channel", Ftau)
-    mc_tight    = hist_mc.integrate("channel", Ttau)
-    data_fake     = hist_data.integrate("channel", Ftau)
-    data_tight    = hist_data.integrate("channel", Ttau)
-  
-    mc_fake     = group_bins(mc_fake,CR_GRP_MAP,"process",drop_unspecified=True)
-    mc_tight    = group_bins(mc_tight,CR_GRP_MAP,"process",drop_unspecified=True)
-    data_fake   = group_bins(data_fake,CR_GRP_MAP,"process",drop_unspecified=True)
-    data_tight  = group_bins(data_tight,CR_GRP_MAP,"process",drop_unspecified=True)
 
-    mc_fake     = mc_fake.integrate("systematic","nominal")
-    mc_tight    = mc_tight.integrate("systematic","nominal")
-    data_fake   = data_fake.integrate("systematic","nominal")
+    mc_fake_all = None
+    mc_fake_sumw2_all = None
+    mc_tight_all = None
+    mc_tight_sumw2_all = None
 
-    data_tight  = data_tight.integrate("systematic","nominal")
+    for ftau in Ftau:
+        mc_fake = hist_mc.integrate("channel", ftau)
+        mc_fake_sumw2 = hist_mc_sumw2.integrate("channel", ftau)
+        data_fake = hist_data.integrate("channel", ftau)
+        data_fake_sumw2 = hist_data_sumw2.integrate("channel", ftau)
 
-    mc_fake_view = mc_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
-    mc_tight_view = mc_tight.view()
+        mc_fake = group_bins(mc_fake, CR_GRP_MAP, "process", drop_unspecified=True)
+        mc_fake_sumw2 = group_bins(mc_fake_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
+        data_fake = group_bins(data_fake, CR_GRP_MAP, "process", drop_unspecified=True)
+        data_fake_sumw2 = group_bins(data_fake_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
+
+        mc_fake = mc_fake.integrate("systematic", "nominal")
+        mc_fake_sumw2 = mc_fake_sumw2.integrate("systematic", "nominal")
+        data_fake = data_fake.integrate("systematic", "nominal")
+        data_fake_sumw2 = data_fake_sumw2.integrate("systematic", "nominal")
+
+        if mc_fake_all is None:
+            mc_fake_all = mc_fake.copy()
+            mc_fake_sumw2_all = mc_fake_sumw2.copy()
+            data_fake_all = data_fake.copy()
+            data_fake_sumw2_all = data_fake_sumw2.copy()
+        else:
+            mc_fake_all += mc_fake
+            mc_fake_sumw2_all += mc_fake_sumw2
+            data_fake_all += data_fake
+            data_fake_sumw2_all += data_fake_sumw2
+
+    mc_fake_view = mc_fake_all.view()
+    mc_fake_sumw2_view = mc_fake_sumw2_all.view()
+    data_fake_view = data_fake_all.view()
+    data_fake_sumw2_view = data_fake_sumw2_all.view()
+
+
+
+    for ttau in Ttau:
+        mc_tight = hist_mc.integrate("channel", ttau)
+        mc_tight_sumw2 = hist_mc_sumw2.integrate("channel", ttau)
+        data_tight = hist_data.integrate("channel", ttau)
+        data_tight_sumw2 = hist_data_sumw2.integrate("channel", ttau)
+
+        mc_tight = group_bins(mc_tight, CR_GRP_MAP, "process", drop_unspecified=True)
+        mc_tight_sumw2 = group_bins(mc_tight_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
+        data_tight = group_bins(data_tight, CR_GRP_MAP, "process", drop_unspecified=True)
+        data_tight_sumw2 = group_bins(data_tight_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
+
+        mc_tight = mc_tight.integrate("systematic", "nominal")
+        mc_tight_sumw2 = mc_tight_sumw2.integrate("systematic", "nominal")
+        data_tight = data_tight.integrate("systematic", "nominal")
+        data_tight_sumw2 = data_tight_sumw2.integrate("systematic", "nominal")
+
+        if mc_tight_all is None:
+            mc_tight_all = mc_tight.copy()
+            mc_tight_sumw2_all = mc_tight_sumw2.copy()
+            data_tight_all = data_tight.copy()
+            data_tight_sumw2_all = data_tight_sumw2.copy()
+        else:
+            mc_tight_all += mc_tight
+            mc_tight_sumw2_all += mc_tight_sumw2
+            data_tight_all += data_tight
+            data_tight_sumw2_all += data_tight_sumw2
+
+
+    mc_tight_view = mc_tight_all.view()
+    mc_tight_sumw2_view = mc_tight_sumw2_all.view()
+    data_tight_view = data_tight_all.view()
+    data_tight_sumw2_view = data_tight_sumw2_all.view()
+
     for key, vals in mc_fake_view.items():
-        proc = key[0]
-        chan = key[1]
-        mc_fake_e = sqrt_list(vals)
         mc_fake_vals = vals
 
+
+    for key, vals in mc_fake_sumw2_view.items():
+        mc_fake_e = sqrt_list(vals)
+
+
     for key, vals in mc_tight_view.items():
-        proc = key[0]
-        chan = key[1]
-        mc_tight_e = sqrt_list(vals)
         mc_tight_vals = vals
 
+    for key, vals in mc_tight_sumw2_view.items():
+        mc_tight_e = sqrt_list(vals)
 
-    data_fake_view = data_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
-    data_tight_view = data_tight.view()
     for key, vals in data_fake_view.items():
-        proc = key[0]
-        chan = key[1]
-        data_fake_e = sqrt_list(vals)
         data_fake_vals = vals
 
+    for key, vals in data_fake_sumw2_view.items():
+        data_fake_e = sqrt_list(vals)
+
     for key, vals in data_tight_view.items():
-        proc = key[0]
-        chan = key[1]
-        data_tight_e = sqrt_list(vals)
         data_tight_vals = vals
+
+    for key, vals in data_tight_sumw2_view.items():
+        data_tight_e = sqrt_list(vals)
 
     mc_x = [20, 30, 40, 50, 60, 80, 100]
     mc_y = []
@@ -298,6 +297,7 @@ def getPoints(dict_of_hists):
     tight = 0
     f_err = 0
     t_err = 0
+
     for index in range(2, len(mc_fake_vals)):
         fake  += mc_fake_vals[index]
         tight += mc_tight_vals[index]
@@ -307,15 +307,19 @@ def getPoints(dict_of_hists):
         if x in bin_div:
             if fake != 0.0:
                 y = tight/fake
-                y_err = t_err/fake + tight*f_err/(fake*fake)
+                #y_err = t_err/fake + tight*f_err/(fake*fake)
+                y_err = math.sqrt((t_err / fake)**2 + (tight * f_err / (fake**2))**2)
             else:
                 y = 0.0
                 y_err = 0.0
             mc_y.append(y)
-            if (y+y_err)/y < 1.02:
-                mc_e.append(1.02*y-y)
+            if y != 0.0:
+                if (y + y_err) / y < 1.02:
+                    mc_e.append(1.02 * y - y)
+                else:
+                    mc_e.append(y_err)
             else:
-                mc_e.append(y_err)
+                mc_e.append(0.0)
             fake = 0.0
             tight = 0.0
             f_err = 0.0
@@ -326,6 +330,7 @@ def getPoints(dict_of_hists):
     x = 20
     fake = 0.0
     tight = 0.0
+
     for index in range(2, len(data_fake_vals)):
         fake  += data_fake_vals[index]
         tight += data_tight_vals[index]
@@ -336,7 +341,9 @@ def getPoints(dict_of_hists):
             if fake != 0.0:
                 y = tight/fake
                 print("check t/f: ", y)
-                y_err =t_err/fake + tight*f_err/(fake*fake)
+                #y_err =t_err/fake + tight*f_err/(fake*fake)
+                y_err = math.sqrt((t_err / fake)**2 + (tight * f_err / (fake**2))**2)
+
             else:
                 y = 0.0
                 y_err =0.0
@@ -348,7 +355,6 @@ def getPoints(dict_of_hists):
                     data_e.append(y_err)
             else:
                 data_e.append(0.0)
-        
             fake = 0.0
             tight = 0.0
             f_err = 0.0
@@ -362,20 +368,10 @@ def main():
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
     args = parser.parse_args()
 
-    # Whether or not to unit norm the plots
-    #unit_norm_bool = args.unit_norm
-
-    # Make a tmp output directory in curren dir a different dir is not specified
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    #save_dir_path = args.output_path
-    #outdir_name = args.output_name
-    #if args.include_timestamp_tag:
-    #    outdir_name = outdir_name + "_" + timestamp_tag
-    #save_dir_path = os.path.join(save_dir_path,outdir_name)
-    #os.mkdir(save_dir_path)
 
-    # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+
     x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict)
 
     y_data = np.array(y_data, dtype=float).flatten()
@@ -387,9 +383,13 @@ def main():
 
     print("fr data = ", y_data)
     print("fr mc = ", y_mc)
+    print("d error", yerr_data)
+    print("mc error", yerr_mc)
+    print("x data", x_data)
     SF = y_data/y_mc
-    SF_e = yerr_data/y_mc + y_data*yerr_mc/(y_mc**2)
-        
+    #SF_e = yerr_data/y_mc + y_data*yerr_mc/(y_mc**2)
+    SF_e = np.sqrt((yerr_data / y_mc)**2 + (y_data * yerr_mc / (y_mc**2))**2)
+    
     SF_e = np.where(SF_e <= 0, 1e-3, SF_e)
     print('SF',SF)
     print('sfERR',SF_e)

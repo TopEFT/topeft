@@ -33,6 +33,9 @@ info = {
     "nbtagsl": {
         "regular": (5, 0, 5),
         "label": r"Loose btag multiplicity "},
+    "nbtagsm": {
+        "regular": (5, 0, 5),
+        "label": r"Medium btag multiplicity "},
     "l0pt": {
         "regular": (25, 0, 250),
         "label": r"Leading lep raw $p_{T}$ (GeV) ",

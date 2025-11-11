@@ -2,7 +2,23 @@
 Run 3 diboson scale factor calculation based on the ``njets`` distribution.
 The default ``njets`` bin edges are ``[0, 1, 2, 3, 4, 5, 6]``.
 
-Invocation patterns:
+Shared-pickle workflow
+======================
+
+Run 3 ntuple production often yields a *single* histogram pickle that contains
+all years.  The recommended workflow for such files is:
+
+1. Produce (or obtain) a combined pickle that stores the Run 3 histograms for
+   every year.  The per-year information must be encoded in the process names
+   (tokens such as ``central2023`` or ``2022EE`` work well).
+2. Invoke the script with ``--pkl`` pointing to the shared file and
+   ``--year all``.  The sentinel scans the process names, identifies every
+   year-like token, runs the per-year fits, and generates a combined summary for
+   the union of processed years.
+3. Inspect the per-year artifacts written underneath ``--output-dir``.
+
+Invocation patterns
+-------------------
 
 * Provide one pickle per year when the histograms are stored separately::
 
@@ -14,24 +30,29 @@ Invocation patterns:
       python diboson_sf_run3.py --pkl "/path/to/year_{year}.pkl.gz" --year 2022 2023
 
 * Supply a single pickle shared by all years.  The script automatically selects
-  the processes whose names encode each requested year (tokens like
-  ``central2023`` or ``2022EE``).  If the conservative regular expression used
-  for matching does not find a process for a given year, the code falls back to
-  a simple substring search so unconventional naming schemes are still handled
-  gracefully::
+  the processes whose names encode each requested year.  A conservative regular
+  expression is used first; if that does not find a match, the code falls back
+  to a simple substring search so unconventional naming schemes are still
+  handled gracefully::
 
       python diboson_sf_run3.py --pkl combined.pkl.gz --year 2022 2023
 
 * Discover every available year in a shared pickle with ``--year all``.  This
-  sentinel scans the process names, runs the per-year fits for every detected
-  token, and writes a combined result that aggregates all processed years::
+  sentinel triggers the scanning behaviour described above, runs the per-year
+  fits for every detected token, and writes a combined result that aggregates
+  all processed years::
 
       python diboson_sf_run3.py --pkl combined.pkl.gz --year all
 
-Outputs are written per year (including the combined entry when ``all`` is used)
-in subdirectories of ``--output-dir``.  Each directory receives a
+Output layout
+-------------
+
+Outputs are written per year (including the combined entry when ``all`` is
+used) in subdirectories of ``--output-dir``.  Each directory receives a
 ``diboson_sf_{year}.json`` summary, the linear-fit JSON, and the PNG diagnostic
-plot so the per-year artifacts remain grouped together.
+plot so the per-year artifacts remain grouped together.  The combined
+directory, produced only when ``--year all`` is used, aggregates the fits for
+all discovered years.
 """
 
 import argparse
@@ -42,8 +63,8 @@ import os
 import pickle
 import re
 
-import numpy as np
 import awkward as ak
+import numpy as np
 
 
 logger = logging.getLogger(__name__)
@@ -100,12 +121,20 @@ def get_yields_in_bins(
     extra_slices=None,
     process_whitelist=None,
 ):
+    """Return per-process yields for ``hist_name`` bins as (value, uncertainty).
+
+    Parameters mirror the histogram dictionary, processes, and binning
+    configuration supplied by callers.  The returned mapping associates each
+    process with a list of tuples ``(value, uncertainty)`` for the requested
+    ``bins``.  Whitelist entries that are absent from ``proc_list`` are ignored
+    with a warning so callers know they were skipped.
+    """
     h = hin_dict[hist_name]
     yields = {}
 
-    print("h axes:")
+    logger.debug("Histogram '%s' axes:", hist_name)
     for ax in h.axes:
-        print(f"  {ax.name}: {list(ax)}")
+        logger.debug("  %s: %s", ax.name, list(ax))
 
     available_axes = {ax.name for ax in h.axes}
     required_axes = {"process", "channel"}
@@ -122,9 +151,10 @@ def get_yields_in_bins(
     if extra_slices:
         missing_optional = sorted(set(extra_slices) - available_axes)
         if missing_optional:
-            print(
-                "Warning: ignoring extra_slices axes not present on histogram "
-                f"'{hist_name}': {missing_optional}"
+            logger.warning(
+                "Ignoring extra_slices axes not present on histogram '%s': %s",
+                hist_name,
+                missing_optional,
             )
         optional_slices = {
             key: extra_slices[key]
@@ -134,7 +164,21 @@ def get_yields_in_bins(
 
     whitelist_set = None
     if process_whitelist is not None:
-        whitelist_set = set(process_whitelist)
+        whitelist_set = {str(proc) for proc in process_whitelist}
+
+    if whitelist_set is not None:
+        processes_to_scan = [
+            proc for proc in proc_list if str(proc) in whitelist_set
+        ]
+        matched_processes = {str(proc) for proc in processes_to_scan}
+        missing_processes = sorted(whitelist_set - matched_processes)
+        if missing_processes:
+            logger.warning(
+                "Ignoring process whitelist entries not present in histogram: %s",
+                missing_processes,
+            )
+    else:
+        processes_to_scan = proc_list
 
     for proc in proc_list:
         if whitelist_set is not None and proc not in whitelist_set:
@@ -152,41 +196,63 @@ def get_yields_in_bins(
             h_sel = h[selection]
 
             axis_names = [ax.name for ax in h_sel.axes]
-            if hist_name not in axis_names:
+            try:
+                target_index = axis_names.index(hist_name)
+            except ValueError as exc:
                 raise KeyError(
                     f"Histogram '{hist_name}' axis not present after slicing for process "
                     f"'{proc}'. Remaining axes: {axis_names}"
                 )
             values_ak = h_sel.values(flow=False)
             try:
-                values_np = ak.to_numpy(values_ak)
+                values_np = ak.to_numpy(h_sel.values(flow=False))
             except Exception as exc:
-                # Attempt a best-effort conversion for debugging before raising a
-                # hard error so upstream callers do not continue with unreliable
-                # contents.
-                try:
-                    np.asarray(values_ak)
-                except Exception:
-                    pass
+                logger.error(
+                    "Failed to convert histogram values to a dense NumPy array using "
+                    "ak.to_numpy for process '%s' on histogram '%s'.",
+                    proc,
+                    hist_name,
+                    exc_info=exc,
+                )
                 raise RuntimeError(
                     "Failed to convert histogram values to a dense NumPy array using "
                     f"ak.to_numpy for process '{proc}' on histogram '{hist_name}'."
                 ) from exc
 
-            # Reduce all axes except the histogram axis, ensuring stable indices by
-            # summing from the highest axis index downward.
-            reduce_indices = [
-                idx for idx, name in enumerate(axis_names) if name != hist_name
-            ]
-            for axis_idx in sorted(reduce_indices, reverse=True):
-                values_np = values_np.sum(axis=axis_idx)
+            # Reduce all axes except the histogram axis via a single summation.
+            sum_axes = tuple(
+                axis_idx for axis_idx in range(values_np.ndim) if axis_idx != target_index
+            )
+            if sum_axes:
+                values_np = values_np.sum(axis=sum_axes)
 
-            axis = h_sel.axes[hist_name]
-            if not hasattr(axis, "edges"):
+            target_axis = next(
+                (ax for ax in h_sel.axes if ax.name == hist_name),
+                None,
+            )
+            if target_axis is None or not hasattr(target_axis, "edges"):
                 raise AttributeError(
-                    f"Unable to determine bin edges for axis '{axis.name}'."
+                    f"Unable to determine bin edges for axis '{hist_name}'."
                 )
-            edges = axis.edges
+            edges = target_axis.edges
+            edges_np = np.asarray(edges, dtype=float)
+
+            if bin_edges_cache is None:
+                bin_edges_cache = edges_np
+                low_edges = edges_np[:-1]
+                high_edges = edges_np[1:]
+                bin_index_cache = [
+                    np.nonzero((high_edges > low) & (low_edges < high))[0].tolist()
+                    for low, high in zip(bins[:-1], bins[1:])
+                ]
+            else:
+                if len(edges_np) != len(bin_edges_cache) or not np.allclose(
+                    edges_np, bin_edges_cache
+                ):
+                    raise AssertionError(
+                        "Histogram axis binning changed between processes; "
+                        "consistent bin edges are required."
+                    )
 
             expected_bins = len(edges) - 1
             values_np = np.asarray(values_np, dtype=float).reshape(-1)
@@ -206,12 +272,7 @@ def get_yields_in_bins(
             raise RuntimeError(error_message) from exc
 
         proc_yields = []
-        for i in range(len(bins) - 1):
-            low, high = bins[i], bins[i + 1]
-            bin_indices = [
-                j for j, (lo, hi) in enumerate(zip(edges[:-1], edges[1:]))
-                if hi > low and lo < high
-            ]
+        for bin_indices in bin_index_cache:
             val = float(np.sum(values_np[bin_indices])) if bin_indices else 0.0
             proc_yields.append((val, 0.0))
 
@@ -220,6 +281,32 @@ def get_yields_in_bins(
     return yields
 
 def make_diboson_sf_json(bins, scale_factors, year, output_dir="."):
+    """Write the per-bin scale factors for ``year`` to a JSON summary.
+
+    Parameters
+    ----------
+    bins : Sequence[float]
+        Monotonically increasing bin edges whose length must exceed the number
+        of scale factors by one.
+    scale_factors : Sequence[float]
+        Scale-factor values computed for the intervals defined by ``bins``.
+    year : str or int
+        Year label used to key the JSON payload and the output filename.
+    output_dir : str, optional
+        Destination directory for produced artifacts.  Created if it does not
+        already exist.
+
+    Returns
+    -------
+    str
+        Absolute path to the emitted JSON file.
+
+    Notes
+    -----
+    Writes ``diboson_sf_{year}.json`` containing the scale-factor JSON to
+    ``output_dir`` so the README-described summary file can be located directly
+    from the code.
+    """
     if len(bins) != len(scale_factors) + 1:
         raise ValueError("Number of scale factors must be one less than number of bin edges.")
 
@@ -235,10 +322,30 @@ def make_diboson_sf_json(bins, scale_factors, year, output_dir="."):
     with open(output_path, "w") as f:
         json.dump(sf_json, f, indent=2)
     print(f"Scaling factors saved to {output_path}")
+    return os.path.abspath(output_path)
 
 
 def compute_linear_fit(bin_centers, scale_factors):
-    if not bin_centers or not scale_factors:
+    """Fit a straight line to the supplied scale factors.
+
+    Parameters
+    ----------
+    bin_centers : Sequence[float]
+        Centers of the ``njets`` bins used as the independent variable.
+    scale_factors : Sequence[float]
+        Scale-factor values serving as the dependent variable.
+
+    Returns
+    -------
+    Tuple[Optional[Dict[str, float]], List[float]]
+        The slope/intercept coefficients and the fitted values evaluated at the
+        provided ``bin_centers``.  Returns ``(None, [])`` when the fit cannot be
+        computed (e.g., mismatched inputs).
+    """
+    if bin_centers is None or scale_factors is None:
+        return None, []
+
+    if np.size(bin_centers) == 0 or np.size(scale_factors) == 0:
         return None, []
 
     if len(bin_centers) != len(scale_factors):
@@ -257,6 +364,24 @@ def compute_linear_fit(bin_centers, scale_factors):
 
 
 def save_linear_fit_coefficients(year, fit_coefficients, output_dir="."):
+    """Persist linear-fit coefficients for ``year`` when available.
+
+    Parameters
+    ----------
+    year : str or int
+        Label used to name the output file.
+    fit_coefficients : Mapping[str, float]
+        Dictionary containing the ``slope`` and ``intercept`` keys produced by
+        :func:`compute_linear_fit`.
+    output_dir : str, optional
+        Directory where the artifact should be written.  Created if missing.
+
+    Notes
+    -----
+    Writes ``diboson_sf_{year}_linear_fit.json`` containing the linear-fit JSON
+    to ``output_dir`` so the README-described coefficients are visible from the
+    implementation.
+    """
     if not fit_coefficients:
         return
 
@@ -279,7 +404,34 @@ def save_scale_factor_plot(
     fitted_values,
     output_dir=".",
 ):
-    if not bin_centers or not scale_factors:
+    """Generate the diagnostic plot overlaying measured scale factors and the fit.
+
+    Parameters
+    ----------
+    year : str or int
+        Year label included in the plot title and filename.
+    channel : str
+        Channel label included in the plot title.
+    bin_centers : Sequence[float]
+        Abscissa of the plotted points corresponding to ``njets`` bin centers.
+    scale_factors : Sequence[float]
+        Scale-factor values to scatter with uncertainties.
+    fitted_values : Sequence[float]
+        Linear-fit evaluation to overlay; may be empty when the fit fails.
+    output_dir : str, optional
+        Directory where the figure is stored.  Created if it does not exist.
+
+    Notes
+    -----
+    Writes ``diboson_sf_{year}.png`` containing the scale-factor diagnostic plot
+    to ``output_dir`` so the README-stated PNG artifact is documented alongside
+    its implementation.
+    """
+    if bin_centers is None or scale_factors is None:
+        print("No bin centers or scale factors available for plotting; skipping plot generation.")
+        return
+
+    if np.size(bin_centers) == 0 or np.size(scale_factors) == 0:
         print("No bin centers or scale factors available for plotting; skipping plot generation.")
         return
 
@@ -300,7 +452,7 @@ def save_scale_factor_plot(
         fmt="o",
         label="Scale factors",
     )
-    if fitted_values:
+    if fitted_values is not None and np.size(fitted_values) > 0:
         fitted_array = np.asarray(fitted_values, dtype=float)
         ax.plot(
             bin_centers,
@@ -482,7 +634,7 @@ def main():
             if missing_paths:
                 parser.error(
                     "The following expanded --pkl paths do not exist: "
-                    + ", ".join(missing_paths)
+                    f"{', '.join(missing_paths)}"
                 )
         elif len(years) == 1:
             pkl_paths = [pkl_arg]
@@ -535,7 +687,7 @@ def main():
             }
             print(
                 "Discovered years embedded in process names: "
-                + ", ".join(discovered_years)
+                f"{', '.join(discovered_years)}"
             )
         else:
             print(

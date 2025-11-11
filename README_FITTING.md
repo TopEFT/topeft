@@ -29,10 +29,21 @@ does not write output files—so the printed tables are the main products.
 * A histogram pickle (`plotsTopEFT.pkl.gz` by default) containing the
   Ftau/Ttau control-region histograms with the required axes:
   `process`, `channel`, `systematic`, and `tau0pt`.
+* The matching `tau0pt_sumw2` histogram so the fitter can propagate the
+  statistical uncertainties. Produce your histograms with
+  `run_analysis.py` (or any equivalent processor invocation) **without**
+  `--no-sumw2`; see the
+  [Run 2 analysis README](analysis/topeft_run2/README.md#run-scripts-and-processors)
+  for a summary of the sumw² guidance shared with the plotting tools.
 * The standard tau channel configuration JSON
   (`topeft/channels/ch_lst.json`). Use `--channels-json` to point to a custom
   configuration, and `--dump-channels OUTPUT.json` to inspect the resolved Ftau
   and Ttau channel names.
+* Optional year tokens passed via `-y/--year` to restrict both MC and data
+  histograms before computing the fake-rate points. Supported tokens include
+  `2016`, `2016APV`, `2017`, `2018`, `2022`, `2022EE`, `2023`, and `2023BPix`.
+  Passing `--year` now prints a summary of the retained processes so you can
+  confirm the filter caught the intended campaigns.
 
 ### Running the script
 
@@ -42,6 +53,15 @@ Run the fitter from the repository root so relative paths resolve correctly:
 python analysis/topeft_run2/tauFitter.py \
   -f /path/to/plotsTopEFT.pkl.gz \
   --channels-json /path/to/ch_lst.json
+```
+
+To focus on a subset of years, provide one or more year tokens. The fitter
+prints a dedicated summary that lists the retained and removed samples:
+
+```bash
+python analysis/topeft_run2/tauFitter.py \
+  -f /path/to/plotsTopEFT.pkl.gz \
+  -y 2017 2018
 ```
 
 The regrouped tau-pT binning defaults to
