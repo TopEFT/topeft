@@ -1,12 +1,18 @@
-import pathlib
+import gzip
+import json
 import logging
+import math
+import os
+import pathlib
 import re
+import subprocess
 import sys
 
 import pytest
 
 hist = pytest.importorskip("hist")
 np = pytest.importorskip("numpy")
+cloudpickle = pytest.importorskip("cloudpickle")
 
 from topcoffea.modules.histEFT import HistEFT
 
@@ -93,6 +99,142 @@ def _build_tau_histograms(process_weights=None):
             expected_errors[key] = scaled
 
     return {"tau0pt": tau_hist, "tau0pt_sumw2": tau_sumw2_hist}, expected_errors
+
+
+def _compute_expected_tau_sf_payload(histograms, channels_json_path=None):
+    ftau_channels, ttau_channels = fitter.load_tau_control_channels(
+        channels_json_path
+    )
+    sample_filters = fitter._resolve_year_filters(None)
+
+    y_mc, yerr_mc, x_data, y_data, yerr_data, stage_details = fitter.getPoints(
+        histograms,
+        ftau_channels,
+        ttau_channels,
+        sample_filters=sample_filters,
+    )
+
+    def _as_flat_float(array):
+        return np.asarray(array, dtype=float).reshape(-1)
+
+    y_mc = _as_flat_float(y_mc)
+    yerr_mc = _as_flat_float(yerr_mc)
+    x_data = _as_flat_float(x_data)
+    y_data = _as_flat_float(y_data)
+    yerr_data = _as_flat_float(yerr_data)
+    full_x_data = x_data.copy()
+
+    regroup_labels = np.array(stage_details["regroup_labels"], dtype=object)
+
+    sf_values = np.divide(
+        y_data,
+        y_mc,
+        out=np.full_like(y_data, np.nan, dtype=float),
+        where=(y_mc != 0),
+    )
+    sf_errors = fitter._combine_ratio_uncertainty_array(
+        y_data,
+        yerr_data,
+        y_mc,
+        yerr_mc,
+    )
+
+    sf_errors = np.where(sf_errors <= 0, 1e-3, sf_errors)
+
+    valid = (
+        np.isfinite(sf_values)
+        & np.isfinite(sf_errors)
+        & (sf_errors > 0)
+        & np.isfinite(full_x_data)
+        & np.isfinite(y_mc)
+        & (y_mc > 0)
+        & np.isfinite(y_data)
+    )
+
+    tau_pt_edges = stage_details.get("tau_pt_edges")
+    if tau_pt_edges is None:
+        tau_pt_edges = np.asarray(fitter.TAU_PT_BIN_EDGES, dtype=float)
+    else:
+        tau_pt_edges = np.asarray(tau_pt_edges, dtype=float)
+
+    (
+        filtered_regroup_labels,
+        filtered_mc_summary,
+        filtered_data_summary,
+    ) = fitter._filter_and_validate_regroup_summaries(
+        valid,
+        regroup_labels,
+        tau_pt_edges,
+        full_x_data,
+        stage_details.get("mc_regroup_summary"),
+        stage_details.get("data_regroup_summary"),
+    )
+
+    pt_bin_starts = stage_details.get("tau_pt_bin_starts")
+    if pt_bin_starts is None:
+        pt_bin_starts = np.asarray(tau_pt_edges[:-1], dtype=float)
+    else:
+        pt_bin_starts = np.asarray(pt_bin_starts, dtype=float)
+
+    report_pt_values = full_x_data.copy()
+    if report_pt_values.size:
+        report_pt_values = report_pt_values[valid]
+    else:
+        report_pt_values = pt_bin_starts.copy()
+
+    sf_values = sf_values[valid]
+    sf_errors = sf_errors[valid]
+    x_data = x_data[valid]
+
+    if sf_values.size < 2:
+        raise RuntimeError(
+            "Insufficient valid tau fake-rate points for fitting: "
+            f"only {sf_values.size} bin(s) remain after filtering."
+        )
+
+    c0, c1, cov = fitter.SF_fit(sf_values, sf_errors, x_data)
+
+    eigenvalues, eigenvectors = np.linalg.eig(cov)
+    lv0 = np.sqrt(abs(eigenvalues.dot(eigenvectors[0])))
+    lv1 = np.sqrt(abs(eigenvalues.dot(eigenvectors[1])))
+
+    nominal_sf = c1 * report_pt_values + c0
+    sf_up = (1 + lv0) * c0 + (1 + lv1) * c1 * report_pt_values
+    sf_down = (1 - lv0) * c0 + (1 - lv1) * c1 * report_pt_values
+
+    regroup_summary = (
+        filtered_mc_summary
+        or filtered_data_summary
+        or stage_details.get("mc_regroup_summary")
+        or stage_details.get("data_regroup_summary")
+    )
+    if regroup_summary is None:
+        raise RuntimeError("Unable to determine regroup summary for tau fake SF payload.")
+
+    def _format_json_edge(edge):
+        edge = float(edge)
+        if math.isinf(edge):
+            return "inf"
+        return format(edge, ".15g")
+
+    tau_sf_entries = {}
+    for entry, value, up_val, down_val in zip(
+        regroup_summary,
+        nominal_sf,
+        sf_up,
+        sf_down,
+    ):
+        start, stop = entry["slice"]
+        low_edge = float(tau_pt_edges[start])
+        high_edge = float(tau_pt_edges[stop])
+        bin_key = f"pt:[{_format_json_edge(low_edge)},{_format_json_edge(high_edge)}]"
+        tau_sf_entries[bin_key] = {
+            "value": float(value),
+            "up": float(up_val),
+            "down": float(down_val),
+        }
+
+    return {"TauSF": {"pt": tau_sf_entries}}
 
 
 def test_tau_sumw2_histogram_passes_validation(caplog):
@@ -200,3 +342,111 @@ def test_get_points_raises_when_tau_histogram_missing():
     message = str(excinfo.value)
     assert "missing the required 'tau0pt' histogram" in message
     assert "Available histograms: tau0pt_sumw2" in message
+
+
+def test_cli_outputs_tau_fake_sf_json(tmp_path):
+    process_weights = {
+        "ttbar": [12.0, 11.0, 9.0, 8.0, 7.0, 6.0, 5.0],
+        "data2018": [19.0, 16.0, 14.0, 12.0, 10.0, 8.0, 7.0],
+    }
+    histograms, _ = _build_tau_histograms(process_weights)
+
+    tau_bin_centers = np.asarray([25.0, 35.0, 45.0, 55.0, 70.0, 90.0, 150.0])
+    ttau_adjustments = np.asarray([0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02])
+    histograms["tau0pt"].fill(
+        process="data2018",
+        channel="2los_ee_1tau_Ttau_2j",
+        systematic="nominal",
+        appl="isSR_2lOS",
+        tau0pt=tau_bin_centers,
+        weight=ttau_adjustments,
+    )
+    histograms["tau0pt_sumw2"].fill(
+        process="data2018",
+        channel="2los_ee_1tau_Ttau_2j",
+        systematic="nominal",
+        appl="isSR_2lOS",
+        tau0pt_sumw2=tau_bin_centers,
+        weight=ttau_adjustments ** 2,
+    )
+    pkl_path = tmp_path / "toy.pkl.gz"
+    with gzip.open(pkl_path, "wb") as handle:
+        cloudpickle.dump(histograms, handle)
+
+    channel_config = {
+        "TAU_CH_LST_CR": {
+            "2los_1tau": {
+                "lep_chan_lst": [
+                    [
+                        "2los_1tau_Ftau",
+                        "2los",
+                        "2l_nozeeveto",
+                        "bmask_atleast1m2l",
+                        "1Ftau",
+                    ],
+                    [
+                        "2los_1tau_Ttau",
+                        "2los",
+                        "2l_nozeeveto",
+                        "bmask_atleast1m2l",
+                        "1tau",
+                    ],
+                ],
+                "lep_flav_lst": ["ee"],
+                "appl_lst": ["isSR_2lOS"],
+                "jet_lst": ["=2"],
+            }
+        }
+    }
+    channels_json = tmp_path / "channels.json"
+    with channels_json.open("w", encoding="utf-8") as handle:
+        json.dump(channel_config, handle)
+
+    expected_payload = _compute_expected_tau_sf_payload(
+        histograms, channels_json
+    )
+
+    json_path = tmp_path / "tau_sf.json"
+    script_path = ROOT / "analysis" / "topeft_run2" / "faketau_sf_fitter.py"
+
+    env = os.environ.copy()
+    pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        f"{ROOT}:{pythonpath}" if pythonpath else str(ROOT)
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--pkl-file-path",
+            str(pkl_path),
+            "--channels-json",
+            str(channels_json),
+            "--output-json",
+            str(json_path),
+        ],
+        check=True,
+        cwd=str(ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert json_path.exists(), "CLI did not produce the expected JSON output file"
+
+    with json_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    assert payload.keys() == expected_payload.keys() == {"TauSF"}
+
+    actual_entries = payload["TauSF"].get("pt", {})
+    expected_entries = expected_payload["TauSF"].get("pt", {})
+    assert actual_entries.keys() == expected_entries.keys()
+
+    for bin_key, expected_values in expected_entries.items():
+        actual_values = actual_entries[bin_key]
+        for field in ("value", "up", "down"):
+            assert field in actual_values
+            assert actual_values[field] == pytest.approx(expected_values[field])
