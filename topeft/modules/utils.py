@@ -37,6 +37,29 @@ def get_pdiff(a,b,in_percent=False):
 
 ############## Strings manipulations and tools ##############
 
+
+def canonicalize_process_name(process_name):
+    """Return *process_name* with only the leading alphabetic token lowercased.
+
+    Examples:
+        ``NonPromptUL16`` becomes ``nonpromptUL16`` while ``Flips2023BPix``
+        becomes ``flips2023BPix``.
+
+    Args:
+        process_name (str): The process identifier to canonicalize.
+
+    Returns:
+        str: The canonicalized process name. Strings without a leading
+        alphabetic token are returned unchanged.
+    """
+
+    match = re.match(r"([A-Za-z]+)(.*)", process_name)
+    if not match:
+        return process_name
+    prefix, remainder = match.groups()
+    return prefix.lower() + remainder
+
+
 # Match strings using one or more regular expressions
 def regex_match(lst,regex_lst):
     # NOTE: For the regex_lst patterns, we use the raw string to generate the regular expression.
