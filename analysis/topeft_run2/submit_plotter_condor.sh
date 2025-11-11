@@ -164,6 +164,20 @@ if [[ -z "${original_output_dir}" ]]; then
     exit 1
 fi
 
+original_output_dir=$(python3 - "${original_output_dir}" "${original_cwd}" <<'PY'
+import os
+import sys
+
+path = os.path.expanduser(sys.argv[1])
+base = sys.argv[2]
+if os.path.isabs(path):
+    resolved = path
+else:
+    resolved = os.path.join(base, path)
+print(os.path.abspath(resolved))
+PY
+)
+
 output_basename=$(basename -- "${original_output_dir}")
 job_output_dir="job_outputs/${output_basename}"
 condor_output_dir="payload/${job_output_dir}"
