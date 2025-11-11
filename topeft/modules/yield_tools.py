@@ -5,6 +5,7 @@ from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
 import topcoffea.modules.utils as utils
 from topeft.modules.compatibility import add_sumw2_stub
+from topeft.modules.utils import canonicalize_process_name
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,32 @@ class YieldTools():
             "tHq"   : ["tHq_centralUL16APV"    ,"tHq_centralUL16"    ,"tHq_centralUL17" ,"tHq_centralUL18" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV", "tHq_central2022", "tHq_private2022"],
             "tttt"  : ["tttt_centralUL16APV"   ,"tttt_centralUL16"   ,"tttt_centralUL17","tttt_centralUL18", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV", "TTTT_central2022", "TTTT_central2022EE"],
 
-            "flips" : ["flipsUL16"            ,"flipsUL16APV"            ,"flipsUL17"            ,"flipsUL18"           ,"flips2022"        ,"flips2022EE"      ,"flips2023"        ,"flips2023BPix"],
-            "fakes" : ["nonpromptUL16"        ,"nonpromptUL16APV"        ,"nonpromptUL17"        ,"nonpromptUL18"       ,"nonprompt2022"    ,"nonprompt2022EE"      ,"nonprompt2023"        ,"nonprompt2023BPix"],
+            "flips" : [
+                canonicalize_process_name(proc_name)
+                for proc_name in (
+                    "FlipsUL16",
+                    "FlipsUL16APV",
+                    "FlipsUL17",
+                    "FlipsUL18",
+                    "Flips2022",
+                    "Flips2022EE",
+                    "Flips2023",
+                    "Flips2023BPix",
+                )
+            ],
+            "fakes" : [
+                canonicalize_process_name(proc_name)
+                for proc_name in (
+                    "NonPromptUL16",
+                    "NonPromptUL16APV",
+                    "NonPromptUL17",
+                    "NonPromptUL18",
+                    "NonPrompt2022",
+                    "NonPrompt2022EE",
+                    "NonPrompt2023",
+                    "NonPrompt2023BPix",
+                )
+            ],
             "conv"  : ["TTGamma_centralUL16"  ,"TTGamma_centralUL16APV"  ,"TTGamma_centralUL17"  ,"TTGamma_centralUL18"  ,"TTGamma_central2022"],
             "WW"    : ["WWTo2L2Nu_centralUL16","WWTo2L2Nu_centralUL16APV","WWTo2L2Nu_centralUL17","WWTo2L2Nu_centralUL18","WWTo2L2Nu_central2022", "WWTo2L2Nu_central2022EE", "WWTo2L2Nu_central2023", "WWTo2L2Nu_central2023BPix"],
             "WZ"    : ["WZTo3LNu_centralUL16" ,"WZTo3LNu_centralUL16APV" ,"WZTo3LNu_centralUL17" ,"WZTo3LNu_centralUL18","WZTo3LNu_central2022","WZTo3LNu_central2022EE", "WZTo3LNu_central2023", "WZTo3LNu_central2023BPix"],
@@ -224,8 +249,9 @@ class YieldTools():
     #   - Then loops through PROC_MAP and returns the short (i.e. standard) version of the process name
     def get_short_name(self,long_name):
         ret_name = None
+        canonical_long_name = canonicalize_process_name(long_name)
         for short_name,long_name_lst in self.PROC_MAP.items():
-            if long_name in long_name_lst:
+            if canonical_long_name in long_name_lst:
                 ret_name = short_name
                 break
         return ret_name
@@ -235,10 +261,13 @@ class YieldTools():
     #   - Returns the long (i.e. the name of the category in the smples axis) corresponding to the short name
     def get_long_name(self,long_name_lst_in,short_name_in):
         ret_name = None
+        canonical_candidates = {
+            canonicalize_process_name(long_name_in): long_name_in
+            for long_name_in in long_name_lst_in
+        }
         for long_name in self.PROC_MAP[short_name_in]:
-            for long_name_in in long_name_lst_in:
-                if long_name_in == long_name:
-                    ret_name = long_name
+            if long_name in canonical_candidates:
+                ret_name = canonical_candidates[long_name]
         return ret_name
 
 
