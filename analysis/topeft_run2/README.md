@@ -155,6 +155,54 @@ Example commands:
 * Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 -y 2018 --unblind -- --no-sumw2`
 * Switching the stacked panel to a log scale via the wrapper: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots -y run2 --log-y`
 
+#### Running the plotter on Glados HTCondor
+
+The `submit_plotter_condor.sh` helper wraps `run_plotter.sh` in a Condor submit description so you can reuse the same CLI on Glados batch slots.
+
+**Prerequisites**
+
+* Glados login with an active UW-Madison Kerberos credential (`kinit <netid>@AD.WISC.EDU`) and an `aklog` refresh so AFS paths are readable on the worker nodes.
+* Input and output directories must live on shared storage visible to the pool—AFS (`/afs/hep.wisc.edu/...`) works well and avoids staging results back from ephemeral scratch.
+* The plotting pickle and any auxiliary inputs referenced through `--sandbox` need world-readable permissions (e.g. `chmod 644 file.pkl.gz`).
+
+**1. Stage the pickle on shared storage**
+
+Copy the histogram pickle to a pool-visible path. AFS keeps everything mounted on the Glados execute nodes, so a simple copy is enough:
+
+```bash
+mkdir -p /afs/hep.wisc.edu/user/<netid>/public/topeft/pickles
+cp histos/plotsCR_Run2.pkl.gz /afs/hep.wisc.edu/user/<netid>/public/topeft/pickles/
+```
+
+**2. Submit the Condor job**
+
+Run `submit_plotter_condor.sh`, passing any Condor resource requests first, then a literal `--`, and finally the regular `run_plotter.sh` arguments. A complete example (swap in your username and desired variables):
+
+```bash
+./submit_plotter_condor.sh \
+  --request-cpus 2 --request-memory 6GB --log-dir /afs/hep.wisc.edu/user/<netid>/public/topeft/logs \
+  -- \
+  -f /afs/hep.wisc.edu/user/<netid>/public/topeft/pickles/plotsCR_Run2.pkl.gz \
+  -o /afs/hep.wisc.edu/user/<netid>/public/topeft/plots/run2_combo \
+  -y run2 --variables lj0pt ptz
+```
+
+Add `--sandbox /afs/.../my_extra_templates` to ship additional files with the job. The `--queue N` switch launches multiple identical submissions when sweeping several pickles at once.
+
+**Tuning resources**
+
+* `--request-cpus` controls the Condor slot size. Match it to `--workers` in your forwarded arguments (default is 1) so the job keeps the allocated cores busy.
+* Increase `--request-memory` for large pickles or many variables. 4–8 GB per job usually covers Run 2 payloads; start higher for Run 3 combinations.
+* If you expect long render times, consider `condor_qedit <cluster> periodic_hold False` to prevent watchdog holds, or set `+MaxRuntime` in a custom submit tweak via `--sandbox`.
+
+**3. Monitor the submission**
+
+`submit_plotter_condor.sh` prints the Condor cluster ID. Track progress with `condor_q <netid>` or `condor_q -af:j ClusterId ProcId JobStatus`. JobStatus values follow the usual Condor codes (1 = idle, 2 = running, 4 = completed). Log, stdout, and stderr files land under the directory passed via `--log-dir`, named `plotter_<cluster>_<proc>.{log,out,err}`. Use `tail -f plotter_12345_0.out` to watch the forwarded `run_plotter.sh` output as the job progresses.
+
+**4. Retrieve the plots**
+
+Outputs appear directly under the `-o/--output-dir` you forwarded through the wrapper (e.g. `/afs/.../plots/run2_combo`). Condor populates the folder once the job finishes, so you can browse the rendered plots or host them with `python -m http.server` without additional copy steps.
+
 * `get_yield_json.py`:
     - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.
     - Example usage: `python get_yield_json.py -f histos/your_pkl_file.pkl.gz`
