@@ -1575,20 +1575,31 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         axis_names = self._hist_axis_map.get(
                                             dense_axis_name,
-                                            [dense_axis_name],
                                         )
+                                        sumw2_axis_mapping = None
+                                        if axis_names is None:
+                                            sumw2_axis_mapping = self._hist_sumw2_axis_mapping.get(
+                                                dense_axis_name,
+                                            )
+                                            if sumw2_axis_mapping:
+                                                axis_names = list(sumw2_axis_mapping.values())
+                                            else:
+                                                axis_names = [dense_axis_name]
+                                        else:
+                                            sumw2_axis_mapping = None
                                         sumw2_axis_names = self._hist_axis_map.get(
                                             dense_axis_name+"_sumw2",
                                             [dense_axis_name+"_sumw2"],
                                         )
-                                        sumw2_axis_mapping = self._hist_sumw2_axis_mapping.get(
-                                            dense_axis_name,
-                                            {
-                                                sumw2_axis_names[0]: axis_names[0]
-                                            }
-                                            if (sumw2_axis_names and axis_names)
-                                            else {},
-                                        )
+                                        if sumw2_axis_mapping is None:
+                                            sumw2_axis_mapping = self._hist_sumw2_axis_mapping.get(
+                                                dense_axis_name,
+                                                {
+                                                    sumw2_axis_names[0]: axis_names[0]
+                                                }
+                                                if (sumw2_axis_names and axis_names)
+                                                else {},
+                                            )
 
                                         base_values_cut = None
                                         prepared_axis_vals, axis_validity = _prepare_axis_values(dense_axis_vals)
