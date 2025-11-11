@@ -329,7 +329,7 @@ class YieldTools():
     # Remove the lepflav component of a category name, returns a new str
     def get_str_without_lepflav(self,in_str):
         # The list of lep flavors we consider (this is a bit hardcoded...)
-        lepflav_lst = ["ee","em","mm","eee","eem","emm","mmm"]
+        lepflav_lst = ["e","m","ee","em","mm","eee","eem","emm","mmm"]
         # Assumes the str is separated by underscores
         str_components_lst = in_str.split("_")
         keep_lst = []
@@ -343,10 +343,11 @@ class YieldTools():
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
     def is_split_by_lepflav(self,hin_dict):
         ch_names_lst = self.get_cat_lables(hin_dict,axis="channel")
-        lep_flav_lst = ["ee","em","mm","eee","eem","emm","mmm"]
+        lep_flav_lst = ["e","m","ee","em","mm","eee","eem","emm","mmm"]
         for ch_name in ch_names_lst:
+            ch_components = ch_name.split("_")
             for lep_flav_name in lep_flav_lst:
-                if lep_flav_name in ch_name:
+                if lep_flav_name in ch_components:
                     return True
         return False
 
