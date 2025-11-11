@@ -345,8 +345,9 @@ class YieldTools():
         ch_names_lst = self.get_cat_lables(hin_dict,axis="channel")
         lep_flav_lst = ["e","m","ee","em","mm","eee","eem","emm","mmm"]
         for ch_name in ch_names_lst:
+            ch_components = ch_name.split("_")
             for lep_flav_name in lep_flav_lst:
-                if lep_flav_name in ch_name:
+                if lep_flav_name in ch_components:
                     return True
         return False
 
