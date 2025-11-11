@@ -106,6 +106,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+original_cwd=$(pwd)
+
 if (( ${#plotter_args[@]} == 0 )); then
     echo "Error: run_plotter arguments must be provided after Condor options." >&2
     echo "       Use --help for usage information." >&2
@@ -122,6 +124,8 @@ path = os.path.expanduser(sys.argv[1])
 print(os.path.abspath(path))
 PY
     )
+else
+    log_dir="${original_cwd}"
 fi
 
 # Validate inputs and capture the command run_plotter.sh would execute.
@@ -236,7 +240,7 @@ payload_tar_name=$(basename -- "${payload_tar}")
 
 # Prepare Condor submission file.
 submit_file="${temp_root}/submit_plotter.sub"
-mkdir -p "${log_dir:-.}"
+mkdir -p "${log_dir}"
 
 executable="$(basename -- "${wrapper_script}")"
 arguments=()
@@ -278,16 +282,9 @@ timestamp=$(date +%Y%m%d_%H%M%S)
     if [[ -n "${request_memory}" ]]; then
         echo "request_memory  = ${request_memory}"
     fi
-    if [[ -n "${log_dir}" ]]; then
-        mkdir -p "${log_dir}"
-        echo "log             = ${log_dir}/plotter_${timestamp}.log"
-        echo "output          = ${log_dir}/plotter_${timestamp}.out"
-        echo "error           = ${log_dir}/plotter_${timestamp}.err"
-    else
-        echo "log             = plotter.log"
-        echo "output          = plotter.out"
-        echo "error           = plotter.err"
-    fi
+    echo "log             = ${log_dir}/plotter_${timestamp}.log"
+    echo "output          = ${log_dir}/plotter_${timestamp}.out"
+    echo "error           = ${log_dir}/plotter_${timestamp}.err"
     echo "queue ${queue_count}"
 } > "${submit_file}"
 
