@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 RUN_PLOTTER="${SCRIPT_DIR}/run_plotter.sh"
 DEFAULT_CEPH_ROOT="/users/apiccine/work/correction-lib/topeft"
+DEFAULT_CONDA_PREFIX="${CONDA_PREFIX:-}"
 
 show_help() {
     cat <<'USAGE'
@@ -21,6 +22,8 @@ Condor-specific options:
   --sandbox PATH            Additional file or directory to transfer with the job
   --ceph-root PATH          Location of the topeft repository on CephFS
                             (default: /users/apiccine/work/correction-lib/topeft)
+  --conda-prefix PATH       Prefix path of the conda installation accessible to workers
+                            (default: value of the CONDA_PREFIX environment variable)
   --dry-run                 Print the generated job files instead of submitting
   -h, --help                Show this help message and exit
 
@@ -40,6 +43,7 @@ request_memory=""
 log_dir=""
 sandbox_paths=()
 ceph_root="${DEFAULT_CEPH_ROOT}"
+conda_prefix="${DEFAULT_CONDA_PREFIX}"
 condor_dry_run=0
 plotter_args=()
 
@@ -101,6 +105,14 @@ while [[ $# -gt 0 ]]; do
             show_help
             exit 0
             ;;
+        --conda-prefix)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --conda-prefix requires a value" >&2
+                exit 1
+            fi
+            conda_prefix="$2"
+            shift 2
+            ;;
         --)
             shift
             plotter_args+=("$@")
@@ -151,6 +163,19 @@ if [[ ! -d "${ceph_root}" ]]; then
     echo "Error: The provided CephFS root '${ceph_root}' does not exist." >&2
     exit 1
 fi
+
+if [[ -z "${conda_prefix}" ]]; then
+    echo "Error: --conda-prefix must be provided or CONDA_PREFIX must be set in the submit environment." >&2
+    exit 1
+fi
+
+conda_prefix=$(python3 - "${conda_prefix}" <<'PY'
+import os
+import sys
+path = os.path.expanduser(sys.argv[1])
+print(os.path.abspath(path))
+PY
+)
 
 sandbox_inputs=()
 declare -a sandbox_relative_paths=()
@@ -231,6 +256,7 @@ if [[ -z "${command_line}" ]]; then
 fi
 
 printf -v ceph_root_quoted '%q' "${ceph_root}"
+printf -v conda_prefix_quoted '%q' "${conda_prefix}"
 printf -v plotter_arg_string ' %q' "${plotter_args[@]}"
 
 entry_helper="${ceph_root}/analysis/topeft_run2/condor_plotter_entry.sh"
@@ -269,28 +295,6 @@ if (( ${#sandbox_inputs[@]} )); then
     )
     sandbox_archive_name=$(basename -- "${sandbox_archive}")
 fi
-
-payload_stage="${work_dir}/entry_payload"
-mkdir -p "${payload_stage}/payload"
-payload_run_plotter="${payload_stage}/payload/run_plotter.sh"
-cat >"${payload_run_plotter}" <<STUB
-#!/usr/bin/env bash
-set -euo pipefail
-
-ceph_root=${ceph_root_quoted}
-
-cd "\${ceph_root}"
-exec ./analysis/topeft_run2/run_plotter.sh "\$@"
-STUB
-chmod +x "${payload_run_plotter}"
-
-payload_archive="${work_dir}/plotter_payload.tar.gz"
-(
-    cd "${payload_stage}"
-    tar -czf "${payload_archive}" payload
-)
-payload_archive_name=$(basename -- "${payload_archive}")
-printf -v payload_archive_name_quoted '%q' "${payload_archive_name}"
 
 sandbox_extract_block=$'sandbox_cleanup_active=0\n'
 sandbox_extract_block+=$'cleanup_sandbox() {\n    return 0\n}\n'
@@ -390,8 +394,8 @@ cat >"${job_script}" <<JOB
 set -euo pipefail
 
 ceph_root=${ceph_root_quoted}
-payload_archive=${payload_archive_name_quoted}
 entry_helper=${entry_helper_quoted}
+conda_prefix=${conda_prefix_quoted}
 scratch_dir=\${_CONDOR_SCRATCH_DIR:-\$(pwd)}
 ${sandbox_extract_block}
 if [[ ! -x "${entry_helper}" ]]; then
@@ -409,15 +413,8 @@ if ! cd "\${scratch_dir}"; then
     exit 1
 fi
 
-payload_archive_path="\${scratch_dir}/\${payload_archive}"
-
-if [[ ! -f "\${payload_archive_path}" ]]; then
-    echo "Error: Payload archive '${payload_archive}' was not transferred." >&2
-    exit 1
-fi
-
 set +e
-"${entry_helper}" "\${payload_archive_path}"${plotter_arg_string}
+"${entry_helper}" --ceph-root "\${ceph_root}" --conda-prefix "\${conda_prefix}"${plotter_arg_string}
 status=\$?
 set -e
 
@@ -443,7 +440,7 @@ should_transfer_files   = YES
 when_to_transfer_output = ON_EXIT
 SUB
 
-transfer_inputs=("${payload_archive}")
+transfer_inputs=()
 if [[ -n "${sandbox_archive}" ]]; then
     transfer_inputs+=("${sandbox_archive}")
 fi
