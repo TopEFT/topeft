@@ -2,49 +2,31 @@ import subprocess
 from pathlib import Path
 
 
-def _parse_dry_run_sections(output: str):
-    sections = {}
-    current = None
-    job_path = None
-    sub_path = None
+def _extract_block(output: str):
+    marker_prefix = "--- "
+    marker_suffix = " ---"
+    lines = output.splitlines()
+    marker_index = None
 
-    for line in output.splitlines():
-        if line.startswith("--- ") and line.endswith(" ---"):
-            candidate = line[4:-4]
-            if candidate.endswith("plotter_job.sh"):
-                current = "job"
-                job_path = candidate
-                sections[current] = []
-            elif candidate.endswith("plotter_job.sub"):
-                current = "sub"
-                sub_path = candidate
-                sections[current] = []
-            else:
-                current = None
-            continue
+    for index, line in enumerate(lines):
+        if line.startswith(marker_prefix) and line.endswith(marker_suffix):
+            marker_index = index
+            path = line[len(marker_prefix):-len(marker_suffix)]
+            break
+    else:
+        return None, ""
 
-        if current is not None:
-            sections[current].append(line)
+    body_lines = []
+    for line in lines[marker_index + 1:]:
+        if line.startswith(marker_prefix) and line.endswith(marker_suffix):
+            break
+        body_lines.append(line)
 
-    return job_path, sub_path, {key: "\n".join(lines) for key, lines in sections.items()}
+    return path, "\n".join(body_lines)
 
 
 def test_submit_plotter_condor_dry_run(tmp_path):
     repo_root = Path(__file__).resolve().parents[3]
-
-    fake_conda_root = tmp_path / "fake_conda"
-    conda_profile = fake_conda_root / "etc/profile.d"
-    conda_profile.mkdir(parents=True)
-    (fake_conda_root / "envs" / "clib-env").mkdir(parents=True)
-
-    # A minimal conda.sh stub so the helper finds an activation script.
-    (conda_profile / "conda.sh").write_text(
-        "conda() {\n"
-        "    if [ \"$1\" = \"activate\" ]; then\n"
-        "        return 0\n"
-        "    fi\n"
-        "}\n"
-    )
 
     log_dir = tmp_path / "logs"
     output_dir = tmp_path / "plots"
@@ -57,8 +39,6 @@ def test_submit_plotter_condor_dry_run(tmp_path):
             "--dry-run",
             "--ceph-root",
             str(repo_root),
-            "--conda-prefix",
-            str(fake_conda_root / "envs" / "clib-env"),
             "--log-dir",
             str(log_dir),
             "--",
@@ -74,22 +54,19 @@ def test_submit_plotter_condor_dry_run(tmp_path):
         text=True,
     )
 
-    job_path, sub_path, sections = _parse_dry_run_sections(result.stdout)
+    assert log_dir.exists(), "Log directory should be created during dry-run"
 
-    assert job_path is not None, "Dry-run did not emit a job wrapper"
-    assert sub_path is not None, "Dry-run did not emit a submission file"
+    sub_path, sub_body = _extract_block(result.stdout)
+    assert sub_path is not None, "Dry-run output did not include a submission file"
 
-    job_body = sections["job"]
-    sub_body = sections["sub"]
+    analysis_dir = repo_root / "analysis/topeft_run2"
 
-    assert str(repo_root) in job_body
-    assert "--ceph-root \"${ceph_root}\"" in job_body
-    assert "--conda-prefix \"${conda_prefix}\"" in job_body
+    assert f"initialdir              = {analysis_dir}" in sub_body
+    assert f"log                     = {log_dir}/plotter.$(Cluster).$(Process).log" in sub_body
+    assert f"output                  = {log_dir}/plotter.$(Cluster).$(Process).out" in sub_body
+    assert f"error                   = {log_dir}/plotter.$(Cluster).$(Process).err" in sub_body
+    assert "queue 1" in sub_body
 
-    assert f'executable              = "{job_path}"' in sub_body
-    assert f'initialdir              = "{repo_root}"' in sub_body
-    assert "should_transfer_files   = YES" in sub_body
-
-    entry_script = (repo_root / "analysis/topeft_run2/condor_plotter_entry.sh").read_text()
+    entry_script = (analysis_dir / "condor_plotter_entry.sh").read_text()
     assert "unset PYTHONPATH" in entry_script
-    assert "conda activate clib-env" in entry_script
+    assert "run_plotter.sh \"$@\"" in entry_script
