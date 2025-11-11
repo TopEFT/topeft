@@ -21,8 +21,9 @@ python make_cards.py path/to/your.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d
 
 The `analysis/topeft_run2/tauFitter.py` utility extracts fake-tau control regions
 from the histogram pickle produced by `topcoffea` and fits a linear
-scale-factor model.  The script operates entirely on the pickle contents—it
-does not write output files—so the printed tables are the main products.
+scale-factor model.  The script operates entirely on the pickle contents, so the
+printed tables are the primary products, but you can also request a
+ready-to-ship TauFakeSF JSON via the `--output-json` flag.
 
 ### Inputs
 
@@ -62,6 +63,16 @@ prints a dedicated summary that lists the retained and removed samples:
 python analysis/topeft_run2/tauFitter.py \
   -f /path/to/plotsTopEFT.pkl.gz \
   -y 2017 2018
+```
+
+To capture the fitted scale factors in the TauFakeSF JSON layout, point
+`--output-json` at an output file. The resulting payload can be plugged directly
+into the corrections module:
+
+```bash
+python analysis/topeft_run2/tauFitter.py \
+  -f /path/to/plotsTopEFT.pkl.gz \
+  --output-json TauFakeSF_2018.json
 ```
 
 The regrouped tau-pT binning defaults to
