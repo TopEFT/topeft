@@ -3,27 +3,29 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 RUN_PLOTTER="${SCRIPT_DIR}/run_plotter.sh"
-PLOTTER_SCRIPT="${SCRIPT_DIR}/make_cr_and_sr_plots.py"
-CONDOR_ENTRY="${SCRIPT_DIR}/condor_plotter_entry.sh"
+DEFAULT_CEPH_ROOT="/users/apiccine/work/correction-lib/topeft"
 
 show_help() {
     cat <<'USAGE'
-Usage: submit_plotter_condor.sh [condor options] -- [run_plotter arguments]
+Usage: submit_plotter_condor.sh [condor options] [run_plotter arguments]
 
-Submit make_cr_and_sr_plots.py to the Glados Condor scheduler using the same
-command line produced by run_plotter.sh.
+Submit analysis/topeft_run2/run_plotter.sh to the Glados Condor scheduler.
+The script validates the plotting arguments using run_plotter.sh --dry-run
+before creating a lightweight Condor sandbox.
 
 Condor-specific options:
   --queue N                 Number of jobs to queue (default: 1)
-  --request-cpus N          Number of CPU cores to request
+  --request-cpus N          Number of CPU cores to request from Condor
   --request-memory VALUE    Memory request (e.g. 4GB, 8192MB)
-  --log-dir PATH            Directory for Condor log/stdout/stderr files
-  --sandbox PATH            Additional file or directory to include in job sandbox
-  --dry-run                 Print the generated submission file and exit
+  --log-dir PATH            Directory where Condor log/stdout/stderr are written
+  --sandbox PATH            Additional file or directory to transfer with the job
+  --ceph-root PATH          Location of the topeft repository on CephFS
+                            (default: /users/apiccine/work/correction-lib/topeft)
+  --dry-run                 Print the generated job files instead of submitting
   -h, --help                Show this help message and exit
 
-All other arguments are forwarded to run_plotter.sh. At least the required
-run_plotter arguments (-f/--input, -o/--output-dir, -y/--year) must be provided.
+All other options are forwarded directly to run_plotter.sh. The required
+run_plotter flags (-f/--input, -o/--output-dir, -y/--year) must be supplied.
 USAGE
 }
 
@@ -31,22 +33,14 @@ if [[ ! -x "${RUN_PLOTTER}" ]]; then
     echo "Error: run_plotter.sh was not found next to this helper." >&2
     exit 1
 fi
-if [[ ! -f "${PLOTTER_SCRIPT}" ]]; then
-    echo "Error: make_cr_and_sr_plots.py was not found next to this helper." >&2
-    exit 1
-fi
-if [[ ! -x "${CONDOR_ENTRY}" ]]; then
-    echo "Error: condor_plotter_entry.sh was not found next to this helper." >&2
-    exit 1
-fi
 
 queue_count=1
 request_cpus=""
 request_memory=""
 log_dir=""
-sandbox_path=""
+sandbox_paths=()
+ceph_root="${DEFAULT_CEPH_ROOT}"
 condor_dry_run=0
-
 plotter_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -88,7 +82,15 @@ while [[ $# -gt 0 ]]; do
                 echo "Error: --sandbox requires a value" >&2
                 exit 1
             fi
-            sandbox_path="$2"
+            sandbox_paths+=("$2")
+            shift 2
+            ;;
+        --ceph-root)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --ceph-root requires a value" >&2
+                exit 1
+            fi
+            ceph_root="$2"
             shift 2
             ;;
         --dry-run)
@@ -111,29 +113,108 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-original_cwd=$(pwd)
-
 if (( ${#plotter_args[@]} == 0 )); then
-    echo "Error: run_plotter arguments must be provided after Condor options." >&2
+    echo "Error: run_plotter arguments must be provided." >&2
     echo "       Use --help for usage information." >&2
     exit 1
 fi
 
-# Normalize the log directory before changing directories later in the script.
-if [[ -n "${log_dir}" ]]; then
-    log_dir=$(python3 - "${log_dir}" <<'PY'
+if ! [[ "${queue_count}" =~ ^[0-9]+$ ]] || (( queue_count < 1 )); then
+    echo "Error: --queue expects a positive integer value." >&2
+    exit 1
+fi
+
+original_cwd=$(pwd)
+
+if [[ -z "${log_dir}" ]]; then
+    log_dir="${original_cwd}/condor_logs"
+fi
+
+log_dir=$(python3 - "${log_dir}" <<'PY'
 import os
 import sys
-
 path = os.path.expanduser(sys.argv[1])
 print(os.path.abspath(path))
 PY
-    )
-else
-    log_dir="${original_cwd}"
+)
+mkdir -p "${log_dir}"
+
+ceph_root=$(python3 - "${ceph_root}" <<'PY'
+import os
+import sys
+path = os.path.expanduser(sys.argv[1])
+print(os.path.abspath(path))
+PY
+)
+
+if [[ ! -d "${ceph_root}" ]]; then
+    echo "Error: The provided CephFS root '${ceph_root}' does not exist." >&2
+    exit 1
 fi
 
-# Validate inputs and capture the command run_plotter.sh would execute.
+sandbox_inputs=()
+declare -a sandbox_relative_paths=()
+declare -A sandbox_dest_seen=()
+for sandbox_path in "${sandbox_paths[@]}"; do
+    mapfile -t sandbox_info < <(python3 - "${sandbox_path}" "${original_cwd}" <<'PY'
+import os
+import sys
+
+path = sys.argv[1]
+base = sys.argv[2]
+
+if path.startswith('~'):
+    expanded = os.path.expanduser(path)
+elif os.path.isabs(path):
+    expanded = path
+else:
+    expanded = os.path.join(base, path)
+
+resolved = os.path.abspath(expanded)
+if not os.path.exists(resolved):
+    print(f"Error: sandbox path '{path}' does not exist.", file=sys.stderr)
+    sys.exit(1)
+
+if os.path.isabs(path):
+    relative = os.path.basename(path)
+else:
+    relative = os.path.normpath(path)
+    if relative.startswith('..') or '..' in relative.split('/'):  # prevent escaping the repo root
+        print(
+            f"Error: --sandbox path '{path}' must not reference parent directories (.. components are unsupported).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if relative in ('', '.'):
+        relative = os.path.basename(resolved)
+
+relative = relative.strip('/')
+if not relative:
+    relative = os.path.basename(resolved)
+
+print(resolved)
+print(relative)
+PY
+    )
+
+    resolved_sandbox="${sandbox_info[0]}"
+    relative_target="${sandbox_info[1]}"
+
+    if [[ -z "${relative_target}" ]]; then
+        echo "Error: Unable to derive sandbox destination for '${sandbox_path}'." >&2
+        exit 1
+    fi
+
+    if [[ -n "${sandbox_dest_seen["${relative_target}"]+x}" ]]; then
+        echo "Error: Multiple --sandbox entries map to '${relative_target}'." >&2
+        exit 1
+    fi
+    sandbox_dest_seen["${relative_target}"]=1
+
+    sandbox_inputs+=("${resolved_sandbox}")
+    sandbox_relative_paths+=("${relative_target}")
+done
+
 validation_output=""
 if ! validation_output=$("${RUN_PLOTTER}" "${plotter_args[@]}" --dry-run 2>&1); then
     echo "Validation failed while invoking run_plotter.sh:" >&2
@@ -141,7 +222,7 @@ if ! validation_output=$("${RUN_PLOTTER}" "${plotter_args[@]}" --dry-run 2>&1); 
     exit 1
 fi
 
-command_line=$(awk '/^  / { cmd=$0 } END { print cmd }' <<< "${validation_output}")
+command_line=$(awk '/^[[:space:]]+/ { cmd=$0 } END { print cmd }' <<<"${validation_output}")
 if [[ -z "${command_line}" ]]; then
     echo "Error: Unable to determine plotter command from run_plotter.sh output." >&2
     echo "Full output:" >&2
@@ -149,182 +230,278 @@ if [[ -z "${command_line}" ]]; then
     exit 1
 fi
 
-# Convert the printed command into an array.
-read -r -a plotter_cmd <<< "${command_line}"
-if (( ${#plotter_cmd[@]} < 2 )); then
-    echo "Error: Parsed plotter command is unexpectedly short." >&2
-    exit 1
-fi
+printf -v ceph_root_quoted '%q' "${ceph_root}"
+printf -v plotter_arg_string ' %q' "${plotter_args[@]}"
 
-# Extract the requested output directory from the command.
-original_output_dir=""
-for ((i=0; i<${#plotter_cmd[@]}; ++i)); do
-    if [[ "${plotter_cmd[$i]}" == "-o" && $((i+1)) -lt ${#plotter_cmd[@]} ]]; then
-        original_output_dir="${plotter_cmd[$((i+1))]}"
-        break
-    fi
-done
-if [[ -z "${original_output_dir}" ]]; then
-    echo "Error: Unable to locate output directory in plotter command." >&2
-    exit 1
-fi
+entry_helper="${ceph_root}/analysis/topeft_run2/condor_plotter_entry.sh"
+printf -v entry_helper_quoted '%q' "${entry_helper}"
 
-original_output_dir=$(python3 - "${original_output_dir}" "${original_cwd}" <<'PY'
-import os
-import sys
-
-path = os.path.expanduser(sys.argv[1])
-base = sys.argv[2]
-if os.path.isabs(path):
-    resolved = path
-else:
-    resolved = os.path.join(base, path)
-print(os.path.abspath(resolved))
-PY
-)
-
-output_basename=$(basename -- "${original_output_dir}")
-job_output_dir="job_outputs/${output_basename}"
-condor_output_dir="payload/${job_output_dir}"
-
-# Rewrite command to operate within the job sandbox.
-plotter_cmd[1]="./make_cr_and_sr_plots.py"
-for ((i=0; i<${#plotter_cmd[@]}; ++i)); do
-    if [[ "${plotter_cmd[$i]}" == "-o" && $((i+1)) -lt ${#plotter_cmd[@]} ]]; then
-        plotter_cmd[$((i+1))]="${job_output_dir}"
-        break
-    fi
-done
-
-# Mirror the adjusted output directory in the run_plotter arguments that will
-# be passed to the entry script.
-for ((i=0; i<${#plotter_args[@]}; ++i)); do
-    case "${plotter_args[$i]}" in
-        -o|--output-dir)
-            if (( i + 1 < ${#plotter_args[@]} )); then
-                plotter_args[$((i+1))]="${job_output_dir}"
-            fi
-            break
-            ;;
-        --output-dir=*)
-            plotter_args[$i]="--output-dir=${job_output_dir}"
-            break
-            ;;
-    esac
-done
-
-# Build a staging directory with the required payload.
-temp_root=$(mktemp -d)
+work_dir=$(mktemp -d)
 cleanup() {
-    rm -rf "${temp_root}"
+    rm -rf "${work_dir}"
 }
 trap cleanup EXIT
 
-payload_dir="${temp_root}/payload"
-mkdir -p "${payload_dir}/job_outputs"
-cp "${RUN_PLOTTER}" "${payload_dir}/run_plotter.sh"
-cp "${PLOTTER_SCRIPT}" "${payload_dir}/make_cr_and_sr_plots.py"
+sandbox_archive=""
+sandbox_archive_name=""
+if (( ${#sandbox_inputs[@]} )); then
+    sandbox_staging="${work_dir}/sandbox_stage"
+    mkdir -p "${sandbox_staging}"
 
-if [[ -n "${sandbox_path}" ]]; then
-    if [[ "${sandbox_path}" == /* ]]; then
-        echo "Error: --sandbox only supports relative paths; received '${sandbox_path}'." >&2
-        exit 1
-    fi
-    if [[ ! -e "${sandbox_path}" ]]; then
-        echo "Error: sandbox path '${sandbox_path}' does not exist." >&2
-        exit 1
-    fi
+    for idx in "${!sandbox_inputs[@]}"; do
+        source_path="${sandbox_inputs[$idx]}"
+        relative_target="${sandbox_relative_paths[$idx]}"
+        destination_path="${sandbox_staging}/${relative_target}"
+
+        if [[ -d "${source_path}" ]]; then
+            mkdir -p "${destination_path}"
+            cp -a "${source_path}/." "${destination_path}/"
+        else
+            mkdir -p "$(dirname -- "${destination_path}")"
+            cp -a "${source_path}" "${destination_path}"
+        fi
+    done
+
+    sandbox_archive="${work_dir}/plotter_sandbox.tar.gz"
     (
-        cd "${original_cwd}"
-        tar -cf - "${sandbox_path}"
-    ) | (
-        cd "${payload_dir}"
-        tar -xf -
+        cd "${sandbox_staging}"
+        tar -czf "${sandbox_archive}" .
     )
+    sandbox_archive_name=$(basename -- "${sandbox_archive}")
 fi
 
-metadata_file="${payload_dir}/job_metadata.txt"
-{
-    echo "Original command: ${command_line}";
-    echo "Adjusted command: ${plotter_cmd[*]}";
-    echo "Adjusted run_plotter arguments: ${plotter_args[*]}";
-    echo "Original output directory: ${original_output_dir}";
-    echo "Job output directory: ${job_output_dir}";
-} > "${metadata_file}"
+payload_stage="${work_dir}/entry_payload"
+mkdir -p "${payload_stage}/payload"
+payload_run_plotter="${payload_stage}/payload/run_plotter.sh"
+cat >"${payload_run_plotter}" <<STUB
+#!/usr/bin/env bash
+set -euo pipefail
 
-entry_script="${temp_root}/$(basename -- "${CONDOR_ENTRY}")"
-cp "${CONDOR_ENTRY}" "${entry_script}"
-chmod +x "${entry_script}"
+ceph_root=${ceph_root_quoted}
 
-payload_tar="${temp_root}/plotter_payload.tar.gz"
+cd "\${ceph_root}"
+exec ./analysis/topeft_run2/run_plotter.sh "\$@"
+STUB
+chmod +x "${payload_run_plotter}"
+
+payload_archive="${work_dir}/plotter_payload.tar.gz"
 (
-    cd "${temp_root}"
-    tar -czf "${payload_tar}" payload
+    cd "${payload_stage}"
+    tar -czf "${payload_archive}" payload
 )
-payload_tar_name=$(basename -- "${payload_tar}")
+payload_archive_name=$(basename -- "${payload_archive}")
+printf -v payload_archive_name_quoted '%q' "${payload_archive_name}"
 
-# Prepare Condor submission file.
-submit_file="${temp_root}/submit_plotter.sub"
-mkdir -p "${log_dir}"
+sandbox_extract_block=$'sandbox_cleanup_active=0\n'
+sandbox_extract_block+=$'cleanup_sandbox() {\n    return 0\n}\n'
+if [[ -n "${sandbox_archive_name}" ]]; then
+    printf -v sandbox_archive_name_quoted '%q' "${sandbox_archive_name}"
+    sandbox_extract_format=$(cat <<'EOS'
+sandbox_archive=%s
+sandbox_archive_path="\${scratch_dir}/\${sandbox_archive}"
+sandbox_extract_dir="\${scratch_dir}/plotter_sandbox_extract"
+sandbox_backup_root="\${scratch_dir}/plotter_sandbox_backup"
+declare -a sandbox_backups=()
+declare -a sandbox_new_files=()
+declare -a sandbox_new_dirs=()
 
-executable="$(basename -- "${entry_script}")"
-arguments=()
-arguments+=("${payload_tar_name}")
-for arg in "${plotter_args[@]}"; do
-    arguments+=("${arg}")
-done
-
-# Build arguments string with Condor-safe escaping.
-build_arguments_string() {
-    python3 - "$@" <<'PY'
-import sys
-def escape(token: str) -> str:
-    return '"' + token.replace('\\', '\\\\').replace('"', '\\"') + '"'
-
-print(' '.join(escape(arg) for arg in sys.argv[1:]))
-PY
+cleanup_sandbox() {
+    local entry dest backup
+    for entry in "\${sandbox_new_files[@]}"; do
+        if [[ -e "\${entry}" || -L "\${entry}" ]]; then
+            rm -rf "\${entry}"
+        fi
+    done
+    for entry in "\${sandbox_backups[@]}"; do
+        dest="\${entry%%%%|*}"
+        backup="\${entry#*|}"
+        if [[ -e "\${dest}" || -L "\${dest}" ]]; then
+            rm -rf "\${dest}"
+        fi
+        mkdir -p "$(dirname -- "\${dest}")"
+        mv "\${backup}" "\${dest}"
+    done
+    for (( sandbox_dir_index=\${#sandbox_new_dirs[@]}-1; sandbox_dir_index>=0; sandbox_dir_index-- )); do
+        dest="\${sandbox_new_dirs[sandbox_dir_index]}"
+        if [[ -d "\${dest}" ]]; then
+            rmdir "\${dest}" 2>/dev/null || true
+        fi
+    done
+    rm -rf "\${sandbox_backup_root}" "\${sandbox_extract_dir}"
 }
 
-arguments_string=$(build_arguments_string "${arguments[@]}")
+if [[ -f "\${sandbox_archive_path}" ]]; then
+    sandbox_cleanup_active=1
+    rm -rf "\${sandbox_extract_dir}" "\${sandbox_backup_root}"
+    mkdir -p "\${sandbox_extract_dir}" "\${sandbox_backup_root}"
+    if tar -xzf "\${sandbox_archive_path}" -C "\${sandbox_extract_dir}"; then
+        while IFS= read -r -d '' dir_entry; do
+            rel="\${dir_entry#./}"
+            src="\${sandbox_extract_dir}/\${rel}"
+            dest="${ceph_root}/\${rel}"
+            if [[ -d "\${dest}" ]]; then
+                continue
+            fi
+            if [[ -e "\${dest}" || -L "\${dest}" ]]; then
+                backup="\${sandbox_backup_root}/\${rel}"
+                mkdir -p "$(dirname -- "\${backup}")"
+                mv "\${dest}" "\${backup}"
+                sandbox_backups+=("\${dest}|\${backup}")
+            fi
+            mkdir -p "\${dest}"
+            sandbox_new_dirs+=("\${dest}")
+        done < <(cd "\${sandbox_extract_dir}" && find . -mindepth 1 -type d -print0 | sort -z)
 
-transfer_output_remaps="${condor_output_dir}=${original_output_dir}"
+        while IFS= read -r -d '' file_entry; do
+            rel="\${file_entry#./}"
+            src="\${sandbox_extract_dir}/\${rel}"
+            dest="${ceph_root}/\${rel}"
+            mkdir -p "$(dirname -- "\${dest}")"
+            if [[ -e "\${dest}" || -L "\${dest}" ]]; then
+                backup="\${sandbox_backup_root}/\${rel}"
+                mkdir -p "$(dirname -- "\${backup}")"
+                mv "\${dest}" "\${backup}"
+                sandbox_backups+=("\${dest}|\${backup}")
+            else
+                sandbox_new_files+=("\${dest}")
+            fi
+            cp -a "\${src}" "\${dest}"
+        done < <(cd "\${sandbox_extract_dir}" && find . -mindepth 1 ! -type d -print0 | sort -z)
 
-timestamp=$(date +%Y%m%d_%H%M%S)
-
-{
-    echo "universe        = vanilla"
-    echo "executable      = ${executable}"
-    echo "arguments       = ${arguments_string}"
-    echo "requirements    = (TARGET.OpSysAndVer == \"CentOS7\")"
-    echo "should_transfer_files = YES"
-    echo "when_to_transfer_output = ON_EXIT"
-    echo "transfer_input_files = ${executable},${payload_tar_name}"
-    echo "transfer_output_files = ${condor_output_dir}"
-    echo "transfer_output_remaps = ${transfer_output_remaps}"
-    if [[ -n "${request_cpus}" ]]; then
-        echo "request_cpus    = ${request_cpus}"
+        trap 'cleanup_sandbox' EXIT INT TERM
+    else
+        echo "Error: Failed to extract sandbox archive '\${sandbox_archive}'." >&2
+        exit 1
     fi
-    if [[ -n "${request_memory}" ]]; then
-        echo "request_memory  = ${request_memory}"
-    fi
-    echo "log             = ${log_dir}/plotter_${timestamp}.log"
-    echo "output          = ${log_dir}/plotter_${timestamp}.out"
-    echo "error           = ${log_dir}/plotter_${timestamp}.err"
-    echo "queue ${queue_count}"
-} > "${submit_file}"
-
-if (( condor_dry_run )); then
-    echo "-- Condor submission file (${submit_file}) --"
-    cat "${submit_file}"
-    echo "-- End submission file --"
-    exit 0
+else
+    echo "Warning: sandbox archive '\${sandbox_archive}' was not transferred." >&2
 fi
 
-submit_output=""
-if ! submit_output=$(cd "${temp_root}" && condor_submit "${submit_file}" 2>&1); then
-    echo "condor_submit failed:" >&2
-    echo "${submit_output}" >&2
+EOS
+    )
+    printf -v sandbox_extract_rendered "${sandbox_extract_format}" "${sandbox_archive_name_quoted}"
+    sandbox_extract_block+="${sandbox_extract_rendered}"
+    sandbox_extract_block+=$'\n'
+fi
+
+job_script="${work_dir}/plotter_job.sh"
+cat >"${job_script}" <<JOB
+#!/usr/bin/env bash
+set -euo pipefail
+
+ceph_root=${ceph_root_quoted}
+payload_archive=${payload_archive_name_quoted}
+entry_helper=${entry_helper_quoted}
+scratch_dir=\${_CONDOR_SCRATCH_DIR:-\$(pwd)}
+${sandbox_extract_block}
+if [[ ! -x "${entry_helper}" ]]; then
+    echo "Error: Condor entry helper '${entry_helper}' is missing or not executable." >&2
     exit 1
 fi
 
-echo "${submit_output}"
+if [[ ! -d "\${scratch_dir}" ]]; then
+    echo "Error: Condor scratch directory '\${scratch_dir}' is missing." >&2
+    exit 1
+fi
+
+if ! cd "\${scratch_dir}"; then
+    echo "Error: Failed to enter Condor scratch directory '\${scratch_dir}'." >&2
+    exit 1
+fi
+
+payload_archive_path="\${scratch_dir}/\${payload_archive}"
+
+if [[ ! -f "\${payload_archive_path}" ]]; then
+    echo "Error: Payload archive '${payload_archive}' was not transferred." >&2
+    exit 1
+fi
+
+set +e
+"${entry_helper}" "\${payload_archive_path}"${plotter_arg_string}
+status=\$?
+set -e
+
+if (( sandbox_cleanup_active )); then
+    trap - EXIT INT TERM
+    cleanup_sandbox
+fi
+
+exit "\${status}"
+JOB
+chmod +x "${job_script}"
+
+submission_file="${work_dir}/plotter_job.sub"
+cat >"${submission_file}" <<SUB
+universe                = vanilla
+executable              = "${job_script}"
+arguments               =
+log                     = "${log_dir}/plotter.\$(Cluster).\$(Process).log"
+output                  = "${log_dir}/plotter.\$(Cluster).\$(Process).out"
+error                   = "${log_dir}/plotter.\$(Cluster).\$(Process).err"
+initialdir              = "${ceph_root}"
+should_transfer_files   = YES
+when_to_transfer_output = ON_EXIT
+SUB
+
+transfer_inputs=("${payload_archive}")
+if [[ -n "${sandbox_archive}" ]]; then
+    transfer_inputs+=("${sandbox_archive}")
+fi
+
+transfer_input_files=$(python3 - "${transfer_inputs[@]}" <<'PY'
+import sys
+
+def quote(token: str) -> str:
+    if any(ch in token for ch in (' ', ',', '"')):
+        return '"' + token.replace('"', '\\"') + '"'
+    return token
+
+print(','.join(quote(arg) for arg in sys.argv[1:]))
+PY
+)
+
+if [[ -n "${request_cpus}" ]]; then
+    echo "request_cpus           = ${request_cpus}" >>"${submission_file}"
+fi
+if [[ -n "${request_memory}" ]]; then
+    echo "request_memory         = ${request_memory}" >>"${submission_file}"
+fi
+if [[ -n "${transfer_input_files}" ]]; then
+    echo "transfer_input_files   = ${transfer_input_files}" >>"${submission_file}"
+fi
+
+cat >>"${submission_file}" <<SUB
+queue ${queue_count}
+SUB
+
+if (( condor_dry_run )); then
+    echo "Dry-run requested; generated job script and submission file:" >&2
+    echo "--- ${job_script} ---"
+    cat "${job_script}"
+    echo "--- ${submission_file} ---"
+    cat "${submission_file}"
+    exit 0
+fi
+
+if ! command -v condor_submit >/dev/null 2>&1; then
+    echo "Error: condor_submit command not found in PATH." >&2
+    exit 1
+fi
+
+submission_output=""
+if ! submission_output=$(condor_submit "${submission_file}" 2>&1); then
+    echo "condor_submit failed:" >&2
+    echo "${submission_output}" >&2
+    exit 1
+fi
+
+echo "${submission_output}" >&2
+cluster_id=$(awk '/submitted to cluster/ { print $NF }' <<<"${submission_output}" | tail -n1)
+cluster_id="${cluster_id%.}"
+
+if [[ -z "${cluster_id}" ]]; then
+    echo "Warning: Unable to determine Condor cluster ID from submission output." >&2
+    exit 0
+fi
+
+echo "${cluster_id}"
