@@ -292,21 +292,95 @@ payload_archive="${work_dir}/plotter_payload.tar.gz"
 payload_archive_name=$(basename -- "${payload_archive}")
 printf -v payload_archive_name_quoted '%q' "${payload_archive_name}"
 
-sandbox_extract_block=""
+sandbox_extract_block=$'sandbox_cleanup_active=0\n'
+sandbox_extract_block+=$'cleanup_sandbox() {\n    return 0\n}\n'
 if [[ -n "${sandbox_archive_name}" ]]; then
     printf -v sandbox_archive_name_quoted '%q' "${sandbox_archive_name}"
     sandbox_extract_format=$(cat <<'EOS'
 sandbox_archive=%s
 sandbox_archive_path="\${scratch_dir}/\${sandbox_archive}"
+sandbox_extract_dir="\${scratch_dir}/plotter_sandbox_extract"
+sandbox_backup_root="\${scratch_dir}/plotter_sandbox_backup"
+declare -a sandbox_backups=()
+declare -a sandbox_new_files=()
+declare -a sandbox_new_dirs=()
+
+cleanup_sandbox() {
+    local entry dest backup
+    for entry in "\${sandbox_new_files[@]}"; do
+        if [[ -e "\${entry}" || -L "\${entry}" ]]; then
+            rm -rf "\${entry}"
+        fi
+    done
+    for entry in "\${sandbox_backups[@]}"; do
+        dest="\${entry%%%%|*}"
+        backup="\${entry#*|}"
+        if [[ -e "\${dest}" || -L "\${dest}" ]]; then
+            rm -rf "\${dest}"
+        fi
+        mkdir -p "$(dirname -- "\${dest}")"
+        mv "\${backup}" "\${dest}"
+    done
+    for (( sandbox_dir_index=\${#sandbox_new_dirs[@]}-1; sandbox_dir_index>=0; sandbox_dir_index-- )); do
+        dest="\${sandbox_new_dirs[sandbox_dir_index]}"
+        if [[ -d "\${dest}" ]]; then
+            rmdir "\${dest}" 2>/dev/null || true
+        fi
+    done
+    rm -rf "\${sandbox_backup_root}" "\${sandbox_extract_dir}"
+}
+
 if [[ -f "\${sandbox_archive_path}" ]]; then
-    tar -xzf "\${sandbox_archive_path}" -C "${ceph_root}"
+    sandbox_cleanup_active=1
+    rm -rf "\${sandbox_extract_dir}" "\${sandbox_backup_root}"
+    mkdir -p "\${sandbox_extract_dir}" "\${sandbox_backup_root}"
+    if tar -xzf "\${sandbox_archive_path}" -C "\${sandbox_extract_dir}"; then
+        while IFS= read -r -d '' dir_entry; do
+            rel="\${dir_entry#./}"
+            src="\${sandbox_extract_dir}/\${rel}"
+            dest="${ceph_root}/\${rel}"
+            if [[ -d "\${dest}" ]]; then
+                continue
+            fi
+            if [[ -e "\${dest}" || -L "\${dest}" ]]; then
+                backup="\${sandbox_backup_root}/\${rel}"
+                mkdir -p "$(dirname -- "\${backup}")"
+                mv "\${dest}" "\${backup}"
+                sandbox_backups+=("\${dest}|\${backup}")
+            fi
+            mkdir -p "\${dest}"
+            sandbox_new_dirs+=("\${dest}")
+        done < <(cd "\${sandbox_extract_dir}" && find . -mindepth 1 -type d -print0 | sort -z)
+
+        while IFS= read -r -d '' file_entry; do
+            rel="\${file_entry#./}"
+            src="\${sandbox_extract_dir}/\${rel}"
+            dest="${ceph_root}/\${rel}"
+            mkdir -p "$(dirname -- "\${dest}")"
+            if [[ -e "\${dest}" || -L "\${dest}" ]]; then
+                backup="\${sandbox_backup_root}/\${rel}"
+                mkdir -p "$(dirname -- "\${backup}")"
+                mv "\${dest}" "\${backup}"
+                sandbox_backups+=("\${dest}|\${backup}")
+            else
+                sandbox_new_files+=("\${dest}")
+            fi
+            cp -a "\${src}" "\${dest}"
+        done < <(cd "\${sandbox_extract_dir}" && find . -mindepth 1 ! -type d -print0 | sort -z)
+
+        trap 'cleanup_sandbox' EXIT INT TERM
+    else
+        echo "Error: Failed to extract sandbox archive '\${sandbox_archive}'." >&2
+        exit 1
+    fi
 else
     echo "Warning: sandbox archive '\${sandbox_archive}' was not transferred." >&2
 fi
 
 EOS
     )
-    printf -v sandbox_extract_block "${sandbox_extract_format}" "${sandbox_archive_name_quoted}"
+    printf -v sandbox_extract_rendered "${sandbox_extract_format}" "${sandbox_archive_name_quoted}"
+    sandbox_extract_block+="${sandbox_extract_rendered}"
     sandbox_extract_block+=$'\n'
 fi
 
@@ -332,7 +406,17 @@ if [[ ! -f "\${payload_archive_path}" ]]; then
     exit 1
 fi
 
-exec "${entry_helper}" "\${payload_archive_path}"${plotter_arg_string}
+set +e
+"${entry_helper}" "\${payload_archive_path}"${plotter_arg_string}
+status=\$?
+set -e
+
+if (( sandbox_cleanup_active )); then
+    trap - EXIT INT TERM
+    cleanup_sandbox
+fi
+
+exit "\${status}"
 JOB
 chmod +x "${job_script}"
 
