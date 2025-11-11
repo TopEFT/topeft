@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 RUN_PLOTTER="${SCRIPT_DIR}/run_plotter.sh"
 PLOTTER_SCRIPT="${SCRIPT_DIR}/make_cr_and_sr_plots.py"
+CONDOR_ENTRY="${SCRIPT_DIR}/condor_plotter_entry.sh"
 
 show_help() {
     cat <<'USAGE'
@@ -32,6 +33,10 @@ if [[ ! -x "${RUN_PLOTTER}" ]]; then
 fi
 if [[ ! -f "${PLOTTER_SCRIPT}" ]]; then
     echo "Error: make_cr_and_sr_plots.py was not found next to this helper." >&2
+    exit 1
+fi
+if [[ ! -x "${CONDOR_ENTRY}" ]]; then
+    echo "Error: condor_plotter_entry.sh was not found next to this helper." >&2
     exit 1
 fi
 
@@ -191,6 +196,23 @@ for ((i=0; i<${#plotter_cmd[@]}; ++i)); do
     fi
 done
 
+# Mirror the adjusted output directory in the run_plotter arguments that will
+# be passed to the entry script.
+for ((i=0; i<${#plotter_args[@]}; ++i)); do
+    case "${plotter_args[$i]}" in
+        -o|--output-dir)
+            if (( i + 1 < ${#plotter_args[@]} )); then
+                plotter_args[$((i+1))]="${job_output_dir}"
+            fi
+            break
+            ;;
+        --output-dir=*)
+            plotter_args[$i]="--output-dir=${job_output_dir}"
+            break
+            ;;
+    esac
+done
+
 # Build a staging directory with the required payload.
 temp_root=$(mktemp -d)
 cleanup() {
@@ -225,29 +247,14 @@ metadata_file="${payload_dir}/job_metadata.txt"
 {
     echo "Original command: ${command_line}";
     echo "Adjusted command: ${plotter_cmd[*]}";
+    echo "Adjusted run_plotter arguments: ${plotter_args[*]}";
     echo "Original output directory: ${original_output_dir}";
     echo "Job output directory: ${job_output_dir}";
 } > "${metadata_file}"
 
-wrapper_script="${temp_root}/run_condor_plotter_job.sh"
-cat <<'WRAPPER' > "${wrapper_script}"
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 PAYLOAD_TARBALL [COMMAND ...]" >&2
-    exit 1
-fi
-payload_tar="$1"
-shift
-if [[ ! -f "${payload_tar}" ]]; then
-    echo "Error: payload tarball '${payload_tar}' not found in working directory." >&2
-    exit 1
-fi
-tar -xf "${payload_tar}"
-cd payload
-"$@"
-WRAPPER
-chmod +x "${wrapper_script}"
+entry_script="${temp_root}/$(basename -- "${CONDOR_ENTRY}")"
+cp "${CONDOR_ENTRY}" "${entry_script}"
+chmod +x "${entry_script}"
 
 payload_tar="${temp_root}/plotter_payload.tar.gz"
 (
@@ -260,10 +267,10 @@ payload_tar_name=$(basename -- "${payload_tar}")
 submit_file="${temp_root}/submit_plotter.sub"
 mkdir -p "${log_dir}"
 
-executable="$(basename -- "${wrapper_script}")"
+executable="$(basename -- "${entry_script}")"
 arguments=()
 arguments+=("${payload_tar_name}")
-for arg in "${plotter_cmd[@]}"; do
+for arg in "${plotter_args[@]}"; do
     arguments+=("${arg}")
 done
 
