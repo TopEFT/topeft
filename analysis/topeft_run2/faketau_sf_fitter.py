@@ -1629,6 +1629,14 @@ def main():
             " The script continues after dumping."
         ),
     )
+    parser.add_argument(
+        "--output-json",
+        metavar="OUTPUT",
+        help=(
+            "Optional path to write the fitted tau scale factors as JSON."
+            " Use '-' to write to stdout."
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -1813,6 +1821,58 @@ def main():
         sf_up,
         sf_down,
     )
+
+    if args.output_json is not None:
+        regroup_summary = stage_details.get("filtered_mc_regroup_summary")
+        if regroup_summary is None:
+            regroup_summary = stage_details.get("filtered_data_regroup_summary")
+        if regroup_summary is None:
+            regroup_summary = (
+                stage_details.get("mc_regroup_summary")
+                or stage_details.get("data_regroup_summary")
+            )
+        if regroup_summary is None:
+            raise RuntimeError(
+                "Unable to build tau scale-factor JSON payload: regroup summary unavailable."
+            )
+
+        def _format_json_edge(edge):
+            edge = float(edge)
+            if math.isinf(edge):
+                return "inf"
+            return format(edge, ".15g")
+
+        if len(regroup_summary) != len(nominal_sf):
+            raise RuntimeError(
+                "Tau scale-factor binning metadata does not match the fitted results."
+            )
+
+        tau_sf_entries = OrderedDict()
+        for entry, value, up_val, down_val in zip(
+            regroup_summary,
+            nominal_sf,
+            sf_up,
+            sf_down,
+        ):
+            start, stop = entry["slice"]
+            low_edge = float(tau_pt_edges[start])
+            high_edge = float(tau_pt_edges[stop])
+            bin_key = f"pt:[{_format_json_edge(low_edge)},{_format_json_edge(high_edge)}]"
+            tau_sf_entries[bin_key] = {
+                "value": float(value),
+                "up": float(up_val),
+                "down": float(down_val),
+            }
+
+        payload = {"TauSF": {"pt": tau_sf_entries}}
+
+        if args.output_json in ("-", ""):
+            json.dump(payload, sys.stdout, indent=2)
+            sys.stdout.write("\n")
+        else:
+            with open(args.output_json, "w", encoding="utf-8") as output_file:
+                json.dump(payload, output_file, indent=2)
+            print(f"Tau scale factors JSON written to {args.output_json}")
 
 if __name__ == "__main__":
     main()
