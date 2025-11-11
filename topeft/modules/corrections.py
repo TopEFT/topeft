@@ -2139,10 +2139,32 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 # helper function for the Run3 SFs
-def ApplyBinnedSF(pt, edges, centers, unc, var):
-    default = centers[-1] + var * unc
+def ApplyBinnedSF(pt, edges, centers, uncs, var):
+    """
+    Assigns scale factors to input values based on binning, with optional systematic variation.
+
+    Parameters
+    ----------
+    pt : array-like
+        The values (e.g., lepton pT) to which the scale factors are applied.
+    edges : array-like
+        The bin edges for the scale factor assignment.
+    centers : array-like
+        The central scale factor values for each bin.
+    uncs : array-like
+        The uncertainties associated with each bin's scale factor.
+    var : int or array-like
+        Systematic variation: 0 for nominal, +1 for up, -1 for down.
+
+    Returns
+    -------
+    sf : array-like
+        The scale factors assigned to each input value, with systematic variation applied.
+    """
+    # Default value for scale factor: use the last bin center plus/minus its uncertainty times var (±1/0)
+    default = centers[-1] + var * uncs[-1]
     sf = ak.full_like(pt, default)
-    for low, high, cen in zip(edges[:-1], edges[1:], centers[:-1]):
+    for low, high, cen, unc in zip(edges[:-1], edges[1:], centers[:-1], uncs[:-1]):
         sf = ak.where((pt >= low) & (pt < high), cen + var * np.sqrt(unc**2 + (0.02*cen)*0.02), sf)
     return sf
 
@@ -2187,21 +2209,21 @@ def ComputeTriggerSFRun3(year, pdg0, pt0, pdg1, pt1, var=0):
         ),
     }
 
-    centers_ee, unc_ee, centers_em, unc_em, centers_mm, unc_mm = sf_defs[year]
+    centers_ee, uncs_ee, centers_em, uncs_em, centers_mm, uncs_mm = sf_defs[year]
 
     # apply ee (uses pt0) where |pdg0*pdg1|==121
     mask_ee = (prod == 121)
-    sf_ee = ApplyBinnedSF(pt0, edges, centers_ee, unc_ee, var)
+    sf_ee = ApplyBinnedSF(pt0, edges, centers_ee, uncs_ee, var)
     out = ak.where(mask_ee, sf_ee, out)
 
     # apply em (uses pt1) for 143
     mask_em = (prod == 143)
-    sf_em = ApplyBinnedSF(pt1, edges, centers_em, unc_em, var)
+    sf_em = ApplyBinnedSF(pt1, edges, centers_em, uncs_em, var)
     out = ak.where(mask_em, sf_em, out)
 
     # apply mm (uses pt1) for 169
     mask_mm = (prod == 169)
-    sf_mm = ApplyBinnedSF(pt1, edges, centers_mm, unc_mm, var)
+    sf_mm = ApplyBinnedSF(pt1, edges, centers_mm, uncs_mm, var)
     out = ak.where(mask_mm, sf_mm, out)
 
     return out
