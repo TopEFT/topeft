@@ -146,7 +146,7 @@ arg_string="${arg_string# }"
 
 cat <<EOF > "${submit_file}"
 universe                = vanilla
-executable              = condor_plotter_entry.sh
+executable              = "${entry_on_ceph}"
 arguments               = ${arg_string}
 initialdir              = ${analysis_dir}
 log                     = ${log_dir}/plotter.\$(Cluster).\$(Process).log
