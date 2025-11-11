@@ -204,17 +204,21 @@ cp "${RUN_PLOTTER}" "${payload_dir}/run_plotter.sh"
 cp "${PLOTTER_SCRIPT}" "${payload_dir}/make_cr_and_sr_plots.py"
 
 if [[ -n "${sandbox_path}" ]]; then
+    if [[ "${sandbox_path}" == /* ]]; then
+        echo "Error: --sandbox only supports relative paths; received '${sandbox_path}'." >&2
+        exit 1
+    fi
     if [[ ! -e "${sandbox_path}" ]]; then
         echo "Error: sandbox path '${sandbox_path}' does not exist." >&2
         exit 1
     fi
-    sandbox_dest="${payload_dir}/sandbox"
-    mkdir -p "${sandbox_dest}"
-    if [[ -d "${sandbox_path}" ]]; then
-        (cd "${sandbox_path}" && tar -cf - .) | (cd "${sandbox_dest}" && tar -xf -)
-    else
-        cp "${sandbox_path}" "${sandbox_dest}/"
-    fi
+    (
+        cd "${original_cwd}"
+        tar -cf - "${sandbox_path}"
+    ) | (
+        cd "${payload_dir}"
+        tar -xf -
+    )
 fi
 
 metadata_file="${payload_dir}/job_metadata.txt"
