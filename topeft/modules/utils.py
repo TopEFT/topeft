@@ -56,8 +56,19 @@ def canonicalize_process_name(process_name):
     match = re.match(r"([A-Za-z]+)(.*)", process_name)
     if not match:
         return process_name
+
     prefix, remainder = match.groups()
-    return prefix.lower() + remainder
+
+    # Preserve trailing all-caps segments (e.g. ``UL``) that follow a mixed-case
+    # prefix so that ``NonPromptUL16`` becomes ``nonpromptUL16`` instead of
+    # ``nonpromptul16``.
+    suffix_match = re.search(r"([A-Z]{2,})$", prefix)
+    if suffix_match and any(ch.islower() for ch in prefix[:suffix_match.start()]):
+        lowered = prefix[:suffix_match.start()].lower() + prefix[suffix_match.start():]
+    else:
+        lowered = prefix.lower()
+
+    return lowered + remainder
 
 
 # Match strings using one or more regular expressions
