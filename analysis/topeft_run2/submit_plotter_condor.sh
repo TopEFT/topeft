@@ -162,6 +162,7 @@ fi
 
 output_basename=$(basename -- "${original_output_dir}")
 job_output_dir="job_outputs/${output_basename}"
+condor_output_dir="payload/${job_output_dir}"
 
 # Rewrite command to operate within the job sandbox.
 plotter_cmd[1]="./make_cr_and_sr_plots.py"
@@ -257,7 +258,7 @@ PY
 
 arguments_string=$(build_arguments_string "${arguments[@]}")
 
-transfer_output_remaps="${job_output_dir}=${original_output_dir}"
+transfer_output_remaps="${condor_output_dir}=${original_output_dir}"
 
 timestamp=$(date +%Y%m%d_%H%M%S)
 
@@ -269,7 +270,7 @@ timestamp=$(date +%Y%m%d_%H%M%S)
     echo "should_transfer_files = YES"
     echo "when_to_transfer_output = ON_EXIT"
     echo "transfer_input_files = ${executable},${payload_tar_name}"
-    echo "transfer_output_files = ${job_output_dir}"
+    echo "transfer_output_files = ${condor_output_dir}"
     echo "transfer_output_remaps = ${transfer_output_remaps}"
     if [[ -n "${request_cpus}" ]]; then
         echo "request_cpus    = ${request_cpus}"
