@@ -59,7 +59,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True, tau_run_mode="standard"):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True, tau_run_mode="standard"):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -71,6 +71,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.tau_run_mode = tau_run_mode
         # self._tau_wp_checked = False
 
+        self._fill_sumw2_hist = bool(fill_sumw2_hist)  # Whether to fill the w**2 companion histograms
         self._hist_axis_map = {}
         self._hist_sumw2_axis_mapping = {}
         self._hist_requires_eft = {}
@@ -112,19 +113,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                 label=r"Events",
             )
             self._hist_axis_map[name] = [dense_axis.name]
-            histograms[name+"_sumw2"] = HistEFT(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                sumw2_axis,
-                wc_names=wc_names_lst,
-                label=r"Events",
-            )
-            self._hist_axis_map[name+"_sumw2"] = [sumw2_axis.name]
-            self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
+            if self._fill_sumw2_hist:
+                histograms[name+"_sumw2"] = HistEFT(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    sumw2_axis,
+                    wc_names=wc_names_lst,
+                    label=r"Events",
+                )
+                self._hist_axis_map[name+"_sumw2"] = [sumw2_axis.name]
+                self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
+                self._hist_requires_eft[name+"_sumw2"] = True
             self._hist_requires_eft[name] = True
-            self._hist_requires_eft[name+"_sumw2"] = True
         for name, axes_cfg in axes_info_2d.items():
             dense_axes = []
             axis_names = []
@@ -154,17 +156,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axes.append(sumw2_axis)
                 sumw2_axis_names.append(sumw2_axis.name)
                 sumw2_axis_mapping[sumw2_axis.name] = base_axis_name
-            histograms[name+"_sumw2"] = SparseHist(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                *sumw2_axes,
-                storage="Double",
-            )
-            self._hist_axis_map[name+"_sumw2"] = sumw2_axis_names
-            self._hist_sumw2_axis_mapping[name] = sumw2_axis_mapping
-            self._hist_requires_eft[name+"_sumw2"] = False
+            if self._fill_sumw2_hist:
+                histograms[name+"_sumw2"] = SparseHist(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    *sumw2_axes,
+                    storage="Double",
+                )
+                self._hist_axis_map[name+"_sumw2"] = sumw2_axis_names
+                self._hist_sumw2_axis_mapping[name] = sumw2_axis_mapping
+                self._hist_requires_eft[name+"_sumw2"] = False
         self._accumulator = histograms
 
         # Set the list of hists to fill
@@ -182,7 +185,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._ecut_threshold = ecut_threshold
 
         # Set the booleans
-        self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
@@ -362,7 +364,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Check to see if the ordering of WCs for this sample matches what want
             if self._samples[dataset]["WCnames"] != self._wc_names_lst:
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
-        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
+        eft_w2_coeffs = (
+            efth.calc_w2_coeffs(eft_coeffs, self._dtype)
+            if (self._fill_sumw2_hist and eft_coeffs is not None)
+            else None
+        )
         # Initialize the out object
         hout = self.accumulator
 
@@ -1218,6 +1224,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["j0eta"]   = ak.flatten(j0.eta)
             varnames["njets"]   = njets
             varnames["nbtagsl"] = nbtagsl
+            varnames["nbtagsm"] = nbtagsm
             varnames["invmass"] = mll_0_1
             varnames["ptbl"]    = ak.flatten(ptbl)
             varnames["ptz"]     = ptz
@@ -1231,101 +1238,101 @@ class AnalysisProcessor(processor.ProcessorABC):
             lepton0_pt_raw = l0.pt_raw 
             lepton0_abseta = abs(l0.eta) 
 
-            if not isData:
-                l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
-                l1_gen_pdgId = ak.fill_none(l1["gen_pdgId"], -1)
-                l2_gen_pdgId = ak.fill_none(l2["gen_pdgId"], -1)
-                l0_genParent_pdgId = ak.fill_none(l0["genParent_pdgId"], -1)
-                l1_genParent_pdgId = ak.fill_none(l1["genParent_pdgId"], -1)
-                l2_genParent_pdgId = ak.fill_none(l2["genParent_pdgId"], -1)
+            # if not isData:
+            #     l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
+            #     l1_gen_pdgId = ak.fill_none(l1["gen_pdgId"], -1)
+            #     l2_gen_pdgId = ak.fill_none(l2["gen_pdgId"], -1)
+            #     l0_genParent_pdgId = ak.fill_none(l0["genParent_pdgId"], -1)
+            #     l1_genParent_pdgId = ak.fill_none(l1["genParent_pdgId"], -1)
+            #     l2_genParent_pdgId = ak.fill_none(l2["genParent_pdgId"], -1)
 
-                b0l_hFlav = ak.fill_none(b0l.hadronFlavour, -1) 
-                b0l_pFlav = ak.fill_none(b0l.partonFlavour, -1)
-                b1l_hFlav = ak.fill_none(b1l.hadronFlavour, -1) 
-                b1l_pFlav = ak.fill_none(b1l.partonFlavour, -1)
-                b0l_genhFlav = ak.fill_none(b0l.matched_gen.hadronFlavour, -1) 
-                b0l_genpFlav = ak.fill_none(b0l.matched_gen.partonFlavour, -1)
-                b1l_genhFlav = ak.fill_none(b1l.matched_gen.hadronFlavour, -1) 
-                b1l_genpFlav = ak.fill_none(b1l.matched_gen.partonFlavour, -1)
+            #     b0l_hFlav = ak.fill_none(b0l.hadronFlavour, -1) 
+            #     b0l_pFlav = ak.fill_none(b0l.partonFlavour, -1)
+            #     b1l_hFlav = ak.fill_none(b1l.hadronFlavour, -1) 
+            #     b1l_pFlav = ak.fill_none(b1l.partonFlavour, -1)
+            #     b0l_genhFlav = ak.fill_none(b0l.matched_gen.hadronFlavour, -1) 
+            #     b0l_genpFlav = ak.fill_none(b0l.matched_gen.partonFlavour, -1)
+            #     b1l_genhFlav = ak.fill_none(b1l.matched_gen.hadronFlavour, -1) 
+            #     b1l_genpFlav = ak.fill_none(b1l.matched_gen.partonFlavour, -1)
 
-                b0m_hFlav = ak.fill_none(b0m.hadronFlavour, -1) 
-                b0m_pFlav = ak.fill_none(b0m.partonFlavour, -1)
-                b1m_hFlav = ak.fill_none(b1m.hadronFlavour, -1) 
-                b1m_pFlav = ak.fill_none(b1m.partonFlavour, -1)
-                b0m_genhFlav = ak.fill_none(b0m.matched_gen.hadronFlavour, -1) 
-                b0m_genpFlav = ak.fill_none(b0m.matched_gen.partonFlavour, -1)
-                b1m_genhFlav = ak.fill_none(b1m.matched_gen.hadronFlavour, -1) 
-                b1m_genpFlav = ak.fill_none(b1m.matched_gen.partonFlavour, -1)
+            #     b0m_hFlav = ak.fill_none(b0m.hadronFlavour, -1) 
+            #     b0m_pFlav = ak.fill_none(b0m.partonFlavour, -1)
+            #     b1m_hFlav = ak.fill_none(b1m.hadronFlavour, -1) 
+            #     b1m_pFlav = ak.fill_none(b1m.partonFlavour, -1)
+            #     b0m_genhFlav = ak.fill_none(b0m.matched_gen.hadronFlavour, -1) 
+            #     b0m_genpFlav = ak.fill_none(b0m.matched_gen.partonFlavour, -1)
+            #     b1m_genhFlav = ak.fill_none(b1m.matched_gen.hadronFlavour, -1) 
+            #     b1m_genpFlav = ak.fill_none(b1m.matched_gen.partonFlavour, -1)
 
-            else:
-                l0_gen_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
-                l1_gen_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
-                l2_gen_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
-                l0_genParent_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
-                l1_genParent_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
-                l2_genParent_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+            # else:
+            #     l0_gen_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+            #     l1_gen_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+            #     l2_gen_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+            #     l0_genParent_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+            #     l1_genParent_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+            #     l2_genParent_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
 
-                b0l_hFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b0l_pFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b1l_hFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
-                b1l_pFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
-                b0l_genhFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b0l_genpFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b1l_genhFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
-                b1l_genpFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+            #     b0l_hFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+            #     b0l_pFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+            #     b1l_hFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+            #     b1l_pFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+            #     b0l_genhFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+            #     b0l_genpFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+            #     b1l_genhFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+            #     b1l_genpFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
                 
-                b0m_hFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b0m_pFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b1m_hFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
-                b1m_pFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
-                b0m_genhFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b0m_genpFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b1m_genhFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
-                b1m_genpFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+            #     b0m_hFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+            #     b0m_pFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+            #     b1m_hFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+            #     b1m_pFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+            #     b0m_genhFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+            #     b0m_genpFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+            #     b1m_genhFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+            #     b1m_genpFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
 
-            varnames["l0_gen_pdgId"] = l0_gen_pdgId
-            varnames["l1_gen_pdgId"] = l1_gen_pdgId
-            varnames["l2_gen_pdgId"] = l2_gen_pdgId
-            varnames["l0_genParent_pdgId"] = l0_genParent_pdgId
-            varnames["l1_genParent_pdgId"] = l1_genParent_pdgId
-            varnames["l2_genParent_pdgId"] = l2_genParent_pdgId
+            # varnames["l0_gen_pdgId"] = l0_gen_pdgId
+            # varnames["l1_gen_pdgId"] = l1_gen_pdgId
+            # varnames["l2_gen_pdgId"] = l2_gen_pdgId
+            # varnames["l0_genParent_pdgId"] = l0_genParent_pdgId
+            # varnames["l1_genParent_pdgId"] = l1_genParent_pdgId
+            # varnames["l2_genParent_pdgId"] = l2_genParent_pdgId
             
-            varnames["b0l_hFlav"] = b0l_hFlav
-            varnames["b0l_pFlav"] = b0l_pFlav
-            varnames["b1l_hFlav"] = b1l_hFlav
-            varnames["b1l_pFlav"] = b1l_pFlav
-            varnames["b0l_genhFlav"] = b0l_genhFlav
-            varnames["b0l_genpFlav"] = b0l_genpFlav
-            varnames["b1l_genhFlav"] = b1l_genhFlav
-            varnames["b1l_genpFlav"] = b1l_genpFlav
-            varnames["b0m_hFlav"] = b0m_hFlav
-            varnames["b0m_pFlav"] = b0m_pFlav
-            varnames["b1m_hFlav"] = b1m_hFlav
-            varnames["b1m_pFlav"] = b1m_pFlav
-            varnames["b0m_genhFlav"] = b0m_genhFlav
-            varnames["b0m_genpFlav"] = b0m_genpFlav
-            varnames["b1m_genhFlav"] = b1m_genhFlav
-            varnames["b1m_genpFlav"] = b1m_genpFlav
-            varnames["lepton_pt_vs_eta"] = {
-                "lepton_pt_vs_eta_pt": lepton0_pt_raw,
-                "lepton_pt_vs_eta_abseta": lepton0_abseta,
-            }
-            varnames["l0_SeedEtaOrX_vs_SeedPhiOrY"] = {
-                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l0_seed_etaorx,
-                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l0_seed_phiory,
-            }
-            varnames["l0_eta_vs_phi"] = {
-                "l0_eta_vs_phi_eta": l0.eta,
-                "l0_eta_vs_phi_phi": l0.phi,
-            }
-            varnames["l1_SeedEtaOrX_vs_SeedPhiOrY"] = {
-                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l1_seed_etaorx,
-                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l1_seed_phiory,
-            }
-            varnames["l1_eta_vs_phi"] = {
-                "l1_eta_vs_phi_eta": l1.eta,
-                "l1_eta_vs_phi_phi": l1.phi,
-            }
+            # varnames["b0l_hFlav"] = b0l_hFlav
+            # varnames["b0l_pFlav"] = b0l_pFlav
+            # varnames["b1l_hFlav"] = b1l_hFlav
+            # varnames["b1l_pFlav"] = b1l_pFlav
+            # varnames["b0l_genhFlav"] = b0l_genhFlav
+            # varnames["b0l_genpFlav"] = b0l_genpFlav
+            # varnames["b1l_genhFlav"] = b1l_genhFlav
+            # varnames["b1l_genpFlav"] = b1l_genpFlav
+            # varnames["b0m_hFlav"] = b0m_hFlav
+            # varnames["b0m_pFlav"] = b0m_pFlav
+            # varnames["b1m_hFlav"] = b1m_hFlav
+            # varnames["b1m_pFlav"] = b1m_pFlav
+            # varnames["b0m_genhFlav"] = b0m_genhFlav
+            # varnames["b0m_genpFlav"] = b0m_genpFlav
+            # varnames["b1m_genhFlav"] = b1m_genhFlav
+            # varnames["b1m_genpFlav"] = b1m_genpFlav
+            # varnames["lepton_pt_vs_eta"] = {
+            #     "lepton_pt_vs_eta_pt": lepton0_pt_raw,
+            #     "lepton_pt_vs_eta_abseta": lepton0_abseta,
+            # }
+            # varnames["l0_SeedEtaOrX_vs_SeedPhiOrY"] = {
+            #     "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l0_seed_etaorx,
+            #     "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l0_seed_phiory,
+            # }
+            # varnames["l0_eta_vs_phi"] = {
+            #     "l0_eta_vs_phi_eta": l0.eta,
+            #     "l0_eta_vs_phi_phi": l0.phi,
+            # }
+            # varnames["l1_SeedEtaOrX_vs_SeedPhiOrY"] = {
+            #     "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l1_seed_etaorx,
+            #     "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l1_seed_phiory,
+            # }
+            # varnames["l1_eta_vs_phi"] = {
+            #     "l1_eta_vs_phi_eta": l1.eta,
+            #     "l1_eta_vs_phi_phi": l1.phi,
+            # }
 
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
@@ -1421,7 +1428,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             for dense_axis_name, dense_axis_vals in varnames.items():
                 fill_base_hist = dense_axis_name in self._hist_lst
-                fill_sumw2_hist = (dense_axis_name+"_sumw2") in self._hist_lst
+                fill_sumw2_hist = self._fill_sumw2_hist and (dense_axis_name in self._hist_lst)
                 if not (fill_base_hist or fill_sumw2_hist):
                     continue
 
@@ -1616,15 +1623,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             }
                                             if self._hist_requires_eft.get(dense_axis_name, False):
                                                 axes_fill_info_dict["eft_coeff"] = eft_coeffs_cut
-
-                                            # print("\n\n\n\n\n\n\n")
-                                            # print(f"Filling hist {dense_axis_name} for process {histAxisName}, channel {ch_name}, appl {appl}, systematic {wgt_fluct}, n events {len(axes_fill_info_dict['weight'])}")
-                                            # print(axes_fill_info_dict)
-                                            
                                             hout[dense_axis_name].fill(**axes_fill_info_dict)
-                                            
-                                            # print("Done\n\n\n\n\n\n\n\n\n\n\n\n")
-                                        
+                                                                                    
                                         if fill_sumw2_hist:
                                             sumw2_fill_info = {
                                                 **sumw2_values_cut_map,

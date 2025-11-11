@@ -3,27 +3,103 @@ import os
 import copy
 import datetime
 import argparse
+import re
 from collections import OrderedDict
+from collections.abc import Mapping
+
+import logging
+from decimal import Decimal
+import inspect
+import math
+import warnings
+import itertools
+import multiprocessing
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib import ticker
+from matplotlib.ticker import FixedFormatter, FixedLocator
 from cycler import cycler
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import mplhep as hep
 import hist
+from matplotlib.transforms import Bbox
 from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 
 from topcoffea.scripts.make_html import make_html
-import topcoffea.modules.utils as utils
+#import topcoffea.modules.utils as utils
+import topeft.modules.utils as te_utils
 from topeft.modules.yield_tools import YieldTools
+
+
+_logger = logging.getLogger(__name__)
+_ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = SparseHist._read_from_reduce.__func__
+_VALUES_METHOD_CAPS = {}
+
+
+def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
+    """Fast reconstruction helper used to patch :class:`SparseHist` pickles."""
+
+    try:
+        histogram = cls(*cat_axes, *dense_axes, **init_args)
+
+        if dense_hists:
+            categorical_axes = histogram.categorical_axes
+            if categorical_axes:
+                axis_growth_flags = tuple(
+                    getattr(axis.traits, "growth", False) for axis in categorical_axes
+                )
+                growth_axes = tuple(
+                    axis for axis, grows in zip(categorical_axes, axis_growth_flags) if grows
+                )
+                if growth_axes:
+                    axis_names = tuple(axis.name for axis in growth_axes)
+
+                    fill_payload = {name: [] for name in axis_names}
+                    convert_index = histogram.index_to_categories
+                    max_batch = 500_000
+
+                    def _flush_batch():
+                        if fill_payload[axis_names[0]]:
+                            hist.Hist.fill(histogram, **fill_payload)
+                            for values in fill_payload.values():
+                                values.clear()
+
+                    for index_key in dense_hists.keys():
+                        categories = tuple(convert_index(index_key))
+                        appended = False
+                        for axis, category, grows in zip(
+                            categorical_axes, categories, axis_growth_flags
+                        ):
+                            if grows:
+                                fill_payload[axis.name].append(category)
+                                appended = True
+
+                        if appended and len(fill_payload[axis_names[0]]) >= max_batch:
+                            _flush_batch()
+
+                    if fill_payload and axis_names:
+                        _flush_batch()
+
+        histogram._dense_hists = (
+            dense_hists.copy() if hasattr(dense_hists, "copy") else dict(dense_hists)
+        )
+        return histogram
+    except Exception:  # pragma: no cover - defensive fallback
+        _logger.exception("Falling back to the original SparseHist deserializer.")
+        return _ORIGINAL_SPARSEHIST_READ_FROM_REDUCE(
+            cls, cat_axes, dense_axes, init_args, dense_hists
+        )
+
+
+SparseHist._read_from_reduce = classmethod(_fast_sparsehist_from_reduce)
 
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
-import topeft.modules.get_rate_systs as grs
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 import yaml
@@ -31,6 +107,36 @@ import yaml
 with open(topeft_path("params/cr_sr_plots_metadata.yml")) as f:
     _META = yaml.safe_load(f)
 
+
+def _compile_data_driven_prefixes(raw_specs):
+    """Return compiled regex objects for each configured data-driven prefix."""
+
+    matchers = []
+    for spec in raw_specs or ():
+        if spec is None:
+            continue
+        if isinstance(spec, str):
+            value = spec.strip()
+            if not value:
+                continue
+            matchers.append(re.compile(rf"^{re.escape(value)}"))
+        elif isinstance(spec, dict):
+            pattern = spec.get("pattern")
+            prefix = spec.get("prefix")
+            if pattern:
+                matchers.append(re.compile(pattern))
+            elif prefix:
+                matchers.append(re.compile(rf"^{re.escape(prefix)}"))
+        else:
+            raise TypeError(
+                "Unsupported DATA_DRIVEN_PREFIXES entry type '{}'.".format(type(spec).__name__)
+            )
+    return tuple(matchers)
+
+
+DATA_DRIVEN_MATCHERS = _compile_data_driven_prefixes(
+    _META.get("DATA_DRIVEN_PREFIXES", [])
+)
 DATA_ERR_OPS = _META["DATA_ERR_OPS"]
 MC_ERROR_OPS = _META["MC_ERROR_OPS"]
 if isinstance(MC_ERROR_OPS.get("edgecolor"), list):
@@ -43,18 +149,150 @@ CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
 SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
 CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
 SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
+SR_SIGNAL_GROUP_KEYS = {"ttH", "ttlnu", "ttll", "tXq", "tttt"}
+SIGNAL_WC_MATCHES = ("ttH", "tllq", "ttlnu", "ttll", "tHq", "tttt")
 CR_KNOWN_CHANNELS = {chan for chans in CR_CHAN_DICT.values() for chan in chans}
 SR_KNOWN_CHANNELS = {chan for chans in SR_CHAN_DICT.values() for chan in chans}
 FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.items()}
+DEFAULT_STACK_COLORS = (
+    "tab:blue",
+    "darkgreen",
+    "tab:orange",
+    "tab:cyan",
+    "tab:purple",
+    "tab:pink",
+    "tan",
+    "mediumseagreen",
+    "tab:red",
+    "brown",
+    "goldenrod",
+    "yellow",
+    "olive",
+    "coral",
+    "navy",
+    "yellowgreen",
+    "aquamarine",
+    "black",
+    "plum",
+    "gray",
+)
 WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
 LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
 PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
+REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
+STACKED_RATIO_STYLE = _META.get("STACKED_RATIO_STYLE", {})
+
+YEAR_TOKEN_RULES = {
+    "2016": {
+        "mc_wl": ["UL16"],
+        "mc_bl": ["UL16APV"],
+        "data_wl": ["UL16"],
+        "data_bl": ["UL16APV"],
+    },
+    "2016APV": {
+        "mc_wl": ["UL16APV"],
+        "data_wl": ["UL16APV"],
+    },
+    "2017": {"mc_wl": ["UL17"], "data_wl": ["UL17"]},
+    "2018": {"mc_wl": ["UL18"], "data_wl": ["UL18"]},
+    "2022": {"mc_wl": ["2022"], "data_wl": ["2022"]},
+    "2022EE": {"mc_wl": ["2022EE"], "data_wl": ["2022EE"]},
+    "2023": {"mc_wl": ["2023"], "data_wl": ["2023"]},
+    "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
+}
+
+YEAR_AGGREGATE_ALIASES = {
+    "run2": ("2016", "2016APV", "2017", "2018"),
+    "run3": ("2022", "2022EE", "2023", "2023BPix"),
+}
+
+CHANNEL_OUTPUT_CHOICES = {
+    "merged": ("aggregate",),
+    "split": ("per-channel",),
+    "both": ("aggregate", "per-channel"),
+}
+
+CHANNEL_MODE_LABELS = {
+    "aggregate": "merged",
+    "per-channel": "split",
+}
+
+_YEAR_TOKEN_CANONICAL = {token.lower(): token for token in YEAR_TOKEN_RULES}
+
+YEAR_WHITELIST_OPTIONALS = set()
+for _year_rule in YEAR_TOKEN_RULES.values():
+    YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("mc_wl", []))
+    YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("data_wl", []))
+
+
+def _normalize_year_tokens(raw_values):
+    """Return canonical year tokens expanded from *raw_values*.
+
+    Aggregate aliases such as ``run2``/``run3`` are expanded, inputs are
+    interpreted case-insensitively, and the returned sequence contains only
+    tokens known to :data:`YEAR_TOKEN_RULES`.
+    """
+
+    normalized = []
+    seen = set()
+    for raw_value in raw_values or ():
+        if raw_value is None:
+            continue
+        for token in str(raw_value).split(","):
+            cleaned = token.strip()
+            if not cleaned:
+                continue
+            lowered = cleaned.lower()
+            expansion = YEAR_AGGREGATE_ALIASES.get(lowered, (cleaned,))
+            for expanded in expansion:
+                canonical = _YEAR_TOKEN_CANONICAL.get(str(expanded).strip().lower())
+                if canonical is None or canonical in seen:
+                    continue
+                seen.add(canonical)
+                normalized.append(canonical)
+    return normalized
+
+
+def _hist_has_content(histogram):
+    """Return True if *histogram* contains any finite, non-zero entries."""
+
+    hist_view = histogram.view(flow=True)
+
+    def _collect_arrays(view):
+        if isinstance(view, Mapping):
+            arrays = []
+            for subview in view.values():
+                arrays.extend(_collect_arrays(subview))
+            return arrays
+        data = view.value if hasattr(view, "value") else view
+        try:
+            arr = np.asarray(data, dtype=float)
+        except (TypeError, ValueError):
+            try:
+                arr = np.asarray(data)
+            except (TypeError, ValueError):
+                return []
+        return [arr]
+
+    for values in _collect_arrays(hist_view):
+        try:
+            finite_mask = np.isfinite(values)
+        except (TypeError, ValueError):
+            continue
+        if not np.any(finite_mask):
+            continue
+        if np.any(~np.isclose(values[finite_mask], 0.0, atol=1e-12)):
+            return True
+    return False
+
+
+logger = logging.getLogger(__name__)
 
 # This script takes an input pkl file that should have both data and background MC included.
-# Use the -y option to specify a year, if no year is specified, all years will be included.
+# Use the -y option to specify one or more years.
 # There are various other options available from the command line.
-# For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:
-#     python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
+# For example, to make unit normalized plots for 2017+2018, with the timestamp appended to the directory name, you would run:
+#     python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2017 2018 -t -u
 
 yt = YieldTools()
 
@@ -89,6 +327,1185 @@ def _apply_channel_transforms(channel_name, transformations):
         else:
             raise ValueError(f"Unsupported channel transformation '{transform}'")
     return transformed
+
+
+def _apply_secondary_ticks(ax, axis="x"):
+    """Install evenly spaced secondary ticks between existing major ticks."""
+
+    if axis not in {"x", "y"}:
+        raise ValueError(f"Unsupported axis '{axis}'. Expected 'x' or 'y'.")
+
+    axis_obj = ax.xaxis if axis == "x" else ax.yaxis
+
+    try:
+        major_ticks = np.asarray(axis_obj.get_ticklocs(minor=False), dtype=float)
+    except Exception:
+        return
+
+    if major_ticks.size < 2:
+        return
+
+    unique_ticks = np.unique(major_ticks)
+    if unique_ticks.size < 2:
+        return
+
+    unique_ticks.sort()
+    deltas = np.diff(unique_ticks)
+    valid_mask = deltas > 0
+    if not np.any(valid_mask):
+        return
+
+    minor_ticks = []
+    for start, delta in zip(unique_ticks[:-1][valid_mask], deltas[valid_mask]):
+        step = delta / 5.0
+        minor_ticks.extend(start + step * np.arange(1, 5))
+
+    if not minor_ticks:
+        return
+
+    axis_obj.set_minor_locator(FixedLocator(sorted(minor_ticks)))
+
+
+def _integrate_category(histogram, hist_cat, axes_to_integrate):
+    """Integrate a histogram over the provided axes, returning None on failure."""
+
+    if histogram is None:
+        return None
+
+    try:
+        integrated = yt.integrate_out_appl(histogram, hist_cat)
+        integrated = yt.integrate_out_cats(integrated, axes_to_integrate)[{"channel": sum}]
+    except Exception:
+        return None
+
+    return integrated
+
+
+def _validate_bin_edges(edges):
+    """Return a 1D numpy array of strictly increasing bin edges."""
+
+    array = np.asarray(edges, dtype=float)
+    if array.ndim != 1 or array.size < 2:
+        raise ValueError("Bin edges must be a 1D sequence with at least two entries.")
+
+    deltas = np.diff(array)
+    if not np.all(np.isfinite(array)):
+        raise ValueError("Bin edges must be finite values.")
+    if not np.all(deltas > 0):
+        raise ValueError("Bin edges must be strictly increasing.")
+
+    return array
+
+
+def _build_variable_axis_like(axis, edges):
+    """Construct a Variable axis matching the metadata of an existing dense axis."""
+
+    metadata = getattr(axis, "metadata", None)
+    label = getattr(axis, "label", "")
+    traits = getattr(axis, "traits", None)
+    underflow = getattr(traits, "underflow", None)
+    overflow = getattr(traits, "overflow", None)
+    flow = bool(underflow or overflow)
+
+    return hist.axis.Variable(
+        tuple(edges),
+        name=getattr(axis, "name", None) or axis.name,
+        label=label,
+        metadata=metadata,
+        flow=flow,
+        underflow=underflow,
+        overflow=overflow,
+    )
+
+
+def _rebin_flow_content(values_flow, variances_flow, original_edges, target_edges):
+    """Aggregate flow-inclusive histogram contents onto a new edge definition."""
+
+    original_edges = np.asarray(original_edges, dtype=float)
+    target_edges = np.asarray(target_edges, dtype=float)
+
+    edge_indices = []
+    for edge in target_edges:
+        matches = np.where(np.isclose(original_edges, edge, rtol=1e-9, atol=1e-12))[0]
+        if matches.size == 0:
+            raise ValueError(f"Requested edge {edge} not found in source histogram edges.")
+        edge_indices.append(int(matches[0]))
+
+    if any(next_idx <= idx for idx, next_idx in zip(edge_indices, edge_indices[1:])):
+        raise ValueError("Target bin edges must be strictly increasing and align with source edges.")
+
+    values_flow = np.asarray(values_flow, dtype=float)
+    variances_flow = None if variances_flow is None else np.asarray(variances_flow, dtype=float)
+
+    first_idx = edge_indices[0]
+    last_idx = edge_indices[-1]
+
+    underflow = values_flow[0] + values_flow[1 : 1 + first_idx].sum(axis=0)
+    overflow = values_flow[-1] + values_flow[1 + last_idx : -1].sum(axis=0)
+
+    rebinned_bins = [
+        values_flow[1 + start : 1 + stop].sum(axis=0)
+        for start, stop in zip(edge_indices[:-1], edge_indices[1:])
+    ]
+
+    rebinned_values = np.concatenate(
+        [
+            underflow[np.newaxis, ...],
+            *[bin_values[np.newaxis, ...] for bin_values in rebinned_bins],
+            overflow[np.newaxis, ...],
+        ],
+        axis=0,
+    )
+
+    rebinned_variances = None
+    if variances_flow is not None:
+        under_var = variances_flow[0] + variances_flow[1 : 1 + first_idx].sum(axis=0)
+        over_var = variances_flow[-1] + variances_flow[1 + last_idx : -1].sum(axis=0)
+        rebinned_vars = [
+            variances_flow[1 + start : 1 + stop].sum(axis=0)
+            for start, stop in zip(edge_indices[:-1], edge_indices[1:])
+        ]
+        rebinned_variances = np.concatenate(
+            [
+                under_var[np.newaxis, ...],
+                *[var[np.newaxis, ...] for var in rebinned_vars],
+                over_var[np.newaxis, ...],
+            ],
+            axis=0,
+        )
+
+    return rebinned_values, rebinned_variances
+
+
+def _rebin_dense_histogram(dense_hist, axis_name, target_edges):
+    """Return a rebinned copy of a dense hist.Hist along the specified axis."""
+
+    try:
+        axis_index = dense_hist.axes.index(axis_name)
+    except ValueError as exc:  # pragma: no cover - defensive guard
+        raise ValueError(f"Axis '{axis_name}' not found in histogram.") from exc
+
+    original_axis = dense_hist.axes[axis_index]
+    new_axes = []
+    for idx, axis in enumerate(dense_hist.axes):
+        if idx == axis_index:
+            new_axes.append(_build_variable_axis_like(axis, target_edges))
+        else:
+            new_axes.append(axis)
+
+    storage_type = dense_hist.storage_type
+    new_hist = hist.Hist(*new_axes, storage=storage_type())
+
+    values_flow = np.asarray(dense_hist.values(flow=True), dtype=float)
+    variances_flow_raw = dense_hist.variances(flow=True)
+    variances_flow = (
+        None
+        if variances_flow_raw is None
+        else np.asarray(variances_flow_raw, dtype=float)
+    )
+
+    values_reordered = np.moveaxis(values_flow, axis_index, 0)
+    variances_reordered = (
+        None
+        if variances_flow is None
+        else np.moveaxis(variances_flow, axis_index, 0)
+    )
+
+    rebinned_values_reordered, rebinned_variances_reordered = _rebin_flow_content(
+        values_reordered, variances_reordered, original_axis.edges, target_edges
+    )
+
+    rebinned_values = np.moveaxis(rebinned_values_reordered, 0, axis_index)
+    rebinned_variances = (
+        None
+        if rebinned_variances_reordered is None
+        else np.moveaxis(rebinned_variances_reordered, 0, axis_index)
+    )
+
+    view = new_hist.view(flow=True)
+    if hasattr(view, "value"):
+        view.value = rebinned_values
+        if hasattr(view, "variance") and rebinned_variances is not None:
+            view.variance = rebinned_variances
+    else:
+        view[...] = rebinned_values
+
+    if hasattr(dense_hist, "label"):
+        new_hist.label = dense_hist.label
+
+    return new_hist
+
+
+def _rebin_sparse_histogram(sparse_hist, axis_name, target_edges):
+    """Return a rebinned copy of a SparseHist/HistEFT along a dense axis."""
+
+    dense_axes = []
+    replaced = False
+    for axis in sparse_hist.dense_axes:
+        if axis.name == axis_name:
+            dense_axes.append(_build_variable_axis_like(axis, target_edges))
+            replaced = True
+        else:
+            dense_axes.append(axis)
+
+    if not replaced:
+        raise ValueError(f"Axis '{axis_name}' not found in histogram dense axes.")
+
+    rebinned_hist = sparse_hist.empty_from_axes(dense_axes=dense_axes)
+
+    for index_key, dense_hist in sparse_hist._dense_hists.items():
+        categories = sparse_hist.index_to_categories(index_key)
+        new_index = rebinned_hist._fill_bookkeep(*categories)
+        rebinned_hist._dense_hists[new_index] = _rebin_dense_histogram(
+            dense_hist, axis_name, target_edges
+        )
+
+    if hasattr(sparse_hist, "label"):
+        rebinned_hist.label = sparse_hist.label
+
+    return rebinned_hist
+
+
+def _clone_with_rebinned_axis(histogram, axis_name, target_edges):
+    """Clone a histogram (dense or sparse) with rebinned dense axis."""
+
+    if histogram is None:
+        return None
+
+    if hasattr(histogram, "_dense_hists"):
+        return _rebin_sparse_histogram(histogram, axis_name, target_edges)
+
+    if isinstance(histogram, hist.Hist):
+        return _rebin_dense_histogram(histogram, axis_name, target_edges)
+
+    raise TypeError(
+        f"Unsupported histogram type '{type(histogram).__name__}' for rebinning operations."
+    )
+
+
+def _rebin_uncertainty_array(
+    values,
+    original_edges,
+    target_edges,
+    *,
+    nominal=None,
+    direction=None,
+):
+    """Aggregate a 1D uncertainty array according to new bin edges.
+
+    When ``nominal`` is provided the ``values`` array is treated as a nominal yield
+    shifted by an uncertainty (``direction`` must then be ``"up"`` or ``"down"``).
+    The rebinned result preserves the nominal contribution and combines the
+    bin-wise deviations in quadrature so uncorrelated uncertainties do not grow
+    linearly when bins are merged.
+    """
+
+    if values is None:
+        return None
+
+    array = np.asarray(values, dtype=float)
+    if array.ndim != 1:
+        raise ValueError("Uncertainty arrays must be one-dimensional for rebinning.")
+
+    original_edges = np.asarray(original_edges, dtype=float)
+    if original_edges.ndim != 1:
+        raise ValueError("Original bin edges must form a one-dimensional array.")
+    n_source_bins = original_edges.size - 1
+    if array.size not in {n_source_bins, n_source_bins + 1}:
+        raise ValueError(
+            "Uncertainty arrays must match the source binning (with or without overflow)."
+        )
+
+    includes_overflow = array.size == n_source_bins + 1
+
+    def _to_flow(arr):
+        arr = np.asarray(arr, dtype=float)
+        if arr.size == n_source_bins:
+            return np.concatenate(([0.0], arr, [0.0]))
+        return np.concatenate(([0.0], arr[:-1], [arr[-1]]))
+
+    def _trim_flow(flow_array):
+        visible_and_overflow = flow_array[1:]
+        if includes_overflow:
+            return visible_and_overflow
+        return visible_and_overflow[:-1]
+
+    if nominal is None:
+        values_flow = _to_flow(array)
+        rebinned_values, _ = _rebin_flow_content(
+            values_flow, None, original_edges, target_edges
+        )
+        return _trim_flow(rebinned_values)
+
+    reference = np.asarray(nominal, dtype=float)
+    if reference.ndim != 1:
+        raise ValueError("Nominal arrays must be one-dimensional for rebinning.")
+    if reference.shape != array.shape:
+        raise ValueError("Nominal and uncertainty arrays must share the same shape.")
+
+    if direction not in {"up", "down"}:
+        raise ValueError(
+            "Direction must be 'up' or 'down' when rebinding nominal-shifted uncertainties."
+        )
+
+    reference_flow = _to_flow(reference)
+    rebinned_reference, _ = _rebin_flow_content(
+        reference_flow, None, original_edges, target_edges
+    )
+
+    delta = array - reference
+    if direction == "up":
+        diff = np.clip(delta, a_min=0.0, a_max=None)
+        sign = 1.0
+    else:
+        diff = np.clip(-delta, a_min=0.0, a_max=None)
+        sign = -1.0
+
+    diff_sq_flow = _to_flow(diff**2)
+    zeros_flow = np.zeros_like(diff_sq_flow)
+    _, rebinned_diff_sq = _rebin_flow_content(
+        zeros_flow, diff_sq_flow, original_edges, target_edges
+    )
+
+    rebinned_reference = _trim_flow(rebinned_reference)
+    rebinned_diff = np.sqrt(
+        np.clip(_trim_flow(rebinned_diff_sq), a_min=0.0, a_max=None)
+    )
+
+    rebinned = rebinned_reference + sign * rebinned_diff
+    if direction == "down":
+        rebinned = np.clip(rebinned, a_min=0.0, a_max=None)
+
+    return rebinned
+
+
+def _determine_ratio_window(ratio_arrays, data_ratio_arrays, *, tolerance=1e-12):
+    """Return ratio axis limits and warning flags given MC/data ratio samples."""
+
+    ratio_windows = (
+        (0.5, 1.5),
+        (0.0, 2.0),
+        (-1.0, 3.0),
+    )
+    ratio_window_deviations = (0.5, 1.0, 2.0)
+    largest_low, largest_high = ratio_windows[-1]
+
+    def _finite_segments(arrays):
+        segments = []
+        for arr in arrays or ():
+            if arr is None:
+                continue
+            arr = np.asarray(arr, dtype=float)
+            finite_mask = np.isfinite(arr)
+            if np.any(finite_mask):
+                segments.append(arr[finite_mask])
+        return segments
+
+    finite_segments = _finite_segments(ratio_arrays)
+
+    ratio_limits = ratio_windows[0]
+    exceeds_largest_window = False
+    if finite_segments:
+        combined = np.concatenate(finite_segments)
+        min_val = float(np.min(combined))
+        max_val = float(np.max(combined))
+        max_abs_deviation = float(np.max(np.abs(combined - 1.0)))
+
+        selected_limits = ratio_windows[-1]
+        for (low, high), allowed_deviation in zip(ratio_windows, ratio_window_deviations):
+            if (
+                max_abs_deviation <= allowed_deviation + tolerance
+                and min_val >= low - tolerance
+                and max_val <= high + tolerance
+            ):
+                selected_limits = (low, high)
+                break
+
+        ratio_limits = selected_limits
+
+        exceeds_largest_window = (
+            min_val < largest_low - tolerance or max_val > largest_high + tolerance
+        )
+
+    data_finite_segments = _finite_segments(data_ratio_arrays)
+    data_exceeds_largest_window = False
+    if data_finite_segments:
+        data_combined = np.concatenate(data_finite_segments)
+        data_min = float(np.min(data_combined))
+        data_max = float(np.max(data_combined))
+        data_exceeds_largest_window = (
+            data_min < largest_low - tolerance or data_max > largest_high + tolerance
+        )
+
+    return ratio_limits, exceeds_largest_window, data_exceeds_largest_window
+
+
+def _merge_mappings(base, updates):
+    if not isinstance(base, dict) or not isinstance(updates, Mapping):
+        return base
+    for key, value in updates.items():
+        if isinstance(value, Mapping):
+            nested = base.get(key)
+            if not isinstance(nested, dict):
+                nested = {}
+            base[key] = _merge_mappings(nested, value)
+        else:
+            base[key] = copy.deepcopy(value)
+    return base
+
+
+def _style_get(style, path, default=None):
+    current = style
+    for key in path:
+        if not isinstance(current, Mapping) or key not in current:
+            return default
+        current = current[key]
+    return current
+
+
+def _resolve_stacked_ratio_style(region_name, overrides=None):
+    style_cfg = STACKED_RATIO_STYLE if isinstance(STACKED_RATIO_STYLE, Mapping) else {}
+    defaults = style_cfg.get("defaults", {})
+    resolved = copy.deepcopy(defaults) if isinstance(defaults, Mapping) else {}
+
+    per_region = style_cfg.get("per_region", {})
+    if isinstance(per_region, Mapping) and region_name in per_region:
+        resolved = _merge_mappings(resolved, per_region[region_name])
+
+    if overrides and isinstance(overrides, Mapping):
+        resolved = _merge_mappings(resolved, overrides)
+
+    return resolved
+
+
+def _close_figure_payload(fig_payload):
+    """Close matplotlib figures contained in *fig_payload*."""
+
+    if fig_payload is None:
+        return
+    if isinstance(fig_payload, dict):
+        for nested in fig_payload.values():
+            _close_figure_payload(nested)
+        return
+    try:
+        plt.close(fig_payload)
+    except Exception:
+        # Fall back to the global close-all safeguard when a payload does not
+        # expose the standard matplotlib Figure interface.
+        plt.close('all')
+
+
+_SHARED_REGION_CTX = None
+_SHARED_VARIABLE_PAYLOADS = None
+_WORKER_RENDER_CONTEXT = None
+
+
+def _initialize_render_worker(
+    save_dir_path,
+    skip_syst_errs,
+    unit_norm_bool,
+    unblind_flag,
+    stacked_log_y,
+    verbose,
+    prepared_payloads=None,
+    shared_region_ctx=None,
+):
+    """Store shared plotting context inside a worker process."""
+
+    region_ctx = _SHARED_REGION_CTX or shared_region_ctx
+    if region_ctx is None:
+        raise RuntimeError(
+            "Worker render context is not initialised; shared region context was not set."
+        )
+
+    shared_payloads = _SHARED_VARIABLE_PAYLOADS
+    if prepared_payloads is not None:
+        prepared_variables = dict(prepared_payloads)
+    elif shared_payloads is not None:
+        prepared_variables = shared_payloads
+    else:
+        prepared_variables = {}
+
+    global _WORKER_RENDER_CONTEXT
+    _WORKER_RENDER_CONTEXT = {
+        "region_ctx": region_ctx,
+        "save_dir_path": save_dir_path,
+        "skip_syst_errs": skip_syst_errs,
+        "unit_norm_bool": unit_norm_bool,
+        "unblind_flag": unblind_flag,
+        "stacked_log_y": stacked_log_y,
+        "verbose": bool(verbose),
+        "prepared_variables": prepared_variables,
+    }
+
+
+def _render_variable_from_worker(task_id, payload):
+    """Delegate variable rendering using the worker-local cached context."""
+
+    if _WORKER_RENDER_CONTEXT is None:
+        raise RuntimeError(
+            "Worker render context is not initialised; expected ProcessPoolExecutor initializer to set it."
+        )
+
+    if isinstance(payload, tuple):
+        var_name, category = payload
+    else:
+        var_name, category = payload, None
+
+    ctx = _WORKER_RENDER_CONTEXT
+    verbose = ctx.get("verbose", False)
+
+    prepared_cache = ctx.setdefault("prepared_variables", {})
+    variable_payload = prepared_cache.get(var_name)
+    needs_payload = False
+    if var_name not in prepared_cache:
+        needs_payload = True
+    elif variable_payload is None:
+        needs_payload = True
+    elif isinstance(variable_payload, Mapping) and "hist_mc" not in variable_payload:
+        needs_payload = True
+
+    if needs_payload:
+        variable_payload = _prepare_variable_payload(
+            var_name,
+            ctx["region_ctx"],
+            verbose=verbose,
+            unblind_flag=ctx["unblind_flag"],
+        )
+        prepared_cache[var_name] = variable_payload
+
+    if category is None:
+        stat_only, stat_and_syst, html_set = _render_variable(
+            var_name,
+            ctx["region_ctx"],
+            ctx["save_dir_path"],
+            ctx["skip_syst_errs"],
+            ctx["unit_norm_bool"],
+            ctx["stacked_log_y"],
+            ctx["unblind_flag"],
+            verbose=verbose,
+            category=category,
+            variable_payload=variable_payload,
+        )
+    else:
+        if not variable_payload:
+            stat_only, stat_and_syst, html_set = 0, 0, set()
+        else:
+            region_ctx = ctx["region_ctx"]
+            channel_bins = variable_payload["channel_dict"].get(category)
+            if channel_bins is None or _should_skip_category(
+                region_ctx.category_skip_rules, category, var_name
+            ):
+                stat_only, stat_and_syst, html_set = 0, 0, set()
+            else:
+                stat_only, stat_and_syst, html_set = _render_variable_category(
+                    var_name,
+                    category,
+                    channel_bins,
+                    region_ctx=region_ctx,
+                    channel_transformations=variable_payload["channel_transformations"],
+                    hist_mc=variable_payload["hist_mc"],
+                    hist_data=variable_payload["hist_data"],
+                    hist_mc_sumw2_orig=variable_payload["hist_mc_sumw2_orig"],
+                    is_sparse2d=variable_payload["is_sparse2d"],
+                    save_dir_path=ctx["save_dir_path"],
+                    skip_syst_errs=ctx["skip_syst_errs"],
+                    unit_norm_bool=ctx["unit_norm_bool"],
+                    stacked_log_y=ctx["stacked_log_y"],
+                    unblind_flag=ctx["unblind_flag"],
+                    verbose=verbose,
+                )
+    return task_id, stat_only, stat_and_syst, html_set
+
+
+def _prepare_variable_payload(
+    var_name,
+    region_ctx,
+    *,
+    verbose=False,
+    unblind_flag=False,
+    metadata_only=False,
+    prepared_cache=None,
+):
+    """Prepare variable-level plotting inputs shared across categories."""
+
+    if prepared_cache is not None and var_name in prepared_cache:
+        cached_payload = prepared_cache[var_name]
+        if cached_payload is None:
+            return None
+        if metadata_only:
+            return {
+                "channel_dict": cached_payload["channel_dict"],
+                "channel_transformations": cached_payload[
+                    "channel_transformations"
+                ],
+                "is_sparse2d": cached_payload["is_sparse2d"],
+            }
+        return cached_payload
+
+    histo = region_ctx.dict_of_hists[var_name]
+    is_sparse2d = _is_sparse_2d_hist(histo)
+    if is_sparse2d and region_ctx.skip_sparse_2d:
+        return None
+    if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
+        print(
+            f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting."
+        )
+        is_sparse2d = False
+
+    channel_transformations = _resolve_channel_transformations(region_ctx, var_name)
+    channel_dict = _apply_channel_dict_transformations(
+        region_ctx.channel_map, channel_transformations
+    )
+    channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
+
+    if metadata_only:
+        return {
+            "channel_dict": channel_dict,
+            "channel_transformations": channel_transformations,
+            "is_sparse2d": is_sparse2d,
+        }
+
+    mc_to_remove = tuple(region_ctx.samples_to_remove.get("mc") or ())
+    data_to_remove = tuple(region_ctx.samples_to_remove.get("data") or ())
+
+    hist_mc = histo if not mc_to_remove else histo.remove("process", mc_to_remove)
+    hist_data = histo if not data_to_remove else histo.remove("process", data_to_remove)
+    hist_mc_sumw2_orig = region_ctx.sumw2_hists.get(var_name)
+
+    if hist_mc_sumw2_orig is not None:
+        if mc_to_remove:
+            hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove("process", mc_to_remove)
+        if region_ctx.sumw2_remove_signal and region_ctx.signal_samples:
+            existing_signal = [
+                sample
+                for sample in region_ctx.signal_samples
+                if sample in yt.get_cat_lables(hist_mc_sumw2_orig, "process")
+            ]
+            if existing_signal:
+                hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
+                    "process", existing_signal
+                )
+        if (
+            region_ctx.sumw2_remove_signal_when_blinded
+            and region_ctx.signal_samples
+            and not unblind_flag
+        ):
+            hist_mc_sumw2_orig = hist_mc_sumw2_orig.remove(
+                "process", region_ctx.signal_samples
+            )
+
+    if region_ctx.debug_channel_lists and verbose:
+        try:
+            channels_lst = yt.get_cat_lables(histo, "channel")
+        except Exception:
+            channels_lst = []
+        print("channels:", channels_lst)
+
+    return {
+        "channel_dict": channel_dict,
+        "channel_transformations": channel_transformations,
+        "hist_mc": hist_mc,
+        "hist_data": hist_data,
+        "hist_mc_sumw2_orig": hist_mc_sumw2_orig,
+        "is_sparse2d": is_sparse2d,
+    }
+
+
+def _render_variable(
+    var_name,
+    region_ctx,
+    save_dir_path,
+    skip_syst_errs,
+    unit_norm_bool,
+    stacked_log_y,
+    unblind_flag,
+    *,
+    verbose=False,
+    category=None,
+    variable_payload=None,
+):
+    """Render plots for *var_name* and return summary accounting."""
+
+    label = region_ctx.variable_label
+    if verbose:
+        print(f"\n{label}: {var_name}")
+
+    if variable_payload is None:
+        variable_payload = _prepare_variable_payload(
+            var_name,
+            region_ctx,
+            verbose=verbose,
+            unblind_flag=unblind_flag,
+        )
+    if not variable_payload:
+        return 0, 0, set()
+
+    channel_dict = variable_payload["channel_dict"]
+
+    stat_only_plots = 0
+    stat_and_syst_plots = 0
+    html_dirs = set()
+
+    if category is not None:
+        channel_items = (
+            [(category, channel_dict.get(category))]
+            if category in channel_dict
+            else []
+        )
+    else:
+        channel_items = list(channel_dict.items())
+
+    for hist_cat, channel_bins in channel_items:
+        if channel_bins is None:
+            continue
+        if _should_skip_category(region_ctx.category_skip_rules, hist_cat, var_name):
+            continue
+
+        stat_only, stat_and_syst, html_set = _render_variable_category(
+            var_name,
+            hist_cat,
+            channel_bins,
+            region_ctx=region_ctx,
+            channel_transformations=variable_payload["channel_transformations"],
+            hist_mc=variable_payload["hist_mc"],
+            hist_data=variable_payload["hist_data"],
+            hist_mc_sumw2_orig=variable_payload["hist_mc_sumw2_orig"],
+            is_sparse2d=variable_payload["is_sparse2d"],
+            save_dir_path=save_dir_path,
+            skip_syst_errs=skip_syst_errs,
+            unit_norm_bool=unit_norm_bool,
+            stacked_log_y=stacked_log_y,
+            unblind_flag=unblind_flag,
+            verbose=verbose,
+        )
+        stat_only_plots += stat_only
+        stat_and_syst_plots += stat_and_syst
+        html_dirs.update(html_set)
+
+    return stat_only_plots, stat_and_syst_plots, html_dirs
+
+
+def _render_variable_category(
+    var_name,
+    hist_cat,
+    channel_bins,
+    *,
+    region_ctx,
+    channel_transformations,
+    hist_mc,
+    hist_data,
+    hist_mc_sumw2_orig,
+    is_sparse2d,
+    save_dir_path,
+    skip_syst_errs,
+    unit_norm_bool,
+    stacked_log_y,
+    unblind_flag,
+    verbose=False,
+):
+    """Render a single (variable, category) pair and return bookkeeping totals."""
+
+    validate_channel_group(
+        [hist_mc, hist_data],
+        channel_bins,
+        channel_transformations,
+        region=region_ctx.name,
+        subgroup=hist_cat,
+        variable=var_name,
+    )
+
+    base_dir = save_dir_path or ""
+    save_dir_path_tmp = os.path.join(base_dir, hist_cat)
+    os.makedirs(save_dir_path_tmp, exist_ok=True)
+
+    stat_only_plots = 0
+    stat_and_syst_plots = 0
+    html_dirs = set()
+
+    if region_ctx.channel_mode == "aggregate":
+        if verbose:
+            # Category headings are mainly useful when debugging channel regrouping.
+            print(f"\n\tCategory: {hist_cat}")
+
+        axes_to_integrate_dict = {"channel": channel_bins}
+        hist_mc_integrated = _integrate_category(hist_mc, hist_cat, axes_to_integrate_dict)
+        hist_data_integrated = _integrate_category(
+            hist_data, hist_cat, axes_to_integrate_dict
+        )
+        if hist_mc_integrated is None or hist_data_integrated is None:
+            return 0, 0, html_dirs
+        hist_mc_sumw2_integrated = None
+        if hist_mc_sumw2_orig is not None:
+            hist_mc_sumw2_integrated = _integrate_category(
+                hist_mc_sumw2_orig, hist_cat, axes_to_integrate_dict
+            )
+
+        samples_to_rm = _collect_samples_to_remove(
+            region_ctx.sample_removal_rules, hist_cat, region_ctx
+        )
+        hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
+        if hist_mc_sumw2_integrated is not None:
+            hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.remove(
+                "process", samples_to_rm
+            )
+
+        p_err_arr = None
+        m_err_arr = None
+        p_err_arr_ratio = None
+        m_err_arr_ratio = None
+        syst_err_mode = False
+        if not (is_sparse2d or skip_syst_errs):
+            rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+                hist_mc_integrated,
+                region_ctx.group_map,
+                group_type=region_ctx.name,
+                rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+            )
+            shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+                hist_mc_integrated,
+                group_type=region_ctx.name,
+            )
+            if var_name == "njets":
+                diboson_samples = region_ctx.group_map.get("Diboson", [])
+                if diboson_samples:
+                    db_hist = _eval_without_underflow(
+                        hist_mc_integrated.integrate("process", diboson_samples)[{"process": sum}]
+                        .integrate("systematic", "nominal")
+                    )
+                    diboson_njets_syst = get_diboson_njets_syst_arr(
+                        db_hist, bin0_njets=0
+                    )
+                    shape_systs_summed_arr_p = (
+                        shape_systs_summed_arr_p + diboson_njets_syst
+                    )
+                    shape_systs_summed_arr_m = (
+                        shape_systs_summed_arr_m + diboson_njets_syst
+                    )
+            nom_arr_all = _eval_without_underflow(
+                hist_mc_integrated[{"process": sum}].integrate(
+                    "systematic", "nominal"
+                )
+            )
+            sqrt_sum_p = np.sqrt(
+                np.asarray(shape_systs_summed_arr_p)
+                + np.asarray(rate_systs_summed_arr_p)
+            )
+            sqrt_sum_m = np.sqrt(
+                np.asarray(shape_systs_summed_arr_m)
+                + np.asarray(rate_systs_summed_arr_m)
+            )
+            p_err_arr = nom_arr_all + sqrt_sum_p
+            m_err_arr = nom_arr_all - sqrt_sum_m
+            with np.errstate(divide="ignore", invalid="ignore"):
+                p_err_arr_ratio = np.where(
+                    nom_arr_all > 0, p_err_arr / nom_arr_all, 1
+                )
+                m_err_arr_ratio = np.where(
+                    nom_arr_all > 0, m_err_arr / nom_arr_all, 1
+                )
+            syst_err_mode = "total" if unblind_flag else True
+
+        if is_sparse2d:
+            hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate(
+                "systematic", "nominal"
+            )
+            hist_data_nominal = hist_data_integrated[{"process": sum}].integrate(
+                "systematic", "nominal"
+            )
+            if not _hist_has_content(hist_mc_nominal):
+                logger.warning(
+                    "Empty histogram for hist_cat=%s var_name=%s, skipping 2D plot.",
+                    hist_cat,
+                    var_name,
+                )
+                return 0, 0, html_dirs
+            if not _hist_has_content(hist_data_nominal):
+                logger.warning(
+                    "Empty data histogram for hist_cat=%s var_name=%s, skipping 2D plot.",
+                    hist_cat,
+                    var_name,
+                )
+                return 0, 0, html_dirs
+            fig = make_sparse2d_fig(
+                hist_mc_nominal,
+                hist_data_nominal,
+                var_name,
+                channel_name=hist_cat,
+                lumitag=region_ctx.lumi_pair[0],
+                comtag=region_ctx.lumi_pair[1],
+                per_panel=True,
+            )
+        else:
+            hist_mc_integrated = hist_mc_integrated.integrate(
+                "systematic", "nominal"
+            )
+            if hist_mc_sumw2_orig is not None and hist_mc_sumw2_integrated is not None:
+                hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.integrate(
+                    "systematic", "nominal"
+                )
+            hist_data_integrated = hist_data_integrated.integrate(
+                "systematic", "nominal"
+            )
+            if not _hist_has_content(hist_mc_integrated):
+                logger.warning(
+                    "Empty histogram for hist_cat=%s var_name=%s, skipping plot.",
+                    hist_cat,
+                    var_name,
+                )
+                return 0, 0, html_dirs
+            if not _hist_has_content(hist_data_integrated):
+                logger.warning(
+                    "Empty data histogram for hist_cat=%s var_name=%s, skipping plot.",
+                    hist_cat,
+                    var_name,
+                )
+                return 0, 0, html_dirs
+            x_range = (0, 250) if var_name == "ht" else None
+            group = {k: v for k, v in region_ctx.group_map.items() if v}
+            stacked_kwargs = {
+                "h_mc_sumw2": hist_mc_sumw2_integrated,
+                "syst_err": syst_err_mode,
+                "err_p_syst": p_err_arr,
+                "err_m_syst": m_err_arr,
+                "err_ratio_p_syst": p_err_arr_ratio,
+                "err_ratio_m_syst": m_err_arr_ratio,
+                "unblind": unblind_flag,
+                "set_x_lim": x_range,
+                "log_scale": stacked_log_y,
+                "style": region_ctx.stacked_ratio_style,
+            }
+            bins_override = region_ctx.analysis_bins.get(var_name)
+            if bins_override is not None:
+                stacked_kwargs["bins"] = bins_override
+            fig = make_region_stacked_ratio_fig(
+                hist_mc_integrated,
+                hist_data_integrated,
+                unit_norm_bool,
+                var=var_name,
+                group=group,
+                lumitag=region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
+                comtag=region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
+                **stacked_kwargs,
+            )
+        title = hist_cat + "_" + var_name
+        if unit_norm_bool:
+            title = title + "_unitnorm"
+        has_syst_inputs = any(
+            err is not None
+            for err in (
+                p_err_arr,
+                m_err_arr,
+                p_err_arr_ratio,
+                m_err_arr_ratio,
+            )
+        )
+        if isinstance(fig, dict):
+            combined_fig = fig["combined"]
+            combined_fig.savefig(
+                os.path.join(save_dir_path_tmp, title),
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
+            suffix_map = {"mc": "_MC", "data": "_data", "ratio": "_ratio"}
+            for key, panel_fig in fig.items():
+                if key == "combined":
+                    continue
+                suffix = suffix_map.get(key, f"_{key}")
+                panel_fig.savefig(
+                    os.path.join(save_dir_path_tmp, f"{title}{suffix}"),
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
+        else:
+            fig.savefig(
+                os.path.join(save_dir_path_tmp, title),
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
+        _close_figure_payload(fig)
+        if has_syst_inputs:
+            stat_and_syst_plots += 1
+        else:
+            stat_only_plots += 1
+    elif region_ctx.channel_mode == "per-channel":
+        channels = [
+            chan
+            for chan in channel_bins
+            if chan in hist_mc.axes["channel"]
+        ]
+        if not channels:
+            return 0, 0, html_dirs
+        hist_mc_channel = hist_mc.integrate("channel", channels)[{'channel': sum}]
+        hist_mc_integrated = hist_mc_channel.integrate(
+            "systematic", "nominal"
+        )
+        hist_mc_sumw2 = None
+        if hist_mc_sumw2_orig is not None:
+            channels_sumw2 = [
+                chan
+                for chan in channel_bins
+                if chan in hist_mc_sumw2_orig.axes["channel"]
+            ]
+            if channels_sumw2:
+                hist_mc_sumw2 = hist_mc_sumw2_orig.integrate(
+                    "channel", channels_sumw2
+                )[{'channel': sum}]
+                hist_mc_sumw2 = hist_mc_sumw2.integrate(
+                    "systematic", "nominal"
+                )
+        channels_data = [
+            chan
+            for chan in channel_bins
+            if chan in hist_data.axes["channel"]
+        ]
+        hist_data_channel = hist_data.integrate("channel", channels_data)[{'channel': sum}]
+        hist_data_integrated = hist_data_channel.integrate(
+            "systematic", "nominal"
+        )
+
+        syst_err = False
+        err_p_syst = None
+        err_m_syst = None
+        err_ratio_p_syst = None
+        err_ratio_m_syst = None
+        if not skip_syst_errs:
+            try:
+                rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+                    hist_mc_channel,
+                    region_ctx.group_map,
+                    group_type=region_ctx.name,
+                    rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                )
+                shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+                    hist_mc_channel,
+                    group_type=region_ctx.name,
+                )
+            except Exception as exc:
+                print(
+                    f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
+                )
+            else:
+                nominal_projection = hist_mc_channel[{"process": sum}].integrate(
+                    "systematic", "nominal"
+                )
+                nom_arr_all = _values_without_flow(
+                    nominal_projection, include_overflow=True
+                )
+                sqrt_sum_p = np.sqrt(
+                    shape_systs_summed_arr_p + rate_systs_summed_arr_p
+                )
+                sqrt_sum_m = np.sqrt(
+                    shape_systs_summed_arr_m + rate_systs_summed_arr_m
+                )
+                err_p_syst = nom_arr_all + sqrt_sum_p
+                err_m_syst = nom_arr_all - sqrt_sum_m
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    err_ratio_p_syst = np.where(
+                        nom_arr_all > 0, err_p_syst / nom_arr_all, 1
+                    )
+                    err_ratio_m_syst = np.where(
+                        nom_arr_all > 0, err_m_syst / nom_arr_all, 1
+                    )
+                syst_err = True
+
+        if not _hist_has_content(hist_mc_integrated):
+            print("Warning: empty mc histo, continuing")
+            return 0, 0, html_dirs
+        if unblind_flag and not _hist_has_content(hist_data_integrated):
+            print("Warning: empty data histo, continuing")
+            return 0, 0, html_dirs
+
+        hist_data_to_plot = (
+            hist_data_integrated
+            if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
+            else hist_mc_integrated
+        )
+        if region_ctx.years:
+            year_str = "_".join(region_ctx.years)
+        else:
+            year_str = "ULall"
+        title = f"{hist_cat}_{var_name}_{year_str}"
+        bins_override = region_ctx.analysis_bins.get(var_name)
+        default_bins = (
+            axes_info[var_name]["variable"] if var_name in axes_info else None
+        )
+        stacked_kwargs = {
+            "group": region_ctx.group_map,
+            "lumitag": region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
+            "comtag": region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
+            "h_mc_sumw2": hist_mc_sumw2,
+            "syst_err": syst_err,
+            "err_p_syst": err_p_syst,
+            "err_m_syst": err_m_syst,
+            "err_ratio_p_syst": err_ratio_p_syst,
+            "err_ratio_m_syst": err_ratio_m_syst,
+            "unblind": unblind_flag,
+            "log_scale": stacked_log_y,
+            "style": region_ctx.stacked_ratio_style,
+        }
+        bins_to_use = bins_override if bins_override is not None else default_bins
+        if bins_to_use is not None:
+            stacked_kwargs["bins"] = bins_to_use
+        fig = make_region_stacked_ratio_fig(
+            hist_mc_integrated,
+            hist_data_to_plot,
+            var=var_name,
+            unit_norm_bool=False,
+            **stacked_kwargs,
+        )
+        fig.savefig(
+            os.path.join(save_dir_path_tmp, title),
+            bbox_inches="tight",
+            pad_inches=0.05,
+        )
+        _close_figure_payload(fig)
+        has_syst_inputs = any(
+            err is not None
+            for err in (
+                err_p_syst,
+                err_m_syst,
+                err_ratio_p_syst,
+                err_ratio_m_syst,
+            )
+        )
+        if has_syst_inputs:
+            stat_and_syst_plots += 1
+        else:
+            stat_only_plots += 1
+    else:
+        raise ValueError(
+            f"Unsupported channel_mode '{region_ctx.channel_mode}'"
+        )
+
+    if "www" in save_dir_path_tmp:
+        html_dirs.add(save_dir_path_tmp)
+
+    return stat_only_plots, stat_and_syst_plots, html_dirs
+def _resolve_requested_variables(dict_of_hists, variables, context):
+    """Return the ordered list of variables to process for a plotting function."""
+
+    all_variables = list(dict_of_hists.keys())
+    if not variables:
+        return all_variables
+
+    resolved = []
+    missing = []
+    for var_name in variables:
+        if var_name in dict_of_hists:
+            if var_name not in resolved:
+                resolved.append(var_name)
+        else:
+            missing.append(var_name)
+
+    for missing_name in missing:
+        print(
+            f"Warning: Requested variable '{missing_name}' not found in {context}; skipping."
+        )
+
+    return resolved
+
+
 def validate_channel_group(histos, expected_labels, transformations, region, subgroup, variable):
     if not isinstance(histos, (list, tuple)):
         histos = [histos]
@@ -140,7 +1557,9 @@ def validate_channel_group(histos, expected_labels, transformations, region, sub
         )
 
 def populate_group_map(samples, pattern_map):
-    out = {k: [] for k in pattern_map}
+    out = OrderedDict((k, []) for k in pattern_map)
+    fallback_groups = OrderedDict()
+
     for proc_name in samples:
         matched = False
         for grp, patterns in pattern_map.items():
@@ -152,10 +1571,2069 @@ def populate_group_map(samples, pattern_map):
             if matched:
                 break
         if not matched:
-            print(f"Warning: Process name \"{proc_name}\" does not match any known group patterns. It will not be included in the grouping.")
-            # If you want to raise an error instead, uncomment the next line
-            # raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+            if proc_name not in fallback_groups:
+                logger.warning(
+                    "Process name '%s' does not match any configured group pattern; "
+                    "assigning it to fallback group '%s'.",
+                    proc_name,
+                    proc_name,
+                )
+                fallback_groups[proc_name] = []
+            fallback_groups[proc_name].append(proc_name)
+
+    out.update(fallback_groups)
     return out
+
+
+def _safe_divide(num, denom, default, zero_over_zero=None):
+    """Safely divide two arrays while handling division by zero."""
+
+    num_arr = np.asarray(num, dtype=float)
+    denom_arr = np.asarray(denom, dtype=float)
+    out = np.full_like(num_arr, default, dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        valid = denom_arr != 0
+        np.divide(num_arr, denom_arr, out=out, where=valid)
+    if zero_over_zero is not None:
+        zero_zero_mask = (denom_arr == 0) & (num_arr == 0)
+        out[zero_zero_mask] = zero_over_zero
+    return out
+
+
+def _normalize_histograms(
+    h_mc,
+    h_data,
+    unit_norm_bool,
+    err_p,
+    err_m,
+    err_ratio_p,
+    err_ratio_m,
+    err_p_syst,
+    err_m_syst,
+    err_ratio_p_syst,
+    err_ratio_m_syst,
+    variable_name,
+):
+    """Scale MC and data histograms (and associated uncertainties) for unit-normalised plots."""
+
+    if err_p_syst is None and err_p is not None:
+        err_p_syst = np.asarray(err_p, dtype=float)
+    if err_m_syst is None and err_m is not None:
+        err_m_syst = np.asarray(err_m, dtype=float)
+    if err_ratio_p_syst is None and err_ratio_p is not None:
+        err_ratio_p_syst = np.asarray(err_ratio_p, dtype=float)
+    if err_ratio_m_syst is None and err_ratio_m is not None:
+        err_ratio_m_syst = np.asarray(err_ratio_m, dtype=float)
+
+    mc_norm_factor = 1.0
+    mc_scaled = False
+
+    if unit_norm_bool:
+        mc_eval = h_mc.eval({})
+        data_eval = h_data.eval({})
+
+        sum_mc = 0.0
+        for values in mc_eval.values():
+            sum_mc += float(np.sum(np.asarray(values, dtype=float)))
+
+        sum_data = 0.0
+        for values in data_eval.values():
+            sum_data += float(np.sum(np.asarray(values, dtype=float)))
+
+        if not np.isfinite(sum_mc) or np.isclose(sum_mc, 0.0, atol=1e-12, rtol=1e-6):
+            logger.warning(
+                "Skipping MC unit normalization for variable '%s' because the total MC yield is zero.",
+                variable_name,
+            )
+        else:
+            mc_norm_factor = 1.0 / sum_mc
+            h_mc.scale(mc_norm_factor)
+            mc_scaled = True
+
+        if not np.isfinite(sum_data) or np.isclose(sum_data, 0.0, atol=1e-12, rtol=1e-6):
+            logger.warning(
+                "Skipping data unit normalization for variable '%s' because the total data yield is zero.",
+                variable_name,
+            )
+        else:
+            h_data.scale(1.0 / sum_data)
+
+        if mc_scaled:
+            if err_p is not None:
+                err_p = np.asarray(err_p, dtype=float) * mc_norm_factor
+            if err_m is not None:
+                err_m = np.asarray(err_m, dtype=float) * mc_norm_factor
+            if err_p_syst is not None:
+                err_p_syst = np.asarray(err_p_syst, dtype=float) * mc_norm_factor
+            if err_m_syst is not None:
+                err_m_syst = np.asarray(err_m_syst, dtype=float) * mc_norm_factor
+
+    return {
+        "err_p": err_p,
+        "err_m": err_m,
+        "err_ratio_p": err_ratio_p,
+        "err_ratio_m": err_ratio_m,
+        "err_p_syst": err_p_syst,
+        "err_m_syst": err_m_syst,
+        "err_ratio_p_syst": err_ratio_p_syst,
+        "err_ratio_m_syst": err_ratio_m_syst,
+        "mc_norm_factor": mc_norm_factor,
+        "mc_scaled": mc_scaled,
+    }
+
+
+def _prepare_log_scaled_stacks(
+    plot_arrays,
+    stacked_arrays,
+    var,
+    log_scale_requested,
+):
+    """Adjust stacked MC arrays to support log scaling while preserving warnings and fallbacks."""
+
+    log_axis_enabled = False
+    log_y_baseline = None
+    adjusted_mc_totals = None
+
+    stacked_matrix = np.asarray(plot_arrays, dtype=float)
+    if stacked_matrix.ndim == 1:
+        if plot_arrays:
+            stacked_matrix = stacked_matrix[np.newaxis, :]
+        else:
+            stacked_matrix = stacked_matrix.reshape(0, 0)
+
+    if stacked_matrix.size:
+        totals_for_plot = np.sum(stacked_matrix, axis=0)
+    else:
+        totals_for_plot = (
+            np.zeros_like(stacked_arrays[0], dtype=float)
+            if stacked_arrays
+            else np.zeros(0, dtype=float)
+        )
+
+    positive_totals = totals_for_plot[totals_for_plot > 0]
+    epsilon = max(np.min(positive_totals) * 0.01, 1e-6) if positive_totals.size else 1e-6
+    nonpositive_mask = totals_for_plot <= 0
+    if np.any(nonpositive_mask) and stacked_matrix.size:
+        warnings.warn(
+            "Stacked MC totals for '%s' contain non-positive bins; "
+            "lifting them slightly to enable log scaling." % var,
+            RuntimeWarning,
+        )
+        divisor = max(stacked_matrix.shape[0], 1)
+        stacked_matrix[:, nonpositive_mask] = np.where(
+            stacked_matrix[:, nonpositive_mask] > 0,
+            stacked_matrix[:, nonpositive_mask],
+            epsilon / divisor,
+        )
+        totals_for_plot = np.sum(stacked_matrix, axis=0)
+    positive_totals = totals_for_plot[totals_for_plot > 0]
+    if positive_totals.size:
+        epsilon = max(np.min(positive_totals) * 0.01, epsilon)
+    if positive_totals.size == 0:
+        logger.warning(
+            "Unable to apply log scaling to '%s' stacked panel: no positive MC totals remain after adjustment.",
+            var,
+        )
+        log_scale_requested = False
+        plot_arrays = [arr.copy() for arr in stacked_arrays]
+    else:
+        divisor = max(stacked_matrix.shape[0], 1)
+        per_group_floor = epsilon / divisor
+        for idx in range(stacked_matrix.shape[1]):
+            column = stacked_matrix[:, idx]
+            neg_mask = column <= 0
+            if not np.any(neg_mask):
+                continue
+            pos_mask = column > 0
+            if not np.any(pos_mask):
+                logger.warning(
+                    "Unable to apply log scaling to '%s' stacked panel: bin %d has no positive MC contributions after adjustment.",
+                    var,
+                    idx,
+                )
+                log_scale_requested = False
+                break
+            lifted_negatives = np.full(np.count_nonzero(neg_mask), per_group_floor)
+            difference = np.sum(lifted_negatives - column[neg_mask])
+            positive_sum = np.sum(column[pos_mask])
+            if positive_sum <= difference:
+                logger.warning(
+                    "Unable to apply log scaling to '%s' stacked panel: insufficient positive yield to offset negative contributions in bin %d.",
+                    var,
+                    idx,
+                )
+                log_scale_requested = False
+                break
+            scale = (positive_sum - difference) / positive_sum
+            adjusted_column = column.copy()
+            adjusted_column[neg_mask] = per_group_floor
+            adjusted_column[pos_mask] = column[pos_mask] * scale
+            if np.any(adjusted_column[pos_mask] <= 0):
+                logger.warning(
+                    "Unable to apply log scaling to '%s' stacked panel: rescaled positive contributions became non-positivein bin %d.",
+                    var,
+                    idx,
+                )
+                log_scale_requested = False
+                break
+            stacked_matrix[:, idx] = adjusted_column
+        if log_scale_requested:
+            plot_arrays = [stacked_matrix[i, :] for i in range(stacked_matrix.shape[0])]
+            totals_after_adjustment = np.sum(stacked_matrix, axis=0)
+            positive_totals_after = totals_after_adjustment[totals_after_adjustment > 0]
+            if positive_totals_after.size == 0:
+                logger.warning(
+                    "Unable to apply log scaling to '%s' stacked panel: adjustments removed all positive totals.",
+                    var,
+                )
+                log_scale_requested = False
+                plot_arrays = [arr.copy() for arr in stacked_arrays]
+            else:
+                min_positive = np.min(positive_totals_after)
+                log_y_baseline = max(min_positive * 0.5, 1e-6)
+                adjusted_mc_totals = totals_after_adjustment
+                log_axis_enabled = True
+    if not log_scale_requested:
+        plot_arrays = [arr.copy() for arr in stacked_arrays]
+
+    return (
+        plot_arrays,
+        log_scale_requested,
+        log_axis_enabled,
+        log_y_baseline,
+        adjusted_mc_totals,
+    )
+
+
+def _draw_stacked_panel(
+    h_mc,
+    h_data,
+    grouping,
+    colors,
+    axis,
+    var,
+    bins,
+    unit_norm_bool,
+    lumitag,
+    comtag,
+    h_mc_sumw2,
+    mc_scaled,
+    mc_norm_factor,
+    *,
+    log_scale=False,
+    style=None,
+):
+    """Render the stacked MC panel and ratio subplot, returning figure objects and MC summaries."""
+
+    style = {} if style is None else style
+    figure_style = _style_get(style, ("figure",), {})
+    figsize = tuple(figure_style.get("figsize", (10, 8)))
+    height_ratios = tuple(figure_style.get("height_ratios", (4, 1)))
+    if len(height_ratios) != 2:
+        height_ratios = (4, 1)
+    hep.style.use("CMS")
+    fig, (ax, rax) = plt.subplots(
+        nrows=2,
+        ncols=1,
+        figsize=figsize,
+        gridspec_kw={"height_ratios": height_ratios},
+        sharex=True,
+    )
+    fig.subplots_adjust(hspace=figure_style.get("hspace", 0.07))
+
+    plt.sca(ax)
+    cms_style = _style_get(style, ("cms",), {})
+    cms_fontsize = cms_style.get("fontsize", 18.0)
+    cms_label = hep.cms.label(lumi=lumitag, com=comtag, fontsize=cms_fontsize)
+
+    summed_mc = h_mc[{"process": sum}]
+    summed_data = h_data[{"process": sum}]
+
+    summed_mc_edges = None
+    if hasattr(summed_mc, "axes"):
+        try:
+            summed_mc_edges = summed_mc.axes[var].edges
+        except KeyError:
+            summed_mc_edges = None
+
+    summed_data_edges = None
+    if hasattr(summed_data, "axes"):
+        try:
+            summed_data_edges = summed_data.axes[var].edges
+        except KeyError:
+            summed_data_edges = None
+
+    if summed_mc_edges is None:
+        summed_mc_edges = summed_data_edges
+    if summed_data_edges is None:
+        summed_data_edges = summed_mc_edges
+
+    default_bins = summed_data_edges if bins is None else bins
+    if default_bins is None:
+        raise ValueError("Histogram axis has fewer than two edges; cannot determine binning.")
+    bins = np.asarray(default_bins, dtype=float)
+    n_bins = max(bins.size - 1, 0)
+
+    axis_traits = None
+    axis_obj = None
+    for candidate in (summed_mc, summed_data, h_mc, h_data):
+        axes = getattr(candidate, "axes", None)
+        if axes is None:
+            continue
+        try:
+            axis_obj = axes[var]
+        except (KeyError, TypeError):
+            continue
+        else:
+            break
+
+    if axis_obj is not None:
+        axis_traits = getattr(axis_obj, "traits", None)
+
+    axis_has_underflow = (
+        bool(getattr(axis_traits, "underflow", False)) if axis_traits is not None else None
+    )
+    axis_has_overflow = (
+        bool(getattr(axis_traits, "overflow", False)) if axis_traits is not None else None
+    )
+    axis_nominal_bins = len(axis_obj) if axis_obj is not None else None
+    includes_overflow_hint = (
+        None
+        if axis_nominal_bins is None
+        else bool(n_bins > axis_nominal_bins)
+    )
+
+    def _visible_from_flow(
+        flow_array,
+        n_bins,
+        *,
+        has_underflow=None,
+        has_overflow=None,
+        include_overflow_hint=None,
+    ):
+        flow_values = np.asarray(flow_array, dtype=float)
+        if flow_values.ndim == 0:
+            return flow_values
+
+        size = flow_values.size
+        if size == n_bins:
+            return flow_values
+
+        if n_bins <= 0:
+            return np.zeros(max(n_bins, 0), dtype=flow_values.dtype)
+
+        drop_front = 0
+        drop_back = 0
+        target = n_bins
+
+        if has_underflow is True and size > target:
+            drop_front = 1
+
+        keep_overflow = include_overflow_hint
+        if has_overflow is True:
+            if keep_overflow is False:
+                if size - drop_front > target:
+                    drop_back = 1
+            elif keep_overflow is None and size - drop_front > target:
+                drop_back = 1
+        elif has_overflow is False:
+            drop_back = 0
+
+        remaining = size - drop_front - drop_back - target
+        if remaining > 0:
+            if keep_overflow is True or (keep_overflow is None and has_underflow in (True, None)):
+                extra_front = min(remaining, size - drop_front - drop_back)
+                drop_front += extra_front
+                remaining -= extra_front
+        if remaining > 0:
+            drop_back += remaining
+
+        start = min(drop_front, size)
+        end = size - min(drop_back, max(size - start, 0))
+        visible = flow_values[start:end]
+
+        if visible.size > n_bins:
+            trim = visible.size - n_bins
+            if keep_overflow is True:
+                visible = visible[trim:]
+            else:
+                visible = visible[:n_bins]
+        elif visible.size < n_bins and n_bins > 0:
+            padded = np.zeros(n_bins, dtype=flow_values.dtype)
+            padded[: visible.size] = visible
+            visible = padded
+
+        return visible
+
+    summed_mc_values_flow = _values_with_flow_or_overflow(summed_mc)
+    summed_data_values_flow = _values_with_flow_or_overflow(summed_data)
+    summed_mc_values = _visible_from_flow(
+        summed_mc_values_flow,
+        n_bins,
+        has_underflow=axis_has_underflow,
+        has_overflow=axis_has_overflow,
+        include_overflow_hint=includes_overflow_hint,
+    )
+    summed_data_values = _visible_from_flow(
+        summed_data_values_flow,
+        n_bins,
+        has_underflow=axis_has_underflow,
+        has_overflow=axis_has_overflow,
+        include_overflow_hint=includes_overflow_hint,
+    )
+
+    def _get_grouped_vals(hist_obj, grouping_map):
+        grouped_values = {}
+        for proc_name, members in grouping_map.items():
+            grouped_hist = hist_obj[{"process": members}][{"process": sum}]
+            flow_vals = _values_with_flow_or_overflow(grouped_hist)
+            grouped_values[proc_name] = _visible_from_flow(
+                flow_vals,
+                n_bins,
+                has_underflow=axis_has_underflow,
+                has_overflow=axis_has_overflow,
+                include_overflow_hint=includes_overflow_hint,
+            )
+        return grouped_values
+
+    mc_vals = _get_grouped_vals(h_mc, grouping)
+    stacked_arrays = [np.asarray(values, dtype=float) for values in mc_vals.values()]
+    plot_arrays = [arr.copy() for arr in stacked_arrays]
+    mc_sumw2_vals = {}
+    if h_mc_sumw2 is not None:
+        try:
+            available_processes = set(h_mc_sumw2.axes[axis])
+        except KeyError:
+            available_processes = set()
+        template = next(iter(mc_vals.values())) if mc_vals else summed_mc_values
+        for proc_name, members in grouping.items():
+            valid_members = [m for m in members if m in available_processes]
+            missing_members = [m for m in members if m not in available_processes]
+
+            grouped_vals = np.zeros_like(template)
+            if valid_members:
+                grouped_hist = h_mc_sumw2[{"process": valid_members}][{"process": sum}]
+                flow_vals = _values_with_flow_or_overflow(grouped_hist)
+                grouped_vals = _visible_from_flow(
+                    flow_vals,
+                    n_bins,
+                    has_underflow=axis_has_underflow,
+                    has_overflow=axis_has_overflow,
+                    include_overflow_hint=includes_overflow_hint,
+                )
+                if unit_norm_bool and mc_scaled:
+                    grouped_vals = grouped_vals * mc_norm_factor**2
+
+            fallback_vals = np.zeros_like(template)
+            if missing_members:
+                fallback_hist = h_mc[{"process": missing_members}][{"process": sum}]
+                fallback_flow = _values_with_flow_or_overflow(fallback_hist)
+                fallback_vals = _visible_from_flow(
+                    fallback_flow,
+                    n_bins,
+                    has_underflow=axis_has_underflow,
+                    has_overflow=axis_has_overflow,
+                    include_overflow_hint=includes_overflow_hint,
+                )
+                if unit_norm_bool and mc_scaled:
+                    fallback_vals = fallback_vals * mc_norm_factor
+
+            mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
+
+    log_scale_requested = bool(log_scale)
+    log_y_baseline = None
+    adjusted_mc_totals = None
+    log_axis_enabled = False
+    if log_scale_requested and plot_arrays:
+        (
+            plot_arrays,
+            log_scale_requested,
+            log_axis_enabled,
+            log_y_baseline,
+            adjusted_mc_totals,
+        ) = _prepare_log_scaled_stacks(
+            plot_arrays,
+            stacked_arrays,
+            var,
+            log_scale_requested,
+        )
+    elif log_scale_requested and not plot_arrays:
+        logger.warning(
+            "Requested log scaling for '%s' but no MC groups were available; falling back to linear scale.",
+            var,
+        )
+        log_scale_requested = False
+
+    if log_scale_requested and plot_arrays:
+        log_axis_enabled = True
+        if adjusted_mc_totals is None:
+            adjusted_mc_totals = np.sum(plot_arrays, axis=0)
+
+    if log_axis_enabled:
+        ax.set_yscale("log", nonpositive="clip")
+
+    hep.histplot(
+        plot_arrays if plot_arrays else list(mc_vals.values()),
+        ax=ax,
+        bins=bins,
+        stack=True,
+        density=unit_norm_bool,
+        label=list(mc_vals.keys()),
+        histtype="fill",
+        color=colors,
+    )
+    if log_y_baseline is not None:
+        ax.set_ylim(bottom=log_y_baseline)
+
+    hep.histplot(
+        summed_data_values,
+        ax=ax,
+        bins=bins,
+        stack=False,
+        density=unit_norm_bool,
+        label="Data",
+        histtype="errorbar",
+        **DATA_ERR_OPS,
+    )
+
+    data_vals = summed_data_values
+    mc_vals_total = summed_mc_values
+
+    ratio_vals = _safe_divide(
+        data_vals,
+        mc_vals_total,
+        default=np.nan,
+        zero_over_zero=1.0,
+    )
+    ratio_yerr = _safe_divide(
+        np.sqrt(data_vals),
+        mc_vals_total,
+        default=0.0,
+    )
+    ratio_yerr[mc_vals_total == 0] = np.nan
+
+    mc_nonpositive_mask = mc_vals_total <= 0
+    zero_over_zero_mask = (mc_vals_total == 0) & (data_vals == 0)
+    mask_for_nan = mc_nonpositive_mask & ~zero_over_zero_mask
+    if np.any(mask_for_nan):
+        ratio_vals = ratio_vals.astype(float, copy=True)
+        ratio_yerr = ratio_yerr.astype(float, copy=True)
+        ratio_vals[mask_for_nan] = np.nan
+        ratio_yerr[mask_for_nan] = np.nan
+
+    hep.histplot(
+        ratio_vals,
+        yerr=ratio_yerr,
+        ax=rax,
+        bins=bins,
+        stack=False,
+        density=unit_norm_bool,
+        histtype="errorbar",
+        **DATA_ERR_OPS,
+    )
+
+    mc_totals = mc_vals_total
+
+    return {
+        "fig": fig,
+        "ax": ax,
+        "rax": rax,
+        "bins": bins,
+        "cms_label": cms_label,
+        "mc_sumw2_vals": mc_sumw2_vals,
+        "mc_totals": mc_totals,
+        "adjusted_mc_totals": adjusted_mc_totals,
+        "log_axis_enabled": log_axis_enabled,
+        "log_y_baseline": log_y_baseline,
+        "ratio_values": ratio_vals,
+        "ratio_errors": ratio_yerr,
+    }
+
+
+def _compute_uncertainty_bands(
+    ax,
+    rax,
+    bins,
+    mc_totals,
+    mc_sumw2_vals,
+    h_mc_sumw2,
+    unit_norm_bool,
+    mc_scaled,
+    mc_norm_factor,
+    err_p_syst,
+    err_m_syst,
+    err_ratio_p_syst,
+    err_ratio_m_syst,
+    syst_err,
+    *,
+    display_mc_totals=None,
+    log_axis_enabled=False,
+    log_y_baseline=None,
+    style=None,
+):
+    """Compute and draw statistical/systematic uncertainty bands for the stacked plot."""
+
+    style = {} if style is None else style
+
+    if mc_totals.size == 0:
+        return {"main_band_handles": []}
+
+    if h_mc_sumw2 is not None:
+        if mc_sumw2_vals:
+            summed_mc_sumw2 = np.sum(list(mc_sumw2_vals.values()), axis=0)
+        else:
+            summed_mc_sumw2_flow = (
+                h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)
+            )
+            summed_mc_sumw2 = np.asarray(summed_mc_sumw2_flow, dtype=float)[1:]
+            if summed_mc_sumw2.size > mc_totals.size:
+                summed_mc_sumw2 = summed_mc_sumw2[: mc_totals.size]
+            elif summed_mc_sumw2.size < mc_totals.size:
+                padded = np.zeros_like(mc_totals, dtype=float)
+                padded[: summed_mc_sumw2.size] = summed_mc_sumw2
+                summed_mc_sumw2 = padded
+            if unit_norm_bool and mc_scaled:
+                summed_mc_sumw2 = summed_mc_sumw2 * mc_norm_factor**2
+    else:
+        if unit_norm_bool and mc_scaled:
+            summed_mc_sumw2 = mc_totals * mc_norm_factor
+        else:
+            summed_mc_sumw2 = mc_totals
+
+    mc_stat_unc = np.sqrt(np.clip(summed_mc_sumw2, a_min=0, a_max=None))
+
+    has_syst_arrays = all(
+        arr is not None
+        for arr in (err_p_syst, err_m_syst, err_ratio_p_syst, err_ratio_m_syst)
+    )
+
+    valid_modes = {"stat", "syst", "total"}
+    if isinstance(syst_err, str) and syst_err.lower() in valid_modes:
+        band_mode = syst_err.lower()
+    elif isinstance(syst_err, bool):
+        if syst_err and has_syst_arrays:
+            band_mode = "total"
+        else:
+            band_mode = "stat"
+    else:
+        band_mode = "total" if has_syst_arrays else "stat"
+
+    def _append_last(arr):
+        if arr is None or len(arr) == 0:
+            return arr
+        return np.append(arr, arr[-1])
+
+    mc_stat_up = mc_totals + mc_stat_unc
+    mc_stat_down = np.clip(mc_totals - mc_stat_unc, a_min=0, a_max=None)
+    stat_fraction = _safe_divide(mc_stat_unc, mc_totals, default=0.0)
+    ratio_stat_up = 1 + stat_fraction
+    ratio_stat_down = 1 - stat_fraction
+
+    mc_stat_band_up = _append_last(mc_stat_up)
+    mc_stat_band_down = _append_last(mc_stat_down)
+    ratio_stat_band_up = _append_last(ratio_stat_up)
+    ratio_stat_band_down = _append_last(ratio_stat_down)
+
+    syst_up = syst_down = ratio_syst_up = ratio_syst_down = None
+    mc_total_band_up = mc_total_band_down = None
+    ratio_total_band_up = ratio_total_band_down = None
+    if has_syst_arrays:
+        syst_up = np.asarray(err_p_syst)
+        syst_down = np.asarray(err_m_syst)
+        ratio_syst_up = np.asarray(err_ratio_p_syst)
+        ratio_syst_down = np.asarray(err_ratio_m_syst)
+
+        def _trim_overflow(arr):
+            if arr is None:
+                return arr
+            arr = np.asarray(arr)
+            if arr.ndim == 0:
+                return arr
+            if arr.shape[0] == mc_totals.shape[0]:
+                return arr
+            if arr.shape[0] == mc_totals.shape[0] + 1:
+                return arr[:-1]
+            return arr
+
+        syst_up = _trim_overflow(syst_up)
+        syst_down = _trim_overflow(syst_down)
+        ratio_syst_up = _trim_overflow(ratio_syst_up)
+        ratio_syst_down = _trim_overflow(ratio_syst_down)
+
+        syst_up_diff = np.clip(syst_up - mc_totals, a_min=0, a_max=None)
+        syst_down_diff = np.clip(mc_totals - syst_down, a_min=0, a_max=None)
+
+        total_unc_up = np.sqrt(mc_stat_unc**2 + syst_up_diff**2)
+        total_unc_down = np.sqrt(mc_stat_unc**2 + syst_down_diff**2)
+
+        mc_total_band_up = _append_last(mc_totals + total_unc_up)
+        mc_total_band_down = _append_last(
+            np.clip(mc_totals - total_unc_down, a_min=0, a_max=None)
+        )
+
+        total_up_fraction = _safe_divide(total_unc_up, mc_totals, default=0.0)
+        total_down_fraction = _safe_divide(total_unc_down, mc_totals, default=0.0)
+        ratio_total_up = 1 + total_up_fraction
+        ratio_total_down = 1 - total_down_fraction
+        ratio_total_band_up = _append_last(
+            np.clip(ratio_total_up, a_min=0, a_max=None)
+        )
+        ratio_total_band_down = _append_last(
+            np.clip(ratio_total_down, a_min=0, a_max=None)
+        )
+
+        ratio_syst_band_up = _append_last(ratio_syst_up)
+        ratio_syst_band_down = _append_last(ratio_syst_down)
+        mc_syst_band_up = _append_last(np.clip(syst_up, a_min=0, a_max=None))
+        mc_syst_band_down = _append_last(np.clip(syst_down, a_min=0, a_max=None))
+    else:
+        ratio_syst_band_up = ratio_syst_band_down = None
+        mc_syst_band_up = mc_syst_band_down = None
+
+    stat_label = "Stat. unc."
+    syst_label = "Syst. unc."
+    total_label = "Stat. $\\oplus$ syst. unc."
+
+    ratio_band_handles = []
+    main_band_handles = []
+
+    if display_mc_totals is None:
+        display_mc_totals = mc_totals
+
+    display_mc_totals_appended = _append_last(display_mc_totals)
+
+    def _ensure_log_safe(arr):
+        if arr is None or not log_axis_enabled:
+            return arr
+        baseline = log_y_baseline if log_y_baseline is not None else 1e-6
+        safe = np.asarray(arr, dtype=float)
+        safe = np.clip(safe, a_min=baseline, a_max=None)
+        reference = np.clip(display_mc_totals_appended, a_min=baseline, a_max=None)
+        return np.maximum(safe, reference)
+
+    if band_mode == "syst" and has_syst_arrays:
+        if mc_syst_band_up is not None and mc_syst_band_down is not None:
+            ax.fill_between(
+                bins,
+                _ensure_log_safe(mc_syst_band_down),
+                _ensure_log_safe(mc_syst_band_up),
+                step="post",
+                facecolor="none",
+                edgecolor="gray",
+                label=syst_label,
+                hatch="////",
+            )
+        if ratio_syst_band_up is not None and ratio_syst_band_down is not None:
+            ratio_syst_handle = rax.fill_between(
+                bins,
+                ratio_syst_band_down,
+                ratio_syst_band_up,
+                step="post",
+                facecolor="none",
+                edgecolor="gray",
+                label=syst_label,
+                hatch="////",
+            )
+            ratio_band_handles.append(ratio_syst_handle)
+    else:
+        if mc_stat_band_up is not None and mc_stat_band_down is not None:
+            stat_handle_main = ax.fill_between(
+                bins,
+                _ensure_log_safe(mc_stat_band_down),
+                _ensure_log_safe(mc_stat_band_up),
+                step="post",
+                facecolor="gray",
+                alpha=0.3,
+                edgecolor="none",
+                label="_nolegend_",
+            )
+            main_band_handles.append((stat_handle_main, stat_label))
+        if ratio_stat_band_up is not None and ratio_stat_band_down is not None:
+            ratio_stat_handle = rax.fill_between(
+                bins,
+                ratio_stat_band_down,
+                ratio_stat_band_up,
+                step="post",
+                facecolor="gray",
+                alpha=0.3,
+                edgecolor="none",
+                label=stat_label,
+            )
+            ratio_band_handles.append(ratio_stat_handle)
+
+        show_total = band_mode == "total" and has_syst_arrays
+        if show_total:
+            if mc_total_band_up is not None and mc_total_band_down is not None:
+                total_handle_main = ax.fill_between(
+                    bins,
+                    _ensure_log_safe(mc_total_band_down),
+                    _ensure_log_safe(mc_total_band_up),
+                    step="post",
+                    facecolor="none",
+                    edgecolor="gray",
+                    label="_nolegend_",
+                    hatch="////",
+                )
+                main_band_handles.append((total_handle_main, total_label))
+            if ratio_total_band_up is not None and ratio_total_band_down is not None:
+                ratio_total_handle = rax.fill_between(
+                    bins,
+                    ratio_total_band_down,
+                    ratio_total_band_up,
+                    step="post",
+                    facecolor="none",
+                    edgecolor="gray",
+                    label=total_label,
+                    hatch="////",
+                )
+                ratio_band_handles.append(ratio_total_handle)
+
+    if ratio_band_handles:
+        ratio_legend_style = _style_get(style, ("ratio_band_legend",), {})
+        legend_kwargs = {
+            "loc": ratio_legend_style.get("loc", "upper left"),
+            "fontsize": ratio_legend_style.get("fontsize", 10),
+            "frameon": ratio_legend_style.get("frameon", False),
+            "ncol": ratio_legend_style.get("ncol", 2),
+            "columnspacing": ratio_legend_style.get("columnspacing", 1.0),
+        }
+        handletextpad = ratio_legend_style.get("handletextpad")
+        if handletextpad is not None:
+            legend_kwargs["handletextpad"] = handletextpad
+        bbox_to_anchor = ratio_legend_style.get("bbox_to_anchor")
+        if bbox_to_anchor is not None:
+            legend_kwargs["bbox_to_anchor"] = tuple(bbox_to_anchor)
+        rax.legend(handles=ratio_band_handles, **legend_kwargs)
+
+    return {
+        "main_band_handles": main_band_handles,
+        "ratio_stat_band_up": ratio_stat_band_up,
+        "ratio_stat_band_down": ratio_stat_band_down,
+        "ratio_syst_band_up": ratio_syst_band_up,
+        "ratio_syst_band_down": ratio_syst_band_down,
+        "ratio_total_band_up": ratio_total_band_up,
+        "ratio_total_band_down": ratio_total_band_down,
+    }
+
+
+
+def _finalize_layout(
+    fig,
+    ax,
+    rax,
+    legend,
+    cms_label,
+    display_label,
+    *,
+    label_artist=None,
+    events_artist=None,
+    ratio_anchor=None,
+    events_anchor=None,
+    legend_anchor=None,
+    legend_is_figure=False,
+    style=None,
+):
+    """Align legends and axis annotations after all plotting calls."""
+
+    legend_anchor_local = list(legend_anchor) if legend_anchor is not None else None
+    style = {} if style is None else style
+    legend_style = _style_get(style, ("legend",), {})
+    cms_style = _style_get(style, ("cms",), {})
+    axes_style = _style_get(style, ("axes",), {})
+    legend_overlap_margin = legend_style.get("overlap_margin", 0.01)
+    top_margin_min = legend_style.get("top_margin_min", 0.01)
+    top_margin_scale = legend_style.get("top_margin_scale", 0.25)
+    ratio_label_margin = axes_style.get("ratio_label_margin", 0.002)
+
+    def _draw_and_get_renderer():
+        fig.canvas.draw()
+        return fig.canvas.get_renderer()
+
+    renderer = _draw_and_get_renderer()
+
+    legend_box = None
+    if legend is not None:
+        legend_bbox = legend.get_window_extent(renderer=renderer)
+        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+    cms_artists = ()
+    if cms_label is not None:
+        cms_artists = cms_label if isinstance(cms_label, (list, tuple)) else (cms_label,)
+
+    cms_box = None
+    cms_bboxes = []
+    for artist in cms_artists:
+        if hasattr(artist, "get_window_extent"):
+            cms_bbox = artist.get_window_extent(renderer=renderer)
+            cms_bboxes.append(cms_bbox)
+    if cms_bboxes:
+        cms_box = Bbox.union(cms_bboxes).transformed(fig.transFigure.inverted())
+
+    if legend_box is not None and cms_box is not None:
+        if legend_is_figure and legend_anchor_local is not None:
+            buffer = max(top_margin_min, top_margin_scale * legend_box.height)
+            required_headroom = legend_box.height + buffer
+            desired_anchor_y = cms_box.y1 + buffer + legend_box.height
+            if not np.isclose(desired_anchor_y, legend_anchor_local[1]):
+                legend_anchor_local[1] = desired_anchor_y
+                legend.set_bbox_to_anchor(tuple(legend_anchor_local), fig.transFigure)
+                renderer = _draw_and_get_renderer()
+                legend_bbox = legend.get_window_extent(renderer=renderer)
+                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+            subplot_params = fig.subplotpars
+            available_top = max(0.0, 1.0 - required_headroom)
+            if subplot_params.top > available_top:
+                plt.subplots_adjust(
+                    bottom=subplot_params.bottom,
+                    top=available_top,
+                    left=subplot_params.left,
+                    right=subplot_params.right,
+                    hspace=subplot_params.hspace,
+                    wspace=subplot_params.wspace,
+                )
+                renderer = _draw_and_get_renderer()
+                legend_bbox = legend.get_window_extent(renderer=renderer)
+                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+        else:
+            horizontal_overlap = (
+                legend_box.x0 < cms_box.x1 and legend_box.x1 > cms_box.x0
+            )
+            vertical_overlap = legend_box.y0 < cms_box.y1 and legend_box.y1 > cms_box.y0
+            if horizontal_overlap and legend_anchor_local is not None:
+                legend_width = legend_box.width
+                space_right = 1.0 - legend_overlap_margin - cms_box.x1
+                space_left = cms_box.x0 - legend_overlap_margin
+                if space_right >= legend_width:
+                    new_left = cms_box.x1 + legend_overlap_margin
+                elif space_left >= legend_width:
+                    new_left = max(
+                        legend_overlap_margin,
+                        cms_box.x0 - legend_overlap_margin - legend_width,
+                    )
+                else:
+                    if space_right >= space_left:
+                        new_left = min(
+                            max(legend_overlap_margin, cms_box.x1 + legend_overlap_margin),
+                            max(0.0, 1.0 - legend_width),
+                        )
+                    else:
+                        new_left = max(
+                            legend_overlap_margin,
+                            min(
+                                cms_box.x0 - legend_overlap_margin - legend_width,
+                                max(0.0, 1.0 - legend_width),
+                            ),
+                        )
+                new_left = np.clip(new_left, 0.0, max(0.0, 1.0 - legend_width))
+                legend_anchor_local[0] = new_left + legend_width / 2.0
+                legend.set_bbox_to_anchor(tuple(legend_anchor_local), fig.transFigure)
+                renderer = _draw_and_get_renderer()
+                legend_bbox = legend.get_window_extent(renderer=renderer)
+                legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+            if vertical_overlap:
+                shift = cms_box.y1 - legend_box.y0 + legend_overlap_margin
+                if shift > 0:
+                    ax_box = ax.get_position()
+                    rax_box = rax.get_position()
+                    ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
+                    rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
+                    renderer = _draw_and_get_renderer()
+                    legend_bbox = legend.get_window_extent(renderer=renderer)
+                    legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+    axis_bboxes = []
+    for axis_obj in (ax, rax):
+        try:
+            bbox = axis_obj.get_tightbbox(renderer)
+        except Exception:
+            bbox = None
+        if bbox is None:
+            continue
+        axis_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+    if axis_bboxes:
+        rightmost_extent = max(bbox.x1 for bbox in axis_bboxes)
+    else:
+        rightmost_extent = max(ax.get_position().x1, rax.get_position().x1)
+
+    subplot_params = fig.subplotpars
+    effective_right = min(np.nextafter(1.0, 0.0), rightmost_extent + 0.003)
+    if not np.isclose(effective_right, subplot_params.right):
+        stored_positions = [ax.get_position().frozen(), rax.get_position().frozen()]
+        plt.subplots_adjust(
+            bottom=subplot_params.bottom,
+            top=subplot_params.top,
+            left=subplot_params.left,
+            right=effective_right,
+            hspace=subplot_params.hspace,
+            wspace=subplot_params.wspace,
+        )
+        renderer = _draw_and_get_renderer()
+        for axis_obj, original in zip((ax, rax), stored_positions):
+            updated = axis_obj.get_position()
+            delta_y = original.y0 - updated.y0
+            if not np.isclose(delta_y, 0.0):
+                axis_obj.set_position(
+                    [updated.x0, updated.y0 + delta_y, updated.width, updated.height]
+                )
+        renderer = _draw_and_get_renderer()
+
+    def _ratio_axis_min_y(current_renderer):
+        bboxes = []
+        for tick_label in rax.get_xticklabels():
+            if not tick_label.get_visible():
+                continue
+            text = tick_label.get_text()
+            if not text:
+                continue
+            bbox = tick_label.get_window_extent(renderer=current_renderer)
+            bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+        axis_label = rax.xaxis.label
+        if axis_label and axis_label.get_visible():
+            axis_bbox = axis_label.get_window_extent(renderer=current_renderer)
+            bboxes.append(axis_bbox.transformed(fig.transFigure.inverted()))
+        if bboxes:
+            return min(b.y0 for b in bboxes)
+        return rax.get_position().y0
+
+    default_label_size = (
+        rax.yaxis.label.get_size()
+        if rax.yaxis.label
+        else plt.rcParams.get("axes.labelsize", 18)
+    )
+    label_fontsize = axes_style.get("label_fontsize", default_label_size)
+    renderer = _draw_and_get_renderer()
+    temp = fig.text(0, 0, display_label, fontsize=label_fontsize)
+    temp_bbox = temp.get_window_extent(renderer=renderer)
+    temp.remove()
+    measured_height = temp_bbox.transformed(fig.transFigure.inverted()).height
+    label_y = _ratio_axis_min_y(renderer) - measured_height - ratio_label_margin
+
+    subplot_params = fig.subplotpars
+    new_bottom = np.clip(max(0.0, label_y - ratio_label_margin), 0.0, 1.0)
+    if not np.isclose(new_bottom, subplot_params.bottom):
+        plt.subplots_adjust(
+            bottom=new_bottom,
+            top=subplot_params.top,
+            left=subplot_params.left,
+            right=subplot_params.right,
+            hspace=subplot_params.hspace,
+            wspace=subplot_params.wspace,
+        )
+        renderer = _draw_and_get_renderer()
+        label_y = _ratio_axis_min_y(renderer) - measured_height - ratio_label_margin
+
+    renderer = _draw_and_get_renderer()
+    ax_box = ax.get_position()
+    rax_box = rax.get_position()
+
+    ratio_label_fig = None
+    ratio_label = rax.yaxis.label
+    if ratio_label is not None:
+        try:
+            ratio_pos = np.asarray(ratio_label.get_position(), dtype=float)
+            ratio_transform = ratio_label.get_transform()
+            if ratio_transform is not None:
+                ratio_display = ratio_transform.transform([ratio_pos])[0]
+                ratio_label_fig = fig.transFigure.inverted().transform(ratio_display)
+        except Exception:
+            ratio_label_fig = None
+    if ratio_label_fig is None and ratio_anchor is not None:
+        ratio_label_fig = ratio_anchor
+
+    events_x, events_y = events_anchor if events_anchor is not None else (None, None)
+    if ratio_label_fig is not None:
+        events_x = ratio_label_fig[0]
+    if events_x is None:
+        events_x = rax_box.x0 + rax_box.width
+    current_events_y = ax_box.y0 + ax_box.height
+    if current_events_y is not None:
+        events_y = current_events_y
+    elif events_y is None:
+        events_y = rax_box.y0 + rax_box.height
+
+    if events_artist is None or not isinstance(events_artist, mpl.text.Text):
+        events_artist = fig.text(
+            events_x,
+            events_y,
+            "Events",
+            ha="right",
+            va="bottom",
+            fontsize=label_fontsize,
+            rotation=90,
+        )
+    else:
+        events_artist.set_position((events_x, events_y))
+        events_artist.set_text("Events")
+        events_artist.set_fontsize(label_fontsize)
+        events_artist.set_rotation(90)
+        events_artist.set_ha("right")
+        events_artist.set_va("bottom")
+
+    if label_artist is None or not isinstance(label_artist, mpl.text.Text):
+        label_artist = fig.text(
+            rax_box.x0 + rax_box.width,
+            label_y,
+            display_label,
+            ha="right",
+            va="bottom",
+            fontsize=label_fontsize,
+        )
+    else:
+        label_artist.set_position((rax_box.x0 + rax_box.width, label_y))
+        label_artist.set_text(display_label)
+        label_artist.set_fontsize(label_fontsize)
+        label_artist.set_ha("right")
+        label_artist.set_va("bottom")
+
+    return label_artist, events_artist, legend_anchor_local
+
+
+def _sample_in_signal_group(sample_name, sample_group_map, group_type):
+    if group_type == "CR":
+        return sample_name in sample_group_map.get("Signal", [])
+
+    if group_type == "SR":
+        for grp_key in SR_SIGNAL_GROUP_KEYS:
+            if sample_name in sample_group_map.get(grp_key, []):
+                return True
+
+    return False
+
+
+def _normalize_sequence(value):
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return list(value)
+
+
+def _evaluate_channel_condition(condition, region_ctx):
+    if condition == "not_split_by_lepflav":
+        return not yt.is_split_by_lepflav(region_ctx.dict_of_hists)
+    raise ValueError(
+        f"Unsupported channel transformation condition '{condition}'"
+    )
+
+
+def _resolve_channel_transformations(region_ctx, var_name):
+    rules = region_ctx.channel_rules
+    transformations = []
+    transformations.extend(rules.get("default", []))
+    transformations.extend(rules.get("variables", {}).get(var_name, []))
+    for cond_entry in rules.get("conditional", []):
+        condition = cond_entry.get("when")
+        if condition is None:
+            continue
+        if _evaluate_channel_condition(condition, region_ctx):
+            transformations.extend(cond_entry.get("apply", []))
+    ordered = []
+    seen = set()
+    for transform in transformations:
+        if transform not in seen:
+            ordered.append(transform)
+            seen.add(transform)
+    return ordered
+
+
+def _apply_channel_dict_transformations(channel_dict, transformations):
+    if not transformations:
+        return dict(channel_dict)
+
+    transformed_dict = copy.deepcopy(channel_dict)
+    for transform in transformations:
+        if transform == "njets":
+            transformed_dict = get_dict_with_stripped_bin_names(
+                transformed_dict, "njets"
+            )
+        elif transform == "lepflav":
+            transformed_dict = get_dict_with_stripped_bin_names(
+                transformed_dict, "lepflav"
+            )
+        else:
+            raise ValueError(
+                f"Unsupported channel transformation '{transform}'"
+            )
+    return transformed_dict
+
+
+def _categorize_channel_dict_entries(channel_dict):
+    """Return the sets of aggregate and per-channel keys for *channel_dict*."""
+
+    normalized = []
+    for key, channel_bins in channel_dict.items():
+        if channel_bins is None:
+            bin_values = ()
+        else:
+            bin_values = tuple(channel_bins)
+        normalized.append((key, frozenset(bin_values)))
+
+    aggregate_keys = set()
+    per_channel_keys = set()
+
+    for key, bin_set in normalized:
+        is_subset = False
+        is_superset = False
+        for other_key, other_set in normalized:
+            if key == other_key:
+                continue
+            if bin_set < other_set:
+                is_subset = True
+            if bin_set > other_set:
+                is_superset = True
+            if is_subset and is_superset:
+                break
+        if not is_subset:
+            aggregate_keys.add(key)
+        if not is_superset:
+            per_channel_keys.add(key)
+
+    return aggregate_keys, per_channel_keys
+
+
+def _filter_channel_dict_for_mode(channel_dict, region_ctx):
+    """Return *channel_dict* filtered according to the region channel mode."""
+
+    channel_mode = region_ctx.channel_mode
+    if channel_mode not in {"aggregate", "per-channel"}:
+        return dict(channel_dict)
+
+    aggregate_keys, per_channel_keys = _categorize_channel_dict_entries(channel_dict)
+    if channel_mode == "aggregate":
+        allowed_keys = aggregate_keys
+    else:
+        allowed_keys = per_channel_keys
+
+    if not allowed_keys:
+        return dict(channel_dict)
+
+    return {
+        key: channel_dict[key]
+        for key in channel_dict
+        if key in allowed_keys
+    }
+
+
+def _match_category(hist_cat, categories_cfg):
+    if not categories_cfg:
+        return True
+    prefixes = _normalize_sequence(categories_cfg.get("prefixes"))
+    if prefixes and any(hist_cat.startswith(pref) for pref in prefixes):
+        return True
+    equals = _normalize_sequence(categories_cfg.get("equals"))
+    if equals and hist_cat in equals:
+        return True
+    contains = _normalize_sequence(categories_cfg.get("contains"))
+    if contains and any(token in hist_cat for token in contains):
+        return True
+    return False
+
+
+def _should_skip_category(rules, hist_cat, var_name):
+    for rule in rules:
+        if not _match_category(hist_cat, rule.get("categories")):
+            continue
+        includes = _normalize_sequence(rule.get("variable_includes"))
+        if includes and not any(token in var_name for token in includes):
+            continue
+        excludes = _normalize_sequence(rule.get("variable_excludes"))
+        if excludes and any(token in var_name for token in excludes):
+            continue
+        return True
+    return False
+
+
+def _collect_samples_to_remove(rules, hist_cat, region_ctx):
+    samples = []
+    for rule in rules:
+        if not _match_category(hist_cat, rule.get("categories")):
+            continue
+        rule_groups = _normalize_sequence(rule.get("groups"))
+        for group in rule_groups:
+            samples.extend(region_ctx.group_map.get(group, []))
+        samples.extend(_normalize_sequence(rule.get("samples")))
+    ordered = []
+    seen = set()
+    for sample in samples:
+        if sample not in seen:
+            ordered.append(sample)
+            seen.add(sample)
+    return ordered
+
+
+def _normalize_channel_rules(raw_rules):
+    if raw_rules is None:
+        return {"default": [], "variables": {}, "conditional": []}
+    normalized = {
+        "default": _normalize_sequence(raw_rules.get("default", [])),
+        "variables": {
+            key: _normalize_sequence(value)
+            for key, value in raw_rules.get("variables", {}).items()
+        },
+        "conditional": [],
+    }
+    conditional_entries = []
+    for entry in raw_rules.get("conditional", []):
+        if not entry:
+            continue
+        when_key = entry.get("when")
+        if when_key is None:
+            continue
+        conditional_entries.append(
+            {"when": when_key, "apply": _normalize_sequence(entry.get("apply", []))}
+        )
+    normalized["conditional"] = conditional_entries
+    return normalized
+
+
+def _find_reference_hist_name(dict_of_hists):
+    for hist_name in dict_of_hists:
+        if not hist_name.endswith("_sumw2"):
+            return hist_name
+    raise ValueError("No histogram without '_sumw2' suffix was found.")
+
+
+class RegionContext(object):
+    def __init__(
+        self,
+        name,
+        dict_of_hists,
+        years,
+        channel_map,
+        group_patterns,
+        group_map,
+        all_samples,
+        mc_samples,
+        data_samples,
+        samples_to_remove,
+        sumw2_hists,
+        signal_samples,
+        unblind_default,
+        lumi_pair,
+        skip_variables=None,
+        analysis_bins=None,
+        stacked_ratio_style=None,
+        channel_rules=None,
+        sample_removal_rules=None,
+        category_skip_rules=None,
+        skip_sparse_2d=False,
+        channel_mode="per-channel",
+        variable_label="Variable",
+        debug_channel_lists=False,
+        sumw2_remove_signal=False,
+        sumw2_remove_signal_when_blinded=False,
+        use_mc_as_data_when_blinded=False,
+        rate_syst_by_sample=None,
+    ):
+        self.name = name
+        self.dict_of_hists = dict_of_hists
+        self.years = None if years is None else tuple(years)
+        if self.years is None:
+            self.year = None
+        elif len(self.years) == 1:
+            self.year = self.years[0]
+        else:
+            self.year = self.years
+        self.channel_map = channel_map
+        self.group_patterns = group_patterns
+        self.group_map = group_map
+        self.all_samples = all_samples
+        self.mc_samples = mc_samples
+        self.data_samples = data_samples
+        self.samples_to_remove = samples_to_remove
+        self.sumw2_hists = sumw2_hists
+        self.signal_samples = signal_samples
+        self.unblind_default = unblind_default
+        self.lumi_pair = lumi_pair
+        self.skip_variables = set() if skip_variables is None else set(skip_variables)
+        self.analysis_bins = (
+            {} if analysis_bins is None else copy.deepcopy(analysis_bins)
+        )
+        self.stacked_ratio_style = (
+            copy.deepcopy(stacked_ratio_style)
+            if isinstance(stacked_ratio_style, Mapping)
+            else {}
+        )
+        default_channel_rules = {"default": [], "variables": {}, "conditional": []}
+        self.channel_rules = copy.deepcopy(
+            channel_rules if channel_rules is not None else default_channel_rules
+        )
+        self.sample_removal_rules = (
+            copy.deepcopy(sample_removal_rules)
+            if sample_removal_rules is not None
+            else []
+        )
+        self.category_skip_rules = (
+            copy.deepcopy(category_skip_rules)
+            if category_skip_rules is not None
+            else []
+        )
+        self.skip_sparse_2d = bool(skip_sparse_2d)
+        self.channel_mode = channel_mode
+        self.variable_label = variable_label
+        self.debug_channel_lists = bool(debug_channel_lists)
+        self.sumw2_remove_signal = bool(sumw2_remove_signal)
+        self.sumw2_remove_signal_when_blinded = bool(
+            sumw2_remove_signal_when_blinded
+        )
+        self.use_mc_as_data_when_blinded = bool(use_mc_as_data_when_blinded)
+        self.rate_syst_by_sample = rate_syst_by_sample
+
+
+def _format_decimal_string(value):
+    normalized = value.normalize()
+    # Decimal.normalize() may produce scientific notation for integers; format
+    # explicitly to keep plain strings such as "101.3".
+    formatted = format(normalized, "f")
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return formatted
+
+
+def _resolve_lumi_pair(year_tokens):
+    if not year_tokens:
+        return None
+
+    lumi_components = []
+    com_tags = set()
+    missing_metadata = []
+
+    for token in year_tokens:
+        pair = LUMI_COM_PAIRS.get(token)
+        if pair is None:
+            missing_metadata.append(token)
+            continue
+        lumi_components.append(Decimal(pair[0]))
+        com_tags.add(pair[1])
+
+    if missing_metadata and not lumi_components:
+        return None
+
+    if missing_metadata:
+        raise KeyError(
+            "No luminosity metadata available for year token(s): "
+            + ", ".join(sorted(set(missing_metadata)))
+        )
+
+    if len(com_tags) != 1:
+        raise ValueError(
+            "Inconsistent center-of-mass energies encountered while combining "
+            "years {}.".format(
+                ", ".join(year_tokens)
+            )
+        )
+
+    combined_lumi = sum(lumi_components, Decimal("0"))
+    return (_format_decimal_string(combined_lumi), com_tags.pop())
+
+
+def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mode_override=None):
+    region_upper = region.upper()
+    if region_upper not in ["CR","SR"]:
+        raise ValueError(f"Unsupported region '{region}'.")
+
+    mc_wl = []
+    mc_bl = ["data"]
+    data_wl = ["data"]
+    data_bl = []
+    if years is None:
+        year_tokens = []
+    elif isinstance(years, str):
+        year_tokens = [years]
+    else:
+        year_tokens = list(years)
+
+    normalized_year_tokens = []
+    seen_years = set()
+    for token in year_tokens:
+        if token is None:
+            continue
+        cleaned = str(token).strip()
+        if not cleaned or cleaned in seen_years:
+            continue
+        if cleaned not in YEAR_TOKEN_RULES:
+            raise ValueError(
+                "Error: Unknown year token '{}' requested. Supported tokens: {}".format(
+                    cleaned, ", ".join(sorted(YEAR_TOKEN_RULES))
+                )
+            )
+        rules = YEAR_TOKEN_RULES[cleaned]
+
+        mc_wl_values = rules.get("mc_wl", [])
+        if mc_wl_values:
+            for value in mc_wl_values:
+                if value not in mc_wl:
+                    mc_wl.append(value)
+            mc_bl[:] = [value for value in mc_bl if value not in mc_wl_values]
+
+        mc_bl_values = rules.get("mc_bl", [])
+        if mc_bl_values:
+            for value in mc_bl_values:
+                if value in mc_wl or value in mc_bl:
+                    continue
+                mc_bl.append(value)
+
+        data_wl_values = rules.get("data_wl", [])
+        if data_wl_values:
+            for value in data_wl_values:
+                if value not in data_wl:
+                    data_wl.append(value)
+            data_bl[:] = [value for value in data_bl if value not in data_wl_values]
+
+        data_bl_values = rules.get("data_bl", [])
+        if data_bl_values:
+            for value in data_bl_values:
+                if value in data_wl or value in data_bl:
+                    continue
+                data_bl.append(value)
+        seen_years.add(cleaned)
+        normalized_year_tokens.append(cleaned)
+
+    try:
+        all_samples = yt.get_cat_lables(dict_of_hists, "process")
+    except Exception:
+        ref_hist = _find_reference_hist_name(dict_of_hists)
+        all_samples = yt.get_cat_lables(dict_of_hists, "process", h_name=ref_hist)
+
+    def _filter_samples(all_labels, whitelist, blacklist, *, allow_data_driven_reinsertion=False):
+        """Return samples that satisfy blacklist rules and multi-token requirements."""
+
+        if len(whitelist) <= 1 and not allow_data_driven_reinsertion:
+            return te_utils.filter_lst_of_strs(
+                all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
+            )
+
+        must_have_tokens = []
+        optional_tokens = []
+        for token in whitelist:
+            if token is None:
+                continue
+            if token.lower() == "data" or token not in YEAR_WHITELIST_OPTIONALS:
+                must_have_tokens.append(token)
+            else:
+                optional_tokens.append(token)
+
+        # Remove duplicates while preserving ordering to keep predictable filtering.
+        must_have_tokens = list(dict.fromkeys(must_have_tokens))
+        optional_tokens = list(dict.fromkeys(optional_tokens))
+        optional_token_set = set(optional_tokens)
+
+        year_token_cache = {}
+
+        def _present_year_tokens(label):
+            cached = year_token_cache.get(label)
+            if cached is not None:
+                return cached
+
+            detected_tokens = {
+                year_token
+                for year_token in YEAR_WHITELIST_OPTIONALS
+                if year_token in label
+            }
+            if len(detected_tokens) <= 1:
+                result = frozenset(detected_tokens)
+                year_token_cache[label] = result
+                return result
+
+            resolved_tokens = set(detected_tokens)
+            for token in list(detected_tokens):
+                for other_token in detected_tokens:
+                    if token == other_token:
+                        continue
+                    if token in other_token:
+                        resolved_tokens.discard(token)
+                        break
+
+            result = frozenset(resolved_tokens)
+            year_token_cache[label] = result
+            return result
+
+        def _label_contains_disallowed_year(present_tokens):
+            if not optional_tokens or not present_tokens:
+                return False
+            return any(token not in optional_token_set for token in present_tokens)
+
+        def _label_passes(label, *, require_optional_tokens):
+            if any(token in label for token in blacklist):
+                return False
+            if must_have_tokens and any(token not in label for token in must_have_tokens):
+                return False
+            present_tokens = _present_year_tokens(label)
+            if _label_contains_disallowed_year(present_tokens):
+                return False
+            if require_optional_tokens and optional_tokens:
+                if not present_tokens.intersection(optional_token_set):
+                    return False
+            return True
+
+        filtered = [
+            label
+            for label in all_labels
+            if _label_passes(label, require_optional_tokens=True)
+        ]
+
+        if allow_data_driven_reinsertion and DATA_DRIVEN_MATCHERS:
+            filtered_set = set(filtered)
+            for label in all_labels:
+                if label in filtered_set:
+                    continue
+                if not any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
+                    continue
+                if not _label_passes(label, require_optional_tokens=False):
+                    continue
+                filtered.append(label)
+                filtered_set.add(label)
+        return filtered
+
+    mc_samples = _filter_samples(
+        all_samples,
+        mc_wl,
+        mc_bl,
+        allow_data_driven_reinsertion=True,
+    )
+    data_samples = _filter_samples(
+        all_samples,
+        data_wl,
+        data_bl,
+        allow_data_driven_reinsertion=False,
+    )
+    samples_to_remove = {
+        "mc": [sample for sample in all_samples if sample not in mc_samples],
+        "data": [sample for sample in all_samples if sample not in data_samples],
+    }
+
+    sumw2_hists = {
+        hist_name.replace("_sumw2", ""): hist_obj
+        for hist_name, hist_obj in dict_of_hists.items()
+        if hist_name.endswith("_sumw2") and hist_name.count("sumw2") == 1
+    }
+
+    if not sumw2_hists:
+        logger.warning(
+            "No sumw² histograms found in the input. Statistical uncertainties will default to Poisson counting errors."
+        )
+
+    try:
+        lumi_pair = _resolve_lumi_pair(normalized_year_tokens)
+    except KeyError as exc:
+        raise ValueError(str(exc)) from exc
+
+    if unblind is None:
+        resolved_unblind = region_upper == "CR"
+    else:
+        resolved_unblind = bool(unblind)
+
+    region_plot_cfg = REGION_PLOTTING.get(region_upper, {})
+    stacked_ratio_style = _resolve_stacked_ratio_style(
+        region_upper, region_plot_cfg.get("stacked_ratio_style")
+    )
+
+    skip_variables = set(region_plot_cfg.get("skip_variables", []))
+    analysis_bins = {}
+    for var_name, spec in region_plot_cfg.get("analysis_bins", {}).items():
+        if isinstance(spec, str):
+            if spec not in axes_info:
+                raise KeyError(
+                    f"Analysis bin specification '{spec}' is not defined in axes_info."
+                )
+            analysis_bins[var_name] = axes_info[spec]["variable"]
+        else:
+            analysis_bins[var_name] = spec
+
+    channel_rules = _normalize_channel_rules(
+        region_plot_cfg.get("channel_transformations")
+    )
+    sample_removal_rules = region_plot_cfg.get("sample_removals", [])
+    category_skip_rules = region_plot_cfg.get("category_skips", [])
+    skip_sparse_2d = region_plot_cfg.get("skip_sparse_2d", False)
+    channel_mode = region_plot_cfg.get("channel_mode", "per-channel")
+    if channel_mode_override is not None:
+        if channel_mode_override not in ("aggregate", "per-channel"):
+            raise ValueError(
+                "Unsupported channel_mode_override '{}'. Expected 'aggregate' or 'per-channel'.".format(
+                    channel_mode_override
+                )
+            )
+        channel_mode = channel_mode_override
+    variable_label = region_plot_cfg.get("variable_label", "Variable")
+    debug_channel_lists = region_plot_cfg.get("debug_channel_lists", False)
+    sumw2_remove_signal = region_plot_cfg.get("sumw2_remove_signal", False)
+    sumw2_remove_signal_when_blinded = region_plot_cfg.get(
+        "sumw2_remove_signal_when_blinded", False
+    )
+    use_mc_as_data_when_blinded = region_plot_cfg.get(
+        "use_mc_as_data_when_blinded", False
+    )
+
+    removed_mc_samples = set(samples_to_remove.get("mc", ()))
+    removed_data_samples = set(samples_to_remove.get("data", ()))
+    filtered_mc_samples = [
+        sample for sample in mc_samples if sample not in removed_mc_samples
+    ]
+    filtered_data_samples = [
+        sample for sample in data_samples if sample not in removed_data_samples
+    ]
+    filtered_group_samples = filtered_mc_samples + [
+        sample
+        for sample in filtered_data_samples
+        if sample not in filtered_mc_samples
+    ]
+
+    if region_upper == "CR":
+        group_patterns = CR_GRP_PATTERNS
+        channel_map = CR_CHAN_DICT
+        group_map = populate_group_map(filtered_group_samples, group_patterns)
+        signal_samples = sorted(set(group_map.get("Signal", [])))
+        unblind_default = resolved_unblind
+        global CR_GRP_MAP
+        CR_GRP_MAP = group_map
+    else:
+        group_patterns = SR_GRP_PATTERNS
+        channel_map = SR_CHAN_DICT
+        group_map = populate_group_map(mc_samples + data_samples, group_patterns)
+        signal_samples = sorted(
+            {
+                proc_name
+                for group_name in SR_SIGNAL_GROUP_KEYS
+                for proc_name in group_map.get(group_name, [])
+            }
+        )
+        unblind_default = resolved_unblind
+        global SR_GRP_MAP
+        SR_GRP_MAP = group_map
+
+    rate_syst_by_sample = {
+        sample_name: get_rate_systs(
+            sample_name, group_map, group_type=region_upper
+        )
+        for sample_name in dict.fromkeys(filtered_mc_samples or [])
+    }
+
+    return RegionContext(
+        region_upper,
+        dict_of_hists,
+        normalized_year_tokens if normalized_year_tokens else None,
+        channel_map,
+        group_patterns,
+        group_map,
+        all_samples,
+        mc_samples,
+        data_samples,
+        samples_to_remove,
+        sumw2_hists,
+        signal_samples,
+        unblind_default,
+        lumi_pair,
+        skip_variables,
+        analysis_bins,
+        stacked_ratio_style=stacked_ratio_style,
+        channel_rules=channel_rules,
+        sample_removal_rules=sample_removal_rules,
+        category_skip_rules=category_skip_rules,
+        skip_sparse_2d=skip_sparse_2d,
+        channel_mode=channel_mode,
+        variable_label=variable_label,
+        debug_channel_lists=debug_channel_lists,
+        sumw2_remove_signal=sumw2_remove_signal,
+        sumw2_remove_signal_when_blinded=sumw2_remove_signal_when_blinded,
+        use_mc_as_data_when_blinded=use_mc_as_data_when_blinded,
+        rate_syst_by_sample=rate_syst_by_sample,
+    )
+
+
+
+def produce_region_plots(
+    region_ctx,
+    save_dir_path,
+    variables,
+    skip_syst_errs,
+    unit_norm_bool,
+    stacked_log_y,
+    unblind=None,
+    *,
+    workers=1,
+    verbose=False,
+):
+    dict_of_hists = region_ctx.dict_of_hists
+    context_label = f"{region_ctx.name} region"
+    variables_to_plot = _resolve_requested_variables(
+        dict_of_hists, variables, context_label
+    )
+    if verbose and variables is not None:
+        print("Filtered variables:", variables_to_plot)
+
+    if verbose:
+        print("\n\nAll samples:", region_ctx.all_samples)
+        print("\nMC samples:", region_ctx.mc_samples)
+        print("\nData samples:", region_ctx.data_samples)
+        print("\nVariables:", list(dict_of_hists.keys()))
+
+    unblind_flag = region_ctx.unblind_default if unblind is None else bool(unblind)
+
+    variable_payload_cache = {}
+    variable_categories = {}
+    eligible_variables = []
+    category_dirs = set()
+    for var_name in variables_to_plot:
+        if "sumw2" in var_name:
+            continue
+        if var_name in region_ctx.skip_variables:
+            continue
+
+        variable_metadata = _prepare_variable_payload(
+            var_name,
+            region_ctx,
+            verbose=verbose,
+            unblind_flag=unblind_flag,
+            metadata_only=True,
+            prepared_cache=variable_payload_cache,
+        )
+        if not variable_metadata:
+            variable_payload_cache.setdefault(var_name, None)
+            continue
+
+        if var_name not in variable_payload_cache:
+            variable_payload_cache[var_name] = _prepare_variable_payload(
+                var_name,
+                region_ctx,
+                verbose=verbose,
+                unblind_flag=unblind_flag,
+                prepared_cache=variable_payload_cache,
+            )
+
+        variable_payload = variable_payload_cache.get(var_name)
+        if not variable_payload:
+            continue
+
+        variable_metadata = {
+            "channel_dict": variable_payload["channel_dict"],
+            "channel_transformations": variable_payload["channel_transformations"],
+            "is_sparse2d": variable_payload["is_sparse2d"],
+        }
+
+        eligible_variables.append(var_name)
+
+        categories = [
+            hist_cat
+            for hist_cat, channel_bins in variable_metadata["channel_dict"].items()
+            if channel_bins is not None
+            and not _should_skip_category(
+                region_ctx.category_skip_rules, hist_cat, var_name
+            )
+        ]
+        variable_categories[var_name] = categories
+        if save_dir_path:
+            category_dirs.update(categories)
+
+    stat_only_plots = 0
+    stat_and_syst_plots = 0
+    html_dirs = set()
+
+    worker_count = max(int(workers or 1), 1)
+    tasks = list(eligible_variables)
+    base_task_count = len(tasks)
+    if not verbose:
+        if tasks:
+            print(
+                "[{}] Rendering {} variable{}...".format(
+                    region_ctx.name,
+                    len(tasks),
+                    "s" if len(tasks) != 1 else "",
+                )
+            )
+        else:
+            print(f"[{region_ctx.name}] No eligible variables to render.")
+    if worker_count > 1 and eligible_variables:
+        category_tasks = []
+        for var_name in eligible_variables:
+            categories = variable_categories.get(var_name, [])
+            if categories:
+                category_tasks.extend((var_name, hist_cat) for hist_cat in categories)
+            else:
+                category_tasks.append(var_name)
+        if worker_count > base_task_count and len(category_tasks) > base_task_count:
+            tasks = category_tasks
+
+    if save_dir_path:
+        for hist_cat in sorted(category_dirs):
+            os.makedirs(os.path.join(save_dir_path, hist_cat), exist_ok=True)
+
+    total_tasks = len(tasks)
+    task_specs = []
+    for task_index, payload in enumerate(tasks, start=1):
+        if isinstance(payload, tuple):
+            var_name, hist_cat = payload
+        else:
+            var_name, hist_cat = payload, None
+        label = f"{var_name} [{hist_cat}]" if hist_cat else var_name
+        task_specs.append((task_index, payload, label, var_name, hist_cat))
+
+    progress_total = total_tasks
+    progress_done = 0
+    progress_enabled = bool(verbose and progress_total)
+
+    def _get_variable_payload(var_name):
+        if var_name not in variable_payload_cache:
+            variable_payload_cache[var_name] = _prepare_variable_payload(
+                var_name,
+                region_ctx,
+                verbose=verbose,
+                unblind_flag=unblind_flag,
+            )
+        return variable_payload_cache[var_name]
+
+    def _report_progress(task_label):
+        nonlocal progress_done
+        if not progress_enabled:
+            return
+        progress_done += 1
+        print(
+            "[{}] [{}/{}] Completed {}".format(
+                region_ctx.name,
+                progress_done,
+                progress_total,
+                task_label,
+            )
+        )
+
+    if worker_count > 1 and total_tasks > 1:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        max_workers = min(worker_count, total_tasks)
+
+        start_method = multiprocessing.get_start_method(allow_none=True)
+        shared_region_ctx = None if start_method in (None, "fork") else region_ctx
+
+        if start_method in (None, "fork"):
+            prepared_payloads = None
+        else:
+            prepared_payloads = {
+                var_name: {
+                    "channel_dict": payload["channel_dict"],
+                    "channel_transformations": payload["channel_transformations"],
+                    "is_sparse2d": payload["is_sparse2d"],
+                }
+                for var_name, payload in variable_payload_cache.items()
+                if payload
+            }
+
+        global _SHARED_REGION_CTX, _SHARED_VARIABLE_PAYLOADS
+        _SHARED_REGION_CTX = region_ctx
+        _SHARED_VARIABLE_PAYLOADS = (
+            variable_payload_cache if start_method in (None, "fork") else None
+        )
+        try:
+            with ProcessPoolExecutor(
+                max_workers=max_workers,
+                initializer=_initialize_render_worker,
+                initargs=(
+                    save_dir_path,
+                    skip_syst_errs,
+                    unit_norm_bool,
+                    unblind_flag,
+                    stacked_log_y,
+                    verbose,
+                    prepared_payloads,
+                    shared_region_ctx,
+                ),
+            ) as executor:
+                id_to_label = {
+                    task_id: label for task_id, _, label, _, _ in task_specs
+                }
+                futures = [
+                    executor.submit(
+                        _render_variable_from_worker,
+                        task_id,
+                        payload,
+                    )
+                    for task_id, payload, _, _, _ in task_specs
+                ]
+                for future in as_completed(futures):
+                    task_id, stat_only, stat_and_syst, html_set = future.result()
+                    stat_only_plots += stat_only
+                    stat_and_syst_plots += stat_and_syst
+                    html_dirs.update(html_set)
+                    _report_progress(id_to_label.get(task_id, str(task_id)))
+        finally:
+            _SHARED_REGION_CTX = None
+            _SHARED_VARIABLE_PAYLOADS = None
+    else:
+        for _, _, label, var_name, hist_cat in task_specs:
+            variable_payload = _get_variable_payload(var_name)
+            if hist_cat is None:
+                stat_only, stat_and_syst, html_set = _render_variable(
+                    var_name,
+                    region_ctx,
+                    save_dir_path,
+                    skip_syst_errs,
+                    unit_norm_bool,
+                    stacked_log_y,
+                    unblind_flag,
+                    verbose=verbose,
+                    category=hist_cat,
+                    variable_payload=variable_payload,
+                )
+            else:
+                if not variable_payload:
+                    stat_only, stat_and_syst, html_set = 0, 0, set()
+                else:
+                    channel_bins = variable_payload["channel_dict"].get(hist_cat)
+                    if channel_bins is None or _should_skip_category(
+                        region_ctx.category_skip_rules, hist_cat, var_name
+                    ):
+                        stat_only, stat_and_syst, html_set = 0, 0, set()
+                    else:
+                        stat_only, stat_and_syst, html_set = _render_variable_category(
+                            var_name,
+                            hist_cat,
+                            channel_bins,
+                            region_ctx=region_ctx,
+                            channel_transformations=variable_payload["channel_transformations"],
+                            hist_mc=variable_payload["hist_mc"],
+                            hist_data=variable_payload["hist_data"],
+                            hist_mc_sumw2_orig=variable_payload["hist_mc_sumw2_orig"],
+                            is_sparse2d=variable_payload["is_sparse2d"],
+                            save_dir_path=save_dir_path,
+                            skip_syst_errs=skip_syst_errs,
+                            unit_norm_bool=unit_norm_bool,
+                            stacked_log_y=stacked_log_y,
+                            unblind_flag=unblind_flag,
+                            verbose=verbose,
+                        )
+            stat_only_plots += stat_only
+            stat_and_syst_plots += stat_and_syst
+            html_dirs.update(html_set)
+            _report_progress(label)
+
+    for html_dir in sorted(html_dirs):
+        try:
+            make_html(html_dir)
+        except Exception as exc:
+            print(f"Warning: Failed to refresh HTML in {html_dir}: {exc}")
+
+    if progress_enabled and progress_done < progress_total:
+        progress_done = progress_total
+
+    if progress_total:
+        summary_suffix = (
+            f" after completing {progress_total} rendering task"
+            f"{'s' if progress_total != 1 else ''}"
+        )
+    else:
+        summary_suffix = "; no rendering tasks were executed"
+
+    print(
+        f"[{region_ctx.name}] Produced {stat_and_syst_plots} plots with stat⊕syst uncertainties and {stat_only_plots} plots with stat-only bands"
+        f"{summary_suffix}",
+        end="",
+    )
+    if save_dir_path:
+        print(f" in {save_dir_path}")
+    else:
+        print()
+
 
 def _ensure_list(values):
     if isinstance(values, str):
@@ -166,10 +3644,9 @@ def _ensure_list(values):
 # Group bins in a hist, returns a new hist
 def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 
-    bin_map_copy = copy.deepcopy(bin_map)  # Don't want to edit the original
     normalized_map = OrderedDict(
-        (group, _ensure_list(bins)) for group, bins in bin_map_copy.items()
-    )
+        (group, _ensure_list(bins)) for group, bins in bin_map.items()
+    )  # _ensure_list copies each sequence to avoid mutating caller data
 
     axis_categories = list(histo.axes[axis_name])
     axis_category_set = set(axis_categories)
@@ -194,27 +3671,31 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 
 # Match a given sample name to whatever it is called in the json
 # Will return None if a match is not found
-def get_scale_name(sample_name,sample_group_map):
+def get_scale_name(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = None
-    if sample_name in sample_group_map["Conv"]:
+    if sample_name in sample_group_map.get("Conv", []):
         scale_name_for_json = "convs"
-    elif sample_name in sample_group_map["Diboson"]:
+    elif sample_name in sample_group_map.get("Diboson", []):
         scale_name_for_json = "Diboson"
-    elif sample_name in sample_group_map["Triboson"]:
+    elif sample_name in sample_group_map.get("Triboson", []):
         scale_name_for_json = "Triboson"
-    elif sample_name in sample_group_map["Signal"]:
-        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
-            if proc_str in sample_name:
+    elif _sample_in_signal_group(sample_name, sample_group_map, group_type):
+        wc_matches = [proc_str for proc_str in SIGNAL_WC_MATCHES if proc_str in sample_name]
+        if group_type == "CR":
+            if len(wc_matches) == 1:
+                scale_name_for_json = wc_matches[0]
+        else:
+            if wc_matches:
                 # This should only match once, but maybe we should put a check to enforce this
-                scale_name_for_json = proc_str
+                scale_name_for_json = wc_matches[0]
     return scale_name_for_json
 
 # This function gets the tag that indicates how a particualr systematic is correlated
 #   - For pdf_scale this corresponds to the initial state (e.g. gg)
 #   - For qcd_scale this corresponds to the process type (e.g. VV)
 # For any systemaitc or process that is not included in the correlations json we return None
-def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
-    proc_name_in_json = get_scale_name(proc_name,sample_group_map)
+def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type="CR"):
+    proc_name_in_json = get_scale_name(proc_name,sample_group_map,group_type=group_type)
     corr_tag = None
     # Right now we only have two types of uncorrelated rate systematics
     if uncertainty_name in ["qcd_scale","pdf_scale"]:
@@ -224,66 +3705,87 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
                 # Would be better to handle this in a more general way
                 corr_tag = None
             else:
-                corr_tag = grs.get_correlation_tag(uncertainty_name,proc_name_in_json)
+                corr_tag = te_utils.cached_get_correlation_tag(
+                    uncertainty_name, proc_name_in_json
+                )
     return corr_tag
 
 # This function gets all of the the rate systematics from the json file
 # Returns a dictionary with all of the uncertainties
 # If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
-def get_rate_systs(sample_name,sample_group_map):
+def get_rate_systs(sample_name,sample_group_map,group_type="CR"):
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
-    scale_name_for_json = get_scale_name(sample_name,sample_group_map)
+    scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type=group_type)
 
     # Get the lumi uncty for this sample (same for all samles)
-    lumi_uncty = grs.get_syst("lumi")
+    lumi_uncty = te_utils.cached_get_syst("lumi")
 
     # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if sample_name in sample_group_map["Flips"]:
-        flip_uncty = grs.get_syst("charge_flips","charge_flips_sm")
+        flip_uncty = te_utils.cached_get_syst("charge_flips", "charge_flips_sm")
     else:
-        flip_uncty = [1.0,1,0]
+        flip_uncty = (1.0, 1, 0)
 
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
         if scale_name_for_json in PROC_WITHOUT_PDF_RATE_SYST:
             # Special cases for when we do not have a pdf uncty (this is a really brittle workaround)
             # NOTE Someday should fix this, it's a really hardcoded and brittle and bad workaround
-            pdf_uncty = [1.0,1,0]
+            pdf_uncty = (1.0, 1, 0)
         else:
-            pdf_uncty = grs.get_syst("pdf_scale",scale_name_for_json)
+            pdf_uncty = te_utils.cached_get_syst("pdf_scale", scale_name_for_json)
         if scale_name_for_json == "convs":
             # Special case for conversions, since we estimate these from a LO sample, so we don't have an NLO uncty here
             # Would be better to handle this in a more general way
-            qcd_uncty = [1.0,1,0]
+            qcd_uncty = (1.0, 1, 0)
         else:
             # In all other cases, use the qcd scale uncty that we have for the process
-            qcd_uncty = grs.get_syst("qcd_scale",scale_name_for_json)
+            qcd_uncty = te_utils.cached_get_syst("qcd_scale", scale_name_for_json)
     else:
-        pdf_uncty = [1.0,1,0]
-        qcd_uncty = [1.0,1,0]
+        pdf_uncty = (1.0, 1, 0)
+        qcd_uncty = (1.0, 1, 0)
 
     out_dict = {"pdf_scale":pdf_uncty, "qcd_scale":qcd_uncty, "lumi":lumi_uncty, "charge_flips":flip_uncty}
     return out_dict
 
 
 # Wrapper for getting plus and minus rate arrs
-def get_rate_syst_arrs(base_histo,proc_group_map):
+def get_rate_syst_arrs(
+    base_histo,
+    proc_group_map,
+    group_type="CR",
+    rate_syst_by_sample=None,
+):
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
     rate_syst_arr_dict = {}
-    for rate_sys_type in grs.get_syst_lst():
+    process_labels = yt.get_cat_lables(base_histo, "process")
+
+    nominal_projection = base_histo.integrate("systematic", "nominal")
+    cached_rates = []
+    for sample_name in process_labels:
+        thissample_nom_arr = _eval_without_underflow(
+            nominal_projection[{"process": sample_name}]
+        )
+        if rate_syst_by_sample and sample_name in rate_syst_by_sample:
+            rate_syst_dict = rate_syst_by_sample[sample_name]
+        else:
+            rate_syst_dict = get_rate_systs(
+                sample_name, proc_group_map, group_type=group_type
+            )
+        cached_rates.append((sample_name, thissample_nom_arr, rate_syst_dict))
+
+    for rate_sys_type in te_utils.cached_get_syst_lst():
         rate_syst_arr_dict[rate_sys_type] = {}
-        for sample_name in yt.get_cat_lables(base_histo,"process"):
+        for sample_name, thissample_nom_arr, rate_syst_dict in cached_rates:
 
             # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
-            rate_syst_dict = get_rate_systs(sample_name,proc_group_map)
-            thissample_nom_arr = base_histo.integrate("process",sample_name).integrate("systematic","nominal").eval({})[()]
-            p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
-            m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
+            p_arr = thissample_nom_arr * (rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
+            m_arr = thissample_nom_arr * (rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
 
             # Put the arrays into the correlation dict (organizing correlated ones together)
-            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map)
+            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map,group_type=group_type)
             out_key_name = rate_sys_type
             if correlation_tag is not None: out_key_name += "_"+correlation_tag
             if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
@@ -301,10 +3803,38 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
             all_rates_p_sumw2_lst.append(sum_p_arrs*sum_p_arrs)
             all_rates_m_sumw2_lst.append(sum_m_arrs*sum_m_arrs)
 
-    return [sum(all_rates_m_sumw2_lst),sum(all_rates_p_sumw2_lst)]
+    summed_m = sum(all_rates_m_sumw2_lst) if all_rates_m_sumw2_lst else 0.0
+    summed_p = sum(all_rates_p_sumw2_lst) if all_rates_p_sumw2_lst else 0.0
+
+    return [summed_m, summed_p]
+
+def _match_variation_length(nominal, variation):
+    """Return *variation* resized to match the length of *nominal*.
+
+    Any overflow entries beyond the nominal length are trimmed. When the
+    variation is shorter, the remainder is zero-padded so downstream
+    operations can rely on consistent shapes.
+    """
+
+    nominal = np.asarray(nominal)
+    variation = np.asarray(variation)
+
+    if variation.shape == nominal.shape:
+        return variation
+
+    target_len = nominal.shape[0]
+    trimmed = variation[:target_len]
+
+    if trimmed.shape[0] == target_len:
+        return trimmed
+
+    result = np.zeros(target_len, dtype=np.result_type(nominal, variation))
+    result[: trimmed.shape[0]] = trimmed
+    return result
+
 
 # Wrapper for getting plus and minus shape arrs
-def get_shape_syst_arrs(base_histo):
+def get_shape_syst_arrs(base_histo,group_type="CR"):
 
     # Get the list of systematic base names (i.e. without the up and down tags)
     # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
@@ -316,7 +3846,7 @@ def get_shape_syst_arrs(base_histo):
             if syst_name_base not in syst_var_lst:
                 syst_var_lst.append(syst_name_base)
 
-    # Sum each systematic's contribtuions for all samples together (e.g. the ISR for all samples is summed linearly)
+    # Sum each systematic's contributions for all samples together (e.g. the ISR for all samples is summed linearly)
     p_arr_rel_lst = []
     m_arr_rel_lst = []
     for syst_name in syst_var_lst:
@@ -324,28 +3854,52 @@ def get_shape_syst_arrs(base_histo):
         if syst_name == "renormfact": continue
 
         relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "process") # The samples relevant to this syst
-        n_arr = base_histo.integrate("process",relevant_samples_lst)[{'process': sum}].integrate("systematic","nominal").eval({})[()] # Sum of all samples for nominal variation
+        proc_projection = base_histo.integrate("process", relevant_samples_lst)[{"process": sum}]
+        n_arr = _eval_without_underflow(
+            proc_projection.integrate("systematic", "nominal")
+        )  # Sum of all samples for nominal variation
+        u_arr_sum = _match_variation_length(
+            n_arr,
+            _eval_without_underflow(
+                proc_projection.integrate("systematic", syst_name + "Up")
+            ),
+        )
+        d_arr_sum = _match_variation_length(
+            n_arr,
+            _eval_without_underflow(
+                proc_projection.integrate("systematic", syst_name + "Down")
+            ),
+        )
 
         # Special handling of renorm and fact
         # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
         if (syst_name == "renorm") or (syst_name == "fact"):
-            p_arr_rel,m_arr_rel = get_decorrelated_uncty(syst_name,CR_GRP_MAP,relevant_samples_lst,base_histo,n_arr)
+            grp_map = CR_GRP_MAP if group_type == "CR" else SR_GRP_MAP
+            p_arr_rel,m_arr_rel = get_decorrelated_uncty(
+                syst_name,
+                grp_map,
+                relevant_samples_lst,
+                base_histo,
+                n_arr,
+                total_up_arr=u_arr_sum,
+                total_down_arr=d_arr_sum,
+            )
 
         # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
         else:
-            u_arr_sum = base_histo.integrate("process",relevant_samples_lst)[{"process": sum}].integrate("systematic",syst_name+"Up").eval({})[()]   # Sum of all samples for up variation
-            d_arr_sum = base_histo.integrate("process",relevant_samples_lst)[{"process": sum}].integrate("systematic",syst_name+"Down").eval({})[()] # Sum of all samples for down variation
-
             u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
             d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
-            p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
-            m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
+            p_arr_rel = np.maximum(np.maximum(u_arr_rel, d_arr_rel), 0.0)
+            m_arr_rel = np.minimum(np.minimum(u_arr_rel, d_arr_rel), 0.0)
 
         # Square and append this syst to the return lists
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
-    return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
+    summed_m = sum(m_arr_rel_lst) if m_arr_rel_lst else 0.0
+    summed_p = sum(p_arr_rel_lst) if p_arr_rel_lst else 0.0
+
+    return [summed_m, summed_p]
 
 
 # Special case for renorm and fact, as these are decorrelated across processes
@@ -362,10 +3916,142 @@ def get_shape_syst_arrs(base_histo):
 #           * So there are two differences with respect to how these processes are grouped in the SR:
 #               1) Here TTToSemiLeptonic and TTTo2L2Nu are correlated with each other, but not with ttll
 #               2) Here TTZToLL_M1to10 is grouped as part of signal (as in SR) but here _all_ signal processes are uncorrleated so here TTZToLL_M1to10 is uncorrelated with ttll while in SR they would be correlated
-def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,template_zeros_arr):
+def _values_with_flow_or_overflow(hist_slice):
+    """Return histogram values including overflow bins for different histogram types."""
+
+    if isinstance(hist_slice, HistEFT):
+        evaluated = hist_slice.eval({})
+        if isinstance(evaluated, dict):
+            if () in evaluated:
+                return np.asarray(evaluated[()])
+            return np.asarray(next(iter(evaluated.values())))
+        return np.asarray(evaluated)
+
+    values_method = hist_slice.values
+
+    method_key = getattr(values_method, "__func__", None)
+    if method_key is None:
+        method_owner = type(hist_slice)
+        method_name = getattr(values_method, "__name__", "values")
+        method_key = (method_owner, method_name)
+    capability = _VALUES_METHOD_CAPS.get(method_key)
+
+    if capability is None:
+        try:
+            signature = inspect.signature(values_method)
+        except (TypeError, ValueError):
+            capability = "none"
+        else:
+            if "overflow" in signature.parameters:
+                capability = "overflow"
+            elif "flow" in signature.parameters:
+                capability = "flow"
+            else:
+                capability = "none"
+        _VALUES_METHOD_CAPS[method_key] = capability
+
+    if capability == "overflow":
+        values = values_method(overflow="all")
+    elif capability == "flow":
+        values = values_method(flow=True)
+    else:
+        values = values_method()
+
+    if isinstance(values, dict):
+        if () in values:
+            return np.asarray(values[()])
+        return np.asarray(next(iter(values.values())))
+
+    return np.asarray(values)
+
+
+def _values_without_flow(
+    hist_or_values, reference_hist=None, *, include_overflow=False
+):
+    """Return histogram values without underflow bins.
+
+    When ``include_overflow`` is ``True`` the overflow bin is preserved; otherwise
+    it is trimmed as well.
+    """
+
+    if isinstance(hist_or_values, np.ndarray):
+        values = hist_or_values
+        hist_for_axes = reference_hist
+    else:
+        values = _values_with_flow_or_overflow(hist_or_values)
+        hist_for_axes = hist_or_values
+
+    if reference_hist is not None:
+        hist_for_axes = reference_hist
+
+    axes = getattr(hist_for_axes, "axes", None)
+    if axes is None or values.ndim < len(axes):
+        return values
+
+    slices = []
+    trimmed = False
+    for dim_idx, axis in enumerate(axes):
+        traits = getattr(axis, "traits", None)
+        has_underflow = bool(getattr(traits, "underflow", False)) if traits else False
+        has_overflow = bool(getattr(traits, "overflow", False)) if traits else False
+        axis_bins = len(axis)
+        dim_size = values.shape[dim_idx]
+        if dim_size < axis_bins:
+            return values
+
+        start = 0
+        stop = None
+        effective_size = dim_size
+        if has_underflow and effective_size > axis_bins:
+            start = 1
+            effective_size -= 1
+        if has_overflow and effective_size > axis_bins:
+            if not include_overflow:
+                stop = -1
+        if start != 0 or stop is not None:
+            trimmed = True
+        slices.append(slice(start, stop))
+
+    if not trimmed:
+        return values
+
+    return values[tuple(slices)]
+
+
+def _eval_without_underflow(hist_slice):
+    """Return histogram values with the underflow bin removed."""
+
+    evaluated = hist_slice.eval({})
+    if isinstance(evaluated, dict):
+        if () in evaluated:
+            evaluated = evaluated[()]
+        else:
+            evaluated = next(iter(evaluated.values()))
+    values = np.asarray(evaluated)
+    if values.shape[0] == 0:
+        return values
+    return values[1:]
+
+
+def get_decorrelated_uncty(
+    syst_name,
+    grp_map,
+    relevant_samples_lst,
+    base_histo,
+    template_zeros_arr,
+    *,
+    total_up_arr=None,
+    total_down_arr=None,
+):
 
     # Initialize the array we will return (ok technically we return sqrt of this arr squared..)
-    a_arr_sum = np.zeros_like(template_zeros_arr) # Just using this template_zeros_arr for its size
+    if total_up_arr is None:
+        total_up_arr = template_zeros_arr
+    if total_down_arr is None:
+        total_down_arr = template_zeros_arr
+
+    result_dtype = np.result_type(template_zeros_arr, total_up_arr, total_down_arr)
+    a_arr_sum = np.zeros_like(template_zeros_arr, dtype=result_dtype) # Just using this template_zeros_arr for its size
 
     # Loop over the groups of processes, generally the processes in the groups will be correlated and the different groups will be uncorrelated
     for proc_grp in grp_map.keys():
@@ -378,9 +4064,15 @@ def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,tem
             for proc_name in proc_lst:
                 if proc_name not in relevant_samples_lst: continue
 
-                n_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-                u_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic",syst_name+"Up").eval({})[()]
-                d_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic",syst_name+"Down").eval({})[()]
+                n_arr_proc = _eval_without_underflow(
+                    base_histo[{"process": proc_name, "systematic": "nominal"}]
+                )
+                u_arr_proc = _eval_without_underflow(
+                    base_histo[{"process": proc_name, "systematic": syst_name + "Up"}]
+                )
+                d_arr_proc = _eval_without_underflow(
+                    base_histo[{"process": proc_name, "systematic": syst_name + "Down"}]
+                )
 
                 u_arr_proc_rel = u_arr_proc - n_arr_proc
                 d_arr_proc_rel = d_arr_proc - n_arr_proc
@@ -390,9 +4082,16 @@ def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,tem
 
         # Otherwise corrleated across groups (e.g. ZZ and WZ, as datacard maker does in SR)
         else:
-            n_arr_grp = base_histo.integrate("process",proc_lst)[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-            u_arr_grp = base_histo.integrate("process",proc_lst)[{"process": sum}].integrate("systematic",syst_name+"Up").eval({})[()]
-            d_arr_grp = base_histo.integrate("process",proc_lst)[{"process": sum}].integrate("systematic",syst_name+"Down").eval({})[()]
+            group_projection = base_histo.integrate("process", proc_lst)[{"process": sum}]
+            n_arr_grp = _eval_without_underflow(
+                group_projection.integrate("systematic", "nominal")
+            )
+            u_arr_grp = _eval_without_underflow(
+                group_projection.integrate("systematic", syst_name + "Up")
+            )
+            d_arr_grp = _eval_without_underflow(
+                group_projection.integrate("systematic", syst_name + "Down")
+            )
             u_arr_grp_rel = u_arr_grp - n_arr_grp
             d_arr_grp_rel = d_arr_grp - n_arr_grp
             a_arr_grp_rel = (abs(u_arr_grp_rel) + abs(d_arr_grp_rel))/2.0
@@ -411,7 +4110,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
     # Get the list of njets vals for which we have SFs
     sf_int_lst = []
-    diboson_njets_dict = grs.get_jet_dependent_syst_dict()
+    diboson_njets_dict = te_utils.cached_get_jet_dependent_syst_dict()
     sf_str_lst = list(diboson_njets_dict.keys())
     for s in sf_str_lst: sf_int_lst.append(int(s))
     min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
@@ -698,948 +4397,687 @@ def make_sparse2d_fig(
     return single_panel_figs
 
 
-# Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=None, group=None, set_x_lim=None, err_p=None, err_m=None, err_ratio_p=None, err_ratio_m=None, lumitag="138", comtag="13"):
+# Takes two histograms and makes a region-level stacked ratio plot (with only one sparse axis, which should be "process").
+# One histogram should encode the MC prediction while the other carries the data yields (or MC-substituted data when blinded).
+def make_region_stacked_ratio_fig(
+    h_mc,
+    h_data,
+    unit_norm_bool,
+    axis='process',
+    var='lj0pt',
+    bins=None,
+    group=None,
+    set_x_lim=None,
+    err_p=None,
+    err_m=None,
+    err_ratio_p=None,
+    err_ratio_m=None,
+    lumitag="138",
+    comtag="13",
+    h_mc_sumw2=None,
+    syst_err=None,
+    err_p_syst=None,
+    err_m_syst=None,
+    err_ratio_p_syst=None,
+    err_ratio_m_syst=None,
+    log_scale=False,
+    unblind=False,
+    style=None,
+):
     if bins is None:
         bins = []
+    else:
+        bins = list(bins)
     if group is None:
         group = {}
-    default_colors = [
-        "tab:blue", "darkgreen", "tab:orange", "tab:cyan", "tab:purple", "tab:pink",
-        "tan", "mediumseagreen", "tab:red", "brown", "goldenrod", "yellow",
-        "olive", "coral", "navy", "yellowgreen", "aquamarine", "black", "plum",
-        "gray"
-    ]
 
-    # Determine which groups are actually present
-    grouping = {proc: [p for p in group[proc] if p in h_mc.axes['process']]
-                for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
+    recompute_syst_ratio_arrays = False
+
+    if bins:
+        target_edges = _validate_bin_edges(bins)
+
+        try:
+            mc_projection = h_mc[{"process": sum}].as_hist({})
+        except (TypeError, AttributeError):
+            mc_projection = None
+        if mc_projection is not None:
+            original_edges = mc_projection.axes[var].edges
+            original_mc_totals = _values_without_flow(
+                mc_projection, include_overflow=True
+            )
+
+            ratio_up_input = None if err_ratio_p_syst is None else np.asarray(err_ratio_p_syst, dtype=float)
+            ratio_down_input = None if err_ratio_m_syst is None else np.asarray(err_ratio_m_syst, dtype=float)
+
+            def _ensure_absolute(up_values, down_values, up_ratio, down_ratio):
+                up_array = None if up_values is None else np.asarray(up_values, dtype=float)
+                down_array = None if down_values is None else np.asarray(down_values, dtype=float)
+
+                if up_array is None and up_ratio is not None:
+                    up_array = up_ratio * original_mc_totals
+                if down_array is None and down_ratio is not None:
+                    down_array = down_ratio * original_mc_totals
+
+                return up_array, down_array
+
+            err_p_syst, err_m_syst = _ensure_absolute(
+                err_p_syst,
+                err_m_syst,
+                ratio_up_input,
+                ratio_down_input,
+            )
+
+            target_edges_array = np.asarray(target_edges, dtype=float)
+            original_edges_array = np.asarray(original_edges, dtype=float)
+
+            same_binning = False
+            if target_edges_array.shape == original_edges_array.shape:
+                same_binning = np.allclose(
+                    target_edges_array,
+                    original_edges_array,
+                    rtol=1e-12,
+                    atol=1e-12,
+                )
+
+            if any(arr is not None for arr in (err_p_syst, err_m_syst)):
+                recompute_syst_ratio_arrays = True
+
+            if not same_binning:
+                err_p = _rebin_uncertainty_array(
+                    err_p,
+                    original_edges,
+                    target_edges,
+                    nominal=original_mc_totals,
+                    direction="up",
+                )
+                err_m = _rebin_uncertainty_array(
+                    err_m,
+                    original_edges,
+                    target_edges,
+                    nominal=original_mc_totals,
+                    direction="down",
+                )
+                err_p_syst = _rebin_uncertainty_array(
+                    err_p_syst,
+                    original_edges,
+                    target_edges,
+                    nominal=original_mc_totals,
+                    direction="up",
+                )
+                err_m_syst = _rebin_uncertainty_array(
+                    err_m_syst,
+                    original_edges,
+                    target_edges,
+                    nominal=original_mc_totals,
+                    direction="down",
+                )
+
+                recompute_syst_ratio_arrays = any(
+                    arr is not None for arr in (err_p_syst, err_m_syst)
+                )
+                if recompute_syst_ratio_arrays:
+                    err_ratio_p_syst = None
+                    err_ratio_m_syst = None
+
+                h_mc = _clone_with_rebinned_axis(h_mc, var, target_edges)
+                h_data = _clone_with_rebinned_axis(h_data, var, target_edges)
+                if h_mc_sumw2 is not None:
+                    h_mc_sumw2 = _clone_with_rebinned_axis(
+                        h_mc_sumw2, var, target_edges
+                    )
+    else:
+        target_edges = None
+
+    if style is None:
+        style = {}
+    axes_style = _style_get(style, ("axes",), {})
+    legend_style = _style_get(style, ("legend",), {})
+    uncertainty_legend_style = _style_get(style, ("uncertainty_legend",), {})
+    legend_top_margin_min = legend_style.get("top_margin_min", 0.01)
+    legend_top_margin_scale = legend_style.get("top_margin_scale", 0.25)
+    tick_labelsize = axes_style.get("tick_labelsize", 18)
+    tick_width = axes_style.get("tick_width", 1.0)
+    tick_length = axes_style.get("tick_length", 4)
+
+    default_tick_length = None
+    if isinstance(STACKED_RATIO_STYLE, Mapping):
+        default_tick_length = _style_get(
+            STACKED_RATIO_STYLE, ("defaults", "axes", "tick_length"), None
+        )
+
+    raw_minor_tick_length = axes_style.get("minor_tick_length")
+    minor_tick_ratio = axes_style.get("minor_tick_ratio")
+    if (
+        minor_tick_ratio is None
+        and raw_minor_tick_length is not None
+        and tick_length
+    ):
+        reference_length = axes_style.get("tick_length")
+        if not isinstance(reference_length, (int, float)) or reference_length <= 0:
+            reference_length = default_tick_length
+        if (
+            isinstance(default_tick_length, (int, float))
+            and reference_length == default_tick_length
+        ):
+            reference_length = 6.0
+        if not isinstance(reference_length, (int, float)) or reference_length <= 0:
+            reference_length = 6.0
+        minor_tick_ratio = raw_minor_tick_length / reference_length
+    if minor_tick_ratio is None:
+        minor_tick_ratio = 0.6
+    minor_tick_length = tick_length * minor_tick_ratio if tick_length else 0
+    spine_width = axes_style.get("spine_width", tick_width)
+    axis_label_fontsize = axes_style.get("label_fontsize", 18)
+    ratio_tick_labelsize = axes_style.get("ratio_tick_labelsize", tick_labelsize)
+    ratio_label_text = axes_style.get("ratio_label", "Ratio")
+    ratio_label_fontsize = axes_style.get(
+        "ratio_label_fontsize", axis_label_fontsize
+    )
+    offset_fontsize = axes_style.get("offset_fontsize", axis_label_fontsize)
+    y_offset = axes_style.get("y_offset", -0.07)
+    overflow_label = axes_style.get("overflow_label", ">500")
+    ticklabel_format_cfg = axes_style.get("ticklabel_format")
+    secondary_ticks_cfg = axes_style.get("apply_secondary_ticks", {})
+
+    if h_mc is None or h_data is None:
+        return None
+    if getattr(h_mc, "empty", False) and h_mc.empty():
+        return None
+    if getattr(h_data, "empty", False) and h_data.empty():
+        return None
+
+    default_colors = DEFAULT_STACK_COLORS
+
+    grouping = OrderedDict()
+    axis_collection = getattr(h_mc, "axes", None)
+    axis_entries = None
+    axis_entry_set = None
+    if axis_collection is not None:
+        try:
+            axis_entries = axis_collection[axis]
+            axis_entry_set = set(axis_entries)
+        except Exception:
+            axis_entries = None
+            axis_entry_set = None
+    for proc, members in group.items():
+        if axis_entry_set is None:
+            present_members = list(members)
+        else:
+            present_members = [p for p in members if p in axis_entry_set]
+        if present_members:
+            grouping[proc] = present_members
+    if not grouping:
+        if axis_entries is not None:
+            grouping = OrderedDict((proc, [proc]) for proc in axis_entries)
+        else:
+            grouping = OrderedDict()
 
     colors = []
-    for i, proc in enumerate(grouping):
+    default_color_index = 0
+    for proc in grouping:
         c = FILL_COLORS.get(proc)
         if c is None:
-            c = default_colors[i % len(default_colors)]
+            c = default_colors[default_color_index % len(default_colors)]
+            default_color_index += 1
         colors.append(c)
 
-    # Decide if we're plotting stat or syst uncty for mc
-    # In principle would be better to combine them
-    # But for our cases syst is way bigger than mc stat, so if we're plotting syst, ignore stat
-    plot_syst_err = False
-    mc_err_ops = MC_ERROR_OPS
-    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None):
-        plot_syst_err = True
-        mc_err_ops = None
+    display_label = axes_info.get(var, {}).get("label", var)
 
-    # Create the figure
-    fig, (ax, rax) = plt.subplots(
-        nrows=2,
-        ncols=1,
-        figsize=(10,11),
-        gridspec_kw={"height_ratios": (4, 1)},
-        sharex=True
-    )
-    fig.subplots_adjust(hspace=.07)
+    axis_edges = target_edges
+    if axis_edges is None:
+        try:
+            axis_edges = h_data.axes[var].edges
+        except KeyError:
+            axis_edges = None
+        except AttributeError:
+            axis_edges = None
+    if axis_edges is None:
+        try:
+            axis_edges = h_mc.axes[var].edges
+        except (KeyError, AttributeError):
+            axis_edges = None
+    axis_edges = np.asarray(axis_edges, dtype=float)
+    if axis_edges.size < 2:
+        raise ValueError("Histogram axis has fewer than two edges; cannot determine binning.")
+    last_width = axis_edges[-1] - axis_edges[-2]
+    plot_bins = np.append(axis_edges, [axis_edges[-1] + last_width * 0.3])
 
-    # Set up the colors for each stacked process
-
-    # Normalize if we want to do that
-    if unit_norm_bool:
-        sum_mc = 0
-        sum_data = 0
-        for sample in h_mc.eval({}):
-            sum_mc = sum_mc + sum(h_mc.eval({})[sample])
-        for sample in h_data.eval({}):
-            sum_data = sum_data + sum(h_data.eval({})[sample])
-        h_mc.scale(1.0/sum_mc)
-        h_data.scale(1.0/sum_data)
-
-    # Plot the MC
-    years = {}
-    for axis_name in h_mc.axes[axis]:
-        name = axis_name.split('UL')[0].replace('_private', '').replace('_central', '')
-        if name in years:
-            years[name].append(axis_name)
-        else:
-            years[name] = [axis_name]
-    hep.style.use("CMS")
-    plt.sca(ax)
-    hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
-
-    # Use the grouping information determined above
-    mc_vals = {
-        proc: h_mc[{"process": grouping[proc]}][{"process": sum}].as_hist({}).values(flow=True)[1:]
-        for proc in grouping
-    }
-
-    bins = h_data[{'process': sum}].as_hist({}).axes[var].edges
-    bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
-    hep.histplot(
-        list(mc_vals.values()),
-        ax=ax,
-        bins=bins,
-        stack=True,
-        density=unit_norm_bool,
-        label=list(mc_vals.keys()),
-        histtype='fill',
-        color=colors,
+    norm_info = _normalize_histograms(
+        h_mc,
+        h_data,
+        unit_norm_bool,
+        err_p,
+        err_m,
+        err_ratio_p,
+        err_ratio_m,
+        err_p_syst,
+        err_m_syst,
+        err_ratio_p_syst,
+        err_ratio_m_syst,
+        var,
     )
 
-    #Plot the data
-    hep.histplot(
-        h_data[{'process':sum}].as_hist({}).values(flow=True)[1:],
-        #error_opts = DATA_ERR_OPS,
-        ax=ax,
-        bins=bins,
-        stack=False,
-        density=unit_norm_bool,
-        label='Data',
-        #flow='show',
-        histtype='errorbar',
-        **DATA_ERR_OPS,
+    err_p_syst = norm_info["err_p_syst"]
+    err_m_syst = norm_info["err_m_syst"]
+    err_ratio_p_syst = norm_info["err_ratio_p_syst"]
+    err_ratio_m_syst = norm_info["err_ratio_m_syst"]
+    mc_norm_factor = norm_info["mc_norm_factor"]
+    mc_scaled = norm_info["mc_scaled"]
+
+    panel_info = _draw_stacked_panel(
+        h_mc,
+        h_data,
+        grouping,
+        colors,
+        axis,
+        var,
+        plot_bins,
+        unit_norm_bool,
+        lumitag,
+        comtag,
+        h_mc_sumw2,
+        mc_scaled,
+        mc_norm_factor,
+        log_scale=log_scale,
+        style=style,
     )
 
-    # Make the ratio plot
-    hep.histplot(
-        (h_data[{'process':sum}].as_hist({}).values(flow=True)/h_mc[{"process": sum}].as_hist({}).values(flow=True))[1:],
-        yerr=(np.sqrt(h_data[{'process':sum}].as_hist({}).values(flow=True)) / h_data[{'process':sum}].as_hist({}).values(flow=True))[1:],
-        #error_opts = DATA_ERR_OPS,
-        ax=rax,
-        bins=bins,
-        stack=False,
-        density=unit_norm_bool,
-        #flow='show',
-        histtype='errorbar',
-        **DATA_ERR_OPS,
+    fig = panel_info["fig"]
+    ax = panel_info["ax"]
+    rax = panel_info["rax"]
+    bins = panel_info["bins"]
+    cms_label = panel_info["cms_label"]
+    mc_sumw2_vals = panel_info["mc_sumw2_vals"]
+    mc_totals = panel_info["mc_totals"]
+    adjusted_mc_totals = panel_info.get("adjusted_mc_totals")
+    log_axis_enabled = panel_info.get("log_axis_enabled", False)
+    use_log_y = log_axis_enabled
+    log_y_baseline = panel_info.get("log_y_baseline")
+
+    if recompute_syst_ratio_arrays:
+        mc_totals_array = np.asarray(mc_totals, dtype=float)
+
+        def _match_visible_bins(values):
+            if values is None:
+                return None
+            array = np.asarray(values, dtype=float)
+            if array.size == mc_totals_array.size:
+                return array
+            if array.size > mc_totals_array.size:
+                return array[: mc_totals_array.size]
+            padded = np.zeros_like(mc_totals_array, dtype=float)
+            padded[: array.size] = array
+            return padded
+
+        err_p_syst = _match_visible_bins(err_p_syst)
+        err_m_syst = _match_visible_bins(err_m_syst)
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            if err_p_syst is not None:
+                err_ratio_p_syst = np.where(
+                    mc_totals_array > 0,
+                    err_p_syst / mc_totals_array,
+                    1.0,
+                )
+            if err_m_syst is not None:
+                err_ratio_m_syst = np.where(
+                    mc_totals_array > 0,
+                    err_m_syst / mc_totals_array,
+                    1.0,
+                )
+
+    band_info = _compute_uncertainty_bands(
+        ax,
+        rax,
+        bins,
+        mc_totals,
+        mc_sumw2_vals,
+        h_mc_sumw2,
+        unit_norm_bool,
+        mc_scaled,
+        mc_norm_factor,
+        err_p_syst,
+        err_m_syst,
+        err_ratio_p_syst,
+        err_ratio_m_syst,
+        syst_err,
+        display_mc_totals=adjusted_mc_totals,
+        log_axis_enabled=log_axis_enabled,
+        log_y_baseline=log_y_baseline,
+        style=style,
     )
 
-    # Plot the syst error
-    if plot_syst_err:
-        bin_edges_arr = h_mc.axes[var].edges
-        #err_p = np.append(err_p,0) # Work around off by one error
-        #err_m = np.append(err_m,0) # Work around off by one error
-        #err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
-        #err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
-        ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
-        rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
-    err_m = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]-np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_p = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]+np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_ratio_m = np.append(1-1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_ratio_p = np.append(1+1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    rax.fill_between(bins,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Stat err', hatch='////')
+    main_band_handles = band_info.get("main_band_handles", [])
 
-    # Scale the y axis and labels
-    ax.autoscale(axis='y')
+    ratio_arrays = []
+    data_ratio_arrays = []
+
+    ratio_values = panel_info.get("ratio_values")
+    ratio_errors = panel_info.get("ratio_errors")
+    if ratio_values is not None:
+        ratio_arrays.append(np.asarray(ratio_values, dtype=float))
+        data_ratio_arrays.append(np.asarray(ratio_values, dtype=float))
+        if ratio_errors is not None:
+            ratio_lower = np.asarray(ratio_values, dtype=float) - np.asarray(
+                ratio_errors, dtype=float
+            )
+            ratio_upper = np.asarray(ratio_values, dtype=float) + np.asarray(
+                ratio_errors, dtype=float
+            )
+            ratio_arrays.extend([ratio_lower, ratio_upper])
+            data_ratio_arrays.extend([ratio_lower, ratio_upper])
+
+    for key in (
+        "ratio_stat_band_down",
+        "ratio_stat_band_up",
+        "ratio_syst_band_down",
+        "ratio_syst_band_up",
+        "ratio_total_band_down",
+        "ratio_total_band_up",
+    ):
+        arr = band_info.get(key)
+        if arr is not None:
+            ratio_arrays.append(np.asarray(arr, dtype=float))
+
+    (
+        ratio_limits,
+        exceeds_largest_window,
+        data_exceeds_largest_window,
+    ) = _determine_ratio_window(ratio_arrays, data_ratio_arrays)
+
+    if exceeds_largest_window or data_exceeds_largest_window:
+        warnings.warn(
+            "Ratio data exceed the [-1.0, 3.0] limits; values outside the plotted range will be clipped.",
+            RuntimeWarning,
+        )
+
+    ax.autoscale(axis="y")
     ax.set_xlabel(None)
-    ax.tick_params(axis='both', labelsize=18)   # both x and y ticks
-    ax.ticklabel_format(axis='y', style='scientific', scilimits=(0,6), useMathText=True)
+    ax.tick_params(axis="both", labelsize=tick_labelsize, width=tick_width, length=tick_length)
+    ax.tick_params(axis="both", which="minor", width=tick_width, length=minor_tick_length)
+    for spine in ax.spines.values():
+        spine.set_linewidth(spine_width)
+    if not use_log_y:
+        if isinstance(ticklabel_format_cfg, Mapping):
+            format_kwargs = dict(ticklabel_format_cfg)
+            scilimits = format_kwargs.get("scilimits")
+            if isinstance(scilimits, (list, tuple)):
+                format_kwargs["scilimits"] = tuple(scilimits)
+            format_kwargs.setdefault("axis", "y")
+            ax.ticklabel_format(**format_kwargs)
+        else:
+            ax.ticklabel_format(
+                axis="y", style="scientific", scilimits=(0, 6), useMathText=True
+            )
+    else:
+        ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext())
     ax.yaxis.set_offset_position("left")
-    ax.yaxis.offsetText.set_x(-0.07)
-    ax.yaxis.offsetText.set_fontsize(18)
+    if y_offset is not None:
+        ax.yaxis.offsetText.set_x(y_offset)
+    ax.yaxis.offsetText.set_fontsize(offset_fontsize)
 
-    rax.set_ylabel('Ratio', loc='center', fontsize=18)
-    rax.set_ylim(0.5,1.5)
-    labels = [item.get_text() for item in rax.get_xticklabels()]
-    labels[-1] = '>500'
-    rax.set_xticklabels(labels)
-    rax.tick_params(axis='both', labelsize=18)   # both x and y ticks
+    rax.set_ylabel(ratio_label_text, loc="center", fontsize=ratio_label_fontsize)
+    rax.set_ylim(*ratio_limits)
+    rax.tick_params(
+        axis="both", labelsize=ratio_tick_labelsize, width=tick_width, length=tick_length
+    )
+    rax.tick_params(axis="both", which="minor", width=tick_width, length=minor_tick_length)
+    for spine in rax.spines.values():
+        spine.set_linewidth(spine_width)
+
+    # Ensure the ratio axis always includes a unity tick while preserving the
+    # spacing chosen by the existing locator and enforcing ticks at the bounds.
+    ratio_major_locator = rax.yaxis.get_major_locator()
+    ratio_major_formatter = rax.yaxis.get_major_formatter()
+    ratio_low, ratio_high = rax.get_ylim()
+    include_unity = ratio_low <= 1.0 <= ratio_high
+
+    major_ticks = None
+    if ratio_major_locator is not None:
+        try:
+            major_ticks = np.asarray(
+                ratio_major_locator.tick_values(ratio_low, ratio_high), dtype=float
+            )
+        except Exception:
+            major_ticks = None
+    if major_ticks is None or not np.size(major_ticks):
+        major_ticks = np.asarray(rax.get_yticks(), dtype=float)
+
+    ticks = np.asarray(major_ticks, dtype=float)
+    finite_mask = np.isfinite(ticks)
+    ticks = ticks[finite_mask]
+    # Filter to ticks that are compatible with the current display range.
+    in_range_mask = (ticks >= ratio_low) & (ticks <= ratio_high)
+    ticks = ticks[in_range_mask]
+
+    for bound in (ratio_low, ratio_high):
+        if not np.any(np.isclose(ticks, bound, rtol=1e-9, atol=1e-12)):
+            ticks = np.append(ticks, bound)
+
+    if include_unity and not np.any(np.isclose(ticks, 1.0, rtol=1e-9, atol=1e-12)):
+        ticks = np.append(ticks, 1.0)
+
+    if ticks.size:
+        ticks = np.unique(ticks)
+        ticks.sort()
+        rax.yaxis.set_major_locator(FixedLocator(ticks.tolist()))
+        # Reapply the formatter to preserve styling (e.g., mathtext/scientific).
+        if ratio_major_formatter is not None:
+            rax.yaxis.set_major_formatter(ratio_major_formatter)
+
+    fig.canvas.draw()
+    xticks = rax.get_xticks()
+    xtick_labels = [tick.get_text() for tick in rax.get_xticklabels()]
+    if (
+        overflow_label is not None
+        and xtick_labels
+        and len(xtick_labels) == len(xticks)
+    ):
+        xtick_labels[-1] = overflow_label
+        rax.xaxis.set_major_locator(FixedLocator(xticks))
+        rax.xaxis.set_major_formatter(FixedFormatter(xtick_labels))
+
+    apply_minor_x = bool(secondary_ticks_cfg.get("x", True))
+    apply_minor_y = bool(secondary_ticks_cfg.get("y", True))
+    if apply_minor_x:
+        _apply_secondary_ticks(ax, axis="x")
+        _apply_secondary_ticks(rax, axis="x")
+    if apply_minor_y:
+        _apply_secondary_ticks(ax, axis="y")
+        _apply_secondary_ticks(rax, axis="y")
+
+    ax_box = ax.get_position()
+    rax_box = rax.get_position()
+    ratio_label_fig = None
+    ratio_label = rax.yaxis.label
+    if ratio_label is not None:
+        try:
+            ratio_label_pos = np.asarray(ratio_label.get_position(), dtype=float)
+            ratio_label_transform = ratio_label.get_transform()
+            if ratio_label_transform is not None:
+                ratio_label_display = ratio_label_transform.transform([ratio_label_pos])[0]
+                ratio_label_fig = fig.transFigure.inverted().transform(ratio_label_display)
+        except Exception:
+            ratio_label_fig = None
+
+    initial_events_anchor = (rax_box.x0 + rax_box.width, ax_box.y0 + ax_box.height)
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
-    # Put a legend to the right of the current axis
-    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
-    plt.subplots_adjust(top=0.88, bottom=0.05, right=0.95, left=0.11)
-    return fig
-
-# Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
-def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
-    fig, ax = plt.subplots(1, 1, figsize=(10,10))
-    hep.style.use("CMS")
-    plt.sca(ax)
-    hep.cms.label(lumi='7.9804', com='13.6', fontsize=10.0)
-    if axis is None:
-        hep.histplot(
-            histo.eval({})[()][1:-1],
-            ax=ax,
-            bins=bins,
-            stack=False,
-            density=unit_norm_bool,
-            #clear=False,
-            histtype='fill',
+    # Build a figure-anchored legend with a measured inset from the top edge
+    legend_handles, legend_labels = ax.get_legend_handles_labels()
+    legend = None
+    if legend_handles and legend_labels:
+        filtered = OrderedDict()
+        for handle, label in zip(legend_handles, legend_labels):
+            if label == '_nolegend_':
+                continue
+            if label not in filtered:
+                filtered[label] = handle
+        if filtered:
+            max_rows = legend_style.get("max_rows", 3)
+            ncol = legend_style.get("ncol", 5)
+            if not isinstance(ncol, int) or ncol <= 0:
+                ncol = 1
+            entries = list(filtered.items())
+            nrows = math.ceil(len(entries) / ncol)
+            if nrows > max_rows:
+                warnings.warn(
+                    "Legend contains more than 15 entries; truncating to fit a 5x3 layout.",
+                    RuntimeWarning,
+                )
+                entries = entries[: ncol * max_rows]
+                nrows = max_rows
+            bbox_to_anchor = legend_style.get("bbox_to_anchor", (0.5, 1.0))
+            if isinstance(bbox_to_anchor, (list, tuple)):
+                bbox_to_anchor = tuple(bbox_to_anchor)
+            legend_kwargs = {
+                "loc": legend_style.get("loc", "upper center"),
+                "bbox_to_anchor": bbox_to_anchor,
+                "borderaxespad": legend_style.get("borderaxespad", 0.15),
+                "ncol": ncol,
+                "fontsize": legend_style.get("fontsize", 16),
+                "columnspacing": legend_style.get("columnspacing", 0.8),
+                "handletextpad": legend_style.get("handletextpad", 0.6),
+            }
+            labelspacing = legend_style.get("labelspacing")
+            if labelspacing is not None:
+                legend_kwargs["labelspacing"] = labelspacing
+            frameon = legend_style.get("frameon")
+            if frameon is not None:
+                legend_kwargs["frameon"] = frameon
+            legend = fig.legend(
+                [handle for _, handle in entries],
+                [label for label, _ in entries],
+                **legend_kwargs,
+            )
+    if main_band_handles:
+        unc_handles, unc_labels = zip(*main_band_handles)
+        unc_bbox = uncertainty_legend_style.get("bbox_to_anchor", (0.98, 0.98))
+        if isinstance(unc_bbox, (list, tuple)):
+            unc_bbox = tuple(unc_bbox)
+        else:
+            unc_bbox = (0.98, 0.98)
+        _ = ax.legend(
+            handles=list(unc_handles),
+            labels=list(unc_labels),
+            loc=uncertainty_legend_style.get("loc", "upper right"),
+            bbox_to_anchor=unc_bbox,
+            frameon=uncertainty_legend_style.get("frameon", False),
+            fontsize=uncertainty_legend_style.get("fontsize", 10),
+            ncol=uncertainty_legend_style.get("ncol", 2),
+            columnspacing=uncertainty_legend_style.get("columnspacing", 1.0),
         )
-    else:
-        for axis_name in histo.axes[axis]:
-            print(axis_name)
-            hep.histplot(
-                histo[{axis: axis_name}].eval({})[()][1:-1],
-                bins=bins,
-                stack=True,
-                density=unit_norm_bool,
-                label=axis_name,
-            )
-    plt.legend()
-    ax.autoscale(axis='y')
-    return fig
 
-# Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
-# Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
-def make_single_fig_with_ratio(histo,axis_name,cat_ref,var='lj0pt',err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
-    # Create the figure
-    fig, (ax, rax) = plt.subplots(
-        nrows=2,
-        ncols=1,
-        figsize=(7,7),
-        gridspec_kw={"height_ratios": (3, 1)},
-        sharex=True
-    )
-    fig.subplots_adjust(hspace=.07)
+    fig.canvas.draw()
+    required_headroom = None
+    legend_is_figure_anchored = False
+    top_adjusted = False
+    legend_anchor = None
+    if legend is not None:
+        renderer = fig.canvas.get_renderer()
+        legend_bbox = legend.get_window_extent(renderer=renderer)
+        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+        measured_height = legend_box.height
+        buffer = max(legend_top_margin_min, legend_top_margin_scale * measured_height)
+        anchor_y = max(0.0, 1.0 - buffer)
+        legend_anchor = [0.5, anchor_y]
+        legend.set_bbox_to_anchor(tuple(legend_anchor), fig.transFigure)
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        legend_bbox = legend.get_window_extent(renderer=renderer)
+        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+        legend_height = legend_box.height
+        buffer = max(buffer, legend_top_margin_min)
+        required_headroom = legend_height + buffer
+        legend_is_figure_anchored = True
+        subplot_params = fig.subplotpars
+        available_top = 1.0 - required_headroom
+        available_top = np.clip(available_top, 0.0, 1.0)
+        if subplot_params.top > available_top:
+            plt.subplots_adjust(top=available_top)
+            top_adjusted = True
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            legend_bbox = legend.get_window_extent(renderer=renderer)
+            legend_box = legend_bbox.transformed(fig.transFigure.inverted())
 
-    # Make the main plot
-    hep.histplot(
-        histo,
-        ax=ax,
-        stack=False,
-        clear=False,
-    )
-
-    # Make the ratio plot
-    # TODO similar to L554
-    #for cat_name in yt.get_cat_lables(histo,axis_name):
-    #    hist.plotratio(
-    #        num = histo.integrate(axis_name,cat_name),
-    #        denom = histo.integrate(axis_name,cat_ref),
-    #        ax = rax,
-    #        unc = 'num',
-    #        error_opts= {'linestyle': 'none','marker': '.', 'markersize': 10, 'elinewidth': 0},
-    #        clear = False,
-    #    )
-
-    # Plot the syst error (if we have the necessary up/down variations)
-    plot_syst_err = False
-    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None): plot_syst_err = True
-    if plot_syst_err:
-        bin_edges_arr = histo.axes[var].edges
-        #err_p = np.append(err_p,0) # Work around off by one error
-        #err_m = np.append(err_m,0) # Work around off by one error
-        #err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
-        #err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
-        ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
-        ax.set_ylim(0.0,1.2*max(err_p))
-        rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
-
-    # Style
-    ax.set_xlabel('')
-    rax.axhline(1.0,linestyle="-",color="k",linewidth=1)
-    rax.set_ylabel('Ratio')
-    rax.autoscale(axis='y')
+    label_artist = None
+    events_artist = None
+    iterations = 3 if top_adjusted else 2
+    for _ in range(iterations):
+        label_artist, events_artist, legend_anchor = _finalize_layout(
+            fig,
+            ax,
+            rax,
+            legend,
+            cms_label,
+            display_label,
+            label_artist=label_artist,
+            events_artist=events_artist,
+            ratio_anchor=ratio_label_fig,
+            events_anchor=initial_events_anchor,
+            legend_anchor=legend_anchor,
+            legend_is_figure=legend_is_figure_anchored,
+            style=style,
+        )
 
     return fig
 
-
-
-###################### Wrapper function for example SR plots with systematics ######################
-# Wrapper function to loop over all SR categories and make plots for all variables
-# Right now this function will only plot the signal samples
-# By default, will make plots that show all systematics in the pkl file
-def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
-
-    # If selecting a year, append that year to the wight list
-    sig_wl = ["private"]
-    if year is None: pass
-    elif year == "2017":
-        sig_wl.append("UL17")
-    elif year == "2018":
-        sig_wl.append("UL18")
-    elif year == "2016":
-        sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
-    elif year == "2022":
-        sig_wl.append("2022")
-    elif year == "2022EE":
-        sig_wl.append("2022EE")
-    elif year == "2023":
-        sig_wl.append("2023")
-    elif year == "2023BPix":
-        sig_wl.append("2023BPix")
-    else: raise Exception
-
-    # Get the list of samples to actually plot (finding sample list from first hist in the dict)
-    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
-    if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
-    samples_to_rm_from_sig_hist = []
-    for sample_name in all_samples:
-        if sample_name not in sig_sample_lst:
-            samples_to_rm_from_sig_hist.append(sample_name)
-    print("\nAll samples:",all_samples)
-    print("\nSig samples:",sig_sample_lst)
-    print("\nAll systematics:",yt.get_cat_lables(dict_of_hists,"systematic",h_name=yt.get_hist_list(dict_of_hists)[0]))
-
-    # Loop over hists and make plots
-    skip_lst = [] # Skip this hist
-    for idx, var_name in enumerate(dict_of_hists.keys()):
-        if 'sumw2' in var_name: continue
-        if _is_sparse_2d_hist(dict_of_hists[var_name]):
-            continue
-        if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
-        if (var_name in skip_lst): continue
-        channel_transformations = []
-        if (var_name == "njets"):
-            # We do not keep track of jets in the sparse axis for the njets hists
-            channel_transformations.append("njets")
-            sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
-        else:
-            sr_cat_dict = SR_CHAN_DICT
-        print("\nVar name:", var_name)
-
-        # Extract the signal hists
-        hist_sig = dict_of_hists[var_name].remove("process", samples_to_rm_from_sig_hist)
-
-        # If we only want to look at a subset of the systematics (Probably should be an option? For now, just uncomment if you want to use it)
-        syst_subset_dict = {
-            "nominal":["nominal"],
-            "renormfactUp":["renormfactUp"],"renormfactDown":["renormfactDown"],
-        }
-        #hist_sig  = group_bins(hist_sig,syst_subset_dict,"systematic",drop_unspecified=True)
-
-        # Make plots for each process
-        for proc_name in sig_sample_lst:
-
-            # Make a sub dir for this category
-            save_dir_path_tmp = os.path.join(save_dir_path,proc_name)
-            if not os.path.exists(save_dir_path_tmp):
-                os.mkdir(save_dir_path_tmp)
-
-            # Group categories
-            hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
-
-            # Make the plots
-            for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
-
-                if grouped_hist_cat in sr_cat_dict:
-                    validate_channel_group(
-                        hist_sig,
-                        sr_cat_dict[grouped_hist_cat],
-                        channel_transformations,
-                        region="SR",
-                        subgroup=grouped_hist_cat,
-                        variable=var_name,
-                    )
-
-                # Integrate
-                hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
-                hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
-                hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("process",proc_name[{'process': sum}])
-                hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("channel",grouped_hist_cat[{'channel': sum}])
-
-                # Reweight (Probably should be an option? For now, just uncomment if you want to use it)
-                #hist_sig_grouped_tmp.set_wilson_coefficients(**WCPT_EXAMPLE)
-
-                # Make plots
-                fig = make_single_fig_with_ratio(hist_sig_grouped_tmp,"systematic","nominal",var=var_name)
-                title = proc_name+"_"+grouped_hist_cat+"_"+var_name
-                fig.savefig(os.path.join(save_dir_path_tmp,title))
-
-            # Make an index.html file if saving to web area
-            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-
-
-###################### Wrapper function for simple plots ######################
-# Wrapper function to loop over categories and make plots for all variables
-def make_simple_plots(dict_of_hists,year,save_dir_path):
-
-    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="njets")
-
-    for idx,var_name in enumerate(dict_of_hists.keys()):
-        if 'sumw2' in var_name: continue
-        if _is_sparse_2d_hist(dict_of_hists[var_name]):
-            continue
-        #if var_name == "njets": continue
-        #if "parton" in var_name: save_tag = "partonFlavour"
-        #if "hadron" in var_name: save_tag = "hadronFlavour"
-        #if "hadron" not in var_name: continue
-        #if var_name != "j0hadronFlavour": continue
-        if var_name != "j0partonFlavour": continue
-
-        histo_orig = dict_of_hists[var_name]
-
-        # Loop over channels
-        channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
-        for chan_name in channels_lst:
-
-            histo = copy.deepcopy(histo_orig)
-
-            histo = yt.integrate_out_appl(histo,chan_name)
-            histo = histo.integrate("systematic","nominal")
-            histo = histo.integrate("channel",chan_name)
-
-            print("\n",chan_name)
-            print(histo.eval({}))
-            summed_histo = histo[{"process": sum}]
-            print("sum:",sum(summed_histo.eval({})[()]))
-            continue
-
-            # Make a sub dir for this category
-            save_tag = "placeholder" # Flake8 pointed out that save_tag is not defined, should figure out why at some point if this function is ever used again
-            save_dir_path_tmp = os.path.join(save_dir_path,save_tag)
-            if not os.path.exists(save_dir_path_tmp):
-                os.mkdir(save_dir_path_tmp)
-
-            fig = make_single_fig(histo, unit_norm_bool=False)
-            title = chan_name + "_" + var_name
-            fig.savefig(os.path.join(save_dir_path_tmp,title))
-
-            # Make an index.html file if saving to web area
-            if "www" in save_dir_path: make_html(save_dir_path_tmp)
-
-
-###################### Wrapper function for SR data and mc plots (unblind!) ######################
-# Wrapper function to loop over all SR categories and make plots for all variables
-def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
-
-    # Construct list of MC samples
-    mc_wl = []
-    mc_bl = ["data"]
-    data_wl = ["data"]
-    data_bl = []
-    if year is None:
-        pass # Don't think we actually need to do anything here?
-    elif year == "2017":
-        mc_wl.append("UL17")
-        data_wl.append("UL17")
-    elif year == "2018":
-        mc_wl.append("UL18")
-        data_wl.append("UL18")
-    elif year == "2016":
-        mc_wl.append("UL16")
-        mc_bl.append("UL16APV")
-        data_wl.append("UL16")
-        data_bl.append("UL16APV")
-    elif year == "2016APV":
-        mc_wl.append("UL16APV")
-        data_wl.append("UL16APV")
-    elif year == "2022":
-        mc_wl.append("2022")
-        data_wl.append("2022")
-    elif year == "2022EE":
-        mc_wl.append("2022EE")
-        data_wl.append("2022EE")
-    elif year == "2023":
-        mc_wl.append("2023")
-        data_wl.append("2023")
-    elif year == "2023BPix":
-        mc_wl.append("2023BPix")
-        data_wl.append("2023BPix")
-    else:
-        raise Exception(f"Error: Unknown year \"{year}\".")
-
-    # Get the list of samples we want to plot
-    samples_to_rm_from_mc_hist = []
-    samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="lj0pt")
-    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
-    for sample_name in all_samples:
-        if sample_name not in mc_sample_lst:
-            samples_to_rm_from_mc_hist.append(sample_name)
-        if sample_name not in data_sample_lst:
-            samples_to_rm_from_data_hist.append(sample_name)
-    print("\nAll samples:",all_samples)
-    print("\nMC samples:",mc_sample_lst)
-    print("\nData samples:",data_sample_lst)
-    print("\nVariables:",dict_of_hists.keys())
-
-    global SR_GRP_MAP, CR_GRP_MAP
-    CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
-    SR_GRP_MAP = populate_group_map(mc_sample_lst + data_sample_lst, SR_GRP_PATTERNS)
-
-    # The analysis bins
-    analysis_bins = {}
-    # Skipping for now
-    #    'njets': {
-    #        '2l': [4,5,6,7,dict_of_hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
-    #        '3l': [2,3,4,5,dict_of_hists['njets'].axis('njets').edges()[-1]],
-    #        '4l': [2,3,4,dict_of_hists['njets'].axis('njets').edges()[-1]]
-    #    }
-    #}
-    analysis_bins['ptz'] = axes_info['ptz']['variable']
-    analysis_bins['lj0pt'] = axes_info['lj0pt']['variable']
-
-    # Loop over hists and make plots
-    skip_lst = ['ptz', 'njets'] # Skip this hist
-    #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
-    for idx,var_name in enumerate(dict_of_hists.keys()):
-        if 'sumw2' in var_name: continue
-        if _is_sparse_2d_hist(dict_of_hists[var_name]):
-            continue
-        if (var_name in skip_lst): continue
-        #if (var_name not in keep_lst): continue
-        print("\nVariable:",var_name)
-
-        # Extract the MC and data hists
-        hist_mc_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
-        hist_data_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
-
-        # Loop over channels
-        channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
-        print("channels:",channels_lst)
-        #for chan_name in channels_lst: # For each channel individually
-        channel_transformations = []
-        for chan_name in SR_CHAN_DICT.keys():
-            validate_channel_group(
-                [hist_mc_orig, hist_data_orig],
-                SR_CHAN_DICT[chan_name],
-                channel_transformations,
-                region="SR",
-                subgroup=chan_name,
-                variable=var_name,
+###################### Region plotting entry point ######################
+# Execute the region-agnostic plotting pipeline for the requested region name.
+# The caller provides the histogram dictionary that includes data and MC.
+def run_plots_for_region(
+    region_name,
+    dict_of_hists,
+    years,
+    save_dir_path,
+    *,
+    skip_syst_errs=False,
+    unit_norm_bool=False,
+    stacked_log_y=False,
+    variables=None,
+    unblind=None,
+    workers=1,
+    verbose=False,
+    channel_output="merged",
+):
+    requested_channel_modes = CHANNEL_OUTPUT_CHOICES.get(channel_output)
+    if requested_channel_modes is None:
+        raise ValueError(
+            "Unsupported channel_output '{}' requested. Expected one of: {}".format(
+                channel_output, ", ".join(sorted(CHANNEL_OUTPUT_CHOICES))
             )
-            #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
-            #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
-            # Skip missing channels (histEFT throws an exception)
-            channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_mc_orig.axes['channel']]
-            if not channels:
-                continue
-            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
-            channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_data_orig.axes['channel']]
-            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
+        )
 
-            #print(var_name, chan_name, f'grouping {SR_GRP_MAP=}')
-            # Using new grouping approach in plot functions
-            #hist_mc = group_bins(hist_mc,SR_GRP_MAP,"process",drop_unspecified=False)
-            #hist_data = group_bins(hist_data,SR_GRP_MAP,"process",drop_unspecified=False)
+    multi_mode = len(requested_channel_modes) > 1 or channel_output != "merged"
 
-            # Make a sub dir for this category
-            save_dir_path_tmp = os.path.join(save_dir_path,chan_name)
-            if not os.path.exists(save_dir_path_tmp):
-                os.mkdir(save_dir_path_tmp)
+    for channel_mode in requested_channel_modes:
+        region_ctx = build_region_context(
+            region_name,
+            dict_of_hists,
+            years,
+            unblind=unblind,
+            channel_mode_override=channel_mode,
+        )
 
-            # Rebin into analysis bins
-            if var_name in analysis_bins.keys():
-                lep_bin = chan_name[:2]
-                # histEFT doesn't support rebinning for now
-                '''
-                if var_name == "njets":
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name][lep_bin]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name][lep_bin]))
-                else:
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name]))
-                '''
+        if multi_mode:
+            mode_label = CHANNEL_MODE_LABELS.get(channel_mode, channel_mode)
+            print(f"\n[{region_ctx.name}] Channel output mode: {mode_label}")
 
-            if not hist_mc.eval({}):
-                print("Warning: empty mc histo, continuing")
-                continue
-            if not hist_data.eval({}):
-                print("Warning: empty data histo, continuing")
-                continue
-
-            fig = make_cr_fig(hist_mc, hist_data, var=var_name, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP, lumitag=LUMI_COM_PAIRS[year][0], comtag=LUMI_COM_PAIRS[year][1])
-            if year is not None: year_str = year
-            else: year_str = "ULall"
-            title = chan_name + "_" + var_name + "_" + year_str
-            fig.savefig(os.path.join(save_dir_path_tmp,title))
-
-            # Make an index.html file if saving to web area
-            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-
-
-
-
-
-###################### Wrapper function for example SR plots ######################
-# Wrapper function to loop over all SR categories and make plots for all variables
-# Right now this function will only plot the signal samples
-# By default, will make two sets of plots: One with process overlay, one with channel overlay
-def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True):
-
-    # If selecting a year, append that year to the wight list
-    sig_wl = ["private"]
-    if year is None: pass
-    elif year == "2017":
-        sig_wl.append("UL17")
-    elif year == "2018":
-        sig_wl.append("UL18")
-    elif year == "2016":
-        sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
-    elif year == "2022":
-        sig_wl.append("2022")
-    elif year == "2022EE":
-        sig_wl.append("2022EE")
-    elif year == "2023":
-        sig_wl.append("2023")
-    elif year == "2023BPix":
-        sig_wl.append("2023BPix")
-    else: raise Exception
-
-    # Get the list of samples to actually plot (finding sample list from first hist in the dict)
-    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
-    if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
-    samples_to_rm_from_sig_hist = []
-    for sample_name in all_samples:
-        if sample_name not in sig_sample_lst:
-            samples_to_rm_from_sig_hist.append(sample_name)
-    print("\nAll samples:",all_samples)
-    print("\nSig samples:",sig_sample_lst)
-
-
-    # Loop over hists and make plots
-    skip_lst = [] # Skip this hist
-    for idx,var_name in enumerate(dict_of_hists.keys()):
-        #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
-        if 'sumw2' in var_name: continue
-        if _is_sparse_2d_hist(dict_of_hists[var_name]):
-            continue
-        if (var_name in skip_lst): continue
-        if (var_name == "njets"):
-            continue
-            # We do not keep track of jets in the sparse axis for the njets hists
-            sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
-        else:
-            sr_cat_dict = SR_CHAN_DICT
-        channel_transformations = []
-        print("\nVar name:",var_name)
-        print("sr_cat_dict:",sr_cat_dict)
-
-        # Extract the signal hists, and integrate over systematic axis
-        hist_sig = dict_of_hists[var_name].remove("process", samples_to_rm_from_sig_hist)
-        hist_sig = hist_sig.integrate("systematic","nominal")
-
-        # Make plots for each SR category
-        if split_by_chan:
-            for hist_cat in SR_CHAN_DICT.keys():
-                if ((var_name == "ptz") and ("3l" not in hist_cat)): continue
-
-                if hist_cat in sr_cat_dict:
-                    validate_channel_group(
-                        hist_sig,
-                        sr_cat_dict[hist_cat],
-                        channel_transformations,
-                        region="SR",
-                        subgroup=hist_cat,
-                        variable=var_name,
-                    )
-
-                # Make a sub dir for this category
-                save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
-                if not os.path.exists(save_dir_path_tmp):
-                    os.mkdir(save_dir_path_tmp)
-
-                # Integrate to get the SR category we want to plot
-                hist_sig_integrated_ch = yt.integrate_out_appl(hist_sig,hist_cat)
-                # Skip missing channels (histEFT throws an exception)
-                channels = [chan for chan in sr_cat_dict[hist_cat] if chan in hist_sig_integrated_ch.axes['channel']]
-                if not channels: # Skip empty channels
-                    continue
-                hist_sig_integrated_ch = hist_sig_integrated_ch.integrate("channel",channels)[{'channel': sum}]
-                hist_sig_integrated_ch = hist_sig_integrated_ch.integrate("process")
-
-                # Make the plots
-                if not hist_sig_integrated_ch.eval({}):
-                    print("Warning: empty mc histo, continuing")
-                    continue
-                fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool,bins=axes_info[var_name]['variable'])
-                title = hist_cat+"_"+var_name
-                if unit_norm_bool: title = title + "_unitnorm"
-                fig.savefig(os.path.join(save_dir_path_tmp,title))
-
-                # Make an index.html file if saving to web area
-                if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-
-
-        # Make plots for each process
-        if split_by_proc:
-            for proc_name in sig_sample_lst:
-
-                # Make a sub dir for this category
-                save_dir_path_tmp = os.path.join(save_dir_path,proc_name)
-                if not os.path.exists(save_dir_path_tmp):
-                    os.mkdir(save_dir_path_tmp)
-
-                # Group categories
-                # Using new grouping approach in plot functions
-                #hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
-                hist_sig_grouped = hist_sig
-
-                # Make the plots
-                # Using new grouping approach in plot functions
-                #for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
-                for grouped_hist_cat in sr_cat_dict:
-                    if grouped_hist_cat in sr_cat_dict:
-                        validate_channel_group(
-                            hist_sig_grouped,
-                            sr_cat_dict[grouped_hist_cat],
-                            channel_transformations,
-                            region="SR",
-                            subgroup=grouped_hist_cat,
-                            variable=var_name,
-                        )
-                    if not any(cat in hist_sig_grouped.axes['channel'] for cat in sr_cat_dict[grouped_hist_cat]):
-                        continue
-
-                    # Integrate
-                    hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
-                    hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
-                    if proc_name not in list(hist_sig_grouped_tmp.axes["process"]):
-                        print(f"Warning: mc histo missing {proc_name}, continuing")
-                        continue
-                    hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("process",proc_name)
-                    if not hist_sig_grouped_tmp.eval({}):
-                        print("Warning: empty mc histo, continuing")
-                        continue
-
-                    # Make plots
-                    fig = make_single_fig(hist_sig_grouped_tmp[{'channel': sr_cat_dict[grouped_hist_cat]}][{'channel': sum}],unit_norm_bool,bins=axes_info[var_name]['variable'])
-                    title = proc_name+"_"+grouped_hist_cat+"_"+var_name
-                    if unit_norm_bool: title = title + "_unitnorm"
-                    fig.savefig(os.path.join(save_dir_path_tmp,title))
-
-                # Make an index.html file if saving to web area
-                if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-
-
-
-###################### Wrapper function for all CR plots ######################
-# Wrapper function to loop over all CR categories and make plots for all variables
-# The input hist should include both the data and MC
-def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_path):
-
-    # Construct list of MC samples
-    mc_wl = []
-    mc_bl = ["data"]
-    data_wl = ["data"]
-    data_bl = []
-    if year is None:
-        pass # Don't think we actually need to do anything here?
-    elif year == "2017":
-        mc_wl.append("UL17")
-        data_wl.append("UL17")
-    elif year == "2018":
-        mc_wl.append("UL18")
-        data_wl.append("UL18")
-    elif year == "2016":
-        mc_wl.append("UL16")
-        mc_bl.append("UL16APV")
-        data_wl.append("UL16")
-        data_bl.append("UL16APV")
-    elif year == "2016APV":
-        mc_wl.append("UL16APV")
-        data_wl.append("UL16APV")
-    elif year == "2022":
-        mc_wl.append("2022")
-        data_wl.append("2022")
-    elif year == "2022EE":
-        mc_wl.append("2022EE")
-        data_wl.append("2022EE")
-    elif year == "2023":
-        mc_wl.append("2023")
-        data_wl.append("2023")
-    elif year == "2023BPix":
-        mc_wl.append("2023BPix")
-        data_wl.append("2023BPix")
-    else:
-        raise Exception(f"Error: Unknown year \"{year}\".")
-
-    # Get the list of samples we want to plot
-    samples_to_rm_from_mc_hist = []
-    samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"process")
-    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
-
-    #print("dict_of_hists", dict_of_hists)
-    print("\n\nAll samples:",all_samples, "data"+year in all_samples)
-    print("\nMC samples:",mc_sample_lst)
-    print("\nData samples:",data_sample_lst)
-
-    for sample_name in all_samples:
-        if sample_name not in mc_sample_lst:
-            samples_to_rm_from_mc_hist.append(sample_name)
-        if sample_name not in data_sample_lst:
-            samples_to_rm_from_data_hist.append(sample_name)
-    print("\nVariables:",dict_of_hists.keys())
-
-    global CR_GRP_MAP
-    CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
-
-    # Loop over hists and make plots
-    skip_lst = [] # Skip these hists
-    #skip_wlst = ["njets"] # Skip all but these hists
-    for idx,var_name in enumerate(dict_of_hists.keys()):
-        if 'sumw2' in var_name:
-            continue
-        if (var_name in skip_lst):
-            continue
-        #if (var_name not in skip_wlst): continue
-        channel_transformations = []
-        if (var_name == "njets"):
-            # We do not keep track of jets in the sparse axis for the njets hists
-            channel_transformations.append("njets")
-            cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
-        else:
-            cr_cat_dict = CR_CHAN_DICT
-        # If the hist is not split by lepton flavor, the lep flav info should not be in the channel names we try to integrate over
-        if not yt.is_split_by_lepflav(dict_of_hists):
-            channel_transformations.append("lepflav")
-            cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
-        print("\nVar name:",var_name)
-            
-        # Extract the MC and data hists
-        hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
-        hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
-        is_sparse2d = _is_sparse_2d_hist(hist_mc)
-        if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
-            print(f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting.")
-            is_sparse2d = False
-
-        # Loop over the CR categories
-        for hist_cat in cr_cat_dict.keys():
-            if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))):
-                continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
-            if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))):
-                continue # The flip category does not require jets (so leading jet plots do not make sense)
-            print("\n\tCategory:",hist_cat)
-
-            validate_channel_group(
-                [hist_mc, hist_data],
-                cr_cat_dict[hist_cat],
-                channel_transformations,
-                region="CR",
-                subgroup=hist_cat,
-                variable=var_name,
-            )
-
-            # Make a sub dir for this category
-            save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
-            if not os.path.exists(save_dir_path_tmp):
-                os.mkdir(save_dir_path_tmp)
-
-            # Integrate to get the categories we want
-            axes_to_integrate_dict = {}
-            axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
-            try:
-                hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)[{"channel": sum}]
-                hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)[{"channel": sum}]
-            except:
-                continue
-            # Remove samples that are not relevant for the given category
-            samples_to_rm = []
-
-            if hist_cat.startswith("cr_2los_tt") or hist_cat.startswith('cr_2los_Z'): #we don't actually expect nonprompt in the ttbar CR, and here the nonprompt estimation is not really reliable
-                try:
-                    samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
-                except KeyError:
-                    print(f"Warning: No Nonprompt group in CR_GRP_MAP for {hist_cat}, skipping sample removal.")
-                else:
-                    pass
-            hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
-
-
-            # Calculate the syst errors
-            p_err_arr = None
-            m_err_arr = None
-            p_err_arr_ratio = None
-            m_err_arr_ratio = None
-            if not (is_sparse2d or skip_syst_errs):
-                # Get plus and minus rate and shape arrs
-                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
-                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
-                if (var_name == "njets"):
-                    # This is a special case for the diboson jet dependent systematic
-                    db_hist = hist_mc_integrated.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
-                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
-                # Get the arrays we will actually put in the CR plot
-                nom_arr_all = hist_mc_integrated[{"process": sum}].integrate("systematic","nominal").eval({})[()][1:]
-                p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:] # This goes in the main plot
-                m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:] # This goes in the main plot
-                p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
-                m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
-
-
-            if is_sparse2d:
-                hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate("systematic", "nominal")
-                hist_data_nominal = hist_data_integrated[{"process": sum}].integrate("systematic", "nominal")
-                if hist_mc_nominal.empty():
-                    print(f'Empty histogram for {hist_cat=} {var_name=}, skipping 2D plot.')
-                    continue
-                if hist_data_nominal.empty():
-                    print(f'Empty data histogram for {hist_cat=} {var_name=}, skipping 2D plot.')
-                    continue
-            else:
-                # Group the samples by process type, and grab just nominal syst category
-                #hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
-                #hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
-                hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
-                hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
-                if hist_mc_integrated.empty():
-                    print(f'Empty {hist_mc_integrated=}')
-                    continue
-                if hist_data_integrated.empty():
-                    print(f'Empty {hist_data_integrated=}')
-                    continue
-
-            # Print out total MC and data and the sf between them
-            # For extracting the factors we apply to the flip contribution
-            # Probably should be an option not just a commented block...
-            #if hist_cat != "cr_2lss_flip": continue
-            #tot_data = sum(sum(hist_data_integrated.eval({}).eval({})))
-            #tot_mc   = sum(sum(hist_mc_integrated.eval({}).eval({})))
-            #flips    = sum(sum(hist_mc_integrated["Flips"].eval({}).eval({})))
-            #tot_mc_but_flips = tot_mc - flips
-            #sf = (tot_data - tot_mc_but_flips)/flips
-            #print(f"\nComp: data/pred = {tot_data}/{tot_mc} = {tot_data/tot_mc}")
-            #print(f"Flip sf needed = (data - (pred - flips))/flips = {sf}")
-            #exit()
-
-            # Create and save the figure
-            x_range = None
-            if var_name == "ht": x_range = (0,250)
-            title = hist_cat+"_"+var_name
-            if is_sparse2d:
-                fig = make_sparse2d_fig(
-                    hist_mc_nominal,
-                    hist_data_nominal,
-                    var_name,
-                    channel_name=hist_cat,
-                    lumitag=LUMI_COM_PAIRS[year][0],
-                    comtag=LUMI_COM_PAIRS[year][1],
-                    per_panel=True,
-                )
-            else:
-                group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
-
-                fig = make_cr_fig(
-                    hist_mc_integrated,
-                    hist_data_integrated,
-                    unit_norm_bool,
-                    var=var_name,
-                    group=group,
-                    set_x_lim = x_range,
-                    err_p = p_err_arr,
-                    err_m = m_err_arr,
-                    err_ratio_p = p_err_arr_ratio,
-                    err_ratio_m = m_err_arr_ratio,
-                    lumitag=LUMI_COM_PAIRS[year][0],
-                    comtag=LUMI_COM_PAIRS[year][1]
-                )
-            if unit_norm_bool: title = title + "_unitnorm"
-            if isinstance(fig, dict):
-                combined_fig = fig["combined"]
-                combined_fig.savefig(os.path.join(save_dir_path_tmp,title))
-                suffix_map = {"mc": "_MC", "data": "_data", "ratio": "_ratio"}
-                for key, panel_fig in fig.items():
-                    if key == "combined":
-                        continue
-                    suffix = suffix_map.get(key, f"_{key}")
-                    panel_fig.savefig(os.path.join(save_dir_path_tmp, f"{title}{suffix}"))
-            else:
-                fig.savefig(os.path.join(save_dir_path_tmp,title))
-
-            # Make an index.html file if saving to web area
-            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+        produce_region_plots(
+            region_ctx,
+            save_dir_path,
+            variables,
+            skip_syst_errs,
+            unit_norm_bool,
+            stacked_log_y,
+            unblind=unblind,
+            workers=workers,
+            verbose=verbose,
+        )
 
 def main():
 
@@ -1649,10 +5087,157 @@ def main():
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
     parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
-    parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
+    parser.add_argument(
+        "-y",
+        "--year",
+        nargs="+",
+        help="One or more year tokens or aggregates to include (e.g. 2017 2018, run2, run3)",
+    )
+    parser.add_argument(
+        "--channel-output",
+        choices=("merged", "split", "both"),
+        default="merged",
+        help=(
+            "Control how channel categories are rendered: 'merged' integrates each category before plotting, "
+            "'split' keeps the individual channels, and 'both' renders both sets (default: merged)."
+        ),
+    )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
-    parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip syst errs in plots, only relevant for CR plots right now")
+    parser.add_argument(
+        "--log-y",
+        dest="log_y",
+        action="store_true",
+        help="Use a logarithmic y-axis for the stacked (upper) panel; the ratio subplot remains linear.",
+    )
+    parser.add_argument(
+        "-s",
+        "--skip-syst",
+        default=False,
+        action="store_true",
+        help="Skip systematic error bands in plots (statistical bands fall back to Poisson when sumw² histograms are absent)",
+    )
+    parser.add_argument(
+        "--unblind",
+        dest="unblind",
+        action="store_true",
+        help="Force plots to include data yields even in normally blinded regions.",
+    )
+    parser.add_argument(
+        "--blind",
+        dest="unblind",
+        action="store_false",
+        help="Force plots to hide data yields even in normally unblinded regions.",
+    )
+    region_group = parser.add_mutually_exclusive_group()
+    region_group.add_argument(
+        "--cr",
+        dest="region_override",
+        action="store_const",
+        const="CR",
+        help="Force control-region plotting, overriding filename-based detection.",
+    )
+    region_group.add_argument(
+        "--sr",
+        dest="region_override",
+        action="store_const",
+        const="SR",
+        help="Force signal-region plotting, overriding filename-based detection.",
+    )
+    parser.add_argument(
+        "--variables",
+        nargs="+",
+        default=None,
+        help="Optional list of histogram variables to plot",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of worker processes for parallel variable rendering (default: 1).",
+    )
+    verbosity_group = parser.add_mutually_exclusive_group()
+    verbosity_group.add_argument(
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="Enable detailed diagnostic output (variable lists, channel dumps).",
+    )
+    verbosity_group.add_argument(
+        "--quiet",
+        dest="verbose",
+        action="store_false",
+        help="Limit output to high-level progress messages (default).",
+    )
+    parser.set_defaults(unblind=None, verbose=False)
     args = parser.parse_args()
+    normalized_years = _normalize_year_tokens(args.year)
+    if args.year and not normalized_years:
+        parser.error(
+            "No valid year tokens were provided; expected one or more of: {}".format(
+                ", ".join(sorted(YEAR_TOKEN_RULES))
+            )
+        )
+    selected_years = normalized_years
+
+    def _detect_region_from_path(path):
+        if not path:
+            return None, False
+        filename = os.path.basename(path)
+        uppercase = filename.upper()
+        matched_regions = []
+        for region in ("CR", "SR"):
+            # Accept filenames where the region token is directly followed by
+            # qualifiers such as a year (e.g. "SR2018") or run tag (e.g. "CRRun2").
+            # We only guard against being embedded within a longer alphanumeric
+            # token by ensuring the preceding character is not an uppercase
+            # letter or digit.
+            pattern = re.compile(rf"(?<![A-Z0-9]){region}")
+            if pattern.search(uppercase):
+                matched_regions.append(region)
+        if len(matched_regions) == 1:
+            return matched_regions[0], False
+        if len(matched_regions) > 1:
+            return None, True
+        return None, False
+
+    detected_region, ambiguous_region = _detect_region_from_path(args.pkl_file_path)
+    resolved_region = args.region_override or detected_region or "CR"
+    if ambiguous_region and not args.region_override:
+        print(
+            "Warning: Detected both 'CR' and 'SR' tokens in the input filename. "
+            "Defaulting to 'CR'; please pass --cr or --sr to specify explicitly."
+        )
+
+    if args.unblind is None:
+        resolved_unblind = resolved_region == "CR"
+        blinding_source = f"default for {resolved_region} region"
+    elif args.unblind:
+        resolved_unblind = True
+        blinding_source = "command-line --unblind override"
+    else:
+        resolved_unblind = False
+        blinding_source = "command-line --blind override"
+
+    print(f"Resolved plotting region: {resolved_region}")
+    print(
+        "Resolved blinding mode: {} ({})".format(
+            "unblinded" if resolved_unblind else "blinded", blinding_source
+        )
+    )
+    print(f"Channel output selection: {args.channel_output}")
+
+    normalized_variables = []
+    if args.variables is not None:
+        seen_variables = set()
+        for value in args.variables:
+            if value is None:
+                continue
+            cleaned = value.strip()
+            if not cleaned or cleaned in seen_variables:
+                continue
+            seen_variables.add(cleaned)
+            normalized_variables.append(cleaned)
+    selected_variables = normalized_variables if normalized_variables else None
 
     # Whether or not to unit norm the plots
     unit_norm_bool = args.unit_norm
@@ -1667,24 +5252,43 @@ def main():
     os.mkdir(save_dir_path)
 
     # Get the histograms
-    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    load_start_time = datetime.datetime.now()
+    if args.verbose:
+        print(
+            f"[{load_start_time:%H:%M:%S}] Loading histograms from '{args.pkl_file_path}'..."
+        )
+    hin_dict = te_utils.get_hist_from_pkl(args.pkl_file_path, allow_empty=False)
+    if args.verbose:
+        load_finish_time = datetime.datetime.now()
+        print(
+            "[{}] Histogram load completed in {:.2f}s".format(
+                load_finish_time.strftime("%H:%M:%S"),
+                (load_finish_time - load_start_time).total_seconds(),
+            )
+        )
     # Print info about histos
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
 
+    print("\nMaking plots for years:", selected_years if selected_years else "All")
+    print("Output dir:",save_dir_path)
+    print("Variables to plot:", selected_variables if selected_variables else "All")
+    print("\n\n")
+
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
-    #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
-    #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
-    #make_simple_plots(hin_dict,args.year,save_dir_path)
-
-    # Make unblinded SR data MC comparison plots by year
-    #make_all_sr_data_mc_plots(hin_dict,"2016",save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,"2016APV",save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,"2017",save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,"2018",save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,None,save_dir_path)
-
+    run_plots_for_region(
+        resolved_region,
+        hin_dict,
+        selected_years,
+        save_dir_path,
+        skip_syst_errs=args.skip_syst,
+        unit_norm_bool=unit_norm_bool,
+        stacked_log_y=args.log_y,
+        variables=selected_variables,
+        unblind=resolved_unblind,
+        workers=args.workers,
+        verbose=args.verbose,
+        channel_output=args.channel_output,
+    )
 if __name__ == "__main__":
     main()

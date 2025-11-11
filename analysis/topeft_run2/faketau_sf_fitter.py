@@ -17,28 +17,17 @@
 
 import numpy as np
 import os
-import copy
-import datetime
 import argparse
 import json
 import logging
 import math
 from collections import OrderedDict
-from cycler import cycler
-
-#from coffea import hist
+import functools
 import hist
 
 import sys
 import re
-import matplotlib
-#matplotlib.use('Qt4Agg')
-
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from  numpy.linalg import eig
-from scipy.odr import *
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.yield_tools import YieldTools
@@ -51,6 +40,40 @@ yt = YieldTools()
 LOGGER = logging.getLogger(__name__)
 
 _TAU_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0pt")
+
+
+YEAR_TOKEN_RULES = {
+    "2016": {
+        "mc_wl": ["UL16", "2016"],
+        "mc_bl": ["UL16APV", "2016APV"],
+        "data_wl": ["UL16", "2016"],
+        "data_bl": ["UL16APV", "2016APV"],
+    },
+    "2016APV": {
+        "mc_wl": ["UL16APV", "2016APV"],
+        "data_wl": ["UL16APV", "2016APV"],
+    },
+    "2017": {"mc_wl": ["UL17", "2017"], "data_wl": ["UL17", "2017"]},
+    "2018": {"mc_wl": ["UL18", "2018"], "data_wl": ["UL18", "2018"]},
+    "2022": {"mc_wl": ["2022"], "data_wl": ["2022"]},
+    "2022EE": {"mc_wl": ["2022EE"], "data_wl": ["2022EE"]},
+    "2023": {"mc_wl": ["2023"], "data_wl": ["2023"]},
+    "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
+}
+
+YEAR_WHITELIST_OPTIONALS = set()
+for _year_rule in YEAR_TOKEN_RULES.values():
+    YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("mc_wl", []))
+    YEAR_WHITELIST_OPTIONALS.update(_year_rule.get("data_wl", []))
+
+
+class HistogramAxisError(RuntimeError):
+    """Exception raised when a histogram is missing required axes."""
+
+    def __init__(self, message, *, missing_axes=None, present_axes=None):
+        super().__init__(message)
+        self.missing_axes = tuple(missing_axes or ())
+        self.present_axes = tuple(present_axes or ())
 
 
 def _extract_jet_suffix(jet_label):
@@ -118,6 +141,10 @@ def load_tau_control_channels(channels_json_path=None):
     ftau_channels = []
     ttau_channels = []
 
+    jet_suffixes = {
+        jet_label: _extract_jet_suffix(jet_label) for jet_label in jet_bins
+    }
+
     for chan_def in lep_chans:
         if not chan_def:
             continue
@@ -132,9 +159,11 @@ def load_tau_control_channels(channels_json_path=None):
                 "Expected names ending with '_Ftau' or '_Ttau'."
             )
 
-        for flavor in lep_flavs:
+        flavored_bases = [_insert_flavor(base_name, flavor) for flavor in lep_flavs]
+
+        for flavored_base in flavored_bases:
             for jet_label in jet_bins:
-                channel_name = f"{_insert_flavor(base_name, flavor)}_{_extract_jet_suffix(jet_label)}"
+                channel_name = f"{flavored_base}_{jet_suffixes[jet_label]}"
                 target_list.append(channel_name)
 
     if not ftau_channels or not ttau_channels:
@@ -143,6 +172,287 @@ def load_tau_control_channels(channels_json_path=None):
         )
 
     return ftau_channels, ttau_channels
+
+
+def _gather_axis_alias_tokens(mapping):
+    """Recursively collect string tokens from an axis-alias mapping."""
+
+    tokens = set()
+    if isinstance(mapping, str):
+        tokens.add(mapping)
+    elif isinstance(mapping, dict):
+        for key, value in mapping.items():
+            tokens.update(_gather_axis_alias_tokens(key))
+            tokens.update(_gather_axis_alias_tokens(value))
+    elif isinstance(mapping, (list, tuple, set)):
+        for entry in mapping:
+            tokens.update(_gather_axis_alias_tokens(entry))
+    return tokens
+
+
+def _collect_processes(histograms, predicate):
+    """Collect unique process names from histograms preserving first-seen order."""
+
+    collected = []
+    seen = set()
+
+    def _append_process(process_name):
+        if process_name not in seen:
+            collected.append(process_name)
+            seen.add(process_name)
+
+    for histogram in histograms:
+        if histogram is None:
+            continue
+        for process in histogram.axes["process"]:
+            process_name = str(process)
+            if predicate(process_name):
+                _append_process(process_name)
+
+    return collected
+
+
+def _maybe_remove_processes(histogram, axis_name, labels):
+    """Return the original histogram when no removal is required."""
+
+    if histogram is None or not labels:
+        return histogram
+
+    return histogram.remove(axis_name, labels)
+
+
+def _group_all(histograms, mapping):
+    """Regroup histograms in a tuple while preserving order and ``None`` entries."""
+
+    regrouped = []
+    for histogram in histograms:
+        if histogram is None:
+            regrouped.append(None)
+        else:
+            regrouped.append(
+                group_bins(
+                    histogram,
+                    mapping,
+                    "process",
+                    drop_unspecified=True,
+                )
+            )
+    return tuple(regrouped)
+
+
+def _integrate_nominal(histogram):
+    """Integrate the nominal systematic axis while preserving ``None`` inputs."""
+
+    if histogram is None:
+        return None
+
+    return histogram.integrate("systematic", "nominal")
+
+
+def _integrate_tau_channels(histogram, channels):
+    """Integrate tau histograms over the requested channels with safe None handling."""
+
+    if histogram is None or channels is None:
+        return None
+
+    return histogram.integrate("channel", channels)[{"channel": sum}]
+
+
+def _extend_unique(target, values):
+    """Append values to target while preserving order and avoiding duplicates."""
+
+    if not values:
+        return target
+
+    for value in values:
+        if value not in target:
+            target.append(value)
+    return target
+
+
+def _prune_tokens(target, forbidden):
+    """Return a list excluding forbidden tokens while preserving order."""
+
+    if not forbidden:
+        return list(target)
+
+    forbidden_set = set(forbidden)
+    return [token for token in target if token not in forbidden_set]
+
+
+def _resolve_year_filters(year_args):
+    """Normalise CLI year arguments and build per-sample filter lists."""
+
+    mc_wl = []
+    mc_bl = ["data"]
+    data_wl = ["data"]
+    data_bl = []
+
+    if year_args is None:
+        normalized = None
+    else:
+        if isinstance(year_args, str):
+            raw_tokens = [year_args]
+        else:
+            raw_tokens = list(year_args)
+
+        normalized = []
+        seen = set()
+        for token in raw_tokens:
+            if token is None:
+                continue
+            cleaned = str(token).strip()
+            if not cleaned or cleaned in seen:
+                continue
+            if cleaned not in YEAR_TOKEN_RULES:
+                raise ValueError(
+                    "Unknown year token '{}' requested. Supported tokens: {}".format(
+                        cleaned, ", ".join(sorted(YEAR_TOKEN_RULES))
+                    )
+                )
+
+            rules = YEAR_TOKEN_RULES[cleaned]
+
+            mc_wl_values = rules.get("mc_wl", [])
+            _extend_unique(mc_wl, mc_wl_values)
+            mc_bl = _prune_tokens(mc_bl, mc_wl_values)
+
+            mc_bl_values = rules.get("mc_bl", [])
+            _extend_unique(mc_bl, mc_bl_values)
+
+            data_wl_values = rules.get("data_wl", [])
+            _extend_unique(data_wl, data_wl_values)
+            data_bl = _prune_tokens(data_bl, data_wl_values)
+
+            data_bl_values = rules.get("data_bl", [])
+            _extend_unique(data_bl, data_bl_values)
+
+            normalized.append(cleaned)
+            seen.add(cleaned)
+
+        if not normalized:
+            normalized = None
+
+    mc_bl = list(dict.fromkeys(mc_bl))
+    data_bl = list(dict.fromkeys(data_bl))
+
+    return {
+        "selected_years": normalized,
+        "mc_whitelist": mc_wl,
+        "mc_blacklist": mc_bl,
+        "data_whitelist": data_wl,
+        "data_blacklist": data_bl,
+    }
+
+
+def _filter_samples(all_labels, whitelist, blacklist):
+    """Return samples that satisfy blacklist rules and multi-token requirements."""
+
+    if len(whitelist) <= 1:
+        return utils.filter_lst_of_strs(
+            all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
+        )
+
+    must_have_tokens = []
+    optional_tokens = []
+    for token in whitelist:
+        if token is None:
+            continue
+        if token.lower() == "data" or token not in YEAR_WHITELIST_OPTIONALS:
+            must_have_tokens.append(token)
+        else:
+            optional_tokens.append(token)
+
+    must_have_tokens = list(dict.fromkeys(must_have_tokens))
+    optional_tokens = list(dict.fromkeys(optional_tokens))
+    optional_token_set = set(optional_tokens)
+
+    @functools.lru_cache(maxsize=None)
+    def _present_year_tokens(label):
+        detected_tokens = {
+            year_token
+            for year_token in YEAR_WHITELIST_OPTIONALS
+            if year_token in label
+        }
+        if len(detected_tokens) <= 1:
+            result = frozenset(detected_tokens)
+            return result
+
+        resolved_tokens = set(detected_tokens)
+        for token in list(detected_tokens):
+            for other_token in detected_tokens:
+                if token == other_token:
+                    continue
+                if token in other_token:
+                    resolved_tokens.discard(token)
+                    break
+
+        result = frozenset(resolved_tokens)
+        return result
+
+    def _label_contains_disallowed_year(present_tokens):
+        if not optional_tokens or not present_tokens:
+            return False
+        return any(token not in optional_token_set for token in present_tokens)
+
+    def _label_passes(label):
+        if any(token in label for token in blacklist):
+            return False
+        if must_have_tokens and any(token not in label for token in must_have_tokens):
+            return False
+        present_tokens = _present_year_tokens(label)
+        if _label_contains_disallowed_year(present_tokens):
+            return False
+        if optional_tokens and not present_tokens.intersection(optional_token_set):
+            return False
+        return True
+
+    return [label for label in all_labels if _label_passes(label)]
+
+
+def _resolve_histogram_axis_names(histogram):
+    """Return the actual axis names, recognised aliases, and canonicalised names."""
+
+    present_axes = set()
+    recognised_axes = set()
+    canonical_axes = set()
+
+    alias_mapping = {}
+    metadata = getattr(histogram, "metadata", None)
+    if isinstance(metadata, dict):
+        alias_mapping = metadata.get("_hist_sumw2_axis_mapping") or {}
+        if alias_mapping:
+            recognised_axes.update(_gather_axis_alias_tokens(alias_mapping))
+
+    if not isinstance(alias_mapping, dict):
+        alias_mapping = {}
+
+    for axis in getattr(histogram, "axes", ()):
+        axis_name = getattr(axis, "name", None)
+        if not axis_name:
+            continue
+        present_axes.add(axis_name)
+        recognised_axes.add(axis_name)
+        if axis_name.endswith("_sumw2"):
+            base_name = axis_name[:-6]
+            if base_name:
+                recognised_axes.add(base_name)
+
+        canonical_name = alias_mapping.get(axis_name)
+        if isinstance(canonical_name, str):
+            canonical_axes.add(canonical_name)
+        elif isinstance(canonical_name, (list, tuple, set)):
+            for entry in canonical_name:
+                if isinstance(entry, str):
+                    canonical_axes.add(entry)
+
+        if not canonical_name:
+            if axis_name.endswith("_sumw2") and len(axis_name) > 6:
+                canonical_axes.add(axis_name[:-6])
+            else:
+                canonical_axes.add(axis_name)
+
+    return present_axes, recognised_axes, canonical_axes
 
 def _strip_tau_flow(array, expected_bins):
     """Trim under/overflow entries from a tau histogram projection."""
@@ -205,13 +515,46 @@ def _fold_tau_overflow(array, expected_bins=None):
     return _strip_tau_flow(arr, expected_bins)
 
 
-def _extract_tau_counts(histogram, expected_bins):
-    """Evaluate tau yields and variances, keeping only the SM quadratic term."""
+def _collapse_quadratic_axis(array, histogram, axis_names):
+    if "quadratic_term" not in axis_names:
+        return array
+
+    quad_index = axis_names.index("quadratic_term")
+    quad_axis = histogram.axes[quad_index]
+    coeff_index = 0
+
+    try:
+        identifiers = getattr(quad_axis, "identifiers", None)
+        if identifiers is not None:
+            identifiers_iter = identifiers() if callable(identifiers) else identifiers
+            for idx, identifier in enumerate(identifiers_iter):
+                ident_value = getattr(identifier, "value", identifier)
+                if isinstance(ident_value, str):
+                    stripped = ident_value.strip()
+                    if stripped.isdigit():
+                        ident_value = int(stripped)
+                    elif stripped.lower() in {"const", "sm,sm"}:
+                        ident_value = 0
+                if ident_value == 0:
+                    coeff_index = idx
+                    break
+    except Exception:
+        coeff_index = 0
+
+    take_index = coeff_index
+    traits = getattr(quad_axis, "traits", None)
+    if traits is not None and getattr(traits, "underflow", False):
+        take_index += 1
+
+    return np.take(array, take_index, axis=quad_index)
+
+
+def _ensure_dense_histogram(histogram):
+    if histogram is None:
+        return None
 
     working_hist = histogram
 
-    # HistEFT stores quadratic coefficients sparsely; evaluate them at the SM
-    # point so that downstream logic can operate on dense histograms.
     if isinstance(working_hist, HistEFT):
         if hasattr(working_hist, "as_hist"):
             working_hist = working_hist.as_hist({})
@@ -233,45 +576,50 @@ def _extract_tau_counts(histogram, expected_bins):
                     dense_hist[dict(zip(sparse_names, sp_val))] = arrs
                 working_hist = dense_hist
 
+    return working_hist
+
+
+def _extract_tau_counts(histogram, expected_bins, sumw2_input=None):
+    """Evaluate tau yields and variances, keeping only the SM quadratic term."""
+
+    working_hist = _ensure_dense_histogram(histogram)
+    if working_hist is None:
+        raise RuntimeError("A nominal histogram must be provided to extract tau counts.")
+
     axis_names = tuple(getattr(axis, "name", None) for axis in getattr(working_hist, "axes", ()))
 
-    # Retrieve dense values/variances with histogram-provided helpers.
     values = np.asarray(working_hist.values(flow=True), dtype=float)
-    variances = working_hist.variances(flow=True)
-    if variances is not None:
-        variances = np.asarray(variances, dtype=float)
+    if values.size == 0:
+        values = np.zeros(0, dtype=float)
 
-    # Drop the quadratic-term axis by selecting the constant coefficient.
     if "quadratic_term" in axis_names:
-        quad_index = axis_names.index("quadratic_term")
-        coeff_index = 0
-        try:
-            quad_axis = working_hist.axes[quad_index]
-            identifiers = getattr(quad_axis, "identifiers", None)
-            if identifiers is not None:
-                identifiers_iter = identifiers() if callable(identifiers) else identifiers
-                for idx, identifier in enumerate(identifiers_iter):
-                    ident_value = getattr(identifier, "value", identifier)
-                    if isinstance(ident_value, str):
-                        stripped = ident_value.strip()
-                        if stripped.isdigit():
-                            ident_value = int(stripped)
-                        elif stripped.lower() in {"const", "sm,sm"}:
-                            ident_value = 0
-                    if ident_value == 0:
-                        coeff_index = idx
-                        break
-        except Exception:
-            coeff_index = 0
+        values = _collapse_quadratic_axis(values, working_hist, axis_names)
 
-        take_index = coeff_index
-        traits = getattr(quad_axis, "traits", None)
-        if traits is not None and getattr(traits, "underflow", False):
-            take_index += 1
+    variances = None
 
-        values = np.take(values, take_index, axis=quad_index)
+    if sumw2_input is not None:
+        if isinstance(sumw2_input, (np.ndarray, list, tuple)):
+            variances = np.asarray(sumw2_input, dtype=float)
+        else:
+            sumw2_hist = _ensure_dense_histogram(sumw2_input)
+            if sumw2_hist is not None:
+                sumw2_axis_names = tuple(
+                    getattr(axis, "name", None) for axis in getattr(sumw2_hist, "axes", ())
+                )
+                variances = np.asarray(sumw2_hist.values(flow=True), dtype=float)
+                if "quadratic_term" in sumw2_axis_names:
+                    variances = _collapse_quadratic_axis(
+                        variances,
+                        sumw2_hist,
+                        sumw2_axis_names,
+                    )
+
+    if variances is None:
+        variances = working_hist.variances(flow=True)
         if variances is not None:
-            variances = np.take(variances, take_index, axis=quad_index)
+            variances = np.asarray(variances, dtype=float)
+            if "quadratic_term" in axis_names:
+                variances = _collapse_quadratic_axis(variances, working_hist, axis_names)
 
     values_1d = np.squeeze(values)
     if values_1d.ndim == 0:
@@ -282,6 +630,7 @@ def _extract_tau_counts(histogram, expected_bins):
             f"received {values.shape}."
         )
 
+    variances_1d = None
     if variances is not None:
         variances_1d = np.squeeze(variances)
         if variances_1d.ndim == 0:
@@ -291,21 +640,91 @@ def _extract_tau_counts(histogram, expected_bins):
                 "Unexpected tau variance shape; expected a 1D tau-pt spectrum, "
                 f"received {variances.shape}."
             )
-    else:
-        variances_1d = None
 
     if variances_1d is None or not np.any(variances_1d):
-        # HistEFT objects backed by Double storage do not track sumw².  Fall back to
-        # Poisson-like uncertainties so statistical errors remain non-zero in that
-        # configuration.  Clip negative values (which can arise from weighted MC) to
-        # zero before treating them as variances.
         variances_1d = np.maximum(values_1d, 0.0)
 
-    # Fold overflow contributions after ensuring the arrays are 1D.
     folded_values = _fold_tau_overflow(values_1d, expected_bins=expected_bins)
     folded_variances = _fold_tau_overflow(variances_1d, expected_bins=expected_bins)
 
     return folded_values, folded_variances
+
+
+def _variance_to_errors(variances):
+    variances = np.asarray(variances, dtype=float)
+    return np.sqrt(np.clip(variances, 0.0, None))
+
+
+def _collect_grouped_counts(hist, sumw2_hist, expected_bins, *, hist_label="grouped histogram"):
+    """Collect tau counts and errors for each process in a grouped histogram."""
+
+    if hist is None:
+        raise RuntimeError(
+            f"Missing {hist_label}; expected a grouped histogram with a 'process' axis."
+        )
+
+    try:
+        process_axis = hist.axes["process"]
+    except (KeyError, AttributeError, TypeError):
+        raise RuntimeError(
+            f"The {hist_label} is not grouped by process; expected a histogram with a 'process' axis."
+        )
+
+    grouped_counts = {}
+    for process in process_axis:
+        proc_name = str(process)
+        proc_hist = hist[{"process": process}]
+        proc_sumw2_hist = sumw2_hist[{"process": process}] if sumw2_hist is not None else None
+        proc_vals, proc_vars = _extract_tau_counts(
+            proc_hist,
+            expected_bins,
+            sumw2_input=proc_sumw2_hist,
+        )
+        grouped_counts[proc_name] = (proc_vals, _variance_to_errors(proc_vars))
+
+    return grouped_counts
+
+
+def _extract_grouped_tau_yields(
+    fake_hist,
+    tight_hist,
+    expected_bins,
+    *,
+    fake_sumw2_hist=None,
+    tight_sumw2_hist=None,
+    sample_kind,
+):
+    """Collect tau yields and uncertainties for a grouped sample."""
+
+    fake_counts = _collect_grouped_counts(
+        fake_hist,
+        fake_sumw2_hist,
+        expected_bins,
+        hist_label=f"{sample_kind} fake grouped histogram",
+    )
+    tight_counts = _collect_grouped_counts(
+        tight_hist,
+        tight_sumw2_hist,
+        expected_bins,
+        hist_label=f"{sample_kind} tight grouped histogram",
+    )
+
+    if fake_counts.keys() != tight_counts.keys():
+        raise RuntimeError(
+            f"Inconsistent {sample_kind} processes found between fake and tight histograms: "
+            f"{sorted(fake_counts)} vs {sorted(tight_counts)}"
+        )
+    if len(fake_counts) != 1:
+        raise RuntimeError(
+            f"Expected a single {sample_kind} process after grouping; found "
+            f"{sorted(fake_counts)}."
+        )
+
+    proc_name = next(iter(fake_counts))
+    fake_vals, fake_err = fake_counts[proc_name]
+    tight_vals, tight_err = tight_counts[proc_name]
+
+    return fake_vals, fake_err, tight_vals, tight_err
 
 
 def _format_bin_edge(edge):
@@ -326,6 +745,26 @@ def _format_bin_label(edges, start_index, stop_index):
 def _print_section_header(title):
     print(f"\n{title}")
     print("=" * len(title))
+
+
+def _print_year_filter_summary(summary):
+    _print_section_header("Year selection summary")
+
+    selected_years = summary.get("selected_years")
+    if selected_years:
+        print("Requested year tokens : " + ", ".join(selected_years))
+    else:
+        print("Requested year tokens : <all available>")
+
+    retained_mc = summary.get("mc_samples") or []
+    retained_data = summary.get("data_samples") or []
+    removed_mc = summary.get("mc_removed") or []
+    removed_data = summary.get("data_removed") or []
+
+    print("Retained MC processes   : " + (", ".join(retained_mc) if retained_mc else "<none>"))
+    print("Retained data processes : " + (", ".join(retained_data) if retained_data else "<none>"))
+    print("Removed MC processes    : " + (", ".join(removed_mc) if removed_mc else "<none>"))
+    print("Removed data processes  : " + (", ".join(removed_data) if removed_data else "<none>"))
 
 
 def _print_yield_table(title, bin_labels, yields, errors):
@@ -424,22 +863,10 @@ def _print_fit_summary(
 def linear(x,a,b):
     return b*x+a
 
-def linear2(B,x):
-    return B[1]*x+B[0]
-
 def SF_fit(SF,SF_e,x):
 
     params, cov = curve_fit(linear,x,SF,sigma=SF_e,absolute_sigma=True)
     return params[0],params[1], cov
-
-def SF_fit_alt(SF,SF_e,x):
-    x_err = [0.1]*len(x)
-    linear_model = Model(linear2)
-    data = RealData(x, SF, sx=x_err, sy=SF_e)
-    odr = ODR(data, linear_model, beta0=[0.4, 0.4])
-    out = odr.run()
-    c0,c1,cov, = out.Output()
-    return c0,c1,cov
 
 def _ensure_list(values):
     if isinstance(values, str):
@@ -448,15 +875,9 @@ def _ensure_list(values):
 
 
 def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
-    # print("\n\n\n\n\n")
-    # print("INGROUPBINS\nhisto axes = ", [ax.name for ax in histo.axes])
-    # for ax in histo.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\n\n\n\n\n")
-    bin_map_copy = copy.deepcopy(bin_map)  # Avoid editing original
     normalized_map = OrderedDict(
         (group, _ensure_list(categories))
-        for group, categories in bin_map_copy.items()
+        for group, categories in bin_map.items()
     )
 
     axis_categories = list(histo.axes[axis_name])
@@ -659,11 +1080,12 @@ def compute_fake_rates(
             for index in range(first_index, stop_index)
         ]
 
-    ratios = []
-    errors = []
+    n_groups = len(regroup_slices)
+    ratios = np.empty(n_groups, dtype=float)
+    errors = np.empty(n_groups, dtype=float)
     summary = []
 
-    for start, stop in regroup_slices:
+    for index, (start, stop) in enumerate(regroup_slices):
         fake_slice = slice(start, stop)
         # Sum yields inside the requested regrouping window.  ``np.sum`` already
         # copes with single-bin windows so no special handling is needed here.
@@ -690,13 +1112,14 @@ def compute_fake_rates(
             ratio = 0.0
             ratio_err = 0.0
 
-        ratios.append(ratio)
-        if ratio != 0.0 and (ratio + ratio_err) / ratio < 1.02:
-            # Enforce a minimum ~2% relative uncertainty so the subsequent fit
-            # does not see artificially precise inputs.
-            errors.append(1.02 * ratio - ratio)
+        ratios[index] = ratio
+        if ratio > 0.0:
+            # Preserve the historical minimum ~2% relative uncertainty by
+            # picking the larger of the propagated error and the enforced
+            # floor.
+            errors[index] = max(ratio_err, 0.02 * ratio)
         else:
-            errors.append(ratio_err)
+            errors[index] = ratio_err
 
         summary.append(
             {
@@ -709,8 +1132,8 @@ def compute_fake_rates(
         )
 
     return (
-        np.array(ratios, dtype=float),
-        np.array(errors, dtype=float),
+        ratios,
+        errors,
         summary,
     )
 
@@ -718,8 +1141,21 @@ def compute_fake_rates(
 def _validate_histogram_axes(histogram, expected_axes, hist_name):
     """Ensure the histogram contains the expected axes for the tau fake-rate workflow."""
 
-    present_axes = {axis.name for axis in histogram.axes}
-    missing_axes = [axis for axis in expected_axes if axis not in present_axes]
+    present_axes, recognised_axes, canonical_axes = _resolve_histogram_axis_names(histogram)
+
+    if recognised_axes and not canonical_axes:
+        canonical_axes.update(recognised_axes)
+
+    canonical_expected = set()
+    for axis in expected_axes:
+        if isinstance(axis, str):
+            canonical_expected.add(axis)
+            if axis.endswith("_sumw2") and len(axis) > 6:
+                canonical_expected.add(axis[:-6])
+        else:
+            canonical_expected.add(axis)
+
+    missing_axes = [axis for axis in canonical_expected if axis not in canonical_axes]
 
     if missing_axes:
         available = ", ".join(sorted(present_axes)) if present_axes else "<none>"
@@ -729,7 +1165,13 @@ def _validate_histogram_axes(histogram, expected_axes, hist_name):
             "Regenerate the histogram pickle with these axes enabled before running tauFitter."
         )
         LOGGER.error(summary)
-        raise RuntimeError(summary)
+        raise HistogramAxisError(
+            summary,
+            missing_axes=missing_axes,
+            present_axes=sorted(present_axes),
+        )
+
+    return set(canonical_axes)
 
 
 def _validate_tau_channel_coverage(
@@ -743,7 +1185,13 @@ def _validate_tau_channel_coverage(
 
     channel_axis = None
     for axis in histogram.axes:
-        if axis.name == channel_axis_name:
+        axis_name = getattr(axis, "name", None)
+        if not axis_name:
+            continue
+        if axis_name == channel_axis_name:
+            channel_axis = axis
+            break
+        if axis_name.endswith("_sumw2") and axis_name[:-6] == channel_axis_name:
             channel_axis = axis
             break
 
@@ -787,39 +1235,52 @@ def _validate_tau_channel_coverage(
         raise RuntimeError(summary)
 
 
-def getPoints(dict_of_hists, ftau_channels, ttau_channels):
-    # Construct list of MC samples
-    mc_wl = []
-    mc_bl = ["data"]
-    data_wl = ["data"]
-    data_bl = []
+def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=None):
+    if sample_filters is None:
+        sample_filters = _resolve_year_filters(None)
 
-    # Get the list of samples we want to plot
-    samples_to_rm_from_mc_hist = []
-    samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"process")
-    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    mc_wl = list(sample_filters.get("mc_whitelist", ()))
+    mc_bl = list(sample_filters.get("mc_blacklist", ()))
+    data_wl = list(sample_filters.get("data_whitelist", ()))
+    data_bl = list(sample_filters.get("data_blacklist", ()))
 
-    # print("\n\n\n\n\n")
-    # print("all samples = ", all_samples)
-    # print("mc samples = ", mc_sample_lst)
-    # print("data samples = ", data_sample_lst)
+    all_samples = yt.get_cat_lables(dict_of_hists, "process")
+    mc_sample_lst = _filter_samples(all_samples, mc_wl, mc_bl)
+    data_sample_lst = _filter_samples(all_samples, data_wl, data_bl)
 
-    for sample_name in all_samples:
-        if sample_name not in mc_sample_lst:
-            samples_to_rm_from_mc_hist.append(sample_name)
-        if sample_name not in data_sample_lst:
-            samples_to_rm_from_data_hist.append(sample_name)
+    mc_keep = set(mc_sample_lst)
+    data_keep = set(data_sample_lst)
 
-    # print("samples to rm from mc hist = ", samples_to_rm_from_mc_hist)
-    # print("samples to rm from data hist = ", samples_to_rm_from_data_hist)
-    # print("\n\n\n\n\n")
+    samples_to_rm_from_mc_hist = [
+        sample_name for sample_name in all_samples if sample_name not in mc_keep
+    ]
+    samples_to_rm_from_data_hist = [
+        sample_name for sample_name in all_samples if sample_name not in data_keep
+    ]
 
     var_name = "tau0pt"
-    tau_hist = dict_of_hists[var_name]
+    try:
+        tau_hist = dict_of_hists[var_name]
+    except KeyError as exc:
+        available_keys = sorted(dict_of_hists)
+        available_desc = ", ".join(available_keys) if available_keys else "<none>"
+        raise RuntimeError(
+            "The histogram pickle is missing the required 'tau0pt' histogram. "
+            f"Available histograms: {available_desc}."
+        ) from exc
+    tau_sumw2_hist = dict_of_hists.get(f"{var_name}_sumw2")
 
-    _validate_histogram_axes(tau_hist, _TAU_HISTOGRAM_REQUIRED_AXES, var_name)
+    if tau_sumw2_hist is None:
+        LOGGER.warning(
+            "Histogram '%s_sumw2' is missing; falling back to Poisson statistical uncertainties.",
+            var_name,
+        )
+
+    tau_canonical_axes = _validate_histogram_axes(
+        tau_hist,
+        _TAU_HISTOGRAM_REQUIRED_AXES,
+        var_name,
+    )
     _validate_tau_channel_coverage(
         tau_hist,
         "channel",
@@ -828,84 +1289,142 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         var_name,
     )
 
-    # print("AFTER: tau_hist axes = ", [ax.name for ax in tau_hist.axes])
-    # for ax in tau_hist.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\n\n\n\n\n")
+    if tau_sumw2_hist is not None:
+        try:
+            _validate_histogram_axes(
+                tau_sumw2_hist,
+                tau_canonical_axes,
+                f"{var_name}_sumw2",
+            )
+        except HistogramAxisError as exc:
+            if set(exc.missing_axes) == {"tau0pt"}:
+                LOGGER.warning(
+                    "The '%s' histogram is missing the '%s' axis; "
+                    "falling back to Poisson counting uncertainties.",
+                    f"{var_name}_sumw2",
+                    "tau0pt",
+                )
+                tau_sumw2_hist = None
+            else:
+                raise
+        else:
+            _validate_tau_channel_coverage(
+                tau_sumw2_hist,
+                "channel",
+                ftau_channels,
+                ttau_channels,
+                f"{var_name}_sumw2",
+            )
 
-    hist_mc = tau_hist.remove("process",samples_to_rm_from_mc_hist)
-    hist_data = tau_hist.remove("process",samples_to_rm_from_data_hist)
+    # Remove any processes that should not contribute to the MC or data histograms.
+    # When no removals are needed, reuse the existing histogram instead of cloning it.
+    hist_mc = _maybe_remove_processes(
+        tau_hist, "process", samples_to_rm_from_mc_hist
+    )
+    hist_data = _maybe_remove_processes(
+        tau_hist, "process", samples_to_rm_from_data_hist
+    )
 
-    # print("AFTERREMOVAL\nhist_mc axes = ", [ax.name for ax in hist_mc.axes])
-    # for ax in hist_mc.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\nhist_data axes = ", [ax.name for ax in hist_data.axes])
-    # for ax in hist_data.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\n\n\n\n\n")
+    if tau_sumw2_hist is not None:
+        hist_mc_sumw2 = _maybe_remove_processes(
+            tau_sumw2_hist,
+            "process",
+            samples_to_rm_from_mc_hist,
+        )
+        hist_data_sumw2 = _maybe_remove_processes(
+            tau_sumw2_hist,
+            "process",
+            samples_to_rm_from_data_hist,
+        )
+    else:
+        hist_mc_sumw2 = None
+        hist_data_sumw2 = None
 
     # Integrate to get the categories we want
-    mc_fake     = hist_mc.integrate("channel", ftau_channels)[{"channel": sum}]
-    mc_tight    = hist_mc.integrate("channel", ttau_channels)[{"channel": sum}]
-    data_fake   = hist_data.integrate("channel", ftau_channels)[{"channel": sum}]
-    data_tight  = hist_data.integrate("channel", ttau_channels)[{"channel": sum}]
+    mc_fake = _integrate_tau_channels(hist_mc, ftau_channels)
+    mc_tight = _integrate_tau_channels(hist_mc, ttau_channels)
+    data_fake = _integrate_tau_channels(hist_data, ftau_channels)
+    data_tight = _integrate_tau_channels(hist_data, ttau_channels)
 
-    # print("AFTERINTEGRATE\nmc_fake axes = ", [ax.name for ax in mc_fake.axes])
-    # for ax in mc_fake.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\nmc_tight axes = ", [ax.name for ax in mc_tight.axes])
-    # for ax in mc_tight.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\ndata_fake axes = ", [ax.name for ax in data_fake.axes])
-    # for ax in data_fake.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\ndata_tight axes = ", [ax.name for ax in data_tight.axes])
-    # for ax in data_tight.axes:
-    #     print(f"  {ax.name}: {[str(cat) for cat in ax]}")
-    # print("\n\n\n\n\n")
+    mc_fake_sumw2 = _integrate_tau_channels(hist_mc_sumw2, ftau_channels)
+    mc_tight_sumw2 = _integrate_tau_channels(hist_mc_sumw2, ttau_channels)
+
+    data_fake_sumw2 = _integrate_tau_channels(hist_data_sumw2, ftau_channels)
+    data_tight_sumw2 = _integrate_tau_channels(hist_data_sumw2, ttau_channels)
 
     # Build fresh grouping maps derived from the current histogram contents so we only
     # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
     # MC map free of any ``data{year}`` entries while the data map only keeps those
     # ``data{year}`` labels.
-    mc_group_map = OrderedDict((("Ttbar", []),))
-    data_group_map = OrderedDict((("Data", []),))
+    mc_processes = _collect_processes(
+        (mc_fake, mc_tight),
+        lambda name: not name.startswith("data"),
+    )
+    data_processes = _collect_processes(
+        (data_fake, data_tight),
+        lambda name: name.startswith("data"),
+    )
 
-    def _append_process(target_list, process_name):
-        if process_name not in target_list:
-            target_list.append(process_name)
+    if not mc_processes:
+        raise RuntimeError(
+            "No MC processes remain after applying sample filters. "
+            f"Filtered MC samples: {sorted(mc_sample_lst)!r}"
+        )
 
-    for hist in (mc_fake, mc_tight):
-        for process in hist.axes["process"]:
-            process_name = str(process)
-            if process_name.startswith("data"):
-                continue
-            _append_process(mc_group_map["Ttbar"], process_name)
+    if not data_processes:
+        raise RuntimeError(
+            "No data processes remain after applying sample filters. "
+            f"Filtered data samples: {sorted(data_sample_lst)!r}"
+        )
 
-    for hist in (data_fake, data_tight):
-        for process in hist.axes["process"]:
-            process_name = str(process)
-            if process_name.startswith("data"):
-                _append_process(data_group_map["Data"], process_name)
+    mc_group_map = OrderedDict((("Ttbar", mc_processes),))
+    data_group_map = OrderedDict((("Data", data_processes),))
 
-    # print("mc_group_map = ", mc_group_map)
-    # print("data_group_map = ", data_group_map)
+    mc_fake, mc_tight = _group_all((mc_fake, mc_tight), mc_group_map)
+    data_fake, data_tight = _group_all((data_fake, data_tight), data_group_map)
 
-    mc_fake     = group_bins(mc_fake,mc_group_map,"process",drop_unspecified=True)
-    mc_tight    = group_bins(mc_tight,mc_group_map,"process",drop_unspecified=True)
-    data_fake   = group_bins(data_fake,data_group_map,"process",drop_unspecified=True)
-    data_tight  = group_bins(data_tight,data_group_map,"process",drop_unspecified=True)
+    (
+        mc_fake_sumw2,
+        mc_tight_sumw2,
+    ) = _group_all((mc_fake_sumw2, mc_tight_sumw2), mc_group_map)
+    (
+        data_fake_sumw2,
+        data_tight_sumw2,
+    ) = _group_all((data_fake_sumw2, data_tight_sumw2), data_group_map)
 
-    mc_fake     = mc_fake.integrate("systematic","nominal")
-    mc_tight    = mc_tight.integrate("systematic","nominal")
-    data_fake   = data_fake.integrate("systematic","nominal")
+    (
+        mc_fake,
+        mc_tight,
+        data_fake,
+        data_tight,
+    ) = tuple(
+        _integrate_nominal(hist)
+        for hist in (mc_fake, mc_tight, data_fake, data_tight)
+    )
 
-    data_tight  = data_tight.integrate("systematic","nominal")
+    (
+        mc_fake_sumw2,
+        mc_tight_sumw2,
+        data_fake_sumw2,
+        data_tight_sumw2,
+    ) = tuple(
+        _integrate_nominal(hist)
+        for hist in (
+            mc_fake_sumw2,
+            mc_tight_sumw2,
+            data_fake_sumw2,
+            data_tight_sumw2,
+        )
+    )
 
     tau_pt_edges, regroup_slices = _resolve_tau_pt_bins(
         mc_fake.axes["tau0pt"],
         TAU_PT_BIN_EDGES,
     )
+    start_indices = np.fromiter(
+        (start for start, _ in regroup_slices), dtype=int
+    )
+    pt_bin_starts = tau_pt_edges[start_indices].astype(float, copy=False)
     expected_bins = len(tau_pt_edges) - 1
 
     data_tau_pt_edges = _extract_tau_pt_edges(data_fake.axes["tau0pt"])
@@ -914,73 +1433,28 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
             "MC and data tau pt axes define different native edges."
         )
 
-    mc_fake_vals_map = {}
-    mc_fake_err_map = {}
-    mc_tight_vals_map = {}
-    mc_tight_err_map = {}
-    for process in mc_fake.axes["process"]:
-        proc_name = str(process)
-        proc_hist = mc_fake[{"process": process}]
-        proc_vals, proc_vars = _extract_tau_counts(proc_hist, expected_bins)
-        mc_fake_vals_map[proc_name] = proc_vals
-        mc_fake_err_map[proc_name] = np.sqrt(np.clip(proc_vars, 0.0, None))
+    mc_fake_vals, mc_fake_e, mc_tight_vals, mc_tight_e = _extract_grouped_tau_yields(
+        mc_fake,
+        mc_tight,
+        expected_bins,
+        fake_sumw2_hist=mc_fake_sumw2,
+        tight_sumw2_hist=mc_tight_sumw2,
+        sample_kind="MC",
+    )
 
-    for process in mc_tight.axes["process"]:
-        proc_name = str(process)
-        proc_hist = mc_tight[{"process": process}]
-        proc_vals, proc_vars = _extract_tau_counts(proc_hist, expected_bins)
-        mc_tight_vals_map[proc_name] = proc_vals
-        mc_tight_err_map[proc_name] = np.sqrt(np.clip(proc_vars, 0.0, None))
-
-    if mc_fake_vals_map.keys() != mc_tight_vals_map.keys():
-        raise RuntimeError(
-            "Inconsistent MC processes found between fake and tight histograms: "
-            f"{sorted(mc_fake_vals_map)} vs {sorted(mc_tight_vals_map)}"
-        )
-    if len(mc_fake_vals_map) != 1:
-        raise RuntimeError(
-            "Expected a single MC process after grouping; found "
-            f"{sorted(mc_fake_vals_map)}."
-        )
-    mc_proc = next(iter(mc_fake_vals_map))
-    mc_fake_e = mc_fake_err_map[mc_proc]
-    mc_fake_vals = mc_fake_vals_map[mc_proc]
-    mc_tight_e = mc_tight_err_map[mc_proc]
-    mc_tight_vals = mc_tight_vals_map[mc_proc]
-
-    data_fake_vals_map = {}
-    data_fake_err_map = {}
-    data_tight_vals_map = {}
-    data_tight_err_map = {}
-    for process in data_fake.axes["process"]:
-        proc_name = str(process)
-        proc_hist = data_fake[{"process": process}]
-        proc_vals, proc_vars = _extract_tau_counts(proc_hist, expected_bins)
-        data_fake_vals_map[proc_name] = proc_vals
-        data_fake_err_map[proc_name] = np.sqrt(np.clip(proc_vars, 0.0, None))
-
-    for process in data_tight.axes["process"]:
-        proc_name = str(process)
-        proc_hist = data_tight[{"process": process}]
-        proc_vals, proc_vars = _extract_tau_counts(proc_hist, expected_bins)
-        data_tight_vals_map[proc_name] = proc_vals
-        data_tight_err_map[proc_name] = np.sqrt(np.clip(proc_vars, 0.0, None))
-
-    if data_fake_vals_map.keys() != data_tight_vals_map.keys():
-        raise RuntimeError(
-            "Inconsistent data processes found between fake and tight histograms: "
-            f"{sorted(data_fake_vals_map)} vs {sorted(data_tight_vals_map)}"
-        )
-    if len(data_fake_vals_map) != 1:
-        raise RuntimeError(
-            "Expected a single data process after grouping; found "
-            f"{sorted(data_fake_vals_map)}."
-        )
-    data_proc = next(iter(data_fake_vals_map))
-    data_fake_e = data_fake_err_map[data_proc]
-    data_fake_vals = data_fake_vals_map[data_proc]
-    data_tight_e = data_tight_err_map[data_proc]
-    data_tight_vals = data_tight_vals_map[data_proc]
+    (
+        data_fake_vals,
+        data_fake_e,
+        data_tight_vals,
+        data_tight_e,
+    ) = _extract_grouped_tau_yields(
+        data_fake,
+        data_tight,
+        expected_bins,
+        fake_sumw2_hist=data_fake_sumw2,
+        tight_sumw2_hist=data_tight_sumw2,
+        sample_kind="data",
+    )
 
     mc_y, mc_e, mc_regroup_summary = compute_fake_rates(
         mc_fake_vals,
@@ -997,8 +1471,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         regroup_slices,
     )
 
-    mc_x = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
-    data_x = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
+    data_x = pt_bin_starts.copy()
 
     native_bin_labels = [
         _format_bin_label(tau_pt_edges, index, index + 1)
@@ -1008,6 +1481,14 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         _format_bin_label(tau_pt_edges, start, stop)
         for start, stop in (entry["slice"] for entry in mc_regroup_summary)
     ]
+
+    year_filter_summary = {
+        "selected_years": sample_filters.get("selected_years"),
+        "mc_samples": sorted(mc_sample_lst),
+        "data_samples": sorted(data_sample_lst),
+        "mc_removed": sorted(samples_to_rm_from_mc_hist),
+        "data_removed": sorted(samples_to_rm_from_data_hist),
+    }
 
     stage_details = {
         "native_bin_labels": native_bin_labels,
@@ -1020,11 +1501,16 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels):
         "regroup_labels": regroup_labels,
         "mc_regroup_summary": mc_regroup_summary,
         "data_regroup_summary": data_regroup_summary,
+        "year_filter": year_filter_summary,
+        "tau_pt_bin_starts": tuple(pt_bin_starts.tolist()),
     }
 
-    return mc_x, mc_y, mc_e, data_x, data_y, data_e, stage_details
+    return mc_y, mc_e, data_x, data_y, data_e, stage_details
 
 def main():
+
+    def _as_flat_float(array):
+        return np.asarray(array, dtype=float).reshape(-1)
 
     # Set up the command line parser
     parser = argparse.ArgumentParser()
@@ -1038,6 +1524,13 @@ def main():
         ),
     )
     parser.add_argument(
+        "-y",
+        "--year",
+        nargs="+",
+        default=None,
+        help="One or more year tokens to include (e.g. 2017 2018).",
+    )
+    parser.add_argument(
         "--dump-channels",
         nargs="?",
         const="-",
@@ -1049,17 +1542,10 @@ def main():
     )
     args = parser.parse_args()
 
-    # Whether or not to unit norm the plots
-    #unit_norm_bool = args.unit_norm
-
-    # Make a tmp output directory in curren dir a different dir is not specified
-    timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    #save_dir_path = args.output_path
-    #outdir_name = args.output_name
-    #if args.include_timestamp_tag:
-    #    outdir_name = outdir_name + "_" + timestamp_tag
-    #save_dir_path = os.path.join(save_dir_path,outdir_name)
-    #os.mkdir(save_dir_path)
+    try:
+        sample_filters = _resolve_year_filters(args.year)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     ftau_channels, ttau_channels = load_tau_control_channels(args.channels_json)
 
@@ -1075,11 +1561,23 @@ def main():
 
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
-    x_mc, y_mc, yerr_mc, x_data, y_data, yerr_data, stage_details = getPoints(
+    y_mc, yerr_mc, x_data, y_data, yerr_data, stage_details = getPoints(
         hin_dict,
         ftau_channels,
         ttau_channels,
+        sample_filters=sample_filters,
     )
+
+    y_mc = _as_flat_float(y_mc)
+    yerr_mc = _as_flat_float(yerr_mc)
+    y_data = _as_flat_float(y_data)
+    yerr_data = _as_flat_float(yerr_data)
+    x_data = _as_flat_float(x_data)
+    full_x_data = x_data
+
+    year_filter_summary = stage_details.get("year_filter")
+    if year_filter_summary:
+        _print_year_filter_summary(year_filter_summary)
 
     for label, (values, errors) in stage_details["native_yields"].items():
         _print_yield_table(
@@ -1099,24 +1597,19 @@ def main():
     _print_fake_rate_table(
         "Fake rates by tau pT bin",
         stage_details["regroup_labels"],
-        np.asarray(y_mc, dtype=float).flatten(),
-        np.asarray(yerr_mc, dtype=float).flatten(),
-        np.asarray(y_data, dtype=float).flatten(),
-        np.asarray(yerr_data, dtype=float).flatten(),
+        y_mc,
+        yerr_mc,
+        y_data,
+        yerr_data,
     )
 
-    y_data = np.array(y_data, dtype=float).flatten()
-    y_mc   = np.array(y_mc, dtype=float).flatten()
-    yerr_data = np.array(yerr_data, dtype=float).flatten()
-    yerr_mc   = np.array(yerr_mc, dtype=float).flatten()
-    x_data    = np.array(x_data, dtype=float).flatten()
     regroup_labels = np.array(stage_details["regroup_labels"], dtype=object)
 
     SF = np.divide(
         y_data,
         y_mc,
         out=np.full_like(y_data, np.nan, dtype=float),
-        where=np.asarray(y_mc) != 0,
+        where=(y_mc != 0),
     )
     SF_e = _combine_ratio_uncertainty_array(
         y_data,
@@ -1127,20 +1620,18 @@ def main():
 
     SF_e = np.where(SF_e <= 0, 1e-3, SF_e)
 
-    raw_x_data = x_data.copy()
-
     valid = (
         np.isfinite(SF)
         & np.isfinite(SF_e)
         & (SF_e > 0)
-        & np.isfinite(raw_x_data)
+        & np.isfinite(full_x_data)
         & np.isfinite(y_mc)
         & (y_mc > 0)
         & np.isfinite(y_data)
     )
 
     if not np.all(valid):
-        dropped_bins = raw_x_data[~valid]
+        dropped_bins = full_x_data[~valid]
         if dropped_bins.size:
             LOGGER.warning(
                 "Dropping %d tau pT bin(s) from fit due to invalid scale factors: %s",
@@ -1148,14 +1639,17 @@ def main():
                 ", ".join(str(bin_edge) for bin_edge in dropped_bins),
             )
 
-    report_pt_values = raw_x_data.copy()
-    if report_pt_values.size == 0:
-        report_pt_values = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
-    elif report_pt_values.size != len(TAU_PT_BIN_EDGES) - 1:
-        alt_pt_values = np.array(TAU_PT_BIN_EDGES[:-1], dtype=float)
-        if alt_pt_values.size == report_pt_values.size:
-            report_pt_values = alt_pt_values
-    report_pt_values = report_pt_values[valid]
+    pt_bin_starts = stage_details.get("tau_pt_bin_starts")
+    if pt_bin_starts is None:
+        pt_bin_starts = np.asarray(TAU_PT_BIN_EDGES[:-1], dtype=float)
+    else:
+        pt_bin_starts = np.asarray(pt_bin_starts, dtype=float)
+
+    report_pt_values = full_x_data.copy()
+    if report_pt_values.size:
+        report_pt_values = report_pt_values[valid]
+    else:
+        report_pt_values = pt_bin_starts.copy()
 
     SF = SF[valid]
     SF_e = SF_e[valid]
@@ -1181,7 +1675,7 @@ def main():
 
     c0, c1, cov = SF_fit(SF, SF_e, x_data)
 
-    eigenvalues, eigenvectors = eig(cov)
+    eigenvalues, eigenvectors = np.linalg.eig(cov)
     lv0 = np.sqrt(abs(eigenvalues.dot(eigenvectors[0])))
     lv1 = np.sqrt(abs(eigenvalues.dot(eigenvectors[1])))
     perr = np.sqrt(np.diag(cov))

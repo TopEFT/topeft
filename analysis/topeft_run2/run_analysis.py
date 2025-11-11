@@ -95,14 +95,20 @@ if __name__ == "__main__":
         help="Name of the output directory",
     )
     parser.add_argument(
+        "--years",
+        "-y",
+        nargs="+",
+        help="Limit processing to the specified data-taking years",
+    )
+    parser.add_argument(
         "--treename",
         default="Events",
         help="Name of the tree inside the files",
     )
     parser.add_argument(
-        "--do-errors",
+        "--no-sumw2",
         action="store_true",
-        help="Save the w**2 coefficients",
+        help="Skip filling sum of weight-squared histograms",
     )
     parser.add_argument(
         "--do-systs",
@@ -211,7 +217,7 @@ if __name__ == "__main__":
     outpath = args.outpath
     pretend = args.pretend
     treename = args.treename
-    do_errors = args.do_errors
+    fill_sumw2 = not args.no_sumw2
     do_systs = args.do_systs
     split_lep_flavor = args.split_lep_flavor
     offZ_split = args.offZ_split
@@ -243,7 +249,13 @@ if __name__ == "__main__":
         outpath = ops.pop("outpath",outpath)
         pretend = ops.pop("pretend",pretend)
         treename = ops.pop("treename",treename)
-        do_errors = ops.pop("do_errors",do_errors)
+        no_sumw2_opt = ops.pop("no_sumw2", None)
+        if no_sumw2_opt is not None:
+            fill_sumw2 = not no_sumw2_opt
+        else:
+            legacy_do_errors = ops.pop("do_errors", None)
+            if legacy_do_errors is not None:
+                fill_sumw2 = bool(legacy_do_errors)
         do_systs = ops.pop("do_systs",do_systs)
         split_lep_flavor = ops.pop("split_lep_flavor",split_lep_flavor)
         offZ_split = ops.pop("offZ_split",offZ_split)
@@ -322,65 +334,65 @@ if __name__ == "__main__":
             hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
         if "l1_eta_vs_phi" not in hist_lst:
             hist_lst.append("l1_eta_vs_phi")
-        if do_errors and "lepton_pt_vs_eta_sumw2" not in hist_lst:
+        if fill_sumw2 and "lepton_pt_vs_eta_sumw2" not in hist_lst:
             hist_lst.append("lepton_pt_vs_eta_sumw2")
-        if do_errors and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+        if fill_sumw2 and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
             hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        if do_errors and "l0_eta_vs_phi_sumw2" not in hist_lst:
+        if fill_sumw2 and "l0_eta_vs_phi_sumw2" not in hist_lst:
             hist_lst.append("l0_eta_vs_phi_sumw2")
-        if do_errors and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+        if fill_sumw2 and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
             hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        if do_errors and "l1_eta_vs_phi_sumw2" not in hist_lst:
+        if fill_sumw2 and "l1_eta_vs_phi_sumw2" not in hist_lst:
             hist_lst.append("l1_eta_vs_phi_sumw2")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
             "lj0pt",
-            "ptz",
+            # "ptz",
             "met",
-            "ljptsum",
-            "l0pt",
-            "l0ptcorr",
+            # "ljptsum",
+            # "l0pt",
+            # "l0ptcorr",
             "l0conept",
             "l0eta",
-            "l1pt",
-            "l1ptcorr",
+            # "l1pt",
+            # "l1ptcorr",
             "l1conept",
-            "l1eta",
+            # "l1eta",
             "j0pt",
             "j0eta",
             "njets",
-            "nbtagsl",
+            # "nbtagsl",
             "invmass",
-            "npvs",
-            "npvsGood",
-            "l0_gen_pdgId",
-            "l1_gen_pdgId",
-            "l2_gen_pdgId",
-            "l0_genParent_pdgId",
-            "l1_genParent_pdgId",
-            "l2_genParent_pdgId",
-            "b0l_hFlav",
-            "b0m_hFlav",
-            "b0l_pFlav",
-            "b0m_pFlav",
-            "b1l_hFlav",
-            "b1m_hFlav",
-            "b1l_pFlav",
-            "b1m_pFlav",
-            "b0l_genhFlav",
-            "b0m_genhFlav",
-            "b0l_genpFlav",
-            "b0m_genpFlav",
-            "b1l_genhFlav",
-            "b1m_genhFlav",
-            "b1l_genpFlav",
-            "b1m_genpFlav",
-            "lepton_pt_vs_eta",
-            "l0_SeedEtaOrX_vs_SeedPhiOrY",
-            "l0_eta_vs_phi",
-            "l1_SeedEtaOrX_vs_SeedPhiOrY",
-            "l1_eta_vs_phi",
+            # "npvs",
+            # "npvsGood",
+            # "l0_gen_pdgId",
+            # "l1_gen_pdgId",
+            # "l2_gen_pdgId",
+            # "l0_genParent_pdgId",
+            # "l1_genParent_pdgId",
+            # "l2_genParent_pdgId",
+            # "b0l_hFlav",
+            # "b0m_hFlav",
+            # "b0l_pFlav",
+            # "b0m_pFlav",
+            # "b1l_hFlav",
+            # "b1m_hFlav",
+            # "b1l_pFlav",
+            # "b1m_pFlav",
+            # "b0l_genhFlav",
+            # "b0m_genhFlav",
+            # "b0l_genpFlav",
+            # "b0m_genpFlav",
+            # "b1l_genhFlav",
+            # "b1m_genhFlav",
+            # "b1l_genpFlav",
+            # "b1m_genpFlav",
+            # "lepton_pt_vs_eta",
+            # "l0_SeedEtaOrX_vs_SeedPhiOrY",
+            # "l0_eta_vs_phi",
+            # "l1_SeedEtaOrX_vs_SeedPhiOrY",
+            # "l1_eta_vs_phi",
         ]
         if tau_h_analysis:
             hist_lst.append("tau0pt")
@@ -447,6 +459,70 @@ if __name__ == "__main__":
                             prefix = l
                         else:
                             LoadJsonToSampleName(l, prefix)
+
+    requested_years = None
+    if args.years:
+        valid_year_choices = {
+            "UL16",
+            "UL16APV",
+            "UL17",
+            "UL18",
+            "2016",
+            "2016APV",
+            "2017",
+            "2018",
+            "2022",
+            "2022EE",
+            "2023",
+            "2023BPix",
+            "run2",
+            "run3",
+        }
+        year_synonyms = {
+            "2016": {"2016", "UL16"},
+            "UL16": {"2016", "UL16"},
+            "2016APV": {"2016APV", "UL16APV"},
+            "UL16APV": {"2016APV", "UL16APV"},
+            "2017": {"2017", "UL17"},
+            "UL17": {"2017", "UL17"},
+            "2018": {"2018", "UL18"},
+            "UL18": {"2018", "UL18"},
+            "run2": {
+                "2016",
+                "2016APV",
+                "2017",
+                "2018",
+                "UL16",
+                "UL16APV",
+                "UL17",
+                "UL18",
+            },
+            "run3": {"2022", "2022EE", "2023", "2023BPix"},
+        }
+
+        requested_years = set()
+        for year in args.years:
+            year_str = str(year)
+            if year_str not in valid_year_choices:
+                raise ValueError(
+                    "Invalid year selection \"{}\". Valid choices are: {}".format(
+                        year_str, ", ".join(sorted(valid_year_choices))
+                    )
+                )
+
+            requested_years.update(year_synonyms.get(year_str, {year_str}))
+
+    if requested_years is not None:
+        samplesdict = {
+            name: sample
+            for name, sample in samplesdict.items()
+            if str(sample.get("year")) in requested_years
+        }
+
+        if not samplesdict:
+            raise ValueError(
+                "No samples remaining after applying the requested year filter."
+            )
 
         
     flist = {}
@@ -519,12 +595,14 @@ if __name__ == "__main__":
     else:
         print("No Wilson coefficients specified")
 
+    print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
+
     processor_instance = analysis_processor.AnalysisProcessor(
         samplesdict,
         wc_lst,
         hist_lst,
         ecut_threshold,
-        do_errors,
+        fill_sumw2,
         do_systs,
         split_lep_flavor,
         skip_sr,
