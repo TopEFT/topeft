@@ -233,6 +233,9 @@ fi
 printf -v ceph_root_quoted '%q' "${ceph_root}"
 printf -v plotter_arg_string ' %q' "${plotter_args[@]}"
 
+entry_helper="${ceph_root}/analysis/topeft_run2/condor_plotter_entry.sh"
+printf -v entry_helper_quoted '%q' "${entry_helper}"
+
 work_dir=$(mktemp -d)
 cleanup() {
     rm -rf "${work_dir}"
@@ -267,15 +270,38 @@ if (( ${#sandbox_inputs[@]} )); then
     sandbox_archive_name=$(basename -- "${sandbox_archive}")
 fi
 
+payload_stage="${work_dir}/entry_payload"
+mkdir -p "${payload_stage}/payload"
+payload_run_plotter="${payload_stage}/payload/run_plotter.sh"
+cat >"${payload_run_plotter}" <<STUB
+#!/usr/bin/env bash
+set -euo pipefail
+
+ceph_root=${ceph_root_quoted}
+
+cd "\${ceph_root}"
+exec ./analysis/topeft_run2/run_plotter.sh "\$@"
+STUB
+chmod +x "${payload_run_plotter}"
+
+payload_archive="${work_dir}/plotter_payload.tar.gz"
+(
+    cd "${payload_stage}"
+    tar -czf "${payload_archive}" payload
+)
+payload_archive_name=$(basename -- "${payload_archive}")
+printf -v payload_archive_name_quoted '%q' "${payload_archive_name}"
+
 sandbox_extract_block=""
 if [[ -n "${sandbox_archive_name}" ]]; then
     printf -v sandbox_archive_name_quoted '%q' "${sandbox_archive_name}"
     sandbox_extract_format=$(cat <<'EOS'
 sandbox_archive=%s
-if [[ -f "${sandbox_archive}" ]]; then
-    tar -xzf "${sandbox_archive}" -C "${ceph_root}"
+sandbox_archive_path="\${scratch_dir}/\${sandbox_archive}"
+if [[ -f "\${sandbox_archive_path}" ]]; then
+    tar -xzf "\${sandbox_archive_path}" -C "${ceph_root}"
 else
-    echo "Warning: sandbox archive '${sandbox_archive}' was not transferred." >&2
+    echo "Warning: sandbox archive '\${sandbox_archive}' was not transferred." >&2
 fi
 
 EOS
@@ -290,8 +316,23 @@ cat >"${job_script}" <<JOB
 set -euo pipefail
 
 ceph_root=${ceph_root_quoted}
-${sandbox_extract_block}cd "${ceph_root}"
-exec ./analysis/topeft_run2/run_plotter.sh${plotter_arg_string}
+payload_archive=${payload_archive_name_quoted}
+entry_helper=${entry_helper_quoted}
+scratch_dir=\${_CONDOR_SCRATCH_DIR:-\$(pwd)}
+${sandbox_extract_block}
+if [[ ! -x "${entry_helper}" ]]; then
+    echo "Error: Condor entry helper '${entry_helper}' is missing or not executable." >&2
+    exit 1
+fi
+
+payload_archive_path="\${scratch_dir}/\${payload_archive}"
+
+if [[ ! -f "\${payload_archive_path}" ]]; then
+    echo "Error: Payload archive '${payload_archive}' was not transferred." >&2
+    exit 1
+fi
+
+exec "${entry_helper}" "\${payload_archive_path}"${plotter_arg_string}
 JOB
 chmod +x "${job_script}"
 
@@ -308,9 +349,12 @@ should_transfer_files   = YES
 when_to_transfer_output = ON_EXIT
 SUB
 
-transfer_input_files=""
+transfer_inputs=("${payload_archive}")
 if [[ -n "${sandbox_archive}" ]]; then
-    transfer_input_files=$(python3 - "${sandbox_archive}" <<'PY'
+    transfer_inputs+=("${sandbox_archive}")
+fi
+
+transfer_input_files=$(python3 - "${transfer_inputs[@]}" <<'PY'
 import sys
 
 def quote(token: str) -> str:
@@ -320,8 +364,7 @@ def quote(token: str) -> str:
 
 print(','.join(quote(arg) for arg in sys.argv[1:]))
 PY
-    )
-fi
+)
 
 if [[ -n "${request_cpus}" ]]; then
     echo "request_cpus           = ${request_cpus}" >>"${submission_file}"
