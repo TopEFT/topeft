@@ -112,6 +112,18 @@ if (( ${#plotter_args[@]} == 0 )); then
     exit 1
 fi
 
+# Normalize the log directory before changing directories later in the script.
+if [[ -n "${log_dir}" ]]; then
+    log_dir=$(python3 - "${log_dir}" <<'PY'
+import os
+import sys
+
+path = os.path.expanduser(sys.argv[1])
+print(os.path.abspath(path))
+PY
+    )
+fi
+
 # Validate inputs and capture the command run_plotter.sh would execute.
 validation_output=""
 if ! validation_output=$("${RUN_PLOTTER}" "${plotter_args[@]}" --dry-run 2>&1); then
