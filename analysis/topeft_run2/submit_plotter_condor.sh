@@ -20,6 +20,11 @@ Condor options:
                    (default: ./condor_logs)
   --ceph-root DIR  Location of the topeft repository on CephFS
                    (default: /users/apiccine/work/correction-lib/topeft)
+  --conda-prefix DIR
+                   Location of the clib-env Conda environment on the worker
+                   nodes. When provided, TOPEFT_CONDA_PREFIX is exported to
+                   the entry script so it can activate the environment without
+                   relying on a global conda command.
   --dry-run        Print the generated submission file instead of calling condor_submit
   -h, --help       Show this help message and exit
 
@@ -40,6 +45,7 @@ fi
 queue_count=1
 log_dir=""
 ceph_root="${DEFAULT_CEPH_ROOT}"
+conda_prefix=""
 dry_run=0
 plotter_args=()
 
@@ -67,6 +73,14 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ceph_root="$2"
+            shift 2
+            ;;
+        --conda-prefix)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --conda-prefix requires a value." >&2
+                exit 1
+            fi
+            conda_prefix="$2"
             shift 2
             ;;
         --dry-run)
@@ -118,6 +132,15 @@ print(os.path.abspath(os.path.expanduser(sys.argv[1])))
 PY
 )
 
+if [[ -n "${conda_prefix}" ]]; then
+    conda_prefix=$(python3 - "${conda_prefix}" <<'PY'
+import os
+import sys
+print(os.path.abspath(os.path.expanduser(sys.argv[1])))
+PY
+)
+fi
+
 analysis_dir="${ceph_root}/analysis/topeft_run2"
 if [[ ! -d "${analysis_dir}" ]]; then
     echo "Error: '${analysis_dir}' does not exist; check --ceph-root." >&2
@@ -144,7 +167,8 @@ submit_file="${tmp_dir}/plotter_job.sub"
 printf -v arg_string ' %q' "${plotter_args[@]}"
 arg_string="${arg_string# }"
 
-cat <<EOF > "${submit_file}"
+{
+cat <<EOF
 universe                = vanilla
 executable              = "${entry_on_ceph}"
 arguments               = ${arg_string}
@@ -153,8 +177,14 @@ log                     = ${log_dir}/plotter.\$(Cluster).\$(Process).log
 output                  = ${log_dir}/plotter.\$(Cluster).\$(Process).out
 error                   = ${log_dir}/plotter.\$(Cluster).\$(Process).err
 getenv                  = True
+EOF
+if [[ -n "${conda_prefix}" ]]; then
+    printf 'environment              = "TOPEFT_CONDA_PREFIX=%s"\n' "${conda_prefix}"
+fi
+cat <<EOF
 queue ${queue_count}
 EOF
+} > "${submit_file}"
 
 if (( dry_run )); then
     echo "run_plotter.sh validation output:" >&2

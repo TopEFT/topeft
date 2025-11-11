@@ -19,13 +19,35 @@ activate_with_conda() {
     return 1
 }
 
-if ! activate_with_conda; then
-    ACTIVATE_SCRIPT="${REPO_ROOT}/clib-env/bin/activate"
-    if [[ -f "${ACTIVATE_SCRIPT}" ]]; then
+activate_with_prefix() {
+    local prefix="$1"
+    local activate_script="${prefix}/bin/activate"
+
+    if [[ -f "${activate_script}" ]]; then
         # shellcheck disable=SC1091
-        source "${ACTIVATE_SCRIPT}"
-    else
-        echo "[condor_plotter_entry] ERROR: Unable to activate clib-env; conda not found and '${ACTIVATE_SCRIPT}' is missing." >&2
+        source "${activate_script}"
+        return 0
+    fi
+
+    if [[ -f "${prefix}/etc/profile.d/conda.sh" ]]; then
+        # shellcheck disable=SC1091
+        source "${prefix}/etc/profile.d/conda.sh"
+        conda activate clib-env
+        return 0
+    fi
+
+    return 1
+}
+
+if [[ -n "${TOPEFT_CONDA_PREFIX:-}" ]]; then
+    if ! activate_with_prefix "${TOPEFT_CONDA_PREFIX}"; then
+        echo "[condor_plotter_entry] ERROR: Unable to activate clib-env from TOPEFT_CONDA_PREFIX='${TOPEFT_CONDA_PREFIX}'." >&2
+        exit 1
+    fi
+elif ! activate_with_conda; then
+    DEFAULT_PREFIX="${REPO_ROOT}/clib-env"
+    if ! activate_with_prefix "${DEFAULT_PREFIX}"; then
+        echo "[condor_plotter_entry] ERROR: Unable to activate clib-env; conda not found and neither TOPEFT_CONDA_PREFIX nor '${DEFAULT_PREFIX}' is usable." >&2
         exit 1
     fi
 fi
