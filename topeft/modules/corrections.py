@@ -557,6 +557,10 @@ extLepSF.add_weight_sets(["TauFakeSF TauSF/pt_value %s"%topcoffea_path('data/Tau
 extLepSF.add_weight_sets(["TauFakeSF_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 extLepSF.add_weight_sets(["TauFakeSF_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 
+extLepSF.add_weight_sets(["TauFakeSF_Run3 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+extLepSF.add_weight_sets(["TauFakeSF_Run3_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+extLepSF.add_weight_sets(["TauFakeSF_Run3_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+
 # Jet Veto Maps
 def ApplyJetVetoMaps(jets, year):
     jme_year = clib_year_map[year]
@@ -1007,9 +1011,16 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 fake_elec_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
                 fake_elec_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
 
-        new_fake_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        new_fake_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        new_fake_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        #new_fake_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        #new_fake_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        #new_fake_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+
+        whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
+        new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF_Run3'](pt), 1)
+        new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_up'](pt), 1)
+        new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_down'](pt), 1)
+
+        # Run3 tau muon SF may be needed in the future
         fake_muon_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
         fake_muon_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
         fake_muon_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
