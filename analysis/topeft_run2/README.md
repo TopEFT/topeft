@@ -158,6 +158,8 @@ Example commands:
 
 #### HTCondor plotting on Glados
 
+##### Running on Glados HTCondor
+
 `submit_plotter_condor.sh` builds a Condor submit description around `run_plotter.sh` so the same plotting CLI can run on Glados batch slots. The helper performs a `--dry-run` validation, constructs a lightweight sandbox, and records the commands it will execute before handing everything to `condor_submit`.
 
 **Prerequisites**
@@ -181,7 +183,11 @@ Example commands:
   -y run2 --variables lj0pt ptz
 ```
 
-Prefix the command with `--dry-run` when you want to review the generated job wrapper and `.sub` file without actually queueing the job. Add `--queue N` to launch an array of identical submissions or `--sandbox /cephfs/.../templates` to ship extra payload files alongside the job.
+Prefix the command with `--dry-run` when you want to review the generated job wrapper and `.sub` file without actually queueing the job. Adjust the batch resources with `--request-cpus`, `--request-memory`, or `--request-disk`, and add `--queue N` to launch an array of identical submissions. The optional `--sandbox /cephfs/.../templates` flag ships extra payload files alongside the job so the execute node can pick up custom style sheets or metadata.
+
+**Entry-script environment steps**
+
+Jobs land in `analysis/topeft_run2/condor_plotter_entry.sh`, which unsets `PYTHONPATH`, honours `TOPEFT_REPO_ROOT`/`TOPEFT_ENTRY_DIR` to pick the checkout and working directory, and activates `clib-env` via either the discovered Conda installation or an explicit `TOPEFT_CONDA_PREFIX`. Override those environment variables in the submit script when you need to point at a different checkout, wrapper directory, or Conda stack, or if you prefer to activate a bespoke environment before calling `run_plotter.sh`.
 
 **Inspecting jobs and logs**
 
