@@ -55,6 +55,7 @@ from topeft.modules.executor import (
     resolve_environment_file,
     taskvine_log_configurator,
 )
+from topeft.modules.runner_output import normalise_runner_output, tuple_dict_stats
 
 from .run_analysis_helpers import (
     DEFAULT_WEIGHT_VARIATIONS,
@@ -987,11 +988,19 @@ class RunWorkflow:
         if not os.path.isdir(self._config.outpath):
             os.system("mkdir -p %s" % self._config.outpath)
         out_pkl_file = os.path.join(self._config.outpath, self._config.outname + ".pkl.gz")
+
+        serialised_output = normalise_runner_output(output)
+        if isinstance(serialised_output, Mapping):
+            total_bins, filled_bins = tuple_dict_stats(serialised_output)
+            if total_bins:
+                fill_fraction = (100 * filled_bins / total_bins)
+                print("Filled %.0f bins, nonzero bins: %1.1f %%" % (total_bins, fill_fraction))
+
         print(f"\nSaving output in {out_pkl_file}...")
         with gzip.open(out_pkl_file, "wb") as fout:
             import cloudpickle
 
-            cloudpickle.dump(output, fout)
+            cloudpickle.dump(serialised_output, fout)
         print("Done!")
 
         if self._config.do_np:

@@ -6,11 +6,11 @@ import gzip
 import os
 
 import numpy as np
-import coffea.hist as hist
 import coffea.processor as processor
 from coffea.nanoevents import NanoAODSchema
 
 import btagMCeff
+from topeft.modules.runner_output import normalise_runner_output, tuple_dict_stats
 
 if __name__ == '__main__':
     import argparse
@@ -131,9 +131,10 @@ if __name__ == '__main__':
     output = runner(flist, treename, processor_instance)
     dt = time.time() - tstart
 
-    nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    #print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+    serialised_output = normalise_runner_output(output)
+    total_bins, filled_bins = tuple_dict_stats(serialised_output if isinstance(serialised_output, dict) else {})
+    fill_fraction = (100 * filled_bins / total_bins) if total_bins else 0.0
+    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (total_bins, fill_fraction))
     print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
 
     # This is taken from the DM photon analysis...
@@ -143,7 +144,7 @@ if __name__ == '__main__':
     if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
     print('Saving output in %s...'%(outpath + outname + ".pkl.gz"))
     with gzip.open(outpath + outname + ".pkl.gz", "wb") as fout:
-        cloudpickle.dump(output, fout)
+        cloudpickle.dump(serialised_output, fout)
     print('Done!')
 
 

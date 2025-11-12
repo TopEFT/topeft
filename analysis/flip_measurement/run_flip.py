@@ -19,6 +19,7 @@ from topeft.modules.executor_cli import (
     FuturesArgumentSpec,
     TaskVineArgumentSpec,
 )
+from topeft.modules.runner_output import normalise_runner_output
 
 
 parser = argparse.ArgumentParser(
@@ -157,6 +158,7 @@ else:
 
 runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
 output = runner(flist, treename, processor_instance)
+serialised_output = normalise_runner_output(output)
 
 dt = time.time() - tstart
 
@@ -165,6 +167,6 @@ if not os.path.isdir(outpath): os.system(f"mkdir -p {outpath}")
 out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
 print(f"\nSaving output in {out_pkl_file}...")
 with gzip.open(out_pkl_file, "wb") as fout:
-    cloudpickle.dump(output, fout)
+    cloudpickle.dump(serialised_output, fout)
 
 print("Done!")
