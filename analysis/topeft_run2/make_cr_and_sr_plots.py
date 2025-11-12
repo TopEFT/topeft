@@ -1351,10 +1351,13 @@ def _render_variable_category(
         ]
         if not channels:
             return 0, 0, html_dirs
-        hist_mc_channel = hist_mc.integrate("channel", channels)[{'channel': sum}]
-        hist_mc_integrated = hist_mc_channel.integrate(
-            "systematic", "nominal"
+        hist_mc_channel = hist_mc.integrate("channel", channels)[{"channel": sum}]
+        samples_to_rm = _collect_samples_to_remove(
+            region_ctx.sample_removal_rules, hist_cat, region_ctx
         )
+        if samples_to_rm:
+            hist_mc_channel = hist_mc_channel.remove("process", samples_to_rm)
+        hist_mc_integrated = hist_mc_channel.integrate("systematic", "nominal")
         hist_mc_sumw2 = None
         if hist_mc_sumw2_orig is not None:
             channels_sumw2 = [
@@ -1365,7 +1368,9 @@ def _render_variable_category(
             if channels_sumw2:
                 hist_mc_sumw2 = hist_mc_sumw2_orig.integrate(
                     "channel", channels_sumw2
-                )[{'channel': sum}]
+                )[{"channel": sum}]
+                if samples_to_rm:
+                    hist_mc_sumw2 = hist_mc_sumw2.remove("process", samples_to_rm)
                 hist_mc_sumw2 = hist_mc_sumw2.integrate(
                     "systematic", "nominal"
                 )
@@ -1384,6 +1389,7 @@ def _render_variable_category(
         err_m_syst = None
         err_ratio_p_syst = None
         err_ratio_m_syst = None
+        syst_err_mode = False
         if not skip_syst_errs:
             try:
                 rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
@@ -1396,6 +1402,23 @@ def _render_variable_category(
                     hist_mc_channel,
                     group_type=region_ctx.name,
                 )
+                if var_name == "njets":
+                    diboson_samples = region_ctx.group_map.get("Diboson", [])
+                    if diboson_samples:
+                        db_hist = _eval_without_underflow(
+                            hist_mc_channel.integrate("process", diboson_samples)[
+                                {"process": sum}
+                            ].integrate("systematic", "nominal")
+                        )
+                        diboson_njets_syst = get_diboson_njets_syst_arr(
+                            db_hist, bin0_njets=0
+                        )
+                        shape_systs_summed_arr_p = (
+                            shape_systs_summed_arr_p + diboson_njets_syst
+                        )
+                        shape_systs_summed_arr_m = (
+                            shape_systs_summed_arr_m + diboson_njets_syst
+                        )
             except Exception as exc:
                 print(
                     f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
@@ -1437,6 +1460,7 @@ def _render_variable_category(
                         nom_arr_all > 0, err_m_syst / nom_arr_all, 1
                     )
                 syst_err = True
+                syst_err_mode = "total" if unblind_flag else True
 
         if not _hist_has_content(hist_mc_integrated):
             print("Warning: empty mc histo, continuing")
@@ -1461,7 +1485,7 @@ def _render_variable_category(
             "lumitag": region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
             "comtag": region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
             "h_mc_sumw2": hist_mc_sumw2,
-            "syst_err": syst_err,
+            "syst_err": syst_err_mode if syst_err_mode else syst_err,
             "err_p_syst": err_p_syst,
             "err_m_syst": err_m_syst,
             "err_ratio_p_syst": err_ratio_p_syst,
@@ -1477,7 +1501,7 @@ def _render_variable_category(
             hist_mc_integrated,
             hist_data_to_plot,
             var=var_name,
-            unit_norm_bool=False,
+            unit_norm_bool=unit_norm_bool,
             **stacked_kwargs,
         )
         fig.savefig(
