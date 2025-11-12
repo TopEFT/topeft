@@ -39,7 +39,9 @@ Optional arguments:
       --dry-run             Print the resolved command without executing it
   -h, --help                Show this help message and exit
 
-All other tokens following "--" are forwarded verbatim to make_cr_and_sr_plots.py.
+Unrecognised options are forwarded directly to make_cr_and_sr_plots.py. The
+historical "--" delimiter is no longer necessary; any leftover tokens are passed
+through automatically.
 USAGE
 }
 
@@ -123,7 +125,7 @@ normalize_year_tokens() {
     printf '%s\n' "${normalized[@]}"
 }
 
-# Collect positional passthrough arguments after '--'.
+# Collect passthrough arguments for make_cr_and_sr_plots.py.
 extra_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -275,15 +277,16 @@ while [[ $# -gt 0 ]]; do
             show_help
             exit 0
             ;;
-        --)
-            shift
-            extra_args=("$@")
-            break
-            ;;
         *)
-            echo "Error: Unrecognized argument '$1'" >&2
-            show_help >&2
-            exit 1
+            if [[ "$1" == "--" ]]; then
+                # Backward compatibility: ignore the legacy delimiter and
+                # continue consuming passthrough arguments without adding it to
+                # the forwarded list.
+                shift
+                continue
+            fi
+            extra_args+=("$1")
+            shift
             ;;
     esac
 done
@@ -468,10 +471,7 @@ case "${verbosity}" in
         cmd+=("--quiet")
         ;;
 esac
-if (( ${#extra_args[@]} > 0 )); then
-    cmd+=("--")
-    cmd+=("${extra_args[@]}")
-fi
+cmd+=("${extra_args[@]}")
 
 echo "Executing make_cr_and_sr_plots.py with command:"
 printf '  %q' "${cmd[@]}"
