@@ -49,9 +49,5 @@ def test_normalise_runner_output_preserves_tuple_keys(tmp_path):
         hist.values(flow=True),
     )
 
-    assert SUMMARY_KEY in restored
-    summary = restored[SUMMARY_KEY][tuple_key]
-    assert pytest.approx(summary["sumw"]) == pytest.approx(hist.values(flow=True).sum())
-    assert summary["values"].shape == hist.values(flow=True).shape
-    assert summary["variances"] is None or summary["variances"].shape == summary["values"].shape
+    assert SUMMARY_KEY not in restored
     assert restored["metadata"] == {"note": "retained"}

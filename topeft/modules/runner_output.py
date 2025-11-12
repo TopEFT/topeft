@@ -126,10 +126,10 @@ def normalise_runner_output(payload: Mapping[Any, Any]) -> Mapping[Any, Any]:
 
     Tuple-keyed histogram entries are emitted in lexicographic order to provide
     deterministic serialisation while their original histogram objects remain
-    untouched.  A structured summary of the histogram bin contents is appended
-    under :data:`SUMMARY_KEY` so that downstream code can inspect aggregate
-    statistics without loading the heavy histogram types.  Non-histogram
-    entries are preserved in their original insertion order.
+    untouched.  Non-histogram entries are preserved in their original insertion
+    order.  Consumers that need a deterministic, serialisable summary of the
+    histogram contents can call :func:`materialise_tuple_dict` on the returned
+    mapping as required.
     """
 
     if not isinstance(payload, Mapping):
@@ -145,7 +145,6 @@ def normalise_runner_output(payload: Mapping[Any, Any]) -> Mapping[Any, Any]:
     for key, value in payload.items():
         if key not in tuple_histograms:
             ordered[key] = value
-    ordered[SUMMARY_KEY] = materialise_tuple_dict(tuple_histograms)
     return ordered
 
 
