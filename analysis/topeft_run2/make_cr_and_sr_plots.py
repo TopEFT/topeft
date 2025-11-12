@@ -1420,10 +1420,12 @@ def _render_variable_category(
                     nom_arr_all, shape_systs_summed_arr_m
                 )
                 sqrt_sum_p = np.sqrt(
-                    shape_systs_summed_arr_p + rate_systs_summed_arr_p
+                    np.asarray(shape_systs_summed_arr_p)
+                    + np.asarray(rate_systs_summed_arr_p)
                 )
                 sqrt_sum_m = np.sqrt(
-                    shape_systs_summed_arr_m + rate_systs_summed_arr_m
+                    np.asarray(shape_systs_summed_arr_m)
+                    + np.asarray(rate_systs_summed_arr_m)
                 )
                 err_p_syst = nom_arr_all + sqrt_sum_p
                 err_m_syst = nom_arr_all - sqrt_sum_m
@@ -1448,16 +1450,14 @@ def _render_variable_category(
             if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
             else hist_mc_integrated
         )
-        if region_ctx.years:
-            year_str = "_".join(region_ctx.years)
-        else:
-            year_str = "ULall"
-        title = f"{hist_cat}_{var_name}_{year_str}"
+        title = f"{hist_cat}_{var_name}"
+        if unit_norm_bool:
+            title = f"{title}_unitnorm"
         bins_override = region_ctx.analysis_bins.get(var_name)
         axis_meta = axes_info.get(var_name, {})
         default_bins = axis_meta.get("variable")
         stacked_kwargs = {
-            "group": region_ctx.group_map,
+            "group": {k: v for k, v in region_ctx.group_map.items() if v},
             "lumitag": region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
             "comtag": region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
             "h_mc_sumw2": hist_mc_sumw2,
