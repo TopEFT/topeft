@@ -99,13 +99,25 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
         if histo_base is None:
             raise KeyError(f"Histogram '{var_name}' not found in rebuilt or original mapping")
 
+        # Collapse categorical axes that are not part of the plotting layout so downstream
+        # grouping returns the expected 1D histogram.  The rebuilt tuple histograms may
+        # include both channel and application axes, and keeping either around results in
+        # `.values()[()]` lookups failing when the grouped histogram still has extra
+        # dimensions.  Sum over these axes if they are present.
+        axes_names = {ax.name for ax in getattr(histo_base, "axes", ())}
+        histo_collapsed = histo_base
+        if "channel" in axes_names:
+            histo_collapsed = histo_collapsed.sum("channel")
+        if "application" in axes_names:
+            histo_collapsed = histo_collapsed.sum("application")
+
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
             print(f"\nProcess: {proc}")
 
             # Group bins
             proc_histo = mcp.group_bins(
-                histo_base,
+                histo_collapsed,
                 comp_proc_dict[proc],
                 axis_name=dataset_axis_name,
                 drop_unspecified=True,
