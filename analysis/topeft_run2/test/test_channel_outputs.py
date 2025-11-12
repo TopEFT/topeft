@@ -1,5 +1,5 @@
-import numpy as np
 import hist
+import numpy as np
 import pytest
 
 from collections import OrderedDict
@@ -502,3 +502,124 @@ def test_split_mode_uses_flavour_label_for_single_bin(monkeypatch, tmp_path):
         assert "2018" not in filename.parent.name
         assert "2018" not in filename.name
     assert per_dirs.isdisjoint(aggregate_dirs)
+
+
+def test_split_mode_breaks_out_lepton_flavour_buckets(monkeypatch, tmp_path):
+    variable = "observable"
+    ttau_bins = [
+        "2los_ee_1tau_Ttau_2j",
+        "2los_ee_1tau_Ttau_3j",
+        "2los_em_1tau_Ttau_2j",
+        "2los_em_1tau_Ttau_3j",
+        "2los_mm_1tau_Ttau_2j",
+        "2los_mm_1tau_Ttau_3j",
+    ]
+    ftau_bins = [
+        "2los_ee_1tau_Ftau_2j",
+        "2los_ee_1tau_Ftau_3j",
+        "2los_em_1tau_Ftau_2j",
+        "2los_em_1tau_Ftau_3j",
+        "2los_mm_1tau_Ftau_2j",
+        "2los_mm_1tau_Ftau_3j",
+    ]
+    channel_bins = ttau_bins + ftau_bins
+
+    histograms = {
+        variable: _build_histogram(variable, channel_bins, hist_type="HistEFT"),
+        f"{variable}_sumw2": _build_sumw2_histogram(variable, channel_bins),
+    }
+
+    channel_map = OrderedDict(
+        [
+            ("cr_2los_1tau_Ttau", list(ttau_bins)),
+            ("cr_2los_1tau_Ftau", list(ftau_bins)),
+        ]
+    )
+
+    aggregate_ctx = _make_region_context(
+        histograms,
+        channel_map=channel_map,
+        channel_mode="aggregate",
+    )
+    split_ctx = _make_region_context(
+        histograms,
+        channel_map=channel_map,
+        channel_mode="per-channel",
+    )
+
+    render_calls = []
+
+    def fake_make_region_stacked_ratio_fig(
+        hist_mc_integrated,
+        hist_data_to_plot,
+        unit_norm_bool,
+        *,
+        var,
+        **kwargs,
+    ):
+        call = {"paths": []}
+        render_calls.append(call)
+
+        class _Figure:
+            def savefig(self, path, *args, **kwargs):
+                call["paths"].append(path)
+
+        return _Figure()
+
+    monkeypatch.setattr(
+        plots,
+        "make_region_stacked_ratio_fig",
+        fake_make_region_stacked_ratio_fig,
+    )
+
+    plots.produce_region_plots(
+        aggregate_ctx,
+        str(tmp_path / "agg"),
+        [variable],
+        skip_syst_errs=True,
+        unit_norm_bool=False,
+        stacked_log_y=False,
+        unblind=True,
+        workers=1,
+    )
+
+    aggregate_calls = list(render_calls)
+    assert len(aggregate_calls) == 2
+    aggregate_dirs = {
+        Path(path).parent.name
+        for call in aggregate_calls
+        for path in call["paths"]
+    }
+    assert aggregate_dirs == {"cr_2los_1tau_Ttau", "cr_2los_1tau_Ftau"}
+
+    plots.produce_region_plots(
+        split_ctx,
+        str(tmp_path / "split"),
+        [variable],
+        skip_syst_errs=True,
+        unit_norm_bool=False,
+        stacked_log_y=False,
+        unblind=True,
+        workers=1,
+    )
+
+    per_channel_calls = render_calls[len(aggregate_calls) :]
+    assert len(per_channel_calls) == 6
+    per_channel_dirs = [
+        Path(path).parent.name
+        for call in per_channel_calls
+        for path in call["paths"]
+    ]
+    expected_dirs = {
+        "cr_2los_1tau_Ttau_ee",
+        "cr_2los_1tau_Ttau_em",
+        "cr_2los_1tau_Ttau_mm",
+        "cr_2los_1tau_Ftau_ee",
+        "cr_2los_1tau_Ftau_em",
+        "cr_2los_1tau_Ftau_mm",
+    }
+    assert set(per_channel_dirs) == expected_dirs
+    assert all("201" not in name for name in per_channel_dirs)
+    for call in per_channel_calls:
+        call_dirs = {Path(path).parent.name for path in call["paths"]}
+        assert len(call_dirs) == 1
