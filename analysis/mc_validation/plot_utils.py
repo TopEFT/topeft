@@ -100,16 +100,19 @@ def _copy_histogram(histogram: Any) -> Any:
     return copy.deepcopy(histogram)
 
 
-def _aggregate_variable_entries(tuple_entries: Mapping[TupleKey, Any]) -> Dict[str, MutableMapping[Tuple[str, str, str], Any]]:
-    """Group histogram entries by variable and dataset/channel/systematic tags."""
+def _aggregate_variable_entries(
+    tuple_entries: Mapping[TupleKey, Any]
+) -> Dict[str, MutableMapping[Tuple[str, str, str, str], Any]]:
+    """Group histogram entries by variable and dataset/channel/application/systematic tags."""
 
-    grouped: Dict[str, MutableMapping[Tuple[str, str, str], Any]] = defaultdict(dict)
+    grouped: Dict[str, MutableMapping[Tuple[str, str, str, str], Any]] = defaultdict(dict)
     for key, histogram in tuple_entries.items():
-        variable, channel, _, sample, systematic = key
+        variable, channel, application, sample, systematic = key
         dataset = sample or ""
         channel_label = channel or "inclusive"
+        application_label = application or "inclusive"
         systematic_label = systematic or "nominal"
-        aggregate_key = (dataset, channel_label, systematic_label)
+        aggregate_key = (dataset, channel_label, application_label, systematic_label)
 
         variable_entries = grouped[variable]
         if aggregate_key in variable_entries:
@@ -119,15 +122,35 @@ def _aggregate_variable_entries(tuple_entries: Mapping[TupleKey, Any]) -> Dict[s
     return grouped
 
 
-def _build_hist_like(template: Any, dataset_labels: Sequence[str], channel_labels: Sequence[str], systematic_labels: Sequence[str]):
+def _build_hist_like(
+    template: Any,
+    dataset_labels: Sequence[str],
+    channel_labels: Sequence[str],
+    application_labels: Sequence[str],
+    systematic_labels: Sequence[str],
+):
     """Create an empty histogram matching *template* with categorical axes."""
 
     dataset_axis = hist.axis.StrCategory(dataset_labels, name="dataset")
     channel_axis = hist.axis.StrCategory(channel_labels, name="channel")
     systematic_axis = hist.axis.StrCategory(systematic_labels, name="systematic")
 
+    include_application_axis = False
+    if application_labels:
+        include_application_axis = len(application_labels) > 1 or application_labels[0] != "inclusive"
+
     if HistEFT is not None and isinstance(template, HistEFT):
         dense_axis = template.dense_axis
+        if include_application_axis:
+            return HistEFT(
+                dataset_axis,
+                channel_axis,
+                hist.axis.StrCategory(application_labels, name="application"),
+                systematic_axis,
+                dense_axis,
+                wc_names=getattr(template, "wc_names", []),
+                label=getattr(template, "label", None),
+            )
         return HistEFT(
             dataset_axis,
             channel_axis,
@@ -139,6 +162,16 @@ def _build_hist_like(template: Any, dataset_labels: Sequence[str], channel_label
 
     axes = list(getattr(template, "axes", ()))
     storage = template.storage_type() if hasattr(template, "storage_type") else "Double"
+    if include_application_axis:
+        application_axis = hist.axis.StrCategory(application_labels, name="application")
+        return hist.Hist(
+            dataset_axis,
+            channel_axis,
+            application_axis,
+            systematic_axis,
+            *axes,
+            storage=storage,
+        )
     return hist.Hist(dataset_axis, channel_axis, systematic_axis, *axes, storage=storage)
 
 
@@ -156,12 +189,29 @@ def build_dataset_histograms(hist_store: Mapping[Any, Any]) -> Dict[str, Any]:
         first_hist = next(iter(aggregates.values()))
         dataset_labels = sorted({key[0] for key in aggregates})
         channel_labels = sorted({key[1] for key in aggregates})
-        systematic_labels = sorted({key[2] for key in aggregates})
+        application_labels = sorted({key[2] for key in aggregates})
+        systematic_labels = sorted({key[3] for key in aggregates})
 
-        summary_hist = _build_hist_like(first_hist, dataset_labels, channel_labels, systematic_labels)
+        include_application_axis = False
+        if application_labels:
+            include_application_axis = len(application_labels) > 1 or application_labels[0] != "inclusive"
 
-        for (dataset, channel, systematic), histogram in aggregates.items():
-            index = {"dataset": dataset, "channel": channel, "systematic": systematic}
+        summary_hist = _build_hist_like(
+            first_hist,
+            dataset_labels,
+            channel_labels,
+            application_labels,
+            systematic_labels,
+        )
+
+        for (dataset, channel, application, systematic), histogram in aggregates.items():
+            index = {
+                "dataset": dataset,
+                "channel": channel,
+                "systematic": systematic,
+            }
+            if include_application_axis:
+                index["application"] = application
             try:
                 summary_hist[index] = histogram
             except Exception:
