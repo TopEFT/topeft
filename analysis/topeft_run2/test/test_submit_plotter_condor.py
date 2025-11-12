@@ -41,13 +41,13 @@ def test_submit_plotter_condor_dry_run(tmp_path):
             str(repo_root),
             "--log-dir",
             str(log_dir),
-            "--",
             "-f",
             "/cephfs/example/plotsCR_Run2.pkl.gz",
             "-o",
             str(output_dir),
             "-y",
             "run2",
+            "--log-y",
         ],
         check=True,
         capture_output=True,
@@ -78,6 +78,9 @@ def test_submit_plotter_condor_dry_run(tmp_path):
         f'"TOPEFT_REPO_ROOT={staged_repo_root};TOPEFT_ENTRY_DIR={analysis_dir}"'
     )
     assert expected_environment in sub_body
+
+    assert "--log-y" in sub_body
+    assert "--log-y" in result.stderr
 
     entry_script = (analysis_dir / "condor_plotter_entry.sh").read_text()
     assert "unset PYTHONPATH" in entry_script

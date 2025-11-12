@@ -8,13 +8,13 @@ DEFAULT_CEPH_ROOT="/users/apiccine/work/correction-lib/topeft"
 
 show_help() {
     cat <<'USAGE'
-Usage: submit_plotter_condor.sh [options] -- [run_plotter arguments]
+Usage: submit_plotter_condor.sh [condor options] [run_plotter arguments]
 
 Submit run_plotter.sh jobs to HTCondor with minimal boilerplate. The script
 validates plotting options by invoking run_plotter.sh --dry-run locally before
 creating a temporary submission file.
 
-Condor options:
+Condor options (provide these before the plotting arguments):
   --queue N        Number of job instances to submit (default: 1)
   --log-dir PATH   Directory for Condor log, output, and error files
                    (default: ./condor_logs)
@@ -31,7 +31,8 @@ Condor options:
   --dry-run        Print the generated submission file instead of calling condor_submit
   -h, --help       Show this help message and exit
 
-All other arguments are forwarded directly to run_plotter.sh.
+All other arguments are forwarded directly to run_plotter.sh. The legacy "--"
+delimiter is optional; extra flags are forwarded automatically when present.
 USAGE
 }
 
@@ -53,75 +54,94 @@ dry_run=0
 request_cpus=""
 request_memory=""
 plotter_args=()
+parsing_condor=1
 
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --queue)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: --queue requires a value." >&2
-                exit 1
-            fi
-            queue_count="$2"
-            shift 2
-            ;;
-        --log-dir)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: --log-dir requires a value." >&2
-                exit 1
-            fi
-            log_dir="$2"
-            shift 2
-            ;;
-        --ceph-root)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: --ceph-root requires a value." >&2
-                exit 1
-            fi
-            ceph_root="$2"
-            shift 2
-            ;;
-        --conda-prefix)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: --conda-prefix requires a value." >&2
-                exit 1
-            fi
-            conda_prefix="$2"
-            shift 2
-            ;;
-        --request-cpus)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: --request-cpus requires a value." >&2
-                exit 1
-            fi
-            request_cpus="$2"
-            shift 2
-            ;;
-        --request-memory)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: --request-memory requires a value." >&2
-                exit 1
-            fi
-            request_memory="$2"
-            shift 2
-            ;;
-        --dry-run)
-            dry_run=1
-            shift
-            ;;
-        -h|--help)
-            show_help
-            exit 0
-            ;;
-        --)
-            shift
-            plotter_args+=("$@")
-            break
-            ;;
-        *)
-            plotter_args+=("$1")
-            shift
-            ;;
-    esac
+    if (( parsing_condor )); then
+        case "$1" in
+            --queue)
+                if [[ $# -lt 2 ]]; then
+                    echo "Error: --queue requires a value." >&2
+                    exit 1
+                fi
+                queue_count="$2"
+                shift 2
+                continue
+                ;;
+            --log-dir)
+                if [[ $# -lt 2 ]]; then
+                    echo "Error: --log-dir requires a value." >&2
+                    exit 1
+                fi
+                log_dir="$2"
+                shift 2
+                continue
+                ;;
+            --ceph-root)
+                if [[ $# -lt 2 ]]; then
+                    echo "Error: --ceph-root requires a value." >&2
+                    exit 1
+                fi
+                ceph_root="$2"
+                shift 2
+                continue
+                ;;
+            --conda-prefix)
+                if [[ $# -lt 2 ]]; then
+                    echo "Error: --conda-prefix requires a value." >&2
+                    exit 1
+                fi
+                conda_prefix="$2"
+                shift 2
+                continue
+                ;;
+            --request-cpus)
+                if [[ $# -lt 2 ]]; then
+                    echo "Error: --request-cpus requires a value." >&2
+                    exit 1
+                fi
+                request_cpus="$2"
+                shift 2
+                continue
+                ;;
+            --request-memory)
+                if [[ $# -lt 2 ]]; then
+                    echo "Error: --request-memory requires a value." >&2
+                    exit 1
+                fi
+                request_memory="$2"
+                shift 2
+                continue
+                ;;
+            --dry-run)
+                dry_run=1
+                shift
+                continue
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            --)
+                shift
+                parsing_condor=0
+                continue
+                ;;
+            *)
+                parsing_condor=0
+                ;;
+        esac
+    fi
+
+    if [[ "$1" == "--" ]]; then
+        # Backward compatibility: ignore the legacy delimiter while forwarding
+        # everything else verbatim.
+        shift
+        continue
+    fi
+
+    plotter_args+=("$1")
+    shift
 done
 
 if (( ${#plotter_args[@]} == 0 )); then
