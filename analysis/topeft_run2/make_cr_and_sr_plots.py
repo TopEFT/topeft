@@ -203,6 +203,17 @@ YEAR_TOKEN_RULES = {
 }
 
 _YEAR_SUFFIX_TOKENS = tuple(sorted(YEAR_TOKEN_RULES, key=len, reverse=True))
+_LEPFLAV_TOKENS = (
+    "eee",
+    "eem",
+    "emm",
+    "mmm",
+    "ee",
+    "em",
+    "mm",
+    "e",
+    "m",
+)
 
 
 def _strip_year_token(value):
@@ -224,8 +235,41 @@ def _strip_year_token(value):
     return value
 
 
+def _extract_lepflav_token(channel_name):
+    """Return the lepton-flavour token detected in *channel_name*, if any."""
+
+    if not isinstance(channel_name, str):
+        return None
+
+    components = channel_name.split("_")
+    for component in reversed(components):
+        if component in _LEPFLAV_TOKENS:
+            return component
+    return None
+
+
+def _derive_channel_display_label(base_label, bin_names):
+    """Return the output label to use for *base_label* and *bin_names*."""
+
+    if not bin_names or len(bin_names) != 1:
+        return base_label
+
+    flavour_token = _extract_lepflav_token(bin_names[0])
+    if not flavour_token:
+        return base_label
+
+    if not base_label:
+        return flavour_token
+
+    base_parts = base_label.split("_")
+    if base_parts and base_parts[-1] == flavour_token:
+        return base_label
+
+    return f"{base_label}_{flavour_token}"
+
+
 def _group_channels_by_yearless_label(channel_dict):
-    """Return per-channel *channel_dict* entries grouped by yearless labels."""
+    """Return grouped channel entries and their display labels."""
 
     grouped = OrderedDict()
 
@@ -245,12 +289,17 @@ def _group_channels_by_yearless_label(channel_dict):
             bucket.setdefault(bin_name, None)
 
     normalized = OrderedDict()
+    display_labels = {}
     for key, bucket in grouped.items():
         if bucket is None:
             normalized[key] = None
-        else:
-            normalized[key] = list(bucket.keys())
-    return normalized
+            continue
+
+        bin_names = list(bucket.keys())
+        normalized[key] = bin_names
+        display_labels[key] = _derive_channel_display_label(key, bin_names)
+
+    return normalized, display_labels
 
 YEAR_AGGREGATE_ALIASES = {
     "run2": ("2016", "2016APV", "2017", "2018"),
@@ -965,6 +1014,9 @@ def _render_variable_from_worker(task_id, payload):
                     stacked_log_y=ctx["stacked_log_y"],
                     unblind_flag=ctx["unblind_flag"],
                     verbose=verbose,
+                    channel_display_labels=variable_payload.get(
+                        "channel_display_labels", {}
+                    ),
                 )
     return task_id, stat_only, stat_and_syst, html_set
 
@@ -991,6 +1043,9 @@ def _prepare_variable_payload(
                     "channel_transformations"
                 ],
                 "is_sparse2d": cached_payload["is_sparse2d"],
+                "channel_display_labels": cached_payload.get(
+                    "channel_display_labels", {}
+                ),
             }
         return cached_payload
 
@@ -1011,14 +1066,20 @@ def _prepare_variable_payload(
     channel_dict = _deduplicate_channel_bins(channel_dict)
     channel_dict = _prune_unsplit_flavour_entries(channel_dict, region_ctx)
     channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
+    channel_display_labels = {}
     if region_ctx.channel_mode == "per-channel":
-        channel_dict = _group_channels_by_yearless_label(channel_dict)
+        channel_dict, channel_display_labels = _group_channels_by_yearless_label(
+            channel_dict
+        )
+    else:
+        channel_display_labels = {key: key for key in channel_dict.keys()}
 
     if metadata_only:
         return {
             "channel_dict": channel_dict,
             "channel_transformations": channel_transformations,
             "is_sparse2d": is_sparse2d,
+            "channel_display_labels": channel_display_labels,
         }
 
     mc_to_remove = tuple(region_ctx.samples_to_remove.get("mc") or ())
@@ -1064,6 +1125,7 @@ def _prepare_variable_payload(
         "hist_data": hist_data,
         "hist_mc_sumw2_orig": hist_mc_sumw2_orig,
         "is_sparse2d": is_sparse2d,
+        "channel_display_labels": channel_display_labels,
     }
 
 
@@ -1097,6 +1159,7 @@ def _render_variable(
         return 0, 0, set()
 
     channel_dict = variable_payload["channel_dict"]
+    channel_display_labels = variable_payload.get("channel_display_labels", {})
 
     stat_only_plots = 0
     stat_and_syst_plots = 0
@@ -1133,6 +1196,7 @@ def _render_variable(
             stacked_log_y=stacked_log_y,
             unblind_flag=unblind_flag,
             verbose=verbose,
+            channel_display_labels=channel_display_labels,
         )
         stat_only_plots += stat_only
         stat_and_syst_plots += stat_and_syst
@@ -1158,6 +1222,7 @@ def _render_variable_category(
     stacked_log_y,
     unblind_flag,
     verbose=False,
+    channel_display_labels=None,
 ):
     """Render a single (variable, category) pair and return bookkeeping totals."""
 
@@ -1171,7 +1236,10 @@ def _render_variable_category(
     )
 
     base_dir = save_dir_path or ""
-    save_dir_path_tmp = os.path.join(base_dir, hist_cat)
+    display_label = (
+        channel_display_labels or {}
+    ).get(hist_cat, hist_cat)
+    save_dir_path_tmp = os.path.join(base_dir, display_label)
     os.makedirs(save_dir_path_tmp, exist_ok=True)
 
     stat_only_plots = 0
@@ -3743,6 +3811,9 @@ def produce_region_plots(
                             stacked_log_y=stacked_log_y,
                             unblind_flag=unblind_flag,
                             verbose=verbose,
+                            channel_display_labels=variable_payload.get(
+                                "channel_display_labels", {}
+                            ),
                         )
             stat_only_plots += stat_only
             stat_and_syst_plots += stat_and_syst
