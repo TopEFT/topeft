@@ -160,12 +160,12 @@ Example commands:
 
 ##### Running on Glados HTCondor
 
-`submit_plotter_condor.sh` builds a Condor submit description around `run_plotter.sh` so the same plotting CLI can run on Glados batch slots. The helper performs a `--dry-run` validation, constructs a lightweight sandbox, and records the commands it will execute before handing everything to `condor_submit`.
+`submit_plotter_condor.sh` builds a Condor submit description around `run_plotter.sh` so the same plotting CLI can run on Glados batch slots. The helper performs a `--dry-run` validation, stages a copy of `condor_plotter_entry.sh` next to the generated `.sub` file (spooled automatically with the job), and records the commands it will execute before handing everything to `condor_submit`.
 
 **Prerequisites**
 
 * A Glados login with valid UW–Madison Kerberos/AFS tokens (`kinit <netid>@AD.WISC.EDU` followed by `aklog`).
-* A CephFS checkout of this repository that the worker nodes can reach. The helper defaults to `/users/apiccine/work/correction-lib/topeft`; override it with `--ceph-root /cephfs/<group>/<netid>/topeft` if your clone lives elsewhere.
+* A CephFS checkout of this repository that the worker nodes can reach. The helper defaults to `/users/apiccine/work/correction-lib/topeft`; override it with `--ceph-root /cephfs/<group>/<netid>/topeft` if your clone lives elsewhere. Make sure the path you provide is readable from the execute node—the flag should reference the worker-visible checkout rather than a login-only mount.
 * An accessible Conda installation that contains the `clib-env` environment. Pass its prefix with `--conda-prefix /cephfs/<group>/<netid>/mambaforge/envs/clib-env`; the script discovers `conda.sh`, normalises the path, and activates `clib-env` inside the job. Make sure `etc/profile.d/conda.sh` is readable.
 * Input histogram pickles, log directories, and optional sandboxes placed on shared storage (CephFS or AFS) with world-readable permissions so the execute node can fetch them.
 
@@ -185,7 +185,7 @@ Example commands:
 
 Prefix the command with `--dry-run` when you want to review the generated job wrapper and `.sub` file without actually queueing the job. Adjust the batch resources with `--request-cpus`, `--request-memory`, or `--request-disk`, and add `--queue N` to launch an array of identical submissions. The optional `--sandbox /cephfs/.../templates` flag ships extra payload files alongside the job so the execute node can pick up custom style sheets or metadata.
 
-`--request-cpus` requires a positive integer and `--request-memory` must be a non-empty HTCondor size string; the helper validates both before submitting so typos are caught locally during the dry-run step.
+`--request-cpus` requires a positive integer and `--request-memory` must be a non-empty HTCondor size string; the helper validates both before submitting so typos are caught locally during the dry-run step. The generated submit file exports `TOPEFT_REPO_ROOT` (the parent directory of `analysis/topeft_run2`) and `TOPEFT_ENTRY_DIR` (`analysis/topeft_run2` itself), mirroring the `${analysis_dir}/..` and `${analysis_dir}` values in the helper, so the entry script can override its working tree automatically; add `--conda-prefix ...` when you also need the helper to append `TOPEFT_CONDA_PREFIX` for environment activation.
 
 **Entry-script environment steps**
 

@@ -198,6 +198,34 @@ tmp_dir=$(mktemp -d)
 trap 'rm -rf "${tmp_dir}"' EXIT
 
 submit_file="${tmp_dir}/plotter_job.sub"
+staged_entry="${tmp_dir}/$(basename "${ENTRY_SCRIPT}")"
+
+cp "${ENTRY_SCRIPT}" "${staged_entry}"
+chmod +x "${staged_entry}"
+
+repo_root=$(python3 - "${analysis_dir}" <<'PY'
+import os
+import sys
+print(os.path.abspath(os.path.join(sys.argv[1], os.pardir)))
+PY
+)
+
+environment_entries=(
+    "TOPEFT_REPO_ROOT=${repo_root}"
+    "TOPEFT_ENTRY_DIR=${analysis_dir}"
+)
+
+if [[ -n "${conda_prefix}" ]]; then
+    environment_entries+=("TOPEFT_CONDA_PREFIX=${conda_prefix}")
+fi
+
+environment_string=""
+for entry in "${environment_entries[@]}"; do
+    if [[ -n "${environment_string}" ]]; then
+        environment_string+=";"
+    fi
+    environment_string+="${entry}"
+done
 
 printf -v arg_string ' %q' "${plotter_args[@]}"
 arg_string="${arg_string# }"
@@ -205,22 +233,22 @@ arg_string="${arg_string# }"
 {
 cat <<EOF
 universe                = vanilla
-executable              = "${entry_on_ceph}"
+executable              = "${staged_entry}"
 arguments               = ${arg_string}
 initialdir              = ${analysis_dir}
 log                     = ${log_dir}/plotter.\$(Cluster).\$(Process).log
 output                  = ${log_dir}/plotter.\$(Cluster).\$(Process).out
 error                   = ${log_dir}/plotter.\$(Cluster).\$(Process).err
 getenv                  = True
+should_transfer_files   = YES
+transfer_executable     = True
+environment              = "${environment_string}"
 EOF
 if [[ -n "${request_cpus}" ]]; then
     printf 'request_cpus            = %s\n' "${request_cpus}"
 fi
 if [[ -n "${request_memory}" ]]; then
     printf 'request_memory          = %s\n' "${request_memory}"
-fi
-if [[ -n "${conda_prefix}" ]]; then
-    printf 'environment              = "TOPEFT_CONDA_PREFIX=%s"\n' "${conda_prefix}"
 fi
 cat <<EOF
 queue ${queue_count}
