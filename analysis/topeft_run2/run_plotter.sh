@@ -33,7 +33,9 @@ Optional arguments:
       --log-y              Use a logarithmic y-axis for the stacked panel
       --variables VAR [VAR...]  Limit plotting to the listed histogram variables
       --workers N          Number of worker processes for parallel plotting (default: 1; start with 2-4; higher values use more memory)
-      --channel-output MODE  Forward merged/split channel selection (merged, split, both; default: merged)
+      --channel-output MODE  Forward merged/split channel selection (merged, split, both, merged-njets,
+                           split-njets, both-njets). The -njets variants behave like their counterparts
+                           but keep the per-njet bins defined in cr_sr_plots_metadata.yml (default: merged)
   -v, --verbose            Forward --verbose to enable detailed diagnostics
       --quiet              Forward --quiet to suppress per-variable chatter (default)
       --cr | --sr           Override the auto-detected region
@@ -255,10 +257,10 @@ main() {
             fi
             channel_output="${2,,}"
             case "${channel_output}" in
-                merged|split|both)
+                merged|split|both|merged-njets|split-njets|both-njets)
                     ;;
                 *)
-                    echo "Error: --channel-output expects one of: merged, split, both" >&2
+                    echo "Error: --channel-output expects one of: merged, split, both, merged-njets, split-njets, both-njets" >&2
                     return 1
                     ;;
             esac
