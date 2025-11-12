@@ -1,21 +1,117 @@
 #!/usr/bin/env python
+"""Run the tutorial processor and emit tuple-keyed histogram summaries.
+
+The emitted pickle contains an :class:`collections.OrderedDict` keyed by
+``(variable, channel, application, sample, systematic)`` tuples so that
+downstream training code can deterministically access histogram contents.
+"""
+
 import json
 import time
 import cloudpickle
 import gzip
 import os
+from collections import OrderedDict
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 import numpy as np
 import hist
 import coffea.processor as processor
 from coffea.nanoevents import NanoAODSchema
 
+from topcoffea.modules.histEFT import HistEFT
+
 import simple_processor
+
+
+def _ensure_numpy(array: Any) -> np.ndarray:
+    if isinstance(array, np.ndarray):
+        return array
+    return np.asarray(array)
+
+
+def _summarise_hist(histogram: Any) -> Dict[str, Any]:
+    """Create a tuple-aware summary for a histogram instance."""
+
+    values: Optional[np.ndarray] = None
+    variances: Optional[np.ndarray] = None
+
+    if isinstance(histogram, HistEFT):
+        entries = histogram.values(sumw2=True)
+        for payload in entries.values():
+            if isinstance(payload, tuple):
+                current_values = _ensure_numpy(payload[0])
+                current_variances = None if payload[1] is None else _ensure_numpy(payload[1])
+            else:
+                current_values = _ensure_numpy(payload)
+                current_variances = None
+
+            values = current_values if values is None else values + current_values
+            if current_variances is None:
+                if variances is not None:
+                    variances = None
+            else:
+                variances = (
+                    current_variances
+                    if variances is None
+                    else variances + current_variances
+                )
+    elif isinstance(histogram, hist.Hist):
+        values = _ensure_numpy(histogram.values(flow=True))
+        raw_variances = histogram.variances(flow=True)
+        variances = None if raw_variances is None else _ensure_numpy(raw_variances)
+    else:
+        raise TypeError(f"Unsupported histogram type: {type(histogram)!r}")
+
+    if values is None:
+        values = np.array([])
+
+    summary: Dict[str, Any] = {
+        "sumw": float(np.sum(values)) if values.size else 0.0,
+        "sumw2": float(np.sum(variances)) if variances is not None else None,
+        "values": values,
+        "variances": variances,
+    }
+    return summary
+
+
+TupleKey = Tuple[str, Optional[str], Optional[str], Optional[str], Optional[str]]
+
+
+def materialise_tuple_dict(hist_store: Mapping[TupleKey, Any]) -> OrderedDict:
+    """Construct an ordered mapping keyed by histogram tuple identifiers."""
+
+    ordered_items = []
+    for key, histogram in sorted(hist_store.items(), key=lambda item: item[0]):
+        if not isinstance(key, tuple) or len(key) != 5:
+            raise ValueError(
+                "Histogram accumulator keys must be 5-tuples of (variable, channel, "
+                "application, sample, systematic)."
+            )
+        summary = _summarise_hist(histogram)
+        ordered_items.append((key, summary))
+
+    return OrderedDict(ordered_items)
+
+
+def _tuple_dict_stats(tuple_dict: Mapping[TupleKey, Mapping[str, Any]]) -> Tuple[int, int]:
+    total_bins = 0
+    filled_bins = 0
+    for summary in tuple_dict.values():
+        values = _ensure_numpy(summary.get("values", np.array([])))
+        total_bins += int(values.size)
+        filled_bins += int(np.count_nonzero(values))
+    return total_bins, filled_bins
 
 if __name__ == '__main__':
 
     import argparse
-    parser = argparse.ArgumentParser(description='You can customize your run')
+    parser = argparse.ArgumentParser(
+        description=(
+            "Execute the example processor and write a cloudpickle file containing "
+            "tuple-keyed histogram summaries for downstream training."
+        )
+    )
     parser.add_argument('jsonFiles'           , nargs='?', default=''           , help = 'Json file(s) containing files and metadata')
     parser.add_argument('--prefix', '-r'     , nargs='?', default=''           , help = 'Prefix or redirector to look for the files')
     parser.add_argument('--test','-t'       , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
@@ -143,10 +239,15 @@ if __name__ == '__main__':
     output = runner(flist, treename, processor_instance)
     dt = time.time() - tstart
 
-    histograms = [h for h in output.values() if isinstance(h, hist.Hist)]
-    nbins = sum(h.values(flow=True).size for h in histograms)
-    nfilled = sum(np.sum(h.values(flow=True) > 0) for h in histograms)
-    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+    histograms_only = {
+        key: value
+        for key, value in output.items()
+        if isinstance(value, (HistEFT, hist.Hist))
+    }
+    tuple_mapping = materialise_tuple_dict(histograms_only)
+    total_bins, filled_bins = _tuple_dict_stats(tuple_mapping)
+    fill_fraction = (100 * filled_bins / total_bins) if total_bins else 0.0
+    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (total_bins, fill_fraction))
     print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
 
     # Save the output
@@ -154,5 +255,5 @@ if __name__ == '__main__':
     out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
     print(f"\nSaving output in {out_pkl_file}...")
     with gzip.open(out_pkl_file, "wb") as fout:
-        cloudpickle.dump(output, fout)
+        cloudpickle.dump(tuple_mapping, fout)
     print("Done!")
