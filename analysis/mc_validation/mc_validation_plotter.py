@@ -188,6 +188,18 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
                 f"Histogram '{var_name}' not found in rebuilt or original mapping."
             )
 
+        # Collapse categorical axes that are not part of the plotting layout so the
+        # downstream grouping utilities operate on 1D histograms.  Tuple-keyed
+        # payloads may rebuild both channel and application axes; keeping either
+        # around causes `.values()[()]` lookups to fail once the grouped histogram
+        # retains extra dimensions.
+        axes_names = {ax.name for ax in getattr(histo_base, "axes", ())}
+        histo_collapsed = histo_base
+        if "channel" in axes_names:
+            histo_collapsed = histo_collapsed.sum("channel")
+        if "application" in {ax.name for ax in getattr(histo_collapsed, "axes", ())}:
+            histo_collapsed = histo_collapsed.sum("application")
+
         # Normalize by lumi (important to do this before grouping by year)
         sample_lumi_dict = {}
         for sample_name in sample_lst:
@@ -199,14 +211,12 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
             if "tllq" not in proc: continue
             print(f"\nProcess: {proc}")
 
-            histo = histo_base.sum("channel")
-
             #for cat in cat_lst:
             #histo = histo_base.integrate("channel",cat)
 
             # Get the nominal private
             private_proc_histo = mcp.group_bins(
-                histo,
+                histo_collapsed,
                 {proc+"_private":comp_proc_dict[proc]["private"]},
                 axis_name=dataset_axis_name,
                 drop_unspecified=True,
@@ -220,6 +230,11 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
             # Get the missing parton uncertainty, add it to the rate uncertainties
             histo_private_all_cats = histo_base.integrate(dataset_axis_name,comp_proc_dict[proc]["private"]).integrate("systematic","nominal")
+            if proc == "tllq":
+                axes_private = {ax.name for ax in getattr(histo_private_all_cats, "axes", ())}
+                if "application" in axes_private:
+                    histo_private_all_cats = histo_private_all_cats.sum("application")
+
             if proc == "tllq" and var_name != "njets":
                 histo_private_all_cats.scale(get_missing_parton_sf_dict(),axis="channel")
                 missing_parton_err_summed = histo_private_all_cats.sum("channel").values()[()]
@@ -252,7 +267,7 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
             # Make the plots
             proc_histo = mcp.group_bins(
-                histo,
+                histo_collapsed,
                 comp_proc_dict[proc],
                 axis_name=dataset_axis_name,
                 drop_unspecified=True,
