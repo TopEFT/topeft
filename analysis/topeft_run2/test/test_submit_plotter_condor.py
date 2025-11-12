@@ -84,4 +84,4 @@ def test_submit_plotter_condor_dry_run(tmp_path):
 
     entry_script = (analysis_dir / "condor_plotter_entry.sh").read_text()
     assert "unset PYTHONPATH" in entry_script
-    assert "run_plotter.sh \"$@\"" in entry_script
+    assert '"${ENTRY_DIR}/run_plotter.sh" "$@"' in entry_script
