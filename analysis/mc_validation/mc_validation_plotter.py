@@ -188,23 +188,24 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
                 f"Histogram '{var_name}' not found in rebuilt or original mapping."
             )
 
+        # Normalize by lumi (important to do this before grouping by year)
+        sample_lumi_dict = {}
+        for sample_name in sample_lst:
+            sample_lumi_dict[sample_name] = mcp.get_lumi_for_sample(sample_name)
+        histo_base.scale(sample_lumi_dict,axis=dataset_axis_name)
+
         # Collapse categorical axes that are not part of the plotting layout so the
         # downstream grouping utilities operate on 1D histograms.  Tuple-keyed
         # payloads may rebuild both channel and application axes; keeping either
         # around causes `.values()[()]` lookups to fail once the grouped histogram
-        # retains extra dimensions.
+        # retains extra dimensions.  Perform the reduction after scaling so the
+        # collapsed histogram carries the normalized yields.
         axes_names = {ax.name for ax in getattr(histo_base, "axes", ())}
         histo_collapsed = histo_base
         if "channel" in axes_names:
             histo_collapsed = histo_collapsed.sum("channel")
         if "application" in {ax.name for ax in getattr(histo_collapsed, "axes", ())}:
             histo_collapsed = histo_collapsed.sum("application")
-
-        # Normalize by lumi (important to do this before grouping by year)
-        sample_lumi_dict = {}
-        for sample_name in sample_lst:
-            sample_lumi_dict[sample_name] = mcp.get_lumi_for_sample(sample_name)
-        histo_base.scale(sample_lumi_dict,axis=dataset_axis_name)
 
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
