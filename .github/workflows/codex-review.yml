@@ -1,0 +1,35 @@
+name: Codex review on PRs
+
+on:
+  pull_request_target:               # usa _target_ per poter commentare anche su PR da fork
+    types: [opened, reopened, synchronize, ready_for_review, labeled]
+    branches: [ main, develop ]      # ⬅️ modifica l'elenco dei branch target se serve
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  trigger-codex-review:
+    # repo-guard + niente draft + label-guard "codex"
+    if: >
+      github.repository_owner == 'anpicci' &&
+      !github.event.pull_request.draft &&
+      contains(github.event.pull_request.labels.*.name, 'codex')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Comment "@codex review"
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo, number } = context.issue;
+            const body = "@codex review";
+            await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
+            core.info(`Commented on PR #${number}: ${body}`);
