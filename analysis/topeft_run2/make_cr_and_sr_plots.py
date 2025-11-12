@@ -296,6 +296,31 @@ def _group_channels_by_yearless_label(channel_dict):
             continue
 
         bin_names = list(bucket.keys())
+        token_groups = OrderedDict()
+        for bin_name in bin_names:
+            token = _extract_lepflav_token(bin_name)
+            token_groups.setdefault(token, []).append(bin_name)
+
+        recognised_tokens = [token for token in token_groups if token]
+
+        if len(recognised_tokens) > 1:
+            for token in recognised_tokens:
+                new_key = (
+                    key
+                    if key.endswith(f"_{token}")
+                    else f"{key}_{token}"
+                )
+                normalized[new_key] = token_groups[token]
+                display_labels[new_key] = _derive_channel_display_label(
+                    new_key, token_groups[token]
+                )
+            if None in token_groups:
+                normalized[key] = token_groups[None]
+                display_labels[key] = _derive_channel_display_label(
+                    key, token_groups[None]
+                )
+            continue
+
         normalized[key] = bin_names
         display_labels[key] = _derive_channel_display_label(key, bin_names)
 
