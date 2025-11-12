@@ -3,9 +3,9 @@ import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-#from coffea.arrays import Initialize # Not used and gives error
 import coffea.processor as processor
 import hist
+from hist import storage
 from coffea.util import load
 import coffea.analysis_tools
 
@@ -24,22 +24,20 @@ class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples):
         self._samples = samples
 
-        # Create the histograms
-        # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
-        jpt_axis = hist.axis.Variable([20, 30, 60, 120], name="pt", label="Jet p_{T} (GeV)")
+        jetpt_variable_axis = hist.axis.Variable([20, 30, 60, 120], name="pt", label="Jet p_{T} (GeV)")
         jetpt_axis = hist.axis.Regular(40, 0, 800, name="pt", label="Jet p_{T} (GeV)")
-        jeta_axis = hist.axis.Regular(25, -2.5, 2.5, name="eta", label=r"Jet \eta (GeV)")
-        jeta_axis = hist.axis.Regular(25, -2.5, 2.5, name="eta", label=r"Jet \eta (GeV)")
-        jaeta_axis = hist.axis.Variable([0, 1, 1.8, 2.4], name="abseta", label=r"Jet \eta (GeV)")
-        Flav_axis = hist.axis.StrCategory([], name="Flav", growth=True)
-        flav_axis = hist.axis.IntCategory([], name="flav", growth=True)
-        wp_axis = hist.axis.StrCategory([], name="WP", growth=True)
-        self._accumulator = {
-            'jetpt'  : hist.Hist(wp_axis, Flav_axis, jpt_axis),
-            'jeteta'  : hist.Hist(wp_axis, Flav_axis, jeta_axis),
-            'jetpteta'  : hist.Hist(wp_axis, Flav_axis, jpt_axis, jaeta_axis),
-            'jetptetaflav'  : hist.Hist(wp_axis, jetpt_axis, jaeta_axis, flav_axis),
+        jeteta_axis = hist.axis.Regular(25, -2.5, 2.5, name="eta", label=r"Jet \eta (GeV)")
+        jetabseta_axis = hist.axis.Variable([0, 1, 1.8, 2.4], name="abseta", label=r"Jet |\eta| (GeV)")
+        flav_axis = hist.axis.Regular(7, -0.5, 6.5, name="flav", label="Jet hadron flavour")
+
+        self._hist_axes = {
+            'jetpt': (jetpt_variable_axis,),
+            'jeteta': (jeteta_axis,),
+            'jetpteta': (jetpt_axis, jetabseta_axis),
+            'jetptetaflav': (jetpt_axis, jetabseta_axis, flav_axis),
         }
+        self._storage = storage.Weight()
+        self._accumulator = {}
 
     @property
     def accumulator(self):
@@ -141,18 +139,25 @@ class AnalysisProcessor(processor.ProcessorABC):
                 pts     = ak.flatten(selectjets.pt)
                 etas    = ak.flatten(selectjets.eta)
                 absetas = ak.flatten(np.abs(selectjets.eta))
-                flavarray = np.zeros_like(pts) if jetype == 'l' else (np.ones_like(pts)*(4 if jetype=='c' else 5))
-                weights =  np.ones_like(pts)
-                hout['jetpt'].fill(WP=wp, Flav=jetype,  pt=pts, weight=weights)
-                hout['jeteta'].fill(WP=wp, Flav=jetype,  eta=etas, weight=weights)
-                hout['jetpteta'].fill(WP=wp, Flav=jetype,  pt=pts, abseta=absetas, weight=weights)
-                hout['jetptetaflav'].fill(WP=wp, pt=pts, abseta=absetas, flav=flavarray, weight=weights)
+                flavarray = np.zeros_like(pts) if jetype == 'l' else (np.ones_like(pts) * (4 if jetype == 'c' else 5))
+                fill_weights = np.ones_like(pts)
+                key_base = (jetype, wp, dataset, 'nominal')
+                self._fill_hist(hout, 'jetpt', key_base, pt=pts, weight=fill_weights)
+                self._fill_hist(hout, 'jeteta', key_base, eta=etas, weight=fill_weights)
+                self._fill_hist(hout, 'jetpteta', key_base, pt=pts, abseta=absetas, weight=fill_weights)
+                self._fill_hist(hout, 'jetptetaflav', key_base, pt=pts, abseta=absetas, flav=flavarray, weight=fill_weights)
 
         return hout
 
 
     def postprocess(self, accumulator):
         return accumulator
+
+    def _fill_hist(self, accumulator, variable, key_base, **fill_args):
+        key = (variable,) + key_base
+        if key not in accumulator:
+            accumulator[key] = hist.Hist(*self._hist_axes[variable], storage=self._storage)
+        accumulator[key].fill(**fill_args)
 
 if __name__ == '__main__':
     # Load the .coffea files

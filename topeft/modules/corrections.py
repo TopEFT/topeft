@@ -1237,17 +1237,42 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
     pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
-    hists = {}
     with gzip.open(pathToBtagMCeff) as fin:
         hin = pickle.load(fin)
-        for k in hin.keys():
+    if not hin:
+        raise KeyError("No histograms found in MC efficiency file")
+
+    sample_key = next(iter(hin.keys()))
+
+    if isinstance(sample_key, tuple):
+        # New tuple-keyed accumulator structure.
+        hnum = None
+        hden = None
+        for key, hist_obj in hin.items():
+            if not isinstance(key, tuple) or len(key) != 5:
+                continue
+            variable, jetype, key_wp, dataset, systematic = key
+            if variable != 'jetptetaflav' or systematic != 'nominal':
+                continue
+            if key_wp == wp:
+                hnum = hist_obj.copy() if hnum is None else hnum + hist_obj
+            elif key_wp == 'all':
+                hden = hist_obj.copy() if hden is None else hden + hist_obj
+        if hnum is None or hden is None:
+            raise KeyError(
+                f"Missing histogram entries for wp={wp!r} in tuple-keyed MC efficiencies"
+            )
+    else:
+        # Backwards compatibility with the previous accumulator layout.
+        hists = {}
+        for k, hist_obj in hin.items():
             if k in hists:
-                hists[k] += hin[k]
+                hists[k] += hist_obj
             else:
-                hists[k] = hin[k]
-    h = hists['jetptetaflav']
-    hnum = h[{'WP': wp}]
-    hden = h[{'WP': 'all'}]
+                hists[k] = hist_obj
+        h = hists['jetptetaflav']
+        hnum = h[{'WP': wp}]
+        hden = h[{'WP': 'all'}]
     getnum = lookup_tools.dense_lookup.dense_lookup(
         hnum.values(flow=True)[1:,1:,1:], # Strip off underflow
         [
