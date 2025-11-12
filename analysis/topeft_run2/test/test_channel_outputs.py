@@ -254,7 +254,8 @@ def test_flavour_split_hist_preserves_per_channel_entries():
 
 
 def test_channel_output_both_runs_all_modes_and_uses_sumw2(monkeypatch, tmp_path):
-    variable = "observable"
+    # Use an observable that only declares regular binning metadata.
+    variable = "npvs"
     channel_bins = ["category_em", "category_mm"]
     histograms = {
         variable: _build_histogram(variable, channel_bins, hist_type="HistEFT"),
