@@ -45,6 +45,8 @@ def _hist_like(instance: Any) -> bool:
         for cls in (Hist, HistEFT)
         if isinstance(cls, type)
     )
+    if not hist_classes:
+        return False
     return isinstance(instance, hist_classes)
 
 
