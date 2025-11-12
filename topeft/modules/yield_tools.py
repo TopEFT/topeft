@@ -1,8 +1,11 @@
 import numpy as np
 import copy
+from collections.abc import Mapping
+
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.utils as utils
 from topeft.modules.compatibility import add_sumw2_stub
+from topeft.modules.runner_output import SUMMARY_KEY
 
 class YieldTools():
 
@@ -267,33 +270,111 @@ class YieldTools():
         if isinstance(path, str): hin_dict = utils.get_hist_from_pkl(path,allow_empty)
         else: hin_dict = path
 
+        if isinstance(hin_dict, Mapping):
+            string_keys = []
+            tuple_variables = []
+            for key in hin_dict.keys():
+                if key == SUMMARY_KEY:
+                    continue
+                if isinstance(key, str):
+                    if key != "SumOfEFTweights":
+                        string_keys.append(key)
+                elif isinstance(key, tuple) and len(key) == 5:
+                    tuple_variables.append(key[0])
+            if string_keys:
+                return string_keys
+            if tuple_variables:
+                ordered = []
+                for var in tuple_variables:
+                    if var not in ordered:
+                        ordered.append(var)
+                return ordered
+
         # Get list of keys
-        return list(hin_dict.keys())
+        if hasattr(hin_dict, "keys"):
+            return list(hin_dict.keys())
+        return []
 
 
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
 
         # If the hin is not a histo, then get one of the histos from inside of it
-        if not isinstance(hin_dict,HistEFT):
+        if isinstance(hin_dict, HistEFT):
+            if axis in hin_dict.axes.name:
+                return list(hin_dict.axes[axis])
+            if axis == "process" and "sample" in hin_dict.axes.name:
+                return list(hin_dict.axes["sample"])
+            raise Exception(f"Axis {axis!r} not present in histogram")
 
-            # If no hist specified, just choose the first one
+        if isinstance(hin_dict, Mapping):
+            hist_candidates = {
+                key: value
+                for key, value in hin_dict.items()
+                if isinstance(key, str) and isinstance(value, HistEFT)
+            }
+
             if h_name is None:
-                all_hists = self.get_hist_list(hin_dict)
-                for h in all_hists:
-                    if h != "SumOfEFTweights":
-                        h_name = h
+                hist_names = [name for name in self.get_hist_list(hin_dict)]
+                for name in hist_names:
+                    if name in hist_candidates:
+                        h_name = name
                         break
 
-                # If we failed to find a hist, raise exception
-                if h_name is None:
-                    raise Exception("There are no hists in this hist dict")
+            if h_name is not None and h_name in hist_candidates:
+                histo = hist_candidates[h_name]
+                if axis in histo.axes.name:
+                    return list(histo.axes[axis])
+                if axis == "process" and "sample" in histo.axes.name:
+                    return list(histo.axes["sample"])
+                raise Exception(f"Axis {axis!r} not present in histogram {h_name!r}")
 
-            # Chek if what we have is the output of the processsor, if so, get a specific hist from it
-            if isinstance(hin_dict,dict):
-                hin_dict = hin_dict[h_name]
+            tuple_entries = {
+                key: value
+                for key, value in hin_dict.items()
+                if isinstance(key, tuple) and len(key) == 5
+            }
 
-        return list(hin_dict.axes[axis])
+            if not tuple_entries:
+                raise Exception("There are no hists in this hist dict")
+
+            if h_name is None:
+                first_key = next(iter(tuple_entries.keys()))
+                target_variable = first_key[0]
+            else:
+                target_variable = h_name
+
+            relevant_keys = [key for key in tuple_entries if key[0] == target_variable]
+            if not relevant_keys:
+                raise Exception(f"No histograms found for variable {target_variable!r}")
+
+            metadata_index = {
+                "variable": 0,
+                "channel": 1,
+                "application": 2,
+                "sample": 3,
+                "systematic": 4,
+            }
+
+            query_axis = "sample" if axis == "process" else axis
+            if query_axis in metadata_index:
+                idx = metadata_index[query_axis]
+                values = []
+                for key in sorted(relevant_keys):
+                    entry = key[idx]
+                    if entry is None:
+                        continue
+                    if entry not in values:
+                        values.append(entry)
+                return values
+
+            representative = tuple_entries[relevant_keys[0]]
+            if isinstance(representative, HistEFT) and query_axis in representative.axes.name:
+                return list(representative.axes[query_axis])
+
+            raise Exception(f"Axis {axis!r} not available for histogram {target_variable!r}")
+
+        raise Exception("Unsupported histogram container")
 
     # Remove the njet component of a category name, returns a new str
     def get_str_without_njet(self,in_str):

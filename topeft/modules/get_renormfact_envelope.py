@@ -40,11 +40,11 @@ def get_renormfact_envelope(dict_of_hists):
     cat_lst = yt.get_cat_lables(dict_of_hists,"channel")
     print("\nAll processes:",process_lst)
     print("\nAll cats:",cat_lst)
-    print("\nAll vars:",dict_of_hists.keys())
+    print("\nAll vars:",yt.get_hist_list(dict_of_hists))
 
     # Get the most extreme renorm fact variations
     out_hist_dict = {}
-    for var_name in dict_of_hists.keys():
+    for var_name in yt.get_hist_list(dict_of_hists):
         print("\tVar name:",var_name)
 
         # Get the histo for this variable from the input dict

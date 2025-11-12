@@ -5,12 +5,16 @@ np.seterr(divide='ignore', invalid='ignore', over='ignore')
 import hist
 import coffea.processor as processor
 
+from collections import OrderedDict, defaultdict
+from typing import Any, Dict, Tuple, Union
+
 from topcoffea.modules.GetValuesFromJsons import get_lumi
 from topcoffea.modules.objects import *
 #from topcoffea.modules.corrections import get_ht_sf
 from topcoffea.modules.selection import *
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
+from topeft.modules.runner_output import SUMMARY_KEY, materialise_tuple_dict
 
 
 def _ensure_ak_array(values, dtype=None):
@@ -77,39 +81,47 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
 
-        # Create the histograms
+        # Create the histogram builders
         def _make_hist(axis_name: str, axis_label: str, bins: int, start: float, stop: float) -> HistEFT:
-            dataset_axis = hist.axis.StrCategory([], name="dataset", growth=True)
-            dense_axis = hist.axis.Regular(bins=bins, start=start, stop=stop, name=axis_name, label=axis_label)
+            dense_axis = hist.axis.Regular(
+                bins=bins, start=start, stop=stop, name=axis_name, label=axis_label
+            )
             return HistEFT(
-                dataset_axis,
                 dense_axis,
                 wc_names=wc_names_lst,
                 label="Events",
             )
 
-        self._accumulator = processor.dict_accumulator({
-            "mll_fromzg_e": _make_hist("mll_fromzg_e", "invmass ee from z/gamma", 40, 0, 200),
-            "mll_fromzg_m": _make_hist("mll_fromzg_m", "invmass mm from z/gamma", 40, 0, 200),
-            "mll_fromzg_t": _make_hist("mll_fromzg_t", "invmass tautau from z/gamma", 40, 0, 200),
-            "mll": _make_hist("mll", "Invmass l0l1", 60, 0, 600),
-            "ht": _make_hist("ht", "Scalar sum of genjet pt", 100, 0, 1000),
-            "ht_clean": _make_hist("ht_clean", "Scalar sum of clean genjet pt", 100, 0, 1000),
-            "tops_pt": _make_hist("tops_pt", "Pt of the sum of the tops", 50, 0, 500),
-            "tX_pt": _make_hist("tX_pt", "Pt of the t(t)X system", 40, 0, 400),
-            "njets": _make_hist("njets", "njets", 10, 0, 10),
-        })
+        self._hist_builders: Dict[str, Any] = {
+            "mll_fromzg_e": lambda: _make_hist("mll_fromzg_e", "invmass ee from z/gamma", 40, 0, 200),
+            "mll_fromzg_m": lambda: _make_hist("mll_fromzg_m", "invmass mm from z/gamma", 40, 0, 200),
+            "mll_fromzg_t": lambda: _make_hist("mll_fromzg_t", "invmass tautau from z/gamma", 40, 0, 200),
+            "mll": lambda: _make_hist("mll", "Invmass l0l1", 60, 0, 600),
+            "ht": lambda: _make_hist("ht", "Scalar sum of genjet pt", 100, 0, 1000),
+            "ht_clean": lambda: _make_hist("ht_clean", "Scalar sum of clean genjet pt", 100, 0, 1000),
+            "tops_pt": lambda: _make_hist("tops_pt", "Pt of the sum of the tops", 50, 0, 500),
+            "tX_pt": lambda: _make_hist("tX_pt", "Pt of the t(t)X system", 40, 0, 400),
+            "njets": lambda: _make_hist("njets", "njets", 10, 0, 10),
+        }
 
         # Set the list of hists to fill
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
-            self._hist_lst = list(self._accumulator.keys())
+            self._hist_lst = list(self._hist_builders.keys())
         else:
             # Otherwise, just fill the specified subset of hists
             for hist_to_include in hist_lst:
-                if hist_to_include not in self._accumulator.keys():
-                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
-            self._hist_lst = hist_lst # Which hists to fill
+                if hist_to_include not in self._hist_builders:
+                    raise Exception(
+                        f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor."
+                    )
+            self._hist_lst = hist_lst  # Which hists to fill
+
+        self._default_channel = "inclusive"
+        self._default_application = "inclusive"
+        self._default_systematic = "nominal"
+
+        self._accumulator = processor.dict_accumulator({})
 
         # Set the booleans
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
@@ -259,28 +271,121 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout = self.accumulator.identity()
 
         for dense_axis_name, dense_axis_vals in dense_axis_dict.items():
+            if dense_axis_name not in self._hist_lst:
+                continue
 
             # Mask out the none values
-            isnotnone_mask = (ak.fill_none((dense_axis_vals != None),False))
+            isnotnone_mask = ak.fill_none((dense_axis_vals != None), False)
             dense_axis_vals_cut = dense_axis_vals[isnotnone_mask]
             event_weight_cut = event_weight[isnotnone_mask]
             eft_coeffs_cut = eft_coeffs
-            if eft_coeffs is not None: eft_coeffs_cut = eft_coeffs[isnotnone_mask]
+            if eft_coeffs is not None:
+                eft_coeffs_cut = eft_coeffs[isnotnone_mask]
             eft_w2_coeffs_cut = eft_w2_coeffs
-            if eft_w2_coeffs is not None: eft_w2_coeffs_cut = eft_w2_coeffs[isnotnone_mask]
+            if eft_w2_coeffs is not None:
+                eft_w2_coeffs_cut = eft_w2_coeffs[isnotnone_mask]
+
+            hist_key = self._build_histogram_key(
+                dense_axis_name,
+                sample=histAxisName,
+            )
+
+            histogram = self._get_histogram(hout, dense_axis_name, hist_key)
 
             # Fill the histos
             axes_fill_info_dict = {
                 dense_axis_name: dense_axis_vals_cut,
-                "dataset": histAxisName,
                 "weight": event_weight_cut,
                 "eft_coeff": eft_coeffs_cut,
                 "eft_err_coeff": eft_w2_coeffs_cut,
             }
 
-            hout[dense_axis_name].fill(**axes_fill_info_dict)
+            histogram.fill(**axes_fill_info_dict)
 
         return hout
 
     def postprocess(self, accumulator):
-        return accumulator
+        tuple_entries = {
+            key: value
+            for key, value in accumulator.items()
+            if isinstance(key, tuple) and len(key) == 5
+        }
+
+        ordered_tuple_entries: "OrderedDict[Tuple[str, str, str, str, str], HistEFT]" = OrderedDict(
+            sorted(tuple_entries.items(), key=lambda item: item[0])
+        )
+
+        summary_payload = materialise_tuple_dict(ordered_tuple_entries)
+
+        aggregated: Dict[str, Dict[str, HistEFT]] = defaultdict(dict)
+        for key, hist_obj in ordered_tuple_entries.items():
+            variable, channel, application, sample, systematic = key
+            label_parts = [sample]
+            if channel and channel != self._default_channel:
+                label_parts.append(channel)
+            if application and application != self._default_application:
+                label_parts.append(application)
+            if systematic and systematic != self._default_systematic:
+                label_parts.append(systematic)
+            sample_label = "__".join(filter(None, label_parts))
+
+            if sample_label in aggregated[variable]:
+                aggregated[variable][sample_label] = (
+                    aggregated[variable][sample_label] + hist_obj
+                )
+            else:
+                aggregated[variable][sample_label] = hist_obj.copy()
+
+        result: "OrderedDict[Any, Any]" = OrderedDict()
+        result.update(ordered_tuple_entries)
+        result[SUMMARY_KEY] = summary_payload
+
+        for variable in sorted(aggregated.keys()):
+            sample_map = aggregated[variable]
+            first_hist = next(iter(sample_map.values()))
+            sample_axis = hist.axis.StrCategory([], name="sample", growth=True)
+            dense_axis = first_hist.dense_axis
+            summary_hist = HistEFT(
+                sample_axis,
+                dense_axis,
+                wc_names=first_hist.wc_names,
+                label=first_hist.label,
+            )
+            for sample_label, hist_obj in sample_map.items():
+                summary_hist[{"sample": sample_label}] = hist_obj
+            result[variable] = summary_hist
+
+        for key, value in accumulator.items():
+            if key in tuple_entries or key == SUMMARY_KEY:
+                continue
+            if isinstance(key, str) and key in result:
+                continue
+            result[key] = value
+
+        return result
+
+    def _build_histogram_key(
+        self,
+        variable: str,
+        sample: str,
+        channel: Union[str, None] = None,
+        application: Union[str, None] = None,
+        systematic: Union[str, None] = None,
+    ) -> Tuple[str, str, str, str, str]:
+        return (
+            variable,
+            channel or self._default_channel,
+            application or self._default_application,
+            sample,
+            systematic or self._default_systematic,
+        )
+
+    def _get_histogram(self, hist_store, variable: str, key):
+        histogram = hist_store.get(key)
+        if histogram is None:
+            builder = self._hist_builders.get(variable)
+            if builder is None:
+                raise KeyError(f"No histogram builder registered for variable '{variable}'")
+            histogram = builder()
+            hist_store[key] = histogram
+        return histogram

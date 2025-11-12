@@ -36,7 +36,7 @@ def save_pkl_for_arr(sf_arr,tag):
 # Main wrapper script for making the private vs central comparison plots
 def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
     sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
-    vars_lst = dict_of_hists.keys()
+    vars_lst = yt.get_hist_list(dict_of_hists)
     print("\nSamples:",sample_lst)
     print("\nVariables:",vars_lst)
 
