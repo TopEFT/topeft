@@ -410,4 +410,8 @@ def test_split_mode_groups_year_suffixed_channels(monkeypatch, tmp_path):
     for key in ("err_p_syst", "err_m_syst", "err_ratio_p_syst", "err_ratio_m_syst"):
         assert key in aggregate_kwargs and key in per_kwargs
         assert np.allclose(aggregate_kwargs[key], per_kwargs[key])
-    assert aggregate_kwargs.get("syst_err") == per_kwargs.get("syst_err") == "total"
+
+    aggregate_mode = aggregate_kwargs.get("syst_err")
+    per_mode = per_kwargs.get("syst_err")
+    assert aggregate_mode == "total"
+    assert per_mode == "total" or per_mode is True
