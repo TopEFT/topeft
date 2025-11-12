@@ -182,6 +182,73 @@ PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
 STACKED_RATIO_STYLE = _META.get("STACKED_RATIO_STYLE", {})
 
+
+def _resolve_axis_bins(var_name, *, variable_multi_key=None):
+    """Return default bin edges for *var_name* using available axis metadata."""
+
+    metadata = axes_info.get(var_name, {})
+    if not isinstance(metadata, Mapping):
+        return None
+
+    bins = metadata.get("variable")
+    if bins is not None:
+        return bins
+
+    if variable_multi_key is not None:
+        variable_multi = metadata.get("variable_multi")
+        if isinstance(variable_multi, Mapping):
+            candidate = variable_multi.get(variable_multi_key)
+            if candidate:
+                return candidate
+
+    else:
+        variable_multi = metadata.get("variable_multi")
+        if isinstance(variable_multi, Mapping) and len(variable_multi) == 1:
+            candidate = next(iter(variable_multi.values()))
+            if candidate:
+                return candidate
+
+    regular_bins = metadata.get("regular")
+    if regular_bins is None:
+        return None
+
+    if isinstance(regular_bins, Mapping):
+        regular_bins = regular_bins.get("edges") or regular_bins.get("bins")
+        if regular_bins is None:
+            return None
+
+    if isinstance(regular_bins, np.ndarray):
+        return regular_bins.tolist()
+
+    if isinstance(regular_bins, (tuple, list)):
+        if len(regular_bins) == 3:
+            try:
+                n_bins, low_edge, high_edge = regular_bins
+            except ValueError:
+                return None
+            try:
+                n_bins = int(n_bins)
+            except (TypeError, ValueError):
+                return None
+            if n_bins <= 0:
+                return None
+            try:
+                low_edge = float(low_edge)
+                high_edge = float(high_edge)
+            except (TypeError, ValueError):
+                return None
+            if not (math.isfinite(low_edge) and math.isfinite(high_edge)):
+                return None
+            if high_edge <= low_edge:
+                return None
+            return np.linspace(low_edge, high_edge, num=n_bins + 1).tolist()
+
+        if len(regular_bins) >= 2:
+            return list(regular_bins)
+
+    return None
+
+
 YEAR_TOKEN_RULES = {
     "2016": {
         "mc_wl": ["UL16"],
@@ -1325,8 +1392,10 @@ def _render_variable_category(
                 "style": region_ctx.stacked_ratio_style,
             }
             bins_override = region_ctx.analysis_bins.get(var_name)
-            if bins_override is not None:
-                stacked_kwargs["bins"] = bins_override
+            default_bins = _resolve_axis_bins(var_name)
+            bins_to_use = bins_override if bins_override is not None else default_bins
+            if bins_to_use is not None:
+                stacked_kwargs["bins"] = bins_to_use
             fig = make_region_stacked_ratio_fig(
                 hist_mc_integrated,
                 hist_data_integrated,
@@ -1513,9 +1582,7 @@ def _render_variable_category(
             year_str = "ULall"
         title = f"{hist_cat}_{var_name}_{year_str}"
         bins_override = region_ctx.analysis_bins.get(var_name)
-        default_bins = (
-            axes_info[var_name]["variable"] if var_name in axes_info else None
-        )
+        default_bins = _resolve_axis_bins(var_name)
         stacked_kwargs = {
             "group": region_ctx.group_map,
             "lumitag": region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
