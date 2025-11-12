@@ -232,6 +232,7 @@ def test_sumw2_histogram_passed_to_stacked_plot(monkeypatch, tmp_path):
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind_flag=True,
+        channel_display_labels=payload.get("channel_display_labels"),
     )
 
     assert captured["h_mc_sumw2"] is not None
@@ -415,3 +416,89 @@ def test_split_mode_groups_year_suffixed_channels(monkeypatch, tmp_path):
     per_mode = per_kwargs.get("syst_err")
     assert aggregate_mode == "total"
     assert per_mode == "total" or per_mode is True
+
+
+def test_split_mode_uses_flavour_label_for_single_bin(monkeypatch, tmp_path):
+    variable = "observable"
+    channel_bins = ["cr_all_2018_em"]
+    histograms = {
+        variable: _build_histogram(variable, channel_bins, hist_type="HistEFT"),
+        f"{variable}_sumw2": _build_sumw2_histogram(variable, channel_bins),
+    }
+
+    channel_map = OrderedDict([("cr_all_2018", list(channel_bins))])
+
+    aggregate_ctx = _make_region_context(
+        histograms,
+        channel_map=channel_map,
+        channel_mode="aggregate",
+    )
+    split_ctx = _make_region_context(
+        histograms,
+        channel_map=channel_map,
+        channel_mode="per-channel",
+    )
+
+    render_calls = []
+
+    def fake_make_region_stacked_ratio_fig(
+        hist_mc_integrated,
+        hist_data_to_plot,
+        unit_norm_bool,
+        *,
+        var,
+        **kwargs,
+    ):
+        call = {"kwargs": kwargs, "paths": []}
+        render_calls.append(call)
+
+        class _Figure:
+            def savefig(self, path, *args, **kwargs):
+                call["paths"].append(path)
+
+        return _Figure()
+
+    monkeypatch.setattr(
+        plots,
+        "make_region_stacked_ratio_fig",
+        fake_make_region_stacked_ratio_fig,
+    )
+
+    plots.produce_region_plots(
+        aggregate_ctx,
+        str(tmp_path / "agg"),
+        [variable],
+        skip_syst_errs=True,
+        unit_norm_bool=False,
+        stacked_log_y=False,
+        unblind=True,
+        workers=1,
+    )
+
+    aggregate_calls = list(render_calls)
+    assert aggregate_calls and aggregate_calls[0]["paths"]
+    aggregate_dirs = {Path(path).parent.name for path in aggregate_calls[0]["paths"]}
+    assert aggregate_dirs == {"cr_all_2018"}
+
+    plots.produce_region_plots(
+        split_ctx,
+        str(tmp_path / "split"),
+        [variable],
+        skip_syst_errs=True,
+        unit_norm_bool=False,
+        stacked_log_y=False,
+        unblind=True,
+        workers=1,
+    )
+
+    per_channel_calls = render_calls[len(aggregate_calls) :]
+    assert len(per_channel_calls) == 1
+    per_paths = per_channel_calls[0]["paths"]
+    assert per_paths
+    per_dirs = {Path(path).parent.name for path in per_paths}
+    assert per_dirs == {"cr_all_em"}
+    for saved in per_paths:
+        filename = Path(saved)
+        assert "2018" not in filename.parent.name
+        assert "2018" not in filename.name
+    assert per_dirs.isdisjoint(aggregate_dirs)
