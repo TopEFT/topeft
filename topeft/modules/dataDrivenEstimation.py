@@ -1,13 +1,19 @@
 import argparse
-import topcoffea.modules.utils as utils
-import cloudpickle
-from collections import defaultdict
-import re
 import gzip
+import logging
+import re
+from collections import defaultdict
+
+import cloudpickle
+import topcoffea.modules.utils as utils
 
 from topeft.modules.paths import topeft_path
+from topeft.modules.utils import canonicalize_process_name
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_te_param = GetParam(topeft_path("params/params.json"))
+
+
+logger = logging.getLogger(__name__)
 
 class DataDrivenProducer:
     def __init__(self, inputHist, outputName):
@@ -74,11 +80,14 @@ class DataDrivenProducer:
                             sampleName=match.group('process')
                             year=match.group('year')
                             if year.startswith("202"):
-                                nonPromptName='flips%s'%year
+                                raw_flips_name = f"flips{year}"
                             else:
-                                nonPromptName='flipsUL%s'%year
+                                raw_flips_name = f"flipsUL{year}"
+                            flips_name = canonicalize_process_name(raw_flips_name)
+                            if raw_flips_name == flips_name:
+                                logger.debug("Process name '%s' already canonical", raw_flips_name)
                             if self.dataName==sampleName:
-                                newNameDictData[nonPromptName].append(process)
+                                newNameDictData[flips_name].append(process)
                         hFlips=hAR.group('process', newNameDictData)
 
                         # remove any up/down FF variations from the flip histo since we don't use that info
@@ -107,13 +116,16 @@ class DataDrivenProducer:
                             year=match.group('year')
 
                             if "2022" in year or "2023" in year:
-                                nonPromptName='nonprompt%s'%year
+                                raw_nonprompt_name = f"nonprompt{year}"
                             else:
-                                nonPromptName='nonpromptUL%s'%year
+                                raw_nonprompt_name = f"nonpromptUL{year}"
+                            nonprompt_name = canonicalize_process_name(raw_nonprompt_name)
+                            if raw_nonprompt_name == nonprompt_name:
+                                logger.debug("Process name '%s' already canonical", raw_nonprompt_name)
                             if self.dataName==sampleName:
-                                newNameDictData[nonPromptName].append(process)
+                                newNameDictData[nonprompt_name].append(process)
                             elif sampleName in self.promptSubtractionSamples:
-                                newNameDictNoData[nonPromptName].append(process)
+                                newNameDictNoData[nonprompt_name].append(process)
                             else:
                                 print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
                         hFakes=hAR.group('process', newNameDictData)

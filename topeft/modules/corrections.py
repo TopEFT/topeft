@@ -2139,11 +2139,33 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 # helper function for the Run3 SFs
-def ApplyBinnedSF(pt, edges, centers, unc, var):
-    default = centers[-1] + var * unc
+def ApplyBinnedSF(pt, edges, centers, uncs, var):
+    """
+    Assigns scale factors to input values based on binning, with optional systematic variation.
+
+    Parameters
+    ----------
+    pt : array-like
+        The values (e.g., lepton pT) to which the scale factors are applied.
+    edges : array-like
+        The bin edges for the scale factor assignment.
+    centers : array-like
+        The central scale factor values for each bin.
+    uncs : array-like
+        The uncertainties associated with each bin's scale factor.
+    var : int or array-like
+        Systematic variation: 0 for nominal, +1 for up, -1 for down.
+
+    Returns
+    -------
+    sf : array-like
+        The scale factors assigned to each input value, with systematic variation applied.
+    """
+    # Default value for scale factor: use the last bin center plus/minus its uncertainty times var (±1/0)
+    default = centers[-1] + var * uncs[-1]
     sf = ak.full_like(pt, default)
-    for low, high, cen in zip(edges[:-1], edges[1:], centers[:-1]):
-        sf = ak.where((pt >= low) & (pt < high), cen + var * np.sqrt(unc**2 + (0.02*cen)*0.02), sf)
+    for low, high, cen, unc in zip(edges[:-1], edges[1:], centers[:-1], uncs[:-1]):
+        sf = ak.where((pt >= low) & (pt < high), cen + var * np.sqrt(unc**2 + (0.02*cen)**2), sf)
     return sf
 
 # Vectorized Run3 SF functions for 2-lepton channels
@@ -2166,42 +2188,42 @@ def ComputeTriggerSFRun3(year, pdg0, pt0, pdg1, pt1, var=0):
     # Format: (centers_ee, unc_ee, centers_em, unc_em, centers_mm, unc_mm)
     sf_defs = {
         "2022": (
-            [1.0115, 1.0105, 1.0042, 0.9850, 1.0012, 1.0000, 1.0], 0.0146,   # ee
-            [0.9850, 0.9889, 0.9885, 0.9717, 0.9674, 0.9679, 1.0], 0.0052,   # em
-            [0.9881, 0.9944, 0.9937, 0.9868, 1.0022, 0.9841, 1.0], 0.0098    # mm
+            [1.0115, 1.0105, 1.0042, 0.9850, 1.0012, 1.0000, 1.0], [0.0146, 0.0101, 0.0066, 0.0075, 0.0062, 0.0026, 0.0000],   # ee
+            [1.0021, 0.9724, 1.0023, 0.9952, 0.9945, 0.9966, 1.0], [0.0066, 0.0063, 0.0033, 0.0035, 0.0032, 0.0019, 0.0000],   # em
+            [0.9959, 0.9950, 0.9706, 0.9949, 0.9975, 0.9991, 1.0], [0.0073, 0.0065, 0.0055, 0.0045, 0.0041, 0.0025, 0.0000],    # mm
         ),
         "2022EE": (
-            [0.9845, 1.0004, 1.0025, 0.9857, 0.9965, 1.0044, 1.0], 0.0037,
-            [0.9833, 0.9818, 0.9841, 0.9806, 0.9777, 0.9807, 1.0], 0.0023,
-            [0.9788, 0.9856, 0.9850, 0.9963, 0.9909, 0.9873, 1.0], 0.0039
+            [0.9868, 0.9788, 0.9939, 0.9927, 0.9972, 0.9997, 1.0], [0.0067, 0.0055, 0.0031, 0.0030, 0.0024, 0.0011, 0.0000],
+            [0.9841, 0.9913, 0.9886, 0.9926, 0.9942, 0.9992, 1.0], [0.0036, 0.0027, 0.0018, 0.0017, 0.0016, 0.0008, 0.0000],
+            [0.9788, 0.9856, 0.9850, 0.9963, 0.9909, 0.9873, 1.0], [0.0034, 0.0029, 0.0021, 0.0020, 0.0019, 0.0014, 0.0000]
         ),
         "2023": (
-            [0.9453, 0.9791, 0.9953, 0.9822, 1.0025, 0.9948, 1.0], 0.0107,
-            [0.9748, 0.9799, 0.9712, 0.9716, 0.9724, 0.9616, 1.0], 0.0028,
-            [0.9821, 0.9936, 0.9941, 0.9863, 0.9905, 0.9786, 1.0], 0.0051
+            [0.9453, 0.9791, 0.9953, 0.9822, 1.0025, 0.9948, 1.0], [0.0107, 0.0069, 0.0043, 0.0044, 0.0028, 0.0017, 0.0000],
+            [0.9926, 0.9671, 0.9904, 0.9896, 0.9901, 0.9968, 1.0], [0.0047, 0.0038, 0.0025, 0.0025, 0.0020, 0.0011, 0.0000],
+            [0.9869, 0.9736, 0.9785, 0.9868, 0.9918, 0.9839, 1.0], [0.0039, 0.0043, 0.0029, 0.0027, 0.0026, 0.0018, 0.0000],
         ),
         "2023BPix": (
-            [0.9672, 1.0001, 0.9852, 0.9928, 0.9981, 0.9954, 1.0], 0.0155,
-            [0.9765, 0.9801, 0.9692, 0.9735, 0.9665, 0.9587, 1.0], 0.0041,
-            [0.9890, 0.9956, 0.9869, 0.9907, 0.9950, 0.9646, 1.0], 0.0080
+            [0.9672, 1.0001, 0.9852, 0.9928, 0.9981, 0.9954, 1.0], [0.0155, 0.0092, 0.0067, 0.0065, 0.0051, 0.0028, 0.0000],
+            [0.9809, 0.9808, 1.0019, 0.9899, 0.9911, 0.9943, 1.0], [0.0063, 0.0052, 0.0029, 0.0035, 0.0030, 0.0017, 0.0000],
+            [0.9904, 1.0020, 0.9873, 0.9918, 0.9823, 0.9793, 1.0], [0.0053, 0.0041, 0.0039, 0.0037, 0.0041, 0.0028, 0.0000],
         ),
     }
 
-    centers_ee, unc_ee, centers_em, unc_em, centers_mm, unc_mm = sf_defs[year]
+    centers_ee, uncs_ee, centers_em, uncs_em, centers_mm, uncs_mm = sf_defs[year]
 
     # apply ee (uses pt0) where |pdg0*pdg1|==121
     mask_ee = (prod == 121)
-    sf_ee = ApplyBinnedSF(pt0, edges, centers_ee, unc_ee, var)
+    sf_ee = ApplyBinnedSF(pt0, edges, centers_ee, uncs_ee, var)
     out = ak.where(mask_ee, sf_ee, out)
 
     # apply em (uses pt1) for 143
     mask_em = (prod == 143)
-    sf_em = ApplyBinnedSF(pt1, edges, centers_em, unc_em, var)
+    sf_em = ApplyBinnedSF(pt1, edges, centers_em, uncs_em, var)
     out = ak.where(mask_em, sf_em, out)
 
     # apply mm (uses pt1) for 169
     mask_mm = (prod == 169)
-    sf_mm = ApplyBinnedSF(pt1, edges, centers_mm, unc_mm, var)
+    sf_mm = ApplyBinnedSF(pt1, edges, centers_mm, uncs_mm, var)
     out = ak.where(mask_mm, sf_mm, out)
 
     return out

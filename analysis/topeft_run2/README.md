@@ -10,6 +10,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 - [Scripts for making and checking the datacards](#scripts-for-making-and-checking-the-datacards)
 - [CR/SR plotting CLI quickstart](#crsr-plotting-cli-quickstart)
   - [run\_plotter.sh shell wrapper quickstart](#run_plottersh-shell-wrapper-quickstart)
+- [HTCondor plotting on Glados](#htcondor-plotting-on-glados)
 - [make_cr_and_sr_plots.py internals](#make_cr_and_sr_plotspy-internals)
 - [CR/SR metadata reference](#crsr-metadata-reference)
 
@@ -78,6 +79,8 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Whenever the Run 2 bundle is activated (any of `2016`, `2016APV`, `2017`, `2018`, `UL16`, `UL16APV`, `UL17`, or `UL18` appear in `-y/--year`), the wrapper forwards the matching Run 2 payload to `run_analysis.py` via `--years`. Aliases are resolved so that `UL16` behaves like `2016`, `UL16APV` like `2016APV`, and similarly for `UL17`/`2017` and `UL18`/`2018`.
 * `fullR2_run.sh`: Historical wrapper for the original TOP-22-006 pickle production. Keep it around for archival reproducibility; new workflows should prefer `fullR3_run.sh`.
 
+> **Sourcing helpers:** `run_plotter.sh`, `submit_plotter_condor.sh`, `fullR3_run.sh`, `fullR3_run_diboson.sh`, and `condor_plotter_entry.sh` now funnel their work through a `main()` function. They return non-zero statuses instead of exiting outright when validation fails, so sourcing them in an interactive shell will surface the error without tearing down your session. Executing the scripts directly still exits with the same return codes as before.
+
 
 ### Scripts for finding, comparing and plotting yields from histograms (from the processor)
 
@@ -87,7 +90,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Example usage: `python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2017 2018 -t -u --variables lj0pt ptz`
     - Omitting `--variables` processes every histogram in the input pickle, while providing one or more names limits the run to those histograms.
     - `--year YEAR [YEAR ...]` filters both MC and data histograms to the selected campaign tokens before plotting. The resolver mirrors the datacard utilities, accepts the Run 2 (`run2` → `UL16 UL16APV UL17 UL18`) and Run 3 (`run3` → `2022 2022EE 2023 2023BPix`) aggregates, and prints a summary of the samples that were retained or vetoed alongside the traditional single-year tokens.
-    - `--channel-output {merged,split,both}` selects how channel categories are rendered. `merged` integrates every category into the legacy combined templates and now automatically drops split-only folders (for example the per-flavour CR variations) so the directory layout matches historical outputs, `split` preserves each individual channel as its own figure, and `both` renders the two sets back-to-back. The default is `merged`.
+    - `--channel-output {merged,split,both}` selects how channel categories are rendered. `merged` integrates every category into the legacy combined templates and automatically drops split-only folders (for example the per-flavour CR variations) so the directory layout matches historical outputs, `split` preserves each individual channel when the input histograms are flavour-split and otherwise emits a warning while skipping the per-channel plots, and `both` renders the two sets back-to-back. The default is `merged`.
     - `--workers N` enables multiprocessing when `N>1`. The plotter distributes the requested variables across worker processes and, when spare capacity remains, further fans out over `(variable, category)` pairs so SR-sized channel maps can render in parallel. Start with 2–4 workers; each process keeps a full copy of the histogram dictionary so memory usage still grows roughly linearly with `N`.
     - Pass `--log-y` to draw the stacked yields with a logarithmic y-axis (the ratio panel remains linear). The flag defaults to off so existing plots keep their linear scale unless explicitly requested, and is available both on the Python CLI and via `run_plotter.sh`.
     - Pass `--verbose` when you need detailed diagnostics (sample inventories, per-variable channel dumps). The default `--quiet` mode keeps the console output to high-level progress summaries.
@@ -141,7 +144,7 @@ Common invocation patterns (`-y/--year` now accepts multiple tokens for combined
 
 The `run_plotter.sh` helper script lives alongside `make_cr_and_sr_plots.py` and reproduces the same filename-based auto-detection for control vs. signal regions. After resolving the region it appends the corresponding `--cr` or `--sr` flag before delegating to the Python CLI. When both `CR` and `SR` tokens appear in the filename the wrapper prints a warning and falls back to the control-region defaults unless you pass an explicit override.
 
-Wrapper options match the Python interface so that README guidance applies verbatim. The required `-y/--year` flag shares the same individual years and `run2`/`run3` aggregates as the Python CLI (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`), so you can reuse the shortcuts when hopping between Run 2 and Run 3 payloads. `--channel-output` forwards the merged/split selection, `--variables` accepts the same list of histogram names, and `--blind` / `--unblind` toggle data visibility after the wrapper has selected a region. You can still provide manual `--cr` or `--sr` overrides, and everything after a literal `--` is forwarded untouched to `make_cr_and_sr_plots.py` for less common tweaks.
+Wrapper options match the Python interface so that README guidance applies verbatim. The required `-y/--year` flag shares the same individual years and `run2`/`run3` aggregates as the Python CLI (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`), so you can reuse the shortcuts when hopping between Run 2 and Run 3 payloads. `--channel-output` forwards the merged/split selection, `--variables` accepts the same list of histogram names, and `--blind` / `--unblind` toggle data visibility after the wrapper has selected a region. You can still provide manual `--cr` or `--sr` overrides, and any other switches the wrapper does not understand are forwarded untouched to `make_cr_and_sr_plots.py`. The historical `--` passthrough marker remains accepted for backward compatibility but is no longer required.
 
 The wrapper also exposes the new `--workers` flag; the argument is forwarded directly to the Python CLI, so the same variable/category fan-out and memory-usage caveats apply when you request more than one worker.
 
@@ -152,8 +155,50 @@ Example commands:
 * Auto-detected control-region plotting with timestamped outputs: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots -y run2 --timestamp`
 * Combining Run-3 campaigns in one call: `./run_plotter.sh -f histos/CR2022_combo.pkl.gz -o ~/www/cr_run3 -y run3`
 * Enforcing a blinded SR pass with specific variables: `./run_plotter.sh -f histos/plotsTopEFT.pkl.gz -o ~/www/sr -n sr_scan -y run3 --sr --blind --variables lj0pt ptz`
-* Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 -y 2018 --unblind -- --no-sumw2`
+* Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 -y 2018 --unblind --no-sumw2`
 * Switching the stacked panel to a log scale via the wrapper: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots -y run2 --log-y`
+
+#### HTCondor plotting on Glados
+
+##### Running on Glados HTCondor
+
+`submit_plotter_condor.sh` builds a Condor submit description around `run_plotter.sh` so the same plotting CLI can run on Glados batch slots. The helper performs a `--dry-run` validation, stages a copy of `condor_plotter_entry.sh` next to the generated `.sub` file (spooled automatically with the job), and records the commands it will execute before handing everything to `condor_submit`.
+
+**Prerequisites**
+
+* A Glados login with valid UW–Madison Kerberos/AFS tokens (`kinit <netid>@AD.WISC.EDU` followed by `aklog`).
+* A CephFS checkout of this repository that the worker nodes can reach. The helper defaults to `/users/apiccine/work/correction-lib/topeft`; override it with `--ceph-root /cephfs/<group>/<netid>/topeft` if your clone lives elsewhere. Make sure the path you provide is readable from the execute node—the flag should reference the worker-visible checkout rather than a login-only mount.
+* An accessible Conda installation that contains the `clib-env` environment. Pass its prefix with `--conda-prefix /cephfs/<group>/<netid>/mambaforge/envs/clib-env`; the script discovers `conda.sh`, normalises the path, and activates `clib-env` inside the job. Make sure `etc/profile.d/conda.sh` is readable.
+* Input histogram pickles, log directories, and optional sandboxes placed on shared storage (CephFS or AFS) with world-readable permissions so the execute node can fetch them.
+
+**Example submission**
+
+```bash
+./submit_plotter_condor.sh \
+  --ceph-root /cephfs/<group>/<netid>/topeft \
+  --conda-prefix /cephfs/<group>/<netid>/mambaforge/envs/clib-env \
+  --request-cpus 2 --request-memory 6GB \
+  --log-dir /cephfs/<group>/<netid>/topeft/logs \
+  -f /cephfs/<group>/<netid>/topeft/pickles/plotsCR_Run2.pkl.gz \
+  -o /cephfs/<group>/<netid>/topeft/plots/run2_combo \
+  -y run2 --variables lj0pt ptz
+```
+
+Prefix the command with `--dry-run` when you want to review the generated job wrapper and `.sub` file without actually queueing the job. Adjust the batch resources with `--request-cpus`, `--request-memory`, or `--request-disk`, and add `--queue N` to launch an array of identical submissions. The optional `--sandbox /cephfs/.../templates` flag ships extra payload files alongside the job so the execute node can pick up custom style sheets or metadata.
+
+`--request-cpus` requires a positive integer and `--request-memory` must be a non-empty HTCondor size string; the helper validates both before submitting so typos are caught locally during the dry-run step. The generated submit file exports `TOPEFT_REPO_ROOT` (the parent directory of `analysis/topeft_run2`) and `TOPEFT_ENTRY_DIR` (`analysis/topeft_run2` itself), mirroring the `${analysis_dir}/..` and `${analysis_dir}` values in the helper, so the entry script can override its working tree automatically; add `--conda-prefix ...` when you also need the helper to append `TOPEFT_CONDA_PREFIX` for environment activation. A literal `--` separator is still tolerated if you have scripts that emit it, but new invocations can omit it entirely.
+
+**Entry-script environment steps**
+
+Jobs land in `analysis/topeft_run2/condor_plotter_entry.sh`, which unsets `PYTHONPATH`, honours `TOPEFT_REPO_ROOT`/`TOPEFT_ENTRY_DIR` to pick the checkout and working directory, and activates `clib-env` via either the discovered Conda installation or an explicit `TOPEFT_CONDA_PREFIX`. Override those environment variables in the submit script when you need to point at a different checkout, wrapper directory, or Conda stack, or if you prefer to activate a bespoke environment before calling `run_plotter.sh`. The entry script shares the same `main()`-style return handling as the other helpers, so sourcing it during local smoke tests or unit checks surfaces failures without exiting your shell.
+
+**Inspecting jobs and logs**
+
+`submit_plotter_condor.sh` prints the Condor cluster ID on success. Use `condor_q <netid>` or `condor_q -af:j ClusterId ProcId JobStatus` to watch the queue; status codes follow the standard convention (1 = idle, 2 = running, 4 = completed). Each job writes `plotter.<cluster>.<proc>.{log,out,err}` into the `--log-dir` directory. The `.out` file streams the `condor_plotter_entry.sh` chatter—including the `unset PYTHONPATH` guard and `conda activate clib-env` activation—followed by the `run_plotter.sh` logs, so `tail -f` is the quickest way to monitor progress.
+
+**Retrieving the plots**
+
+Outputs appear directly under the `-o/--output-dir` you forwarded through the wrapper (e.g. `/afs/.../plots/run2_combo`). Condor populates the folder once the job finishes, so you can browse the rendered plots or host them with `python -m http.server` without additional copy steps.
 
 * `get_yield_json.py`:
     - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.

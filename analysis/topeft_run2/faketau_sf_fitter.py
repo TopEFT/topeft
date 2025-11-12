@@ -821,6 +821,94 @@ def _print_fake_rate_table(title, bin_labels, mc_rates, mc_errors, data_rates, d
         )
 
 
+def _filter_and_validate_regroup_summaries(
+    valid_mask,
+    regroup_labels,
+    tau_pt_edges,
+    bin_starts,
+    mc_summary,
+    data_summary,
+):
+    """Filter regroup summaries with ``valid_mask`` and verify bin metadata consistency."""
+
+    valid_mask = np.asarray(valid_mask, dtype=bool).reshape(-1)
+    regroup_labels = np.asarray(regroup_labels, dtype=object).reshape(-1)
+
+    if regroup_labels.size != valid_mask.size:
+        raise RuntimeError(
+            "Tau fake-rate regroup labels and validity mask have incompatible lengths."
+        )
+
+    bin_starts = np.asarray(bin_starts, dtype=float).reshape(-1)
+    if bin_starts.size != valid_mask.size:
+        raise RuntimeError(
+            "Tau fake-rate bin starts do not match the number of regrouped bins."
+        )
+
+    tau_pt_edges = np.asarray(tau_pt_edges, dtype=float).reshape(-1)
+    if tau_pt_edges.ndim != 1:
+        raise RuntimeError("Tau fake-rate tau pT edges must be a one-dimensional array.")
+
+    filtered_labels = regroup_labels[valid_mask]
+
+    def _filter_summary(summary):
+        if not summary:
+            return None
+        if len(summary) != valid_mask.size:
+            raise RuntimeError(
+                "Tau fake-rate regroup summary length does not match the number of bins."
+            )
+        return [dict(entry) for entry, keep in zip(summary, valid_mask) if keep]
+
+    filtered_mc = _filter_summary(mc_summary)
+    filtered_data = _filter_summary(data_summary)
+
+    def _labels_from_summary(summary):
+        if summary is None:
+            return None
+        return np.array(
+            [_format_bin_label(tau_pt_edges, *entry["slice"]) for entry in summary],
+            dtype=object,
+        )
+
+    mc_labels = _labels_from_summary(filtered_mc)
+    data_labels = _labels_from_summary(filtered_data)
+
+    if mc_labels is not None and not np.array_equal(filtered_labels, mc_labels):
+        raise RuntimeError(
+            "Filtered MC regroup summary is inconsistent with the regrouped tau pT labels."
+        )
+
+    if data_labels is not None and not np.array_equal(filtered_labels, data_labels):
+        raise RuntimeError(
+            "Filtered data regroup summary is inconsistent with the regrouped tau pT labels."
+        )
+
+    reference_summary = filtered_mc or filtered_data
+    if reference_summary is not None:
+        start_indices = np.array(
+            [entry["slice"][0] for entry in reference_summary], dtype=int
+        )
+        expected_starts = tau_pt_edges[start_indices]
+        actual_starts = bin_starts[valid_mask]
+        if expected_starts.shape != actual_starts.shape or not np.allclose(
+            expected_starts, actual_starts
+        ):
+            raise RuntimeError(
+                "Tau pT edges derived from the regroup summary do not match the fit bin starts."
+            )
+
+    if filtered_mc is not None and filtered_data is not None:
+        mc_slices = [entry["slice"] for entry in filtered_mc]
+        data_slices = [entry["slice"] for entry in filtered_data]
+        if mc_slices != data_slices:
+            raise RuntimeError(
+                "Filtered MC and data regroup summaries describe different tau pT slices."
+            )
+
+    return filtered_labels, filtered_mc, filtered_data
+
+
 def _print_scale_factor_table(title, bin_labels, scale_factors, errors):
     _print_section_header(title)
     header = f"{'Tau pT bin':<16}{'Scale factor':>14}{'Uncertainty':>14}"
@@ -1503,6 +1591,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         "data_regroup_summary": data_regroup_summary,
         "year_filter": year_filter_summary,
         "tau_pt_bin_starts": tuple(pt_bin_starts.tolist()),
+        "tau_pt_edges": tuple(tau_pt_edges.tolist()),
     }
 
     return mc_y, mc_e, data_x, data_y, data_e, stage_details
@@ -1538,6 +1627,14 @@ def main():
         help=(
             "Dump the resolved Ftau/Ttau channel lists to stdout or the specified file."
             " The script continues after dumping."
+        ),
+    )
+    parser.add_argument(
+        "--output-json",
+        metavar="OUTPUT",
+        help=(
+            "Optional path to write the fitted tau scale factors as JSON."
+            " Use '-' to write to stdout."
         ),
     )
     args = parser.parse_args()
@@ -1639,9 +1736,36 @@ def main():
                 ", ".join(str(bin_edge) for bin_edge in dropped_bins),
             )
 
+    tau_pt_edges = stage_details.get("tau_pt_edges")
+    if tau_pt_edges is None:
+        tau_pt_edges = np.asarray(TAU_PT_BIN_EDGES, dtype=float)
+    else:
+        tau_pt_edges = np.asarray(tau_pt_edges, dtype=float)
+
+    (
+        filtered_regroup_labels,
+        filtered_mc_summary,
+        filtered_data_summary,
+    ) = _filter_and_validate_regroup_summaries(
+        valid,
+        regroup_labels,
+        tau_pt_edges,
+        full_x_data,
+        stage_details.get("mc_regroup_summary"),
+        stage_details.get("data_regroup_summary"),
+    )
+
+    stage_details["filtered_regroup_labels"] = tuple(
+        filtered_regroup_labels.tolist()
+    )
+    if filtered_mc_summary is not None:
+        stage_details["filtered_mc_regroup_summary"] = tuple(filtered_mc_summary)
+    if filtered_data_summary is not None:
+        stage_details["filtered_data_regroup_summary"] = tuple(filtered_data_summary)
+
     pt_bin_starts = stage_details.get("tau_pt_bin_starts")
     if pt_bin_starts is None:
-        pt_bin_starts = np.asarray(TAU_PT_BIN_EDGES[:-1], dtype=float)
+        pt_bin_starts = np.asarray(tau_pt_edges[:-1], dtype=float)
     else:
         pt_bin_starts = np.asarray(pt_bin_starts, dtype=float)
 
@@ -1658,7 +1782,7 @@ def main():
     y_mc = y_mc[valid]
     yerr_data = yerr_data[valid]
     yerr_mc = yerr_mc[valid]
-    regroup_labels = regroup_labels[valid]
+    regroup_labels = filtered_regroup_labels
 
     if SF.size < 2:
         raise RuntimeError(
@@ -1697,6 +1821,58 @@ def main():
         sf_up,
         sf_down,
     )
+
+    if args.output_json is not None:
+        regroup_summary = stage_details.get("filtered_mc_regroup_summary")
+        if regroup_summary is None:
+            regroup_summary = stage_details.get("filtered_data_regroup_summary")
+        if regroup_summary is None:
+            regroup_summary = (
+                stage_details.get("mc_regroup_summary")
+                or stage_details.get("data_regroup_summary")
+            )
+        if regroup_summary is None:
+            raise RuntimeError(
+                "Unable to build tau scale-factor JSON payload: regroup summary unavailable."
+            )
+
+        def _format_json_edge(edge):
+            edge = float(edge)
+            if math.isinf(edge):
+                return "inf"
+            return format(edge, ".15g")
+
+        if len(regroup_summary) != len(nominal_sf):
+            raise RuntimeError(
+                "Tau scale-factor binning metadata does not match the fitted results."
+            )
+
+        tau_sf_entries = OrderedDict()
+        for entry, value, up_val, down_val in zip(
+            regroup_summary,
+            nominal_sf,
+            sf_up,
+            sf_down,
+        ):
+            start, stop = entry["slice"]
+            low_edge = float(tau_pt_edges[start])
+            high_edge = float(tau_pt_edges[stop])
+            bin_key = f"pt:[{_format_json_edge(low_edge)},{_format_json_edge(high_edge)}]"
+            tau_sf_entries[bin_key] = {
+                "value": float(value),
+                "up": float(up_val),
+                "down": float(down_val),
+            }
+
+        payload = {"TauSF": {"pt": tau_sf_entries}}
+
+        if args.output_json in ("-", ""):
+            json.dump(payload, sys.stdout, indent=2)
+            sys.stdout.write("\n")
+        else:
+            with open(args.output_json, "w", encoding="utf-8") as output_file:
+                json.dump(payload, output_file, indent=2)
+            print(f"Tau scale factors JSON written to {args.output_json}")
 
 if __name__ == "__main__":
     main()
