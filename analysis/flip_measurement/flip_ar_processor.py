@@ -1,17 +1,25 @@
 #!/usr/bin/env python
-import coffea
+"""Charge-flip application region processor emitting tuple-keyed histograms."""
+
+from __future__ import annotations
+
+from collections import OrderedDict
+from typing import Dict, Mapping, Tuple
+
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-import coffea.hist as hist
+import hist
 import coffea.processor as processor
-from coffea.analysis_tools import PackedSelection
+from coffea.analysis_tools import PackedSelection, Weights
 from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
 from topcoffea.modules.selection import *
 from topcoffea.modules.paths import topcoffea_path
+
+from topeft.modules.runner_output import SUMMARY_KEY, materialise_tuple_dict
 
 
 def _resolve_nested_field(array, *field_paths):
@@ -64,15 +72,36 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._samples = samples
         self._dtype = dtype
 
-        # Create the histograms
-        self._accumulator = processor.dict_accumulator({
-            "invmass" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 100, 50, 150)),
-            "njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("njets", "njets", 8, 0, 8)),
-            "l0pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l0pt", "l0pt", 20, 0, 200)),
-            "l0eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l0eta", "l0eta", 20, -2.5, 2.5)),
-            "l1pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l1pt", "l1pt", 20, 0, 200)),
-            "l1eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l1eta", "l1eta", 20, -2.5, 2.5)),
-        })
+        self._accumulator = processor.dict_accumulator({})
+        self._application_region = "flip_application"
+        self._systematic = "nominal"
+
+        self._histogram_config = {
+            "invmass": {
+                "bins": (100, 50.0, 150.0),
+                "label": r"$m_{\ell\ell}$ (GeV)",
+            },
+            "njets": {
+                "bins": (8, 0.0, 8.0),
+                "label": "njets",
+            },
+            "l0pt": {
+                "bins": (20, 0.0, 200.0),
+                "label": "l0pt",
+            },
+            "l0eta": {
+                "bins": (20, -2.5, 2.5),
+                "label": "l0eta",
+            },
+            "l1pt": {
+                "bins": (20, 0.0, 200.0),
+                "label": "l1pt",
+            },
+            "l1eta": {
+                "bins": (20, -2.5, 2.5),
+                "label": "l1eta",
+            },
+        }
 
     @property
     def accumulator(self):
@@ -260,7 +289,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### Weights ###########
 
-        weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        weights_object = Weights(len(events), storeIndividual=True)
         if not isData: weights_object.add("norm",(xsec/sow)*events["genWeight"])
         else: weights_object.add("norm",np.ones_like(events["event"]))
 
@@ -320,50 +349,89 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Variables for the dense and sparse axes of the hists ##########
 
         dense_var_dict = {
-            "invmass" : (l0+l1).mass,
-            "njets"   : njets,
-            "l0pt"    : l0.pt,
-            "l0eta"   : l0.eta,
-            "l1pt"    : l1.pt,
-            "l1eta"   : l1.eta,
+            "invmass": (l0 + l1).mass,
+            "njets": njets,
+            "l0pt": l0.pt,
+            "l0eta": l0.eta,
+            "l1pt": l1.pt,
+            "l1eta": l1.eta,
         }
-
-        print(l0.pt)
-        print(l1.eta)
 
         ########## Fill the histograms ##########
 
         hout = self.accumulator.identity()
 
-        # Set the list of channels to loop over
-        chan_lst = ["osz","ssz"]
-        #if not isData: chan_lst.append("sszTruthFlip")
-        #if not isData: chan_lst.append("sszTruthFlip2")
-        #chan_lst = ["ss","os","ssz","osz","ssTruthFlip","osTruthNoFlip","sszTruthFlip","oszTruthNoFlip"]
+        chan_lst = ["osz", "ssz"]
 
-        # Loop over histograms to fill (just invmass, njets for now)
         for dense_axis_name, dense_axis_vals in dense_var_dict.items():
+            histogram_spec = self._histogram_config[dense_axis_name]
 
-            # Loop over the lepton channels
             for chan_name in chan_lst:
-
-                # Get the cut mask object
-                cuts_lst = ["2e"]
-                cuts_lst.append(chan_name)
-                if isData: cuts_lst.append("is_good_lumi")
+                cuts_lst = ["2e", chan_name]
+                if isData:
+                    cuts_lst.append("is_good_lumi")
                 cuts_mask = selections.all(*cuts_lst)
 
-                # Fill the histo
-                axes_fill_info_dict = {
-                    dense_axis_name  : dense_axis_vals[cuts_mask],
-                    "channel"        : chan_name,
-                    "sample"         : histAxisName,
-                    "weight"         : weights_object.weight()[cuts_mask],
-                }
+                values = ak.to_numpy(ak.flatten(dense_axis_vals[cuts_mask], axis=None))
+                weight_values = ak.to_numpy(
+                    ak.flatten(weights_object.weight()[cuts_mask], axis=None)
+                )
 
-                hout[dense_axis_name].fill(**axes_fill_info_dict)
+                values = np.asarray(values, dtype=self._dtype)
+                weight_values = np.asarray(weight_values, dtype=self._dtype)
+
+                histogram = self._make_histogram(dense_axis_name, histogram_spec)
+                if values.size and weight_values.size:
+                    histogram.fill(**{dense_axis_name: values}, weight=weight_values)
+
+                hist_key = self._build_histogram_key(
+                    variable=dense_axis_name,
+                    channel=chan_name,
+                    sample=histAxisName,
+                )
+
+                if hist_key in hout:
+                    hout[hist_key] = hout[hist_key] + histogram
+                else:
+                    hout[hist_key] = histogram
 
         return hout
 
     def postprocess(self, accumulator):
-        return accumulator
+        tuple_entries: Dict[Tuple[str, str, str, str, str], hist.Hist] = {
+            key: value
+            for key, value in accumulator.items()
+            if isinstance(key, tuple) and len(key) == 5
+        }
+
+        ordered_entries: "OrderedDict[Tuple[str, str, str, str, str], hist.Hist]" = OrderedDict(
+            sorted(tuple_entries.items(), key=lambda item: item[0])
+        )
+
+        summary_payload = materialise_tuple_dict(ordered_entries)
+        ordered_entries[SUMMARY_KEY] = summary_payload
+
+        return ordered_entries
+
+    def _make_histogram(self, variable: str, spec: Mapping[str, object]) -> hist.Hist:
+        bins, start, stop = spec["bins"]  # type: ignore[index]
+        label = spec["label"]  # type: ignore[index]
+        return hist.Hist(
+            hist.axis.Regular(int(bins), float(start), float(stop), name=variable, label=str(label)),
+            storage=hist.storage.Weight(),
+        )
+
+    def _build_histogram_key(
+        self,
+        *,
+        variable: str,
+        channel: str,
+        sample: str,
+    ) -> Tuple[str, str, str, str, str]:
+        return (
+            variable,
+            channel,
+            self._application_region,
+            sample,
+            self._systematic,
+        )

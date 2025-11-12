@@ -1,10 +1,18 @@
 #!/usr/bin/env python
+"""Charge flip measurement processor emitting tuple-keyed histograms."""
+
+from __future__ import annotations
+
+from collections import OrderedDict
+from typing import Dict, Tuple
+
 import numpy as np
 import awkward as ak
-import coffea.hist as hist
+import hist
 import coffea.processor as processor
 
 import topcoffea.modules.objects as obj
+from topeft.modules.runner_output import SUMMARY_KEY, materialise_tuple_dict
 
 
 def _resolve_nested_field(array, *field_paths):
@@ -34,16 +42,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._samples = samples
         self._dtype = dtype
 
-        # Create the histograms
-        self._accumulator = processor.dict_accumulator({
-            "ptabseta" : hist.Hist(
-                "Counts",
-                hist.Cat("sample", "sample"),
-                hist.Cat("flipstatus", "flipstatus"),
-                hist.Bin("pt", "pt", [0, 30.0, 45.0, 60.0, 100.0, 200.0]),
-                hist.Bin("abseta", "abseta", [0, 0.4, 0.8, 1.1, 1.4, 1.6, 1.9, 2.2, 2.5]),
-            ),
-        })
+        self._accumulator = processor.dict_accumulator({})
+        self._application_region = "flip_measurement"
+        self._systematic = "nominal"
+        self._variable = "ptabseta"
+
+        self._pt_bins = (0.0, 30.0, 45.0, 60.0, 100.0, 200.0)
+        self._abseta_bins = (0.0, 0.4, 0.8, 1.1, 1.4, 1.6, 1.9, 2.2, 2.5)
 
     @property
     def accumulator(self):
@@ -110,22 +115,68 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         hout = self.accumulator.identity()
 
-        # Loop over flip and noflip, and fill the histo
-        flipstatus_mask_dict = { "truthFlip" : truthFlip_mask, "truthNoFlip" : truthNoFlip_mask }
+        flipstatus_mask_dict = {
+            "truthFlip": truthFlip_mask,
+            "truthNoFlip": truthNoFlip_mask,
+        }
+
         for flipstatus_mask_name, flipstatus_mask in flipstatus_mask_dict.items():
-
             dense_objs_flat = ak.flatten(e_tight[flipstatus_mask])
+            pt_values = ak.to_numpy(dense_objs_flat.pt)
+            abseta_values = ak.to_numpy(abs(dense_objs_flat.eta))
 
-            axes_fill_info_dict = {
-                "pt"         : dense_objs_flat.pt,
-                "abseta"     : abs(dense_objs_flat.eta),
-                "flipstatus" : flipstatus_mask_name,
-                "sample"     : histAxisName,
-            }
+            pt_values = np.asarray(pt_values, dtype=self._dtype)
+            abseta_values = np.asarray(abseta_values, dtype=self._dtype)
 
-            hout["ptabseta"].fill(**axes_fill_info_dict)
+            histogram = self._make_histogram()
+            if pt_values.size and abseta_values.size:
+                histogram.fill(pt=pt_values, abseta=abseta_values)
+
+            hist_key = self._build_histogram_key(
+                flipstatus=flipstatus_mask_name,
+                sample=histAxisName,
+            )
+
+            if hist_key in hout:
+                hout[hist_key] = hout[hist_key] + histogram
+            else:
+                hout[hist_key] = histogram
 
         return hout
 
     def postprocess(self, accumulator):
-        return accumulator
+        tuple_entries: Dict[Tuple[str, str, str, str, str], hist.Hist] = {
+            key: value
+            for key, value in accumulator.items()
+            if isinstance(key, tuple) and len(key) == 5
+        }
+
+        ordered_entries: "OrderedDict[Tuple[str, str, str, str, str], hist.Hist]" = OrderedDict(
+            sorted(tuple_entries.items(), key=lambda item: item[0])
+        )
+
+        summary_payload = materialise_tuple_dict(ordered_entries)
+        ordered_entries[SUMMARY_KEY] = summary_payload
+
+        return ordered_entries
+
+    def _make_histogram(self) -> hist.Hist:
+        return hist.Hist(
+            hist.axis.Variable(self._pt_bins, name="pt", label="pt"),
+            hist.axis.Variable(self._abseta_bins, name="abseta", label="abseta"),
+            storage=hist.storage.Weight(),
+        )
+
+    def _build_histogram_key(
+        self,
+        *,
+        flipstatus: str,
+        sample: str,
+    ) -> Tuple[str, str, str, str, str]:
+        return (
+            self._variable,
+            flipstatus,
+            self._application_region,
+            sample,
+            self._systematic,
+        )
