@@ -957,6 +957,8 @@ def _prepare_variable_payload(
     channel_dict = _apply_channel_dict_transformations(
         region_ctx.channel_map, channel_transformations
     )
+    channel_dict = _deduplicate_channel_bins(channel_dict)
+    channel_dict = _prune_unsplit_flavour_entries(channel_dict, region_ctx)
     channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
 
     if metadata_only:
@@ -2727,7 +2729,7 @@ def _normalize_sequence(value):
 
 def _evaluate_channel_condition(condition, region_ctx):
     if condition == "not_split_by_lepflav":
-        return not yt.is_split_by_lepflav(region_ctx.dict_of_hists)
+        return not region_ctx.channels_split_by_lepflav
     raise ValueError(
         f"Unsupported channel transformation condition '{condition}'"
     )
@@ -2772,6 +2774,67 @@ def _apply_channel_dict_transformations(channel_dict, transformations):
                 f"Unsupported channel transformation '{transform}'"
             )
     return transformed_dict
+
+
+def _deduplicate_channel_bins(channel_dict):
+    """Return *channel_dict* with duplicate channel names removed per category."""
+
+    deduped = OrderedDict()
+    for key, channel_bins in channel_dict.items():
+        if channel_bins is None:
+            deduped[key] = None
+            continue
+        seen = set()
+        cleaned = []
+        for bin_name in channel_bins:
+            if bin_name in seen:
+                continue
+            seen.add(bin_name)
+            cleaned.append(bin_name)
+        deduped[key] = cleaned
+    return deduped
+
+
+def _category_name_has_lepflav(category_name):
+    cleaned = yt.get_str_without_lepflav(category_name)
+    return cleaned != category_name
+
+
+def _prune_unsplit_flavour_entries(channel_dict, region_ctx):
+    """Drop per-flavour categories that collapse onto aggregate bins when unsplit."""
+
+    if region_ctx.channels_split_by_lepflav:
+        return channel_dict
+
+    grouped = {}
+    for key, channel_bins in channel_dict.items():
+        bins_key = tuple(channel_bins or [])
+        grouped.setdefault(bins_key, []).append(key)
+
+    to_remove = set()
+    for _, categories in grouped.items():
+        if len(categories) <= 1:
+            continue
+        non_flavour = [
+            category
+            for category in categories
+            if not _category_name_has_lepflav(category)
+        ]
+        keeper = non_flavour[0] if non_flavour else categories[0]
+        for category in categories:
+            if category == keeper:
+                continue
+            to_remove.add(category)
+
+    if not to_remove:
+        return channel_dict
+
+    pruned = OrderedDict()
+    for key, channel_bins in channel_dict.items():
+        if key in to_remove:
+            continue
+        pruned[key] = channel_bins
+    return pruned
 
 
 def _categorize_channel_dict_entries(channel_dict):
@@ -2962,6 +3025,9 @@ class RegionContext(object):
         self.signal_samples = signal_samples
         self.unblind_default = unblind_default
         self.lumi_pair = lumi_pair
+        self.channels_split_by_lepflav = bool(
+            yt.is_split_by_lepflav(dict_of_hists)
+        )
         self.skip_variables = set() if skip_variables is None else set(skip_variables)
         self.analysis_bins = (
             {} if analysis_bins is None else copy.deepcopy(analysis_bins)
@@ -5080,6 +5146,20 @@ def run_plots_for_region(
             channel_mode_override=channel_mode,
         )
 
+        if (
+            region_ctx.channel_mode == "per-channel"
+            and not region_ctx.channels_split_by_lepflav
+        ):
+            mode_label = CHANNEL_MODE_LABELS.get(channel_mode, channel_mode)
+            warnings.warn(
+                (
+                    f"Skipping {mode_label} channel output for {region_ctx.name}: "
+                    "input histograms are not split by lepton flavour."
+                ),
+                RuntimeWarning,
+            )
+            continue
+
         if multi_mode:
             mode_label = CHANNEL_MODE_LABELS.get(channel_mode, channel_mode)
             print(f"\n[{region_ctx.name}] Channel output mode: {mode_label}")
@@ -5115,8 +5195,10 @@ def main():
         choices=("merged", "split", "both"),
         default="merged",
         help=(
-            "Control how channel categories are rendered: 'merged' integrates each category before plotting, "
-            "'split' keeps the individual channels, and 'both' renders both sets (default: merged)."
+            "Control how channel categories are rendered: 'merged' integrates each category before plotting "
+            "and suppresses split-only folders when the input histograms are already merged, 'split' keeps "
+            "the individual channels but is skipped when the payload lacks per-flavour bins, and 'both' "
+            "renders the two sets back-to-back (default: merged)."
         ),
     )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
