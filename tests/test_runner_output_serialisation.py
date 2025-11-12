@@ -6,7 +6,11 @@ import numpy as np
 import pytest
 from hist import Hist
 
-from topeft.modules.runner_output import normalise_runner_output, tuple_dict_stats
+from topeft.modules.runner_output import (
+    SUMMARY_KEY,
+    normalise_runner_output,
+    tuple_dict_stats,
+)
 
 
 def _build_histogram() -> Hist:
@@ -38,7 +42,15 @@ def test_normalise_runner_output_preserves_tuple_keys(tmp_path):
     keys = [key for key in restored.keys() if isinstance(key, tuple)]
     assert keys == [tuple_key]
 
-    summary = restored[tuple_key]
+    restored_hist = restored[tuple_key]
+    assert type(restored_hist) is type(hist)
+    np.testing.assert_allclose(
+        restored_hist.values(flow=True),
+        hist.values(flow=True),
+    )
+
+    assert SUMMARY_KEY in restored
+    summary = restored[SUMMARY_KEY][tuple_key]
     assert pytest.approx(summary["sumw"]) == pytest.approx(hist.values(flow=True).sum())
     assert summary["values"].shape == hist.values(flow=True).shape
     assert summary["variances"] is None or summary["variances"].shape == summary["values"].shape

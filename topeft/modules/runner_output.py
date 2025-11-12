@@ -10,7 +10,7 @@ analysis scripts as well as the training utilities.
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any, Dict, Mapping, MutableMapping, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 import numpy as np
 
@@ -26,6 +26,7 @@ except Exception:  # pragma: no cover - fallback when HistEFT is unavailable
 
 
 TupleKey = Tuple[str, Optional[str], Optional[str], Optional[str], Optional[str]]
+SUMMARY_KEY = "__tuple_summary__"
 
 
 def _ensure_numpy(array: Any) -> np.ndarray:
@@ -119,11 +120,14 @@ def _tuple_entries(payload: Mapping[Any, Any]) -> Dict[TupleKey, Any]:
 
 
 def normalise_runner_output(payload: Mapping[Any, Any]) -> Mapping[Any, Any]:
-    """Return a tuple-keyed ordered mapping summarising *payload* histograms.
+    """Return a tuple-keyed ordered mapping preserving histogram payloads.
 
-    Non-histogram entries are preserved in their original insertion order and
-    appended to the ordered dictionary.  When no histogram-like values are
-    present the original payload is returned unchanged.
+    Tuple-keyed histogram entries are emitted in lexicographic order to provide
+    deterministic serialisation while their original histogram objects remain
+    untouched.  A structured summary of the histogram bin contents is appended
+    under :data:`SUMMARY_KEY` so that downstream code can inspect aggregate
+    statistics without loading the heavy histogram types.  Non-histogram
+    entries are preserved in their original insertion order.
     """
 
     if not isinstance(payload, Mapping):
@@ -133,10 +137,13 @@ def normalise_runner_output(payload: Mapping[Any, Any]) -> Mapping[Any, Any]:
     if not tuple_histograms:
         return payload
 
-    ordered: MutableMapping[Any, Any] = materialise_tuple_dict(tuple_histograms)
+    ordered: "OrderedDict[Any, Any]" = OrderedDict()
+    for key, histogram in sorted(tuple_histograms.items(), key=lambda item: item[0]):
+        ordered[key] = histogram
     for key, value in payload.items():
         if key not in tuple_histograms:
             ordered[key] = value
+    ordered[SUMMARY_KEY] = materialise_tuple_dict(tuple_histograms)
     return ordered
 
 
@@ -145,11 +152,24 @@ def tuple_dict_stats(tuple_dict: Mapping[Any, Any]) -> Tuple[int, int]:
 
     total_bins = 0
     filled_bins = 0
-    for key, summary in tuple_dict.items():
-        if not isinstance(key, tuple):
-            continue
-        if not isinstance(summary, Mapping):
-            continue
+    summaries: Optional[Mapping[TupleKey, Mapping[str, Any]]] = None
+
+    if isinstance(tuple_dict, Mapping):
+        candidate = tuple_dict.get(SUMMARY_KEY)
+        if isinstance(candidate, Mapping):
+            summaries = candidate  # type: ignore[assignment]
+
+    if summaries is None:
+        summaries = OrderedDict(
+            (
+                key,
+                _summarise_histogram(value),
+            )
+            for key, value in tuple_dict.items()
+            if isinstance(key, tuple) and _hist_like(value)
+        )
+
+    for summary in summaries.values():
         values = summary.get("values")
         if values is None:
             continue
@@ -161,6 +181,7 @@ def tuple_dict_stats(tuple_dict: Mapping[Any, Any]) -> Tuple[int, int]:
 
 __all__ = [
     "TupleKey",
+    "SUMMARY_KEY",
     "materialise_tuple_dict",
     "normalise_runner_output",
     "tuple_dict_stats",
