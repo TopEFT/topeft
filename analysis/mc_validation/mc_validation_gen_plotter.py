@@ -3,6 +3,7 @@
 #   - Was used during the June 2022 MC validation studies (for TOP-22-006 pre approval checks)
 
 import os
+import sys
 import datetime
 import argparse
 import gzip
@@ -11,8 +12,20 @@ import cloudpickle
 import hist
 from hist import axis, storage
 
+from pathlib import Path
+
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.scripts.make_html import make_html
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+from analysis.mc_validation.plot_utils import (  # noqa: E402
+    build_dataset_histograms,
+    component_values,
+    tuple_histogram_items,
+)
 
 
 # Probably I should move the utility functions out of this script and put them in modules
@@ -35,8 +48,19 @@ def save_pkl_for_arr(sf_arr,tag):
 
 # Main wrapper script for making the private vs central comparison plots
 def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
-    sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
-    vars_lst = yt.get_hist_list(dict_of_hists)
+    tuple_entries = tuple_histogram_items(dict_of_hists)
+    using_tuple_entries = bool(tuple_entries)
+    rebuilt_hists = build_dataset_histograms(dict_of_hists) if using_tuple_entries else {}
+
+    if using_tuple_entries:
+        vars_lst = sorted(rebuilt_hists.keys())
+        sample_lst = component_values(tuple_entries, "sample")
+        dataset_axis_name = "dataset"
+    else:
+        vars_lst = yt.get_hist_list(dict_of_hists)
+        sample_lst = yt.get_cat_lables(dict_of_hists, "sample")
+        dataset_axis_name = "sample"
+
     print("\nSamples:",sample_lst)
     print("\nVariables:",vars_lst)
 
@@ -69,14 +93,35 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
         print("\nVar name:",var_name)
 
         # Sum over channels, and just grab the nominal from the syst axis
-        histo_base = dict_of_hists[var_name]
+        histo_base = rebuilt_hists.get(var_name)
+        if histo_base is None:
+            histo_base = dict_of_hists.get(var_name)
+        if histo_base is None:
+            raise KeyError(f"Histogram '{var_name}' not found in rebuilt or original mapping")
+
+        # Collapse categorical axes that are not part of the plotting layout so downstream
+        # grouping returns the expected 1D histogram.  The rebuilt tuple histograms may
+        # include both channel and application axes, and keeping either around results in
+        # `.values()[()]` lookups failing when the grouped histogram still has extra
+        # dimensions.  Sum over these axes if they are present.
+        axes_names = {ax.name for ax in getattr(histo_base, "axes", ())}
+        histo_collapsed = histo_base
+        if "channel" in axes_names:
+            histo_collapsed = histo_collapsed.sum("channel")
+        if "application" in axes_names:
+            histo_collapsed = histo_collapsed.sum("application")
 
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
             print(f"\nProcess: {proc}")
 
             # Group bins
-            proc_histo = mcp.group_bins(histo_base,comp_proc_dict[proc],drop_unspecified=True)
+            proc_histo = mcp.group_bins(
+                histo_collapsed,
+                comp_proc_dict[proc],
+                axis_name=dataset_axis_name,
+                drop_unspecified=True,
+            )
             print(comp_proc_dict[proc])
 
             # Dump SF dictionary (for the HT reweighting tests)
@@ -87,7 +132,7 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
             #continue
 
             # Make the plots
-            fig = mcp.make_single_fig_with_ratio(proc_histo,"sample","private")
+            fig = mcp.make_single_fig_with_ratio(proc_histo,dataset_axis_name,"private")
             #fig = mcp.make_single_fig(proc_histo,unit_norm_bool=True)
             fig.savefig(os.path.join(save_dir_path,proc+"_"+var_name))
             if "www" in save_dir_path: make_html(save_dir_path)
