@@ -321,21 +321,28 @@ class YieldTools():
                         h_name = name
                         break
 
-            if h_name is not None and h_name in hist_candidates:
-                histo = hist_candidates[h_name]
-                if axis in histo.axes.name:
-                    return list(histo.axes[axis])
-                if axis == "process" and "sample" in histo.axes.name:
-                    return list(histo.axes["sample"])
-                raise Exception(f"Axis {axis!r} not present in histogram {h_name!r}")
-
             tuple_entries = {
                 key: value
                 for key, value in hin_dict.items()
                 if isinstance(key, tuple) and len(key) == 5
             }
 
+            selected_hist = None
+            missing_axis_error = None
+
+            if h_name is not None and h_name in hist_candidates:
+                selected_hist = hist_candidates[h_name]
+                if axis in selected_hist.axes.name:
+                    return list(selected_hist.axes[axis])
+                if axis == "process" and "sample" in selected_hist.axes.name:
+                    return list(selected_hist.axes["sample"])
+                missing_axis_error = Exception(
+                    f"Axis {axis!r} not present in histogram {h_name!r}"
+                )
+
             if not tuple_entries:
+                if missing_axis_error is not None:
+                    raise missing_axis_error
                 raise Exception("There are no hists in this hist dict")
 
             if h_name is None:
@@ -346,6 +353,8 @@ class YieldTools():
 
             relevant_keys = [key for key in tuple_entries if key[0] == target_variable]
             if not relevant_keys:
+                if missing_axis_error is not None:
+                    raise missing_axis_error
                 raise Exception(f"No histograms found for variable {target_variable!r}")
 
             metadata_index = {
@@ -371,6 +380,9 @@ class YieldTools():
             representative = tuple_entries[relevant_keys[0]]
             if isinstance(representative, HistEFT) and query_axis in representative.axes.name:
                 return list(representative.axes[query_axis])
+
+            if missing_axis_error is not None:
+                raise missing_axis_error
 
             raise Exception(f"Axis {axis!r} not available for histogram {target_variable!r}")
 
