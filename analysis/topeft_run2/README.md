@@ -185,6 +185,8 @@ Example commands:
 
 Prefix the command with `--dry-run` when you want to review the generated job wrapper and `.sub` file without actually queueing the job. Adjust the batch resources with `--request-cpus`, `--request-memory`, or `--request-disk`, and add `--queue N` to launch an array of identical submissions. The optional `--sandbox /cephfs/.../templates` flag ships extra payload files alongside the job so the execute node can pick up custom style sheets or metadata.
 
+`--request-cpus` requires a positive integer and `--request-memory` must be a non-empty HTCondor size string; the helper validates both before submitting so typos are caught locally during the dry-run step.
+
 **Entry-script environment steps**
 
 Jobs land in `analysis/topeft_run2/condor_plotter_entry.sh`, which unsets `PYTHONPATH`, honours `TOPEFT_REPO_ROOT`/`TOPEFT_ENTRY_DIR` to pick the checkout and working directory, and activates `clib-env` via either the discovered Conda installation or an explicit `TOPEFT_CONDA_PREFIX`. Override those environment variables in the submit script when you need to point at a different checkout, wrapper directory, or Conda stack, or if you prefer to activate a bespoke environment before calling `run_plotter.sh`.

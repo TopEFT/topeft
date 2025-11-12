@@ -20,6 +20,9 @@ Condor options:
                    (default: ./condor_logs)
   --ceph-root DIR  Location of the topeft repository on CephFS
                    (default: /users/apiccine/work/correction-lib/topeft)
+  --request-cpus N Request this many CPU cores (must be a positive integer)
+  --request-memory SIZE
+                   Request this amount of memory (HTCondor size expression)
   --conda-prefix DIR
                    Location of the clib-env Conda environment on the worker
                    nodes. When provided, TOPEFT_CONDA_PREFIX is exported to
@@ -47,6 +50,8 @@ log_dir=""
 ceph_root="${DEFAULT_CEPH_ROOT}"
 conda_prefix=""
 dry_run=0
+request_cpus=""
+request_memory=""
 plotter_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -83,6 +88,22 @@ while [[ $# -gt 0 ]]; do
             conda_prefix="$2"
             shift 2
             ;;
+        --request-cpus)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --request-cpus requires a value." >&2
+                exit 1
+            fi
+            request_cpus="$2"
+            shift 2
+            ;;
+        --request-memory)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --request-memory requires a value." >&2
+                exit 1
+            fi
+            request_memory="$2"
+            shift 2
+            ;;
         --dry-run)
             dry_run=1
             shift
@@ -111,6 +132,20 @@ fi
 if ! [[ "${queue_count}" =~ ^[0-9]+$ ]] || (( queue_count < 1 )); then
     echo "Error: --queue expects a positive integer." >&2
     exit 1
+fi
+
+if [[ -n "${request_cpus}" ]]; then
+    if ! [[ "${request_cpus}" =~ ^[0-9]+$ ]] || (( request_cpus < 1 )); then
+        echo "Error: --request-cpus expects a positive integer." >&2
+        exit 1
+    fi
+fi
+
+if [[ -n "${request_memory}" ]]; then
+    if [[ "${request_memory}" =~ ^[[:space:]]*$ ]]; then
+        echo "Error: --request-memory expects a non-empty string." >&2
+        exit 1
+    fi
 fi
 
 if [[ -z "${log_dir}" ]]; then
@@ -178,6 +213,12 @@ output                  = ${log_dir}/plotter.\$(Cluster).\$(Process).out
 error                   = ${log_dir}/plotter.\$(Cluster).\$(Process).err
 getenv                  = True
 EOF
+if [[ -n "${request_cpus}" ]]; then
+    printf 'request_cpus            = %s\n' "${request_cpus}"
+fi
+if [[ -n "${request_memory}" ]]; then
+    printf 'request_memory          = %s\n' "${request_memory}"
+fi
 if [[ -n "${conda_prefix}" ]]; then
     printf 'environment              = "TOPEFT_CONDA_PREFIX=%s"\n' "${conda_prefix}"
 fi
