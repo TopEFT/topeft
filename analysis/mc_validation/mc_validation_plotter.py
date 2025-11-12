@@ -93,7 +93,7 @@ def get_missing_parton_sf_dict(per_jet_bin=True):
 def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
     sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
     cat_lst = yt.get_cat_lables(dict_of_hists,"channel")
-    vars_lst = dict_of_hists.keys()
+    vars_lst = yt.get_hist_list(dict_of_hists)
     print("\nSamples:",sample_lst)
     print("\nVariables:",vars_lst)
     print("\nChannels:",cat_lst)
