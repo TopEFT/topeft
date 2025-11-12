@@ -183,7 +183,7 @@ REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
 STACKED_RATIO_STYLE = _META.get("STACKED_RATIO_STYLE", {})
 
 
-def _resolve_axis_bins(var_name):
+def _resolve_axis_bins(var_name, *, variable_multi_key=None):
     """Return default bin edges for *var_name* using available axis metadata."""
 
     metadata = axes_info.get(var_name, {})
@@ -194,9 +194,17 @@ def _resolve_axis_bins(var_name):
     if bins is not None:
         return bins
 
-    variable_multi = metadata.get("variable_multi")
-    if isinstance(variable_multi, Mapping):
-        for candidate in variable_multi.values():
+    if variable_multi_key is not None:
+        variable_multi = metadata.get("variable_multi")
+        if isinstance(variable_multi, Mapping):
+            candidate = variable_multi.get(variable_multi_key)
+            if candidate:
+                return candidate
+
+    else:
+        variable_multi = metadata.get("variable_multi")
+        if isinstance(variable_multi, Mapping) and len(variable_multi) == 1:
+            candidate = next(iter(variable_multi.values()))
             if candidate:
                 return candidate
 
