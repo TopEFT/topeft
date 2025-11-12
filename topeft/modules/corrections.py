@@ -2165,7 +2165,7 @@ def ApplyBinnedSF(pt, edges, centers, uncs, var):
     default = centers[-1] + var * uncs[-1]
     sf = ak.full_like(pt, default)
     for low, high, cen, unc in zip(edges[:-1], edges[1:], centers[:-1], uncs[:-1]):
-        sf = ak.where((pt >= low) & (pt < high), cen + var * np.sqrt(unc**2 + (0.02*cen)*0.02), sf)
+        sf = ak.where((pt >= low) & (pt < high), cen + var * np.sqrt(unc**2 + (0.02*cen)**2), sf)
     return sf
 
 # Vectorized Run3 SF functions for 2-lepton channels
