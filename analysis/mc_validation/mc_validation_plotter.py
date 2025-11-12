@@ -4,14 +4,27 @@
 
 import numpy as np
 import os
+import sys
 import datetime
 import argparse
+
+from pathlib import Path
 
 import uproot
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.scripts.make_html import make_html
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+from analysis.mc_validation.plot_utils import (  # noqa: E402
+    build_dataset_histograms,
+    component_values,
+    tuple_histogram_items,
+)
 
 
 # This script should maybe just be a part of make_cr_and_sr_plots, though that script is getting really long
@@ -91,9 +104,21 @@ def get_missing_parton_sf_dict(per_jet_bin=True):
 
 # Main wrapper script for making the private vs central comparison plots
 def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
-    sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
-    cat_lst = yt.get_cat_lables(dict_of_hists,"channel")
-    vars_lst = yt.get_hist_list(dict_of_hists)
+    tuple_entries = tuple_histogram_items(dict_of_hists)
+    using_tuple_entries = bool(tuple_entries)
+    rebuilt_hists = build_dataset_histograms(dict_of_hists) if using_tuple_entries else {}
+
+    if using_tuple_entries:
+        vars_lst = sorted(rebuilt_hists.keys())
+        sample_lst = component_values(tuple_entries, "sample")
+        cat_lst = component_values(tuple_entries, "channel")
+        dataset_axis_name = "dataset"
+    else:
+        vars_lst = yt.get_hist_list(dict_of_hists)
+        sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
+        cat_lst = yt.get_cat_lables(dict_of_hists,"channel")
+        dataset_axis_name = "sample"
+
     print("\nSamples:",sample_lst)
     print("\nVariables:",vars_lst)
     print("\nChannels:",cat_lst)
@@ -154,13 +179,13 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
 
         # Sum over channels, and just grab the nominal from the syst axis
-        histo_base = dict_of_hists[var_name]
+        histo_base = rebuilt_hists.get(var_name, dict_of_hists[var_name])
 
         # Normalize by lumi (important to do this before grouping by year)
         sample_lumi_dict = {}
         for sample_name in sample_lst:
             sample_lumi_dict[sample_name] = mcp.get_lumi_for_sample(sample_name)
-        histo_base.scale(sample_lumi_dict,axis="sample")
+        histo_base.scale(sample_lumi_dict,axis=dataset_axis_name)
 
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
@@ -173,8 +198,13 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
             #histo = histo_base.integrate("channel",cat)
 
             # Get the nominal private
-            private_proc_histo = mcp.group_bins(histo,{proc+"_private":comp_proc_dict[proc]["private"]},drop_unspecified=True)
-            nom_arr_all = private_proc_histo.sum("sample").integrate("systematic","nominal").values()[()]
+            private_proc_histo = mcp.group_bins(
+                histo,
+                {proc+"_private":comp_proc_dict[proc]["private"]},
+                axis_name=dataset_axis_name,
+                drop_unspecified=True,
+            )
+            nom_arr_all = private_proc_histo.sum(dataset_axis_name).integrate("systematic","nominal").values()[()]
 
             # Get the systematic shape and rate uncertainties
             group_map = {"Conv":[], "Diboson":[], "Triboson":[], "Flips":[], "Signal":[proc+"_private"]} # A group map is expected by the code that gets the rate systs
@@ -182,7 +212,7 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
             shape_systs_summed_arr_m , shape_systs_summed_arr_p = mcp.get_shape_syst_arrs(private_proc_histo)
 
             # Get the missing parton uncertainty, add it to the rate uncertainties
-            histo_private_all_cats = histo_base.integrate("sample",comp_proc_dict[proc]["private"]).integrate("systematic","nominal")
+            histo_private_all_cats = histo_base.integrate(dataset_axis_name,comp_proc_dict[proc]["private"]).integrate("systematic","nominal")
             if proc == "tllq" and var_name != "njets":
                 histo_private_all_cats.scale(get_missing_parton_sf_dict(),axis="channel")
                 missing_parton_err_summed = histo_private_all_cats.sum("channel").values()[()]
@@ -214,9 +244,14 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
             m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
             # Make the plots
-            proc_histo = mcp.group_bins(histo,comp_proc_dict[proc],drop_unspecified=True).integrate("systematic","nominal")
+            proc_histo = mcp.group_bins(
+                histo,
+                comp_proc_dict[proc],
+                axis_name=dataset_axis_name,
+                drop_unspecified=True,
+            ).integrate("systematic","nominal")
             fig = mcp.make_single_fig_with_ratio(
-                proc_histo,"sample","private",
+                proc_histo,dataset_axis_name,"private",
                 err_p = p_err_arr,
                 err_m = m_err_arr,
                 err_ratio_p = p_err_arr_ratio,
