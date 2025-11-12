@@ -472,21 +472,18 @@ def test_flavor_split_registers_flavored_histograms(processor):
     base_hist_key = (
         "dummy",
         "3l_p_offZ_1b_2j",
-        "isSR_3l",
         _DATASET_NAME,
         "nominal",
     )
     flavored_hist_key = (
         "dummy",
         "3l_eee_p_offZ_1b_2j",
-        "isSR_3l",
         _DATASET_NAME,
         "nominal",
     )
     base_sumw2_key = (
         "dummy_sumw2",
         "3l_p_offZ_1b_2j",
-        "isSR_3l",
         _DATASET_NAME,
         "nominal",
     )
@@ -497,7 +494,6 @@ def test_flavor_split_registers_flavored_histograms(processor):
     assert (
         "dummy_sumw2",
         "3l_eee_p_offZ_1b_2j",
-        "isSR_3l",
         _DATASET_NAME,
         "nominal",
     ) not in processor.accumulator
@@ -532,14 +528,12 @@ def test_histogram_fallback_finds_base_channel(processor):
     histkey = (
         dense_axis_name,
         missing_flavor_channel,
-        processor.appregion,
         dataset_hist,
         hist_variation_label,
     )
     fallback_histkey = (
         dense_axis_name,
         base_ch_name,
-        processor.appregion,
         dataset_hist,
         hist_variation_label,
     )
@@ -548,3 +542,16 @@ def test_histogram_fallback_finds_base_channel(processor):
 
     assert histkey not in hout
     assert fallback_histkey in hout
+
+
+def test_histogram_tuple_structure_includes_channel_metadata(processor):
+    dataset_hist, _ = processor._resolve_dataset_names(_DATASET_NAME)
+    dense_axis_name = processor.var
+    expected_key = (
+        dense_axis_name,
+        processor.channel,
+        dataset_hist,
+        processor.syst,
+    )
+
+    assert expected_key in processor.accumulator

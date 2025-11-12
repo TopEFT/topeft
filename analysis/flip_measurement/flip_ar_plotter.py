@@ -16,16 +16,16 @@ import cloudpickle
 from topeft.modules.runner_output import SUMMARY_KEY
 
 
-def load_histograms(path: str) -> Mapping[Tuple[str, str, str, str, str], hist.Hist]:
+def load_histograms(path: str) -> Mapping[Tuple[str, str, str, str], hist.Hist]:
     with gzip.open(path, "rb") as fin:
         payload = cloudpickle.load(fin)
     if not isinstance(payload, Mapping):
         raise TypeError("Histogram payload must be a mapping")
-    result: Dict[Tuple[str, str, str, str, str], hist.Hist] = {}
+    result: Dict[Tuple[str, str, str, str], hist.Hist] = {}
     for key, value in payload.items():
         if key == SUMMARY_KEY:
             continue
-        if not isinstance(key, tuple) or len(key) != 5:
+        if not isinstance(key, tuple) or len(key) != 4:
             continue
         if not isinstance(value, hist.Hist):
             continue
@@ -36,13 +36,11 @@ def load_histograms(path: str) -> Mapping[Tuple[str, str, str, str, str], hist.H
 
 
 def group_by_variable(
-    histograms: Mapping[Tuple[str, str, str, str, str], hist.Hist]
+    histograms: Mapping[Tuple[str, str, str, str], hist.Hist]
 ) -> Mapping[str, Dict[str, Dict[str, hist.Hist]]]:
     grouped: Dict[str, Dict[str, Dict[str, hist.Hist]]] = defaultdict(lambda: defaultdict(dict))
     for key, histogram in histograms.items():
-        variable, channel, application, sample, _systematic = key
-        if application != "flip_application":
-            continue
+        variable, channel, sample, _systematic = key
         grouped[variable][sample][channel] = histogram.copy()
     return grouped
 

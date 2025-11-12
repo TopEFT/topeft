@@ -131,7 +131,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         }
 
         self._default_channel = "2l"
-        self._default_application = "2l"
         self._default_systematic = "nominal"
 
         self._accumulator = processor.dict_accumulator({})
@@ -328,10 +327,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         application: Optional[str] = None,
         systematic: Optional[str] = None,
     ):
+        _ = application  # application metadata is tracked in the tuple channel name
         return (
             variable,
             channel or self._default_channel,
-            application or self._default_application,
             sample,
             systematic or self._default_systematic,
         )

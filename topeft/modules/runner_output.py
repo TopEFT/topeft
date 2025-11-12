@@ -100,10 +100,10 @@ def materialise_tuple_dict(hist_store: Mapping[TupleKey, Any]) -> "OrderedDict[T
 
     ordered_items = []
     for key, histogram in sorted(hist_store.items(), key=lambda item: item[0]):
-        if not isinstance(key, tuple) or len(key) != 5:
+        if not isinstance(key, tuple) or len(key) != 4:
             raise ValueError(
-                "Histogram accumulator keys must be 5-tuples of (variable, channel, "
-                "application, sample, systematic)."
+                "Histogram accumulator keys must be 4-tuples of (variable, channel, "
+                "sample, systematic)."
             )
         summary = _summarise_histogram(histogram)
         ordered_items.append((key, summary))
@@ -116,7 +116,7 @@ def _tuple_entries(payload: Mapping[Any, Any]) -> Dict[TupleKey, Any]:
 
     result: Dict[TupleKey, Any] = {}
     for key, value in payload.items():
-        if isinstance(key, tuple) and len(key) == 5 and _hist_like(value):
+        if isinstance(key, tuple) and len(key) == 4 and _hist_like(value):
             result[key] = value
     return result
 

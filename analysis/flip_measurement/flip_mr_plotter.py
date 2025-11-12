@@ -7,6 +7,7 @@ from typing import Dict, Mapping, Tuple
 
 import argparse
 import gzip
+from typing import Dict, Mapping, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,16 +28,16 @@ SCALE_DICT = {
 }
 
 
-def load_histograms(path: str) -> Mapping[Tuple[str, str, str, str, str], hist.Hist]:
+def load_histograms(path: str) -> Mapping[Tuple[str, str, str, str], hist.Hist]:
     with gzip.open(path, "rb") as fin:
         payload = cloudpickle.load(fin)
     if not isinstance(payload, Mapping):
         raise TypeError("Histogram payload must be a mapping")
-    result: Dict[Tuple[str, str, str, str, str], hist.Hist] = {}
+    result: Dict[Tuple[str, str, str, str], hist.Hist] = {}
     for key, value in payload.items():
         if key == SUMMARY_KEY:
             continue
-        if not isinstance(key, tuple) or len(key) != 5:
+        if not isinstance(key, tuple) or len(key) != 4:
             continue
         if not isinstance(value, hist.Hist):
             continue
@@ -56,11 +57,11 @@ def determine_year(sample: str) -> str | None:
 
 
 def group_by_year(
-    histograms: Mapping[Tuple[str, str, str, str, str], hist.Hist]
+    histograms: Mapping[Tuple[str, str, str, str], hist.Hist]
 ) -> Mapping[str, Dict[str, hist.Hist]]:
     grouped: Dict[str, Dict[str, hist.Hist]] = defaultdict(dict)
     for key, histogram in histograms.items():
-        variable, flipstatus, _application, sample, _systematic = key
+        variable, flipstatus, sample, _systematic = key
         if variable != "ptabseta":
             continue
         year = determine_year(sample)
