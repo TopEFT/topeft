@@ -251,3 +251,39 @@ def test_flavour_split_hist_preserves_per_channel_entries():
 
     payload = plots._prepare_variable_payload(variable, region_ctx)
     assert set(payload["channel_dict"].keys()) == {"cr_all_em", "cr_all_mm"}
+
+
+def test_channel_output_both_runs_all_modes_and_uses_sumw2(monkeypatch, tmp_path):
+    variable = "observable"
+    channel_bins = ["category_em", "category_mm"]
+    histograms = {
+        variable: _build_histogram(variable, channel_bins, hist_type="HistEFT"),
+        f"{variable}_sumw2": _build_sumw2_histogram(variable, channel_bins),
+    }
+
+    invocations = []
+
+    original_render = plots._render_variable_category
+
+    def tracked_render(*args, **kwargs):
+        region_ctx = kwargs["region_ctx"]
+        invocations.append(
+            (region_ctx.channel_mode, kwargs.get("hist_mc_sumw2_orig"))
+        )
+        return original_render(*args, **kwargs)
+
+    monkeypatch.setattr(plots, "_render_variable_category", tracked_render)
+
+    plots.run_plots_for_region(
+        "CR",
+        histograms,
+        years=("2022",),
+        save_dir_path=str(tmp_path),
+        variables=[variable],
+        channel_output="both",
+        skip_syst_errs=True,
+    )
+
+    modes_seen = [mode for mode, _ in invocations]
+    assert set(modes_seen) == {"aggregate", "per-channel"}
+    assert all(payload is not None for _, payload in invocations)

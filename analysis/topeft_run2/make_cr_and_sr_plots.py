@@ -1158,15 +1158,25 @@ def _render_variable_category(
         m_err_arr_ratio = None
         syst_err_mode = False
         if not (is_sparse2d or skip_syst_errs):
+            nominal_projection = hist_mc_integrated[{"process": sum}].integrate(
+                "systematic", "nominal"
+            )
+            nom_arr_all = _values_without_flow(
+                nominal_projection,
+                include_overflow=True,
+            )
+
             rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
                 hist_mc_integrated,
                 region_ctx.group_map,
                 group_type=region_ctx.name,
                 rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                nominal_template=nom_arr_all,
             )
             shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
                 hist_mc_integrated,
                 group_type=region_ctx.name,
+                nominal_template=nom_arr_all,
             )
             if var_name == "njets":
                 diboson_samples = region_ctx.group_map.get("Diboson", [])
@@ -1178,17 +1188,54 @@ def _render_variable_category(
                     diboson_njets_syst = get_diboson_njets_syst_arr(
                         db_hist, bin0_njets=0
                     )
+                    diboson_njets_syst = _ensure_systematic_length(
+                        nom_arr_all,
+                        diboson_njets_syst,
+                        label="diboson_njets",
+                        region=region_ctx.name,
+                        variable=var_name,
+                        category=hist_cat,
+                    )
                     shape_systs_summed_arr_p = (
                         shape_systs_summed_arr_p + diboson_njets_syst
                     )
                     shape_systs_summed_arr_m = (
                         shape_systs_summed_arr_m + diboson_njets_syst
                     )
-            nom_arr_all = _eval_without_underflow(
-                hist_mc_integrated[{"process": sum}].integrate(
-                    "systematic", "nominal"
-                )
+
+            rate_systs_summed_arr_p = _ensure_systematic_length(
+                nom_arr_all,
+                rate_systs_summed_arr_p,
+                label="rate_syst_plus",
+                region=region_ctx.name,
+                variable=var_name,
+                category=hist_cat,
             )
+            rate_systs_summed_arr_m = _ensure_systematic_length(
+                nom_arr_all,
+                rate_systs_summed_arr_m,
+                label="rate_syst_minus",
+                region=region_ctx.name,
+                variable=var_name,
+                category=hist_cat,
+            )
+            shape_systs_summed_arr_p = _ensure_systematic_length(
+                nom_arr_all,
+                shape_systs_summed_arr_p,
+                label="shape_syst_plus",
+                region=region_ctx.name,
+                variable=var_name,
+                category=hist_cat,
+            )
+            shape_systs_summed_arr_m = _ensure_systematic_length(
+                nom_arr_all,
+                shape_systs_summed_arr_m,
+                label="shape_syst_minus",
+                region=region_ctx.name,
+                variable=var_name,
+                category=hist_cat,
+            )
+
             sqrt_sum_p = np.sqrt(
                 np.asarray(shape_systs_summed_arr_p)
                 + np.asarray(rate_systs_summed_arr_p)
@@ -1372,33 +1419,70 @@ def _render_variable_category(
         err_ratio_p_syst = None
         err_ratio_m_syst = None
         if not skip_syst_errs:
+            nom_arr_all = None
             try:
-                rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
-                    hist_mc_channel,
-                    region_ctx.group_map,
-                    group_type=region_ctx.name,
-                    rate_syst_by_sample=region_ctx.rate_syst_by_sample,
-                )
-                shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
-                    hist_mc_channel,
-                    group_type=region_ctx.name,
-                )
-            except Exception as exc:
-                print(
-                    f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
-                )
-            else:
                 nominal_projection = hist_mc_channel[{"process": sum}].integrate(
                     "systematic", "nominal"
                 )
                 nom_arr_all = _values_without_flow(
                     nominal_projection, include_overflow=True
                 )
+                rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+                    hist_mc_channel,
+                    region_ctx.group_map,
+                    group_type=region_ctx.name,
+                    rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                    nominal_template=nom_arr_all,
+                )
+                shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+                    hist_mc_channel,
+                    group_type=region_ctx.name,
+                    nominal_template=nom_arr_all,
+                )
+            except Exception as exc:
+                print(
+                    f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
+                )
+            else:
+                rate_systs_summed_arr_p = _ensure_systematic_length(
+                    nom_arr_all,
+                    rate_systs_summed_arr_p,
+                    label="rate_syst_plus",
+                    region=region_ctx.name,
+                    variable=var_name,
+                    category=hist_cat,
+                )
+                rate_systs_summed_arr_m = _ensure_systematic_length(
+                    nom_arr_all,
+                    rate_systs_summed_arr_m,
+                    label="rate_syst_minus",
+                    region=region_ctx.name,
+                    variable=var_name,
+                    category=hist_cat,
+                )
+                shape_systs_summed_arr_p = _ensure_systematic_length(
+                    nom_arr_all,
+                    shape_systs_summed_arr_p,
+                    label="shape_syst_plus",
+                    region=region_ctx.name,
+                    variable=var_name,
+                    category=hist_cat,
+                )
+                shape_systs_summed_arr_m = _ensure_systematic_length(
+                    nom_arr_all,
+                    shape_systs_summed_arr_m,
+                    label="shape_syst_minus",
+                    region=region_ctx.name,
+                    variable=var_name,
+                    category=hist_cat,
+                )
                 sqrt_sum_p = np.sqrt(
-                    shape_systs_summed_arr_p + rate_systs_summed_arr_p
+                    np.asarray(shape_systs_summed_arr_p)
+                    + np.asarray(rate_systs_summed_arr_p)
                 )
                 sqrt_sum_m = np.sqrt(
-                    shape_systs_summed_arr_m + rate_systs_summed_arr_m
+                    np.asarray(shape_systs_summed_arr_m)
+                    + np.asarray(rate_systs_summed_arr_m)
                 )
                 err_p_syst = nom_arr_all + sqrt_sum_p
                 err_m_syst = nom_arr_all - sqrt_sum_m
@@ -3839,6 +3923,7 @@ def get_rate_syst_arrs(
     proc_group_map,
     group_type="CR",
     rate_syst_by_sample=None,
+    nominal_template=None,
 ):
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
@@ -3846,11 +3931,20 @@ def get_rate_syst_arrs(
     process_labels = yt.get_cat_lables(base_histo, "process")
 
     nominal_projection = base_histo.integrate("systematic", "nominal")
+    template = (
+        np.atleast_1d(np.asarray(nominal_template))
+        if nominal_template is not None
+        else None
+    )
     cached_rates = []
     for sample_name in process_labels:
         thissample_nom_arr = _eval_without_underflow(
             nominal_projection[{"process": sample_name}]
         )
+        if template is not None:
+            thissample_nom_arr = _match_variation_length(
+                template, thissample_nom_arr
+            )
         if rate_syst_by_sample and sample_name in rate_syst_by_sample:
             rate_syst_dict = rate_syst_by_sample[sample_name]
         else:
@@ -3881,13 +3975,39 @@ def get_rate_syst_arrs(
     all_rates_m_sumw2_lst = []
     for syst_name in rate_syst_arr_dict.keys():
         for correlated_syst_group in rate_syst_arr_dict[syst_name]:
-            sum_p_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["p"])
-            sum_m_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["m"])
+            sum_p_arrs = sum(
+                rate_syst_arr_dict[syst_name][correlated_syst_group]["p"]
+            )
+            sum_m_arrs = sum(
+                rate_syst_arr_dict[syst_name][correlated_syst_group]["m"]
+            )
+            if template is not None:
+                sum_p_arrs = _match_variation_length(template, sum_p_arrs)
+                sum_m_arrs = _match_variation_length(template, sum_m_arrs)
             all_rates_p_sumw2_lst.append(sum_p_arrs*sum_p_arrs)
             all_rates_m_sumw2_lst.append(sum_m_arrs*sum_m_arrs)
 
-    summed_m = sum(all_rates_m_sumw2_lst) if all_rates_m_sumw2_lst else 0.0
-    summed_p = sum(all_rates_p_sumw2_lst) if all_rates_p_sumw2_lst else 0.0
+    if all_rates_m_sumw2_lst:
+        summed_m = sum(all_rates_m_sumw2_lst)
+        if template is not None:
+            summed_m = _match_variation_length(template, summed_m)
+    else:
+        summed_m = (
+            np.zeros_like(template, dtype=np.result_type(template, float))
+            if template is not None
+            else 0.0
+        )
+
+    if all_rates_p_sumw2_lst:
+        summed_p = sum(all_rates_p_sumw2_lst)
+        if template is not None:
+            summed_p = _match_variation_length(template, summed_p)
+    else:
+        summed_p = (
+            np.zeros_like(template, dtype=np.result_type(template, float))
+            if template is not None
+            else 0.0
+        )
 
     return [summed_m, summed_p]
 
@@ -3899,13 +4019,27 @@ def _match_variation_length(nominal, variation):
     operations can rely on consistent shapes.
     """
 
-    nominal = np.asarray(nominal)
+    nominal = np.atleast_1d(np.asarray(nominal))
     variation = np.asarray(variation)
+
+    if nominal.ndim != 1:
+        return variation
+
+    target_len = nominal.shape[0]
+    if target_len == 0:
+        return np.zeros(0, dtype=np.result_type(nominal, variation))
 
     if variation.shape == nominal.shape:
         return variation
 
-    target_len = nominal.shape[0]
+    if variation.ndim == 0:
+        filled = np.full(
+            target_len,
+            variation.item() if variation.size else 0.0,
+            dtype=np.result_type(nominal, variation),
+        )
+        return filled
+
     trimmed = variation[:target_len]
 
     if trimmed.shape[0] == target_len:
@@ -3916,8 +4050,49 @@ def _match_variation_length(nominal, variation):
     return result
 
 
+# Ensure systematic arrays match the nominal projection length
+def _ensure_systematic_length(
+    nominal,
+    variation,
+    *,
+    label,
+    region=None,
+    variable=None,
+    category=None,
+):
+    """Match *variation* to *nominal* length, logging when adjustments occur."""
+
+    nominal_arr = np.atleast_1d(np.asarray(nominal))
+    variation_arr = np.asarray(variation)
+
+    if nominal_arr.ndim != 1:
+        return variation_arr
+
+    matched = _match_variation_length(nominal_arr, variation_arr)
+
+    if variation_arr.shape != nominal_arr.shape:
+        context_bits = []
+        if region is not None:
+            context_bits.append(f"region={region}")
+        if variable is not None:
+            context_bits.append(f"variable={variable}")
+        if category is not None:
+            context_bits.append(f"category={category}")
+        context = f" ({', '.join(context_bits)})" if context_bits else ""
+        _logger.warning(
+            "Adjusted %s systematic array length%s: nominal=%s, variation=%s, coerced=%s",
+            label,
+            context,
+            nominal_arr.shape,
+            variation_arr.shape,
+            matched.shape,
+        )
+
+    return matched
+
+
 # Wrapper for getting plus and minus shape arrs
-def get_shape_syst_arrs(base_histo,group_type="CR"):
+def get_shape_syst_arrs(base_histo,group_type="CR", nominal_template=None):
 
     # Get the list of systematic base names (i.e. without the up and down tags)
     # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
@@ -3932,6 +4107,12 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
     # Sum each systematic's contributions for all samples together (e.g. the ISR for all samples is summed linearly)
     p_arr_rel_lst = []
     m_arr_rel_lst = []
+    template = (
+        np.atleast_1d(np.asarray(nominal_template))
+        if nominal_template is not None
+        else None
+    )
+
     for syst_name in syst_var_lst:
         # Skip the variation of renorm and fact together, since we're treating as independent
         if syst_name == "renormfact": continue
@@ -3941,6 +4122,8 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
         n_arr = _eval_without_underflow(
             proc_projection.integrate("systematic", "nominal")
         )  # Sum of all samples for nominal variation
+        if template is not None:
+            n_arr = _match_variation_length(template, n_arr)
         u_arr_sum = _match_variation_length(
             n_arr,
             _eval_without_underflow(
@@ -3979,8 +4162,27 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
-    summed_m = sum(m_arr_rel_lst) if m_arr_rel_lst else 0.0
-    summed_p = sum(p_arr_rel_lst) if p_arr_rel_lst else 0.0
+    if m_arr_rel_lst:
+        summed_m = sum(m_arr_rel_lst)
+        if template is not None:
+            summed_m = _match_variation_length(template, summed_m)
+    else:
+        summed_m = (
+            np.zeros_like(template, dtype=np.result_type(template, float))
+            if template is not None
+            else 0.0
+        )
+
+    if p_arr_rel_lst:
+        summed_p = sum(p_arr_rel_lst)
+        if template is not None:
+            summed_p = _match_variation_length(template, summed_p)
+    else:
+        summed_p = (
+            np.zeros_like(template, dtype=np.result_type(template, float))
+            if template is not None
+            else 0.0
+        )
 
     return [summed_m, summed_p]
 
