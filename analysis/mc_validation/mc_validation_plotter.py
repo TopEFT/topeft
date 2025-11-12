@@ -179,7 +179,14 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
 
         # Sum over channels, and just grab the nominal from the syst axis
-        histo_base = rebuilt_hists.get(var_name, dict_of_hists[var_name])
+        if var_name in rebuilt_hists:
+            histo_base = rebuilt_hists[var_name]
+        elif var_name in dict_of_hists:
+            histo_base = dict_of_hists[var_name]
+        else:
+            raise KeyError(
+                f"Histogram '{var_name}' not found in rebuilt or original mapping."
+            )
 
         # Normalize by lumi (important to do this before grouping by year)
         sample_lumi_dict = {}
