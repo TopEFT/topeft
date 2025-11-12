@@ -1141,97 +1141,6 @@ def _render_variable(
     return stat_only_plots, stat_and_syst_plots, html_dirs
 
 
-def _build_systematic_envelopes(
-    hist_mc_projection,
-    region_ctx,
-    var_name,
-    *,
-    include_overflow=True,
-    unblind_flag=False,
-):
-    """Return nominal envelopes for shape and rate systematics."""
-
-    rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
-        hist_mc_projection,
-        region_ctx.group_map,
-        group_type=region_ctx.name,
-        rate_syst_by_sample=region_ctx.rate_syst_by_sample,
-    )
-    shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
-        hist_mc_projection,
-        group_type=region_ctx.name,
-    )
-
-    if var_name == "njets":
-        diboson_samples = region_ctx.group_map.get("Diboson", [])
-        if diboson_samples:
-            diboson_hist = hist_mc_projection.integrate("process", diboson_samples)[
-                {"process": sum}
-            ].integrate("systematic", "nominal")
-            diboson_vals = _values_without_flow(
-                diboson_hist,
-                include_overflow=include_overflow,
-            )
-            diboson_njets_syst = get_diboson_njets_syst_arr(
-                diboson_vals, bin0_njets=0
-            )
-            shape_systs_summed_arr_p = (
-                np.asarray(shape_systs_summed_arr_p) + diboson_njets_syst
-            )
-            shape_systs_summed_arr_m = (
-                np.asarray(shape_systs_summed_arr_m) + diboson_njets_syst
-            )
-
-    nominal_projection = hist_mc_projection[{"process": sum}].integrate(
-        "systematic", "nominal"
-    )
-    nominal_values = _values_without_flow(
-        nominal_projection,
-        include_overflow=include_overflow,
-    )
-
-    rate_systs_summed_arr_p = _match_variation_length(
-        nominal_values, rate_systs_summed_arr_p
-    )
-    rate_systs_summed_arr_m = _match_variation_length(
-        nominal_values, rate_systs_summed_arr_m
-    )
-    shape_systs_summed_arr_p = _match_variation_length(
-        nominal_values, shape_systs_summed_arr_p
-    )
-    shape_systs_summed_arr_m = _match_variation_length(
-        nominal_values, shape_systs_summed_arr_m
-    )
-
-    sqrt_sum_p = np.sqrt(
-        np.asarray(shape_systs_summed_arr_p)
-        + np.asarray(rate_systs_summed_arr_p)
-    )
-    sqrt_sum_m = np.sqrt(
-        np.asarray(shape_systs_summed_arr_m)
-        + np.asarray(rate_systs_summed_arr_m)
-    )
-
-    err_p_syst = nominal_values + sqrt_sum_p
-    err_m_syst = nominal_values - sqrt_sum_m
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        err_ratio_p_syst = np.where(
-            nominal_values > 0, err_p_syst / nominal_values, 1
-        )
-        err_ratio_m_syst = np.where(
-            nominal_values > 0, err_m_syst / nominal_values, 1
-        )
-
-    return {
-        "err_p_syst": err_p_syst,
-        "err_m_syst": err_m_syst,
-        "err_ratio_p_syst": err_ratio_p_syst,
-        "err_ratio_m_syst": err_ratio_m_syst,
-        "syst_err_mode": "total" if unblind_flag else True,
-    }
-
-
 def _render_variable_category(
     var_name,
     hist_cat,
@@ -1296,21 +1205,67 @@ def _render_variable_category(
                 "process", samples_to_rm
             )
 
-        syst_payload = {}
+        p_err_arr = None
+        m_err_arr = None
+        p_err_arr_ratio = None
+        m_err_arr_ratio = None
+        syst_err_mode = False
         if not (is_sparse2d or skip_syst_errs):
-            syst_payload = _build_systematic_envelopes(
-                hist_mc_integrated,
-                region_ctx,
-                var_name,
-                include_overflow=True,
-                unblind_flag=unblind_flag,
-            )
-
-        p_err_arr = syst_payload.get("err_p_syst")
-        m_err_arr = syst_payload.get("err_m_syst")
-        p_err_arr_ratio = syst_payload.get("err_ratio_p_syst")
-        m_err_arr_ratio = syst_payload.get("err_ratio_m_syst")
-        syst_err_mode = syst_payload.get("syst_err_mode", False)
+            try:
+                rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+                    hist_mc_integrated,
+                    region_ctx.group_map,
+                    group_type=region_ctx.name,
+                    rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                )
+                shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+                    hist_mc_integrated,
+                    group_type=region_ctx.name,
+                )
+                if var_name == "njets":
+                    diboson_samples = region_ctx.group_map.get("Diboson", [])
+                    if diboson_samples:
+                        db_hist = _eval_without_underflow(
+                            hist_mc_integrated.integrate("process", diboson_samples)[
+                                {"process": sum}
+                            ].integrate("systematic", "nominal")
+                        )
+                        diboson_njets_syst = get_diboson_njets_syst_arr(
+                            db_hist, bin0_njets=0
+                        )
+                        shape_systs_summed_arr_p = (
+                            shape_systs_summed_arr_p + diboson_njets_syst
+                        )
+                        shape_systs_summed_arr_m = (
+                            shape_systs_summed_arr_m + diboson_njets_syst
+                        )
+                nom_arr_all = _eval_without_underflow(
+                    hist_mc_integrated[{"process": sum}].integrate(
+                        "systematic", "nominal"
+                    )
+                )
+                sqrt_sum_p = np.sqrt(
+                    np.asarray(shape_systs_summed_arr_p)
+                    + np.asarray(rate_systs_summed_arr_p)
+                )
+                sqrt_sum_m = np.sqrt(
+                    np.asarray(shape_systs_summed_arr_m)
+                    + np.asarray(rate_systs_summed_arr_m)
+                )
+                p_err_arr = nom_arr_all + sqrt_sum_p
+                m_err_arr = nom_arr_all - sqrt_sum_m
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    p_err_arr_ratio = np.where(
+                        nom_arr_all > 0, p_err_arr / nom_arr_all, 1
+                    )
+                    m_err_arr_ratio = np.where(
+                        nom_arr_all > 0, m_err_arr / nom_arr_all, 1
+                    )
+                syst_err_mode = "total" if unblind_flag else True
+            except Exception as exc:
+                print(
+                    f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
+                )
 
         if is_sparse2d:
             hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate(
@@ -1480,27 +1435,45 @@ def _render_variable_category(
         err_m_syst = None
         err_ratio_p_syst = None
         err_ratio_m_syst = None
-        syst_err_mode = False
         if not skip_syst_errs:
             try:
-                syst_payload = _build_systematic_envelopes(
+                rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
                     hist_mc_channel,
-                    region_ctx,
-                    var_name,
-                    include_overflow=True,
-                    unblind_flag=unblind_flag,
+                    region_ctx.group_map,
+                    group_type=region_ctx.name,
+                    rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                )
+                shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+                    hist_mc_channel,
+                    group_type=region_ctx.name,
                 )
             except Exception as exc:
                 print(
                     f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
                 )
             else:
-                err_p_syst = syst_payload.get("err_p_syst")
-                err_m_syst = syst_payload.get("err_m_syst")
-                err_ratio_p_syst = syst_payload.get("err_ratio_p_syst")
-                err_ratio_m_syst = syst_payload.get("err_ratio_m_syst")
-                syst_err_mode = syst_payload.get("syst_err_mode", False)
-                syst_err = bool(syst_payload)
+                nominal_projection = hist_mc_channel[{"process": sum}].integrate(
+                    "systematic", "nominal"
+                )
+                nom_arr_all = _values_without_flow(
+                    nominal_projection, include_overflow=True
+                )
+                sqrt_sum_p = np.sqrt(
+                    shape_systs_summed_arr_p + rate_systs_summed_arr_p
+                )
+                sqrt_sum_m = np.sqrt(
+                    shape_systs_summed_arr_m + rate_systs_summed_arr_m
+                )
+                err_p_syst = nom_arr_all + sqrt_sum_p
+                err_m_syst = nom_arr_all - sqrt_sum_m
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    err_ratio_p_syst = np.where(
+                        nom_arr_all > 0, err_p_syst / nom_arr_all, 1
+                    )
+                    err_ratio_m_syst = np.where(
+                        nom_arr_all > 0, err_m_syst / nom_arr_all, 1
+                    )
+                syst_err = True
 
         if not _hist_has_content(hist_mc_integrated):
             print("Warning: empty mc histo, continuing")
@@ -1525,7 +1498,7 @@ def _render_variable_category(
             "lumitag": region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
             "comtag": region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
             "h_mc_sumw2": hist_mc_sumw2,
-            "syst_err": syst_err_mode if syst_err_mode else syst_err,
+            "syst_err": syst_err,
             "err_p_syst": err_p_syst,
             "err_m_syst": err_m_syst,
             "err_ratio_p_syst": err_ratio_p_syst,
@@ -3987,27 +3960,13 @@ def _match_variation_length(nominal, variation):
     operations can rely on consistent shapes.
     """
 
-    nominal = np.atleast_1d(np.asarray(nominal))
+    nominal = np.asarray(nominal)
     variation = np.asarray(variation)
-
-    if nominal.ndim != 1:
-        return variation
-
-    target_len = nominal.shape[0]
-    if target_len == 0:
-        return np.zeros(0, dtype=np.result_type(nominal, variation))
 
     if variation.shape == nominal.shape:
         return variation
 
-    if variation.ndim == 0:
-        filled = np.full(
-            target_len,
-            variation.item() if variation.size else 0.0,
-            dtype=np.result_type(nominal, variation),
-        )
-        return filled
-
+    target_len = nominal.shape[0]
     trimmed = variation[:target_len]
 
     if trimmed.shape[0] == target_len:
@@ -4171,6 +4130,15 @@ def _values_without_flow(
 
     axes = getattr(hist_for_axes, "axes", None)
     if axes is None or values.ndim < len(axes):
+        fallback_hist = hist_for_axes if hasattr(hist_for_axes, "eval") else None
+        if fallback_hist is not None:
+            try:
+                trimmed = _eval_without_underflow(fallback_hist)
+            except Exception:
+                return values
+            if include_overflow or trimmed.size == 0:
+                return trimmed
+            return trimmed[:-1]
         return values
 
     slices = []
