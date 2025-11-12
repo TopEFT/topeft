@@ -200,7 +200,45 @@ def _resolve_axis_bins(var_name):
             if candidate:
                 return candidate
 
-    return metadata.get("regular")
+    regular_bins = metadata.get("regular")
+    if regular_bins is None:
+        return None
+
+    if isinstance(regular_bins, Mapping):
+        regular_bins = regular_bins.get("edges") or regular_bins.get("bins")
+        if regular_bins is None:
+            return None
+
+    if isinstance(regular_bins, np.ndarray):
+        return regular_bins.tolist()
+
+    if isinstance(regular_bins, (tuple, list)):
+        if len(regular_bins) == 3:
+            try:
+                n_bins, low_edge, high_edge = regular_bins
+            except ValueError:
+                return None
+            try:
+                n_bins = int(n_bins)
+            except (TypeError, ValueError):
+                return None
+            if n_bins <= 0:
+                return None
+            try:
+                low_edge = float(low_edge)
+                high_edge = float(high_edge)
+            except (TypeError, ValueError):
+                return None
+            if not (math.isfinite(low_edge) and math.isfinite(high_edge)):
+                return None
+            if high_edge <= low_edge:
+                return None
+            return np.linspace(low_edge, high_edge, num=n_bins + 1).tolist()
+
+        if len(regular_bins) >= 2:
+            return list(regular_bins)
+
+    return None
 
 
 YEAR_TOKEN_RULES = {
