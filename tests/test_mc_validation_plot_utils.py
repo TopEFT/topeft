@@ -3,18 +3,26 @@ from pathlib import Path
 
 import cloudpickle
 import numpy as np
-from hist import axis
+from hist import Hist, axis, storage
 
 from analysis.mc_validation.plot_utils import (
     build_dataset_histograms,
     component_values,
     tuple_histogram_items,
 )
-from topcoffea.modules.histEFT import HistEFT
+
+try:  # pragma: no cover - optional dependency in CI
+    from topcoffea.modules.histEFT import HistEFT as _HistEFT
+except ModuleNotFoundError:  # pragma: no cover - fallback used when topcoffea is absent
+    _HistEFT = None
 
 
 def _build_histogram(values):
-    histogram = HistEFT(axis.Regular(4, 0.0, 4.0, name="observable"), wc_names=[], label="Events")
+    dense_axis = axis.Regular(4, 0.0, 4.0, name="observable")
+    if _HistEFT is not None:
+        histogram = _HistEFT(dense_axis, wc_names=[], label="Events")
+    else:
+        histogram = Hist(dense_axis, storage=storage.Double(), label="Events")
     histogram.fill(observable=np.asarray(values), weight=np.ones(len(values)))
     return histogram
 
