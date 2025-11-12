@@ -118,7 +118,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             self._hist_lst = hist_lst  # Which hists to fill
 
         self._default_channel = "inclusive"
-        self._default_application = "inclusive"
         self._default_systematic = "nominal"
 
         self._accumulator = processor.dict_accumulator({})
@@ -308,10 +307,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         tuple_entries = {
             key: value
             for key, value in accumulator.items()
-            if isinstance(key, tuple) and len(key) == 5
+            if isinstance(key, tuple) and len(key) == 4
         }
 
-        ordered_tuple_entries: "OrderedDict[Tuple[str, str, str, str, str], HistEFT]" = OrderedDict(
+        ordered_tuple_entries: "OrderedDict[Tuple[str, str, str, str], HistEFT]" = OrderedDict(
             sorted(tuple_entries.items(), key=lambda item: item[0])
         )
 
@@ -319,12 +318,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         aggregated: Dict[str, Dict[str, HistEFT]] = defaultdict(dict)
         for key, hist_obj in ordered_tuple_entries.items():
-            variable, channel, application, sample, systematic = key
+            variable, channel, sample, systematic = key
             label_parts = [sample]
             if channel and channel != self._default_channel:
                 label_parts.append(channel)
-            if application and application != self._default_application:
-                label_parts.append(application)
             if systematic and systematic != self._default_systematic:
                 label_parts.append(systematic)
             sample_label = "__".join(filter(None, label_parts))
@@ -371,11 +368,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         channel: Union[str, None] = None,
         application: Union[str, None] = None,
         systematic: Union[str, None] = None,
-    ) -> Tuple[str, str, str, str, str]:
+    ) -> Tuple[str, str, str, str]:
+        _ = application
         return (
             variable,
             channel or self._default_channel,
-            application or self._default_application,
             sample,
             systematic or self._default_systematic,
         )

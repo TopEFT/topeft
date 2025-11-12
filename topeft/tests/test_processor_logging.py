@@ -1545,7 +1545,7 @@ def test_process_nominal_run_is_quiet(processor, capsys, caplog, monkeypatch):
         )
         self._debug(
             "Filled histkey %s with %d selected events",
-            (self.var, self.channel, self.appregion, dataset, self.syst),
+            (self.var, self.channel, dataset, self.syst),
             0,
         )
         return {dataset: 0}

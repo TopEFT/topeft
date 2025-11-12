@@ -398,13 +398,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         return hout
 
     def postprocess(self, accumulator):
-        tuple_entries: Dict[Tuple[str, str, str, str, str], hist.Hist] = {
+        tuple_entries: Dict[Tuple[str, str, str, str], hist.Hist] = {
             key: value
             for key, value in accumulator.items()
-            if isinstance(key, tuple) and len(key) == 5
+            if isinstance(key, tuple) and len(key) == 4
         }
 
-        ordered_entries: "OrderedDict[Tuple[str, str, str, str, str], hist.Hist]" = OrderedDict(
+        ordered_entries: "OrderedDict[Tuple[str, str, str, str], hist.Hist]" = OrderedDict(
             sorted(tuple_entries.items(), key=lambda item: item[0])
         )
 
@@ -427,11 +427,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         variable: str,
         channel: str,
         sample: str,
-    ) -> Tuple[str, str, str, str, str]:
+    ) -> Tuple[str, str, str, str]:
         return (
             variable,
             channel,
-            self._application_region,
             sample,
             self._systematic,
         )

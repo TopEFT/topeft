@@ -380,13 +380,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                         *info["regular"], name=self._var, label=info["label"]
                     )
 
-                histogram[hist_key_entry] = HistEFT(
+                hist_key = self._build_histogram_key(
+                    key_var,
+                    key_ch,
+                    key_sample,
+                    syst_label,
+                )
+
+                histogram[hist_key] = HistEFT(
                     dense_axis,
                     wc_names=wc_names_lst,
                     label=r"Events",
                 )
 
-                self._hist_keys_to_fill.append(hist_key_entry)
+                self._hist_keys_to_fill.append(hist_key)
 
                 if idx == 0:
                     if not rebin and "variable" in info:
@@ -402,10 +409,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                             label=info["label"] + " sum of w^2",
                         )
 
-                    sumw2_key = (
+                    sumw2_key = self._build_histogram_key(
                         f"{self._var}_sumw2",
                         self._channel,
-                        key_appl,
                         key_sample,
                         syst_label,
                     )
@@ -518,6 +524,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             lep_chan, njet_str=njet_ch, flav_str=None
         )
         return ch_name, base_ch_name
+
+    def _build_histogram_key(
+        self, variable: str, channel: str, sample: str, systematic: str
+    ) -> Tuple[str, str, str, str]:
+        return (variable, channel, sample, systematic)
 
     def _build_dataset_context(self, events) -> DatasetContext:
         events_metadata = self._metadata_to_mapping(getattr(events, "metadata", None))
@@ -1913,19 +1924,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                     "eft_coeff": eft_coeffs_cut,
                 }
 
-                histkey = (
+                histkey = self._build_histogram_key(
                     dense_axis_name,
                     ch_name,
-                    self.appregion,
                     dataset.dataset,
                     hist_variation_label,
                 )
 
                 if histkey not in hout:
-                    fallback_histkey = (
+                    fallback_histkey = self._build_histogram_key(
                         dense_axis_name,
                         base_ch_name,
-                        self.appregion,
                         dataset.dataset,
                         hist_variation_label,
                     )
@@ -1948,10 +1957,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     "weight": np.square(weights_flat),
                     "eft_coeff": eft_coeffs_cut,
                 }
-                histkey = (
+                histkey = self._build_histogram_key(
                     dense_axis_name + "_sumw2",
                     base_ch_name,
-                    self.appregion,
                     dataset.dataset,
                     hist_variation_label,
                 )
