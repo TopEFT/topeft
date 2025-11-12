@@ -83,45 +83,58 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
 
-        # Create the histograms
-        # In general, histograms depend on 'dataset', 'channel' (final state) and 'selection' (level of selection)
-
-        def _category_axes():
-            return (
-                hist.axis.StrCategory([], name="dataset", growth=True),
-                hist.axis.StrCategory([], name="channel", growth=True),
-                hist.axis.StrCategory([], name="selection", growth=True),
-            )
+        # Create helpers to build dense histograms keyed by
+        # (variable, channel, application, sample, systematic)
 
         def _build_eft_hist(axis_name: str, axis_label: str, bins: int, start: float, stop: float):
-            dataset_axis, channel_axis, selection_axis = _category_axes()
-            dense_axis = hist.axis.Regular(bins=bins, start=start, stop=stop, name=axis_name, label=axis_label)
+            dense_axis = hist.axis.Regular(
+                bins=bins, start=start, stop=stop, name=axis_name, label=axis_label
+            )
             return HistEFT(
-                dataset_axis,
-                channel_axis,
-                selection_axis,
                 dense_axis,
                 wc_names=wc_names_lst,
                 label="Events",
             )
 
-        dataset_axis, channel_axis, selection_axis = _category_axes()
-        counts_axis = hist.axis.Regular(bins=1, start=0, stop=2, name="counts", label="Counts")
-
-        self._accumulator = processor.dict_accumulator({
-            "counts": HistWithIdentity(
-                dataset_axis,
-                channel_axis,
-                selection_axis,
+        def _build_counts_hist():
+            counts_axis = hist.axis.Regular(
+                bins=1, start=0, stop=2, name="counts", label="Counts"
+            )
+            return HistWithIdentity(
                 counts_axis,
                 storage=hist.storage.Double(),
                 label="Events",
-            ),
-            "njets": _build_eft_hist("njets", "Jet multiplicity", 12, 0, 12),
-            "j0pt": _build_eft_hist("j0pt", "Leading jet  $p_{T}$ (GeV)", 10, 0, 600),
-            "j0eta": _build_eft_hist("j0eta", "Leading jet  $\eta$", 10, -3.0, 3.0),
-            "l0pt": _build_eft_hist("l0pt", "Leading lep $p_{T}$ (GeV)", 15, 0, 400),
-        })
+            )
+
+        self._hist_builders = {
+            "counts": _build_counts_hist,
+            "njets": lambda: _build_eft_hist("njets", "Jet multiplicity", 12, 0, 12),
+            "j0pt": lambda: _build_eft_hist("j0pt", "Leading jet  $p_{T}$ (GeV)", 10, 0, 600),
+            "j0eta": lambda: _build_eft_hist("j0eta", "Leading jet  $\\eta$", 10, -3.0, 3.0),
+            "l0pt": lambda: _build_eft_hist("l0pt", "Leading lep $p_{T}$ (GeV)", 15, 0, 400),
+        }
+
+        self._hist_axis_names = {
+            "counts": "counts",
+            "njets": "njets",
+            "j0pt": "j0pt",
+            "j0eta": "j0eta",
+            "l0pt": "l0pt",
+        }
+
+        self._hist_requires_eft = {
+            "counts": False,
+            "njets": True,
+            "j0pt": True,
+            "j0eta": True,
+            "l0pt": True,
+        }
+
+        self._default_channel = "2l"
+        self._default_application = "2l"
+        self._default_systematic = "nominal"
+
+        self._accumulator = processor.dict_accumulator({})
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
@@ -307,6 +320,32 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         context.varnames = varnames
 
+    def _build_histogram_key(
+        self,
+        variable: str,
+        sample: str,
+        channel: Optional[str] = None,
+        application: Optional[str] = None,
+        systematic: Optional[str] = None,
+    ):
+        return (
+            variable,
+            channel or self._default_channel,
+            application or self._default_application,
+            sample,
+            systematic or self._default_systematic,
+        )
+
+    def _get_histogram(self, hist_store, variable: str, key):
+        histogram = hist_store.get(key)
+        if histogram is None:
+            builder = self._hist_builders.get(variable)
+            if builder is None:
+                raise KeyError(f"No histogram builder registered for variable '{variable}'")
+            histogram = builder()
+            hist_store[key] = histogram
+        return histogram
+
     def _fill_histograms(self, context: ProcessingContext) -> None:
         """Fill histograms using the prepared selections and variables."""
 
@@ -318,49 +357,28 @@ class AnalysisProcessor(processor.ProcessorABC):
         dataset = context.dataset
         hout = context.hist_output
 
-        for var, v in varnames.items():
-            cut = selections.all("2l2j")
-            values = v[cut]
-            eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
-            eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
-            if var == "counts":
-                hout[var].fill(counts=values, dataset=dataset, channel="2l", selection="2l")
-            elif var == "njets":
-                hout[var].fill(
-                    njets=values,
-                    dataset=dataset,
-                    channel="2l",
-                    selection="2l",
-                    eft_coeff=eft_coeffs_cut,
-                    eft_err_coeff=eft_w2_coeffs_cut,
-                )
-            elif var == "j0pt":
-                hout[var].fill(
-                    j0pt=values,
-                    dataset=dataset,
-                    channel="2l",
-                    selection="2l",
-                    eft_coeff=eft_coeffs_cut,
-                    eft_err_coeff=eft_w2_coeffs_cut,
-                )
-            elif var == "j0eta":
-                hout[var].fill(
-                    j0eta=values,
-                    dataset=dataset,
-                    channel="2l",
-                    selection="2l",
-                    eft_coeff=eft_coeffs_cut,
-                    eft_err_coeff=eft_w2_coeffs_cut,
-                )
-            elif var == "l0pt":
-                hout[var].fill(
-                    l0pt=values,
-                    dataset=dataset,
-                    channel="2l",
-                    selection="2l",
-                    eft_coeff=eft_coeffs_cut,
-                    eft_err_coeff=eft_w2_coeffs_cut,
-                )
+        cut = selections.all("2l2j")
+        sample_label = dataset
+        eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
+        eft_w2_coeffs_cut = (
+            eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
+        )
+
+        for var, array in varnames.items():
+            values = array[cut]
+
+            hist_key = self._build_histogram_key(var, sample_label)
+            histogram = self._get_histogram(hout, var, hist_key)
+
+            axis_name = self._hist_axis_names[var]
+            fill_args = {axis_name: values}
+
+            if self._hist_requires_eft[var]:
+                fill_args["eft_coeff"] = eft_coeffs_cut
+                if eft_w2_coeffs_cut is not None:
+                    fill_args["eft_err_coeff"] = eft_w2_coeffs_cut
+
+            histogram.fill(**fill_args)
 
         context.hist_output = hout
 
