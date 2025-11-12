@@ -3,6 +3,7 @@ import hist
 import pytest
 
 from collections import OrderedDict
+from pathlib import Path
 
 from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
@@ -288,3 +289,125 @@ def test_channel_output_both_runs_all_modes_and_uses_sumw2(monkeypatch, tmp_path
     modes_seen = [mode for mode, _ in invocations]
     assert set(modes_seen) == {"aggregate", "per-channel"}
     assert all(payload is not None for _, payload in invocations)
+
+
+def test_split_mode_groups_year_suffixed_channels(monkeypatch, tmp_path):
+    variable = "observable"
+    year_bins = ["category_em_2016", "category_em_2017"]
+    histograms = {
+        variable: _build_histogram(variable, year_bins, hist_type="HistEFT"),
+        f"{variable}_sumw2": _build_sumw2_histogram(variable, year_bins),
+    }
+
+    channel_map = OrderedDict(
+        [
+            ("combined", list(year_bins)),
+            ("category_em_2016", ["category_em_2016"]),
+            ("category_em_2017", ["category_em_2017"]),
+        ]
+    )
+
+    aggregate_ctx = _make_region_context(
+        histograms,
+        channel_map=channel_map,
+        channel_mode="aggregate",
+    )
+    split_ctx = _make_region_context(
+        histograms,
+        channel_map=channel_map,
+        channel_mode="per-channel",
+    )
+
+    payload = plots._prepare_variable_payload(
+        variable,
+        split_ctx,
+        unblind_flag=True,
+    )
+    assert list(payload["channel_dict"].keys()) == ["category_em"]
+    assert payload["channel_dict"]["category_em"] == year_bins
+
+    rate_payload = (np.array([0.2]), np.array([0.3]))
+    shape_payload = (np.array([0.1]), np.array([0.05]))
+
+    monkeypatch.setattr(
+        plots,
+        "get_rate_syst_arrs",
+        lambda *args, **kwargs: rate_payload,
+    )
+    monkeypatch.setattr(
+        plots,
+        "get_shape_syst_arrs",
+        lambda *args, **kwargs: shape_payload,
+    )
+    monkeypatch.setattr(plots, "_close_figure_payload", lambda fig: None)
+
+    render_calls = []
+    current_mode = {"value": None}
+
+    def fake_make_region_stacked_ratio_fig(
+        hist_mc_integrated,
+        hist_data_to_plot,
+        unit_norm_bool,
+        *,
+        var,
+        **kwargs,
+    ):
+        call = {"mode": current_mode["value"], "kwargs": kwargs, "paths": []}
+        render_calls.append(call)
+
+        class _Figure:
+            def savefig(self, path, *args, **kwargs):
+                call["paths"].append(path)
+
+        return _Figure()
+
+    monkeypatch.setattr(
+        plots,
+        "make_region_stacked_ratio_fig",
+        fake_make_region_stacked_ratio_fig,
+    )
+
+    current_mode["value"] = "aggregate"
+    plots.produce_region_plots(
+        aggregate_ctx,
+        str(tmp_path / "agg"),
+        [variable],
+        skip_syst_errs=False,
+        unit_norm_bool=False,
+        stacked_log_y=False,
+        unblind=True,
+        workers=1,
+    )
+
+    aggregate_calls = list(render_calls)
+
+    current_mode["value"] = "per-channel"
+    plots.produce_region_plots(
+        split_ctx,
+        str(tmp_path / "split"),
+        [variable],
+        skip_syst_errs=False,
+        unit_norm_bool=False,
+        stacked_log_y=False,
+        unblind=True,
+        workers=1,
+    )
+
+    per_channel_calls = render_calls[len(aggregate_calls) :]
+    assert len(per_channel_calls) == 1
+
+    per_call = per_channel_calls[0]
+    assert per_call["paths"]
+    for saved in per_call["paths"]:
+        filename = Path(saved)
+        assert "2016" not in filename.name
+        assert "2017" not in filename.name
+        assert filename.parent.name == "category_em"
+        assert filename.name == f"category_em_{variable}.png"
+
+    aggregate_kwargs = aggregate_calls[0]["kwargs"]
+    per_kwargs = per_call["kwargs"]
+    for key in ("err_p_syst", "err_m_syst", "err_ratio_p_syst", "err_ratio_m_syst"):
+        assert key in aggregate_kwargs and key in per_kwargs
+        assert np.allclose(aggregate_kwargs[key], per_kwargs[key])
+    assert aggregate_kwargs.get("syst_err") == per_kwargs.get("syst_err") == "total"

@@ -202,6 +202,56 @@ YEAR_TOKEN_RULES = {
     "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
 }
 
+_YEAR_SUFFIX_TOKENS = tuple(sorted(YEAR_TOKEN_RULES, key=len, reverse=True))
+
+
+def _strip_year_token(value):
+    """Return *value* with a recognised year token suffix removed."""
+
+    if not isinstance(value, str):
+        return value
+
+    for token in _YEAR_SUFFIX_TOKENS:
+        for separator in ("_", "-", ""):
+            suffix = f"{separator}{token}"
+            if not suffix:
+                continue
+            if not value.endswith(suffix):
+                continue
+            prefix = value[: -len(suffix)] if suffix else value
+            if separator or not prefix or not prefix[-1].isalnum():
+                return prefix
+    return value
+
+
+def _group_channels_by_yearless_label(channel_dict):
+    """Return per-channel *channel_dict* entries grouped by yearless labels."""
+
+    grouped = OrderedDict()
+
+    for key, channel_bins in channel_dict.items():
+        normalized_key = _strip_year_token(key)
+        bucket = grouped.setdefault(normalized_key, OrderedDict())
+        if channel_bins is None:
+            if not bucket:
+                grouped[normalized_key] = None
+            continue
+
+        if bucket is None:
+            bucket = OrderedDict()
+            grouped[normalized_key] = bucket
+
+        for bin_name in channel_bins:
+            bucket.setdefault(bin_name, None)
+
+    normalized = OrderedDict()
+    for key, bucket in grouped.items():
+        if bucket is None:
+            normalized[key] = None
+        else:
+            normalized[key] = list(bucket.keys())
+    return normalized
+
 YEAR_AGGREGATE_ALIASES = {
     "run2": ("2016", "2016APV", "2017", "2018"),
     "run3": ("2022", "2022EE", "2023", "2023BPix"),
@@ -961,6 +1011,8 @@ def _prepare_variable_payload(
     channel_dict = _deduplicate_channel_bins(channel_dict)
     channel_dict = _prune_unsplit_flavour_entries(channel_dict, region_ctx)
     channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
+    if region_ctx.channel_mode == "per-channel":
+        channel_dict = _group_channels_by_yearless_label(channel_dict)
 
     if metadata_only:
         return {
@@ -1089,6 +1141,97 @@ def _render_variable(
     return stat_only_plots, stat_and_syst_plots, html_dirs
 
 
+def _build_systematic_envelopes(
+    hist_mc_projection,
+    region_ctx,
+    var_name,
+    *,
+    include_overflow=True,
+    unblind_flag=False,
+):
+    """Return nominal envelopes for shape and rate systematics."""
+
+    rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+        hist_mc_projection,
+        region_ctx.group_map,
+        group_type=region_ctx.name,
+        rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+    )
+    shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+        hist_mc_projection,
+        group_type=region_ctx.name,
+    )
+
+    if var_name == "njets":
+        diboson_samples = region_ctx.group_map.get("Diboson", [])
+        if diboson_samples:
+            diboson_hist = hist_mc_projection.integrate("process", diboson_samples)[
+                {"process": sum}
+            ].integrate("systematic", "nominal")
+            diboson_vals = _values_without_flow(
+                diboson_hist,
+                include_overflow=include_overflow,
+            )
+            diboson_njets_syst = get_diboson_njets_syst_arr(
+                diboson_vals, bin0_njets=0
+            )
+            shape_systs_summed_arr_p = (
+                np.asarray(shape_systs_summed_arr_p) + diboson_njets_syst
+            )
+            shape_systs_summed_arr_m = (
+                np.asarray(shape_systs_summed_arr_m) + diboson_njets_syst
+            )
+
+    nominal_projection = hist_mc_projection[{"process": sum}].integrate(
+        "systematic", "nominal"
+    )
+    nominal_values = _values_without_flow(
+        nominal_projection,
+        include_overflow=include_overflow,
+    )
+
+    rate_systs_summed_arr_p = _match_variation_length(
+        nominal_values, rate_systs_summed_arr_p
+    )
+    rate_systs_summed_arr_m = _match_variation_length(
+        nominal_values, rate_systs_summed_arr_m
+    )
+    shape_systs_summed_arr_p = _match_variation_length(
+        nominal_values, shape_systs_summed_arr_p
+    )
+    shape_systs_summed_arr_m = _match_variation_length(
+        nominal_values, shape_systs_summed_arr_m
+    )
+
+    sqrt_sum_p = np.sqrt(
+        np.asarray(shape_systs_summed_arr_p)
+        + np.asarray(rate_systs_summed_arr_p)
+    )
+    sqrt_sum_m = np.sqrt(
+        np.asarray(shape_systs_summed_arr_m)
+        + np.asarray(rate_systs_summed_arr_m)
+    )
+
+    err_p_syst = nominal_values + sqrt_sum_p
+    err_m_syst = nominal_values - sqrt_sum_m
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        err_ratio_p_syst = np.where(
+            nominal_values > 0, err_p_syst / nominal_values, 1
+        )
+        err_ratio_m_syst = np.where(
+            nominal_values > 0, err_m_syst / nominal_values, 1
+        )
+
+    return {
+        "err_p_syst": err_p_syst,
+        "err_m_syst": err_m_syst,
+        "err_ratio_p_syst": err_ratio_p_syst,
+        "err_ratio_m_syst": err_ratio_m_syst,
+        "syst_err_mode": "total" if unblind_flag else True,
+    }
+
+
 def _render_variable_category(
     var_name,
     hist_cat,
@@ -1153,73 +1296,21 @@ def _render_variable_category(
                 "process", samples_to_rm
             )
 
-        p_err_arr = None
-        m_err_arr = None
-        p_err_arr_ratio = None
-        m_err_arr_ratio = None
-        syst_err_mode = False
+        syst_payload = {}
         if not (is_sparse2d or skip_syst_errs):
-            rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+            syst_payload = _build_systematic_envelopes(
                 hist_mc_integrated,
-                region_ctx.group_map,
-                group_type=region_ctx.name,
-                rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                region_ctx,
+                var_name,
+                include_overflow=True,
+                unblind_flag=unblind_flag,
             )
-            shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
-                hist_mc_integrated,
-                group_type=region_ctx.name,
-            )
-            if var_name == "njets":
-                diboson_samples = region_ctx.group_map.get("Diboson", [])
-                if diboson_samples:
-                    db_hist = _eval_without_underflow(
-                        hist_mc_integrated.integrate("process", diboson_samples)[{"process": sum}]
-                        .integrate("systematic", "nominal")
-                    )
-                    diboson_njets_syst = get_diboson_njets_syst_arr(
-                        db_hist, bin0_njets=0
-                    )
-                    shape_systs_summed_arr_p = (
-                        shape_systs_summed_arr_p + diboson_njets_syst
-                    )
-                    shape_systs_summed_arr_m = (
-                        shape_systs_summed_arr_m + diboson_njets_syst
-                    )
-            nom_arr_all = _eval_without_underflow(
-                hist_mc_integrated[{"process": sum}].integrate(
-                    "systematic", "nominal"
-                )
-            )
-            rate_systs_summed_arr_p = _match_variation_length(
-                nom_arr_all, rate_systs_summed_arr_p
-            )
-            rate_systs_summed_arr_m = _match_variation_length(
-                nom_arr_all, rate_systs_summed_arr_m
-            )
-            shape_systs_summed_arr_p = _match_variation_length(
-                nom_arr_all, shape_systs_summed_arr_p
-            )
-            shape_systs_summed_arr_m = _match_variation_length(
-                nom_arr_all, shape_systs_summed_arr_m
-            )
-            sqrt_sum_p = np.sqrt(
-                np.asarray(shape_systs_summed_arr_p)
-                + np.asarray(rate_systs_summed_arr_p)
-            )
-            sqrt_sum_m = np.sqrt(
-                np.asarray(shape_systs_summed_arr_m)
-                + np.asarray(rate_systs_summed_arr_m)
-            )
-            p_err_arr = nom_arr_all + sqrt_sum_p
-            m_err_arr = nom_arr_all - sqrt_sum_m
-            with np.errstate(divide="ignore", invalid="ignore"):
-                p_err_arr_ratio = np.where(
-                    nom_arr_all > 0, p_err_arr / nom_arr_all, 1
-                )
-                m_err_arr_ratio = np.where(
-                    nom_arr_all > 0, m_err_arr / nom_arr_all, 1
-                )
-            syst_err_mode = "total" if unblind_flag else True
+
+        p_err_arr = syst_payload.get("err_p_syst")
+        m_err_arr = syst_payload.get("err_m_syst")
+        p_err_arr_ratio = syst_payload.get("err_ratio_p_syst")
+        m_err_arr_ratio = syst_payload.get("err_ratio_m_syst")
+        syst_err_mode = syst_payload.get("syst_err_mode", False)
 
         if is_sparse2d:
             hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate(
@@ -1392,75 +1483,24 @@ def _render_variable_category(
         syst_err_mode = False
         if not skip_syst_errs:
             try:
-                rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+                syst_payload = _build_systematic_envelopes(
                     hist_mc_channel,
-                    region_ctx.group_map,
-                    group_type=region_ctx.name,
-                    rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                    region_ctx,
+                    var_name,
+                    include_overflow=True,
+                    unblind_flag=unblind_flag,
                 )
-                shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
-                    hist_mc_channel,
-                    group_type=region_ctx.name,
-                )
-                if var_name == "njets":
-                    diboson_samples = region_ctx.group_map.get("Diboson", [])
-                    if diboson_samples:
-                        db_hist = _eval_without_underflow(
-                            hist_mc_channel.integrate("process", diboson_samples)[
-                                {"process": sum}
-                            ].integrate("systematic", "nominal")
-                        )
-                        diboson_njets_syst = get_diboson_njets_syst_arr(
-                            db_hist, bin0_njets=0
-                        )
-                        shape_systs_summed_arr_p = (
-                            shape_systs_summed_arr_p + diboson_njets_syst
-                        )
-                        shape_systs_summed_arr_m = (
-                            shape_systs_summed_arr_m + diboson_njets_syst
-                        )
             except Exception as exc:
                 print(
                     f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
                 )
             else:
-                nominal_projection = hist_mc_channel[{"process": sum}].integrate(
-                    "systematic", "nominal"
-                )
-                nom_arr_all = _values_without_flow(
-                    nominal_projection, include_overflow=True
-                )
-                rate_systs_summed_arr_p = _match_variation_length(
-                    nom_arr_all, rate_systs_summed_arr_p
-                )
-                rate_systs_summed_arr_m = _match_variation_length(
-                    nom_arr_all, rate_systs_summed_arr_m
-                )
-                shape_systs_summed_arr_p = _match_variation_length(
-                    nom_arr_all, shape_systs_summed_arr_p
-                )
-                shape_systs_summed_arr_m = _match_variation_length(
-                    nom_arr_all, shape_systs_summed_arr_m
-                )
-                sqrt_sum_p = np.sqrt(
-                    np.asarray(shape_systs_summed_arr_p)
-                    + np.asarray(rate_systs_summed_arr_p)
-                )
-                sqrt_sum_m = np.sqrt(
-                    np.asarray(shape_systs_summed_arr_m)
-                    + np.asarray(rate_systs_summed_arr_m)
-                )
-                err_p_syst = nom_arr_all + sqrt_sum_p
-                err_m_syst = nom_arr_all - sqrt_sum_m
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    err_ratio_p_syst = np.where(
-                        nom_arr_all > 0, err_p_syst / nom_arr_all, 1
-                    )
-                    err_ratio_m_syst = np.where(
-                        nom_arr_all > 0, err_m_syst / nom_arr_all, 1
-                    )
-                syst_err = True
-                syst_err_mode = "total" if unblind_flag else True
+                err_p_syst = syst_payload.get("err_p_syst")
+                err_m_syst = syst_payload.get("err_m_syst")
+                err_ratio_p_syst = syst_payload.get("err_ratio_p_syst")
+                err_ratio_m_syst = syst_payload.get("err_ratio_m_syst")
+                syst_err_mode = syst_payload.get("syst_err_mode", False)
+                syst_err = bool(syst_payload)
 
         if not _hist_has_content(hist_mc_integrated):
             print("Warning: empty mc histo, continuing")
@@ -1505,7 +1545,7 @@ def _render_variable_category(
             **stacked_kwargs,
         )
         fig.savefig(
-            os.path.join(save_dir_path_tmp, title),
+            os.path.join(save_dir_path_tmp, f"{title}.png"),
             bbox_inches="tight",
             pad_inches=0.05,
         )
