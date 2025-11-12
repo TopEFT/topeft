@@ -93,7 +93,11 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
         print("\nVar name:",var_name)
 
         # Sum over channels, and just grab the nominal from the syst axis
-        histo_base = rebuilt_hists.get(var_name, dict_of_hists[var_name])
+        histo_base = rebuilt_hists.get(var_name)
+        if histo_base is None:
+            histo_base = dict_of_hists.get(var_name)
+        if histo_base is None:
+            raise KeyError(f"Histogram '{var_name}' not found in rebuilt or original mapping")
 
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
