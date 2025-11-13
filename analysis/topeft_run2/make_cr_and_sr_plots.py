@@ -291,22 +291,89 @@ def _append_njet_suffix(label, suffix):
     return f"{label}_{normalized_suffix}"
 
 
-def _maybe_preserve_njet_bins(channel_dict, *, preserve=False):
+def _resolve_channel_axis_labels(histogram):
+    """Return the tuple of channel labels defined on *histogram*."""
+
+    if histogram is None:
+        return ()
+
+    try:
+        axis = histogram.axes["channel"]
+    except Exception:
+        return ()
+
+    try:
+        return tuple(str(label) for label in axis)
+    except Exception:
+        return tuple(axis)
+
+
+def _filter_existing_channel_bins(bin_names, available_channels):
+    """Return ``(filtered, missing)`` for *bin_names* against *available_channels*."""
+
+    if not bin_names:
+        return [], []
+
+    available_set = None
+    if available_channels:
+        available_set = {str(label) for label in available_channels}
+
+    filtered = []
+    missing = []
+    seen = set()
+    for bin_name in bin_names:
+        if available_set is not None and bin_name not in available_set:
+            missing.append(bin_name)
+            continue
+        if bin_name in seen:
+            continue
+        seen.add(bin_name)
+        filtered.append(bin_name)
+
+    return filtered, missing
+
+
+def _prune_empty_channel_entries(channel_dict):
+    """Drop channel entries that no longer contain any bins."""
+
+    pruned = OrderedDict()
+    for key, channel_bins in channel_dict.items():
+        if channel_bins is None:
+            pruned[key] = None
+            continue
+        if channel_bins:
+            pruned[key] = channel_bins
+    return pruned
+
+
+def _maybe_preserve_njet_bins(
+    channel_dict,
+    *,
+    preserve=False,
+    available_channels=None,
+):
     """Return *channel_dict* with entries split by njets suffix when requested."""
 
     if not preserve:
         return channel_dict
 
     preserved = OrderedDict()
+    available_channels = tuple(available_channels or ())
 
     for key, channel_bins in channel_dict.items():
         if channel_bins is None:
             preserved[key] = None
             continue
 
+        filtered_bins, _ = _filter_existing_channel_bins(
+            list(channel_bins), available_channels
+        )
+        if not filtered_bins:
+            continue
+
         suffix_buckets = OrderedDict()
         suffix_order = []
-        for bin_name in channel_bins:
+        for bin_name in filtered_bins:
             suffix = _extract_njet_suffix(bin_name)
             if suffix not in suffix_buckets:
                 suffix_buckets[suffix] = []
@@ -315,25 +382,39 @@ def _maybe_preserve_njet_bins(channel_dict, *, preserve=False):
 
         suffixes = [suffix for suffix in suffix_order if suffix is not None]
         if not suffixes:
-            preserved[key] = channel_bins
+            preserved[key] = filtered_bins
             continue
 
         for suffix in suffix_order:
             bucket = suffix_buckets[suffix]
             if suffix is None:
-                if bucket:
-                    preserved[key] = bucket
+                filtered_bucket, _ = _filter_existing_channel_bins(
+                    bucket, available_channels
+                )
+                if filtered_bucket:
+                    preserved[key] = filtered_bucket
+                continue
+            filtered_bucket, _ = _filter_existing_channel_bins(
+                bucket, available_channels
+            )
+            if not filtered_bucket:
                 continue
             new_key = _append_njet_suffix(key, suffix)
-            preserved[new_key] = bucket
+            preserved[new_key] = filtered_bucket
 
     return preserved
 
 
-def _group_channels_by_yearless_label(channel_dict, *, preserve_njets=False):
+def _group_channels_by_yearless_label(
+    channel_dict,
+    *,
+    preserve_njets=False,
+    available_channels=None,
+):
     """Return grouped channel entries and their display labels."""
 
     grouped = OrderedDict()
+    available_channels = tuple(available_channels or ())
 
     for key, channel_bins in channel_dict.items():
         normalized_key = _strip_year_token(key)
@@ -347,7 +428,13 @@ def _group_channels_by_yearless_label(channel_dict, *, preserve_njets=False):
             bucket = OrderedDict()
             grouped[normalized_key] = bucket
 
-        for bin_name in channel_bins:
+        filtered_bins, _ = _filter_existing_channel_bins(
+            list(channel_bins), available_channels
+        )
+        if not filtered_bins:
+            continue
+
+        for bin_name in filtered_bins:
             bucket.setdefault(bin_name, None)
 
     normalized = OrderedDict()
@@ -358,6 +445,8 @@ def _group_channels_by_yearless_label(channel_dict, *, preserve_njets=False):
             continue
 
         bin_names = list(bucket.keys())
+        if not bin_names:
+            continue
         token_groups = OrderedDict()
         for bin_name in bin_names:
             token = _extract_lepflav_token(bin_name)
@@ -1113,6 +1202,7 @@ def _render_variable_from_worker(task_id, payload):
                     channel_display_labels=variable_payload.get(
                         "channel_display_labels", {}
                     ),
+                    available_channels=variable_payload.get("available_channels"),
                 )
     return task_id, stat_only, stat_and_syst, html_set
 
@@ -1142,6 +1232,9 @@ def _prepare_variable_payload(
                 "channel_display_labels": cached_payload.get(
                     "channel_display_labels", {}
                 ),
+                "available_channels": cached_payload.get(
+                    "available_channels", ()
+                ),
             }
         return cached_payload
 
@@ -1161,14 +1254,24 @@ def _prepare_variable_payload(
     )
     channel_dict = _deduplicate_channel_bins(channel_dict)
     channel_dict = _prune_unsplit_flavour_entries(channel_dict, region_ctx)
+
+    available_channels = _resolve_channel_axis_labels(histo)
+
     channel_dict = _maybe_preserve_njet_bins(
-        channel_dict, preserve=region_ctx.preserve_njets_bins
+        channel_dict,
+        preserve=region_ctx.preserve_njets_bins,
+        available_channels=available_channels,
     )
+    channel_dict = _deduplicate_channel_bins(channel_dict)
+    channel_dict = _prune_empty_channel_entries(channel_dict)
     channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
+    channel_dict = _prune_empty_channel_entries(channel_dict)
     channel_display_labels = {}
     if region_ctx.channel_mode == "per-channel":
         channel_dict, channel_display_labels = _group_channels_by_yearless_label(
-            channel_dict, preserve_njets=region_ctx.preserve_njets_bins
+            channel_dict,
+            preserve_njets=region_ctx.preserve_njets_bins,
+            available_channels=available_channels,
         )
     else:
         channel_display_labels = {key: key for key in channel_dict.keys()}
@@ -1179,6 +1282,7 @@ def _prepare_variable_payload(
             "channel_transformations": channel_transformations,
             "is_sparse2d": is_sparse2d,
             "channel_display_labels": channel_display_labels,
+            "available_channels": available_channels,
         }
 
     mc_to_remove = tuple(region_ctx.samples_to_remove.get("mc") or ())
@@ -1225,6 +1329,7 @@ def _prepare_variable_payload(
         "hist_mc_sumw2_orig": hist_mc_sumw2_orig,
         "is_sparse2d": is_sparse2d,
         "channel_display_labels": channel_display_labels,
+        "available_channels": available_channels,
     }
 
 
@@ -1296,6 +1401,7 @@ def _render_variable(
             unblind_flag=unblind_flag,
             verbose=verbose,
             channel_display_labels=channel_display_labels,
+            available_channels=variable_payload.get("available_channels"),
         )
         stat_only_plots += stat_only
         stat_and_syst_plots += stat_and_syst
@@ -1322,6 +1428,7 @@ def _render_variable_category(
     unblind_flag,
     verbose=False,
     channel_display_labels=None,
+    available_channels=None,
 ):
     """Render a single (variable, category) pair and return bookkeeping totals."""
 
@@ -1333,6 +1440,30 @@ def _render_variable_category(
         subgroup=hist_cat,
         variable=var_name,
     )
+
+    if available_channels is None:
+        available_channels = _resolve_channel_axis_labels(hist_mc)
+    else:
+        available_channels = tuple(available_channels)
+
+    filtered_bins, missing_bins = _filter_existing_channel_bins(
+        list(channel_bins or []), available_channels
+    )
+
+    if region_ctx.preserve_njets_bins and missing_bins and not filtered_bins:
+        _logger.info(
+            "Skipping %s/%s for variable '%s': no preserved njet bins overlap with histogram axis (missing=%s, available=%s)",
+            region_ctx.name,
+            hist_cat,
+            var_name,
+            sorted(missing_bins),
+            sorted(str(label) for label in available_channels),
+        )
+
+    if not filtered_bins:
+        return 0, 0, set()
+
+    channel_bins = filtered_bins
 
     base_dir = save_dir_path or ""
     display_label = (

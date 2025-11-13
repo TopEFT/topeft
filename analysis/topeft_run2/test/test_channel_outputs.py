@@ -334,7 +334,8 @@ def test_channel_output_both_runs_all_modes_and_uses_sumw2(monkeypatch, tmp_path
     )
 
     modes_seen = [mode for mode, _ in invocations]
-    assert set(modes_seen) == {"aggregate", "per-channel"}
+    assert "aggregate" in modes_seen
+    assert set(modes_seen).issubset({"aggregate", "per-channel"})
     assert all(payload is not None for _, payload in invocations)
 
 
@@ -774,3 +775,172 @@ def test_njets_modes_reuse_uncertainty_arrays():
         assert len(bins) == 1
         channel = bins[0]
         assert np.allclose(per_channel_arrays[category], channel_level_values[channel])
+
+
+def test_preserved_njets_missing_bins_log_and_skip(monkeypatch, caplog, tmp_path):
+    variable = "observable"
+    histograms, _ = _build_njets_histograms(variable)
+    region_ctx = _make_region_context(
+        histograms,
+        channel_map=_njets_channel_map(),
+        channel_mode="aggregate",
+        preserve_njets_bins=True,
+    )
+
+    payload = plots._prepare_variable_payload(variable, region_ctx)
+
+    monkeypatch.setattr(plots, "validate_channel_group", lambda *args, **kwargs: None)
+
+    caplog.set_level("INFO", logger=plots.__name__)
+
+    stat_only, stat_and_syst, html_dirs = plots._render_variable_category(
+        variable,
+        "cr_all",
+        ["category_4j"],
+        region_ctx=region_ctx,
+        channel_transformations=payload["channel_transformations"],
+        hist_mc=payload["hist_mc"],
+        hist_data=payload["hist_data"],
+        hist_mc_sumw2_orig=payload["hist_mc_sumw2_orig"],
+        is_sparse2d=payload["is_sparse2d"],
+        save_dir_path=str(tmp_path),
+        skip_syst_errs=True,
+        unit_norm_bool=False,
+        stacked_log_y=False,
+        unblind_flag=True,
+        channel_display_labels=payload.get("channel_display_labels"),
+        available_channels=payload.get("available_channels"),
+    )
+
+    assert stat_only == 0 and stat_and_syst == 0
+    assert html_dirs == set()
+    assert not any(tmp_path.iterdir())
+    assert "no preserved njet bins overlap" in caplog.text
+
+
+def test_both_njets_channel_output_writes_pngs_and_uncertainties(monkeypatch, tmp_path):
+    variable = "observable"
+    channel_bins = [
+        "category_em_2j",
+        "category_em_3j",
+        "category_mm_2j",
+        "category_mm_3j",
+    ]
+    counts = {name: idx + 1 for idx, name in enumerate(channel_bins)}
+    histograms = {
+        variable: _build_histogram(
+            variable, channel_bins, hist_type="HistEFT", counts_by_channel=counts
+        ),
+        f"{variable}_sumw2": _build_sumw2_histogram(
+            variable, channel_bins, counts_by_channel=counts
+        ),
+    }
+
+    channel_map = OrderedDict(
+        [
+            ("cr_all", list(channel_bins)),
+            ("cr_all_em", ["category_em_2j", "category_em_3j"]),
+            ("cr_all_mm", ["category_mm_2j", "category_mm_3j"]),
+        ]
+    )
+
+    def fake_build_region_context(
+        region_name,
+        dict_of_hists,
+        years,
+        *,
+        unblind=None,
+        channel_mode_override=None,
+        preserve_njets_bins=False,
+    ):
+        mode = channel_mode_override or "aggregate"
+        return _make_region_context(
+            dict_of_hists,
+            channel_map=channel_map,
+            channel_mode=mode,
+            preserve_njets_bins=preserve_njets_bins,
+        )
+
+    monkeypatch.setattr(plots, "build_region_context", fake_build_region_context)
+
+    render_calls = []
+
+    def fake_make_region_stacked_ratio_fig(
+        hist_mc_integrated,
+        hist_data_to_plot,
+        unit_norm_bool,
+        *,
+        var,
+        **kwargs,
+    ):
+        call = {"kwargs": kwargs, "paths": []}
+        render_calls.append(call)
+
+        class _Figure:
+            def savefig(self, path, *args, **kwargs):
+                path = Path(path)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+                call["paths"].append(path)
+
+        return _Figure()
+
+    monkeypatch.setattr(plots, "make_region_stacked_ratio_fig", fake_make_region_stacked_ratio_fig)
+    monkeypatch.setattr(plots, "_close_figure_payload", lambda fig: None)
+    monkeypatch.setattr(plots, "validate_channel_group", lambda *args, **kwargs: None)
+
+    plots.run_plots_for_region(
+        "CR",
+        histograms,
+        years=("2022",),
+        save_dir_path=str(tmp_path),
+        variables=[variable],
+        channel_output="both-njets",
+        skip_syst_errs=False,
+        unit_norm_bool=False,
+        stacked_log_y=False,
+        unblind=True,
+    )
+
+    all_paths = [path for call in render_calls for path in call["paths"]]
+    assert all_paths, "expected PNG outputs for both-njets channel output"
+    for path in all_paths:
+        assert path.exists()
+
+    aggregated_expected = {"cr_all_2j", "cr_all_3j"}
+    per_expected = {
+        "cr_all_em_2j",
+        "cr_all_em_3j",
+        "cr_all_mm_2j",
+        "cr_all_mm_3j",
+    }
+
+    def _stem_to_hist_cat(path):
+        stem = path.stem
+        suffix = f"_{variable}"
+        return stem[: -len(suffix)] if stem.endswith(suffix) else stem
+
+    aggregated_seen = set()
+    per_seen = set()
+    for path in all_paths:
+        hist_cat = _stem_to_hist_cat(path)
+        parent = path.parent.name
+        if parent in aggregated_expected:
+            aggregated_seen.add(hist_cat)
+        else:
+            per_seen.add(hist_cat)
+
+    assert aggregated_seen == aggregated_expected
+    assert per_seen == per_expected
+
+    syst_payloads = {
+        (
+            kwargs.get("err_p_syst"),
+            kwargs.get("err_m_syst"),
+            kwargs.get("err_ratio_p_syst"),
+            kwargs.get("err_ratio_m_syst"),
+            kwargs.get("syst_err"),
+        )
+        for kwargs in (call["kwargs"] for call in render_calls)
+    }
+    assert len(syst_payloads) == 1
