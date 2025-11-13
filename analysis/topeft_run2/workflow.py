@@ -32,11 +32,12 @@ import tempfile
 import time
 import warnings
 from pathlib import Path
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import (
     Any,
     Dict,
     Iterable,
+    Iterator,
     List,
     Mapping,
     MutableMapping,
@@ -320,6 +321,44 @@ class HistogramCombination:
 
 
 @dataclass(frozen=True)
+class ChannelApplicationSelection:
+    """Filtered description of a channel/application pair for a variable."""
+
+    clean_channel: str
+    application: str
+    metadata: Mapping[str, Any]
+    flavored_channels: Tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SystematicExpansion:
+    """Expansion of grouped systematic variations for a histogram task."""
+
+    group_descriptor: Any
+    variations: Tuple[Any, ...]
+    hist_keys: Mapping[str, Tuple[Tuple[Any, ...], ...]]
+    summary_entries: Tuple[HistogramCombination, ...]
+
+
+@dataclass
+class SummaryAccumulator:
+    """Collect and deduplicate histogram summary combinations."""
+
+    seen: Set[HistogramCombination] = field(default_factory=set)
+    entries: List[HistogramCombination] = field(default_factory=list)
+
+    def add_entries(self, new_entries: Iterable[HistogramCombination]) -> None:
+        for entry in new_entries:
+            if entry in self.seen:
+                continue
+            self.seen.add(entry)
+            self.entries.append(entry)
+
+    def as_tuple(self) -> Tuple[HistogramCombination, ...]:
+        return tuple(self.entries)
+
+
+@dataclass(frozen=True)
 class HistogramPlan:
     """Collection of histogram tasks computed for a workflow."""
 
@@ -341,6 +380,7 @@ class HistogramPlanner:
         self._config = config
         self._var_defs = variable_definitions
         self._channel_planner = channel_planner
+        self._analysis_processor_module = None
 
     def plan(
         self,
@@ -359,13 +399,10 @@ class HistogramPlanner:
         }
 
         tasks: List[HistogramTask] = []
-        summary_entries: List[HistogramCombination] = []
-        seen_summary_keys: Set[Tuple[str, str, str, str, str]] = set()
+        summary_accumulator = SummaryAccumulator()
 
         channel_map_mc = self._channel_planner.channel_app_map(is_data=False)
         channel_map_data = self._channel_planner.channel_app_map(is_data=True)
-
-        analysis_processor_module = None
 
         for sample, sample_info in samplesdict.items():
             ch_map = channel_map_data if sample_info.get("isData") else channel_map_mc
@@ -377,123 +414,181 @@ class HistogramPlanner:
 
             for var in hist_lst:
                 var_info = dict(self._var_defs[var])
-                for clean_ch, appl_list in ch_map.items():
-                    for appl in appl_list:
-                        try:
-                            channel_metadata = self._channel_planner.build_channel_dict(
-                                clean_ch,
-                                appl,
-                                is_data=sample_info.get("isData", False),
+                selections = self._iter_channel_applications(
+                    sample_info=sample_info,
+                    variable=var,
+                    channel_map=ch_map,
+                )
+                for selection in selections:
+                    expansions = self._expand_systematics(
+                        sample=sample,
+                        variable=var,
+                        clean_channel=selection.clean_channel,
+                        application=selection.application,
+                        grouped_variations=grouped_variations,
+                        flavored_channel_names=selection.flavored_channels,
+                    )
+
+                    for expansion in expansions:
+                        summary_accumulator.add_entries(expansion.summary_entries)
+                        tasks.append(
+                            HistogramTask(
+                                sample=sample,
+                                variable=var,
+                                clean_channel=selection.clean_channel,
+                                application=selection.application,
+                                group_descriptor=expansion.group_descriptor,
+                                variations=expansion.variations,
+                                hist_keys=expansion.hist_keys,
+                                variable_info=var_info,
+                                available_systematics=available_systematics,
+                                channel_metadata=selection.metadata,
                             )
-                        except ValueError:
-                            continue
-
-                        if not channel_metadata:
-                            continue
-
-                        whitelist = tuple(channel_metadata.get("channel_var_whitelist") or ())
-                        blacklist = set(channel_metadata.get("channel_var_blacklist") or ())
-
-                        if whitelist and var not in whitelist:
-                            continue
-                        if var in blacklist:
-                            continue
-
-                        flavored_channel_names: Tuple[str, ...] = ()
-                        if self._config.split_lep_flavor:
-                            if analysis_processor_module is None:
-                                from . import (
-                                    analysis_processor as analysis_processor_module,
-                                )
-                            flavored_candidates: List[str] = []
-                            lep_flavors = channel_metadata.get("lep_flav_lst") or []
-                            lep_chan_defs = channel_metadata.get("chan_def_lst") or []
-                            jet_selection = channel_metadata.get("jet_selection")
-                            lep_base = lep_chan_defs[0] if lep_chan_defs else None
-                            if lep_base:
-                                for lep_flavor in lep_flavors:
-                                    if not lep_flavor:
-                                        continue
-                                    flavored_name = analysis_processor_module.construct_cat_name(
-                                        lep_base,
-                                        njet_str=jet_selection,
-                                        flav_str=lep_flavor,
-                                    )
-                                    flavored_candidates.append(flavored_name)
-                            flavored_channel_names = tuple(flavored_candidates)
-
-                        for group_descriptor, variations in grouped_variations.items():
-                            hist_keys: Dict[str, Tuple[Tuple[Any, ...], ...]] = {}
-                            for variation in variations:
-                                syst_label = (
-                                    (group_descriptor.name, variation.name)
-                                    if len(variations) > 1
-                                    else variation.name
-                                )
-                                base_entry = (var, clean_ch, appl, sample, syst_label)
-                                key_entries: List[Tuple[Any, ...]] = [base_entry]
-                                if flavored_channel_names:
-                                    key_entries.extend(
-                                        (
-                                            var,
-                                            flavored_name,
-                                            appl,
-                                            sample,
-                                            syst_label,
-                                        )
-                                        for flavored_name in flavored_channel_names
-                                    )
-                                hist_keys[variation.name] = tuple(key_entries)
-
-                                for entry in key_entries:
-                                    systematic = entry[4]
-                                    if isinstance(systematic, tuple):
-                                        systematic_str = ":".join(
-                                            str(component) for component in systematic
-                                        )
-                                    else:
-                                        systematic_str = str(systematic)
-
-                                    summary_key = (
-                                        str(entry[3]),
-                                        str(entry[1]),
-                                        str(entry[0]),
-                                        str(entry[2]),
-                                        systematic_str,
-                                    )
-                                    if summary_key in seen_summary_keys:
-                                        continue
-                                    seen_summary_keys.add(summary_key)
-                                    summary_entries.append(
-                                        HistogramCombination(
-                                            sample=summary_key[0],
-                                            channel=summary_key[1],
-                                            variable=summary_key[2],
-                                            application=summary_key[3],
-                                            systematic=summary_key[4],
-                                        )
-                                    )
-
-                            tasks.append(
-                                HistogramTask(
-                                    sample=sample,
-                                    variable=var,
-                                    clean_channel=clean_ch,
-                                    application=appl,
-                                    group_descriptor=group_descriptor,
-                                    variations=tuple(variations),
-                                    hist_keys=hist_keys,
-                                    variable_info=var_info,
-                                    available_systematics=available_systematics,
-                                    channel_metadata=channel_metadata,
-                                )
-                            )
+                        )
 
         return HistogramPlan(
             tasks=tasks,
             histogram_names=hist_lst,
-            summary=tuple(summary_entries),
+            summary=summary_accumulator.as_tuple(),
         )
+
+    def _iter_channel_applications(
+        self,
+        *,
+        sample_info: Mapping[str, Any],
+        variable: str,
+        channel_map: Mapping[str, Sequence[str]],
+    ) -> Iterator[ChannelApplicationSelection]:
+        is_data = sample_info.get("isData", False)
+        for clean_ch, appl_list in channel_map.items():
+            for appl in appl_list:
+                try:
+                    channel_metadata = self._channel_planner.build_channel_dict(
+                        clean_ch,
+                        appl,
+                        is_data=is_data,
+                    )
+                except ValueError:
+                    continue
+
+                if not channel_metadata:
+                    continue
+
+                whitelist = tuple(channel_metadata.get("channel_var_whitelist") or ())
+                blacklist = set(channel_metadata.get("channel_var_blacklist") or ())
+
+                if whitelist and variable not in whitelist:
+                    continue
+                if variable in blacklist:
+                    continue
+
+                flavored_channels = self._resolve_flavored_channels(channel_metadata)
+
+                yield ChannelApplicationSelection(
+                    clean_channel=clean_ch,
+                    application=appl,
+                    metadata=channel_metadata,
+                    flavored_channels=flavored_channels,
+                )
+
+    def _resolve_flavored_channels(
+        self,
+        channel_metadata: Mapping[str, Any],
+    ) -> Tuple[str, ...]:
+        if not self._config.split_lep_flavor:
+            return ()
+
+        analysis_processor_module = self._get_analysis_processor_module()
+        flavored_candidates: List[str] = []
+        lep_flavors = channel_metadata.get("lep_flav_lst") or []
+        lep_chan_defs = channel_metadata.get("chan_def_lst") or []
+        jet_selection = channel_metadata.get("jet_selection")
+        lep_base = lep_chan_defs[0] if lep_chan_defs else None
+        if lep_base:
+            for lep_flavor in lep_flavors:
+                if not lep_flavor:
+                    continue
+                flavored_name = analysis_processor_module.construct_cat_name(
+                    lep_base,
+                    njet_str=jet_selection,
+                    flav_str=lep_flavor,
+                )
+                flavored_candidates.append(flavored_name)
+        return tuple(flavored_candidates)
+
+    def _get_analysis_processor_module(self):
+        if self._analysis_processor_module is None:
+            from . import analysis_processor as analysis_processor_module
+
+            self._analysis_processor_module = analysis_processor_module
+        return self._analysis_processor_module
+
+    def _expand_systematics(
+        self,
+        *,
+        sample: str,
+        variable: str,
+        clean_channel: str,
+        application: str,
+        grouped_variations: Mapping[Any, Sequence[Any]],
+        flavored_channel_names: Sequence[str],
+    ) -> Tuple[SystematicExpansion, ...]:
+        expansions: List[SystematicExpansion] = []
+        flavored_channel_names = tuple(flavored_channel_names)
+
+        for group_descriptor, variations in grouped_variations.items():
+            hist_keys: Dict[str, Tuple[Tuple[Any, ...], ...]] = {}
+            summary_candidates: List[HistogramCombination] = []
+
+            variations_tuple = tuple(variations)
+            for variation in variations_tuple:
+                syst_label = (
+                    (group_descriptor.name, variation.name)
+                    if len(variations_tuple) > 1
+                    else variation.name
+                )
+                base_entry = (variable, clean_channel, application, sample, syst_label)
+                key_entries: List[Tuple[Any, ...]] = [base_entry]
+                if flavored_channel_names:
+                    key_entries.extend(
+                        (
+                            variable,
+                            flavored_name,
+                            application,
+                            sample,
+                            syst_label,
+                        )
+                        for flavored_name in flavored_channel_names
+                    )
+                hist_keys[variation.name] = tuple(key_entries)
+
+                for entry in key_entries:
+                    systematic = entry[4]
+                    if isinstance(systematic, tuple):
+                        systematic_str = ":".join(str(component) for component in systematic)
+                    else:
+                        systematic_str = str(systematic)
+
+                    summary_candidates.append(
+                        HistogramCombination(
+                            sample=str(entry[3]),
+                            channel=str(entry[1]),
+                            variable=str(entry[0]),
+                            application=str(entry[2]),
+                            systematic=systematic_str,
+                        )
+                    )
+
+            expansions.append(
+                SystematicExpansion(
+                    group_descriptor=group_descriptor,
+                    variations=variations_tuple,
+                    hist_keys=hist_keys,
+                    summary_entries=tuple(summary_candidates),
+                )
+            )
+
+        return tuple(expansions)
 
 
 class ExecutorFactory:
