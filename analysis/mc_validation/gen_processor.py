@@ -73,7 +73,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             "mll_fromzg_m" : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_m", label=r"invmass mm from z/gamma"), wc_names=wc_names_lst, rebin=False),
             "mll_fromzg_t" : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_t", label=r"invmass tautau from z/gamma"), wc_names=wc_names_lst, rebin=False),
             "mll"          : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(30,  0, 300,  name="mll",          label=r"Invmass l0l1"), wc_names=wc_names_lst, rebin=False),
-            "invm"          : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(75,  250, 1000,  name="invm",        label=r"Invmass of system"), wc_names=wc_names_lst, rebin=False),
             "invm"          : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Variable([300, 310, 320, 350, 400, 500, 700, 1000],  name="invm",        label=r"Invmass of system"), wc_names=wc_names_lst, rebin=False),
             "ht"           : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht",           label=r"Scalar sum of genjet pt"), wc_names=wc_names_lst, rebin=False),
             "ht_clean"     : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht_clean",     label=r"Scalar sum of clean genjet pt"), wc_names=wc_names_lst, rebin=False),
