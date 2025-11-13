@@ -28,6 +28,7 @@ from topeft.modules.executor_cli import (
     TaskVineArgumentSpec,
 )
 from topeft.modules.runner_output import (
+    SUMMARY_KEY,
     TupleKey,
     materialise_tuple_dict,
     normalise_runner_output,
@@ -36,7 +37,8 @@ from topeft.modules.runner_output import (
 parser = argparse.ArgumentParser(
     description=(
         "You can customize your run. The output pickle stores tuple-keyed "
-        "histogram summaries for downstream consumers."
+        "histograms alongside serialisable summaries for downstream "
+        "consumers."
     ),
     formatter_class=argparse.RawDescriptionHelpFormatter,
     epilog=(
@@ -83,7 +85,10 @@ parser.add_argument(
     "--outname",
     "-o",
     default="flipTopEFT",
-    help="Name of the output file storing tuple-keyed histogram summaries",
+    help=(
+        "Name of the output file storing tuple-keyed histograms and "
+        "summaries"
+    ),
 )
 parser.add_argument(
     "--outpath",
@@ -293,7 +298,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     serialised_output = normalise_runner_output(output)
     tuple_payload = _summarise_tuple_entries(serialised_output)
-    stored_payload = tuple_payload if tuple_payload is not None else serialised_output
+    if tuple_payload is None:
+        stored_payload = serialised_output
+    elif isinstance(serialised_output, Mapping):
+        stored_payload = OrderedDict()
+        stored_payload.update(serialised_output)
+        stored_payload[SUMMARY_KEY] = tuple_payload
+    else:
+        stored_payload = OrderedDict()
+        stored_payload[SUMMARY_KEY] = tuple_payload
 
     dt = time.time() - tstart
     _ = dt  # retained for potential future logging

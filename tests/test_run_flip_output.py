@@ -12,6 +12,8 @@ import sys
 import hist
 import pytest
 
+from topeft.modules.runner_output import SUMMARY_KEY
+
 
 class DummyRunner:
     def __init__(self, *_args, **_kwargs):
@@ -96,6 +98,21 @@ def test_run_flip_writes_tuple_keyed_pickle(monkeypatch, tmp_path, sample_json, 
 
     assert isinstance(payload, OrderedDict)
     assert payload
-    assert all(isinstance(key, tuple) for key in payload.keys())
-    first_summary = next(iter(payload.values()))
+
+    histogram_entries = [
+        value for key, value in payload.items() if isinstance(key, tuple)
+    ]
+    assert histogram_entries
+    assert all(isinstance(histogram, hist.Hist) for histogram in histogram_entries)
+
+    assert SUMMARY_KEY in payload
+    tuple_summaries = payload[SUMMARY_KEY]
+    assert isinstance(tuple_summaries, OrderedDict)
+    assert tuple_summaries
+
+    summary_keys = list(tuple_summaries.keys())
+    histogram_keys = [key for key in payload.keys() if isinstance(key, tuple)]
+    assert summary_keys == histogram_keys
+
+    first_summary = next(iter(tuple_summaries.values()))
     assert set(first_summary.keys()) >= {"sumw", "values"}
