@@ -128,6 +128,7 @@ class VariationObjects:
     cleaning_taus: Optional[ak.Array]
     n_loose_taus: Optional[ak.Array]
     tau0: Optional[ak.Array]
+    shifted_cleaning_taus: Optional[ak.Array] = None
 
     @classmethod
     def from_base(cls, base: BaseObjectState) -> "VariationObjects":
@@ -143,6 +144,9 @@ class VariationObjects:
             cleaning_taus=ak.copy(base.cleaning_taus) if base.cleaning_taus is not None else None,
             n_loose_taus=ak.copy(base.n_loose_taus) if base.n_loose_taus is not None else None,
             tau0=ak.copy(base.tau0) if base.tau0 is not None else None,
+            shifted_cleaning_taus=(
+                ak.copy(base.cleaning_taus) if base.cleaning_taus is not None else None
+            ),
         )
 
 
@@ -968,6 +972,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if central_cleaning_taus is None:
             central_cleaning_taus = tau[tau["isLoose"] > 0]
 
+        shifted_cleaning_taus = central_cleaning_taus
+
         if not dataset.is_data:
             tau_pt, tau_mass = ApplyTESSystematic(
                 dataset.year, tau, dataset.is_data, variation_state.object_variation
@@ -983,6 +989,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             variation_state.objects.tau0 = tau_padded[:, 0]
 
         variation_state.objects.cleaning_taus = central_cleaning_taus
+        variation_state.objects.shifted_cleaning_taus = shifted_cleaning_taus
         variation_state.objects.taus = tau
         return variation_state
 
@@ -1101,6 +1108,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         variation_state = self._build_cleaned_jets(
             variation_state, dataset=dataset, events_cache=events_cache
         )
+        if (
+            self.tau_h_analysis
+            and variation_state.objects.shifted_cleaning_taus is not None
+        ):
+            variation_state.objects.cleaning_taus = (
+                variation_state.objects.shifted_cleaning_taus
+            )
         variation_state = self._derive_lepton_features(variation_state, events, dataset)
 
         if self._debug_logging:
