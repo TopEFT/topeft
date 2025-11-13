@@ -956,28 +956,49 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
         return variation_state
 
-    def _apply_object_variations(
+    def _apply_tau_variations(
+        self, variation_state: VariationState, dataset: DatasetContext
+    ) -> VariationState:
+        if not self.tau_h_analysis:
+            return variation_state
+
+        tau = variation_state.objects.taus
+        cleaning_taus = variation_state.objects.cleaning_taus
+
+        if cleaning_taus is None:
+            cleaning_taus = tau[tau["isLoose"] > 0]
+
+        if not dataset.is_data:
+            tau_pt, tau_mass = ApplyTESSystematic(
+                dataset.year, tau, dataset.is_data, variation_state.object_variation
+            )
+            tau["pt"], tau["mass"] = tau_pt, tau_mass
+            tau_pt, tau_mass = ApplyFESSystematic(
+                dataset.year, tau, dataset.is_data, variation_state.object_variation
+            )
+            tau["pt"], tau["mass"] = tau_pt, tau_mass
+            cleaning_taus = tau[tau["isLoose"] > 0]
+            variation_state.objects.n_loose_taus = ak.num(cleaning_taus)
+            tau_padded = ak.pad_none(tau, 1)
+            variation_state.objects.tau0 = tau_padded[:, 0]
+
+        variation_state.objects.cleaning_taus = cleaning_taus
+        variation_state.objects.taus = tau
+        return variation_state
+
+    def _build_cleaned_jets(
         self,
-        events,
-        dataset: DatasetContext,
         variation_state: VariationState,
+        *,
+        dataset: DatasetContext,
         events_cache,
     ) -> VariationState:
         objects = variation_state.objects
-        met = objects.met
-        ele = objects.electrons
-        mu = objects.muons
-        tau = objects.taus
         jets = objects.jets
-        l_loose = objects.loose_leptons
         l_fo = objects.fakeable_leptons
         l_fo_conept_sorted = objects.fakeable_sorted
         cleaning_taus = objects.cleaning_taus
-
-        met_raw = met
-
-        if self.tau_h_analysis and cleaning_taus is None:
-            cleaning_taus = tau[tau["isLoose"] > 0]
+        met_raw = objects.met
 
         if self.tau_h_analysis:
             vetos_tocleanjets = ak.with_name(
@@ -989,74 +1010,70 @@ class AnalysisProcessor(processor.ProcessorABC):
         tmp = ak.cartesian(
             [ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True
         )
-        cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]
+        cleaned_jets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]
 
-        jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
+        jetptname = "pt_nom" if hasattr(cleaned_jets, "pt_nom") else "pt"
 
-        cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor) * cleanedJets.pt
-        cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor) * cleanedJets.mass
-        cleanedJets["rho"] = ak.broadcast_arrays(variation_state.jets_rho, cleanedJets.pt)[0]
+        cleaned_jets["pt_raw"] = (1 - cleaned_jets.rawFactor) * cleaned_jets.pt
+        cleaned_jets["mass_raw"] = (1 - cleaned_jets.rawFactor) * cleaned_jets.mass
+        cleaned_jets["rho"] = ak.broadcast_arrays(variation_state.jets_rho, cleaned_jets.pt)[0]
 
         if not dataset.is_data:
-            cleanedJets["pt_gen"] = ak.values_astype(
-                ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32
+            cleaned_jets["pt_gen"] = ak.values_astype(
+                ak.fill_none(cleaned_jets.matched_gen.pt, 0), np.float32
             )
-            if self.tau_h_analysis:
-                tau_pt, tau_mass = ApplyTESSystematic(
-                    dataset.year, tau, dataset.is_data, variation_state.object_variation
-                )
-                tau["pt"], tau["mass"] = tau_pt, tau_mass
-                tau_pt, tau_mass = ApplyFESSystematic(
-                    dataset.year, tau, dataset.is_data, variation_state.object_variation
-                )
-                tau["pt"], tau["mass"] = tau_pt, tau_mass
-                cleaning_taus = tau[tau["isLoose"] > 0]
-                nLtau = ak.num(tau[tau["isLoose"] > 0])
-                tau_padded = ak.pad_none(tau, 1)
-                tau0 = tau_padded[:, 0]
-                variation_state.objects.cleaning_taus = cleaning_taus
-                variation_state.objects.n_loose_taus = nLtau
-                variation_state.objects.tau0 = tau0
 
-        cleanedJets = ApplyJetCorrections(
+        cleaned_jets = ApplyJetCorrections(
             dataset.year, corr_type="jets", isData=dataset.is_data, era=dataset.run_era
-        ).build(cleanedJets, lazy_cache=events_cache)
-        cleanedJets = ApplyJetSystematics(
-            dataset.year, cleanedJets, variation_state.object_variation
+        ).build(cleaned_jets, lazy_cache=events_cache)
+        cleaned_jets = ApplyJetSystematics(
+            dataset.year, cleaned_jets, variation_state.object_variation
         )
         met = ApplyJetCorrections(
             dataset.year, corr_type="met", isData=dataset.is_data, era=dataset.run_era
-        ).build(met_raw, cleanedJets, lazy_cache=events_cache)
+        ).build(met_raw, cleaned_jets, lazy_cache=events_cache)
 
         objects.met = met
-        objects.taus = tau
-        objects.jets = cleanedJets
+        objects.jets = cleaned_jets
         objects.fakeable_sorted = l_fo_conept_sorted
 
-        cleanedJets["isGood"] = tc_os.is_tight_jet(
-            getattr(cleanedJets, jetptname),
-            cleanedJets.eta,
-            cleanedJets.jetId,
+        cleaned_jets["isGood"] = tc_os.is_tight_jet(
+            getattr(cleaned_jets, jetptname),
+            cleaned_jets.eta,
+            cleaned_jets.jetId,
             pt_cut=30.0,
             eta_cut=get_te_param("eta_j_cut"),
             id_cut=get_te_param("jet_id_cut"),
         )
-        cleanedJets["isFwd"] = te_os.isFwdJet(
-            getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.0
+        cleaned_jets["isFwd"] = te_os.isFwdJet(
+            getattr(cleaned_jets, jetptname), cleaned_jets.eta, cleaned_jets.jetId, jetPtCut=40.0
         )
-        goodJets = cleanedJets[cleanedJets.isGood]
-        fwdJets = cleanedJets[cleanedJets.isFwd]
+        good_jets = cleaned_jets[cleaned_jets.isGood]
+        fwd_jets = cleaned_jets[cleaned_jets.isFwd]
 
-        njets = ak.num(goodJets)
-        nfwdj = ak.num(fwdJets)
-        ht = ak.sum(goodJets.pt, axis=-1) if "ht" in self._var_def else None
-        j0 = (
-            goodJets[ak.argmax(goodJets.pt, axis=-1, keepdims=True)]
+        variation_state.cleaned_jets = cleaned_jets
+        variation_state.good_jets = good_jets
+        variation_state.fwd_jets = fwd_jets
+        variation_state.njets = ak.num(good_jets)
+        variation_state.nfwdj = ak.num(fwd_jets)
+        variation_state.ht = ak.sum(good_jets.pt, axis=-1) if "ht" in self._var_def else None
+        variation_state.j0 = (
+            good_jets[ak.argmax(good_jets.pt, axis=-1, keepdims=True)]
             if "j0" in self._var_def
             else None
         )
 
-        events["njets"] = njets
+        return variation_state
+
+    def _derive_lepton_features(
+        self,
+        variation_state: VariationState,
+        events,
+        dataset: DatasetContext,
+    ) -> VariationState:
+        l_fo_conept_sorted = variation_state.objects.fakeable_sorted
+
+        events["njets"] = variation_state.njets
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
         te_es.add1lMaskAndSFs(events, dataset.year, dataset.is_data, dataset.sample_type)
@@ -1066,30 +1083,34 @@ class AnalysisProcessor(processor.ProcessorABC):
         te_es.addLepCatMasks(events)
 
         l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
-        l0 = l_fo_conept_sorted_padded[:, 0]
-        l1 = l_fo_conept_sorted_padded[:, 1]
-        l2 = l_fo_conept_sorted_padded[:, 2]
-
-        variation_state.cleaned_jets = cleanedJets
-        variation_state.good_jets = goodJets
-        variation_state.fwd_jets = fwdJets
-        variation_state.njets = njets
-        variation_state.nfwdj = nfwdj
-        variation_state.ht = ht
-        variation_state.j0 = j0
         variation_state.l_sorted_padded = l_fo_conept_sorted_padded
-        variation_state.l0 = l0
-        variation_state.l1 = l1
-        variation_state.l2 = l2
+        variation_state.l0 = l_fo_conept_sorted_padded[:, 0]
+        variation_state.l1 = l_fo_conept_sorted_padded[:, 1]
+        variation_state.l2 = l_fo_conept_sorted_padded[:, 2]
+
+        return variation_state
+
+    def _apply_object_variations(
+        self,
+        events,
+        dataset: DatasetContext,
+        variation_state: VariationState,
+        events_cache,
+    ) -> VariationState:
+        variation_state = self._apply_tau_variations(variation_state, dataset)
+        variation_state = self._build_cleaned_jets(
+            variation_state, dataset=dataset, events_cache=events_cache
+        )
+        variation_state = self._derive_lepton_features(variation_state, events, dataset)
 
         if self._debug_logging:
             try:
-                total_good_jets = int(ak.sum(njets)) if variation_state.njets is not None else 0
+                total_good_jets = int(ak.sum(variation_state.njets)) if variation_state.njets is not None else 0
             except Exception:
                 total_good_jets = 0
             try:
                 total_fwd_jets = (
-                    int(ak.sum(nfwdj)) if variation_state.nfwdj is not None else 0
+                    int(ak.sum(variation_state.nfwdj)) if variation_state.nfwdj is not None else 0
                 )
             except Exception:
                 total_fwd_jets = 0
