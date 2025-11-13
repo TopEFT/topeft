@@ -153,4 +153,37 @@ def test_executor_factory_taskvine_instantiates(tmp_path, monkeypatch, stub_remo
     assert kwargs.get("compression") == 8
     assert kwargs.get("fast_terminate_workers") == 0
     assert kwargs.get("verbose") is True
-    assert kwargs.get("print_stdout") is False
+    assert kwargs.get("print_stdout") is True
+
+
+def test_executor_factory_collects_processor_helpers(tmp_path, monkeypatch, stub_remote_environment):
+    workflow = importlib.import_module("analysis.topeft_run2.workflow")
+    workflow = importlib.reload(workflow)
+
+    package_dir = tmp_path / "processor_pkg"
+    helpers_dir = package_dir / "analysis_processor_helpers"
+    helpers_dir.mkdir(parents=True)
+    (package_dir / "analysis_processor.py").write_text("# stub\n")
+    (helpers_dir / "__init__.py").write_text("# pkg\n")
+    (helpers_dir / "utilities.py").write_text("# helper\n")
+    init_path = package_dir / "__init__.py"
+    init_path.write_text("# package\n")
+
+    fake_module = types.SimpleNamespace(__file__=str(init_path))
+    real_import_module = workflow.importlib.import_module
+
+    def _fake_import(name, package=None):
+        if name == "analysis.topeft_run2":
+            return fake_module
+        return real_import_module(name, package=package)
+
+    monkeypatch.setattr(workflow.importlib, "import_module", _fake_import)
+
+    config = RunConfig(executor="taskvine", environment_file=None)
+    factory = workflow.ExecutorFactory(config)
+
+    extras = factory._processor_extra_input_files()
+    assert extras == [
+        "analysis_processor.py",
+        "analysis_processor_helpers/utilities.py",
+    ]

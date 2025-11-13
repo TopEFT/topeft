@@ -359,6 +359,7 @@ class RunConfig:
     scratch_dir: Optional[str] = None
     resource_monitor: Optional[str] = "measure"
     resources_mode: Optional[str] = "auto"
+    taskvine_print_stdout: bool = True
     ecut: Optional[float] = None
     summary_verbosity: str = "brief"
     log_tasks: bool = False
@@ -432,6 +433,7 @@ class RunConfigBuilder:
             "scratch_path": ("scratch_dir", _coerce_optional_string),
             "resource_monitor": ("resource_monitor", _coerce_optional_string),
             "resources_mode": ("resources_mode", _coerce_optional_string),
+            "taskvine_print_stdout": ("taskvine_print_stdout", coerce_bool),
             "summary_verbosity": ("summary_verbosity", coerce_summary_verbosity),
             "log_tasks": ("log_tasks", coerce_bool),
             "environment_file": ("environment_file", coerce_environment_file),
@@ -569,6 +571,7 @@ class RunConfigBuilder:
                 "scratch_dir": "scratch_dir",
                 "resource_monitor": "resource_monitor",
                 "resources_mode": "resources_mode",
+                "taskvine_print_stdout": "taskvine_print_stdout",
                 "environment_file": "environment_file",
                 "futures_status": "futures_status",
                 "futures_tail_timeout": "futures_tail_timeout",
@@ -591,6 +594,9 @@ class RunConfigBuilder:
                     cli_values[key] = current_value
 
             _apply_source(cli_values)
+
+        if config.taskvine_print_stdout is None:
+            config.taskvine_print_stdout = True
 
         config.scenario_names = unique_preserving_order(config.scenario_names)
         if not config.scenario_names:

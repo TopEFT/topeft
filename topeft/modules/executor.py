@@ -147,6 +147,7 @@ def _base_distributed_args(
     resource_monitor: Optional[str],
     resources_mode: Optional[str],
     environment_file: Optional[str],
+    print_stdout: bool,
 ) -> Dict[str, Any]:
     args: Dict[str, Any] = {
         "filepath": str(staging_dir),
@@ -155,7 +156,7 @@ def _base_distributed_args(
         "compression": 8,
         "fast_terminate_workers": 0,
         "verbose": True,
-        "print_stdout": False,
+        "print_stdout": bool(print_stdout),
     }
     if resource_monitor is not None:
         args["resource_monitor"] = resource_monitor
@@ -176,6 +177,7 @@ def build_taskvine_args(
     resource_monitor: Optional[str],
     resources_mode: Optional[str],
     environment_file: Optional[str],
+    print_stdout: bool,
     custom_init: Optional[Callable[[Any], None]] = None,
 ) -> Dict[str, Any]:
     """Return TaskVine executor keyword arguments with shared defaults."""
@@ -186,6 +188,7 @@ def build_taskvine_args(
         resource_monitor=resource_monitor,
         resources_mode=resources_mode,
         environment_file=environment_file,
+        print_stdout=print_stdout,
     )
     if manager_name:
         args["manager_name"] = manager_name
