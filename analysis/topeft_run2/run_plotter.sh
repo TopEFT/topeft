@@ -31,7 +31,9 @@ Optional arguments:
   -s, --skip-syst           Skip systematic error bands
   -u, --unit-norm           Enable unit-normalized plotting
       --log-y              Use a logarithmic y-axis for the stacked panel
-      --variables VAR [VAR...]  Limit plotting to the listed histogram variables
+      --variable VAR          Limit plotting to a single histogram variable (repeat to add more)
+      --variables VAR [VAR...]
+                           Limit plotting to the listed histogram variables
       --workers N          Number of worker processes for parallel plotting (default: 1; start with 2-4; higher values use more memory)
       --channel-output MODE  Forward merged/split channel selection (merged, split, both, merged-njets,
                            split-njets, both-njets). The -njets variants behave like their counterparts
@@ -221,11 +223,17 @@ main() {
             blind_override="unblind"
             shift
             ;;
-        --variables)
+        --variable|--variables)
+            local flag="$1"
             shift
             if [[ $# -eq 0 ]]; then
-                echo "Error: --variables requires at least one argument" >&2
+                echo "Error: ${flag} requires at least one argument" >&2
                 return 1
+            fi
+            if [[ "${flag}" == "--variable" ]]; then
+                variables+=("$1")
+                shift
+                continue
             fi
             while [[ $# -gt 0 ]]; do
                 case "$1" in
