@@ -129,6 +129,7 @@ class VariationObjects:
     n_loose_taus: Optional[ak.Array]
     tau0: Optional[ak.Array]
     shifted_cleaning_taus: Optional[ak.Array] = None
+    central_cleaning_taus: Optional[ak.Array] = None
 
     @classmethod
     def from_base(cls, base: BaseObjectState) -> "VariationObjects":
@@ -145,6 +146,9 @@ class VariationObjects:
             n_loose_taus=ak.copy(base.n_loose_taus) if base.n_loose_taus is not None else None,
             tau0=ak.copy(base.tau0) if base.tau0 is not None else None,
             shifted_cleaning_taus=(
+                ak.copy(base.cleaning_taus) if base.cleaning_taus is not None else None
+            ),
+            central_cleaning_taus=(
                 ak.copy(base.cleaning_taus) if base.cleaning_taus is not None else None
             ),
         )
@@ -967,7 +971,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             return variation_state
 
         tau = variation_state.objects.taus
-        central_cleaning_taus = variation_state.objects.cleaning_taus
+        central_cleaning_taus = variation_state.objects.central_cleaning_taus
+        if central_cleaning_taus is None:
+            central_cleaning_taus = variation_state.objects.cleaning_taus
 
         if central_cleaning_taus is None:
             central_cleaning_taus = tau[tau["isLoose"] > 0]
@@ -988,8 +994,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             tau_padded = ak.pad_none(tau, 1)
             variation_state.objects.tau0 = tau_padded[:, 0]
 
-        variation_state.objects.cleaning_taus = central_cleaning_taus
         variation_state.objects.shifted_cleaning_taus = shifted_cleaning_taus
+        variation_state.objects.central_cleaning_taus = central_cleaning_taus
+        variation_state.objects.cleaning_taus = shifted_cleaning_taus
         variation_state.objects.taus = tau
         return variation_state
 
@@ -1004,7 +1011,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         jets = objects.jets
         l_fo = objects.fakeable_leptons
         l_fo_conept_sorted = objects.fakeable_sorted
-        cleaning_taus = objects.cleaning_taus
+        cleaning_taus = (
+            objects.shifted_cleaning_taus
+            if objects.shifted_cleaning_taus is not None
+            else objects.cleaning_taus
+        )
         met_raw = objects.met
 
         if self.tau_h_analysis:
