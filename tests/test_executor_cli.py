@@ -68,6 +68,7 @@ def test_executor_cli_taskvine_configuration(tmp_path):
             "none",
             "--resources-mode",
             "manual",
+            "--no-taskvine-print-stdout",
             "--futures-workers",
             "4",
             "--futures-status",
@@ -102,6 +103,8 @@ def test_executor_cli_taskvine_configuration(tmp_path):
     assert taskvine.resource_monitor is None
     assert taskvine.resources_mode == "manual"
     assert taskvine.environment_file == "/tmp/env.tar"
+    assert config.taskvine_print_stdout is False
+    assert taskvine.print_stdout is False
 
     staging_dir = taskvine.staging_directory()
     assert staging_dir == scratch_dir
@@ -115,6 +118,7 @@ def test_executor_cli_taskvine_configuration(tmp_path):
     assert kwargs["extra_input_files"] == ["proc.py"]
     assert kwargs["filepath"] == str(staging_dir)
     assert kwargs["environment_file"] == "/tmp/env.tar"
+    assert kwargs["print_stdout"] is False
 
     processor_module = SimpleNamespace(TaskVineExecutor=_DummyTaskVineExecutor)
     instance = taskvine.instantiate(processor_module, kwargs, negotiate_port=False)
@@ -163,6 +167,8 @@ def test_executor_cli_defaults(monkeypatch, tmp_path):
     assert taskvine.resource_monitor == "measure"
     assert taskvine.resources_mode == "auto"
     assert taskvine.environment_file == str(tmp_path / "env.tar")
+    assert config.taskvine_print_stdout is True
+    assert taskvine.print_stdout is True
 
     staging_dir = taskvine.staging_directory()
     assert staging_dir == staging_root
@@ -170,6 +176,9 @@ def test_executor_cli_defaults(monkeypatch, tmp_path):
 
     logs_dir = taskvine.logs_directory(staging_dir)
     assert logs_dir.exists()
+
+    kwargs = taskvine.executor_kwargs(extra_input_files=["proc.py"], logs_dir=logs_dir)
+    assert kwargs["print_stdout"] is True
 
     assert remote_env.calls == [({}, [])]
 

@@ -41,8 +41,10 @@ class TaskVineArgumentSpec:
     include_scratch_dir: bool = True
     include_resource_monitor: bool = True
     include_resources_mode: bool = True
+    include_print_stdout: bool = True
     resource_monitor_default: Optional[str] = None
     resources_mode_default: Optional[str] = None
+    print_stdout_default: bool = True
 
 
 @dataclass
@@ -70,6 +72,7 @@ class TaskVineConfig:
     resources_mode: Optional[str]
     environment_file: Optional[str]
     scratch_dir: Optional[Path]
+    print_stdout: bool = True
     negotiate_port: bool = True
     _staging_dir: Optional[Path] = field(default=None, init=False, repr=False)
 
@@ -120,6 +123,7 @@ class TaskVineConfig:
             resource_monitor=self.resource_monitor,
             resources_mode=self.resources_mode,
             environment_file=self.environment_file,
+            print_stdout=self.print_stdout,
             custom_init=custom_init,
         )
 
@@ -148,6 +152,7 @@ class ExecutorConfig:
     futures: FuturesConfig
     taskvine: TaskVineConfig
     environment_file: Optional[str]
+    taskvine_print_stdout: bool
 
 
 class ExecutorCLIHelper:
@@ -238,6 +243,14 @@ class ExecutorCLIHelper:
                 help="TaskVine resources mode (for example auto).",
             )
 
+        if self._taskvine_spec.include_print_stdout:
+            parser.add_argument(
+                "--taskvine-print-stdout",
+                action=argparse.BooleanOptionalAction,
+                default=self._taskvine_spec.print_stdout_default,
+                help="Forward TaskVine worker stdout to the manager logs.",
+            )
+
         parser.add_argument(
             "--futures-workers",
             type=int,
@@ -324,6 +337,7 @@ class ExecutorCLIHelper:
             futures=futures_cfg,
             taskvine=taskvine_cfg,
             environment_file=environment_file,
+            taskvine_print_stdout=taskvine_cfg.print_stdout,
         )
 
     def _parse_futures(self, args: argparse.Namespace) -> FuturesConfig:
@@ -427,6 +441,16 @@ class ExecutorCLIHelper:
             resources_mode_setting = self._taskvine_spec.resources_mode_default
         resources_mode = _normalise_optional_string(resources_mode_setting)
 
+        if self._taskvine_spec.include_print_stdout:
+            print_stdout_setting = getattr(
+                args,
+                "taskvine_print_stdout",
+                self._taskvine_spec.print_stdout_default,
+            )
+            print_stdout = bool(print_stdout_setting)
+        else:
+            print_stdout = self._taskvine_spec.print_stdout_default
+
         return TaskVineConfig(
             executor=executor,
             port_range=port_range,
@@ -436,6 +460,7 @@ class ExecutorCLIHelper:
             resources_mode=resources_mode,
             environment_file=environment_file,
             scratch_dir=scratch_dir,
+            print_stdout=print_stdout,
         )
 
 

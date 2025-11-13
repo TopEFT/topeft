@@ -78,7 +78,11 @@ profiles:
 
 The [`run_analysis.py` CLI and YAML reference](run_analysis_cli_reference.md)
 documents every distributed-execution flag, including helper attributes such as
-`manager_name_template`, `environment_file`, and `resources_mode`.
+`manager_name_template`, `environment_file`, and `resources_mode`. Worker
+standard output is forwarded to the TaskVine manager logs by default—override
+this behaviour with `--no-taskvine-print-stdout` (or the YAML key
+`taskvine_print_stdout: false`) when you only want the structured processor logs
+to reach the terminal.
 
 ## 4. Submit a worker pool with the packaged environment
 
@@ -103,6 +107,11 @@ Local tests can use `vine_worker` instead:
 ```bash
 vine_worker --cores 1 --memory 8000 --disk 8000 -M ${USER}-taskvine-coffea
 ```
+
+The workflow stages `analysis_processor.py` and any sibling helper modules that
+match `analysis_processor*.py` before tasks are submitted. Add new helpers next
+to the processor (or under an `analysis_processor_helpers/` package) and they
+will be shipped automatically without having to update CLI glue code.
 
 ## 5. Explore the quickstart workflows
 

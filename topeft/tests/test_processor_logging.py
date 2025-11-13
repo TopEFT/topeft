@@ -1223,7 +1223,14 @@ def _install_stubs(monkeypatch):
             )
         return normalised
 
-    def _base_executor_args(staging_dir, extra_input_files, resource_monitor, resources_mode, environment_file):
+    def _base_executor_args(
+        staging_dir,
+        extra_input_files,
+        resource_monitor,
+        resources_mode,
+        environment_file,
+        print_stdout,
+    ):
         from pathlib import Path as _Path
 
         staging_path = _Path(staging_dir)
@@ -1234,7 +1241,7 @@ def _install_stubs(monkeypatch):
             "compression": 8,
             "fast_terminate_workers": 0,
             "verbose": True,
-            "print_stdout": False,
+            "print_stdout": bool(print_stdout),
         }
         if resource_monitor is not None:
             args["resource_monitor"] = resource_monitor
@@ -1254,6 +1261,7 @@ def _install_stubs(monkeypatch):
         resource_monitor,
         resources_mode,
         environment_file,
+        print_stdout,
         custom_init=None,
     ):
         args = _base_executor_args(
@@ -1262,6 +1270,7 @@ def _install_stubs(monkeypatch):
             resource_monitor,
             resources_mode,
             environment_file,
+            print_stdout,
         )
         if manager_name:
             args["manager_name"] = manager_name
