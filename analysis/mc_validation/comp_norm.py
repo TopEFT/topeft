@@ -203,11 +203,11 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     lumi1, lumi2 = 0, 0
     year1 = extract_year(args.fin1)
     year2 = extract_year(args.fin2)
-    if year1 is not None and not args.no_lumi:
+    if year1 is not None:
         lumi1 = 1000.0*get_tc_param(f"lumi_{year1}")
-    if year2 is not None and not args.no_lumi:
+    if year2 is not None:
         lumi2 = 1000.0*get_tc_param(f"lumi_{year2}")
-    if lumi1 > 0 and lumi2 > 0:
+    if lumi1 > 0 and lumi2 > 0 and not args.no_lumi:
         if lumi1 > lumi2:
             print(f'Scaling {args.fin2} from {round(lumi2/1000)} pb^-1 to {round(lumi1/1000)} pb^-1')
             hists2[var] *= lumi1/lumi2
@@ -281,8 +281,14 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         tab = '    '
         max_lumi = max(lumi1, lumi2)
         print('\n\nSummary information:')
-        print(f'{tab}{args.fin1} with lumi removed {np.round(np.sum(eft.eval({})[()]) / max_lumi, 3)}')
-        print(f'{tab}{args.fin2} with lumi removed {np.round(np.sum(sm.values(flow=True)[()]) / max_lumi, 3)}')
+        if args.no_lumi:
+            print(f'{tab}{args.fin1} with lumi removed {np.round(np.sum(eft.eval({})[()]) / lumi1, 3)}')
+        else:
+            print(f'{tab}{args.fin1} with lumi removed {np.round(np.sum(eft.eval({})[()]) / max_lumi, 3)}')
+        if args.no_lumi:
+            print(f'{tab}{args.fin2} with lumi removed {np.round(np.sum(sm.values(flow=True)[()]) / lumi2, 3)}')
+        else:
+            print(f'{tab}{args.fin2} with lumi removed {np.round(np.sum(sm.values(flow=True)[()]) / max_lumi, 3)}')
         print('\n\n')
 
 
