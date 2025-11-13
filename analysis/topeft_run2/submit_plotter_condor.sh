@@ -35,6 +35,9 @@ Condor options (provide these before the plotting arguments):
 
 All other arguments are forwarded directly to run_plotter.sh. The legacy "--"
 delimiter is optional; extra flags are forwarded automatically when present.
+In particular, plotting switches such as --channel-output understand the same
+merged/split/both values as the Python CLI along with the new -njets variants
+that preserve the per-njet bins defined in cr_sr_plots_metadata.yml.
 USAGE
 }
 
@@ -151,6 +154,39 @@ main() {
         echo "Error: run_plotter.sh arguments are required. Use --help for details." >&2
         return 1
     fi
+
+    local -a allowed_channel_outputs=(
+        merged
+        split
+        both
+        merged-njets
+        split-njets
+        both-njets
+    )
+    local idx=0
+    while (( idx < ${#plotter_args[@]} )); do
+        if [[ "${plotter_args[idx]}" == "--channel-output" ]]; then
+            if (( idx + 1 >= ${#plotter_args[@]} )); then
+                echo "Error: --channel-output requires a value." >&2
+                return 1
+            fi
+            local candidate="${plotter_args[idx + 1],,}"
+            local valid=0
+            for mode in "${allowed_channel_outputs[@]}"; do
+                if [[ "${candidate}" == "${mode}" ]]; then
+                    valid=1
+                    break
+                fi
+            done
+            if (( ! valid )); then
+                echo "Error: --channel-output expects one of: ${allowed_channel_outputs[*]}" >&2
+                return 1
+            fi
+            ((idx+=2))
+            continue
+        fi
+        ((idx++))
+    done
 
     if ! [[ "${queue_count}" =~ ^[0-9]+$ ]] || (( queue_count < 1 )); then
         echo "Error: --queue expects a positive integer." >&2

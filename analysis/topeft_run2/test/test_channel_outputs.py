@@ -14,7 +14,14 @@ from analysis.topeft_run2 import make_cr_and_sr_plots as plots
 _PROCESS_NAME = "background"
 
 
-def _build_histogram(variable_name, channel_bins, *, hist_type="HistEFT"):
+def _build_histogram(
+    variable_name,
+    channel_bins,
+    *,
+    hist_type="HistEFT",
+    counts_by_channel=None,
+):
+    counts_by_channel = counts_by_channel or {}
     process_axis = hist.axis.StrCategory([_PROCESS_NAME], name="process", growth=True)
     channel_axis = hist.axis.StrCategory(channel_bins, name="channel", growth=True)
     systematic_axis = hist.axis.StrCategory(["nominal"], name="systematic", growth=True)
@@ -27,17 +34,20 @@ def _build_histogram(variable_name, channel_bins, *, hist_type="HistEFT"):
         histogram = HistEFT(*axes, wc_names=[], label="Events")
 
     for channel in channel_bins:
-        histogram.fill(
-            process=_PROCESS_NAME,
-            channel=channel,
-            systematic="nominal",
-            **{variable_name: np.array([0.5], dtype=float)},
-        )
+        repeats = int(counts_by_channel.get(channel, 1))
+        for _ in range(max(repeats, 1)):
+            histogram.fill(
+                process=_PROCESS_NAME,
+                channel=channel,
+                systematic="nominal",
+                **{variable_name: np.array([0.5], dtype=float)},
+            )
 
     return histogram
 
 
-def _build_sumw2_histogram(variable_name, channel_bins):
+def _build_sumw2_histogram(variable_name, channel_bins, *, counts_by_channel=None):
+    counts_by_channel = counts_by_channel or {}
     process_axis = hist.axis.StrCategory([_PROCESS_NAME], name="process", growth=True)
     channel_axis = hist.axis.StrCategory(channel_bins, name="channel", growth=True)
     systematic_axis = hist.axis.StrCategory(["nominal"], name="systematic", growth=True)
@@ -53,12 +63,14 @@ def _build_sumw2_histogram(variable_name, channel_bins):
     )
 
     for channel in channel_bins:
-        histogram.fill(
-            process=_PROCESS_NAME,
-            channel=channel,
-            systematic="nominal",
-            **{f"{variable_name}_sumw2": np.array([0.5], dtype=float)},
-        )
+        repeats = int(counts_by_channel.get(channel, 1))
+        for _ in range(max(repeats, 1)):
+            histogram.fill(
+                process=_PROCESS_NAME,
+                channel=channel,
+                systematic="nominal",
+                **{f"{variable_name}_sumw2": np.array([0.5], dtype=float)},
+            )
 
     return histogram
 
@@ -73,7 +85,13 @@ def _default_channel_rules():
     }
 
 
-def _make_region_context(dict_of_hists, *, channel_map, channel_mode):
+def _make_region_context(
+    dict_of_hists,
+    *,
+    channel_map,
+    channel_mode,
+    preserve_njets_bins=False,
+):
     sumw2_suffix = "_sumw2"
     sumw2_hists = {}
     for hist_name, hist_obj in dict_of_hists.items():
@@ -110,6 +128,7 @@ def _make_region_context(dict_of_hists, *, channel_map, channel_mode):
         sumw2_remove_signal_when_blinded=False,
         use_mc_as_data_when_blinded=False,
         rate_syst_by_sample=None,
+        preserve_njets_bins=preserve_njets_bins,
     )
 
 
@@ -121,6 +140,24 @@ def _test_channel_map():
             ("cr_all_mm", ["category_mm"]),
         ]
     )
+
+
+def _njets_channel_map():
+    return OrderedDict([("cr_all", ["category_2j", "category_3j"])])
+
+
+def _build_njets_histograms(variable_name):
+    channel_bins = ["category_2j", "category_3j"]
+    counts = {"category_2j": 1, "category_3j": 2}
+    histograms = {
+        variable_name: _build_histogram(
+            variable_name, channel_bins, hist_type="HistEFT", counts_by_channel=counts
+        ),
+        f"{variable_name}_sumw2": _build_sumw2_histogram(
+            variable_name, channel_bins, counts_by_channel=counts
+        ),
+    }
+    return histograms, channel_bins
 
 
 def test_unsplit_channel_output_prunes_flavour_categories():
@@ -151,12 +188,21 @@ def test_split_mode_skips_when_hist_not_flavour_split(monkeypatch, tmp_path):
 
     channel_map = _test_channel_map()
 
-    def fake_build_region_context(region_name, dict_of_hists, years, *, unblind=None, channel_mode_override=None):
+    def fake_build_region_context(
+        region_name,
+        dict_of_hists,
+        years,
+        *,
+        unblind=None,
+        channel_mode_override=None,
+        preserve_njets_bins=False,
+    ):
         channel_mode = channel_mode_override or "aggregate"
         return _make_region_context(
             dict_of_hists,
             channel_map=channel_map,
             channel_mode=channel_mode,
+            preserve_njets_bins=preserve_njets_bins,
         )
 
     monkeypatch.setattr(plots, "build_region_context", fake_build_region_context)
@@ -623,3 +669,108 @@ def test_split_mode_breaks_out_lepton_flavour_buckets(monkeypatch, tmp_path):
     for call in per_channel_calls:
         call_dirs = {Path(path).parent.name for path in call["paths"]}
         assert len(call_dirs) == 1
+
+
+def _sumw2_arrays_for_bins(histogram, channel_bins):
+    arrays = []
+    for channel in channel_bins:
+        view = histogram[{"process": sum, "channel": channel, "systematic": "nominal"}]
+        arrays.append(np.asarray(view.values(), dtype=float).ravel())
+    if not arrays:
+        return np.array([], dtype=float)
+    return np.concatenate(arrays)
+
+
+def test_legacy_channel_modes_merge_njet_bins():
+    variable = "observable"
+    histograms, _ = _build_njets_histograms(variable)
+
+    aggregate_ctx = _make_region_context(
+        histograms,
+        channel_map=_njets_channel_map(),
+        channel_mode="aggregate",
+    )
+    split_ctx = _make_region_context(
+        histograms,
+        channel_map=_njets_channel_map(),
+        channel_mode="per-channel",
+    )
+
+    aggregate_payload = plots._prepare_variable_payload(variable, aggregate_ctx)
+    split_payload = plots._prepare_variable_payload(variable, split_ctx)
+
+    assert list(aggregate_payload["channel_dict"].keys()) == ["cr_all"]
+    assert list(split_payload["channel_dict"].keys()) == ["cr_all"]
+
+
+def test_njets_modes_preserve_bins_for_all_outputs():
+    variable = "observable"
+    histograms, _ = _build_njets_histograms(variable)
+
+    aggregate_ctx = _make_region_context(
+        histograms,
+        channel_map=_njets_channel_map(),
+        channel_mode="aggregate",
+        preserve_njets_bins=True,
+    )
+    split_ctx = _make_region_context(
+        histograms,
+        channel_map=_njets_channel_map(),
+        channel_mode="per-channel",
+        preserve_njets_bins=True,
+    )
+
+    aggregate_payload = plots._prepare_variable_payload(variable, aggregate_ctx)
+    split_payload = plots._prepare_variable_payload(variable, split_ctx)
+
+    expected_keys = ["cr_all_2j", "cr_all_3j"]
+    assert list(aggregate_payload["channel_dict"].keys()) == expected_keys
+    assert list(split_payload["channel_dict"].keys()) == expected_keys
+
+
+def test_njets_modes_reuse_uncertainty_arrays():
+    variable = "observable"
+    histograms, _ = _build_njets_histograms(variable)
+
+    legacy_ctx = _make_region_context(
+        histograms,
+        channel_map=_njets_channel_map(),
+        channel_mode="aggregate",
+    )
+    legacy_payload = plots._prepare_variable_payload(variable, legacy_ctx)
+
+    preserve_ctx = _make_region_context(
+        histograms,
+        channel_map=_njets_channel_map(),
+        channel_mode="aggregate",
+        preserve_njets_bins=True,
+    )
+    preserve_payload = plots._prepare_variable_payload(variable, preserve_ctx)
+
+    baseline_bins = legacy_payload["channel_dict"]["cr_all"]
+    baseline_sumw2 = _sumw2_arrays_for_bins(
+        legacy_payload["hist_mc_sumw2_orig"], baseline_bins
+    )
+
+    per_channel_arrays = {}
+    for category, bins in preserve_payload["channel_dict"].items():
+        per_channel_arrays[category] = _sumw2_arrays_for_bins(
+            preserve_payload["hist_mc_sumw2_orig"], bins
+        )
+
+    assert set(per_channel_arrays) == {"cr_all_2j", "cr_all_3j"}
+
+    channel_level_values = {
+        channel: _sumw2_arrays_for_bins(
+            legacy_payload["hist_mc_sumw2_orig"], [channel]
+        )
+        for channel in baseline_bins
+    }
+
+    reconstructed = np.concatenate([channel_level_values[channel] for channel in baseline_bins])
+    assert np.allclose(baseline_sumw2, reconstructed)
+
+    for category, bins in preserve_payload["channel_dict"].items():
+        assert len(bins) == 1
+        channel = bins[0]
+        assert np.allclose(per_channel_arrays[category], channel_level_values[channel])

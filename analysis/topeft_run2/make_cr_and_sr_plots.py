@@ -214,6 +214,7 @@ _LEPFLAV_TOKENS = (
     "e",
     "m",
 )
+_NJET_SUFFIX_PATTERN = re.compile(r"_(\d+)j$", re.IGNORECASE)
 
 
 def _strip_year_token(value):
@@ -268,7 +269,68 @@ def _derive_channel_display_label(base_label, bin_names):
     return f"{base_label}_{flavour_token}"
 
 
-def _group_channels_by_yearless_label(channel_dict):
+def _extract_njet_suffix(value):
+    """Return the trailing ``_<N>j`` suffix detected in *value*, if present."""
+
+    if not isinstance(value, str):
+        return None
+
+    match = _NJET_SUFFIX_PATTERN.search(value)
+    if not match:
+        return None
+
+    return f"{match.group(1).lower()}j"
+
+
+def _append_njet_suffix(label, suffix):
+    if not suffix:
+        return label
+    normalized_suffix = suffix.lower()
+    if label.lower().endswith(f"_{normalized_suffix}"):
+        return label
+    return f"{label}_{normalized_suffix}"
+
+
+def _maybe_preserve_njet_bins(channel_dict, *, preserve=False):
+    """Return *channel_dict* with entries split by njets suffix when requested."""
+
+    if not preserve:
+        return channel_dict
+
+    preserved = OrderedDict()
+
+    for key, channel_bins in channel_dict.items():
+        if channel_bins is None:
+            preserved[key] = None
+            continue
+
+        suffix_buckets = OrderedDict()
+        suffix_order = []
+        for bin_name in channel_bins:
+            suffix = _extract_njet_suffix(bin_name)
+            if suffix not in suffix_buckets:
+                suffix_buckets[suffix] = []
+                suffix_order.append(suffix)
+            suffix_buckets[suffix].append(bin_name)
+
+        suffixes = [suffix for suffix in suffix_order if suffix is not None]
+        if not suffixes:
+            preserved[key] = channel_bins
+            continue
+
+        for suffix in suffix_order:
+            bucket = suffix_buckets[suffix]
+            if suffix is None:
+                if bucket:
+                    preserved[key] = bucket
+                continue
+            new_key = _append_njet_suffix(key, suffix)
+            preserved[new_key] = bucket
+
+    return preserved
+
+
+def _group_channels_by_yearless_label(channel_dict, *, preserve_njets=False):
     """Return grouped channel entries and their display labels."""
 
     grouped = OrderedDict()
@@ -332,9 +394,18 @@ YEAR_AGGREGATE_ALIASES = {
 }
 
 CHANNEL_OUTPUT_CHOICES = {
-    "merged": ("aggregate",),
-    "split": ("per-channel",),
-    "both": ("aggregate", "per-channel"),
+    "merged": {"modes": ("aggregate",), "preserve_njets": False},
+    "split": {"modes": ("per-channel",), "preserve_njets": False},
+    "both": {
+        "modes": ("aggregate", "per-channel"),
+        "preserve_njets": False,
+    },
+    "merged-njets": {"modes": ("aggregate",), "preserve_njets": True},
+    "split-njets": {"modes": ("per-channel",), "preserve_njets": True},
+    "both-njets": {
+        "modes": ("aggregate", "per-channel"),
+        "preserve_njets": True,
+    },
 }
 
 CHANNEL_MODE_LABELS = {
@@ -1090,11 +1161,14 @@ def _prepare_variable_payload(
     )
     channel_dict = _deduplicate_channel_bins(channel_dict)
     channel_dict = _prune_unsplit_flavour_entries(channel_dict, region_ctx)
+    channel_dict = _maybe_preserve_njet_bins(
+        channel_dict, preserve=region_ctx.preserve_njets_bins
+    )
     channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
     channel_display_labels = {}
     if region_ctx.channel_mode == "per-channel":
         channel_dict, channel_display_labels = _group_channels_by_yearless_label(
-            channel_dict
+            channel_dict, preserve_njets=region_ctx.preserve_njets_bins
         )
     else:
         channel_display_labels = {key: key for key in channel_dict.keys()}
@@ -3158,6 +3232,7 @@ class RegionContext(object):
         sumw2_remove_signal_when_blinded=False,
         use_mc_as_data_when_blinded=False,
         rate_syst_by_sample=None,
+        preserve_njets_bins=False,
     ):
         self.name = name
         self.dict_of_hists = dict_of_hists
@@ -3215,6 +3290,7 @@ class RegionContext(object):
         )
         self.use_mc_as_data_when_blinded = bool(use_mc_as_data_when_blinded)
         self.rate_syst_by_sample = rate_syst_by_sample
+        self.preserve_njets_bins = bool(preserve_njets_bins)
 
 
 def _format_decimal_string(value):
@@ -3264,7 +3340,9 @@ def _resolve_lumi_pair(year_tokens):
     return (_format_decimal_string(combined_lumi), com_tags.pop())
 
 
-def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mode_override=None):
+def build_region_context(
+    region, dict_of_hists, years, unblind=None, *, channel_mode_override=None, preserve_njets_bins=False
+):
     region_upper = region.upper()
     if region_upper not in ["CR","SR"]:
         raise ValueError(f"Unsupported region '{region}'.")
@@ -3575,6 +3653,7 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
         sumw2_remove_signal_when_blinded=sumw2_remove_signal_when_blinded,
         use_mc_as_data_when_blinded=use_mc_as_data_when_blinded,
         rate_syst_by_sample=rate_syst_by_sample,
+        preserve_njets_bins=preserve_njets_bins,
     )
 
 
@@ -5293,13 +5372,16 @@ def run_plots_for_region(
     verbose=False,
     channel_output="merged",
 ):
-    requested_channel_modes = CHANNEL_OUTPUT_CHOICES.get(channel_output)
-    if requested_channel_modes is None:
+    channel_output_cfg = CHANNEL_OUTPUT_CHOICES.get(channel_output)
+    if channel_output_cfg is None:
         raise ValueError(
             "Unsupported channel_output '{}' requested. Expected one of: {}".format(
                 channel_output, ", ".join(sorted(CHANNEL_OUTPUT_CHOICES))
             )
         )
+
+    requested_channel_modes = channel_output_cfg["modes"]
+    preserve_njets_bins = channel_output_cfg.get("preserve_njets", False)
 
     multi_mode = len(requested_channel_modes) > 1 or channel_output != "merged"
 
@@ -5310,6 +5392,7 @@ def run_plots_for_region(
             years,
             unblind=unblind,
             channel_mode_override=channel_mode,
+            preserve_njets_bins=preserve_njets_bins,
         )
 
         if (
@@ -5358,13 +5441,20 @@ def main():
     )
     parser.add_argument(
         "--channel-output",
-        choices=("merged", "split", "both"),
+        choices=(
+            "merged",
+            "split",
+            "both",
+            "merged-njets",
+            "split-njets",
+            "both-njets",
+        ),
         default="merged",
         help=(
-            "Control how channel categories are rendered: 'merged' integrates each category before plotting "
-            "and suppresses split-only folders when the input histograms are already merged, 'split' keeps "
-            "the individual channels but is skipped when the payload lacks per-flavour bins, and 'both' "
-            "renders the two sets back-to-back (default: merged)."
+            "Control how channel categories are rendered: 'merged' integrates each category before plotting, "
+            "'split' keeps the individual channels when flavour-split inputs are available, and 'both' renders "
+            "the two sets back-to-back. The '-njets' variants preserve the per-njet bins defined in cr_sr_plots_metadata.yml "
+            "instead of collapsing them into the combined templates (default: merged)."
         ),
     )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
