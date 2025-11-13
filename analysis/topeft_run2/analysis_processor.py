@@ -963,10 +963,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             return variation_state
 
         tau = variation_state.objects.taus
-        cleaning_taus = variation_state.objects.cleaning_taus
+        central_cleaning_taus = variation_state.objects.cleaning_taus
 
-        if cleaning_taus is None:
-            cleaning_taus = tau[tau["isLoose"] > 0]
+        if central_cleaning_taus is None:
+            central_cleaning_taus = tau[tau["isLoose"] > 0]
 
         if not dataset.is_data:
             tau_pt, tau_mass = ApplyTESSystematic(
@@ -977,12 +977,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                 dataset.year, tau, dataset.is_data, variation_state.object_variation
             )
             tau["pt"], tau["mass"] = tau_pt, tau_mass
-            cleaning_taus = tau[tau["isLoose"] > 0]
-            variation_state.objects.n_loose_taus = ak.num(cleaning_taus)
+            shifted_cleaning_taus = tau[tau["isLoose"] > 0]
+            variation_state.objects.n_loose_taus = ak.num(shifted_cleaning_taus)
             tau_padded = ak.pad_none(tau, 1)
             variation_state.objects.tau0 = tau_padded[:, 0]
 
-        variation_state.objects.cleaning_taus = cleaning_taus
+        variation_state.objects.cleaning_taus = central_cleaning_taus
         variation_state.objects.taus = tau
         return variation_state
 
