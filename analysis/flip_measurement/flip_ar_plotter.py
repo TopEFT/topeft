@@ -2,67 +2,59 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Mapping, Tuple
+from typing import Iterable, MutableMapping
 
 import argparse
-import gzip
 
 import matplotlib.pyplot as plt
 import hist
-import cloudpickle
 
-from topeft.modules.runner_output import SUMMARY_KEY
+from .plot_utils import (
+    TupleHistogramEntry,
+    load_tuple_histogram_entries,
+    summarise_by_variable,
+)
 
 
-def load_histograms(path: str) -> Mapping[Tuple[str, str, str, str], hist.Hist]:
-    with gzip.open(path, "rb") as fin:
-        payload = cloudpickle.load(fin)
-    if not isinstance(payload, Mapping):
-        raise TypeError("Histogram payload must be a mapping")
-    result: Dict[Tuple[str, str, str, str], hist.Hist] = {}
-    for key, value in payload.items():
-        if key == SUMMARY_KEY:
-            continue
-        if not isinstance(key, tuple) or len(key) != 4:
-            continue
-        if not isinstance(value, hist.Hist):
-            continue
-        result[key] = value
-    if not result:
-        raise ValueError("No tuple-keyed histograms found in payload")
-    return result
+def load_histograms(path: str) -> Iterable[TupleHistogramEntry]:
+    return load_tuple_histogram_entries(path)
 
 
 def group_by_variable(
-    histograms: Mapping[Tuple[str, str, str, str], hist.Hist]
-) -> Mapping[str, Dict[str, Dict[str, hist.Hist]]]:
-    grouped: Dict[str, Dict[str, Dict[str, hist.Hist]]] = defaultdict(lambda: defaultdict(dict))
-    for key, histogram in histograms.items():
-        variable, channel, sample, _systematic = key
-        grouped[variable][sample][channel] = histogram.copy()
-    return grouped
+    entries: Iterable[TupleHistogramEntry],
+) -> MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]]:
+    return summarise_by_variable(entries, systematic="nominal")
 
 
 def make_fig(
     histo1: hist.Hist,
+    label1: str,
     histo2: hist.Hist | None = None,
+    label2: str | None = None,
     hup: hist.Hist | None = None,
     hdo: hist.Hist | None = None,
 ) -> plt.Figure:
     fig, ax = plt.subplots(1, 1, figsize=(7, 7))
 
     if hup is not None and hdo is not None:
-        hist.plot1d(hup, ax=ax, stack=False, line_opts={"color": "lightgrey"})
-        hist.plot1d(hdo, ax=ax, stack=False, line_opts={"color": "lightgrey"})
+        hup.plot1d(ax=ax, stack=False, line_opts={"color": "lightgrey"})
+        hdo.plot1d(ax=ax, stack=False, line_opts={"color": "lightgrey"})
 
-    hist.plot1d(histo1, ax=ax, stack=False)
+    histo1.plot1d(ax=ax, stack=False, label=label1)
     if histo2 is not None:
-        hist.plot1d(histo2, ax=ax, stack=False)
+        histo2.plot1d(ax=ax, stack=False, label=label2)
 
     ax.autoscale(axis="y")
+    handles, labels = ax.get_legend_handles_labels()
+    if labels:
+        ax.legend(handles, labels)
     return fig
+
+
+def build_channel_label(sample: str, channel: str) -> str:
+    channel_label = channel.replace("_", " ") if channel else channel
+    return f"{sample} ({channel_label})" if channel_label else sample
 
 
 def main() -> None:
@@ -95,12 +87,22 @@ def main() -> None:
             ssz_plot = ssz_hist.copy()
             osz_plot = osz_hist.copy()
 
+            ssz_label = build_channel_label(sample, "ssz")
+            osz_label = build_channel_label(sample, "osz")
+
             h_up = osz_plot.copy()
             h_up *= 1.3
             h_do = osz_plot.copy()
             h_do *= 0.7
 
-            fig = make_fig(ssz_plot, histo2=osz_plot, hup=h_up, hdo=h_do)
+            fig = make_fig(
+                ssz_plot,
+                ssz_label,
+                histo2=osz_plot,
+                label2=osz_label,
+                hup=h_up,
+                hdo=h_do,
+            )
             savename = outpath / f"{sample}_{variable}.png"
             fig.savefig(savename)
             plt.close(fig)

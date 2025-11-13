@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Mapping, Tuple
+from typing import Dict, Iterable, MutableMapping
 
 import argparse
 import gzip
-from typing import Dict, Mapping, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import cloudpickle
 import hist
 
-from topeft.modules.runner_output import SUMMARY_KEY
+from .plot_utils import (
+    TupleHistogramEntry,
+    load_tuple_histogram_entries,
+    summarise_by_variable,
+)
 
 
 PT_BINS = (0.0, 30.0, 45.0, 60.0, 100.0, 200.0)
@@ -28,23 +31,8 @@ SCALE_DICT = {
 }
 
 
-def load_histograms(path: str) -> Mapping[Tuple[str, str, str, str], hist.Hist]:
-    with gzip.open(path, "rb") as fin:
-        payload = cloudpickle.load(fin)
-    if not isinstance(payload, Mapping):
-        raise TypeError("Histogram payload must be a mapping")
-    result: Dict[Tuple[str, str, str, str], hist.Hist] = {}
-    for key, value in payload.items():
-        if key == SUMMARY_KEY:
-            continue
-        if not isinstance(key, tuple) or len(key) != 4:
-            continue
-        if not isinstance(value, hist.Hist):
-            continue
-        result[key] = value
-    if not result:
-        raise ValueError("No tuple-keyed histograms found in payload")
-    return result
+def load_histograms(path: str) -> Iterable[TupleHistogramEntry]:
+    return load_tuple_histogram_entries(path)
 
 
 def determine_year(sample: str) -> str | None:
@@ -57,23 +45,28 @@ def determine_year(sample: str) -> str | None:
 
 
 def group_by_year(
-    histograms: Mapping[Tuple[str, str, str, str], hist.Hist]
-) -> Mapping[str, Dict[str, hist.Hist]]:
+    entries: Iterable[TupleHistogramEntry],
+) -> Dict[str, Dict[str, hist.Hist]]:
     grouped: Dict[str, Dict[str, hist.Hist]] = defaultdict(dict)
-    for key, histogram in histograms.items():
-        variable, flipstatus, sample, _systematic = key
-        if variable != "ptabseta":
-            continue
+
+    # Aggregate histograms per sample/flip status first so that duplicate entries
+    # for the same tuple accumulate before we project to the year level.
+    variable_map = summarise_by_variable(entries, systematic="nominal")
+    sample_map: MutableMapping[str, MutableMapping[str, hist.Hist]] = variable_map.get("ptabseta", {})
+
+    for sample, flip_map in sample_map.items():
         year = determine_year(sample)
         if year is None:
             continue
-        if flipstatus not in ("truthFlip", "truthNoFlip"):
-            continue
-        hist_copy = histogram.copy()
-        if flipstatus in grouped[year]:
-            grouped[year][flipstatus] = grouped[year][flipstatus] + hist_copy
-        else:
-            grouped[year][flipstatus] = hist_copy
+        for flipstatus, histogram in flip_map.items():
+            if flipstatus not in ("truthFlip", "truthNoFlip"):
+                continue
+            hist_copy = histogram.copy()
+            existing = grouped[year].get(flipstatus)
+            if existing is None:
+                grouped[year][flipstatus] = hist_copy
+            else:
+                grouped[year][flipstatus] = existing + hist_copy
     return grouped
 
 
@@ -89,7 +82,7 @@ def make_ratio_hist(ratio_arr: np.ndarray) -> hist.Hist:
 
 def make_2d_fig(histo: hist.Hist, xaxis_var: str, save_name: str, title: str | None = None) -> None:
     title_str = title if title is not None else save_name
-    hist.plot2d(histo, xaxis=xaxis_var)
+    histo.plot2d(xaxis=xaxis_var)
     plt.title(title_str)
     plt.savefig(save_name)
 
