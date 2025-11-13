@@ -16,7 +16,7 @@ Consult the "CR/SR plotting CLI quickstart" section of analysis/topeft_run2/READ
 for more workflow examples.
 
 Required arguments:
-  -f, --input PATH          Input histogram pickle (e.g. histos/plotsCR_Run2.pkl.gz)
+  -f, --input PATH          Input histogram pickle (must exist and be readable, e.g. histos/plotsCR_Run2.pkl.gz)
   -o, --output-dir PATH     Directory where plots will be written
   -y, --year YEAR [YEAR ...]
                            One or more year tokens forwarded to the plotter.
@@ -307,6 +307,11 @@ main() {
 
     if [[ -z "${input_path}" ]]; then
         echo "Error: An input pickle must be provided with -f/--input." >&2
+        return 1
+    fi
+
+    if [[ ! -r "${input_path}" ]]; then
+        echo "Error: Input pickle '${input_path}' is missing or unreadable." >&2
         return 1
     fi
 
