@@ -21,7 +21,7 @@
 
 # cpQM, cpQ3 <-> cHQ1, cHQ3
 "cpQM": ["expr::cpQM('@ - @1', {cHQ1}, {cHQ3})", ["cHQ1", "cHQ3"]] # cpQM = cpQ1 - cpQ3
-"cQlMi": ["expr::cQlM('@ - @1', {cQl1i}, {cQl3i})", ["cQl1i", "cQl3i"]] # cQlMi = cQl1i - cQl3i
+"cQlMi": ["expr::cQlMi('@ - @1', {cQl1i}, {cQl3i})", ["cQl1i", "cQl3i"]] # cQlMi = cQl1i - cQl3i
 
 # ctG relative minus sign
 "ctG":  ["expr::ctGRe('-1 * @0', {ctG})", ["ctG"]]
