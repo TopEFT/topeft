@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    set -euo pipefail
+fi
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PLOTTER_SCRIPT="${SCRIPT_DIR}/make_cr_and_sr_plots.py"
@@ -39,30 +41,11 @@ Optional arguments:
       --dry-run             Print the resolved command without executing it
   -h, --help                Show this help message and exit
 
-All other tokens following "--" are forwarded verbatim to make_cr_and_sr_plots.py.
+Unrecognised options are forwarded directly to make_cr_and_sr_plots.py. The
+historical "--" delimiter is no longer necessary; any leftover tokens are passed
+through automatically.
 USAGE
 }
-
-if [[ ! -f "${PLOTTER_SCRIPT}" ]]; then
-    echo "Error: unable to locate make_cr_and_sr_plots.py next to this wrapper." >&2
-    exit 1
-fi
-
-input_path=""
-output_dir=""
-output_name=""
-declare -a years=()
-timestamp_tag=0
-skip_syst=0
-unit_norm=0
-log_y=0
-region_override=""
-blind_override=""
-declare -a variables=()
-workers=1
-dry_run=0
-verbosity=""
-channel_output=""
 
 trim_whitespace() {
     local value="$1"
@@ -123,15 +106,37 @@ normalize_year_tokens() {
     printf '%s\n' "${normalized[@]}"
 }
 
-# Collect positional passthrough arguments after '--'.
-extra_args=()
+main() {
+    if [[ ! -f "${PLOTTER_SCRIPT}" ]]; then
+        echo "Error: unable to locate make_cr_and_sr_plots.py next to this wrapper." >&2
+        return 1
+    fi
 
-while [[ $# -gt 0 ]]; do
-    case "$1" in
+    local input_path=""
+    local output_dir=""
+    local output_name=""
+    local -a years=()
+    local timestamp_tag=0
+    local skip_syst=0
+    local unit_norm=0
+    local log_y=0
+    local region_override=""
+    local blind_override=""
+    local -a variables=()
+    local workers=1
+    local dry_run=0
+    local verbosity=""
+    local channel_output=""
+
+    # Collect passthrough arguments for make_cr_and_sr_plots.py.
+    local -a extra_args=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
         -f|--input)
             if [[ $# -lt 2 ]]; then
                 echo "Error: Missing value for $1" >&2
-                exit 1
+                return 1
             fi
             input_path="$2"
             shift 2
@@ -139,7 +144,7 @@ while [[ $# -gt 0 ]]; do
         -o|--output-dir)
             if [[ $# -lt 2 ]]; then
                 echo "Error: Missing value for $1" >&2
-                exit 1
+                return 1
             fi
             output_dir="$2"
             shift 2
@@ -147,7 +152,7 @@ while [[ $# -gt 0 ]]; do
         -n|--name)
             if [[ $# -lt 2 ]]; then
                 echo "Error: Missing value for $1" >&2
-                exit 1
+                return 1
             fi
             output_name="$2"
             shift 2
@@ -156,7 +161,7 @@ while [[ $# -gt 0 ]]; do
             shift
             if [[ $# -eq 0 ]]; then
                 echo "Error: Missing value for -y/--year" >&2
-                exit 1
+                return 1
             fi
             added_year=0
             while [[ $# -gt 0 ]]; do
@@ -179,7 +184,7 @@ while [[ $# -gt 0 ]]; do
             done
             if [[ ${added_year} -eq 0 ]]; then
                 echo "Error: -y/--year requires at least one year token" >&2
-                exit 1
+                return 1
             fi
             ;;
         -t|--timestamp)
@@ -218,7 +223,7 @@ while [[ $# -gt 0 ]]; do
             shift
             if [[ $# -eq 0 ]]; then
                 echo "Error: --variables requires at least one argument" >&2
-                exit 1
+                return 1
             fi
             while [[ $# -gt 0 ]]; do
                 case "$1" in
@@ -238,7 +243,7 @@ while [[ $# -gt 0 ]]; do
         --workers)
             if [[ $# -lt 2 ]]; then
                 echo "Error: Missing value for --workers" >&2
-                exit 1
+                return 1
             fi
             workers="$2"
             shift 2
@@ -246,7 +251,7 @@ while [[ $# -gt 0 ]]; do
         --channel-output)
             if [[ $# -lt 2 ]]; then
                 echo "Error: Missing value for --channel-output" >&2
-                exit 1
+                return 1
             fi
             channel_output="${2,,}"
             case "${channel_output}" in
@@ -254,7 +259,7 @@ while [[ $# -gt 0 ]]; do
                     ;;
                 *)
                     echo "Error: --channel-output expects one of: merged, split, both" >&2
-                    exit 1
+                    return 1
                     ;;
             esac
             shift 2
@@ -273,46 +278,47 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             show_help
-            exit 0
-            ;;
-        --)
-            shift
-            extra_args=("$@")
-            break
+            return 0
             ;;
         *)
-            echo "Error: Unrecognized argument '$1'" >&2
-            show_help >&2
-            exit 1
+            if [[ "$1" == "--" ]]; then
+                # Backward compatibility: ignore the legacy delimiter and
+                # continue consuming passthrough arguments without adding it to
+                # the forwarded list.
+                shift
+                continue
+            fi
+            extra_args+=("$1")
+            shift
             ;;
-    esac
-done
+        esac
+    done
 
-if (( ${#years[@]} > 0 )); then
-    mapfile -t years < <(normalize_year_tokens "${years[@]}")
-fi
-
-if (( ${#years[@]} == 0 )); then
-    echo "Error: At least one year must be provided with -y/--year." >&2
-    exit 1
-fi
-
-if [[ -z "${input_path}" ]]; then
-    echo "Error: An input pickle must be provided with -f/--input." >&2
-    exit 1
-fi
-
-if [[ -z "${output_dir}" ]]; then
-    echo "Error: An output directory must be provided with -o/--output-dir." >&2
-    exit 1
-fi
-
-detect_region() {
-    local path="$1"
-    if [[ -z "${path}" ]]; then
-        printf '\n0\n'
-        return
+    if (( ${#years[@]} > 0 )); then
+        mapfile -t years < <(normalize_year_tokens "${years[@]}")
     fi
+
+    if (( ${#years[@]} == 0 )); then
+        echo "Error: At least one year must be provided with -y/--year." >&2
+        return 1
+    fi
+
+    if [[ -z "${input_path}" ]]; then
+        echo "Error: An input pickle must be provided with -f/--input." >&2
+        return 1
+    fi
+
+    if [[ -z "${output_dir}" ]]; then
+        echo "Error: An output directory must be provided with -o/--output-dir." >&2
+        return 1
+    fi
+
+    detect_region() {
+        local path="$1"
+        if [[ -z "${path}" ]]; then
+            printf '\n0\n'
+            return
+        fi
     local filename
     filename=$(basename -- "$path")
     local uppercase="${filename^^}"
@@ -339,146 +345,157 @@ detect_region() {
     else
         printf '\n0\n'
     fi
+    }
+
+    IFS=$'\n' read -r detected_region detection_ambiguous < <(detect_region "${input_path}")
+
+    local resolved_region="${region_override}"
+    if [[ -n "${resolved_region}" ]]; then
+        echo "Region override requested: ${resolved_region}"
+    else
+        if [[ -n "${detected_region}" ]]; then
+            echo "Auto-detected region '${detected_region}' from input filename."
+            resolved_region="${detected_region}"
+        else
+            echo "No region token detected in input filename; defaulting to 'CR'."
+            resolved_region="CR"
+        fi
+        if [[ "${detection_ambiguous}" == "1" && -z "${region_override}" ]]; then
+            echo "Warning: Detected both 'CR' and 'SR' tokens in the input filename. Defaulting to 'CR'." >&2
+            resolved_region="CR"
+        fi
+    fi
+
+    declare -r resolved_region
+
+    local resolved_unblind=0
+    local blinding_source=""
+    case "${blind_override}" in
+        blind)
+            resolved_unblind=0
+            blinding_source="command-line --blind override"
+            ;;
+        unblind)
+            resolved_unblind=1
+            blinding_source="command-line --unblind override"
+            ;;
+        "")
+            if [[ "${resolved_region}" == "CR" ]]; then
+                resolved_unblind=1
+                blinding_source="default for CR region"
+            else
+                resolved_unblind=0
+                blinding_source="default for SR region"
+            fi
+            ;;
+    esac
+
+    echo "Resolved plotting region: ${resolved_region}"
+    if [[ ${resolved_unblind} -eq 1 ]]; then
+        echo "Resolved blinding mode: unblinded (${blinding_source})"
+    else
+        echo "Resolved blinding mode: blinded (${blinding_source})"
+    fi
+
+    if (( ${#years[@]} > 0 )); then
+        echo "Selected years: ${years[*]}"
+    fi
+
+    if (( ${#variables[@]} > 0 )); then
+        echo "Selected variables: ${variables[*]}"
+    fi
+    if [[ -n "${channel_output}" ]]; then
+        echo "Channel output selection: ${channel_output}"
+    fi
+
+    if (( log_y )); then
+        echo "Stacked panel will use a logarithmic y-axis."
+    fi
+
+    if [[ -n "${workers}" && "${workers}" != "1" ]]; then
+        echo "Worker processes: ${workers}"
+    fi
+
+    case "${verbosity}" in
+        verbose)
+            echo "Verbose diagnostics enabled."
+            ;;
+        quiet)
+            echo "Quiet mode enforced."
+            ;;
+    esac
+
+    mkdir -p "${output_dir}"
+
+    local -a cmd=("${PYTHON_BIN}" "${PLOTTER_SCRIPT}" "-f" "${input_path}" "-o" "${output_dir}")
+
+    if [[ -n "${output_name}" ]]; then
+        cmd+=("-n" "${output_name}")
+    fi
+    if (( ${#years[@]} > 0 )); then
+        cmd+=("-y")
+        cmd+=("${years[@]}")
+    fi
+    if (( timestamp_tag )); then
+        cmd+=("-t")
+    fi
+    if (( skip_syst )); then
+        cmd+=("-s")
+    fi
+    if (( unit_norm )); then
+        cmd+=("-u")
+    fi
+    if (( log_y )); then
+        cmd+=("--log-y")
+    fi
+    if [[ "${resolved_region}" == "CR" ]]; then
+        cmd+=("--cr")
+    else
+        cmd+=("--sr")
+    fi
+    if (( resolved_unblind )); then
+        cmd+=("--unblind")
+    else
+        cmd+=("--blind")
+    fi
+    if (( ${#variables[@]} > 0 )); then
+        cmd+=("--variables")
+        cmd+=("${variables[@]}")
+    fi
+    cmd+=("--workers" "${workers}")
+    if [[ -n "${channel_output}" ]]; then
+        cmd+=("--channel-output" "${channel_output}")
+    fi
+    case "${verbosity}" in
+        verbose)
+            cmd+=("--verbose")
+            ;;
+        quiet)
+            cmd+=("--quiet")
+            ;;
+    esac
+    cmd+=("${extra_args[@]}")
+
+    echo "Executing make_cr_and_sr_plots.py with command:"
+    printf '  %q' "${cmd[@]}"
+    echo
+
+    if (( dry_run )); then
+        echo "Dry-run requested; skipping execution."
+    else
+        "${cmd[0]}" "${cmd[@]:1}"
+    fi
+
+    return 0
 }
 
-IFS=$'\n' read -r detected_region detection_ambiguous < <(detect_region "${input_path}")
-
-resolved_region="${region_override}"
-if [[ -n "${resolved_region}" ]]; then
-    echo "Region override requested: ${resolved_region}"
+if main "$@"; then
+    exit_code=0
 else
-    if [[ -n "${detected_region}" ]]; then
-        echo "Auto-detected region '${detected_region}' from input filename."
-        resolved_region="${detected_region}"
-    else
-        echo "No region token detected in input filename; defaulting to 'CR'."
-        resolved_region="CR"
-    fi
-    if [[ "${detection_ambiguous}" == "1" && -z "${region_override}" ]]; then
-        echo "Warning: Detected both 'CR' and 'SR' tokens in the input filename. Defaulting to 'CR'." >&2
-        resolved_region="CR"
-    fi
+    exit_code=$?
 fi
-
-declare -r resolved_region
-
-resolved_unblind=0
-blinding_source=""
-case "${blind_override}" in
-    blind)
-        resolved_unblind=0
-        blinding_source="command-line --blind override"
-        ;;
-    unblind)
-        resolved_unblind=1
-        blinding_source="command-line --unblind override"
-        ;;
-    "")
-        if [[ "${resolved_region}" == "CR" ]]; then
-            resolved_unblind=1
-            blinding_source="default for CR region"
-        else
-            resolved_unblind=0
-            blinding_source="default for SR region"
-        fi
-        ;;
-esac
-
-echo "Resolved plotting region: ${resolved_region}"
-if [[ ${resolved_unblind} -eq 1 ]]; then
-    echo "Resolved blinding mode: unblinded (${blinding_source})"
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    exit "${exit_code}"
 else
-    echo "Resolved blinding mode: blinded (${blinding_source})"
-fi
-
-if (( ${#years[@]} > 0 )); then
-    echo "Selected years: ${years[*]}"
-fi
-
-if (( ${#variables[@]} > 0 )); then
-    echo "Selected variables: ${variables[*]}"
-fi
-if [[ -n "${channel_output}" ]]; then
-    echo "Channel output selection: ${channel_output}"
-fi
-
-if (( log_y )); then
-    echo "Stacked panel will use a logarithmic y-axis."
-fi
-
-if [[ -n "${workers}" && "${workers}" != "1" ]]; then
-    echo "Worker processes: ${workers}"
-fi
-
-case "${verbosity}" in
-    verbose)
-        echo "Verbose diagnostics enabled."
-        ;;
-    quiet)
-        echo "Quiet mode enforced."
-        ;;
-esac
-
-mkdir -p "${output_dir}"
-
-cmd=("${PYTHON_BIN}" "${PLOTTER_SCRIPT}" "-f" "${input_path}" "-o" "${output_dir}")
-
-if [[ -n "${output_name}" ]]; then
-    cmd+=("-n" "${output_name}")
-fi
-if (( ${#years[@]} > 0 )); then
-    cmd+=("-y")
-    cmd+=("${years[@]}")
-fi
-if (( timestamp_tag )); then
-    cmd+=("-t")
-fi
-if (( skip_syst )); then
-    cmd+=("-s")
-fi
-if (( unit_norm )); then
-    cmd+=("-u")
-fi
-if (( log_y )); then
-    cmd+=("--log-y")
-fi
-if [[ "${resolved_region}" == "CR" ]]; then
-    cmd+=("--cr")
-else
-    cmd+=("--sr")
-fi
-if (( resolved_unblind )); then
-    cmd+=("--unblind")
-else
-    cmd+=("--blind")
-fi
-if (( ${#variables[@]} > 0 )); then
-    cmd+=("--variables")
-    cmd+=("${variables[@]}")
-fi
-cmd+=("--workers" "${workers}")
-if [[ -n "${channel_output}" ]]; then
-    cmd+=("--channel-output" "${channel_output}")
-fi
-case "${verbosity}" in
-    verbose)
-        cmd+=("--verbose")
-        ;;
-    quiet)
-        cmd+=("--quiet")
-        ;;
-esac
-if (( ${#extra_args[@]} > 0 )); then
-    cmd+=("--")
-    cmd+=("${extra_args[@]}")
-fi
-
-echo "Executing make_cr_and_sr_plots.py with command:"
-printf '  %q' "${cmd[@]}"
-echo
-
-if (( dry_run )); then
-    echo "Dry-run requested; skipping execution."
-else
-    "${cmd[0]}" "${cmd[@]:1}"
+    return "${exit_code}"
 fi

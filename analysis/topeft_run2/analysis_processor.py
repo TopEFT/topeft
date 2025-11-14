@@ -59,6 +59,44 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
+    @staticmethod
+    def _resolve_histogram_names(hist_lst, *, ordered_base_hist_names, fill_sumw2_hist):
+        """Return ordered collections of requested base and expanded histogram names."""
+
+        available_base_hist_names = set(ordered_base_hist_names)
+        sumw2_suffix = "_sumw2"
+
+        if hist_lst is None:
+            base_hist_names_ordered = ordered_base_hist_names.copy()
+        else:
+            base_hist_names_ordered = []
+            seen_base_names = set()
+            for requested_name in hist_lst:
+                base_name = requested_name
+                if requested_name.endswith(sumw2_suffix):
+                    base_name = requested_name[: -len(sumw2_suffix)]
+                if base_name not in available_base_hist_names:
+                    raise Exception(
+                        f"Error: Cannot specify hist \"{requested_name}\", it is not defined in the processor."
+                    )
+                if base_name not in seen_base_names:
+                    base_hist_names_ordered.append(base_name)
+                    seen_base_names.add(base_name)
+
+        expanded_hist_names_ordered = []
+        expanded_seen = set()
+        for base_name in base_hist_names_ordered:
+            if base_name not in expanded_seen:
+                expanded_hist_names_ordered.append(base_name)
+                expanded_seen.add(base_name)
+            if fill_sumw2_hist:
+                sumw2_name = f"{base_name}{sumw2_suffix}"
+                if sumw2_name not in expanded_seen:
+                    expanded_hist_names_ordered.append(sumw2_name)
+                    expanded_seen.add(sumw2_name)
+
+        return base_hist_names_ordered, expanded_hist_names_ordered
+
     def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True, tau_run_mode="standard"):
 
         self._samples = samples
@@ -76,6 +114,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._hist_sumw2_axis_mapping = {}
         self._hist_requires_eft = {}
 
+        ordered_base_hist_names = list(axes_info.keys()) + list(axes_info_2d.keys())
+        (
+            base_hist_names_ordered,
+            expanded_hist_names_ordered,
+        ) = self._resolve_histogram_names(
+            hist_lst,
+            ordered_base_hist_names=ordered_base_hist_names,
+            fill_sumw2_hist=self._fill_sumw2_hist,
+        )
+
+        self._base_hist_name_set = set(base_hist_names_ordered)
+        self._expanded_hist_name_set = set(expanded_hist_names_ordered)
+        self._hist_lst = expanded_hist_names_ordered.copy()
+
+        sumw2_suffix = "_sumw2"
+
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
@@ -89,6 +143,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 return hist.axis.Variable(axis_cfg["variable"], name=axis_name, label=axis_label)
             return hist.axis.Regular(*axis_cfg["regular"], name=axis_name, label=axis_label)
         for name, info in axes_info.items():
+            sumw2_name = f"{name}{sumw2_suffix}"
+            build_base_hist = name in self._expanded_hist_name_set
+            build_sumw2_hist = self._fill_sumw2_hist and (
+                sumw2_name in self._expanded_hist_name_set
+            )
+            if not (build_base_hist or build_sumw2_hist):
+                continue
+
             if not rebin and "variable" in info:
                 dense_axis = hist.axis.Variable(
                     info["variable"], name=name, label=info["label"]
@@ -103,18 +165,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axis = hist.axis.Regular(
                     *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
                 )
-            histograms[name] = HistEFT(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                dense_axis,
-                wc_names=wc_names_lst,
-                label=r"Events",
-            )
-            self._hist_axis_map[name] = [dense_axis.name]
-            if self._fill_sumw2_hist:
-                histograms[name+"_sumw2"] = HistEFT(
+            if build_base_hist:
+                histograms[name] = HistEFT(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    dense_axis,
+                    wc_names=wc_names_lst,
+                    label=r"Events",
+                )
+                self._hist_axis_map[name] = [dense_axis.name]
+                self._hist_requires_eft[name] = True
+            if self._fill_sumw2_hist and build_sumw2_hist:
+                histograms[sumw2_name] = HistEFT(
                     proc_axis,
                     chan_axis,
                     syst_axis,
@@ -123,27 +187,35 @@ class AnalysisProcessor(processor.ProcessorABC):
                     wc_names=wc_names_lst,
                     label=r"Events",
                 )
-                self._hist_axis_map[name+"_sumw2"] = [sumw2_axis.name]
+                self._hist_axis_map[sumw2_name] = [sumw2_axis.name]
                 self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
-                self._hist_requires_eft[name+"_sumw2"] = True
-            self._hist_requires_eft[name] = True
+                self._hist_requires_eft[sumw2_name] = True
         for name, axes_cfg in axes_info_2d.items():
+            sumw2_name = f"{name}{sumw2_suffix}"
+            build_base_hist = name in self._expanded_hist_name_set
+            build_sumw2_hist = self._fill_sumw2_hist and (
+                sumw2_name in self._expanded_hist_name_set
+            )
+            if not (build_base_hist or build_sumw2_hist):
+                continue
+
             dense_axes = []
             axis_names = []
             for axis_cfg in axes_cfg["axes"]:
                 axis = _build_axis(axis_cfg)
                 dense_axes.append(axis)
                 axis_names.append(axis.name)
-            histograms[name] = SparseHist(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                *dense_axes,
-                storage="Double",
-            )
-            self._hist_axis_map[name] = axis_names
-            self._hist_requires_eft[name] = False
+            if build_base_hist:
+                histograms[name] = SparseHist(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    *dense_axes,
+                    storage="Double",
+                )
+                self._hist_axis_map[name] = axis_names
+                self._hist_requires_eft[name] = False
             sumw2_axes = []
             sumw2_axis_names = []
             sumw2_axis_mapping = {}
@@ -156,8 +228,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axes.append(sumw2_axis)
                 sumw2_axis_names.append(sumw2_axis.name)
                 sumw2_axis_mapping[sumw2_axis.name] = base_axis_name
-            if self._fill_sumw2_hist:
-                histograms[name+"_sumw2"] = SparseHist(
+            if self._fill_sumw2_hist and build_sumw2_hist:
+                histograms[sumw2_name] = SparseHist(
                     proc_axis,
                     chan_axis,
                     syst_axis,
@@ -165,21 +237,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                     *sumw2_axes,
                     storage="Double",
                 )
-                self._hist_axis_map[name+"_sumw2"] = sumw2_axis_names
+                self._hist_axis_map[sumw2_name] = sumw2_axis_names
                 self._hist_sumw2_axis_mapping[name] = sumw2_axis_mapping
-                self._hist_requires_eft[name+"_sumw2"] = False
+                self._hist_requires_eft[sumw2_name] = False
         self._accumulator = histograms
 
-        # Set the list of hists to fill
-        if hist_lst is None:
-            # If the hist list is none, assume we want to fill all hists
-            self._hist_lst = list(self._accumulator.keys())
-        else:
-            # Otherwise, just fill the specified subset of hists
-            for hist_to_include in hist_lst:
-                if hist_to_include not in self._accumulator.keys():
-                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
-            self._hist_lst = hist_lst # Which hists to fill
+        # Ensure the histogram list only tracks objects that actually exist in the
+        # accumulator.  Downstream filling logic consults ``self._hist_lst`` to
+        # decide whether to touch a given histogram, so stale entries would lead
+        # to ``KeyError`` exceptions when the corresponding accumulator key is
+        # absent (for example when a filtered ``hist_lst`` omits most
+        # histograms).  Restricting the list here keeps the book-keeping
+        # consistent with the constructed accumulator contents.
+        accumulator_keys = set(self._accumulator.keys())
+        self._hist_lst = [name for name in self._hist_lst if name in accumulator_keys]
 
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
@@ -1427,8 +1498,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 return cast_value, validity_mask
 
             for dense_axis_name, dense_axis_vals in varnames.items():
-                fill_base_hist = dense_axis_name in self._hist_lst
-                fill_sumw2_hist = self._fill_sumw2_hist and (dense_axis_name in self._hist_lst)
+                fill_base_hist = dense_axis_name in self._base_hist_name_set
+                companion_axis_mapping = self._hist_sumw2_axis_mapping.get(
+                    dense_axis_name
+                )
+                fill_sumw2_hist = self._fill_sumw2_hist and bool(companion_axis_mapping)
                 if not (fill_base_hist or fill_sumw2_hist):
                     continue
 
@@ -1526,20 +1600,24 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         axis_names = self._hist_axis_map.get(
                                             dense_axis_name,
-                                            [dense_axis_name],
                                         )
+                                        if axis_names is None:
+                                            if companion_axis_mapping:
+                                                axis_names = list(companion_axis_mapping.values())
+                                            else:
+                                                axis_names = [dense_axis_name]
                                         sumw2_axis_names = self._hist_axis_map.get(
                                             dense_axis_name+"_sumw2",
                                             [dense_axis_name+"_sumw2"],
                                         )
-                                        sumw2_axis_mapping = self._hist_sumw2_axis_mapping.get(
-                                            dense_axis_name,
-                                            {
-                                                sumw2_axis_names[0]: axis_names[0]
-                                            }
-                                            if (sumw2_axis_names and axis_names)
-                                            else {},
-                                        )
+                                        sumw2_axis_mapping = companion_axis_mapping
+                                        if sumw2_axis_mapping is None:
+                                            if sumw2_axis_names and axis_names:
+                                                sumw2_axis_mapping = {
+                                                    sumw2_axis_names[0]: axis_names[0]
+                                                }
+                                            else:
+                                                sumw2_axis_mapping = {}
 
                                         base_values_cut = None
                                         prepared_axis_vals, axis_validity = _prepare_axis_values(dense_axis_vals)

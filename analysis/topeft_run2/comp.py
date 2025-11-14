@@ -23,6 +23,7 @@ from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 from topeft.modules.axes import info as axes_info
+from topeft.modules.utils import canonicalize_process_name
 
 BINNING = {k: v['variable'] for k,v in axes_info.items() if 'variable' in v}
 
@@ -43,6 +44,7 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
             for proc in ax_proc:
                 if not newHist2:
                     proc = proc.name
+                canonical_proc = canonicalize_process_name(proc)
                 #if proc not in h1.axes['process']:
                 #    fout.write(f'{proc} missing from {fin1}!\n')
                 #    continue
@@ -87,10 +89,10 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                         if not newHist2:
                             syst = syst.name
                         if 'nominal' not in syst: continue
-                        if 'data' in proc and syst != 'nominal': continue # Data-driven
-                        if 'nonprompt' not in proc and 'FF' in syst: continue # Data-driven
-                        if 'nonprompt' in proc and syst != 'nominal' and 'FF' not in syst: continue # Data-driven
-                        if 'flips' in proc and syst != 'nominal': continue
+                        if 'data' in canonical_proc and syst != 'nominal': continue # Data-driven
+                        if 'nonprompt' not in canonical_proc and 'FF' in syst: continue # Data-driven
+                        if 'nonprompt' in canonical_proc and syst != 'nominal' and 'FF' not in syst: continue # Data-driven
+                        if 'flips' in canonical_proc and syst != 'nominal': continue
                         if year not in syst and '_20' in syst: continue
                         if 'APV' in year and 'APV' not in syst and syst != 'nominal': continue
                         if not 'APV' in year and 'APV' in syst: continue
@@ -115,7 +117,7 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                             continue
                         '''
                         for pt in [{}, {'ctW': 1}]:
-                            if 'data' in proc and pt != {}:
+                            if 'data' in canonical_proc and pt != {}:
                                 continue
                             if newHist1: v1 = h1_syst.as_hist(pt).values(flow=True)[()]
                             else:
@@ -179,7 +181,7 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                                 plt.savefig(f'{proc}_{chan}_{syst}_{tpt}.png')
                                 plt.close()
 
-                            if np.any((np.nan_to_num(np.abs(v1 - v2)/v1, 0) > tolerance) & ((v1-v2) != 0)) and ('nonprompt' not in proc and pt != {}):
+                            if np.any((np.nan_to_num(np.abs(v1 - v2)/v1, 0) > tolerance) & ((v1-v2) != 0)) and ('nonprompt' not in canonical_proc and pt != {}):
                                 d = [str(round(x*100, 2))+'%' for x in np.nan_to_num((v1-v2)/v1, 0)]
                                 #print(f'Diff in {proc} {chan} {syst} greater than {tolerance}!\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n')
                                 fout.write(f'Diff in {proc} {chan} {syst} {pt} greater than {tolerance}!\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n')
@@ -207,6 +209,7 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
             for proc in ax_proc:
                 if not newHist2:
                     proc = proc.name
+                canonical_proc = canonicalize_process_name(proc)
                 if any(proc in p for p in ["2l_CRflip", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]): continue
                 year = '20' + proc.split('UL')[1].split()[0]
                 lumi = 1000.0*get_tc_param(f"lumi_{year}")
@@ -291,7 +294,7 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                             if 'njets' not in hname and not newHist2:
                                 bins = BINNING[hname]
                                 v2 = h2_syst.rebin(hname, Bin(hname, h2_syst.axis(hname).label, bins)).values(overflow='all')[()]
-                            if old_hist and 'data' not in proc:
+                            if old_hist and 'data' not in canonical_proc:
                                 v2 = v2*lumi
                                 #print(f'Scaled {proc} {chan} {appl} {syst} by {lumi}')
                                 #fout.write(f'Scaled {proc} {chan} {appl} {syst} by {lumi}')

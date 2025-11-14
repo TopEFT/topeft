@@ -182,6 +182,7 @@ PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
 STACKED_RATIO_STYLE = _META.get("STACKED_RATIO_STYLE", {})
 
+
 YEAR_TOKEN_RULES = {
     "2016": {
         "mc_wl": ["UL16"],
@@ -200,6 +201,130 @@ YEAR_TOKEN_RULES = {
     "2023": {"mc_wl": ["2023"], "data_wl": ["2023"]},
     "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
 }
+
+_YEAR_SUFFIX_TOKENS = tuple(sorted(YEAR_TOKEN_RULES, key=len, reverse=True))
+_LEPFLAV_TOKENS = (
+    "eee",
+    "eem",
+    "emm",
+    "mmm",
+    "ee",
+    "em",
+    "mm",
+    "e",
+    "m",
+)
+
+
+def _strip_year_token(value):
+    """Return *value* with a recognised year token suffix removed."""
+
+    if not isinstance(value, str):
+        return value
+
+    for token in _YEAR_SUFFIX_TOKENS:
+        for separator in ("_", "-", ""):
+            suffix = f"{separator}{token}"
+            if not suffix:
+                continue
+            if not value.endswith(suffix):
+                continue
+            prefix = value[: -len(suffix)] if suffix else value
+            if separator or not prefix or not prefix[-1].isalnum():
+                return prefix
+    return value
+
+
+def _extract_lepflav_token(channel_name):
+    """Return the lepton-flavour token detected in *channel_name*, if any."""
+
+    if not isinstance(channel_name, str):
+        return None
+
+    components = channel_name.split("_")
+    for component in reversed(components):
+        if component in _LEPFLAV_TOKENS:
+            return component
+    return None
+
+
+def _derive_channel_display_label(base_label, bin_names):
+    """Return the output label to use for *base_label* and *bin_names*."""
+
+    if not bin_names or len(bin_names) != 1:
+        return base_label
+
+    flavour_token = _extract_lepflav_token(bin_names[0])
+    if not flavour_token:
+        return base_label
+
+    if not base_label:
+        return flavour_token
+
+    base_parts = base_label.split("_")
+    if base_parts and base_parts[-1] == flavour_token:
+        return base_label
+
+    return f"{base_label}_{flavour_token}"
+
+
+def _group_channels_by_yearless_label(channel_dict):
+    """Return grouped channel entries and their display labels."""
+
+    grouped = OrderedDict()
+
+    for key, channel_bins in channel_dict.items():
+        normalized_key = _strip_year_token(key)
+        bucket = grouped.setdefault(normalized_key, OrderedDict())
+        if channel_bins is None:
+            if not bucket:
+                grouped[normalized_key] = None
+            continue
+
+        if bucket is None:
+            bucket = OrderedDict()
+            grouped[normalized_key] = bucket
+
+        for bin_name in channel_bins:
+            bucket.setdefault(bin_name, None)
+
+    normalized = OrderedDict()
+    display_labels = {}
+    for key, bucket in grouped.items():
+        if bucket is None:
+            normalized[key] = None
+            continue
+
+        bin_names = list(bucket.keys())
+        token_groups = OrderedDict()
+        for bin_name in bin_names:
+            token = _extract_lepflav_token(bin_name)
+            token_groups.setdefault(token, []).append(bin_name)
+
+        recognised_tokens = [token for token in token_groups if token]
+
+        if len(recognised_tokens) > 1:
+            for token in recognised_tokens:
+                new_key = (
+                    key
+                    if key.endswith(f"_{token}")
+                    else f"{key}_{token}"
+                )
+                normalized[new_key] = token_groups[token]
+                display_labels[new_key] = _derive_channel_display_label(
+                    new_key, token_groups[token]
+                )
+            if None in token_groups:
+                normalized[key] = token_groups[None]
+                display_labels[key] = _derive_channel_display_label(
+                    key, token_groups[None]
+                )
+            continue
+
+        normalized[key] = bin_names
+        display_labels[key] = _derive_channel_display_label(key, bin_names)
+
+    return normalized, display_labels
 
 YEAR_AGGREGATE_ALIASES = {
     "run2": ("2016", "2016APV", "2017", "2018"),
@@ -914,6 +1039,9 @@ def _render_variable_from_worker(task_id, payload):
                     stacked_log_y=ctx["stacked_log_y"],
                     unblind_flag=ctx["unblind_flag"],
                     verbose=verbose,
+                    channel_display_labels=variable_payload.get(
+                        "channel_display_labels", {}
+                    ),
                 )
     return task_id, stat_only, stat_and_syst, html_set
 
@@ -940,6 +1068,9 @@ def _prepare_variable_payload(
                     "channel_transformations"
                 ],
                 "is_sparse2d": cached_payload["is_sparse2d"],
+                "channel_display_labels": cached_payload.get(
+                    "channel_display_labels", {}
+                ),
             }
         return cached_payload
 
@@ -957,13 +1088,23 @@ def _prepare_variable_payload(
     channel_dict = _apply_channel_dict_transformations(
         region_ctx.channel_map, channel_transformations
     )
+    channel_dict = _deduplicate_channel_bins(channel_dict)
+    channel_dict = _prune_unsplit_flavour_entries(channel_dict, region_ctx)
     channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
+    channel_display_labels = {}
+    if region_ctx.channel_mode == "per-channel":
+        channel_dict, channel_display_labels = _group_channels_by_yearless_label(
+            channel_dict
+        )
+    else:
+        channel_display_labels = {key: key for key in channel_dict.keys()}
 
     if metadata_only:
         return {
             "channel_dict": channel_dict,
             "channel_transformations": channel_transformations,
             "is_sparse2d": is_sparse2d,
+            "channel_display_labels": channel_display_labels,
         }
 
     mc_to_remove = tuple(region_ctx.samples_to_remove.get("mc") or ())
@@ -1009,6 +1150,7 @@ def _prepare_variable_payload(
         "hist_data": hist_data,
         "hist_mc_sumw2_orig": hist_mc_sumw2_orig,
         "is_sparse2d": is_sparse2d,
+        "channel_display_labels": channel_display_labels,
     }
 
 
@@ -1042,6 +1184,7 @@ def _render_variable(
         return 0, 0, set()
 
     channel_dict = variable_payload["channel_dict"]
+    channel_display_labels = variable_payload.get("channel_display_labels", {})
 
     stat_only_plots = 0
     stat_and_syst_plots = 0
@@ -1078,6 +1221,7 @@ def _render_variable(
             stacked_log_y=stacked_log_y,
             unblind_flag=unblind_flag,
             verbose=verbose,
+            channel_display_labels=channel_display_labels,
         )
         stat_only_plots += stat_only
         stat_and_syst_plots += stat_and_syst
@@ -1103,6 +1247,7 @@ def _render_variable_category(
     stacked_log_y,
     unblind_flag,
     verbose=False,
+    channel_display_labels=None,
 ):
     """Render a single (variable, category) pair and return bookkeeping totals."""
 
@@ -1116,7 +1261,10 @@ def _render_variable_category(
     )
 
     base_dir = save_dir_path or ""
-    save_dir_path_tmp = os.path.join(base_dir, hist_cat)
+    display_label = (
+        channel_display_labels or {}
+    ).get(hist_cat, hist_cat)
+    save_dir_path_tmp = os.path.join(base_dir, display_label)
     os.makedirs(save_dir_path_tmp, exist_ok=True)
 
     stat_only_plots = 0
@@ -1156,55 +1304,61 @@ def _render_variable_category(
         m_err_arr_ratio = None
         syst_err_mode = False
         if not (is_sparse2d or skip_syst_errs):
-            rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
-                hist_mc_integrated,
-                region_ctx.group_map,
-                group_type=region_ctx.name,
-                rate_syst_by_sample=region_ctx.rate_syst_by_sample,
-            )
-            shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
-                hist_mc_integrated,
-                group_type=region_ctx.name,
-            )
-            if var_name == "njets":
-                diboson_samples = region_ctx.group_map.get("Diboson", [])
-                if diboson_samples:
-                    db_hist = _eval_without_underflow(
-                        hist_mc_integrated.integrate("process", diboson_samples)[{"process": sum}]
-                        .integrate("systematic", "nominal")
-                    )
-                    diboson_njets_syst = get_diboson_njets_syst_arr(
-                        db_hist, bin0_njets=0
-                    )
-                    shape_systs_summed_arr_p = (
-                        shape_systs_summed_arr_p + diboson_njets_syst
-                    )
-                    shape_systs_summed_arr_m = (
-                        shape_systs_summed_arr_m + diboson_njets_syst
-                    )
-            nom_arr_all = _eval_without_underflow(
-                hist_mc_integrated[{"process": sum}].integrate(
-                    "systematic", "nominal"
+            try:
+                rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
+                    hist_mc_integrated,
+                    region_ctx.group_map,
+                    group_type=region_ctx.name,
+                    rate_syst_by_sample=region_ctx.rate_syst_by_sample,
                 )
-            )
-            sqrt_sum_p = np.sqrt(
-                np.asarray(shape_systs_summed_arr_p)
-                + np.asarray(rate_systs_summed_arr_p)
-            )
-            sqrt_sum_m = np.sqrt(
-                np.asarray(shape_systs_summed_arr_m)
-                + np.asarray(rate_systs_summed_arr_m)
-            )
-            p_err_arr = nom_arr_all + sqrt_sum_p
-            m_err_arr = nom_arr_all - sqrt_sum_m
-            with np.errstate(divide="ignore", invalid="ignore"):
-                p_err_arr_ratio = np.where(
-                    nom_arr_all > 0, p_err_arr / nom_arr_all, 1
+                shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+                    hist_mc_integrated,
+                    group_type=region_ctx.name,
                 )
-                m_err_arr_ratio = np.where(
-                    nom_arr_all > 0, m_err_arr / nom_arr_all, 1
+                if var_name == "njets":
+                    diboson_samples = region_ctx.group_map.get("Diboson", [])
+                    if diboson_samples:
+                        db_hist = _eval_without_underflow(
+                            hist_mc_integrated.integrate("process", diboson_samples)[
+                                {"process": sum}
+                            ].integrate("systematic", "nominal")
+                        )
+                        diboson_njets_syst = get_diboson_njets_syst_arr(
+                            db_hist, bin0_njets=0
+                        )
+                        shape_systs_summed_arr_p = (
+                            shape_systs_summed_arr_p + diboson_njets_syst
+                        )
+                        shape_systs_summed_arr_m = (
+                            shape_systs_summed_arr_m + diboson_njets_syst
+                        )
+                nom_arr_all = _eval_without_underflow(
+                    hist_mc_integrated[{"process": sum}].integrate(
+                        "systematic", "nominal"
+                    )
                 )
-            syst_err_mode = "total" if unblind_flag else True
+                sqrt_sum_p = np.sqrt(
+                    np.asarray(shape_systs_summed_arr_p)
+                    + np.asarray(rate_systs_summed_arr_p)
+                )
+                sqrt_sum_m = np.sqrt(
+                    np.asarray(shape_systs_summed_arr_m)
+                    + np.asarray(rate_systs_summed_arr_m)
+                )
+                p_err_arr = nom_arr_all + sqrt_sum_p
+                m_err_arr = nom_arr_all - sqrt_sum_m
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    p_err_arr_ratio = np.where(
+                        nom_arr_all > 0, p_err_arr / nom_arr_all, 1
+                    )
+                    m_err_arr_ratio = np.where(
+                        nom_arr_all > 0, m_err_arr / nom_arr_all, 1
+                    )
+                syst_err_mode = "total" if unblind_flag else True
+            except Exception as exc:
+                print(
+                    f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
+                )
 
         if is_sparse2d:
             hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate(
@@ -1336,10 +1490,13 @@ def _render_variable_category(
         ]
         if not channels:
             return 0, 0, html_dirs
-        hist_mc_channel = hist_mc.integrate("channel", channels)[{'channel': sum}]
-        hist_mc_integrated = hist_mc_channel.integrate(
-            "systematic", "nominal"
+        hist_mc_channel = hist_mc.integrate("channel", channels)[{"channel": sum}]
+        samples_to_rm = _collect_samples_to_remove(
+            region_ctx.sample_removal_rules, hist_cat, region_ctx
         )
+        if samples_to_rm:
+            hist_mc_channel = hist_mc_channel.remove("process", samples_to_rm)
+        hist_mc_integrated = hist_mc_channel.integrate("systematic", "nominal")
         hist_mc_sumw2 = None
         if hist_mc_sumw2_orig is not None:
             channels_sumw2 = [
@@ -1350,7 +1507,9 @@ def _render_variable_category(
             if channels_sumw2:
                 hist_mc_sumw2 = hist_mc_sumw2_orig.integrate(
                     "channel", channels_sumw2
-                )[{'channel': sum}]
+                )[{"channel": sum}]
+                if samples_to_rm:
+                    hist_mc_sumw2 = hist_mc_sumw2.remove("process", samples_to_rm)
                 hist_mc_sumw2 = hist_mc_sumw2.integrate(
                     "systematic", "nominal"
                 )
@@ -1421,17 +1580,14 @@ def _render_variable_category(
             if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
             else hist_mc_integrated
         )
-        if region_ctx.years:
-            year_str = "_".join(region_ctx.years)
-        else:
-            year_str = "ULall"
-        title = f"{hist_cat}_{var_name}_{year_str}"
+        title = f"{hist_cat}_{var_name}"
+        if unit_norm_bool:
+            title = f"{title}_unitnorm"
         bins_override = region_ctx.analysis_bins.get(var_name)
-        default_bins = (
-            axes_info[var_name]["variable"] if var_name in axes_info else None
-        )
+        axis_meta = axes_info.get(var_name, {})
+        default_bins = axis_meta.get("variable")
         stacked_kwargs = {
-            "group": region_ctx.group_map,
+            "group": {k: v for k, v in region_ctx.group_map.items() if v},
             "lumitag": region_ctx.lumi_pair[0] if region_ctx.lumi_pair else None,
             "comtag": region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
             "h_mc_sumw2": hist_mc_sumw2,
@@ -1451,11 +1607,11 @@ def _render_variable_category(
             hist_mc_integrated,
             hist_data_to_plot,
             var=var_name,
-            unit_norm_bool=False,
+            unit_norm_bool=unit_norm_bool,
             **stacked_kwargs,
         )
         fig.savefig(
-            os.path.join(save_dir_path_tmp, title),
+            os.path.join(save_dir_path_tmp, f"{title}.png"),
             bbox_inches="tight",
             pad_inches=0.05,
         )
@@ -1561,10 +1717,11 @@ def populate_group_map(samples, pattern_map):
     fallback_groups = OrderedDict()
 
     for proc_name in samples:
+        canonical_name = te_utils.canonicalize_process_name(proc_name)
         matched = False
         for grp, patterns in pattern_map.items():
             for pat in patterns:
-                if pat in proc_name:
+                if pat in canonical_name or pat in proc_name:
                     out[grp].append(proc_name)
                     matched = True
                     break
@@ -2690,13 +2847,27 @@ def _finalize_layout(
     return label_artist, events_artist, legend_anchor_local
 
 
+def _sample_in_group(sample_name, candidates, canonical_sample=None):
+    canonical_sample = canonical_sample or te_utils.canonicalize_process_name(sample_name)
+    return any(
+        canonical_sample == te_utils.canonicalize_process_name(candidate)
+        for candidate in (candidates or [])
+    )
+
+
 def _sample_in_signal_group(sample_name, sample_group_map, group_type):
+    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+
     if group_type == "CR":
-        return sample_name in sample_group_map.get("Signal", [])
+        return _sample_in_group(
+            sample_name, sample_group_map.get("Signal", []), canonical_sample
+        )
 
     if group_type == "SR":
         for grp_key in SR_SIGNAL_GROUP_KEYS:
-            if sample_name in sample_group_map.get(grp_key, []):
+            if _sample_in_group(
+                sample_name, sample_group_map.get(grp_key, []), canonical_sample
+            ):
                 return True
 
     return False
@@ -2712,7 +2883,7 @@ def _normalize_sequence(value):
 
 def _evaluate_channel_condition(condition, region_ctx):
     if condition == "not_split_by_lepflav":
-        return not yt.is_split_by_lepflav(region_ctx.dict_of_hists)
+        return not region_ctx.channels_split_by_lepflav
     raise ValueError(
         f"Unsupported channel transformation condition '{condition}'"
     )
@@ -2757,6 +2928,67 @@ def _apply_channel_dict_transformations(channel_dict, transformations):
                 f"Unsupported channel transformation '{transform}'"
             )
     return transformed_dict
+
+
+def _deduplicate_channel_bins(channel_dict):
+    """Return *channel_dict* with duplicate channel names removed per category."""
+
+    deduped = OrderedDict()
+    for key, channel_bins in channel_dict.items():
+        if channel_bins is None:
+            deduped[key] = None
+            continue
+        seen = set()
+        cleaned = []
+        for bin_name in channel_bins:
+            if bin_name in seen:
+                continue
+            seen.add(bin_name)
+            cleaned.append(bin_name)
+        deduped[key] = cleaned
+    return deduped
+
+
+def _category_name_has_lepflav(category_name):
+    cleaned = yt.get_str_without_lepflav(category_name)
+    return cleaned != category_name
+
+
+def _prune_unsplit_flavour_entries(channel_dict, region_ctx):
+    """Drop per-flavour categories that collapse onto aggregate bins when unsplit."""
+
+    if region_ctx.channels_split_by_lepflav:
+        return channel_dict
+
+    grouped = {}
+    for key, channel_bins in channel_dict.items():
+        bins_key = tuple(channel_bins or [])
+        grouped.setdefault(bins_key, []).append(key)
+
+    to_remove = set()
+    for _, categories in grouped.items():
+        if len(categories) <= 1:
+            continue
+        non_flavour = [
+            category
+            for category in categories
+            if not _category_name_has_lepflav(category)
+        ]
+        keeper = non_flavour[0] if non_flavour else categories[0]
+        for category in categories:
+            if category == keeper:
+                continue
+            to_remove.add(category)
+
+    if not to_remove:
+        return channel_dict
+
+    pruned = OrderedDict()
+    for key, channel_bins in channel_dict.items():
+        if key in to_remove:
+            continue
+        pruned[key] = channel_bins
+    return pruned
 
 
 def _categorize_channel_dict_entries(channel_dict):
@@ -2947,6 +3179,9 @@ class RegionContext(object):
         self.signal_samples = signal_samples
         self.unblind_default = unblind_default
         self.lumi_pair = lumi_pair
+        self.channels_split_by_lepflav = bool(
+            yt.is_split_by_lepflav(dict_of_hists)
+        )
         self.skip_variables = set() if skip_variables is None else set(skip_variables)
         self.analysis_bins = (
             {} if analysis_bins is None else copy.deepcopy(analysis_bins)
@@ -3601,6 +3836,9 @@ def produce_region_plots(
                             stacked_log_y=stacked_log_y,
                             unblind_flag=unblind_flag,
                             verbose=verbose,
+                            channel_display_labels=variable_payload.get(
+                                "channel_display_labels", {}
+                            ),
                         )
             stat_only_plots += stat_only
             stat_and_syst_plots += stat_and_syst
@@ -3673,11 +3911,12 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 # Will return None if a match is not found
 def get_scale_name(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = None
-    if sample_name in sample_group_map.get("Conv", []):
+    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+    if _sample_in_group(sample_name, sample_group_map.get("Conv", []), canonical_sample):
         scale_name_for_json = "convs"
-    elif sample_name in sample_group_map.get("Diboson", []):
+    elif _sample_in_group(sample_name, sample_group_map.get("Diboson", []), canonical_sample):
         scale_name_for_json = "Diboson"
-    elif sample_name in sample_group_map.get("Triboson", []):
+    elif _sample_in_group(sample_name, sample_group_map.get("Triboson", []), canonical_sample):
         scale_name_for_json = "Triboson"
     elif _sample_in_signal_group(sample_name, sample_group_map, group_type):
         wc_matches = [proc_str for proc_str in SIGNAL_WC_MATCHES if proc_str in sample_name]
@@ -3717,12 +3956,13 @@ def get_rate_systs(sample_name,sample_group_map,group_type="CR"):
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
     scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type=group_type)
+    canonical_sample = te_utils.canonicalize_process_name(sample_name)
 
     # Get the lumi uncty for this sample (same for all samles)
     lumi_uncty = te_utils.cached_get_syst("lumi")
 
     # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
-    if sample_name in sample_group_map["Flips"]:
+    if _sample_in_group(sample_name, sample_group_map["Flips"], canonical_sample):
         flip_uncty = te_utils.cached_get_syst("charge_flips", "charge_flips_sm")
     else:
         flip_uncty = (1.0, 1, 0)
@@ -3986,6 +4226,15 @@ def _values_without_flow(
 
     axes = getattr(hist_for_axes, "axes", None)
     if axes is None or values.ndim < len(axes):
+        fallback_hist = hist_for_axes if hasattr(hist_for_axes, "eval") else None
+        if fallback_hist is not None:
+            try:
+                trimmed = _eval_without_underflow(fallback_hist)
+            except Exception:
+                return values
+            if include_overflow or trimmed.size == 0:
+                return trimmed
+            return trimmed[:-1]
         return values
 
     slices = []
@@ -5063,6 +5312,20 @@ def run_plots_for_region(
             channel_mode_override=channel_mode,
         )
 
+        if (
+            region_ctx.channel_mode == "per-channel"
+            and not region_ctx.channels_split_by_lepflav
+        ):
+            mode_label = CHANNEL_MODE_LABELS.get(channel_mode, channel_mode)
+            warnings.warn(
+                (
+                    f"Skipping {mode_label} channel output for {region_ctx.name}: "
+                    "input histograms are not split by lepton flavour."
+                ),
+                RuntimeWarning,
+            )
+            continue
+
         if multi_mode:
             mode_label = CHANNEL_MODE_LABELS.get(channel_mode, channel_mode)
             print(f"\n[{region_ctx.name}] Channel output mode: {mode_label}")
@@ -5098,8 +5361,10 @@ def main():
         choices=("merged", "split", "both"),
         default="merged",
         help=(
-            "Control how channel categories are rendered: 'merged' integrates each category before plotting, "
-            "'split' keeps the individual channels, and 'both' renders both sets (default: merged)."
+            "Control how channel categories are rendered: 'merged' integrates each category before plotting "
+            "and suppresses split-only folders when the input histograms are already merged, 'split' keeps "
+            "the individual channels but is skipped when the payload lacks per-flavour bins, and 'both' "
+            "renders the two sets back-to-back (default: merged)."
         ),
     )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")

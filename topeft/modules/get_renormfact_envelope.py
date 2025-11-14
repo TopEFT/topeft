@@ -2,6 +2,7 @@ import numpy as np
 import argparse
 
 import topcoffea.modules.utils as utils
+from topeft.modules.utils import canonicalize_process_name
 from topeft.modules.yield_tools import YieldTools
 yt = YieldTools()
 
@@ -18,18 +19,21 @@ RENORMFACT_VAR_LST = [
 
 # Samples that do not include renorm and fact variations
 NO_RENORMFACT_LST = [
-    "dataUL16",
-    "dataUL16APV",
-    "dataUL17",
-    "dataUL18",
-    "flipsUL16",
-    "flipsUL16APV",
-    "flipsUL17",
-    "flipsUL18",
-    "nonpromptUL16",
-    "nonpromptUL16APV",
-    "nonpromptUL17",
-    "nonpromptUL18",
+    canonicalize_process_name(proc_name)
+    for proc_name in [
+        "dataUL16",
+        "dataUL16APV",
+        "dataUL17",
+        "dataUL18",
+        "flipsUL16",
+        "flipsUL16APV",
+        "flipsUL17",
+        "flipsUL18",
+        "nonpromptUL16",
+        "nonpromptUL16APV",
+        "nonpromptUL17",
+        "nonpromptUL18",
+    ]
 ]
 
 
@@ -55,7 +59,8 @@ def get_renormfact_envelope(dict_of_hists):
         # Loop over processes and channels and find the bins with the most extreme rf variations
         out_dict = {}
         for process_name in process_lst:
-            if process_name in NO_RENORMFACT_LST: continue
+            if canonicalize_process_name(process_name) in NO_RENORMFACT_LST:
+                continue
             for cat_name in cat_lst:
                 print("\t\t",process_name,cat_name)
 

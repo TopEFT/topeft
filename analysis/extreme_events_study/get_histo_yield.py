@@ -1,5 +1,6 @@
 import topcoffea.modules.utils as utils
 from topcoffea.modules.YieldTools import YieldTools
+from topeft.modules.utils import canonicalize_process_name
 from make_cr_and_sr_plots import get_lumi_for_sample
 
 
@@ -11,7 +12,8 @@ def get_bins_sum(histo):
     sample_lumi_dict = {}
     signal_sample = []
     for sample_name in all_samples:
-        if "nonprompt" not in sample_name:
+        canonical_sample = canonicalize_process_name(sample_name)
+        if "nonprompt" not in canonical_sample:
             signal_sample.append(sample_name)
         sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
     histo_summed.scale(sample_lumi_dict,axis="sample")
