@@ -11,7 +11,7 @@ from cycler import cycler
 
 import mplhep as hep
 import hist
-from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT
 from topeft.modules.paths import topeft_path
 
 metadata_path = topeft_path("params/metadata.yml")

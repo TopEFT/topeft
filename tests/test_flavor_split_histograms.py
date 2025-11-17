@@ -218,15 +218,13 @@ def _install_test_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
     _maybe_install_stub(monkeypatch, "awkward", _awkward_factory)
 
     def _hist_eft_factory() -> types.ModuleType:
-        module = types.ModuleType("topcoffea.modules.histEFT")
+        module = types.ModuleType("topcoffea.modules.HistEFT")
         module.HistEFT = _DummyHistEFT
+        sys.modules["topcoffea.modules.histEFT"] = module
         return module
 
-    _maybe_install_stub(
-        monkeypatch,
-        "topcoffea.modules.histEFT",
-        _hist_eft_factory,
-    )
+    _maybe_install_stub(monkeypatch, "topcoffea.modules.HistEFT", _hist_eft_factory)
+    _maybe_install_stub(monkeypatch, "topcoffea.modules.histEFT", _hist_eft_factory)
 
     def _topcoffea_corrections_factory() -> types.ModuleType:
         module = types.ModuleType("topcoffea.modules.corrections")

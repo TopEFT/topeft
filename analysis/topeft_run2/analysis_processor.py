@@ -18,7 +18,7 @@ import re
 import logging
 
 import hist
-from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT
 import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask

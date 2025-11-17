@@ -2,7 +2,7 @@ import numpy as np
 import copy
 from collections.abc import Mapping
 
-from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.utils as utils
 from topeft.modules.compatibility import add_sumw2_stub
 from topeft.modules.runner_output import SUMMARY_KEY
