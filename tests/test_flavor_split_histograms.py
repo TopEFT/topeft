@@ -470,18 +470,21 @@ def test_flavor_split_registers_flavored_histograms(processor):
     base_hist_key = (
         "dummy",
         "3l_p_offZ_1b_2j",
+        "isSR_3l",
         _DATASET_NAME,
         "nominal",
     )
     flavored_hist_key = (
         "dummy",
         "3l_eee_p_offZ_1b_2j",
+        "isSR_3l",
         _DATASET_NAME,
         "nominal",
     )
     base_sumw2_key = (
         "dummy_sumw2",
         "3l_p_offZ_1b_2j",
+        "isSR_3l",
         _DATASET_NAME,
         "nominal",
     )
@@ -526,12 +529,14 @@ def test_histogram_fallback_finds_base_channel(processor):
     histkey = (
         dense_axis_name,
         missing_flavor_channel,
+        processor.appregion,
         dataset_hist,
         hist_variation_label,
     )
     fallback_histkey = (
         dense_axis_name,
         base_ch_name,
+        processor.appregion,
         dataset_hist,
         hist_variation_label,
     )
@@ -548,6 +553,7 @@ def test_histogram_tuple_structure_includes_channel_metadata(processor):
     expected_key = (
         dense_axis_name,
         processor.channel,
+        processor.appregion,
         dataset_hist,
         processor.syst,
     )
