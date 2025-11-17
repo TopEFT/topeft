@@ -20,8 +20,8 @@
 "ctlTi": "cleQt3Rei"
 
 # cpQM, cpQ3 <-> cHQ1, cHQ3
-"cpQM": ["expr::cpQM('@ - @1', {cHQ1}, {cHQ3})", ["cHQ1", "cHQ3"]] # cpQM = cpQ1 - cpQ3
-"cQlMi": ["expr::cQlMi('@ - @1', {cQl1i}, {cQl3i})", ["cQl1i", "cQl3i"]] # cQlMi = cQl1i - cQl3i
+"cpQM": ["expr::cpQM('@0 - @1', {cHQ1}, {cHQ3})", ["cHQ1", "cHQ3"]] # cpQM = cpQ1 - cpQ3
+"cQlMi": ["expr::cQlMi('@0 - @1', {cQl1i}, {cQl3i})", ["cQl1i", "cQl3i"]] # cQlMi = cQl1i - cQl3i
 
 # ctG relative minus sign
 "ctG":  ["expr::ctGRe('-1 * @0', {ctG})", ["ctG"]]
