@@ -56,7 +56,11 @@ aspects are worth keeping in mind when extending it:
 * **Histogram keys** – the processor accepts either a single 5-tuple or a list
   of tuples per systematic label.  The normalization in the constructor ensures
   that the internal representation always uses ordered tuples, making it safe to
-  extend the histogram planning logic without breaking call sites.
+  extend the histogram planning logic without breaking call sites.  The
+  pickled histograms keep the full ``(variable, channel, application, sample,
+  systematic)`` tuple so downstream data-driven estimation helpers (for
+  example :class:`topeft.modules.dataDrivenEstimation.DataDrivenProducer`)
+  receive the application tag without relying on categorical axes.
 
 Because the constructor performs strict validation (checking for ``None``
 arguments, verifying tuple lengths, etc.), deviations are caught early.  The

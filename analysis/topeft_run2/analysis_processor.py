@@ -393,6 +393,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     key_ch,
                     key_sample,
                     syst_label,
+                    application=key_appl,
                 )
 
                 histogram[hist_key] = HistEFT(
@@ -422,6 +423,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         self._channel,
                         key_sample,
                         syst_label,
+                        application=self._appregion,
                     )
 
                     histogram[sumw2_key] = HistEFT(
@@ -534,9 +536,20 @@ class AnalysisProcessor(processor.ProcessorABC):
         return ch_name, base_ch_name
 
     def _build_histogram_key(
-        self, variable: str, channel: str, sample: str, systematic: str
-    ) -> Tuple[str, str, str, str]:
-        return (variable, channel, sample, systematic)
+        self,
+        variable: str,
+        channel: str,
+        sample: str,
+        systematic: str,
+        application: Optional[str] = None,
+    ) -> Tuple[str, str, str, str, str]:
+        return (
+            variable,
+            channel,
+            application if application is not None else self._appregion,
+            sample,
+            systematic,
+        )
 
     def _build_dataset_context(self, events) -> DatasetContext:
         events_metadata = self._metadata_to_mapping(getattr(events, "metadata", None))
@@ -1975,6 +1988,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     ch_name,
                     dataset.dataset,
                     hist_variation_label,
+                    application=self._appregion,
                 )
 
                 if histkey not in hout:
@@ -1983,6 +1997,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         base_ch_name,
                         dataset.dataset,
                         hist_variation_label,
+                        application=self._appregion,
                     )
                     if fallback_histkey not in hout:
                         continue
@@ -2008,6 +2023,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     base_ch_name,
                     dataset.dataset,
                     hist_variation_label,
+                    application=self._appregion,
                 )
                 if histkey not in hout.keys():
                     continue
