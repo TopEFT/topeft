@@ -24,8 +24,8 @@
 "cQlMi": ["expr::cQlMi('@0 - @1', {cQl1i}, {cQl3i})", ["cQl1i", "cQl3i"]] # cQlMi = cQl1i - cQl3i
 
 # ctG relative minus sign
-"ctG":  ["expr::ctGRe('-1 * @0', {ctG})", ["ctG"]]
-"ctGI": ["expr::ctGIm('-1 * @0', {ctGI})", ["ctGI"]]
+"ctG":  ["expr::ctG('-1 * @0', {ctGRe})", ["ctGRe"]]
+"ctGI": ["expr::ctGI('-1 * @0', {ctGIm})", ["ctGIm"]]
 
 # ctW,ctB <-> ctW,ctZ
 "ctW": ["expr::ctW('-1 * @0', {ctWRe})", ["ctWRe"]]
