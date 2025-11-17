@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 
 from topcoffea.modules.objects import *
 from topcoffea.modules.selection import *
-from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 
 

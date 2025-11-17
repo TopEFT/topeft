@@ -8,11 +8,14 @@ Top quark EFT analyses using the Coffea framework
 
 ## Repository contents
 The `topeft/topeft` directory is set up to be installed as a pip installable package.
-- `topeft/topeft`: A package containing modules and files that will be installed into the environment. 
+- `topeft/topeft`: A package containing modules and files that will be installed into the environment.
 - `topeft/setup.py`: File for installing the `topeft` package
-- `topeft/analysis`: Subfolders with different analyses or studies. 
+- `topeft/analysis`: Subfolders with different analyses or studies.
 - `topeft/tests`: Scripts for testing the code with `pytest`. For additional details, please see the [README](https://github.com/TopEFT/topeft/blob/master/tests/README.md) in the `tests` directory.
 - `topeft/input_samples`: Configuration files that point to root files to process.
+
+### Legacy HistEFT support
+The repository vendors the historical `HistEFT` histogram implementation under `topcoffea/modules` so EFT coefficient handling continues to use the legacy interfaces (`topcoffea.modules.HistEFT`).
 
 ## Getting started
 

@@ -8,7 +8,7 @@ np.seterr(divide="ignore", invalid="ignore", over="ignore")
 import coffea.processor as processor
 
 import hist
-from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.corrections as corrections
 

@@ -155,7 +155,7 @@ def _install_stubs(monkeypatch):
     topcoffea_modules_pkg.remote_environment = remote_env_module  # type: ignore[attr-defined]
 
     # HistEFT stub
-    hist_module = _module("topcoffea.modules.histEFT")
+    hist_module = _module("topcoffea.modules.HistEFT")
 
     class _DummyHistEFT:
         def __init__(self, *axes, wc_names=None, label=None, **kwargs):

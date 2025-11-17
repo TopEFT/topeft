@@ -19,7 +19,7 @@ import hist
 import coffea.processor as processor
 from coffea.nanoevents import NanoAODSchema
 
-from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT
 
 import simple_processor
 

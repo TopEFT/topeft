@@ -18,7 +18,7 @@ from typing import Any, Dict, Iterable, Mapping, MutableMapping, Optional, Seque
 import hist
 
 try:  # pragma: no cover - HistEFT is optional in some environments
-    from topcoffea.modules.histEFT import HistEFT
+    from topcoffea.modules.HistEFT import HistEFT
 except Exception:  # pragma: no cover - fallback when HistEFT is unavailable
     HistEFT = None  # type: ignore[assignment]
 

@@ -20,7 +20,7 @@ except Exception:  # pragma: no cover - fallback when histogram extras missing
     Hist = None  # type: ignore[assignment]
 
 try:  # pragma: no cover - topcoffea is optional for a subset of the tests
-    from topcoffea.modules.histEFT import HistEFT
+    from topcoffea.modules.HistEFT import HistEFT
 except Exception:  # pragma: no cover - fallback when HistEFT is unavailable
     HistEFT = None  # type: ignore[assignment]
 

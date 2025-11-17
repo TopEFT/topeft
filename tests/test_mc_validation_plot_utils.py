@@ -12,7 +12,7 @@ from analysis.mc_validation.plot_utils import (
 )
 
 try:  # pragma: no cover - optional dependency in CI
-    from topcoffea.modules.histEFT import HistEFT as _HistEFT
+    from topcoffea.modules.HistEFT import HistEFT as _HistEFT
 except ModuleNotFoundError:  # pragma: no cover - fallback used when topcoffea is absent
     _HistEFT = None
 
