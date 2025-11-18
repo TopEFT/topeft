@@ -9,6 +9,25 @@ from topeft.modules.paths import topeft_path
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_te_param = GetParam(topeft_path("params/params.json"))
 
+
+def _validate_tuple_histograms(hist_map):
+    """Ensure histogram mappings carry 5-tuple identifiers with application tags."""
+
+    if not hasattr(hist_map, "keys"):
+        raise TypeError("Histogram container must implement .keys()")
+
+    for key in hist_map.keys():
+        if key == "meta":
+            continue
+        if not isinstance(key, tuple):
+            continue
+        if len(key) != 5:
+            raise ValueError(
+                "Histogram keys must be 5-tuples of (variable, channel, application, sample, systematic)"
+            )
+        if key[2] in (None, ""):
+            raise ValueError(f"Histogram key {key!r} is missing an application region")
+
 def hist_remove(histo, axis, lst):
     if axis == "channel":
         index = 1
@@ -152,6 +171,7 @@ class DataDrivenProducer:
             self.inhist=utils.get_hist_from_pkl(inputHist)
         else: # we already have the histogram
             self.inhist=inputHist
+        _validate_tuple_histograms(self.inhist)
         self.outputName=outputName
         self.verbose=False
         self.dataName='data'

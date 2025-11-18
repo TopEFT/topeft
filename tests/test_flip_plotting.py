@@ -41,9 +41,10 @@ def test_flip_application_plot_labels():
     entries = list(tuple_histogram_entries(payload))
     grouped = flip_ar_plotter.group_by_variable(entries)
 
-    histograms = grouped["observable"]["SampleA"]
-    ssz_label = flip_ar_plotter.build_channel_label("SampleA", "ssz")
-    osz_label = flip_ar_plotter.build_channel_label("SampleA", "osz")
+    sample_label = "SampleA (flip_application)"
+    histograms = grouped["observable"][sample_label]
+    ssz_label = flip_ar_plotter.build_channel_label(sample_label, "ssz")
+    osz_label = flip_ar_plotter.build_channel_label(sample_label, "osz")
 
     fig = flip_ar_plotter.make_fig(
         histograms["ssz"],
