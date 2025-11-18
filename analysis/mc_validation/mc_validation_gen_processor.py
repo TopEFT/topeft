@@ -320,8 +320,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         for key, hist_obj in ordered_tuple_entries.items():
             variable = key[0]
             channel = key[1] if len(key) > 1 else ""
-            sample = key[3] if len(key) > 3 else key[2]
-            systematic = key[4] if len(key) > 4 else key[3]
+            if len(key) == 4:
+                # Legacy 4-element tuples: (variable, channel, sample, systematic)
+                sample = key[2]
+                systematic = key[3]
+            else:
+                # New 5-element tuples: (variable, channel, application, sample, systematic)
+                sample = key[3]
+                systematic = key[4]
             label_parts = [sample]
             if channel and channel != self._default_channel:
                 label_parts.append(channel)
