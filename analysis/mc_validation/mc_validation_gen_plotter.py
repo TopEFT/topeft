@@ -25,7 +25,7 @@ from analysis.mc_validation.plot_utils import (  # noqa: E402
     build_dataset_histograms,
     component_labels,
     component_values,
-    tuple_histogram_items,
+    require_tuple_histogram_items,
 )
 
 
@@ -49,20 +49,13 @@ def save_pkl_for_arr(sf_arr,tag):
 
 # Main wrapper script for making the private vs central comparison plots
 def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
-    tuple_entries = tuple_histogram_items(dict_of_hists)
-    using_tuple_entries = bool(tuple_entries)
-    rebuilt_hists = build_dataset_histograms(dict_of_hists) if using_tuple_entries else {}
+    tuple_entries = require_tuple_histogram_items(dict_of_hists)
+    rebuilt_hists = build_dataset_histograms(dict_of_hists)
 
-    if using_tuple_entries:
-        vars_lst = sorted(rebuilt_hists.keys())
-        sample_lst = component_values(tuple_entries, "sample")
-        sample_labels = component_labels(tuple_entries, "sample", include_application=True)
-        dataset_axis_name = "dataset"
-    else:
-        vars_lst = yt.get_hist_list(dict_of_hists)
-        sample_lst = yt.get_cat_lables(dict_of_hists, "sample")
-        sample_labels = sample_lst
-        dataset_axis_name = "sample"
+    vars_lst = sorted(rebuilt_hists.keys())
+    sample_lst = component_values(tuple_entries, "sample")
+    sample_labels = component_labels(tuple_entries, "sample", include_application=True)
+    dataset_axis_name = "dataset"
 
     print("\nSamples:",sample_labels)
     print("\nVariables:",vars_lst)
