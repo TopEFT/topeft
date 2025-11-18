@@ -34,9 +34,13 @@ def group_by_variable(
         if preferred_histograms and legacy_histograms:
             # Avoid double counting when both tagged and legacy entries are present by
             # preferring the application-specific histograms while keeping samples only
-            # available in the legacy map.
+            # available in the legacy map. Merge per sample to preserve any channels
+            # present only in legacy histograms.
             application_histograms = {**legacy_histograms}
-            application_histograms.update(preferred_histograms)
+            for sample, channel_map in preferred_histograms.items():
+                merged_channels = {**application_histograms.get(sample, {})}
+                merged_channels.update(channel_map)
+                application_histograms[sample] = merged_channels
         else:
             application_histograms = preferred_histograms or legacy_histograms
         if application_histograms:
