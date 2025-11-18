@@ -166,12 +166,21 @@ def summarise_by_variable(
     for variable, application_map in grouped.items():
         application_mapping: MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]] = {}
         for application_name, sample_map in application_map.items():
-            if application is not None and application_name == "":
-                application_name = application
-            sample_mapping: MutableMapping[str, MutableMapping[str, hist.Hist]] = {}
+            target_application = (
+                application if application is not None and application_name == "" else application_name
+            )
+
+            target_sample_mapping = application_mapping.setdefault(target_application, {})
             for sample, channel_map in sample_map.items():
-                sample_mapping[sample] = channel_map  # type: ignore[assignment]
-            application_mapping[application_name] = sample_mapping
+                existing_channels = target_sample_mapping.get(sample)
+                if existing_channels is None:
+                    target_sample_mapping[sample] = channel_map  # type: ignore[assignment]
+                else:
+                    # Prefer existing (application-tagged) entries when both are present while
+                    # keeping legacy-only channels.
+                    for channel, histogram in channel_map.items():
+                        target_sample_mapping[sample].setdefault(channel, histogram)
+
         result[variable] = application_mapping
     return result
 
