@@ -370,6 +370,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sampleType = "prompt_and_conversions"
 
         # Initialize objects
+
         met  = events.MET
         ele  = events.Electron
         mu   = events.Muon
@@ -1049,6 +1050,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
+
             ######### Store boolean masks with PackedSelection ##########
 
             selections = PackedSelection(dtype='uint64')
