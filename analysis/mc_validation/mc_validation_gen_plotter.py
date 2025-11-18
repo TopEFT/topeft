@@ -23,6 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from analysis.mc_validation.plot_utils import (  # noqa: E402
     build_dataset_histograms,
+    component_labels,
     component_values,
     tuple_histogram_items,
 )
@@ -55,13 +56,15 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
     if using_tuple_entries:
         vars_lst = sorted(rebuilt_hists.keys())
         sample_lst = component_values(tuple_entries, "sample")
+        sample_labels = component_labels(tuple_entries, "sample", include_application=True)
         dataset_axis_name = "dataset"
     else:
         vars_lst = yt.get_hist_list(dict_of_hists)
         sample_lst = yt.get_cat_lables(dict_of_hists, "sample")
+        sample_labels = sample_lst
         dataset_axis_name = "sample"
 
-    print("\nSamples:",sample_lst)
+    print("\nSamples:",sample_labels)
     print("\nVariables:",vars_lst)
 
     comp_proc_dict = {
