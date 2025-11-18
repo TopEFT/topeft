@@ -33,8 +33,10 @@ def group_by_variable(
         application_histograms: MutableMapping[str, MutableMapping[str, hist.Hist]] | None
         if preferred_histograms and legacy_histograms:
             # Avoid double counting when both tagged and legacy entries are present by
-            # preferring the application-specific histograms.
-            application_histograms = preferred_histograms
+            # preferring the application-specific histograms while keeping samples only
+            # available in the legacy map.
+            application_histograms = {**legacy_histograms}
+            application_histograms.update(preferred_histograms)
         else:
             application_histograms = preferred_histograms or legacy_histograms
         if application_histograms:
