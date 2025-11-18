@@ -42,30 +42,30 @@ def _normalise_component(value: object, fallback: str) -> str:
 def tuple_histogram_entries(payload: Mapping[object, object]) -> Iterator[TupleHistogramEntry]:
     """Yield :class:`TupleHistogramEntry` objects from *payload*.
 
-    Only entries keyed by tuple identifiers are considered.  The tuple
-    components are coerced to strings (with sensible defaults for ``None``) so
-    downstream code can construct labels without needing categorical axes on the
-    histograms.
+    Only entries keyed by five-element tuple identifiers are considered. The
+    application region is required so downstream aggregation utilities retain
+    the channel/application context instead of silently merging legacy entries.
     """
 
     for key, value in payload.items():
         if key == SUMMARY_KEY:
             continue
-        if not isinstance(key, tuple) or len(key) not in (4, 5):
+        if not isinstance(key, tuple):
             continue
+        if len(key) != 5:
+            raise ValueError(
+                "Histogram accumulator keys must be 5-tuples of (variable, channel, application, sample, systematic)"
+            )
         if not isinstance(value, hist.Hist):
             continue
 
         variable = _normalise_component(key[0], "")
         channel = _normalise_component(key[1], "")
-        if len(key) == 5:
-            application = _normalise_component(key[2], "")
-            sample = _normalise_component(key[3], "")
-            systematic = _normalise_component(key[4], "nominal")
-        else:
-            application = ""
-            sample = _normalise_component(key[2], "")
-            systematic = _normalise_component(key[3], "nominal")
+        application = _normalise_component(key[2], "")
+        if application == "":
+            raise ValueError(f"Histogram key {key!r} is missing an application region")
+        sample = _normalise_component(key[3], "")
+        systematic = _normalise_component(key[4], "nominal")
 
         yield TupleHistogramEntry(
             variable=variable,
