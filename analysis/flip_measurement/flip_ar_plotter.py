@@ -32,17 +32,9 @@ def group_by_variable(
 
         application_histograms: MutableMapping[str, MutableMapping[str, hist.Hist]] | None
         if preferred_histograms and legacy_histograms:
-            merged: MutableMapping[str, MutableMapping[str, hist.Hist]] = {
-                sample: channel_map.copy() for sample, channel_map in legacy_histograms.items()
-            }
-            for sample, channel_map in preferred_histograms.items():
-                merged_channels = merged.setdefault(sample, {})
-                for channel, histogram in channel_map.items():
-                    existing = merged_channels.get(channel)
-                    merged_channels[channel] = (
-                        existing + histogram if existing is not None else histogram
-                    )
-            application_histograms = merged
+            # Avoid double counting when both tagged and legacy entries are present by
+            # preferring the application-specific histograms.
+            application_histograms = preferred_histograms
         else:
             application_histograms = preferred_histograms or legacy_histograms
         if application_histograms:
