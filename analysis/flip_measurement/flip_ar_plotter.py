@@ -24,14 +24,27 @@ def load_histograms(path: str) -> Iterable[TupleHistogramEntry]:
 def group_by_variable(
     entries: Iterable[TupleHistogramEntry],
 ) -> MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]]:
-    grouped = summarise_by_variable(
-        entries, systematic="nominal", application="flip_application"
-    )
+    grouped = summarise_by_variable(entries, systematic="nominal", application=None)
     channel_grouped: MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]] = {}
     for variable, application_map in grouped.items():
-        application_histograms = application_map.get("flip_application") or application_map.get(
-            ""
-        )
+        preferred_histograms = application_map.get("flip_application")
+        legacy_histograms = application_map.get("")
+
+        application_histograms: MutableMapping[str, MutableMapping[str, hist.Hist]] | None
+        if preferred_histograms and legacy_histograms:
+            merged: MutableMapping[str, MutableMapping[str, hist.Hist]] = {
+                sample: channel_map.copy() for sample, channel_map in legacy_histograms.items()
+            }
+            for sample, channel_map in preferred_histograms.items():
+                merged_channels = merged.setdefault(sample, {})
+                for channel, histogram in channel_map.items():
+                    existing = merged_channels.get(channel)
+                    merged_channels[channel] = (
+                        existing + histogram if existing is not None else histogram
+                    )
+            application_histograms = merged
+        else:
+            application_histograms = preferred_histograms or legacy_histograms
         if application_histograms:
             channel_grouped[variable] = application_histograms
     return channel_grouped
