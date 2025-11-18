@@ -24,7 +24,28 @@ def load_histograms(path: str) -> Iterable[TupleHistogramEntry]:
 def group_by_variable(
     entries: Iterable[TupleHistogramEntry],
 ) -> MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]]:
-    return summarise_by_variable(entries, systematic="nominal")
+    grouped = summarise_by_variable(entries, systematic="nominal", application=None)
+    channel_grouped: MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]] = {}
+    for variable, application_map in grouped.items():
+        preferred_histograms = application_map.get("flip_application")
+        legacy_histograms = application_map.get("")
+
+        application_histograms: MutableMapping[str, MutableMapping[str, hist.Hist]] | None
+        if preferred_histograms and legacy_histograms:
+            # Avoid double counting when both tagged and legacy entries are present by
+            # preferring the application-specific histograms while keeping samples only
+            # available in the legacy map. Merge per sample to preserve any channels
+            # present only in legacy histograms.
+            application_histograms = {**legacy_histograms}
+            for sample, channel_map in preferred_histograms.items():
+                merged_channels = {**application_histograms.get(sample, {})}
+                merged_channels.update(channel_map)
+                application_histograms[sample] = merged_channels
+        else:
+            application_histograms = preferred_histograms or legacy_histograms
+        if application_histograms:
+            channel_grouped[variable] = application_histograms
+    return channel_grouped
 
 
 def make_fig(

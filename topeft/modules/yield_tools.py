@@ -279,7 +279,7 @@ class YieldTools():
                 if isinstance(key, str):
                     if key != "SumOfEFTweights":
                         string_keys.append(key)
-                elif isinstance(key, tuple) and len(key) == 4:
+                elif isinstance(key, tuple) and len(key) in (4, 5):
                     tuple_variables.append(key[0])
             if string_keys:
                 return string_keys
@@ -324,7 +324,7 @@ class YieldTools():
             tuple_entries = {
                 key: value
                 for key, value in hin_dict.items()
-                if isinstance(key, tuple) and len(key) == 4
+                if isinstance(key, tuple) and len(key) in (4, 5)
             }
 
             selected_hist = None
@@ -357,24 +357,28 @@ class YieldTools():
                     raise missing_axis_error
                 raise Exception(f"No histograms found for variable {target_variable!r}")
 
-            metadata_index = {
-                "variable": 0,
-                "channel": 1,
-                "sample": 2,
-                "systematic": 3,
+            query_axis = "sample" if axis == "process" else axis
+            tuple_axis_positions = {
+                5: ("variable", "channel", "application", "sample", "systematic"),
+                4: ("variable", "channel", "sample", "systematic"),
             }
 
-            query_axis = "sample" if axis == "process" else axis
-            if query_axis in metadata_index:
-                idx = metadata_index[query_axis]
+            if any(query_axis in axes for axes in tuple_axis_positions.values()):
                 values = []
                 for key in sorted(relevant_keys):
+                    axes = tuple_axis_positions.get(len(key))
+                    if not axes or query_axis not in axes:
+                        continue
+                    idx = axes.index(query_axis)
+                    if idx >= len(key):
+                        continue
                     entry = key[idx]
                     if entry is None:
                         continue
                     if entry not in values:
                         values.append(entry)
-                return values
+                if values:
+                    return values
 
             representative = tuple_entries[relevant_keys[0]]
             if isinstance(representative, HistEFT) and query_axis in representative.axes.name:

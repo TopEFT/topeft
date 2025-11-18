@@ -22,8 +22,20 @@ def _build_histogram(values: np.ndarray) -> Hist:
 
 def test_flip_application_plot_labels():
     payload = {
-        ("observable", "ssz", "SampleA", "nominal"): _build_histogram(np.asarray([0.5, 1.5])),
-        ("observable", "osz", "SampleA", "nominal"): _build_histogram(np.asarray([0.5, 2.5])),
+        (
+            "observable",
+            "ssz",
+            "flip_application",
+            "SampleA",
+            "nominal",
+        ): _build_histogram(np.asarray([0.5, 1.5])),
+        (
+            "observable",
+            "osz",
+            "flip_application",
+            "SampleA",
+            "nominal",
+        ): _build_histogram(np.asarray([0.5, 2.5])),
     }
 
     entries = list(tuple_histogram_entries(payload))
