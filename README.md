@@ -88,6 +88,19 @@ For a narrated walkthrough that ties environment preparation, tarball packaging,
        --options configs/fullR2_run.yml
    ```
 
+   The `analysis/topeft_run2/full_run.sh` wrapper automates this setup when you
+   want a single entry point. It activates the shared Conda environment when
+   available, refreshes the cached TaskVine tarball via
+   `python -m topcoffea.modules.remote_environment`, and forwards control- or
+   signal-region selections to `run_analysis.py` while keeping the TaskVine
+   executor defaults (manager name `${USER}-taskvine-coffea`, 5-tuple histogram
+   pickle outputs). Example end-to-end invocation:
+
+   ```bash
+   cd analysis/topeft_run2
+   ./full_run.sh --sr -y 2022 2022EE --outdir histos/run3_taskvine --tag nightly
+   ```
+
 3. Start one or more workers that match the manager name advertised by the run. A minimal local worker looks like:
 
    ```bash
