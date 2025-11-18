@@ -358,29 +358,18 @@ class YieldTools():
                 raise Exception(f"No histograms found for variable {target_variable!r}")
 
             query_axis = "sample" if axis == "process" else axis
-            metadata_index = {
-                5: {
-                    "variable": 0,
-                    "channel": 1,
-                    "application": 2,
-                    "sample": 3,
-                    "systematic": 4,
-                },
-                4: {
-                    "variable": 0,
-                    "channel": 1,
-                    "sample": 2,
-                    "systematic": 3,
-                },
+            tuple_axis_positions = {
+                5: ("variable", "channel", "application", "sample", "systematic"),
+                4: ("variable", "channel", "sample", "systematic"),
             }
 
-            if any(query_axis in mapping for mapping in metadata_index.values()):
+            if any(query_axis in axes for axes in tuple_axis_positions.values()):
                 values = []
                 for key in sorted(relevant_keys):
-                    mapping = metadata_index.get(len(key), {})
-                    if query_axis not in mapping:
+                    axes = tuple_axis_positions.get(len(key))
+                    if not axes or query_axis not in axes:
                         continue
-                    idx = mapping[query_axis]
+                    idx = axes.index(query_axis)
                     if idx >= len(key):
                         continue
                     entry = key[idx]
