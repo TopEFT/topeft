@@ -35,11 +35,11 @@ _COMPONENT_INDEX = {
 
 
 def _normalise_key(key: tuple) -> TupleKey:
-    if len(key) == 4:
-        return (key[0], key[1], None, key[2], key[3])
-    if len(key) == 5:
-        return key  # type: ignore[return-value]
-    raise ValueError("Tuple histogram keys must have four or five elements")
+    if len(key) != 5:
+        raise ValueError(
+            "Tuple histogram keys must have five elements: (variable, channel, application, sample, systematic)"
+        )
+    return key  # type: ignore[return-value]
 
 
 def _label_components(key: TupleKey) -> Tuple[str, str, str, str, str]:
@@ -65,7 +65,7 @@ def tuple_histogram_items(hist_store: Mapping[Any, Any]) -> Dict[TupleKey, Any]:
 
     entries: Dict[TupleKey, Any] = {}
     for key, value in hist_store.items():
-        if isinstance(key, tuple) and len(key) in (4, 5):
+        if isinstance(key, tuple):
             entries[_normalise_key(key)] = value
     return entries
 

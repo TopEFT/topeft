@@ -118,6 +118,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             self._hist_lst = hist_lst  # Which hists to fill
 
         self._default_channel = "inclusive"
+        self._default_application = "inclusive"
         self._default_systematic = "nominal"
 
         self._accumulator = processor.dict_accumulator({})
@@ -304,13 +305,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         return hout
 
     def postprocess(self, accumulator):
-        tuple_entries = {
-            key: value
-            for key, value in accumulator.items()
-            if isinstance(key, tuple) and len(key) in (4, 5)
-        }
+        tuple_entries = {}
+        for key, value in accumulator.items():
+            if isinstance(key, tuple):
+                if len(key) != 5:
+                    raise ValueError(
+                        "Histogram accumulator keys must be 5-tuples of (variable, channel, application, sample, systematic)"
+                    )
+                tuple_entries[key] = value
 
-        ordered_tuple_entries: "OrderedDict[Tuple[str, str, str, str], HistEFT]" = OrderedDict(
+        ordered_tuple_entries: "OrderedDict[Tuple[str, str, str, str, str], HistEFT]" = OrderedDict(
             sorted(tuple_entries.items(), key=lambda item: item[0])
         )
 
@@ -320,17 +324,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         for key, hist_obj in ordered_tuple_entries.items():
             variable = key[0]
             channel = key[1] if len(key) > 1 else ""
-            if len(key) == 4:
-                # Legacy 4-element tuples: (variable, channel, sample, systematic)
-                sample = key[2]
-                systematic = key[3]
-            else:
-                # New 5-element tuples: (variable, channel, application, sample, systematic)
-                sample = key[3]
-                systematic = key[4]
+            application = key[2]
+            sample = key[3]
+            systematic = key[4]
             label_parts = [sample]
             if channel and channel != self._default_channel:
                 label_parts.append(channel)
+            if application and application != self._default_application:
+                label_parts.append(application)
             if systematic and systematic != self._default_systematic:
                 label_parts.append(systematic)
             sample_label = "__".join(filter(None, label_parts))
@@ -377,11 +378,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         channel: Union[str, None] = None,
         application: Union[str, None] = None,
         systematic: Union[str, None] = None,
-    ) -> Tuple[str, str, str, str]:
-        _ = application
+    ) -> Tuple[str, str, str, str, str]:
         return (
             variable,
             channel or self._default_channel,
+            application or self._default_application,
             sample,
             systematic or self._default_systematic,
         )

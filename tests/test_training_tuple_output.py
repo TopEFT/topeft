@@ -143,12 +143,13 @@ def training_result(training_processor, synthetic_events):
     return accumulator, module, processor
 
 
-def _assert_tuple_key(key: Tuple[str, str, str, str]) -> None:
+def _assert_tuple_key(key: Tuple[str, str, str, str, str]) -> None:
     assert isinstance(key, tuple)
-    assert len(key) == 4
-    variable, channel, sample, systematic = key
+    assert len(key) == 5
+    variable, channel, application, sample, systematic = key
     assert variable in {"counts", "njets", "j0pt", "j0eta", "l0pt"}
     assert isinstance(channel, str) and channel
+    assert application == "inclusive"
     assert sample == "SampleMC"
     assert systematic == "nominal"
 
