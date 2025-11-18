@@ -1,8 +1,10 @@
-import gzip
 from pathlib import Path
+import gzip
 
 import cloudpickle
+
 import numpy as np
+import pytest
 from hist import Hist, axis, storage
 
 from analysis.mc_validation.plot_utils import (
@@ -10,6 +12,7 @@ from analysis.mc_validation.plot_utils import (
     component_labels,
     component_values,
     filter_tuple_histograms,
+    require_tuple_histogram_items,
     tuple_histogram_items,
 )
 
@@ -118,4 +121,16 @@ def test_filter_tuple_histograms_supports_application_component():
 
     filtered = filter_tuple_histograms(tuple_entries, application="appA")
     assert set(filtered.keys()) == {("observable", "chan", "appA", "sampleA", "nominal")}
+
+
+def test_require_tuple_histogram_items_rejects_legacy_keys():
+    hist_store = {("observable", "channel", "sample", "nominal"): _constant_histogram(1.0)}
+
+    with pytest.raises(ValueError):
+        require_tuple_histogram_items(hist_store)
+
+
+def test_require_tuple_histogram_items_rejects_missing_tuple_entries():
+    with pytest.raises(ValueError):
+        require_tuple_histogram_items({"not_a_tuple": _constant_histogram(1.0)})
 

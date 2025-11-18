@@ -70,6 +70,17 @@ def tuple_histogram_items(hist_store: Mapping[Any, Any]) -> Dict[TupleKey, Any]:
     return entries
 
 
+def require_tuple_histogram_items(hist_store: Mapping[Any, Any]) -> Dict[TupleKey, Any]:
+    """Return tuple-keyed histogram entries or raise if none are present."""
+
+    entries = tuple_histogram_items(hist_store)
+    if not entries:
+        raise ValueError(
+            "Histogram payload must contain 5-tuple keys: (variable, channel, application, sample, systematic)"
+        )
+    return entries
+
+
 def component_values(tuple_entries: Mapping[TupleKey, Any], component: str) -> Sequence[str]:
     """Return sorted unique values for *component* within *tuple_entries*."""
 
@@ -259,6 +270,7 @@ __all__ = [
     "component_labels",
     "component_values",
     "filter_tuple_histograms",
+    "require_tuple_histogram_items",
     "tuple_histogram_items",
 ]
 
