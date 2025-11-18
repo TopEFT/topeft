@@ -24,7 +24,15 @@ def load_histograms(path: str) -> Iterable[TupleHistogramEntry]:
 def group_by_variable(
     entries: Iterable[TupleHistogramEntry],
 ) -> MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]]:
-    return summarise_by_variable(entries, systematic="nominal")
+    grouped = summarise_by_variable(
+        entries, systematic="nominal", application="flip_application"
+    )
+    channel_grouped: MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]] = {}
+    for variable, application_map in grouped.items():
+        application_histograms = application_map.get("flip_application")
+        if application_histograms:
+            channel_grouped[variable] = application_histograms
+    return channel_grouped
 
 
 def make_fig(

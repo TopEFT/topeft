@@ -24,7 +24,8 @@ class TupleHistogramEntry:
     """Container pairing a tuple key with its histogram payload."""
 
     variable: str
-    region: str
+    channel: str
+    application: str
     sample: str
     systematic: str
     histogram: hist.Hist
@@ -41,27 +42,35 @@ def _normalise_component(value: object, fallback: str) -> str:
 def tuple_histogram_entries(payload: Mapping[object, object]) -> Iterator[TupleHistogramEntry]:
     """Yield :class:`TupleHistogramEntry` objects from *payload*.
 
-    Only entries keyed by 4-tuples are considered.  The tuple components are
-    coerced to strings (with sensible defaults for ``None``) so downstream code
-    can construct labels without needing categorical axes on the histograms.
+    Only entries keyed by tuple identifiers are considered.  The tuple
+    components are coerced to strings (with sensible defaults for ``None``) so
+    downstream code can construct labels without needing categorical axes on the
+    histograms.
     """
 
     for key, value in payload.items():
         if key == SUMMARY_KEY:
             continue
-        if not isinstance(key, tuple) or len(key) != 4:
+        if not isinstance(key, tuple) or len(key) not in (4, 5):
             continue
         if not isinstance(value, hist.Hist):
             continue
 
         variable = _normalise_component(key[0], "")
-        region = _normalise_component(key[1], "")
-        sample = _normalise_component(key[2], "")
-        systematic = _normalise_component(key[3], "nominal")
+        channel = _normalise_component(key[1], "")
+        if len(key) == 5:
+            application = _normalise_component(key[2], "")
+            sample = _normalise_component(key[3], "")
+            systematic = _normalise_component(key[4], "nominal")
+        else:
+            application = ""
+            sample = _normalise_component(key[2], "")
+            systematic = _normalise_component(key[3], "nominal")
 
         yield TupleHistogramEntry(
             variable=variable,
-            region=region,
+            channel=channel,
+            application=application,
             sample=sample,
             systematic=systematic,
             histogram=value,
@@ -87,6 +96,7 @@ def filter_entries(
     entries: Iterable[TupleHistogramEntry],
     *,
     variable: Optional[str] = None,
+    application: Optional[str] = None,
     region: Optional[str] = None,
     sample: Optional[str] = None,
     systematic: Optional[str] = None,
@@ -96,7 +106,9 @@ def filter_entries(
     for entry in entries:
         if variable is not None and entry.variable != variable:
             continue
-        if region is not None and entry.region != region:
+        if application is not None and entry.application != application:
+            continue
+        if region is not None and entry.channel != region:
             continue
         if sample is not None and entry.sample != sample:
             continue
@@ -138,22 +150,27 @@ def summarise_by_variable(
     entries: Iterable[TupleHistogramEntry],
     *,
     systematic: str | None = "nominal",
-) -> Dict[str, MutableMapping[str, MutableMapping[str, hist.Hist]]]:
-    """Return ``variable -> sample -> region`` groupings for *entries*."""
+    application: str | None = None,
+) -> Dict[str, MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]]]:
+    """Return ``variable -> application -> sample -> channel`` groupings for *entries*."""
 
-    filtered = filter_entries(entries, systematic=systematic) if systematic else entries
-    grouped = accumulate_entries(filtered, "variable", "sample", "region")
+    if systematic is not None or application is not None:
+        filtered = filter_entries(
+            entries, systematic=systematic, application=application
+        )
+    else:
+        filtered = entries
+    grouped = accumulate_entries(filtered, "variable", "application", "sample", "channel")
 
-    # ``accumulate_entries`` returns ``Dict[str, MutableMapping]`` at each level,
-    # but the innermost mapping still stores generic ``MutableMapping`` values.
-    # Normalise the type hints here for clarity.
-    result: Dict[str, MutableMapping[str, MutableMapping[str, hist.Hist]]] = {}
-    for variable, sample_map in grouped.items():
-        sample_mapping: MutableMapping[str, MutableMapping[str, hist.Hist]] = {}
-        for sample, region_map in sample_map.items():
-            # Region maps already hold histograms directly.
-            sample_mapping[sample] = region_map  # type: ignore[assignment]
-        result[variable] = sample_mapping
+    result: Dict[str, MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]]] = {}
+    for variable, application_map in grouped.items():
+        application_mapping: MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]] = {}
+        for application_name, sample_map in application_map.items():
+            sample_mapping: MutableMapping[str, MutableMapping[str, hist.Hist]] = {}
+            for sample, channel_map in sample_map.items():
+                sample_mapping[sample] = channel_map  # type: ignore[assignment]
+            application_mapping[application_name] = sample_mapping
+        result[variable] = application_mapping
     return result
 
 

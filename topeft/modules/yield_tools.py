@@ -279,7 +279,7 @@ class YieldTools():
                 if isinstance(key, str):
                     if key != "SumOfEFTweights":
                         string_keys.append(key)
-                elif isinstance(key, tuple) and len(key) == 4:
+                elif isinstance(key, tuple) and len(key) in (4, 5):
                     tuple_variables.append(key[0])
             if string_keys:
                 return string_keys
@@ -324,7 +324,7 @@ class YieldTools():
             tuple_entries = {
                 key: value
                 for key, value in hin_dict.items()
-                if isinstance(key, tuple) and len(key) == 4
+                if isinstance(key, tuple) and len(key) in (4, 5)
             }
 
             selected_hist = None
@@ -360,8 +360,9 @@ class YieldTools():
             metadata_index = {
                 "variable": 0,
                 "channel": 1,
-                "sample": 2,
-                "systematic": 3,
+                "application": 2,
+                "sample": 3,
+                "systematic": 4,
             }
 
             query_axis = "sample" if axis == "process" else axis
@@ -369,6 +370,8 @@ class YieldTools():
                 idx = metadata_index[query_axis]
                 values = []
                 for key in sorted(relevant_keys):
+                    if idx >= len(key):
+                        continue
                     entry = key[idx]
                     if entry is None:
                         continue

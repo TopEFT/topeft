@@ -51,8 +51,13 @@ def group_by_year(
 
     # Aggregate histograms per sample/flip status first so that duplicate entries
     # for the same tuple accumulate before we project to the year level.
-    variable_map = summarise_by_variable(entries, systematic="nominal")
-    sample_map: MutableMapping[str, MutableMapping[str, hist.Hist]] = variable_map.get("ptabseta", {})
+    variable_map = summarise_by_variable(
+        entries, systematic="nominal", application="flip_measurement"
+    )
+    application_map: MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]] = variable_map.get("ptabseta", {})
+    sample_map: MutableMapping[str, MutableMapping[str, hist.Hist]] = application_map.get(
+        "flip_measurement", {}
+    )
 
     for sample, flip_map in sample_map.items():
         year = determine_year(sample)

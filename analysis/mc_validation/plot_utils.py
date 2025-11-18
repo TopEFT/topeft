@@ -23,14 +23,23 @@ except Exception:  # pragma: no cover - fallback when HistEFT is unavailable
     HistEFT = None  # type: ignore[assignment]
 
 
-TupleKey = Tuple[str, Optional[str], Optional[str], Optional[str]]
+TupleKey = Tuple[str, Optional[str], Optional[str], Optional[str], Optional[str]]
 
 _COMPONENT_INDEX = {
     "variable": 0,
     "channel": 1,
-    "sample": 2,
-    "systematic": 3,
+    "application": 2,
+    "sample": 3,
+    "systematic": 4,
 }
+
+
+def _normalise_key(key: tuple) -> TupleKey:
+    if len(key) == 4:
+        return (key[0], key[1], None, key[2], key[3])
+    if len(key) == 5:
+        return key  # type: ignore[return-value]
+    raise ValueError("Tuple histogram keys must have four or five elements")
 
 
 def tuple_histogram_items(hist_store: Mapping[Any, Any]) -> Dict[TupleKey, Any]:
@@ -38,8 +47,8 @@ def tuple_histogram_items(hist_store: Mapping[Any, Any]) -> Dict[TupleKey, Any]:
 
     entries: Dict[TupleKey, Any] = {}
     for key, value in hist_store.items():
-        if isinstance(key, tuple) and len(key) == 4:
-            entries[key] = value
+        if isinstance(key, tuple) and len(key) in (4, 5):
+            entries[_normalise_key(key)] = value
     return entries
 
 
@@ -104,7 +113,7 @@ def _aggregate_variable_entries(
 
     grouped: Dict[str, MutableMapping[Tuple[str, str, str], Any]] = defaultdict(dict)
     for key, histogram in tuple_entries.items():
-        variable, channel, sample, systematic = key
+        variable, channel, _application, sample, systematic = key
         dataset = sample or ""
         channel_label = channel or "inclusive"
         systematic_label = systematic or "nominal"

@@ -20,27 +20,52 @@ class DummyRunner:
         pass
 
     def __call__(self, *_args, **_kwargs):
+        processor_instance = _args[2] if len(_args) > 2 else None
+        application = getattr(processor_instance, "_application_region", "flip_application")
         histogram = hist.Hist(hist.axis.Regular(2, 0.0, 2.0, name="var"))
         histogram.fill(var=[0.5])
         another = histogram.copy()
         another.fill(var=[1.5])
         return OrderedDict(
             {
-                ("ptabseta", "truthFlip", "sample", "nominal"): histogram,
-                ("ptabseta", "truthNoFlip", "sample", "nominal"): another,
+                (
+                    "ptabseta",
+                    "truthFlip",
+                    application,
+                    "sample",
+                    "nominal",
+                ): histogram,
+                (
+                    "ptabseta",
+                    "truthNoFlip",
+                    application,
+                    "sample",
+                    "nominal",
+                ): another,
             }
         )
 
 
 class DummyProcessor:
-    def __init__(self, samples):
+    def __init__(self, samples, application_region: str):
         self.samples = samples
+        self._application_region = application_region
+
+
+class DummyApplicationProcessor(DummyProcessor):
+    def __init__(self, samples):
+        super().__init__(samples, "flip_application")
+
+
+class DummyMeasurementProcessor(DummyProcessor):
+    def __init__(self, samples):
+        super().__init__(samples, "flip_measurement")
 
 
 @pytest.fixture()
 def run_flip_module(monkeypatch):
-    mr_module = types.SimpleNamespace(AnalysisProcessor=DummyProcessor)
-    ar_module = types.SimpleNamespace(AnalysisProcessor=DummyProcessor)
+    mr_module = types.SimpleNamespace(AnalysisProcessor=DummyMeasurementProcessor)
+    ar_module = types.SimpleNamespace(AnalysisProcessor=DummyApplicationProcessor)
     monkeypatch.setitem(sys.modules, "analysis.flip_measurement.flip_mr_processor", mr_module)
     monkeypatch.setitem(sys.modules, "analysis.flip_measurement.flip_ar_processor", ar_module)
     monkeypatch.setitem(sys.modules, "flip_mr_processor", mr_module)
@@ -113,6 +138,12 @@ def test_run_flip_writes_tuple_keyed_pickle(monkeypatch, tmp_path, sample_json, 
     summary_keys = list(tuple_summaries.keys())
     histogram_keys = [key for key in payload.keys() if isinstance(key, tuple)]
     assert summary_keys == histogram_keys
+
+    assert all(len(key) == 5 for key in histogram_keys)
+    expected_application = (
+        "flip_measurement" if processor_name == "flip_mr_processor" else "flip_application"
+    )
+    assert all(key[2] == expected_application for key in histogram_keys)
 
     first_summary = next(iter(tuple_summaries.values()))
     assert set(first_summary.keys()) >= {"sumw", "values"}

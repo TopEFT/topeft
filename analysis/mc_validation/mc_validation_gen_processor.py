@@ -307,7 +307,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         tuple_entries = {
             key: value
             for key, value in accumulator.items()
-            if isinstance(key, tuple) and len(key) == 4
+            if isinstance(key, tuple) and len(key) in (4, 5)
         }
 
         ordered_tuple_entries: "OrderedDict[Tuple[str, str, str, str], HistEFT]" = OrderedDict(
@@ -318,7 +318,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         aggregated: Dict[str, Dict[str, HistEFT]] = defaultdict(dict)
         for key, hist_obj in ordered_tuple_entries.items():
-            variable, channel, sample, systematic = key
+            variable = key[0]
+            channel = key[1] if len(key) > 1 else ""
+            sample = key[3] if len(key) > 3 else key[2]
+            systematic = key[4] if len(key) > 4 else key[3]
             label_parts = [sample]
             if channel and channel != self._default_channel:
                 label_parts.append(channel)

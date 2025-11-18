@@ -1,10 +1,12 @@
 """Utilities for normalising coffea runner outputs.
 
 This module centralises the logic used to convert the accumulator returned by
-``coffea.processor.Runner`` into a serialisable mapping keyed by the tuple
-identifiers exposed by :class:`topeft.analysis.training.simple_processor`.  The
-helpers are intentionally lightweight so that they can be reused by the
-analysis scripts as well as the training utilities.
+``coffea.processor.Runner`` into a serialisable mapping keyed by histogram
+tuples.  While the canonical tuple ordering is
+``(variable, channel, application, sample, systematic)``, the helpers retain
+backwards compatibility with older 4-field tuples produced by the training
+tutorial workflow.  The helpers are intentionally lightweight so that they can
+be reused by the analysis scripts as well as the training utilities.
 """
 
 from __future__ import annotations
@@ -100,10 +102,11 @@ def materialise_tuple_dict(hist_store: Mapping[TupleKey, Any]) -> "OrderedDict[T
 
     ordered_items = []
     for key, histogram in sorted(hist_store.items(), key=lambda item: item[0]):
-        if not isinstance(key, tuple) or len(key) != 4:
+        if not isinstance(key, tuple) or len(key) not in (4, 5):
             raise ValueError(
-                "Histogram accumulator keys must be 4-tuples of (variable, channel, "
-                "sample, systematic)."
+                "Histogram accumulator keys must be tuples of (variable, channel, "
+                "application, sample, systematic); 4-field tuples remain supported "
+                "for backwards compatibility."
             )
         summary = _summarise_histogram(histogram)
         ordered_items.append((key, summary))
@@ -116,7 +119,7 @@ def _tuple_entries(payload: Mapping[Any, Any]) -> Dict[TupleKey, Any]:
 
     result: Dict[TupleKey, Any] = {}
     for key, value in payload.items():
-        if isinstance(key, tuple) and len(key) == 4 and _hist_like(value):
+        if isinstance(key, tuple) and len(key) in (4, 5) and _hist_like(value):
             result[key] = value
     return result
 

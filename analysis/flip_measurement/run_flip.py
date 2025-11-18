@@ -139,7 +139,7 @@ def _summarise_tuple_entries(
 
     tuple_entries: "OrderedDict[TupleKey, Any]" = OrderedDict()
     for key, value in payload.items():
-        if isinstance(key, tuple) and len(key) == 4:
+        if isinstance(key, tuple) and len(key) == 5:
             tuple_entries[key] = value
 
     if not tuple_entries:
