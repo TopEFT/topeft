@@ -1011,10 +1011,6 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 fake_elec_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
                 fake_elec_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
 
-        #new_fake_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        #new_fake_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        #new_fake_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-
         whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
         new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF_Run3'](pt), 1)
         new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_up'](pt), 1)
