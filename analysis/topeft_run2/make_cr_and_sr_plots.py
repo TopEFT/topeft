@@ -3,6 +3,10 @@ import os
 import copy
 import datetime
 import argparse
+import sys
+import importlib
+import importlib.util
+from pathlib import Path
 import yaml
 import matplotlib as mpl
 mpl.use('Agg')
@@ -11,7 +15,42 @@ from cycler import cycler
 
 import mplhep as hep
 import hist
-from topcoffea.modules.HistEFT import HistEFT
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+NEARBY_TOPCOFFEA = PROJECT_ROOT / "topcoffea"
+SIBLING_TOPCOFFEA = PROJECT_ROOT.parent / "topcoffea"
+
+def _promote_sys_path(path_entry: Path):
+    path_str = str(path_entry)
+    if path_str in sys.path:
+        sys.path.remove(path_str)
+    sys.path.insert(0, path_str)
+
+_promote_sys_path(PROJECT_ROOT)
+if SIBLING_TOPCOFFEA.exists():
+    _promote_sys_path(SIBLING_TOPCOFFEA)
+if NEARBY_TOPCOFFEA.exists():
+    _promote_sys_path(NEARBY_TOPCOFFEA)
+
+import topcoffea
+if SIBLING_TOPCOFFEA.exists():
+    sibling_package_root = SIBLING_TOPCOFFEA / "topcoffea"
+    if sibling_package_root.exists():
+        topcoffea.__path__.append(str(sibling_package_root))
+        tc_modules = importlib.import_module("topcoffea.modules")
+        sibling_module_root = sibling_package_root / "modules"
+        if sibling_module_root.exists() and hasattr(tc_modules, "__path__"):
+            tc_modules.__path__.append(str(sibling_module_root))
+
+hist_module_name = "topcoffea.modules.HistEFT"
+if importlib.util.find_spec(hist_module_name) is None:
+    hist_module_name = "topcoffea.modules.histEFT"
+if importlib.util.find_spec(hist_module_name) is None:
+    raise ModuleNotFoundError(
+        "Could not locate topcoffea.modules.HistEFT; install the sibling topcoffea repository (e.g. `pip install -e ./topcoffea`)."
+    )
+HistEFT = getattr(importlib.import_module(hist_module_name), "HistEFT")
 from topeft.modules.paths import topeft_path
 
 metadata_path = topeft_path("params/metadata.yml")
@@ -30,7 +69,9 @@ get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
 
 # This script takes an input pkl file that should have both data and background MC included.
-# Use the -y option to specify a year, if no year is specified, all years will be included.
+# The input is expected to be the 5-tuple histogram pickle produced by the current topcoffea
+# runners (including TaskVine) and saved with utils.dump_to_pkl/normalise_runner_output.
+# Use the -y option to specify a year; if no year is specified, all years will be included.
 # There are various other options available from the command line.
 # For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:
 #     python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
@@ -1307,7 +1348,12 @@ def main():
 
     # Set up the command line parser
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
+    parser.add_argument(
+        "-f",
+        "--pkl-file-path",
+        default="histos/plotsTopEFT.pkl.gz",
+        help="Path to the 5-tuple histogram pickle produced by topcoffea (e.g. TaskVine output)",
+    )
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
     parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
@@ -1330,6 +1376,10 @@ def main():
 
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    if not hin_dict:
+        raise RuntimeError(
+            "Loaded histogram dictionary is empty. Ensure the pickle was produced with the current 5-tuple runner output."
+        )
 
     # Print info about histos
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
