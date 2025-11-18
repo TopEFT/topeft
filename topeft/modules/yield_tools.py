@@ -279,7 +279,11 @@ class YieldTools():
                 if isinstance(key, str):
                     if key != "SumOfEFTweights":
                         string_keys.append(key)
-                elif isinstance(key, tuple) and len(key) in (4, 5):
+                elif isinstance(key, tuple):
+                    if len(key) != 5:
+                        raise ValueError(
+                            "Histogram keys must be 5-tuples of (variable, channel, application, sample, systematic)"
+                        )
                     tuple_variables.append(key[0])
             if string_keys:
                 return string_keys
@@ -321,11 +325,14 @@ class YieldTools():
                         h_name = name
                         break
 
-            tuple_entries = {
-                key: value
-                for key, value in hin_dict.items()
-                if isinstance(key, tuple) and len(key) in (4, 5)
-            }
+            tuple_entries = {}
+            for key, value in hin_dict.items():
+                if isinstance(key, tuple):
+                    if len(key) != 5:
+                        raise ValueError(
+                            "Histogram keys must be 5-tuples of (variable, channel, application, sample, systematic)"
+                        )
+                    tuple_entries[key] = value
 
             selected_hist = None
             missing_axis_error = None
@@ -360,7 +367,6 @@ class YieldTools():
             query_axis = "sample" if axis == "process" else axis
             tuple_axis_positions = {
                 5: ("variable", "channel", "application", "sample", "systematic"),
-                4: ("variable", "channel", "sample", "systematic"),
             }
 
             if any(query_axis in axes for axes in tuple_axis_positions.values()):

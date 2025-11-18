@@ -139,7 +139,11 @@ def _summarise_tuple_entries(
 
     tuple_entries: "OrderedDict[TupleKey, Any]" = OrderedDict()
     for key, value in payload.items():
-        if isinstance(key, tuple) and len(key) in (4, 5):
+        if isinstance(key, tuple):
+            if len(key) != 5:
+                raise ValueError(
+                    "Histogram accumulator keys must be 5-tuples of (variable, channel, application, sample, systematic)"
+                )
             tuple_entries[key] = value
 
     if not tuple_entries:

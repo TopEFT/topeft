@@ -2,11 +2,11 @@
 
 This module centralises the logic used to convert the accumulator returned by
 ``coffea.processor.Runner`` into a serialisable mapping keyed by histogram
-tuples.  While the canonical tuple ordering is
-``(variable, channel, application, sample, systematic)``, the helpers retain
-backwards compatibility with older 4-field tuples produced by the training
-tutorial workflow.  The helpers are intentionally lightweight so that they can
-be reused by the analysis scripts as well as the training utilities.
+tuples.  The canonical tuple ordering is
+``(variable, channel, application, sample, systematic)`` and legacy 4-tuple
+structures are rejected to prevent silent ambiguities in downstream tools.  The
+helpers are intentionally lightweight so that they can be reused by the
+analysis scripts as well as the training utilities.
 """
 
 from __future__ import annotations
@@ -17,9 +17,10 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 import numpy as np
 
 try:  # pragma: no cover - optional dependency during some tests
-    from hist import Hist
+    from hist import Hist, axis
 except Exception:  # pragma: no cover - fallback when histogram extras missing
     Hist = None  # type: ignore[assignment]
+    axis = None  # type: ignore[assignment]
 
 try:  # pragma: no cover - topcoffea is optional for a subset of the tests
     from topcoffea.modules.HistEFT import HistEFT
@@ -79,6 +80,12 @@ def _summarise_histogram(histogram: Any) -> Dict[str, Any]:
                     else variances + current_variances
                 )
     elif Hist is not None and isinstance(histogram, Hist):
+        if axis is not None:
+            for axis_obj in histogram.axes:
+                if isinstance(axis_obj, axis.StrCategory):
+                    raise ValueError(
+                        "Categorical histogram axes are unsupported for tuple-keyed outputs"
+                    )
         values = _ensure_numpy(histogram.values(flow=True))
         raw_variances = histogram.variances(flow=True)
         variances = None if raw_variances is None else _ensure_numpy(raw_variances)
@@ -102,11 +109,10 @@ def materialise_tuple_dict(hist_store: Mapping[TupleKey, Any]) -> "OrderedDict[T
 
     ordered_items = []
     for key, histogram in sorted(hist_store.items(), key=lambda item: item[0]):
-        if not isinstance(key, tuple) or len(key) not in (4, 5):
+        if not isinstance(key, tuple) or len(key) != 5:
             raise ValueError(
-                "Histogram accumulator keys must be tuples of (variable, channel, "
-                "application, sample, systematic); 4-field tuples remain supported "
-                "for backwards compatibility."
+                "Histogram accumulator keys must be 5-tuples of (variable, channel, "
+                "application, sample, systematic)."
             )
         summary = _summarise_histogram(histogram)
         ordered_items.append((key, summary))
@@ -119,8 +125,14 @@ def _tuple_entries(payload: Mapping[Any, Any]) -> Dict[TupleKey, Any]:
 
     result: Dict[TupleKey, Any] = {}
     for key, value in payload.items():
-        if isinstance(key, tuple) and len(key) in (4, 5) and _hist_like(value):
-            result[key] = value
+        if isinstance(key, tuple):
+            if len(key) != 5:
+                raise ValueError(
+                    "Histogram accumulator keys must be 5-tuples of (variable, channel, "
+                    "application, sample, systematic); legacy 4-tuples are unsupported."
+                )
+            if _hist_like(value):
+                result[key] = value
     return result
 
 
