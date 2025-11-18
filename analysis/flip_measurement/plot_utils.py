@@ -106,7 +106,7 @@ def filter_entries(
     for entry in entries:
         if variable is not None and entry.variable != variable:
             continue
-        if application is not None and entry.application != application:
+        if application is not None and entry.application not in (application, ""):
             continue
         if region is not None and entry.channel != region:
             continue
@@ -166,6 +166,8 @@ def summarise_by_variable(
     for variable, application_map in grouped.items():
         application_mapping: MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]] = {}
         for application_name, sample_map in application_map.items():
+            if application is not None and application_name == "":
+                application_name = application
             sample_mapping: MutableMapping[str, MutableMapping[str, hist.Hist]] = {}
             for sample, channel_map in sample_map.items():
                 sample_mapping[sample] = channel_map  # type: ignore[assignment]
