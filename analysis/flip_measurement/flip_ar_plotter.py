@@ -29,7 +29,9 @@ def group_by_variable(
     )
     channel_grouped: MutableMapping[str, MutableMapping[str, MutableMapping[str, hist.Hist]]] = {}
     for variable, application_map in grouped.items():
-        application_histograms = application_map.get("flip_application")
+        application_histograms = application_map.get("flip_application") or application_map.get(
+            ""
+        )
         if application_histograms:
             channel_grouped[variable] = application_histograms
     return channel_grouped
