@@ -14,10 +14,10 @@ import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection, Weights
 from coffea.lumi_tools import LumiMask
 
-import importlib
 import topcoffea
 
 from topeft.modules.runner_output import SUMMARY_KEY, materialise_tuple_dict
+from topeft.modules.topcoffea_imports import require_module
 
 
 def _inject_module_exports(module):
@@ -26,9 +26,9 @@ def _inject_module_exports(module):
         names = [name for name in dir(module) if not name.startswith("_")]
     globals().update({name: getattr(module, name) for name in names})
 
-_inject_module_exports(importlib.import_module("topcoffea.modules.objects"))
-_inject_module_exports(importlib.import_module("topcoffea.modules.selection"))
-tc_corrections = importlib.import_module("topcoffea.modules.corrections")
+_inject_module_exports(require_module("objects"))
+_inject_module_exports(require_module("selection"))
+tc_corrections = require_module("corrections")
 AttachMuonSF = tc_corrections.AttachMuonSF
 AttachElectronSF = tc_corrections.AttachElectronSF
 AttachPerLeptonFR = tc_corrections.AttachPerLeptonFR

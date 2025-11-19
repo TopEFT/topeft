@@ -8,8 +8,8 @@ from coffea.analysis_tools import PackedSelection
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-import importlib
 import topcoffea
+from topeft.modules.topcoffea_imports import require_module
 
 def _inject_module_exports(module):
     names = getattr(module, "__all__", None)
@@ -17,8 +17,8 @@ def _inject_module_exports(module):
         names = [name for name in dir(module) if not name.startswith("_")]
     globals().update({name: getattr(module, name) for name in names})
 
-_inject_module_exports(importlib.import_module("topcoffea.modules.objects"))
-_inject_module_exports(importlib.import_module("topcoffea.modules.selection"))
+_inject_module_exports(require_module("objects"))
+_inject_module_exports(require_module("selection"))
 HistEFT = topcoffea.modules.HistEFT.HistEFT
 efth = topcoffea.modules.eft_helper
 

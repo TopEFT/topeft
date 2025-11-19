@@ -21,17 +21,20 @@ def _install_training_stubs() -> None:
     topcoffea_pkg.modules = modules_pkg  # type: ignore[attr-defined]
 
     objects_module = sys.modules.setdefault("topcoffea.modules.objects", types.ModuleType("topcoffea.modules.objects"))
+    modules_pkg.objects = objects_module  # type: ignore[attr-defined]
 
     def _always_clean(jets, leptons, drmin=0.4):  # pragma: no cover - exercised indirectly
         return ak.ones_like(jets.pt, dtype=bool)
 
     objects_module.isClean = _always_clean  # type: ignore[attr-defined]
 
-    sys.modules.setdefault("topcoffea.modules.selection", types.ModuleType("topcoffea.modules.selection"))
+    selection_module = sys.modules.setdefault("topcoffea.modules.selection", types.ModuleType("topcoffea.modules.selection"))
+    modules_pkg.selection = selection_module  # type: ignore[attr-defined]
 
     eft_helper_module = sys.modules.setdefault(
         "topcoffea.modules.eft_helper", types.ModuleType("topcoffea.modules.eft_helper")
     )
+    modules_pkg.eft_helper = eft_helper_module  # type: ignore[attr-defined]
     eft_helper_module.remap_coeffs = lambda *_args, **_kwargs: _args[2] if len(_args) > 2 else None  # type: ignore[attr-defined]
     eft_helper_module.calc_w2_coeffs = lambda coeffs, *_: coeffs  # type: ignore[attr-defined]
 
@@ -70,6 +73,8 @@ def _install_training_stubs() -> None:
     hist_eft_module.HistEFT = _DummyHistEFT
     sys.modules["topcoffea.modules.HistEFT"] = hist_eft_module
     sys.modules["topcoffea.modules.histEFT"] = hist_eft_module
+    modules_pkg.HistEFT = hist_eft_module  # type: ignore[attr-defined]
+    modules_pkg.histEFT = hist_eft_module  # type: ignore[attr-defined]
 
 
 @pytest.fixture()
@@ -127,7 +132,7 @@ def synthetic_events() -> ak.Array:
             "event": [1000, 1001, 1002],
         }
     )
-    events.metadata = {"dataset": "SampleMC"}
+    object.__setattr__(events, "metadata", {"dataset": "SampleMC"})
     return events
 
 

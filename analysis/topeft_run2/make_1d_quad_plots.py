@@ -3,12 +3,12 @@ import argparse
 import datetime
 from coffea.nanoevents import NanoEventsFactory
 
-import importlib
 import topcoffea
+from topeft.modules.topcoffea_imports import require_script
 
 qft = topcoffea.modules.quad_fit_tools
 utils = topcoffea.modules.utils
-make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
+make_html = require_script("make_html").make_html
 
 # This is more or less a placeholder script
 #   - It shows  an example of how we might want to access the quadratic fit information using topcoffea.modules.quad_fit_tools

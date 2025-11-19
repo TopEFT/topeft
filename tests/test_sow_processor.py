@@ -11,6 +11,10 @@ if "topcoffea.modules.corrections" not in sys.modules:
     corrections_stub.AttachPSWeights = lambda *args, **kwargs: None  # type: ignore[assignment]
     corrections_stub.AttachScaleWeights = lambda *args, **kwargs: None  # type: ignore[assignment]
     sys.modules["topcoffea.modules.corrections"] = corrections_stub
+    topcoffea_pkg = sys.modules.setdefault("topcoffea", types.ModuleType("topcoffea"))
+    modules_pkg = sys.modules.setdefault("topcoffea.modules", types.ModuleType("topcoffea.modules"))
+    topcoffea_pkg.modules = modules_pkg  # type: ignore[attr-defined]
+    modules_pkg.corrections = corrections_stub  # type: ignore[attr-defined]
 
 from analysis.topeft_run2 import sow_processor
 
