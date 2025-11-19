@@ -11,6 +11,10 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _BANNED_PATTERNS: Tuple[Tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^\s*from\s+topcoffea\."), "use 'import topcoffea' and attribute access"),
     (re.compile(r"^\s*import\s+topcoffea\.modules"), "import the top-level package instead of submodules"),
+    (
+        re.compile(r"importlib\.import_module\(\s*[\"']topcoffea\."),
+        "load through 'topcoffea.import_module' and attribute access",
+    ),
 )
 
 

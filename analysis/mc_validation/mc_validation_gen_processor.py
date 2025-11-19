@@ -8,8 +8,8 @@ import coffea.processor as processor
 from collections import OrderedDict, defaultdict
 from typing import Any, Dict, Tuple, Union
 
-import importlib
 import topcoffea
+from topeft.modules.topcoffea_imports import require_module
 
 from topeft.modules.runner_output import SUMMARY_KEY, materialise_tuple_dict
 
@@ -20,8 +20,8 @@ def _inject_module_exports(module):
         names = [name for name in dir(module) if not name.startswith("_")]
     globals().update({name: getattr(module, name) for name in names})
 
-_inject_module_exports(importlib.import_module("topcoffea.modules.objects"))
-_inject_module_exports(importlib.import_module("topcoffea.modules.selection"))
+_inject_module_exports(require_module("objects"))
+_inject_module_exports(require_module("selection"))
 HistEFT = topcoffea.modules.HistEFT.HistEFT
 efth = topcoffea.modules.eft_helper
 get_lumi = topcoffea.modules.GetValuesFromJsons.get_lumi

@@ -3,7 +3,6 @@ import os
 import copy
 import datetime
 import argparse
-import importlib
 import yaml
 import matplotlib as mpl
 mpl.use('Agg')
@@ -15,6 +14,7 @@ import hist
 import topcoffea
 
 from topeft.modules.paths import topeft_path
+from topeft.modules.topcoffea_imports import require_script
 
 metadata_path = topeft_path("params/metadata.yml")
 with open(metadata_path, "r") as f:
@@ -29,7 +29,7 @@ topcoffea_path = topcoffea.modules.paths.topcoffea_path
 GetParam = topcoffea.modules.get_param_from_jsons.GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 utils = topcoffea.modules.utils
-make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
+make_html = require_script("make_html").make_html
 
 
 # This script takes an input pkl file that should have both data and background MC included.

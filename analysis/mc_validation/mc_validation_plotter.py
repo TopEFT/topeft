@@ -10,12 +10,12 @@ import argparse
 from pathlib import Path
 
 import uproot
-import importlib
 import topcoffea
+from topeft.modules.topcoffea_imports import require_script
 
 topcoffea_path = topcoffea.modules.paths.topcoffea_path
 YieldTools = topcoffea.modules.YieldTools.YieldTools
-make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
+make_html = require_script("make_html").make_html
 
 from analysis.mc_validation.plot_utils import (
     build_dataset_histograms,

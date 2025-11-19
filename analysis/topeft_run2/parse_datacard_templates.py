@@ -6,13 +6,13 @@
 
 import os
 import argparse
-import importlib
 import ROOT
 
 import topcoffea
 import get_datacard_yields as dy # Note the functions we're using from this script should probably go in topeft/modules
+from topeft.modules.topcoffea_imports import require_script
 
-make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
+make_html = require_script("make_html").make_html
 
 
 # Get the list of histo names from a root file

@@ -87,9 +87,11 @@ def _install_test_stubs():
     objects_module = types.ModuleType("topcoffea.modules.objects")
     objects_module.isClean = lambda *_, **__: True  # type: ignore[attr-defined]
     sys.modules["topcoffea.modules.objects"] = objects_module
+    modules_pkg.objects = objects_module  # type: ignore[attr-defined]
 
     selection_module = types.ModuleType("topcoffea.modules.selection")
     sys.modules["topcoffea.modules.selection"] = selection_module
+    modules_pkg.selection = selection_module  # type: ignore[attr-defined]
 
     class _DummyHistEFT:
         def __init__(self, *_, **__):
@@ -101,15 +103,18 @@ def _install_test_stubs():
     hist_eft_module = types.ModuleType("topcoffea.modules.HistEFT")
     hist_eft_module.HistEFT = _DummyHistEFT
     sys.modules["topcoffea.modules.HistEFT"] = hist_eft_module
+    modules_pkg.HistEFT = hist_eft_module  # type: ignore[attr-defined]
 
     hist_eft_lower_module = types.ModuleType("topcoffea.modules.histEFT")
     hist_eft_lower_module.HistEFT = _DummyHistEFT
     sys.modules["topcoffea.modules.histEFT"] = hist_eft_lower_module
+    modules_pkg.histEFT = hist_eft_lower_module  # type: ignore[attr-defined]
 
     eft_helper_module = types.ModuleType("topcoffea.modules.eft_helper")
     eft_helper_module.calc_w2_coeffs = lambda *_, **__: None  # type: ignore[attr-defined]
     eft_helper_module.remap_coeffs = lambda *args, **__: args[2] if len(args) > 2 else None  # type: ignore[attr-defined]
     sys.modules["topcoffea.modules.eft_helper"] = eft_helper_module
+    modules_pkg.eft_helper = eft_helper_module  # type: ignore[attr-defined]
 
 
 def _build_processor(monkeypatch, is_data):

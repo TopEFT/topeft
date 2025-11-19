@@ -13,11 +13,11 @@ from hist import axis, storage
 
 from pathlib import Path
 
-import importlib
 import topcoffea
+from topeft.modules.topcoffea_imports import require_script
 
 YieldTools = topcoffea.modules.YieldTools.YieldTools
-make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
+make_html = require_script("make_html").make_html
 
 from analysis.mc_validation.plot_utils import (
     build_dataset_histograms,
