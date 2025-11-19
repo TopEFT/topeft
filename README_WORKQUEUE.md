@@ -48,7 +48,10 @@ conda env create -f environment.yml
 conda activate topcoffea-env
 pip install -e .
 
-# Install the editable topcoffea checkout used by topeft
+# Install the editable topcoffea checkout used by topeft and unpack the
+# canonical ``topcoffea/data`` payloads (pileup, SFs, golden JSONs, etc.).
+# Every worker environment relies on these files, so running the helper is no
+# longer optional.
 scripts/install_topcoffea.sh
 
 # You may install any other modules that you are developing, as:
