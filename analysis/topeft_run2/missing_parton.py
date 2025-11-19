@@ -125,7 +125,7 @@ if __name__ == '__main__':
         else:
             fout = uproot.update(fout)
     else:
-        fout = 'topcoffea/data/missing_parton/missing_parton.root'
+        fout = topcoffea_path('data/missing_parton/missing_parton.root')
         fout = uproot.open(fout)
 
     rename = {'tllq': 'tZq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH

@@ -5,7 +5,14 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
 cd "${PROJECT_ROOT}"
 
-export PYTHONPATH="${PROJECT_ROOT}:${PROJECT_ROOT}/topcoffea:${PYTHONPATH:-}"
+if ! python -c "import topcoffea" >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+Missing topcoffea dependency.
+Install the sibling checkout with `pip install -e ../topcoffea` (or any other
+source that provides `import topcoffea`) before running this smoke test.
+EOF
+  exit 1
+fi
 
 PKL_PATH=${1:-"${PROJECT_ROOT}/example_outputs_taskvine/plotsTopEFT.pkl.gz"}
 OUTDIR=$(mktemp -d -t cr_sr_plots_XXXX)

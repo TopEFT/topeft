@@ -4,7 +4,7 @@
 # Expectations before running:
 #   1. Activate the shared Conda environment shipped with this repository
 #      (name: coffea20250703) so the topeft and topcoffea editable installs are
-#      on PYTHONPATH.  The helper below attempts to activate it when possible.
+#      available.  The helper below attempts to activate it when possible.
 #   2. Stage the packaged TaskVine environment tarball by running
 #      `python -m topcoffea.modules.remote_environment` after activation.  The
 #      script reuses the returned path as the --environment-file argument.

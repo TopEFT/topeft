@@ -1,13 +1,14 @@
 import gzip
 import pickle
+from topcoffea.modules.paths import topcoffea_path
 # from coffea.lookup_tools.dense_lookup import dense_lookup
 
 # The committed pkl files
 pkl_lst_committed = [
-    "../../topcoffea/data/fliprates/flip_probs_topcoffea_UL16APV.pkl.gz",
-    "../../topcoffea/data/fliprates/flip_probs_topcoffea_UL16.pkl.gz",
-    "../../topcoffea/data/fliprates/flip_probs_topcoffea_UL17.pkl.gz",
-    "../../topcoffea/data/fliprates/flip_probs_topcoffea_UL18.pkl.gz",
+    topcoffea_path("data/fliprates/flip_probs_topcoffea_UL16APV.pkl.gz"),
+    topcoffea_path("data/fliprates/flip_probs_topcoffea_UL16.pkl.gz"),
+    topcoffea_path("data/fliprates/flip_probs_topcoffea_UL17.pkl.gz"),
+    topcoffea_path("data/fliprates/flip_probs_topcoffea_UL18.pkl.gz"),
 ]
 
 # Local pkl files

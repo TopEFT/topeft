@@ -1,7 +1,15 @@
 # Remote environment maintenance
 
 Changes to `environment.yml` affect both local development setups and the
-archived environment shipped to remote workers. After editing the specification:
+archived environment shipped to remote workers. After editing the specification
+make sure the companion [`topcoffea`](https://github.com/TopEFT/topcoffea)
+package remains importable::
+
+       python -c "import topcoffea"
+
+The CI workflow runs the same smoke test to confirm downstream scripts can
+resolve `topcoffea.modules` without manual `PYTHONPATH` tweaks.  Once the import
+works, walk through the standard refresh steps:
 
 1. Recreate the local Conda environment so the lock file matches the new pins::
 
