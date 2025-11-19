@@ -16,7 +16,10 @@ below.
 
 We highly recommend setting up topcoffea as git repository. This allows
 topcoffea to automatically detect changes that need to be included in the
-python environments sent to the workers:
+python environments sent to the workers. The helper script described below
+will automatically clone the canonical `TopEFT/topcoffea` repository into
+`external/topcoffea`, but you can also manage the checkout yourself if you
+prefer to develop inside an existing clone:
 
 ```sh
 git clone https://github.com/TopEFT/topcoffea.git
@@ -37,22 +40,24 @@ bash conda-install.sh
 ```
 
 Once `conda` is installed, open a new terminal and create the base python
-environment for topcoffea:
+environment for topeft:
 
 ```sh
 # you may choose other python version, e.g. 3.8
 conda env create -f environment.yml
 conda activate topcoffea-env
-
-# install topcoffea via pip. We install it in editable mode to ease the test of
-# changes in development. From the root directory of the topcoffea repository:
 pip install -e .
+
+# Install the editable topcoffea checkout used by topeft
+scripts/install_topcoffea.sh
 
 # You may install any other modules that you are developing, as:
 # cd /path/to/my/module
 # pip install -e .
 ```
-The same steps can be followed for `topeft` (i.e. clone the repo, `cd` into it, and then install the package via `pip install -e .`). 
+The helper script vendors `topcoffea` into `external/topcoffea` by default, checks out the repository's default branch (or whichever branch you request via `TOPCOFFEA_GIT_REF`), and installs it in editable mode so that every Work Queue payload sees `import topcoffea` without any `PYTHONPATH` hacks. Override `TOPCOFFEA_REPO_URL`, `TOPCOFFEA_GIT_REF`, or `TOPCOFFEA_DIR` to point at other forks, branches, or sandboxes.
+
+The same steps can be followed for `topeft` (i.e. clone the repo, `cd` into it, and then install the package via `pip install -e .`) whenever you need a separate checkout.
 
 ---
 **NOTE**

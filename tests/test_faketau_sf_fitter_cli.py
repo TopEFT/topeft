@@ -2,7 +2,6 @@ import gzip
 import json
 import logging
 import math
-import os
 import pathlib
 import re
 import subprocess
@@ -409,12 +408,6 @@ def test_cli_outputs_tau_fake_sf_json(tmp_path):
     json_path = tmp_path / "tau_sf.json"
     script_path = ROOT / "analysis" / "topeft_run2" / "faketau_sf_fitter.py"
 
-    env = os.environ.copy()
-    pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = (
-        f"{ROOT}:{pythonpath}" if pythonpath else str(ROOT)
-    )
-
     completed = subprocess.run(
         [
             sys.executable,
@@ -428,7 +421,6 @@ def test_cli_outputs_tau_fake_sf_json(tmp_path):
         ],
         check=True,
         cwd=str(ROOT),
-        env=env,
         capture_output=True,
         text=True,
     )

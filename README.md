@@ -26,20 +26,20 @@ The topeft directory is set up to be installed as a python package. First clone 
 ```
 git clone https://github.com/TopEFT/topeft.git
 cd topeft
-unset PYTHONPATH # To avoid conflicts.  
+unset PYTHONPATH # To avoid conflicts.
 conda env create -f environment.yml
 conda activate coffea-env
 pip install -e .
+# Install the matching topcoffea checkout into the active env
+scripts/install_topcoffea.sh
+# Smoke test the imports so "import topcoffea" works everywhere
+python -c "import topeft, topcoffea"
 ```
-The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`. 
-The `topcoffea` package upon which this analysis also depends is not yet available on `PyPI`, so we need to clone the `topcoffea` repo and install it ourselves.
-```
-cd /your/favorite/directory
-git clone https://github.com/TopEFT/topcoffea.git
-cd topcoffea
-pip install -e .  
-```
-Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The next time you want to use it, all you have to do is to activate the environment via `conda activate coffea-env`. 
+The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topeft` (or `pip uninstall topcoffea` for the dependency).
+
+`scripts/install_topcoffea.sh` vendors `topcoffea` into `external/topcoffea`, checks out the repository's default branch (or whichever branch you request via `TOPCOFFEA_GIT_REF`), and performs an editable install so that the `topcoffea` package is immediately importable inside the current virtual environment. Override `TOPCOFFEA_GIT_REF`, `TOPCOFFEA_REPO_URL`, or `TOPCOFFEA_DIR` if you need a different branch, fork, or destination.
+
+Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The next time you want to use it, all you have to do is to activate the environment via `conda activate coffea-env` (the editable installs keep `import topeft` and `import topcoffea` working).
 
 
 ### To run an example job 
