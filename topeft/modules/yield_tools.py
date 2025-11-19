@@ -1,11 +1,16 @@
 import numpy as np
 import copy
 import logging
+
+from topeft.compat.topcoffea import ensure_histEFT_py39_compat
+from topeft.modules.compatibility import add_sumw2_stub
+from topeft.modules.utils import canonicalize_process_name
+
+ensure_histEFT_py39_compat()
+
 from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
 import topcoffea.modules.utils as utils
-from topeft.modules.compatibility import add_sumw2_stub
-from topeft.modules.utils import canonicalize_process_name
 
 logger = logging.getLogger(__name__)
 

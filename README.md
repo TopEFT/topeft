@@ -51,6 +51,14 @@ wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B
 python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures
 
 ```
+If you ran with `--np-postprocess=defer` you can later finalize the nonprompt (and optional flips-only) histograms without rerunning the full processor. The helper below accepts either the metadata json that `run_analysis.py` writes or explicit CLI paths:
+
+```
+python analysis/topeft_run2/run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json \
+    --apply-renormfact-envelope
+```
+
+When no metadata file is supplied, specify `--input-pkl` and (optionally) `--output-pkl` directly.
 To make use of distributed resources, the `work queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
 conda activate coffea-env
