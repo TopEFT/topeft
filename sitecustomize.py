@@ -2,7 +2,7 @@
 import getpass
 import os
 
-from topeft.compat.topcoffea import ensure_histEFT_py39_compat
+from topeft.compat.topcoffea import ensure_histEFT_py39_compat, ensure_hist_utils
 
 # Ensure tests that expect a USER variable have a sensible default in CI.
 # getpass.getuser() falls back to LOGNAME/USER/..., but may raise in
@@ -13,3 +13,4 @@ os.environ.setdefault("USER", getpass.getuser() if os.environ.get("USER") else _
 # Ensure ``topcoffea.modules.histEFT`` is patched for Python 3.9 before any
 # modules import it at module scope.
 ensure_histEFT_py39_compat()
+ensure_hist_utils()

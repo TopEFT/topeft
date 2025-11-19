@@ -91,7 +91,13 @@ if __name__ == "__main__":
         "--nworkers",
         "-n",
         default=8,
+        type=int,
         help="Number of workers",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        help="Alias for --nworkers (kept for backwards compatibility)",
     )
     parser.add_argument(
         "--chunksize",
@@ -247,6 +253,8 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    if args.workers is not None:
+        args.nworkers = args.workers
     _ensure_topcoffea_data_available(args.skip_topcoffea_data_check)
     jsonFiles = args.jsonFiles
     prefix = args.prefix
@@ -808,7 +816,11 @@ if __name__ == "__main__":
     tstart = time.time()
 
     if executor_name == "futures":
-        exec_instance = processor.futures_executor(workers=nworkers)
+        futures_factory = getattr(processor, "futures_executor", None)
+        if callable(futures_factory):
+            exec_instance = futures_factory(workers=nworkers)
+        else:
+            exec_instance = processor.FuturesExecutor(workers=nworkers)
         runner = processor.Runner(
             exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
         )

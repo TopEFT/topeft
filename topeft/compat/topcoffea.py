@@ -7,6 +7,8 @@ import sys
 from typing import Optional
 import typing
 
+from . import hist_utils as _fallback_hist_utils
+
 _PATCH_TARGET = "ArrayLike | Mapping | None"
 _PATCH_REPLACEMENT = "Union[ArrayLike, Mapping, None]"
 
@@ -53,3 +55,15 @@ def ensure_histEFT_py39_compat() -> None:
     package_name, _, attr = fullname.rpartition(".")
     package = importlib.import_module(package_name)
     setattr(package, attr, module)
+
+
+def ensure_hist_utils() -> None:
+    """Ensure ``topcoffea.modules.hist_utils`` is importable."""
+
+    try:
+        importlib.import_module("topcoffea.modules.hist_utils")
+    except ModuleNotFoundError:
+        modules_pkg = importlib.import_module("topcoffea.modules")
+        module_name = "topcoffea.modules.hist_utils"
+        sys.modules[module_name] = _fallback_hist_utils
+        setattr(modules_pkg, "hist_utils", _fallback_hist_utils)
