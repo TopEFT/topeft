@@ -23,10 +23,21 @@ GetParam = topcoffea.modules.get_param_from_jsons.GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 make_html = require_script("make_html").make_html
 
-files = ['2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m', '2lss_p', '3l_m_offZ_1b', '3l_m_offZ_2b', '3l_onZ_1b', '3l_onZ_2b', '3l_p_offZ_1b', '3l_p_offZ_2b', '4l']
-files = ['2lss_fwd_m', '2lss_fwd_p']
-files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
-files_ptz = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
+DEFAULT_CHANNELS = ['2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m', '2lss_p', '3l_m_offZ_1b', '3l_m_offZ_2b', '3l_onZ_1b', '3l_onZ_2b', '3l_p_offZ_1b', '3l_p_offZ_2b', '4l']
+FILES_DIFF = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
+FILES_PTZ = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
+
+
+def determine_files(var, channels=None):
+    """Return the list of analysis channels to process for a given variable."""
+
+    if channels is not None and len(channels) > 0:
+        return channels
+    if var == 'ptz':
+        return FILES_PTZ
+    if var != 'njets':
+        return FILES_DIFF
+    return DEFAULT_CHANNELS
 
 def get_hists(fname, path, process):
     fin = uproot.open('histos/'+path+'/2lss_fwd/ttx_multileptons-'+fname+'.root')
@@ -91,14 +102,12 @@ if __name__ == '__main__':
     parser.add_argument('--time', '-t',     action='store_true', help = 'Append time to dir')
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
     parser.add_argument('--var',            default='njets', help = 'Specify variable to run over')
+    parser.add_argument('--channels', '-c', default=None, nargs='+', help='Limit the run to a subset of channels')
 
     args = parser.parse_args()
     years    = args.years
     var      = args.var
-    if var != 'njets':
-        files = files_diff
-    if var == 'ptz':
-        files = files_ptz
+    files    = determine_files(var, args.channels)
     if len(years)==0: years = ['2016APV', '2016', '2017', '2018']
     lumi = {}
     for year in years:
@@ -132,10 +141,10 @@ if __name__ == '__main__':
     rename = {} #Used to rename things like ttZ to ttll and ttHnobb to ttH
     for proc in ['tllq']:
         for fname in files:
-            fname += '_' + var
-            total_private, nom_private, err, bins, label = get_hists(fname, 'private_sm', proc)
+            fname_with_var = f'{fname}_{var}'
+            total_private, nom_private, err, bins, label = get_hists(fname_with_var, 'private_sm', proc)
             rproc = rename[proc] if proc in rename else proc
-            total_central, nom_central, _, _, _ = get_hists(fname, 'central_sm', rproc)
+            total_central, nom_central, _, _, _ = get_hists(fname_with_var, 'central_sm', rproc)
             hep.style.use("CMS")
             fig,ax = plt.subplots(figsize=(8, 6))
             hep.histplot(total_private, bins=bins, stack=False, label='Priavte LO', ax=ax, sort='yield')
@@ -157,9 +166,10 @@ if __name__ == '__main__':
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.square(total_private[n] - total_central[n]) - np.square(err[1][n]))
-            if var == 'njets': fout[fname.replace('njets', '2b')] = {proc : np.nan_to_num(parton/total_private, 0)}
+            if var == 'njets':
+                fout[fname_with_var.replace('njets', '2b')] = {proc : np.nan_to_num(parton/total_private, 0)}
             else:
-                lep_bin = re.sub('_'+var, '', fname)
+                lep_bin = re.sub('_'+var, '', fname_with_var)
                 lep_bin = re.sub('_\wj', '', lep_bin)
                 if 'offZ' in lep_bin:
                     lep_bin = re.sub('_offZ', '', lep_bin)
@@ -168,7 +178,7 @@ if __name__ == '__main__':
                 if 'onZ' in lep_bin:
                     lep_bin = re.sub('onZ', 'sfz', lep_bin)
                 offset = -4 if '3l' not in fname else -2
-                jet_bin = int(re.findall('\dj', fname)[0][:-1])
+                jet_bin = int(re.findall('\dj', fname_with_var)[0][:-1])
                 parton = np.array(fout[lep_bin]['tllq'].array())[jet_bin + offset] * total_private
             sign = np.ones_like(parton)
             err_low  = total_private - np.sqrt(np.square(err[0]) + np.square(parton))
@@ -189,8 +199,8 @@ if __name__ == '__main__':
             plt.xlabel(var)
             plt.show()
             plt.tight_layout()
-            plt.savefig(f'{outdir_name}/{fname}.png')
-            plt.savefig(f'{outdir_name}/{fname}.pdf')
+            plt.savefig(f'{outdir_name}/{fname_with_var}.png')
+            plt.savefig(f'{outdir_name}/{fname_with_var}.pdf')
             plt.close('all')
 
     # Make an index.html file if saving to web area
