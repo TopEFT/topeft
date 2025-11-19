@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import sys
 from typing import Optional
+import typing
 
 _PATCH_TARGET = "ArrayLike | Mapping | None"
 _PATCH_REPLACEMENT = "Union[ArrayLike, Mapping, None]"
@@ -41,6 +42,7 @@ def ensure_histEFT_py39_compat() -> None:
         return
 
     module = importlib.util.module_from_spec(spec)
+    module.__dict__.setdefault("Union", typing.Union)
     try:
         sys.modules[fullname] = module
         exec(compile(patched_source, spec.origin or fullname, "exec"), module.__dict__)
