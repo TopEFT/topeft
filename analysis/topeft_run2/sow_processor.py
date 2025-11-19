@@ -8,9 +8,11 @@ np.seterr(divide="ignore", invalid="ignore", over="ignore")
 import coffea.processor as processor
 
 import hist
-from topcoffea.modules.HistEFT import HistEFT
-import topcoffea.modules.eft_helper as efth
-import topcoffea.modules.corrections as corrections
+import topcoffea
+
+HistEFT = topcoffea.modules.HistEFT.HistEFT
+efth = topcoffea.modules.eft_helper
+corrections = topcoffea.modules.corrections
 
 try:  # pragma: no cover - best effort optional import
     from coffea.nanoevents import NanoEventsFactory, NanoAODSchema

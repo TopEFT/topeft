@@ -11,8 +11,10 @@ import awkward as ak
 import hist
 import coffea.processor as processor
 
-import topcoffea.modules.objects as obj
+import topcoffea
 from topeft.modules.runner_output import SUMMARY_KEY, materialise_tuple_dict
+
+obj = topcoffea.modules.objects
 
 
 def _resolve_nested_field(array, *field_paths):

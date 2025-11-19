@@ -13,7 +13,9 @@ and writes out the new corrections.
 
 
 import numpy as np
-from topcoffea.modules.paths import topcoffea_path
+import topcoffea
+
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
 
 files = ['data/JEC/RegroupedV2_Summer19UL16APV_V7_MC_UncertaintySources_AK4PFchs.junc.txt', 'data/JEC/RegroupedV2_Summer19UL16_V7_MC_UncertaintySources_AK4PFchs.junc.txt', 'data/JEC/RegroupedV2_Summer19UL17_V5_MC_UncertaintySources_AK4PFchs.junc.txt', 'data/JEC/RegroupedV2_Summer19UL18_V5_MC_UncertaintySources_AK4PFchs.junc.txt']
 header='{1 JetEta 1 JetPt "" Correction JECSource}\n'

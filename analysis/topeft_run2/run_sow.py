@@ -10,26 +10,31 @@ from typing import Any
 import coffea.processor as processor
 from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 
+import topcoffea
+
 if hasattr(NanoEventsFactory, "warn_missing_crossrefs"):
     NanoEventsFactory.warn_missing_crossrefs = False
 elif hasattr(NanoAODSchema, "warn_missing_crossrefs"):
     NanoAODSchema.warn_missing_crossrefs = False
-import topcoffea.modules.remote_environment as remote_environment
 
 import sow_processor
 
-from topcoffea.modules.executor import (
-    build_futures_executor,
-    futures_runner_overrides,
-    taskvine_log_configurator,
-)
-from topcoffea.modules.utils import load_sample_json_file, read_cfg_file, update_cfg
 from topeft.modules.executor_cli import (
     ExecutorCLIHelper,
     FuturesArgumentSpec,
     TaskVineArgumentSpec,
 )
 
+
+remote_environment = topcoffea.modules.remote_environment
+tc_executor = topcoffea.modules.executor
+build_futures_executor = tc_executor.build_futures_executor
+futures_runner_overrides = tc_executor.futures_runner_overrides
+taskvine_log_configurator = tc_executor.taskvine_log_configurator
+tc_utils = topcoffea.modules.utils
+load_sample_json_file = tc_utils.load_sample_json_file
+read_cfg_file = tc_utils.read_cfg_file
+update_cfg = tc_utils.update_cfg
 
 parser = argparse.ArgumentParser(description='You can customize your run')
 parser.add_argument('inputFiles'       , nargs='?', default='', help = 'Json or cfg file(s) containing files and metadata')

@@ -4,7 +4,6 @@
 '''
 
 from coffea import lookup_tools
-from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
 import numpy as np
 import awkward as ak
@@ -14,13 +13,15 @@ import pickle
 import correctionlib
 import json
 from coffea.jetmet_tools import CorrectedMETFactory
-### workaround while waiting the correcion-lib integration will be provided in the coffea package
-from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
-from topcoffea.modules.JECStack import JECStack
 from coffea.btag_tools import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
 
-from topcoffea.modules.get_param_from_jsons import GetParam
+import topcoffea
+
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
+CorrectedJetsFactory = topcoffea.modules.CorrectedJetsFactory.CorrectedJetsFactory
+JECStack = topcoffea.modules.JECStack.JECStack
+GetParam = topcoffea.modules.get_param_from_jsons.GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 

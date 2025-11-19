@@ -18,17 +18,11 @@ import re
 import logging
 
 import hist
-from topcoffea.modules.HistEFT import HistEFT
+import topcoffea
 import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 from typing import Dict, List, Optional, Tuple
-
-from topcoffea.modules.paths import topcoffea_path
-import topcoffea.modules.eft_helper as efth
-import topcoffea.modules.event_selection as tc_es
-import topcoffea.modules.object_selection as tc_os
-import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics
@@ -43,7 +37,14 @@ from topeft.modules.systematics import (
     register_weight_variation,
     validate_data_weight_variations,
 )
-from topcoffea.modules.get_param_from_jsons import GetParam
+
+HistEFT = topcoffea.modules.HistEFT.HistEFT
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
+efth = topcoffea.modules.eft_helper
+tc_es = topcoffea.modules.event_selection
+tc_os = topcoffea.modules.object_selection
+tc_cor = topcoffea.modules.corrections
+GetParam = topcoffea.modules.get_param_from_jsons.GetParam
 
 logger = logging.getLogger(__name__)
 get_tc_param = GetParam(topcoffea_path("params/params.json"))

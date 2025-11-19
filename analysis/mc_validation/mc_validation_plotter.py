@@ -4,23 +4,20 @@
 
 import numpy as np
 import os
-import sys
 import datetime
 import argparse
 
 from pathlib import Path
 
 import uproot
+import importlib
+import topcoffea
 
-from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.YieldTools import YieldTools
-from topcoffea.scripts.make_html import make_html
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
+YieldTools = topcoffea.modules.YieldTools.YieldTools
+make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
-
-from analysis.mc_validation.plot_utils import (  # noqa: E402
+from analysis.mc_validation.plot_utils import (
     build_dataset_histograms,
     component_labels,
     component_values,

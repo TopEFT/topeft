@@ -2,8 +2,10 @@ import numpy as np
 import copy
 from collections.abc import Mapping
 
-from topcoffea.modules.HistEFT import HistEFT
-import topcoffea.modules.utils as utils
+import topcoffea
+
+HistEFT = topcoffea.modules.HistEFT.HistEFT
+utils = topcoffea.modules.utils
 from topeft.modules.compatibility import add_sumw2_stub
 from topeft.modules.runner_output import SUMMARY_KEY
 

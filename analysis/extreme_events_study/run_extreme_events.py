@@ -7,11 +7,11 @@ import time
 
 import coffea.processor as processor
 from coffea.nanoevents import NanoAODSchema
-import topcoffea.modules.remote_environment as remote_environment
+
+import topcoffea
 
 import extreme_events
 
-from topcoffea.modules.utils import load_sample_json_file, read_cfg_file, update_cfg
 from topeft.modules.executor import build_futures_executor, taskvine_log_configurator
 from topeft.modules.executor_cli import (
     ExecutorCLIHelper,
@@ -19,6 +19,12 @@ from topeft.modules.executor_cli import (
     TaskVineArgumentSpec,
 )
 from topeft.modules.runner_output import normalise_runner_output
+
+remote_environment = topcoffea.modules.remote_environment
+tc_utils = topcoffea.modules.utils
+load_sample_json_file = tc_utils.load_sample_json_file
+read_cfg_file = tc_utils.read_cfg_file
+update_cfg = tc_utils.update_cfg
 
 
 parser = argparse.ArgumentParser(

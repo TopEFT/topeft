@@ -1,12 +1,15 @@
 import argparse
-import topcoffea.modules.utils as utils
 import cloudpickle
 from collections import defaultdict
 import re
 import gzip
 
+import topcoffea
+
 from topeft.modules.paths import topeft_path
-from topcoffea.modules.get_param_from_jsons import GetParam
+
+utils = topcoffea.modules.utils
+GetParam = topcoffea.modules.get_param_from_jsons.GetParam
 get_te_param = GetParam(topeft_path("params/params.json"))
 
 

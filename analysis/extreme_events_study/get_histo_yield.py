@@ -1,6 +1,8 @@
-import topcoffea.modules.utils as utils
-from topcoffea.modules.YieldTools import YieldTools
+import topcoffea
 from make_cr_and_sr_plots import get_lumi_for_sample
+
+YieldTools = topcoffea.modules.YieldTools.YieldTools
+utils = topcoffea.modules.utils
 
 
 def get_bins_sum(histo):

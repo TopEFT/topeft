@@ -13,11 +13,15 @@ import mplhep as hep
 import math
 from topeft.modules.comp_datacard import strip
 import re
+import importlib
 
 from topeft.modules.paths import topeft_path
-from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.get_param_from_jsons import GetParam
+import topcoffea
+
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
+GetParam = topcoffea.modules.get_param_from_jsons.GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
+make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
 
 files = ['2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m', '2lss_p', '3l_m_offZ_1b', '3l_m_offZ_2b', '3l_onZ_1b', '3l_onZ_2b', '3l_p_offZ_1b', '3l_p_offZ_2b', '4l']
 files = ['2lss_fwd_m', '2lss_fwd_p']
@@ -81,7 +85,6 @@ if __name__ == '__main__':
     import argparse
     import datetime
     import os
-    from topcoffea.scripts.make_html import make_html
 
     parser = argparse.ArgumentParser(description='You can select which file to run over')
     parser.add_argument('--years',          default=[], action='extend', nargs='+', help = 'Specify a list of years')

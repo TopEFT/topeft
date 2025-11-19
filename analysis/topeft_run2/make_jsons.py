@@ -6,9 +6,11 @@ import os
 import re
 import subprocess
 
-import topcoffea.modules.sample_lst_jsons_tools as sjt
+import topcoffea
 from topeft.modules.combine_json_ext import combine_json_ext
 from topeft.modules.combine_json_batch import combine_json_batch
+
+sjt = topcoffea.modules.sample_lst_jsons_tools
 
 
 ########### Private UL signal samples ###########

@@ -8,11 +8,24 @@ from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 from coffea.processor.accumulator import AccumulatorABC
 
-from topcoffea.modules.GetValuesFromJsons import get_param
-from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, ApplyRochesterCorrections
-from topcoffea.modules.selection import *
-from topcoffea.modules.paths import topcoffea_path
+import importlib
+import topcoffea
+
+def _inject_module_exports(module):
+    names = getattr(module, "__all__", None)
+    if names is None:
+        names = [name for name in dir(module) if not name.startswith("_")]
+    globals().update({name: getattr(module, name) for name in names})
+
+_inject_module_exports(importlib.import_module("topcoffea.modules.objects"))
+_inject_module_exports(importlib.import_module("topcoffea.modules.selection"))
+tc_corrections = importlib.import_module("topcoffea.modules.corrections")
+AttachMuonSF = tc_corrections.AttachMuonSF
+AttachElectronSF = tc_corrections.AttachElectronSF
+AttachPerLeptonFR = tc_corrections.AttachPerLeptonFR
+ApplyRochesterCorrections = tc_corrections.ApplyRochesterCorrections
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
+get_param = topcoffea.modules.GetValuesFromJsons.get_param
 
 
 class dataframe_accumulator(AccumulatorABC):

@@ -11,7 +11,8 @@ from typing import Any, Mapping, MutableMapping, Sequence
 
 import coffea.processor as processor
 from coffea.nanoevents import NanoAODSchema
-import topcoffea.modules.remote_environment as remote_environment
+
+import topcoffea
 
 try:  # pragma: no cover - import resolution depends on execution context
     from . import flip_mr_processor  # type: ignore[import]
@@ -20,7 +21,6 @@ except ImportError:  # pragma: no cover - fallback for script execution
     import flip_mr_processor  # type: ignore[no-redef]
     import flip_ar_processor  # type: ignore[no-redef]
 
-from topcoffea.modules.utils import load_sample_json_file, read_cfg_file, update_cfg
 from topeft.modules.executor import build_futures_executor, taskvine_log_configurator
 from topeft.modules.executor_cli import (
     ExecutorCLIHelper,
@@ -33,6 +33,12 @@ from topeft.modules.runner_output import (
     materialise_tuple_dict,
     normalise_runner_output,
 )
+
+remote_environment = topcoffea.modules.remote_environment
+tc_utils = topcoffea.modules.utils
+load_sample_json_file = tc_utils.load_sample_json_file
+read_cfg_file = tc_utils.read_cfg_file
+update_cfg = tc_utils.update_cfg
 
 parser = argparse.ArgumentParser(
     description=(

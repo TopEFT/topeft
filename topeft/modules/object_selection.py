@@ -7,9 +7,12 @@
 import numpy as np
 import awkward as ak
 
-from topcoffea.modules.get_param_from_jsons import GetParam
-from topcoffea.modules.paths import topcoffea_path
+import topcoffea
+
 from topeft.modules.paths import topeft_path
+
+GetParam = topcoffea.modules.get_param_from_jsons.GetParam
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 

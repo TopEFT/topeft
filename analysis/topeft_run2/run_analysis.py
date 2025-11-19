@@ -14,9 +14,9 @@ from __future__ import annotations
 import argparse
 from typing import Sequence
 
-from run_analysis_helpers import RunConfigBuilder
+import topcoffea
 
-import topcoffea.modules.remote_environment as remote_environment
+from run_analysis_helpers import RunConfigBuilder
 from topeft.modules.executor_cli import (
     ExecutorCLIHelper,
     FuturesArgumentSpec,
@@ -24,14 +24,9 @@ from topeft.modules.executor_cli import (
 )
 from topeft.modules.executor import resolve_environment_file
 
-if __package__ in (None, ""):
-    import pathlib
-    import sys
+from analysis.topeft_run2.workflow import run_workflow
 
-    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-    from analysis.topeft_run2.workflow import run_workflow
-else:
-    from .workflow import run_workflow
+remote_environment = topcoffea.modules.remote_environment
 
 
 EXECUTOR_CLI = ExecutorCLIHelper(

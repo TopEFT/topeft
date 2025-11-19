@@ -18,8 +18,13 @@ from typing import Any, Dict, Iterable, Mapping, MutableMapping, Optional, Seque
 import hist
 
 try:  # pragma: no cover - HistEFT is optional in some environments
-    from topcoffea.modules.HistEFT import HistEFT
-except Exception:  # pragma: no cover - fallback when HistEFT is unavailable
+    import topcoffea
+except ModuleNotFoundError:  # pragma: no cover - fallback when HistEFT is unavailable
+    topcoffea = None  # type: ignore[assignment]
+
+if topcoffea is not None:
+    HistEFT = getattr(topcoffea.modules.HistEFT, "HistEFT", None)
+else:  # pragma: no cover - fallback when HistEFT is unavailable
     HistEFT = None  # type: ignore[assignment]
 
 

@@ -5,6 +5,11 @@ from typing import Mapping, MutableMapping, Optional
 
 import awkward as ak
 
+try:
+    import topcoffea
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    topcoffea = None  # type: ignore[assignment]
+
 
 @dataclass
 class BTagWeightResult:
@@ -63,9 +68,12 @@ def register_btag_sf_weights(
     """
 
     if corrections_api is None:
-        import topcoffea.modules.corrections as tc_cor  # Local import to avoid heavy dependencies during testing
+        if topcoffea is not None:
+            corrections_api = topcoffea.modules.corrections
+        else:  # pragma: no cover - fallback for testing without topcoffea
+            from topeft.modules import corrections as tc_cor
 
-        corrections_api = tc_cor
+            corrections_api = tc_cor
 
     flavour_info: MutableMapping[str, MutableMapping[str, object]] = {
         "light": {

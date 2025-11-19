@@ -5,8 +5,13 @@ import shutil
 import argparse
 import numpy as np
 
-from topcoffea.modules.utils import regex_match,clean_dir,dict_comp
+import topcoffea
+
 from topeft.modules.datacard_tools import *
+
+regex_match = topcoffea.modules.utils.regex_match
+clean_dir = topcoffea.modules.utils.clean_dir
+dict_comp = topcoffea.modules.utils.dict_comp
 
 # Note:
 #   Not sure if constructing the condor related files this way is good or bad practice. It already

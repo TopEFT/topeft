@@ -48,6 +48,8 @@ from typing import (
     TYPE_CHECKING,
 )
 
+import topcoffea
+
 from topeft.modules.executor import (
     build_futures_executor,
     build_taskvine_args,
@@ -58,6 +60,9 @@ from topeft.modules.executor import (
     taskvine_log_configurator,
 )
 from topeft.modules.runner_output import normalise_runner_output, tuple_dict_stats
+
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
+topcoffea_utils = topcoffea.modules.utils
 
 from .run_analysis_helpers import (
     DEFAULT_WEIGHT_VARIATIONS,
@@ -600,9 +605,10 @@ class ExecutorFactory:
     def create_runner(self) -> Any:
         import coffea.processor as processor
         from coffea.nanoevents import NanoAODSchema
-        from topcoffea.modules import remote_environment
 
         executor = (self._config.executor or "taskvine").lower()
+
+        remote_environment = topcoffea.modules.remote_environment
 
         def _build_runner(exec_instance: Any, **runner_kwargs: Any) -> Any:
             return processor.Runner(
@@ -801,7 +807,6 @@ class RunWorkflow:
 
     def run(self) -> None:
         from topeft.modules.systematics import SystematicsHelper
-        from topcoffea.modules.paths import topcoffea_path
         from . import analysis_processor
 
         self._validate_config()
@@ -1147,15 +1152,14 @@ class RunWorkflow:
                 from topeft.modules.get_renormfact_envelope import (
                     get_renormfact_envelope,
                 )
-                import topcoffea.modules.utils as utils
 
-                dict_of_histos = utils.get_hist_from_pkl(
+                dict_of_histos = topcoffea_utils.get_hist_from_pkl(
                     out_pkl_file_name_np, allow_empty=False
                 )
                 dict_of_histos_after_applying_envelope = get_renormfact_envelope(
                     dict_of_histos
                 )
-                utils.dump_to_pkl(
+                topcoffea_utils.dump_to_pkl(
                     out_pkl_file_name_np, dict_of_histos_after_applying_envelope
                 )
 

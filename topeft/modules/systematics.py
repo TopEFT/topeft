@@ -20,10 +20,16 @@ from typing import (
 )
 
 import numpy as np
+
 try:
-    import topcoffea.modules.corrections as tc_cor
-except ImportError:  # pragma: no cover - fallback for standalone usage
-    import topeft.modules.corrections as tc_cor
+    import topcoffea
+except ModuleNotFoundError:  # pragma: no cover - fallback for standalone usage
+    topcoffea = None  # type: ignore[assignment]
+
+if topcoffea is not None:
+    tc_cor = topcoffea.modules.corrections
+else:  # pragma: no cover - fallback when topcoffea is absent
+    from topeft.modules import corrections as tc_cor
 
 from topeft.modules.paths import topeft_path
 

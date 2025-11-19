@@ -3,10 +3,7 @@ import os
 import copy
 import datetime
 import argparse
-import sys
 import importlib
-import importlib.util
-from pathlib import Path
 import yaml
 import matplotlib as mpl
 mpl.use('Agg')
@@ -15,58 +12,8 @@ from cycler import cycler
 
 import mplhep as hep
 import hist
+import topcoffea
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-NEARBY_TOPCOFFEA = PROJECT_ROOT / "topcoffea"
-SIBLING_TOPCOFFEA = PROJECT_ROOT.parent / "topcoffea"
-
-def _promote_sys_path(path_entry: Path):
-    path_str = str(path_entry)
-    if path_str in sys.path:
-        sys.path.remove(path_str)
-    sys.path.insert(0, path_str)
-
-_promote_sys_path(PROJECT_ROOT)
-if SIBLING_TOPCOFFEA.exists():
-    _promote_sys_path(SIBLING_TOPCOFFEA)
-try:
-    import topcoffea
-except ModuleNotFoundError as topcoffea_err:
-    if NEARBY_TOPCOFFEA.exists():
-        _promote_sys_path(NEARBY_TOPCOFFEA)
-        import topcoffea
-    else:
-        raise ModuleNotFoundError(
-            "Could not locate the topcoffea package. Install it (e.g. `pip install -e ../topcoffea`) or add it to PYTHONPATH."
-        ) from topcoffea_err
-
-
-def _append_namespace_path(package, candidate: Path):
-    if not candidate.exists() or not hasattr(package, "__path__"):
-        return
-    path_str = str(candidate)
-    if path_str not in package.__path__:
-        package.__path__.append(path_str)
-
-
-tc_modules = importlib.import_module("topcoffea.modules")
-for extra_root in (SIBLING_TOPCOFFEA, NEARBY_TOPCOFFEA):
-    if not extra_root.exists():
-        continue
-    package_root = extra_root / "topcoffea"
-    module_root = package_root / "modules"
-    _append_namespace_path(topcoffea, package_root)
-    _append_namespace_path(tc_modules, module_root)
-
-hist_module_name = "topcoffea.modules.HistEFT"
-if importlib.util.find_spec(hist_module_name) is None:
-    hist_module_name = "topcoffea.modules.histEFT"
-if importlib.util.find_spec(hist_module_name) is None:
-    raise ModuleNotFoundError(
-        "Could not locate topcoffea.modules.HistEFT; install the sibling topcoffea repository (e.g. `pip install -e ./topcoffea`)."
-    )
-HistEFT = getattr(importlib.import_module(hist_module_name), "HistEFT")
 from topeft.modules.paths import topeft_path
 
 metadata_path = topeft_path("params/metadata.yml")
@@ -74,14 +21,15 @@ with open(metadata_path, "r") as f:
     metadata = yaml.safe_load(f)
 axes_info = metadata["variables"]
 
-from topcoffea.scripts.make_html import make_html
-import topcoffea.modules.utils as utils
 from topeft.modules.yield_tools import YieldTools
-
-from topcoffea.modules.paths import topcoffea_path
 import topeft.modules.get_rate_systs as grs
-from topcoffea.modules.get_param_from_jsons import GetParam
+
+HistEFT = topcoffea.modules.HistEFT.HistEFT
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
+GetParam = topcoffea.modules.get_param_from_jsons.GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
+utils = topcoffea.modules.utils
+make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
 
 
 # This script takes an input pkl file that should have both data and background MC included.

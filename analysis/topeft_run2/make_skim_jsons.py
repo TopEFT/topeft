@@ -1,10 +1,12 @@
 import os
 import argparse
 
-from topcoffea.modules.update_json import update_json
-from topcoffea.modules.utils import get_files
+import topcoffea
 
 pjoin = os.path.join
+
+update_json = topcoffea.modules.update_json.update_json
+get_files = topcoffea.modules.utils.get_files
 
 # Attempts to match a hadoop dataset to a json dataset based on the file name
 def find_json_match(hadoop_skim_dir,json_fpaths):

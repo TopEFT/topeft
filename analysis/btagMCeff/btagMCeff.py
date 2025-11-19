@@ -9,11 +9,12 @@ from hist import storage
 from coffea.util import load
 import coffea.analysis_tools
 
+import topcoffea
 import topeft.modules.object_selection as te_os
-import topcoffea.modules.object_selection as tc_os
 from topeft.modules.paths import topeft_path
 
-from topcoffea.modules.get_param_from_jsons import GetParam
+tc_os = topcoffea.modules.object_selection
+GetParam = topcoffea.modules.get_param_from_jsons.GetParam
 get_te_param = GetParam(topeft_path("params/params.json"))
 
 #coffea.deprecations_as_errors = True

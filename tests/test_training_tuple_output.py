@@ -5,17 +5,12 @@ from __future__ import annotations
 import importlib
 import sys
 import types
-from pathlib import Path
 from typing import Tuple
 
 import awkward as ak
 import numpy as np
 import pytest
 from hist import Hist, axis, storage
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 
 def _install_training_stubs() -> None:

@@ -1,14 +1,8 @@
-from pathlib import Path
-import sys
 from types import SimpleNamespace
 
 import pytest
 
 pytest.importorskip("numpy")
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from topeft.modules.systematics import register_trigger_sf_weight
 

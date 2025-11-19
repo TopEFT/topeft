@@ -14,12 +14,25 @@ import coffea.processor as processor
 from coffea.analysis_tools import PackedSelection, Weights
 from coffea.lumi_tools import LumiMask
 
-from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
-from topcoffea.modules.selection import *
-from topcoffea.modules.paths import topcoffea_path
+import importlib
+import topcoffea
 
 from topeft.modules.runner_output import SUMMARY_KEY, materialise_tuple_dict
+
+
+def _inject_module_exports(module):
+    names = getattr(module, "__all__", None)
+    if names is None:
+        names = [name for name in dir(module) if not name.startswith("_")]
+    globals().update({name: getattr(module, name) for name in names})
+
+_inject_module_exports(importlib.import_module("topcoffea.modules.objects"))
+_inject_module_exports(importlib.import_module("topcoffea.modules.selection"))
+tc_corrections = importlib.import_module("topcoffea.modules.corrections")
+AttachMuonSF = tc_corrections.AttachMuonSF
+AttachElectronSF = tc_corrections.AttachElectronSF
+AttachPerLeptonFR = tc_corrections.AttachPerLeptonFR
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
 
 
 def _resolve_nested_field(array, *field_paths):

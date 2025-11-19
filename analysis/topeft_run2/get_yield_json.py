@@ -1,9 +1,13 @@
 import argparse
 import json
 import datetime
+
+import topcoffea
+
 from topeft.modules.yield_tools import YieldTools
-import topcoffea.modules.MakeLatexTable as mlt
-from topcoffea.modules import utils
+
+mlt = topcoffea.modules.MakeLatexTable
+utils = topcoffea.modules.utils
 
 # This script takes a pkl file, finds the yields in the analysis categories, saves the yields to a json
 #   - If you do not specify a pkl file path, will default to "hists/plotsTopEFT.pkl.gz"

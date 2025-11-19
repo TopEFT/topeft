@@ -20,11 +20,13 @@ import argparse
 import time
 import json
 import os
-from topcoffea.modules.get_param_from_jsons import GetParam
-from topcoffea.modules.paths import topcoffea_path
-get_tc_param = GetParam(topcoffea_path("params/params.json"))
+import topcoffea
 import yaml
 from topeft.modules.paths import topeft_path
+
+GetParam = topcoffea.modules.get_param_from_jsons.GetParam
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
+get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
 metadata_path = topeft_path("params/metadata.yml")
 with open(metadata_path, "r") as f:

@@ -1,12 +1,4 @@
-from pathlib import Path
-
 import pytest
-
-import sys
-
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
 
 from analysis.topeft_run2.workflow import ChannelPlanner, normalize_jet_category
 from topeft.modules.channel_metadata import ChannelMetadataHelper
