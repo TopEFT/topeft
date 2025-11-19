@@ -16,6 +16,8 @@ from types import MappingProxyType
 import cloudpickle
 import uproot
 
+from topcoffea.modules.hist_utils import iterate_hist_from_pkl as _iterate_hist_from_pkl
+
 
 pjoin = os.path.join
 
@@ -468,17 +470,15 @@ def dump_to_pkl(out_name,out_file):
     print("Done.\n")
 
 
-def get_hist_dict_non_empty(h):
-    print(h.keys())
-    return {k: v for k, v in h.items()}# if not v.empty()}
+def iterate_hist_from_pkl(*args, **kwargs):
+    """Proxy to ``topcoffea.modules.hist_utils.iterate_hist_from_pkl``."""
+
+    return _iterate_hist_from_pkl(*args, **kwargs)
 
 
 # Get the dictionary of hists from the pkl file (e.g. that a processor outputs)
 def get_hist_from_pkl(path_to_pkl, allow_empty=True):
-    h = pickle.load(gzip.open(path_to_pkl))
-    if not allow_empty:
-        h = get_hist_dict_non_empty(h)
-    return h
+    return iterate_hist_from_pkl(path_to_pkl, allow_empty=allow_empty, materialize=True)
 
 
 ############## Dictionary manipulations and tools ##############

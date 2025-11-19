@@ -5,7 +5,7 @@ import re
 from collections import defaultdict
 
 import cloudpickle
-import topcoffea.modules.utils as utils
+from topcoffea.modules.hist_utils import iterate_hist_from_pkl
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.utils import canonicalize_process_name
@@ -17,10 +17,7 @@ logger = logging.getLogger(__name__)
 
 class DataDrivenProducer:
     def __init__(self, inputHist, outputName):
-        if isinstance(inputHist, str) and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
-            self.inhist=utils.get_hist_from_pkl(inputHist)
-        else: # we already have the histogram
-            self.inhist=inputHist
+        self._input_source = inputHist
         self.outputName=outputName
         self.verbose=False
         self.dataName='data'
@@ -28,17 +25,35 @@ class DataDrivenProducer:
         self.promptSubtractionSamples=get_te_param('prompt_subtraction_samples')
         self.DDFakes()
 
+    @staticmethod
+    def _is_histogram_path(candidate):
+        return isinstance(candidate, str) and candidate.endswith(('.pkl.gz', '.pkl'))
+
+    def _iter_input_histograms(self):
+        if self.outHist is not None:
+            yield from self.outHist.items()
+            return
+
+        source = self._input_source
+        if self._is_histogram_path(source):
+            yield from iterate_hist_from_pkl(source, allow_empty=True)
+            return
+
+        if hasattr(source, 'items'):
+            yield from source.items()
+            return
+
+        yield from source
+
     def DDFakes(self):
-        if self.outHist!=None:  # already some processing has been done, so using what is available
-            self.inhist=self.outHist
+        input_iter = self._iter_input_histograms()
+        new_output = {}
 
-        self.outHist={}
-
-        for key,histo in self.inhist.items():
+        for key,histo in input_iter:
 
             if histo.empty(): # histo is empty, so we just integrate over appl and keep an empty histo
                 print(f'[W]: Histogram {key} is empty, returning an empty histo')
-                self.outHist[key]=histo.integrate('appl')
+                new_output[key]=histo.integrate('appl')
                 continue
 
             # First we are gonna scale all MC processes in  by the luminosity
@@ -152,7 +167,9 @@ class DataDrivenProducer:
                         else:
                             newhist += hFakes
 
-            self.outHist[key]=newhist
+            new_output[key]=newhist
+
+        self.outHist = new_output
 
     def dumpToPickle(self):
         if not self.outputName.endswith(".pkl.gz"):
