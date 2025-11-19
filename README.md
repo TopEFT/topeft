@@ -39,6 +39,8 @@ The `-e` option installs the project in editable mode (i.e. setuptools "develop 
 
 `scripts/install_topcoffea.sh` vendors `topcoffea` into `external/topcoffea`, checks out the repository's default branch (or whichever branch you request via `TOPCOFFEA_GIT_REF`), and performs an editable install so that the `topcoffea` package is immediately importable inside the current virtual environment. Override `TOPCOFFEA_GIT_REF`, `TOPCOFFEA_REPO_URL`, or `TOPCOFFEA_DIR` if you need a different branch, fork, or destination.
 
+`analysis/topeft_run2/run_analysis.py` now verifies that the shared `topcoffea` data bundle is reachable by resolving a representative file (`data/pileup/pileup_2016GH.root`) through `topcoffea_path`. When the lookup fails the CLI exits early with guidance to re-run `scripts/install_topcoffea.sh`, ensure the expected branch (currently `run3_test_mmerged`) is available, and retry. Pass `--skip-topcoffea-data-check` only if you manage the pileup files yourself and understand the consequences—the default should remain enabled so typical runs fail fast instead of crashing deep inside the processing step.
+
 Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The next time you want to use it, all you have to do is to activate the environment via `conda activate coffea-env` (the editable installs keep `import topeft` and `import topcoffea` working).
 
 
@@ -51,6 +53,8 @@ wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B
 python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures
 
 ```
+If this command exits immediately with a message about missing `topcoffea` data, re-run `scripts/install_topcoffea.sh` (or update the `external/topcoffea` checkout to the branch advertised in this README) so the pileup payloads and auxiliary files are restored. The expert-only `--skip-topcoffea-data-check` flag suppresses the startup probe when you maintain a custom data layout, but the default behaviour is intentionally strict to catch misconfigured environments before submitting large workflows.
+
 When `--do-np` is passed `run_analysis.py` produces the nonprompt-enhanced `_np.pkl.gz` histogram either inline (the default) or via deferred post-processing controlled by `--np-postprocess={inline,defer,skip}`. Inline mode matches the historical behaviour where the `_np.pkl.gz` file is written immediately. Deferred mode writes the regular pickle plus a sidecar metadata file named like `histos/<outname>_np.pkl.gz.metadata.json` that records the follow-up command, resolved years, and histogram locations so you can build the `_np.pkl.gz` file later.
 
 To request deferred mode from the wrapper run `fullR3_run.sh --do-np --defer-np --cr ...` (or invoke `run_analysis.py --do-np --np-postprocess=defer` directly). The `--do-np` flag is required to enable the nonprompt producer; `--defer-np` merely switches the producer into deferred mode so the metadata file is written instead of the `_np.pkl.gz` histogram. Once the processors finish, finalize the nonprompt step (and optionally add the renorm/fact envelope) with the helper below; it accepts either the metadata json or explicit `--input-pkl` / `--output-pkl` paths:

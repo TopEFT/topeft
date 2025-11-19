@@ -13,6 +13,7 @@ from coffea.nanoevents import NanoAODSchema
 
 import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
+from topcoffea.modules.paths import topcoffea_path
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
@@ -32,6 +33,27 @@ WGT_VAR_LST = [
     #"nSumOfWeights_renormfactUp",
     #"nSumOfWeights_renormfactDown",
 ]
+
+
+def _ensure_topcoffea_data_available(skip_check=False):
+    if skip_check:
+        return
+
+    target_relpath = "data/pileup/pileup_2016GH.root"
+    guidance = (
+        "Topcoffea shared data files are missing. Re-run scripts/install_topcoffea.sh "
+        "from the topeft checkout so the matching topcoffea branch (e.g. run3_test_mmerged) "
+        "and its data bundles are installed, or pass --skip-topcoffea-data-check if your setup "
+        "provides the resources elsewhere."
+    )
+
+    try:
+        pileup_path = topcoffea_path(target_relpath)
+    except FileNotFoundError as exc:
+        raise SystemExit(f"{guidance} (lookup failed for {target_relpath}).") from exc
+
+    if not os.path.exists(pileup_path):
+        raise SystemExit(f"{guidance} (expected {pileup_path}).")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
@@ -215,8 +237,17 @@ if __name__ == "__main__":
             "or 'taufitter' to enable tau fitter specific handling."
         ),
     )
+    parser.add_argument(
+        "--skip-topcoffea-data-check",
+        action="store_true",
+        help=(
+            "Bypass the startup sanity check that verifies the shared topcoffea data files are present. "
+            "Use only for expert/custom setups."
+        ),
+    )
 
     args = parser.parse_args()
+    _ensure_topcoffea_data_available(args.skip_topcoffea_data_check)
     jsonFiles = args.jsonFiles
     prefix = args.prefix
     executor_name = args.executor

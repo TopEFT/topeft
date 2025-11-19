@@ -127,3 +127,45 @@ def test_np_postprocess_defer_creates_metadata(tmp_path):
     assert payload["pretend_mode"] is True
     assert payload["output_histogram"] == str(np_pickle)
     assert "DataDrivenProducer" in payload["followup_command"]
+
+
+def test_missing_topcoffea_data_reports_guidance(monkeypatch):
+    from topcoffea.modules.paths import topcoffea_path as real_topcoffea_path
+    import types
+
+    def fake_topcoffea_path(relpath):
+        if relpath == "data/pileup/pileup_2016GH.root":
+            raise FileNotFoundError("missing data bundle")
+        return real_topcoffea_path(relpath)
+
+    monkeypatch.setattr("topcoffea.modules.paths.topcoffea_path", fake_topcoffea_path)
+
+    fake_analysis_processor = types.ModuleType("analysis_processor")
+
+    class DummyProcessor:
+        def __init__(self, *_, **__):
+            self.accumulator = {}
+
+    fake_analysis_processor.AnalysisProcessor = DummyProcessor
+    monkeypatch.setitem(sys.modules, "analysis_processor", fake_analysis_processor)
+
+    argv = [
+        "run_analysis.py",
+        str(_SAMPLE_JSON),
+        "-x",
+        "futures",
+        "--pretend",
+    ]
+
+    original_sys_path = list(sys.path)
+    sys.path.insert(0, str(_SCRIPT_PATH.parent))
+    try:
+        with mock.patch.object(sys, "argv", argv):
+            with pytest.raises(SystemExit) as excinfo:
+                runpy.run_path(str(_SCRIPT_PATH), run_name="__main__")
+    finally:
+        sys.path = original_sys_path
+
+    message = str(excinfo.value)
+    assert "scripts/install_topcoffea.sh" in message
+    assert "--skip-topcoffea-data-check" in message
