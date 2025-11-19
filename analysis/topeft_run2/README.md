@@ -120,9 +120,11 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 ### Scripts for finding, comparing and plotting yields from histograms (from the processor)
 
 * `make_cr_and_sr_plots.py`:
-    - This script makes plots for all CRs categories, also has the ability to make SR plots. 
-    - The script takes as input a pkl file that should have both data and background MC included.
-    - Example usage: `python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2018 -t -u`
+    - This script makes plots for all CRs categories and can also make SR plots.
+    - The script takes as input the 5-tuple histogram pickle produced by the current topcoffea runners (e.g. TaskVine output that has both data and background MC).
+    - Ensure the bundled `topcoffea` source is on `PYTHONPATH` (or install it once with `pip install -e ./topcoffea` from the repo root) before running the plotter so `topcoffea.modules` imports resolve.
+    - Example usage (smoke test with TaskVine-style output): `python make_cr_and_sr_plots.py -f /path/to/taskvine/output/plotsTopEFT.pkl.gz -o /tmp/cr_sr_smoke -n plots -y 2018 --skip-syst`
+    - See `examples/run_make_cr_and_sr_plots_smoke.sh` for a ready-to-run wrapper that expects an existing runner output pickle.
 
 * `get_yield_json.py`:
     - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.
