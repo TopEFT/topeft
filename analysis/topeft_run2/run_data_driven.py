@@ -94,15 +94,8 @@ def _resolve_path(
     if not metadata_value:
         return None
     if metadata_dir and not os.path.isabs(metadata_value):
-        metadata_value_norm = os.path.normpath(metadata_value)
-        metadata_dir_base = os.path.basename(metadata_dir)
-        if metadata_dir_base and (
-            metadata_value_norm == metadata_dir_base
-            or metadata_value_norm.startswith(f"{metadata_dir_base}{os.sep}")
-        ):
-            return metadata_value_norm
         return os.path.normpath(os.path.join(metadata_dir, metadata_value))
-    return metadata_value
+    return os.path.normpath(metadata_value)
 
 
 def _validate_input_path(input_path: str) -> None:
