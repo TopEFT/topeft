@@ -70,6 +70,8 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Thin wrapper around `analysis_processor.py` used for the standard CR/analysis histogram production. The canned histogram lists now include the 2D `lepton_pt_vs_eta` observable (and keep the matching `_sumw2` companion unless `--no-sumw2` is passed) so downstream tools can rely on a consistent pt vs $|\eta|$ binning description.
     - Leave the default `sumw²` companions enabled whenever you plan to run downstream uncertainty-aware tooling such as the tau fake-rate fitter or the diboson scale-factor extractor. Disabling them with `--no-sumw2` drops the `*_sumw2` histograms (for example `tau0pt_sumw2`), which causes those utilities to fail or to lose their statistical error propagation. If you need to trim the histogram list, remove individual observables instead of the sumw² accumulators.
     - Pass `--years YEAR [YEAR ...]` to filter the loaded JSON samples to the requested campaign tokens. Supported values are `2016`, `2016APV`, `2017`, `2018`, `2022`, `2022EE`, `2023`, `2023BPix`, their UL aliases (`UL16`, `UL16APV`, `UL17`, `UL18`), and the aggregate shorthands `run2` (`UL16 UL16APV UL17 UL18`) and `run3` (`2022 2022EE 2023 2023BPix`). Legacy tokens remain valid, so existing command snippets do not require changes. When the option is absent every sample in the configuration is retained as before.
+    - The data-driven helper now supports inline and deferred workflows. Keep the historical behaviour by relying on the default `--np-postprocess=inline` (paired with `--do-np`) so the `_np.pkl.gz` file appears immediately. Choose `--np-postprocess=defer` **together with `--do-np`** to emit the base pickle along with `histos/<outname>_np.pkl.gz.metadata.json`, which records the resolved years, follow-up command, and absolute histogram paths for later processing. Setting `--np-postprocess=skip` suppresses the data-driven step entirely.
+    - The metadata sidecar allows the deferred helper to reconstruct the `_np.pkl.gz` file without repeating the whole analysis: `python run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json`. Pass `--input-pkl / --output-pkl` directly if you prefer not to use the metadata. The helper also exposes `--apply-renormfact-envelope` so the deferred runs match the inline envelope path.
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
@@ -77,7 +79,13 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 * `fullR3_run.sh`: Recommended wrapper script for both Run 2 and Run 3 histogram production. It expands the aggregate campaign aliases (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`) before dispatching to `run_analysis.py`, superseding the legacy helper while keeping the historical single-year tokens functioning as before.
     - Whenever the Run 2 bundle is activated (any of `2016`, `2016APV`, `2017`, `2018`, `UL16`, `UL16APV`, `UL17`, or `UL18` appear in `-y/--year`), the wrapper forwards the matching Run 2 payload to `run_analysis.py` via `--years`. Aliases are resolved so that `UL16` behaves like `2016`, `UL16APV` like `2016APV`, and similarly for `UL17`/`2017` and `UL18`/`2018`.
+    - Add both `--do-np` and `--defer-np` when you want the wrapper to append `--do-np --np-postprocess=defer` to the delegated `run_analysis.py` command. The first flag enables the nonprompt producer, and the second switches it to deferred mode so the wrapper prints the metadata path (`histos/<outname>_np.pkl.gz.metadata.json`) and the follow-up helper has everything it needs. Passing only `--defer-np` leaves the producer disabled, so neither the metadata nor the `_np.pkl.gz` histogram will be created.
 * `fullR2_run.sh`: Historical wrapper for the original TOP-22-006 pickle production. Keep it around for archival reproducibility; new workflows should prefer `fullR3_run.sh`.
+
+* `run_data_driven.py`:
+    - Finalizes deferred nonprompt/flips histograms using either the metadata emitted by `run_analysis.py --np-postprocess=defer` or manually specified pickle paths.
+    - Example usage: `python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json --apply-renormfact-envelope`
+    - When invoked with metadata the CLI automatically discovers the base pickle, resolved years, and desired `_np.pkl.gz` destination so you can regenerate the datacard-ready file long after the original processing campaign finished. Provide `--input-pkl` and (optionally) `--output-pkl` explicitly when you only kept the histogram pickles.
 
 > **Sourcing helpers:** `run_plotter.sh`, `submit_plotter_condor.sh`, `fullR3_run.sh`, `fullR3_run_diboson.sh`, and `condor_plotter_entry.sh` now funnel their work through a `main()` function. They return non-zero statuses instead of exiting outright when validation fails, so sourcing them in an interactive shell will surface the error without tearing down your session. Executing the scripts directly still exits with the same return codes as before.
 
@@ -242,6 +250,8 @@ The `analysis_bins` map inside `REGION_PLOTTING` (for example the `SR` block’s
 
 
 ### Scripts for making and checking the datacards
+
+All of the utilities in this section expect the nonprompt-enhanced histogram pickle (filename ending in `_np.pkl.gz`). Produce it inline via `run_analysis.py --do-np --np-postprocess=inline` or, when using the deferred workflow, call `python run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json` before pointing the datacard maker at the pickle.
 
 * `make_cards.py`
     - Example usage: `time python make_cards.py /path/to/your.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d /path/to/output/dir --unblind --do-mc-stat`
