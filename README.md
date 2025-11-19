@@ -123,7 +123,24 @@ For a narrated walkthrough that ties environment preparation, tarball packaging,
 
    For HTCondor-backed pools, `condor_submit_workers` and other submission helpers ship with TaskVine; point them at the same manager string and pass `--python-env` when the helper supports it. Refer to the [remote environment maintenance guide](docs/environment_packaging.md) for details on rebuilding the tarball whenever dependencies change.
 
-Work Queue has been retired from the workflow helpers. A condensed record of the historic instructions is preserved in [README_WORKQUEUE.md](README_WORKQUEUE.md) for teams pinned to older releases.
+   When you prefer to debug locally without spinning up a TaskVine manager,
+   switch to `analysis/topeft_run2/local_futures_run.sh`. The wrapper mirrors the
+   region/year handling of `full_run.sh` while forcing the Coffea futures
+   executor, exposing knobs like `--workers`, `--futures-prefetch`, and
+   `--futures-retries`, and emitting the same
+   `(variable, channel, application, sample, systematic)` histogram pickles.
+   Override the default sample list with `--samples` (for example pointing at
+   `input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json`) when
+   you want a quick single-node smoke test:
+
+   ```bash
+   cd analysis/topeft_run2
+   ./local_futures_run.sh --sr -y UL17 --samples \
+       ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+       --outdir histos/local_debug --tag quickstart
+   ```
+
+   Work Queue has been retired from the workflow helpers. A condensed record of the historic instructions is preserved in [README_WORKQUEUE.md](README_WORKQUEUE.md) for teams pinned to older releases.
 
 ### To run an example job
 
