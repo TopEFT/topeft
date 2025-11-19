@@ -34,14 +34,22 @@ def to_hist(arr,name,zero_wgts=False):
     # NOTE:
     #   If we don't instantiate a new np.array here, then clipped will store a reference to the
     #   sub-array arr and when we modify clipped, it will propagate back to arr as well!
-    clipped = []
+    clipped = [None, None]
+    reference = None
     for i in range(2):  # first entry is sum(weight), second entry is sum(weight^2)
         if arr[i] is not None:
-            clipped.append(np.array(arr[i][1:]))  # Strip off the underoverflow bin
-        else:
-            clipped[i] = None
+            clipped[i] = np.array(arr[i][1:])  # Strip off the underoverflow bin
+            if reference is None:
+                reference = clipped[i]
 
-    nbins = len(clipped[0])
+    if reference is None:
+        raise ValueError("Input histogram array contains no data")
+
+    for i in range(2):
+        if clipped[i] is None:
+            clipped[i] = np.zeros_like(reference)
+
+    nbins = len(reference)
     h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
     if zero_wgts:
         h[...] = np.stack([clipped[0],np.zeros_like(clipped[0])],axis=-1) # Set the bin errors all to 0
