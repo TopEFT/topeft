@@ -11,6 +11,7 @@ PrintUsage() {
   echo "  -t TAG     Git tag or commit identifier"
   echo "  --cr       Generate control-region histograms"
   echo "  --sr       Generate signal-region histograms"
+  echo "  --defer-np Defer nonprompt post-processing (adds --np-postprocess=defer)"
   echo "  -h, --help Show this help message"
   echo
   echo "Any additional options after those listed above are passed directly"
@@ -29,6 +30,7 @@ main() {
   local DEFAULT_TAG="fec79a60_PNet"
   local FLAG_CR=false
   local FLAG_SR=false
+  local FLAG_DEFER_NP=false
   local -a EXTRA_ARGS=()
   local -a YEARS=()
   local -a EXPANDED_YEARS=()
@@ -67,6 +69,10 @@ main() {
         ;;
       --sr)
         FLAG_SR=true
+        shift
+        ;;
+      --defer-np)
+        FLAG_DEFER_NP=true
         shift
         ;;
       -h|--help)
@@ -261,6 +267,9 @@ main() {
   local -a RUN_CMD=(python run_analysis.py "$CFGS")
   RUN_CMD+=(--years "${RESOLVED_YEARS[@]}")
   RUN_CMD+=("${OPTIONS[@]}")
+  if [[ "$FLAG_DEFER_NP" == "true" ]]; then
+    RUN_CMD+=(--np-postprocess=defer)
+  fi
   RUN_CMD+=("${EXTRA_ARGS[@]}")
 
   printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
