@@ -22,3 +22,19 @@ def test_channel_override():
 def test_var_overrides_diff_and_ptz_lists():
     assert missing_parton.determine_files('ht', None) == missing_parton.FILES_DIFF
     assert missing_parton.determine_files('ptz', None) == missing_parton.FILES_PTZ
+
+
+def test_central_lookup_uses_process_renames():
+    calls = []
+
+    def fake_get_hists(fname, path, process):
+        calls.append((fname, path, process))
+        return [1], {'process': [1]}, ([0], [0]), [0, 1], ['label']
+
+    missing_parton.fetch_process_histograms('my_file_njets', 'tllq', get_hists_fn=fake_get_hists)
+
+    assert calls[0] == ('my_file_njets', 'private_sm', 'tllq')
+    assert calls[1][0] == 'my_file_njets'
+    assert calls[1][1] == 'central_sm'
+    assert calls[1][2] == missing_parton.PROCESS_RENAMES['tllq']
+    assert calls[1][2] != 'tllq'
