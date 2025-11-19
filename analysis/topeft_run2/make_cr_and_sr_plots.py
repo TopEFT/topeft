@@ -30,18 +30,34 @@ def _promote_sys_path(path_entry: Path):
 _promote_sys_path(PROJECT_ROOT)
 if SIBLING_TOPCOFFEA.exists():
     _promote_sys_path(SIBLING_TOPCOFFEA)
-if NEARBY_TOPCOFFEA.exists():
-    _promote_sys_path(NEARBY_TOPCOFFEA)
+try:
+    import topcoffea
+except ModuleNotFoundError as topcoffea_err:
+    if NEARBY_TOPCOFFEA.exists():
+        _promote_sys_path(NEARBY_TOPCOFFEA)
+        import topcoffea
+    else:
+        raise ModuleNotFoundError(
+            "Could not locate the topcoffea package. Install it (e.g. `pip install -e ../topcoffea`) or add it to PYTHONPATH."
+        ) from topcoffea_err
 
-import topcoffea
-if SIBLING_TOPCOFFEA.exists():
-    sibling_package_root = SIBLING_TOPCOFFEA / "topcoffea"
-    if sibling_package_root.exists():
-        topcoffea.__path__.append(str(sibling_package_root))
-        tc_modules = importlib.import_module("topcoffea.modules")
-        sibling_module_root = sibling_package_root / "modules"
-        if sibling_module_root.exists() and hasattr(tc_modules, "__path__"):
-            tc_modules.__path__.append(str(sibling_module_root))
+
+def _append_namespace_path(package, candidate: Path):
+    if not candidate.exists() or not hasattr(package, "__path__"):
+        return
+    path_str = str(candidate)
+    if path_str not in package.__path__:
+        package.__path__.append(path_str)
+
+
+tc_modules = importlib.import_module("topcoffea.modules")
+for extra_root in (SIBLING_TOPCOFFEA, NEARBY_TOPCOFFEA):
+    if not extra_root.exists():
+        continue
+    package_root = extra_root / "topcoffea"
+    module_root = package_root / "modules"
+    _append_namespace_path(topcoffea, package_root)
+    _append_namespace_path(tc_modules, module_root)
 
 hist_module_name = "topcoffea.modules.HistEFT"
 if importlib.util.find_spec(hist_module_name) is None:
