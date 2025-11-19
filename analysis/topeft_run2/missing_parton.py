@@ -1,8 +1,11 @@
 '''
-This script computes the msising parton rate
+This script computes the missing parton rate.
+
 It requires the central (tZq) and private (tllq) samples exist in
-`histos/central_sm/` and `histos/private_sm/` respectively
-To create these, run the datacard maker (tllq `with` systematics, tZq without)
+`histos/central_sm/` and `histos/private_sm/` respectively. When comparing the
+two, process names are remapped to align the private tllq sample with the
+central tZq histograms (and similarly ttZ→ttll, ttW→ttlnu). To create the
+inputs, run the datacard maker (tllq `with` systematics, tZq without).
 '''
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,6 +25,12 @@ topcoffea_path = topcoffea.modules.paths.topcoffea_path
 GetParam = topcoffea.modules.get_param_from_jsons.GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 make_html = require_script("make_html").make_html
+
+PROCESS_RENAMES = {
+    'tllq': 'tZq',
+    'ttZ': 'ttll',
+    'ttW': 'ttlnu',
+}
 
 DEFAULT_CHANNELS = ['2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m', '2lss_p', '3l_m_offZ_1b', '3l_m_offZ_2b', '3l_onZ_1b', '3l_onZ_2b', '3l_p_offZ_1b', '3l_p_offZ_2b', '4l']
 FILES_DIFF = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
@@ -92,6 +101,15 @@ def get_hists(fname, path, process):
     bins = fin[process+'_sm'].axis().edges()
     return total, nom, err, bins, [proc.split('_sm')[0]for proc in fin if 'sm;' in proc]
 
+
+def fetch_process_histograms(fname_with_var, process, get_hists_fn=get_hists, rename_map=PROCESS_RENAMES):
+    """Retrieve private and central histograms for a process using any rename map."""
+
+    total_private, nom_private, err, bins, label = get_hists_fn(fname_with_var, 'private_sm', process)
+    rproc = rename_map.get(process, process)
+    total_central, nom_central, _, _, _ = get_hists_fn(fname_with_var, 'central_sm', rproc)
+    return total_private, nom_private, err, bins, label, total_central, nom_central
+
 if __name__ == '__main__':
     import argparse
     import datetime
@@ -137,14 +155,12 @@ if __name__ == '__main__':
         fout = topcoffea_path('data/missing_parton/missing_parton.root')
         fout = uproot.open(fout)
 
-    rename = {'tllq': 'tZq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
-    rename = {} #Used to rename things like ttZ to ttll and ttHnobb to ttH
     for proc in ['tllq']:
         for fname in files:
             fname_with_var = f'{fname}_{var}'
-            total_private, nom_private, err, bins, label = get_hists(fname_with_var, 'private_sm', proc)
-            rproc = rename[proc] if proc in rename else proc
-            total_central, nom_central, _, _, _ = get_hists(fname_with_var, 'central_sm', rproc)
+            total_private, nom_private, err, bins, label, total_central, nom_central = fetch_process_histograms(
+                fname_with_var, proc
+            )
             hep.style.use("CMS")
             fig,ax = plt.subplots(figsize=(8, 6))
             hep.histplot(total_private, bins=bins, stack=False, label='Priavte LO', ax=ax, sort='yield')
