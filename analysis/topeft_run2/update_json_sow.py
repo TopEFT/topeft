@@ -2,7 +2,8 @@ import os
 import argparse
 
 from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.utils import regex_match, load_sample_json_file, get_files, get_hist_from_pkl
+from topcoffea.modules.utils import regex_match, load_sample_json_file, get_files
+from topeft.modules.utils import get_hist_from_pkl
 from topcoffea.modules.update_json import update_json
 from topeft.modules.yield_tools import YieldTools
 

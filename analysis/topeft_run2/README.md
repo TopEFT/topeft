@@ -86,6 +86,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Finalizes deferred nonprompt/flips histograms using either the metadata emitted by `run_analysis.py --np-postprocess=defer` or manually specified pickle paths.
     - Example usage: `python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json --apply-renormfact-envelope`
     - When invoked with metadata the CLI automatically discovers the base pickle, resolved years, and desired `_np.pkl.gz` destination so you can regenerate the datacard-ready file long after the original processing campaign finished. Provide `--input-pkl` and (optionally) `--output-pkl` explicitly when you only kept the histogram pickles.
+    - Pointing `--input-pkl` at a `.pkl`/`.pkl.gz` file now streams the histograms one key at a time, so memory usage no longer scales with the full dictionary size. This mirrors the inline `run_analysis.py --np-postprocess=defer` workflow: the base pickle can live on disk until you are ready to postprocess it, even when the histogram set is several gigabytes.
 
 > **Sourcing helpers:** `run_plotter.sh`, `submit_plotter_condor.sh`, `fullR3_run.sh`, `fullR3_run_diboson.sh`, and `condor_plotter_entry.sh` now funnel their work through a `main()` function. They return non-zero statuses instead of exiting outright when validation fails, so sourcing them in an interactive shell will surface the error without tearing down your session. Executing the scripts directly still exits with the same return codes as before.
 
