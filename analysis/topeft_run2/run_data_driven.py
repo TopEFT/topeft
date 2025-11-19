@@ -83,8 +83,19 @@ def _default_output_path(input_path: str) -> str:
     return f"{base}_np.pkl.gz"
 
 
-def _resolve_path(arg_value: Optional[str], metadata_value: Optional[str]) -> Optional[str]:
-    return arg_value if arg_value else metadata_value
+def _resolve_path(
+    arg_value: Optional[str],
+    metadata_value: Optional[str],
+    *,
+    metadata_dir: Optional[str] = None,
+) -> Optional[str]:
+    if arg_value:
+        return arg_value
+    if not metadata_value:
+        return None
+    if metadata_dir and not os.path.isabs(metadata_value):
+        return os.path.normpath(os.path.join(metadata_dir, metadata_value))
+    return metadata_value
 
 
 def _validate_input_path(input_path: str) -> None:
@@ -139,19 +150,25 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     metadata: Dict[str, Any] = {}
+    metadata_dir: Optional[str] = None
     if args.metadata_json:
         metadata = _load_metadata(args.metadata_json)
+        metadata_dir = os.path.dirname(os.path.abspath(args.metadata_json))
         if not metadata.get("do_np", True):
             raise ValueError(
                 "Metadata indicates nonprompt estimation was disabled (do_np=False). Nothing to do."
             )
 
-    input_pkl = _resolve_path(args.input_pkl, metadata.get("input_histogram"))
+    input_pkl = _resolve_path(
+        args.input_pkl, metadata.get("input_histogram"), metadata_dir=metadata_dir
+    )
     if not input_pkl:
         raise ValueError("Input histogram path must be provided via --input-pkl or the metadata file.")
     _validate_input_path(input_pkl)
 
-    output_pkl = _resolve_path(args.output_pkl, metadata.get("output_histogram"))
+    output_pkl = _resolve_path(
+        args.output_pkl, metadata.get("output_histogram"), metadata_dir=metadata_dir
+    )
     if not output_pkl:
         output_pkl = _default_output_path(input_pkl)
 
