@@ -122,7 +122,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 * `make_cr_and_sr_plots.py`:
     - This script makes plots for all CRs categories and can also make SR plots.
     - The script takes as input the 5-tuple histogram pickle produced by the current topcoffea runners (e.g. TaskVine output that has both data and background MC).
-    - Ensure `python -c "import topcoffea"` succeeds in the active environment (install the sibling checkout via `pip install -e ../topcoffea` when developing locally) before running the plotter so `topcoffea.modules` imports resolve.
+    - Ensure `python -c "import topcoffea"` succeeds in the active environment. Install the sibling checkout via `pip install -e ../topcoffea` **after running** `git -C ../topcoffea switch ch_update_calcoffea` (or checking out the matching release tag) when developing locally so the processors, packaged environments, and guard all agree on the dependency baseline.
     - Example usage (smoke test with TaskVine-style output): `python make_cr_and_sr_plots.py -f /path/to/taskvine/output/plotsTopEFT.pkl.gz -o /tmp/cr_sr_smoke -n plots -y 2018 --skip-syst`
     - See `examples/run_make_cr_and_sr_plots_smoke.sh` for a ready-to-run wrapper that expects an existing runner output pickle.
 

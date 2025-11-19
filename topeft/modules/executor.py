@@ -16,6 +16,10 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Tuple
 import warnings
 
+from .._dependency_checks import ensure_topcoffea_branch
+
+ensure_topcoffea_branch()
+
 
 def parse_port_range(port: str) -> Tuple[int, int]:
     """Normalise a ``PORT`` or ``PORT_MIN-PORT_MAX`` string to a tuple."""

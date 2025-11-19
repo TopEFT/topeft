@@ -36,8 +36,15 @@ single distributed-execution checklist):
    ```bash
    git clone https://github.com/TopEFT/topcoffea.git
    cd topcoffea
+   git switch ch_update_calcoffea
    pip install -e .
    ```
+
+   Run `python -m topcoffea.modules.remote_environment` from the same branch (or
+   release tag) so the packaged tarball matches your processors.  The branch
+   guard embedded in the CLI entry points inspects `.git/HEAD` (or the
+   `TOPCOFFEA_BRANCH` override for detached tags) and aborts early when the
+   sibling checkout drifts from `ch_update_calcoffea`.
 
 3. **Access to the Run 2 metadata bundles.**  The YAML preset points to
    configuration files already tracked in this repository under

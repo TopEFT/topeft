@@ -29,10 +29,17 @@ checklist):
 ```bash
 git clone https://github.com/TopEFT/topcoffea.git
 cd topcoffea
+git switch ch_update_calcoffea
 pip install -e .
 cd ../topeft
 python -m topcoffea.modules.remote_environment
 ```
+
+Always invoke `python -m topcoffea.modules.remote_environment` from the same
+branch (or tag) you just installed so the packaged tarball matches the source.
+All CLI entry points validate the active branch via `.git/HEAD` (or the
+`TOPCOFFEA_BRANCH` override for detached tags) and raise immediately when the
+checkout diverges from `ch_update_calcoffea`.
 
 The helper emits the cache path under `topeft-envs/`.  Pass the same value to
 ``vine_submit_workers --python-env`` when scaling beyond the default local
