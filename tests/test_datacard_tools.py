@@ -18,3 +18,10 @@ def test_to_hist_raises_without_zero_wgts_when_sumw2_missing():
 
     with pytest.raises(ValueError, match="sumw2"):
         to_hist(arr, name="test_hist", zero_wgts=False)
+
+
+def test_to_hist_raises_when_sumw_missing_even_if_sumw2_present():
+    arr = [None, np.array([0.0, 3.0, 4.0])]
+
+    with pytest.raises(ValueError, match="sumw"):
+        to_hist(arr, name="test_hist", zero_wgts=True)
