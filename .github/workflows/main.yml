@@ -85,15 +85,14 @@ jobs:
           conda env create -f environment.yml -n coffea-env
           conda list -n coffea-env
 
-      - name: Install local pip packages
+      - name: Install editable packages
         run: |
-          mkdir dir_for_topcoffea
-          cd dir_for_topcoffea
-          git clone https://github.com/TopEFT/topcoffea.git
-          cd topcoffea
           conda run -n coffea-env pip install -e .
-          cd ../..
-          conda run -n coffea-env pip install -e .
+          conda run -n coffea-env bash scripts/install_topcoffea.sh
+
+      - name: Verify imports
+        run: |
+          conda run -n coffea-env python -c "import topeft, topcoffea"
 
       - name: Conda list
         run: |

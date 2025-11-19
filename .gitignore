@@ -53,3 +53,6 @@ MANIFEST
 
 # Per-project virtualenvs
 .venv*/
+
+# Vendored dependencies installed by helper scripts
+external/
