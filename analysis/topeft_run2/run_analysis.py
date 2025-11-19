@@ -6,6 +6,7 @@ import time
 import cloudpickle
 import gzip
 import os
+import shlex
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
@@ -155,6 +156,16 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
+        "--np-postprocess",
+        choices=["inline", "defer", "skip"],
+        default="inline",
+        help=(
+            "Control when the nonprompt post-processing step runs. "
+            "Use 'inline' (default) to run immediately, 'defer' to emit metadata "
+            "for a follow-up job, or 'skip' to omit the step entirely."
+        ),
+    )
+    parser.add_argument(
         "--do-renormfact-envelope",
         action="store_true",
         help=(
@@ -208,7 +219,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     jsonFiles = args.jsonFiles
     prefix = args.prefix
-    executor = args.executor
+    executor_name = args.executor
     dotest = args.test
     nworkers = int(args.nworkers)
     chunksize = int(args.chunksize)
@@ -226,6 +237,7 @@ if __name__ == "__main__":
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
+    np_postprocess_mode = args.np_postprocess
     useRun3MVA = args.noRun3MVA #NB: default value is True, the arg starts with no because its usage prevents making selections with the run3 MVA
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
@@ -240,7 +252,7 @@ if __name__ == "__main__":
             ops = yaml.load(f,Loader=yaml.Loader)
         jsonFiles = ops.pop("jsonFiles",jsonFiles)
         prefix = ops.pop("prefix",prefix)
-        executor = ops.pop("executor",executor)
+        executor_name = ops.pop("executor",executor_name)
         dotest = ops.pop("test",dotest)
         nworkers = ops.pop("nworkers",nworkers)
         chunksize = ops.pop("chunksize",chunksize)
@@ -264,6 +276,7 @@ if __name__ == "__main__":
         skip_sr = ops.pop("skip_sr",skip_sr)
         skip_cr = ops.pop("skip_cr",skip_cr)
         do_np = ops.pop("do_np",do_np)
+        np_postprocess_mode = ops.pop("np_postprocess", np_postprocess_mode)
         do_renormfact_envelope = ops.pop("do_renormfact_envelope",do_renormfact_envelope)
         wc_lst = ops.pop("wc_list",wc_lst)
         hist_list = ops.pop("hist_list",hist_list)
@@ -271,10 +284,14 @@ if __name__ == "__main__":
         ecut = ops.pop("ecut",ecut)
         analysis_mode = ops.pop("analysis_mode", analysis_mode)
 
+    out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
+    out_pkl_file_name_np = os.path.join(outpath, outname + "_np.pkl.gz")
+    np_metadata_file = out_pkl_file_name_np + ".metadata.json"
+
     # Check if we have valid options
-    if executor not in LST_OF_KNOWN_EXECUTORS:
+    if executor_name not in LST_OF_KNOWN_EXECUTORS:
         raise Exception(
-            f'The "{executor}" executor is not known. Please specify an executor from the known executors ({LST_OF_KNOWN_EXECUTORS}). Exiting.'
+            f'The "{executor_name}" executor is not known. Please specify an executor from the known executors ({LST_OF_KNOWN_EXECUTORS}). Exiting.'
         )
     if do_renormfact_envelope:
         if not do_systs:
@@ -285,8 +302,12 @@ if __name__ == "__main__":
             raise Exception(
                 "Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step."
             )
+        if np_postprocess_mode != "inline":
+            raise Exception(
+                "Error: Renorm/fact envelope requires inline nonprompt post-processing."
+            )
     if dotest:
-        if executor == "futures":
+        if executor_name == "futures":
             nchunks = 2
             chunksize = 10000
             nworkers = 1
@@ -296,7 +317,7 @@ if __name__ == "__main__":
             )
         else:
             raise Exception(
-                f'The "test" option is not set up to work with the {executor} executor. Exiting.'
+                f'The "test" option is not set up to work with the {executor_name} executor. Exiting.'
             )
 
     # Set the threshold for the ecut (if not applying a cut, should be None)
@@ -304,7 +325,7 @@ if __name__ == "__main__":
     if ecut_threshold is not None:
         ecut_threshold = float(ecut)
 
-    if executor in ["work_queue", "taskvine"]:
+    if executor_name in ["work_queue", "taskvine"]:
         # construct wq port range
         port = list(map(int, port.split("-")))
         if len(port) < 1:
@@ -428,6 +449,8 @@ if __name__ == "__main__":
                     allInputFiles.append(jsonFile + f)
         else:
             allInputFiles.append(jsonFile)
+
+    resolved_input_jsons = list(allInputFiles)
 
     # Read from cfg files
     for f in allInputFiles:
@@ -569,11 +592,83 @@ if __name__ == "__main__":
         for fname in samplesdict[sname]["files"]:
             print("     %s" % fname)
 
-        if executor == "futures":
+        if executor_name == "futures":
             break
+
+    sample_years_from_inputs = sorted(
+        {
+            str(sample.get("year"))
+            for sample in samplesdict.values()
+            if sample.get("year") is not None
+        }
+    )
+
+    def _build_np_followup_command():
+        followup_snippet = (
+            "from topeft.modules.dataDrivenEstimation import DataDrivenProducer; "
+            f"DataDrivenProducer({out_pkl_file!r}, {out_pkl_file_name_np!r}).dumpToPickle()"
+        )
+        return f"python -c {shlex.quote(followup_snippet)}"
+
+    def _build_np_metadata_payload():
+        resolved_year_list = (
+            sorted(requested_years) if requested_years is not None else sample_years_from_inputs
+        )
+        payload = {
+            "metadata_version": 1,
+            "timestamp": time.time(),
+            "input_histogram": out_pkl_file,
+            "output_histogram": out_pkl_file_name_np,
+            "metadata_path": np_metadata_file,
+            "np_postprocess": np_postprocess_mode,
+            "pretend_mode": pretend,
+            "do_np": do_np,
+            "resolved_years": resolved_year_list,
+            "sample_years": sample_years_from_inputs,
+            "input_jsons": resolved_input_jsons,
+            "analysis_mode": analysis_mode,
+            "hist_list": hist_lst,
+            "wc_list": wc_lst,
+            "executor": executor_name,
+            "options_file": args.options,
+            "flags": {
+                "split_lep_flavor": split_lep_flavor,
+                "offZ_split": offZ_split,
+                "tau_h_analysis": tau_h_analysis,
+                "fwd_analysis": fwd_analysis,
+                "skip_sr": skip_sr,
+                "skip_cr": skip_cr,
+                "do_systs": do_systs,
+                "fill_sumw2": fill_sumw2,
+                "useRun3MVA": useRun3MVA,
+            },
+            "followup_command": _build_np_followup_command(),
+        }
+        return payload
+
+    def _write_np_metadata_sidecar(*, pretend_override=None):
+        payload = _build_np_metadata_payload()
+        if pretend_override is not None:
+            payload["pretend_mode"] = pretend_override
+        os.makedirs(outpath, exist_ok=True)
+        with open(np_metadata_file, "w") as metadata_stream:
+            json.dump(payload, metadata_stream, indent=2, sort_keys=True)
+        return payload
+
+    def _print_np_defer_instructions(metadata_payload):
+        followup_command = metadata_payload.get("followup_command", _build_np_followup_command())
+        print(
+            "Nonprompt estimation deferred. Metadata saved to {}.\n"
+            "Run the following command to finalize the nonprompt histograms:\n  {}".format(
+                metadata_payload.get("metadata_path", np_metadata_file), followup_command
+            )
+        )
             
     if pretend:
         print("pretending...")
+        if do_np and np_postprocess_mode == "defer":
+            metadata_payload = _write_np_metadata_sidecar(pretend_override=True)
+            _print_np_defer_instructions(metadata_payload)
         exit()
 
     # Extract the list of all WCs, as long as we haven't already specified one.
@@ -614,7 +709,7 @@ if __name__ == "__main__":
         tau_run_mode=analysis_mode
     )
 
-    if executor in ["work_queue", "taskvine"]:
+    if executor_name in ["work_queue", "taskvine"]:
         executor_args = {
             "manager_name": f"{os.environ['USER']}-workqueue-coffea",
             # find a port to run work queue in this range:
@@ -681,28 +776,28 @@ if __name__ == "__main__":
     # Run the processor and get the output
     tstart = time.time()
 
-    if executor == "futures":
+    if executor_name == "futures":
         exec_instance = processor.futures_executor(workers=nworkers)
         runner = processor.Runner(
             exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
         )
-    elif executor == "work_queue":
-        executor = processor.WorkQueueExecutor(**executor_args)
+    elif executor_name == "work_queue":
+        executor_instance = processor.WorkQueueExecutor(**executor_args)
         runner = processor.Runner(
-            executor,
+            executor_instance,
             schema=NanoAODSchema,
             chunksize=chunksize,
             maxchunks=nchunks,
             skipbadfiles=False,
             xrootdtimeout=180,
         )
-    elif executor == "taskvine":
+    elif executor_name == "taskvine":
         try:
-            executor = processor.TaskVineExecutor(**executor_args)
+            executor_instance = processor.TaskVineExecutor(**executor_args)
         except AttributeError:
             raise RuntimeError("TaskVineExecutor not available.")
         runner = processor.Runner(
-            executor,
+            executor_instance,
             schema=NanoAODSchema,
             chunksize=chunksize,
             maxchunks=nchunks,
@@ -716,7 +811,7 @@ if __name__ == "__main__":
 
     dt = time.time() - tstart
 
-    if executor in ["work_queue", "taskvine"]:
+    if executor_name in ["work_queue", "taskvine"]:
         print(
             "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
                 nevts_total, dt, nevts_total / dt
@@ -727,7 +822,7 @@ if __name__ == "__main__":
     # nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
     # print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
-    if executor == "futures":
+    if executor_name == "futures":
         print(
             "Processing time: %1.2f s with %i workers (%.2f s cpu overall)"
             % (
@@ -738,9 +833,7 @@ if __name__ == "__main__":
         )
 
     # Save the output
-    if not os.path.isdir(outpath):
-        os.system("mkdir -p %s" % outpath)
-    out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
+    os.makedirs(outpath, exist_ok=True)
     print(f"\nSaving output in {out_pkl_file}...")
     with gzip.open(out_pkl_file, "wb") as fout:
         cloudpickle.dump(output, fout)
@@ -748,21 +841,26 @@ if __name__ == "__main__":
 
     # Run the data driven estimation, save the output
     if do_np:
-        print("\nDoing the nonprompt estimation...")
-        out_pkl_file_name_np = os.path.join(outpath, outname + "_np.pkl.gz")
-        ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
-        print(f"Saving output in {out_pkl_file_name_np}...")
-        ddp.dumpToPickle()
-        print("Done!")
-        # Run the renorm fact envelope calculation
-        if do_renormfact_envelope:
-            print("\nDoing the renorm. fact. envelope calculation...")
-            dict_of_histos = utils.get_hist_from_pkl(
-                out_pkl_file_name_np, allow_empty=False
-            )
-            dict_of_histos_after_applying_envelope = get_renormfact_envelope(
-                dict_of_histos
-            )
-            utils.dump_to_pkl(
-                out_pkl_file_name_np, dict_of_histos_after_applying_envelope
-            )
+        if np_postprocess_mode == "inline":
+            print("\nDoing the nonprompt estimation...")
+            ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
+            print(f"Saving output in {out_pkl_file_name_np}...")
+            ddp.dumpToPickle()
+            print("Done!")
+            if do_renormfact_envelope:
+                print("\nDoing the renorm. fact. envelope calculation...")
+                dict_of_histos = utils.get_hist_from_pkl(
+                    out_pkl_file_name_np, allow_empty=False
+                )
+                dict_of_histos_after_applying_envelope = get_renormfact_envelope(
+                    dict_of_histos
+                )
+                utils.dump_to_pkl(
+                    out_pkl_file_name_np, dict_of_histos_after_applying_envelope
+                )
+        elif np_postprocess_mode == "defer":
+            print("\nDeferring the nonprompt estimation and writing metadata...")
+            metadata_payload = _write_np_metadata_sidecar()
+            _print_np_defer_instructions(metadata_payload)
+        else:
+            print("\nSkipping the nonprompt estimation as requested (--np-postprocess=skip).")

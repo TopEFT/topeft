@@ -1,4 +1,5 @@
 import gzip
+import json
 import runpy
 import sys
 from pathlib import Path
@@ -6,6 +7,7 @@ from unittest import mock
 
 import cloudpickle
 import coffea.processor as processor
+import pytest
 
 _SAMPLE_JSON = Path("input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json")
 _SCRIPT_PATH = Path("analysis/topeft_run2/run_analysis.py")
@@ -83,3 +85,45 @@ def test_hist_list_cr_respects_no_sumw2(monkeypatch, tmp_path):
     for hist_name in _EXPECTED_BASE_HISTS:
         assert hist_name in output
         assert f"{hist_name}_sumw2" not in output
+
+
+def test_np_postprocess_defer_creates_metadata(tmp_path):
+    output_dir = tmp_path / "np-defer"
+    output_dir.mkdir()
+    outname = "np-defer"
+
+    argv = [
+        "run_analysis.py",
+        str(_SAMPLE_JSON),
+        "-x",
+        "futures",
+        "-o",
+        outname,
+        "-p",
+        str(output_dir),
+        "--pretend",
+        "--do-np",
+        "--np-postprocess=defer",
+    ]
+
+    original_sys_path = list(sys.path)
+    sys.path.insert(0, str(_SCRIPT_PATH.parent))
+    try:
+        with mock.patch.object(sys, "argv", argv):
+            with pytest.raises(SystemExit):
+                runpy.run_path(str(_SCRIPT_PATH), run_name="__main__")
+    finally:
+        sys.path = original_sys_path
+
+    metadata_file = output_dir / f"{outname}_np.pkl.gz.metadata.json"
+    assert metadata_file.is_file()
+    np_pickle = output_dir / f"{outname}_np.pkl.gz"
+    assert not np_pickle.exists()
+
+    with open(metadata_file) as fin:
+        payload = json.load(fin)
+
+    assert payload["np_postprocess"] == "defer"
+    assert payload["pretend_mode"] is True
+    assert payload["output_histogram"] == str(np_pickle)
+    assert "DataDrivenProducer" in payload["followup_command"]
