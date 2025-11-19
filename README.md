@@ -53,7 +53,7 @@ python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_privat
 ```
 When `--do-np` is passed `run_analysis.py` produces the nonprompt-enhanced `_np.pkl.gz` histogram either inline (the default) or via deferred post-processing controlled by `--np-postprocess={inline,defer,skip}`. Inline mode matches the historical behaviour where the `_np.pkl.gz` file is written immediately. Deferred mode writes the regular pickle plus a sidecar metadata file named like `histos/<outname>_np.pkl.gz.metadata.json` that records the follow-up command, resolved years, and histogram locations so you can build the `_np.pkl.gz` file later.
 
-To request deferred mode from the wrapper run `fullR3_run.sh --defer-np --cr ...` (or invoke `run_analysis.py --np-postprocess=defer` directly). Once the processors finish, finalize the nonprompt step (and optionally add the renorm/fact envelope) with the helper below; it accepts either the metadata json or explicit `--input-pkl` / `--output-pkl` paths:
+To request deferred mode from the wrapper run `fullR3_run.sh --do-np --defer-np --cr ...` (or invoke `run_analysis.py --do-np --np-postprocess=defer` directly). The `--do-np` flag is required to enable the nonprompt producer; `--defer-np` merely switches the producer into deferred mode so the metadata file is written instead of the `_np.pkl.gz` histogram. Once the processors finish, finalize the nonprompt step (and optionally add the renorm/fact envelope) with the helper below; it accepts either the metadata json or explicit `--input-pkl` / `--output-pkl` paths:
 
 ```
 python analysis/topeft_run2/run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json \
