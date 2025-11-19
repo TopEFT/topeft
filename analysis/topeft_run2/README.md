@@ -79,7 +79,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 * `fullR3_run.sh`: Recommended wrapper script for both Run 2 and Run 3 histogram production. It expands the aggregate campaign aliases (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`) before dispatching to `run_analysis.py`, superseding the legacy helper while keeping the historical single-year tokens functioning as before.
     - Whenever the Run 2 bundle is activated (any of `2016`, `2016APV`, `2017`, `2018`, `UL16`, `UL16APV`, `UL17`, or `UL18` appear in `-y/--year`), the wrapper forwards the matching Run 2 payload to `run_analysis.py` via `--years`. Aliases are resolved so that `UL16` behaves like `2016`, `UL16APV` like `2016APV`, and similarly for `UL17`/`2017` and `UL18`/`2018`.
-    - Add `--defer-np` when you want the wrapper to append `--np-postprocess=defer` to the delegated `run_analysis.py` command. The wrapper prints the metadata path (`histos/<outname>_np.pkl.gz.metadata.json`) so it is easy to trigger the deferred helper later.
+    - Add both `--do-np` and `--defer-np` when you want the wrapper to append `--do-np --np-postprocess=defer` to the delegated `run_analysis.py` command. The first flag enables the nonprompt producer, and the second switches it to deferred mode so the wrapper prints the metadata path (`histos/<outname>_np.pkl.gz.metadata.json`) and the follow-up helper has everything it needs.
 * `fullR2_run.sh`: Historical wrapper for the original TOP-22-006 pickle production. Keep it around for archival reproducibility; new workflows should prefer `fullR3_run.sh`.
 
 * `run_data_driven.py`:
