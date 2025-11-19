@@ -36,14 +36,22 @@ def to_hist(arr,name,zero_wgts=False):
     #   sub-array arr and when we modify clipped, it will propagate back to arr as well!
     clipped = [None, None]
     reference = None
+    missing_sumw2 = False
     for i in range(2):  # first entry is sum(weight), second entry is sum(weight^2)
         if arr[i] is not None:
             clipped[i] = np.array(arr[i][1:])  # Strip off the underoverflow bin
             if reference is None:
                 reference = clipped[i]
+        elif i == 1:
+            missing_sumw2 = True
 
     if reference is None:
         raise ValueError("Input histogram array contains no data")
+
+    if missing_sumw2 and not zero_wgts:
+        raise ValueError(
+            "Input histogram array is missing sumw2 data but zero_wgts is False"
+        )
 
     for i in range(2):
         if clipped[i] is None:
