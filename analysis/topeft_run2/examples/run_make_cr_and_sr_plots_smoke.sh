@@ -8,8 +8,10 @@ cd "${PROJECT_ROOT}"
 if ! python -c "import topcoffea" >/dev/null 2>&1; then
   cat >&2 <<'EOF'
 Missing topcoffea dependency.
-Install the sibling checkout with `pip install -e ../topcoffea` (or any other
-source that provides `import topcoffea`) before running this smoke test.
+Install the sibling checkout with `pip install -e ../topcoffea` after running
+`git -C ../topcoffea switch ch_update_calcoffea` (or checking out the matching
+tag) before running this smoke test so the processors and packaged environments
+stay in sync.
 EOF
   exit 1
 fi

@@ -44,12 +44,15 @@ The [`topcoffea`](https://github.com/TopEFT/topcoffea) package upon which this a
 cd /your/favorite/directory
 git clone https://github.com/TopEFT/topcoffea.git
 cd topcoffea
+git switch ch_update_calcoffea
 pip install -e .
 cd ../topeft
 python -m topcoffea.modules.remote_environment
 python -c "import topcoffea"
 ```
-Keeping both repositories installed in editable mode ensures the remote-packaging helper inspects the current checkouts (and fails fast if there are unstaged edits).  The `python -m topcoffea.modules.remote_environment` command calls into the updated `remote_environment.get_environment()` logic, which assembles a fresh TaskVine-ready tarball under `topeft-envs/`, captures the pinned Conda + pip stack, and returns the archive path that the workflow passes through the `environment_file` executor argument.  The helper will rebuild the cache whenever the specification or editable sources change, so re-running it before distributed submissions keeps the workers in sync.  The final `python -c "import topcoffea"` line mirrors the CI smoke test and confirms the namespace import succeeds for downstream tooling.
+Keeping both repositories installed in editable mode ensures the remote-packaging helper inspects the current checkouts (and fails fast if there are unstaged edits).  **Always switch the sibling checkout to `ch_update_calcoffea` (or the matching release tag) before running `pip install -e ../topcoffea` _and_ when invoking `python -m topcoffea.modules.remote_environment`.**  Packaging the tarball from the same branch keeps the Conda + pip stack aligned with the processors.  Analysts relying on a detached tag can set `TOPCOFFEA_BRANCH=<tag>` before running `topeft` so the guard recognises the pinned reference.  All CLI entry points now validate that the resolved branch matches the expected `ch_update_calcoffea` baseline (using `.git/HEAD` when available or the `TOPCOFFEA_BRANCH` override), raising a clear error if the sibling checkout drifts.
+
+The `python -m topcoffea.modules.remote_environment` command calls into the updated `remote_environment.get_environment()` logic, which assembles a fresh TaskVine-ready tarball under `topeft-envs/`, captures the pinned Conda + pip stack, and returns the archive path that the workflow passes through the `environment_file` executor argument.  The helper will rebuild the cache whenever the specification or editable sources change, so re-running it before distributed submissions keeps the workers in sync.  The final `python -c "import topcoffea"` line mirrors the CI smoke test and confirms the namespace import succeeds for downstream tooling.
 
 #### Packaged TaskVine environment cache
 
