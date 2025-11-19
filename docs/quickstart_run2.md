@@ -69,6 +69,32 @@ The output pickle is stored in the directory provided through ``--output`` with
 an ``outname`` of ``quickstart`` (so you can expect something like
 ``quickstart-output/quickstart.pkl.gz``).
 
+## Local futures shell wrapper
+
+For single-node debugging that mirrors the Run 2 production configuration, use
+``analysis/topeft_run2/local_futures_run.sh``. The wrapper mirrors
+``full_run.sh`` but skips the TaskVine environment staging/manager logic and
+forces the Coffea futures executor. Key features include:
+
+* ``--workers``, ``--futures-prefetch`` and ``--futures-retries`` switches for
+  tuning the executor without editing YAML.
+* Automatic year bundle expansion and control/signal-region toggles that keep
+  the ``(variable, channel, application, sample, systematic)`` histogram schema
+  identical to the distributed workflow.
+* A ``--samples`` override so you can point directly at the tiny UL17 JSON when
+  you only need a smoke test.
+
+Example invocation::
+
+    cd analysis/topeft_run2
+    ./local_futures_run.sh --sr -y UL17 \
+        --samples ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+        --outdir histos/local_debug --tag quickstart
+
+The command runs entirely on the submitting node, so make sure the referenced
+samples are locally accessible (or use ``--prefix``/XRootD) and that the active
+environment provides the Coffea 2025.7 executor stack.
+
 ## Understanding the quickstart inputs
 
 ### Samples JSON
