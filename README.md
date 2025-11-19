@@ -44,14 +44,16 @@ Now all of the dependencies have been installed and the `topeft` repository is r
 
 ### To run an example job 
 
-First `cd` into `analysis/topeft_run2` and run the `run_analysis.py` script, passing it the path to your config file or json file. In this example we'll process a single root file locally, using a json file that is already set up. 
+First `cd` into `analysis/topeft_run2` and run the `run_analysis.py` script, passing it the path to your config file or json file. In this example we'll process a single root file locally, using a json file that is already set up.
 ```
 cd analysis/topeft_run2
 wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
 python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures
 
 ```
-If you ran with `--np-postprocess=defer` you can later finalize the nonprompt (and optional flips-only) histograms without rerunning the full processor. The helper below accepts either the metadata json that `run_analysis.py` writes or explicit CLI paths:
+When `--do-np` is passed `run_analysis.py` produces the nonprompt-enhanced `_np.pkl.gz` histogram either inline (the default) or via deferred post-processing controlled by `--np-postprocess={inline,defer,skip}`. Inline mode matches the historical behaviour where the `_np.pkl.gz` file is written immediately. Deferred mode writes the regular pickle plus a sidecar metadata file named like `histos/<outname>_np.pkl.gz.metadata.json` that records the follow-up command, resolved years, and histogram locations so you can build the `_np.pkl.gz` file later.
+
+To request deferred mode from the wrapper run `fullR3_run.sh --defer-np --cr ...` (or invoke `run_analysis.py --np-postprocess=defer` directly). Once the processors finish, finalize the nonprompt step (and optionally add the renorm/fact envelope) with the helper below; it accepts either the metadata json or explicit `--input-pkl` / `--output-pkl` paths:
 
 ```
 python analysis/topeft_run2/run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json \
@@ -109,7 +111,9 @@ The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used t
     time source fullR3_run.sh
     ```
 
-2. Run the datacard maker to obtain the cards and templates from SM (from the pickled histogram file produced in Step 1, be sure to use the version with the nonprompt estimation, i.e. the one with `_np` appended to the name you specified for the `OUT_NAME` in `fullR3_run.sh`). This step would also produce scalings-preselect.json file which the later version is necessary for IM workspace making. Note that command option `--wc-scalings` is not mandatory but to enforce the ordering of wcs in scalings. Add command `-A` to include all EFT templates in datacards for previous AAC model. Add option `-C` to run on condor.
+    Inline mode is still the default: `fullR3_run.sh` calls `run_analysis.py --np-postprocess=inline --do-np` so the `_np.pkl.gz` file is ready when the wrapper exits. To defer the nonprompt/flips step (e.g. when you want to rerun the data-driven combination without repeating the entire processing campaign) pass `--defer-np` to the helper; it records the follow-up command in `histos/<outname>_np.pkl.gz.metadata.json`. Later run `python analysis/topeft_run2/run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json` to materialize the `_np.pkl.gz` file before moving on to Step 2.
+
+2. Run the datacard maker to obtain the cards and templates from SM (from the pickled histogram file produced in Step 1, be sure to use the version with the nonprompt estimation, i.e. the one with `_np` appended to the name you specified for the `OUT_NAME` in `fullR3_run.sh`). Whether you produced `_np.pkl.gz` inline or via the deferred helper, point the datacard maker at the final `_np.pkl.gz`. This step would also produce scalings-preselect.json file which the later version is necessary for IM workspace making. Note that command option `--wc-scalings` is not mandatory but to enforce the ordering of wcs in scalings. Add command `-A` to include all EFT templates in datacards for previous AAC model. Add option `-C` to run on condor.
     ```
     time python make_cards.py /path/to/your/examplename_np.pkl.gz --do-nuisance --var-lst lj0pt ptz -d /scratch365/you/somedir --unblind --do-mc-stat --wc-scalings cQQ1 cQei cQl3i cQlMi cQq11 cQq13 cQq81 cQq83 cQt1 cQt8 cbW cpQ3 cpQM cpt cptb ctG ctW ctZ ctei ctlSi ctlTi ctli ctp ctq1 ctq8 ctt1
     ```
