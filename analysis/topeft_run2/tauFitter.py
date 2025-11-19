@@ -19,8 +19,11 @@ from scipy.optimize import curve_fit
 from numpy.linalg import eig
 from scipy.odr import *
 
+import topcoffea
+
 from topeft.modules.yield_tools import YieldTools
-import topcoffea.modules.utils as utils
+
+utils = topcoffea.modules.utils
 
 yt = YieldTools()
 

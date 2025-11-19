@@ -23,8 +23,13 @@ except Exception:  # pragma: no cover - fallback when histogram extras missing
     axis = None  # type: ignore[assignment]
 
 try:  # pragma: no cover - topcoffea is optional for a subset of the tests
-    from topcoffea.modules.HistEFT import HistEFT
-except Exception:  # pragma: no cover - fallback when HistEFT is unavailable
+    import topcoffea
+except ModuleNotFoundError:
+    topcoffea = None  # type: ignore[assignment]
+
+if topcoffea is not None:  # pragma: no branch - runtime optional dependency
+    HistEFT = getattr(topcoffea.modules.HistEFT, "HistEFT", None)
+else:  # pragma: no cover - fallback when HistEFT is unavailable
     HistEFT = None  # type: ignore[assignment]
 
 

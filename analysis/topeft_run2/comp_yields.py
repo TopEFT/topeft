@@ -2,9 +2,12 @@ import argparse
 import json
 import sys
 
-import topcoffea.modules.MakeLatexTable as mlt
-from topcoffea.modules import utils
+import topcoffea
+
 from topeft.modules.yield_tools import YieldTools
+
+mlt = topcoffea.modules.MakeLatexTable
+utils = topcoffea.modules.utils
 
 # This script takes two json files of yields, and prints out information about how they compare
 #   - The second file is optional, will default to the reference yield file

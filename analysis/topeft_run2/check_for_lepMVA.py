@@ -3,9 +3,11 @@ import json
 
 from coffea.nanoevents import NanoEventsFactory
 
-from topcoffea.modules.utils import regex_match
+import topcoffea
 
 CFG_PATH = "../../input_samples/cfgs/"
+
+regex_match = topcoffea.modules.utils.regex_match
 
 pjoin = os.path.join
 

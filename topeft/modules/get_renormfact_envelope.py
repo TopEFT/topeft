@@ -1,9 +1,11 @@
 import numpy as np
 import argparse
 
-import topcoffea.modules.utils as utils
+import topcoffea
 from topeft.modules.yield_tools import YieldTools
 yt = YieldTools()
+
+utils = topcoffea.modules.utils
 
 
 # The names of the 6 renorm and fact variations

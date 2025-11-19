@@ -3,7 +3,6 @@
 #   - Was used during the June 2022 MC validation studies (for TOP-22-006 pre approval checks)
 
 import os
-import sys
 import datetime
 import argparse
 import gzip
@@ -14,14 +13,13 @@ from hist import axis, storage
 
 from pathlib import Path
 
-from topcoffea.modules.YieldTools import YieldTools
-from topcoffea.scripts.make_html import make_html
+import importlib
+import topcoffea
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
+YieldTools = topcoffea.modules.YieldTools.YieldTools
+make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
 
-from analysis.mc_validation.plot_utils import (  # noqa: E402
+from analysis.mc_validation.plot_utils import (
     build_dataset_histograms,
     component_labels,
     component_values,

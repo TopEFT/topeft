@@ -7,6 +7,11 @@ import numpy as np
 import pytest
 from hist import Hist, axis, storage
 
+try:  # pragma: no cover - optional dependency in CI
+    import topcoffea
+except ModuleNotFoundError:  # pragma: no cover - fallback used when topcoffea is absent
+    topcoffea = None  # type: ignore[assignment]
+
 from analysis.mc_validation.plot_utils import (
     build_dataset_histograms,
     component_labels,
@@ -16,9 +21,9 @@ from analysis.mc_validation.plot_utils import (
     tuple_histogram_items,
 )
 
-try:  # pragma: no cover - optional dependency in CI
-    from topcoffea.modules.HistEFT import HistEFT as _HistEFT
-except ModuleNotFoundError:  # pragma: no cover - fallback used when topcoffea is absent
+if topcoffea is not None:  # pragma: no branch - optional dependency in CI
+    _HistEFT = getattr(topcoffea.modules.HistEFT, "HistEFT", None)
+else:  # pragma: no cover - fallback used when topcoffea is absent
     _HistEFT = None
 
 

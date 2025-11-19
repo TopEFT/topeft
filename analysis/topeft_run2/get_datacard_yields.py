@@ -4,7 +4,9 @@ import datetime
 import argparse
 import json
 
-import topcoffea.modules.MakeLatexTable as mlt
+import topcoffea
+
+mlt = topcoffea.modules.MakeLatexTable
 
 BKG_PROC_LST = ["tWZ_sm", "convs_sm","Diboson_sm","Triboson_sm","charge_flips_sm","fakes_sm"]
 SIG_PROC_LST = ["ttH_sm", "ttlnu_sm", "ttll_sm", "tllq_sm", "tHq_sm", "tttt_sm"]

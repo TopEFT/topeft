@@ -11,9 +11,13 @@ import time
 import yaml
 
 from collections import defaultdict
-from topcoffea.modules.utils import regex_match
+
+import topcoffea
+
 from topeft.modules.paths import topeft_path
 from topeft.modules.compatibility import add_sumw2_stub
+
+regex_match = topcoffea.modules.utils.regex_match
 
 with open(topeft_path("params/metadata.yml"), "r") as f:
     metadata = yaml.safe_load(f)

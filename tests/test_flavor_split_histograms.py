@@ -63,10 +63,6 @@ except ModuleNotFoundError:
     sys.modules["numpy"] = np_module
     np = np_module  # type: ignore[assignment]
 import pytest
-
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
 class _DummyHistEFT:
     def __init__(self, *args, **kwargs):
         self._sumw = 0.0

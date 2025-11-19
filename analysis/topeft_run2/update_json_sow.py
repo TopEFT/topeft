@@ -1,12 +1,18 @@
 import os
 import argparse
 
-from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.utils import regex_match, load_sample_json_file, get_files, get_hist_from_pkl
-from topcoffea.modules.update_json import update_json
+import topcoffea
+
 from topeft.modules.yield_tools import YieldTools
 
 pjoin = os.path.join
+
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
+regex_match = topcoffea.modules.utils.regex_match
+load_sample_json_file = topcoffea.modules.utils.load_sample_json_file
+get_files = topcoffea.modules.utils.get_files
+get_hist_from_pkl = topcoffea.modules.utils.get_hist_from_pkl
+update_json = topcoffea.modules.update_json.update_json
 
 # Description:
 #   This script runs on a histogram file produced by the sow_processor. It extracts the individual

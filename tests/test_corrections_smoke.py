@@ -2,6 +2,8 @@ import correctionlib
 import numpy as np
 import pytest
 
+import topcoffea
+
 from coffea.btag_tools import BTagScaleFactor
 
 from topeft.modules.corrections import (
@@ -11,7 +13,8 @@ from topeft.modules.corrections import (
     get_jerc_keys,
 )
 from topeft.modules.paths import topeft_path
-from topcoffea.modules.paths import topcoffea_path
+
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
 
 
 @pytest.mark.parametrize("year", ["2018", "2023", "2023BPix"])

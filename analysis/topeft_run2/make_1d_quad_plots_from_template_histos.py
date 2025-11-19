@@ -34,10 +34,13 @@
 #     - So to run it is just:
 #       python make_1d_quad_plots_from_template_histos.py
 
-
 import os
-import topcoffea.modules.quad_fit_tools as qft
-from topcoffea.scripts.make_html import make_html
+import importlib
+
+import topcoffea
+
+qft = topcoffea.modules.quad_fit_tools
+make_html = importlib.import_module("topcoffea.scripts.make_html").make_html
 
 # Load the input dict (with all of the values from the template histos)
 # Note this is a PLACEHOLDER (should be a command line argument?)
