@@ -107,7 +107,7 @@ def _maybe_filter_to_flips(hist_dict: MutableMapping[str, Any]) -> MutableMappin
     filtered: Dict[str, Any] = {}
     for key, histo in hist_dict.items():
         filtered[key] = histo
-        if not histo:
+        if histo is None:
             continue
         process_axis: Optional[Iterable[str]] = None
         try:
