@@ -15,7 +15,7 @@ The `topeft/topeft` directory is set up to be installed as a pip installable pac
 - `topeft/input_samples`: Configuration files that point to root files to process.
 
 ### Legacy HistEFT support
-The repository vendors the historical `HistEFT` histogram implementation under `topcoffea/modules` so EFT coefficient handling continues to use the legacy interfaces (`topcoffea.modules.HistEFT`).
+The repository now expects the [`topcoffea`](https://github.com/TopEFT/topcoffea) package to be installed in the active environment instead of shipping a partial vendor copy.  The upstream project still exposes the legacy `HistEFT` helpers via `topcoffea.modules.HistEFT`, so existing imports keep working once the dependency is installed.
 
 ## Getting started
 
@@ -38,8 +38,8 @@ The commands above provision the refreshed `coffea20250703` Conda environment, w
 
 Upgrading from an older checkout?  Reuse the same directory and run `conda env update -f environment.yml --prune` before activating the environment so the existing `coffea20250703` install picks up the Coffea 2025.7.3 pins and removes stale dependencies.  Because the specification now targets Python 3.13 and newer `ndcctools` builds from conda-forge, older Conda releases may prompt for a solver update; if that happens, accept the prompt or run `conda update -n base -c conda-forge conda` first.  When pip subsequently asks to install `coffea==2025.7.3` and `awkward==2.8.7`, answer “yes” (or allow the editable installs to proceed) so the environment matches the shipped tarballs.
 
-The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.
-The `topcoffea` package upon which this analysis also depends is not yet available on `PyPI`, so we need to clone the `topcoffea` repo and install it ourselves.
+The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topeft`.
+The [`topcoffea`](https://github.com/TopEFT/topcoffea) package upon which this analysis depends is not yet available on `PyPI`, so we need to clone the `topcoffea` repo and install it ourselves.  Keep the checkout next to `topeft` (for example `$HOME/workspace/topcoffea` beside `$HOME/workspace/topeft`) so paths such as `analysis/topeft_run2/../../topcoffea/cfg/...` resolve to the sibling repository when invoking older scripts.
 ```
 cd /your/favorite/directory
 git clone https://github.com/TopEFT/topcoffea.git
@@ -47,8 +47,9 @@ cd topcoffea
 pip install -e .
 cd ../topeft
 python -m topcoffea.modules.remote_environment
+python -c "import topcoffea"
 ```
-Keeping both repositories installed in editable mode ensures the remote-packaging helper inspects the current checkouts (and fails fast if there are unstaged edits).  The `python -m topcoffea.modules.remote_environment` command calls into the updated `remote_environment.get_environment()` logic, which assembles a fresh TaskVine-ready tarball under `topeft-envs/`, captures the pinned Conda + pip stack, and returns the archive path that the workflow passes through the `environment_file` executor argument.  The helper will rebuild the cache whenever the specification or editable sources change, so re-running it before distributed submissions keeps the workers in sync.
+Keeping both repositories installed in editable mode ensures the remote-packaging helper inspects the current checkouts (and fails fast if there are unstaged edits).  The `python -m topcoffea.modules.remote_environment` command calls into the updated `remote_environment.get_environment()` logic, which assembles a fresh TaskVine-ready tarball under `topeft-envs/`, captures the pinned Conda + pip stack, and returns the archive path that the workflow passes through the `environment_file` executor argument.  The helper will rebuild the cache whenever the specification or editable sources change, so re-running it before distributed submissions keeps the workers in sync.  The final `python -c "import topcoffea"` line mirrors the CI smoke test and confirms the namespace import succeeds for downstream tooling.
 
 #### Packaged TaskVine environment cache
 
