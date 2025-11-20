@@ -1526,7 +1526,11 @@ def _render_variable_category(
 
     base_dir = save_dir_path or ""
     raw_display_label = (channel_display_labels or {}).get(hist_cat, hist_cat)
-    display_label = re.sub(r"_(\d+)j$", "", raw_display_label, flags=re.IGNORECASE)
+    display_label = (
+        raw_display_label
+        if region_ctx.preserve_njets_bins
+        else re.sub(r"_(\d+)j$", "", raw_display_label, flags=re.IGNORECASE)
+    )
     save_dir_path_tmp = os.path.join(base_dir, raw_display_label)
     os.makedirs(save_dir_path_tmp, exist_ok=True)
 
@@ -1844,7 +1848,8 @@ def _render_variable_category(
             else hist_mc_integrated
         )
         title = f"{display_label}_{var_name}"
-        title = re.sub(r"_(\d+)j(?=_)", "", title, flags=re.IGNORECASE)
+        if not region_ctx.preserve_njets_bins:
+            title = re.sub(r"_(\d+)j(?=_)", "", title, flags=re.IGNORECASE)
         if unit_norm_bool:
             title = f"{title}_unitnorm"
         bins_override = region_ctx.analysis_bins.get(var_name)
