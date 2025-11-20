@@ -196,3 +196,50 @@ def test_both_njets_preserves_variables_for_merged_output(tmp_path):
         "cr_2lss_1j_met.png",
         "cr_2lss_1j_njets.png",
     }.issubset(set(plot_names)), plot_names
+
+
+def test_both_includes_split_channels_when_available(tmp_path):
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    met_axis = hist.axis.Regular(1, 0.0, 1.0, name="met")
+
+    h_met = make_cr_and_sr_plots.SparseHist(
+        process_axis, channel_axis, syst_axis, met_axis
+    )
+
+    setattr(h_met, "_sumw2", defaultdict(lambda: None))
+
+    for channel, weight in ("2los_ee_CRZ_0j", 1.0), ("2los_mm_CRZ_0j", 2.0):
+        h_met.fill(
+            process="dataUL18",
+            channel=channel,
+            systematic="nominal",
+            met=0.25,
+            weight=weight,
+        )
+        h_met.fill(
+            process="ttH_centralUL18",
+            channel=channel,
+            systematic="nominal",
+            met=0.75,
+            weight=weight,
+        )
+
+    make_cr_and_sr_plots.run_plots_for_region(
+        "CR",
+        {"met": h_met},
+        years=["2018"],
+        save_dir_path=str(tmp_path),
+        channel_output="both",
+        skip_syst_errs=True,
+        workers=1,
+        verbose=False,
+    )
+
+    merged_dir = tmp_path / "cr_2los_Z"
+    assert merged_dir.exists()
+
+    split_dirs = [tmp_path / "cr_2los_Z_ee", tmp_path / "cr_2los_Z_mm"]
+    for split_dir in split_dirs:
+        assert split_dir.exists()
