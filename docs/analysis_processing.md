@@ -22,9 +22,9 @@ The high-level flow is:
 4. :class:`analysis.topeft_run2.workflow.HistogramPlanner` enumerates histogram
    combinations by crossing samples, channel metadata, Coffea applications, and
    systematic toggles.  The result is a :class:`HistogramPlan` which records the
-   ``(variable, channel, application, sample, systematic)`` tuples described in
-   the shared [tuple-key reference](../topcoffea/docs/analysis_processing.md)
-   before the tasks are processed.
+  ``(variable, channel, application, sample, systematic)`` tuples described in
+  the shared [tuple-key reference](https://github.com/TopEFT/topcoffea/blob/ch_update_calcoffea/docs/analysis_processing.md)
+  before the tasks are processed.
 5. An :class:`analysis.topeft_run2.workflow.ExecutorFactory` creates the
    requested backend runner (``futures``, ``iterative`` or ``taskvine``).  Each
    histogram task is turned into an :class:`AnalysisProcessor` instance with the

@@ -17,13 +17,25 @@ EXPECTED_TOPCOFFEA_REFS: tuple[str, ...] = tuple(
 
 def _topcoffea_repo_root(topcoffea_pkg: object) -> Optional[Path]:
     module_file = getattr(topcoffea_pkg, "__file__", None)
-    if not module_file:
-        return None
-    module_path = Path(module_file).resolve()
-    try:
-        return module_path.parent.parent
-    except AttributeError:  # pragma: no cover - defensive
-        return None
+    candidates = []
+    if module_file:
+        try:
+            candidates.append(Path(module_file).resolve())
+        except TypeError:  # pragma: no cover - defensive
+            pass
+
+    for entry in getattr(topcoffea_pkg, "__path__", []):
+        try:
+            candidates.append(Path(entry).resolve())
+        except TypeError:  # pragma: no cover - defensive
+            continue
+
+    for module_path in candidates:
+        try:
+            return module_path.parent.parent
+        except AttributeError:  # pragma: no cover - defensive
+            continue
+    return None
 
 
 def _branch_from_head(repo_root: Path) -> Optional[str]:

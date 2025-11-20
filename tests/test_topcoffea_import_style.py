@@ -63,3 +63,35 @@ def test_topcoffea_import_style() -> None:
         else:
             violations.extend(_scan_py(path))
     assert not violations, "\n".join(violations)
+
+
+def test_topcoffea_not_vendored() -> None:
+    import topcoffea
+
+    candidate_paths: List[Path] = []
+    module_file = getattr(topcoffea, "__file__", None)
+    if module_file:
+        candidate_paths.append(Path(module_file))
+    for entry in getattr(topcoffea, "__path__", []):
+        try:
+            candidate_paths.append(Path(entry))
+        except TypeError:
+            continue
+
+    assert candidate_paths, "topcoffea import should expose __file__ or __path__ entries"
+
+    vendored: List[str] = []
+    for path in candidate_paths:
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(_REPO_ROOT)
+        except ValueError:
+            continue
+        vendored.append(resolved.as_posix())
+
+    assert not vendored, f"topcoffea must resolve outside the topeft repository: {vendored}"
+
+
+def test_topcoffea_package_directory_absent() -> None:
+    package_dir = _REPO_ROOT / "topcoffea"
+    assert not package_dir.exists(), "vendored topcoffea package directory should be removed"
