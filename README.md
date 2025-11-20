@@ -78,6 +78,7 @@ When `--do-np` is passed `run_analysis.py` produces the nonprompt-enhanced `_np.
   ```
 
   The direct invocation is handy when the metadata json is missing or when you have relocated the base pickle and want to override the output destination in one call.
+  Long-running deferred jobs now emit lightweight progress heartbeats while histograms are combined; tune the cadence with `--heartbeat-seconds` (set to `0` to log every histogram) or silence the messages with `--quiet` for batch use.
 To make use of distributed resources, the `work queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
 conda activate coffea-env

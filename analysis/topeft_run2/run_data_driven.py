@@ -13,7 +13,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional
+import time
+from typing import Any, Dict, Iterable, List, Optional
 
 import topcoffea.modules.utils as utils
 
@@ -57,6 +58,20 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         "--only-flips",
         action="store_true",
         help="Drop nonprompt processes so only flips contributions remain in the output histograms.",
+    )
+    parser.add_argument(
+        "--heartbeat-seconds",
+        type=float,
+        default=30.0,
+        help=(
+            "Emit a progress heartbeat while histograms are finalized. "
+            "Set to 0 to log every histogram; combine with --quiet to suppress the heartbeat."
+        ),
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Silence progress heartbeats during histogram finalization.",
     )
     return parser
 
@@ -115,29 +130,43 @@ def _validate_input_path(input_path: str) -> None:
         raise FileNotFoundError(f"Histogram pickle not found: {input_path}")
 
 
-def _maybe_filter_to_flips(hist_dict: MutableMapping[str, Any]) -> MutableMapping[str, Any]:
-    filtered: Dict[str, Any] = {}
-    for key, histo in hist_dict.items():
-        filtered[key] = histo
-        if histo is None:
-            continue
-        process_axis: Optional[Iterable[str]] = None
-        try:
-            process_axis = list(histo.axes["process"])  # type: ignore[index]
-        except Exception:
-            process_axis = None
-        if not process_axis:
-            continue
-        flips = [proc for proc in process_axis if "flips" in proc.lower()]
-        if not flips:
-            continue
-        to_remove = [proc for proc in process_axis if proc not in flips]
-        if not to_remove:
-            continue
-        if not hasattr(histo, "remove"):
-            continue
-        filtered[key] = histo.remove("process", to_remove)
-    return filtered
+def _filter_to_flips(histo: Any) -> Any:
+    if histo is None:
+        return histo
+    process_axis: Optional[Iterable[str]] = None
+    try:
+        process_axis = list(histo.axes["process"])  # type: ignore[index]
+    except Exception:
+        process_axis = None
+    if not process_axis:
+        return histo
+    flips = [proc for proc in process_axis if "flips" in proc.lower()]
+    if not flips:
+        return histo
+    to_remove = [proc for proc in process_axis if proc not in flips]
+    if not to_remove:
+        return histo
+    if not hasattr(histo, "remove"):
+        return histo
+    return histo.remove("process", to_remove)
+
+
+def _maybe_emit_heartbeat(
+    *,
+    count: int,
+    start_time: float,
+    last_heartbeat: float,
+    heartbeat_seconds: float,
+    quiet: bool,
+) -> float:
+    if quiet:
+        return last_heartbeat
+    now = time.monotonic()
+    if heartbeat_seconds <= 0 or now - last_heartbeat >= heartbeat_seconds:
+        elapsed = now - start_time
+        print(f"[run_data_driven] Processed {count} histograms after {elapsed:.1f}s...")
+        return now
+    return last_heartbeat
 
 
 def _finalize_histograms(
@@ -146,11 +175,33 @@ def _finalize_histograms(
     *,
     only_flips: bool,
     apply_envelope: bool,
+    heartbeat_seconds: float,
+    quiet: bool,
 ) -> None:
     ddp = DataDrivenProducer(input_pkl, output_pkl)
     histograms = ddp.getDataDrivenHistogram()
-    if only_flips:
-        histograms = _maybe_filter_to_flips(histograms)
+
+    start_time = time.monotonic()
+    last_heartbeat = start_time
+    processed = 0
+    filtered: Dict[str, Any] = {}
+    for key, histo in histograms.items():
+        processed += 1
+        last_heartbeat = _maybe_emit_heartbeat(
+            count=processed,
+            start_time=start_time,
+            last_heartbeat=last_heartbeat,
+            heartbeat_seconds=heartbeat_seconds,
+            quiet=quiet,
+        )
+
+        working_histo = _filter_to_flips(histo) if only_flips else histo
+        filtered[key] = working_histo
+
+    if not quiet and processed:
+        elapsed = time.monotonic() - start_time
+        print(f"[run_data_driven] Finalized {processed} histograms in {elapsed:.1f}s.")
+    histograms = filtered
     if apply_envelope:
         histograms = get_renormfact_envelope(histograms)
     os.makedirs(os.path.dirname(output_pkl) or ".", exist_ok=True)
@@ -189,6 +240,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         output_pkl,
         only_flips=args.only_flips,
         apply_envelope=args.apply_renormfact_envelope,
+        heartbeat_seconds=args.heartbeat_seconds,
+        quiet=args.quiet,
     )
 
     return 0
