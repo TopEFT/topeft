@@ -3108,6 +3108,8 @@ def _resolve_channel_transformations(region_ctx, var_name):
     ordered = []
     seen = set()
     for transform in transformations:
+        if transform == "njets" and region_ctx.preserve_njets_bins:
+            continue
         if transform not in seen:
             ordered.append(transform)
             seen.add(transform)
