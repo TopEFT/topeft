@@ -405,6 +405,38 @@ def _maybe_preserve_njet_bins(
     return preserved
 
 
+def _augment_split_channel_entries(
+    channel_dict,
+    *,
+    available_channels=None,
+    reference_channel_map=None,
+    channel_mode=None,
+):
+    """Inject split-lepton categories from the reference map when available."""
+
+    if channel_mode != "per-channel":
+        return channel_dict
+
+    available_set = {str(label) for label in available_channels or ()}
+    if not available_set:
+        return channel_dict
+
+    augmented = OrderedDict(channel_dict)
+    for key, bin_names in (reference_channel_map or {}).items():
+        if key in augmented:
+            continue
+        if not bin_names:
+            continue
+        filtered_bins = [name for name in bin_names if name in available_set]
+        if not filtered_bins:
+            continue
+        if not any(_extract_lepflav_token(name) for name in filtered_bins):
+            continue
+        augmented[key] = filtered_bins
+
+    return augmented
+
+
 def _group_channels_by_yearless_label(
     channel_dict,
     *,
@@ -1256,6 +1288,13 @@ def _prepare_variable_payload(
     channel_dict = _prune_unsplit_flavour_entries(channel_dict, region_ctx)
 
     available_channels = _resolve_channel_axis_labels(histo)
+
+    channel_dict = _augment_split_channel_entries(
+        channel_dict,
+        available_channels=available_channels,
+        reference_channel_map=region_ctx.channel_map,
+        channel_mode=region_ctx.channel_mode,
+    )
 
     channel_dict = _maybe_preserve_njet_bins(
         channel_dict,
