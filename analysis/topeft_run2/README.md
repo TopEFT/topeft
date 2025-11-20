@@ -85,10 +85,27 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 * `fullR2_run.sh`: Historical wrapper for the original TOP-22-006 pickle production. Keep it around for archival reproducibility; new workflows should prefer `fullR3_run.sh`.
 
 * `run_data_driven.py`:
-    - Finalizes deferred nonprompt/flips histograms using either the metadata emitted by `run_analysis.py --np-postprocess=defer` or manually specified pickle paths.
-    - Example usage: `python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json --apply-renormfact-envelope`
-    - When invoked with metadata the CLI automatically discovers the base pickle, resolved years, and desired `_np.pkl.gz` destination so you can regenerate the datacard-ready file long after the original processing campaign finished. Provide `--input-pkl` and (optionally) `--output-pkl` explicitly when you only kept the histogram pickles.
-    - Pointing `--input-pkl` at a `.pkl`/`.pkl.gz` file now streams the histograms one key at a time, so memory usage no longer scales with the full dictionary size. This mirrors the inline `run_analysis.py --np-postprocess=defer` workflow: the base pickle can live on disk until you are ready to postprocess it, even when the histogram set is several gigabytes.
+    - Finalizes deferred nonprompt/flips histograms using either the metadata emitted by `run_analysis.py --np-postprocess=defer` or manually specified pickle paths. See the dedicated usage notes below.
+
+#### `run_data_driven.py` usage and recovery paths
+
+- **Metadata-driven:** when `run_analysis.py` was run with `--np-postprocess=defer`, point the helper at the recorded sidecar to reconstruct the `_np.pkl.gz` output and (optionally) add the renorm/fact envelope:
+
+  ```bash
+  python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json \
+      --apply-renormfact-envelope
+  ```
+
+- **Direct pickle path:** skip metadata entirely by forwarding the original histogram pickle and your desired destination explicitly:
+
+  ```bash
+  python run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz \
+      --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope
+  ```
+
+  The helper streams `.pkl`/`.pkl.gz` inputs one histogram at a time, so even multi-GB dictionaries can be processed without holding everything in memory. Expect the `--input-pkl` file to be the base (pre-nonprompt) histograms and the `--output-pkl` path to receive the `_np.pkl.gz` variant ready for datacard production.
+
+- **Troubleshooting missing metadata or moved pickles:** if the sidecar no longer matches your filesystem (for example, after relocating the histogram directory), re-run the helper with explicit `--input-pkl`/`--output-pkl` paths. You can also pass an absolute path to `--metadata-json` so relative entries resolve correctly when the metadata lives in a different folder than the pickle.
 
 > **Sourcing helpers:** `run_plotter.sh`, `submit_plotter_condor.sh`, `fullR3_run.sh`, `fullR3_run_diboson.sh`, and `condor_plotter_entry.sh` now funnel their work through a `main()` function. They return non-zero statuses instead of exiting outright when validation fails, so sourcing them in an interactive shell will surface the error without tearing down your session. Executing the scripts directly still exits with the same return codes as before.
 
