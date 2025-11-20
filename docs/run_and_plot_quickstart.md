@@ -55,7 +55,7 @@ python run_analysis.py \
     ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
     --options configs/fullR2_run.yml:sr \
     --executor futures \
-    --outdir histos/local_futures_quickstart \
+    --outpath histos/local_futures_quickstart \
     --outname plotsTopEFT
 ```
 
@@ -72,7 +72,7 @@ python run_analysis.py \
     --options configs/fullR2_run.yml:sr \
     --executor taskvine \
     --environment-file "$(python -m topcoffea.modules.remote_environment)" \
-    --outdir histos/taskvine_quickstart \
+    --outpath histos/taskvine_quickstart \
     --outname plotsTopEFT
 ```
 
