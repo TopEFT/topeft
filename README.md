@@ -20,6 +20,8 @@ CI now includes a smoke test that asserts `import topcoffea` resolves outside th
 
 ## Getting started
 
+New to the workflow? The [Run and plot quickstart](docs/run_and_plot_quickstart.md) walks through creating the environment, running `run_analysis.py` with both the futures and TaskVine executors, and turning the tuple-keyed histogram pickle into plots.
+
 ### Setting up
 If conda is not already available, download and install it:
 ```
