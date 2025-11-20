@@ -45,6 +45,13 @@ This guide walks through creating the shared environment, running `run_analysis.
 
 Example commands assume `analysis/topeft_run2` as the working directory and the sample manifest from `input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json`.
 
+Fetch the UL17 CI ROOT sample before running the quickstart so `run_analysis.py` can locate the input file referenced by the manifest. Download it into your working directory or point `--prefix` at the containing path if you store it elsewhere:
+
+```bash
+cd analysis/topeft_run2
+wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
+```
+
 ### Local futures executor (single node)
 
 Use the default configuration bundle and force the futures backend for quick smoke tests:
