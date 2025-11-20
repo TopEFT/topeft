@@ -326,7 +326,11 @@ def test_all_variables_render_for_merged_and_split_categories(tmp_path, channel_
     for split_dir in split_dirs:
         assert split_dir.exists()
         split_plots = {path.name for path in split_dir.glob("*.png")}
-        base_split_name = re.sub(r"_0j(?=_)", "", split_dir.name)
+        base_split_name = (
+            split_dir.name
+            if channel_output.endswith("njets")
+            else re.sub(r"_0j(?=_)", "", split_dir.name)
+        )
         expected_plots = {
             f"{base_split_name}_j0pt.png",
             f"{base_split_name}_met.png",

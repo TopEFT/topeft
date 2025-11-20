@@ -1881,9 +1881,12 @@ def _render_variable_category(
         )
         save_path = os.path.join(save_dir_path_tmp, f"{title}.png")
         fig.savefig(save_path, bbox_inches="tight", pad_inches=0.05)
-        clean_save_path = re.sub(r"_(\d+)j(?=_[^/]+$)", "", save_path, flags=re.IGNORECASE)
-        if clean_save_path != save_path:
-            os.replace(save_path, clean_save_path)
+        if not region_ctx.preserve_njets_bins:
+            clean_save_path = re.sub(
+                r"_(\d+)j(?=_[^/]+$)", "", save_path, flags=re.IGNORECASE
+            )
+            if clean_save_path != save_path:
+                os.replace(save_path, clean_save_path)
         _close_figure_payload(fig)
         has_syst_inputs = any(
             err is not None
