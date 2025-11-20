@@ -1,6 +1,9 @@
 import gzip
 import pickle
-from topcoffea.modules.paths import topcoffea_path
+
+import topcoffea
+
+topcoffea_path = topcoffea.modules.paths.topcoffea_path
 # from coffea.lookup_tools.dense_lookup import dense_lookup
 
 # The committed pkl files

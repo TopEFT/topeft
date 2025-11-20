@@ -16,6 +16,7 @@ The `topeft/topeft` directory is set up to be installed as a pip installable pac
 
 ### Legacy HistEFT support
 The repository now expects the [`topcoffea`](https://github.com/TopEFT/topcoffea) package to be installed in the active environment instead of shipping a partial vendor copy.  The upstream project still exposes the legacy `HistEFT` helpers via `topcoffea.modules.HistEFT`, so existing imports keep working once the dependency is installed.
+CI now includes a smoke test that asserts `import topcoffea` resolves outside the `topeft` checkout.  Remove any stray `topcoffea/` directories under this repository and reinstall the sibling package (for example via `pip install -e ../topcoffea`) if that guard triggers.
 
 ## Getting started
 
