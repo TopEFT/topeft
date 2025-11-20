@@ -55,6 +55,16 @@ def _ensure_topcoffea_data_available(skip_check=False):
     if not os.path.exists(pileup_path):
         raise SystemExit(f"{guidance} (expected {pileup_path}).")
 
+
+def _format_worker_exception(exception_obj):
+    if exception_obj in (None, 0):
+        return None
+
+    try:
+        return str(exception_obj)
+    except Exception:
+        return repr(exception_obj)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
     parser.add_argument(
@@ -815,17 +825,32 @@ if __name__ == "__main__":
     # Run the processor and get the output
     tstart = time.time()
 
+    def _ensure_nonempty_chunks():
+        total_files = sum(len(files) for files in flist.values())
+        if total_files == 0:
+            raise SystemExit(
+                "No input files were available to process; verify the sample JSON and prefix "
+                "and retry with at least one file."
+            )
+
+        if nchunks == 0:
+            raise SystemExit(
+                "Requested zero chunks; increase --nchunks or drop the flag to process the full dataset."
+            )
+
     if executor_name == "futures":
         futures_factory = getattr(processor, "futures_executor", None)
         if callable(futures_factory):
             exec_instance = futures_factory(workers=nworkers)
         else:
             exec_instance = processor.FuturesExecutor(workers=nworkers)
+        _ensure_nonempty_chunks()
         runner = processor.Runner(
             exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
         )
     elif executor_name == "work_queue":
         executor_instance = processor.WorkQueueExecutor(**executor_args)
+        _ensure_nonempty_chunks()
         runner = processor.Runner(
             executor_instance,
             schema=NanoAODSchema,
@@ -848,7 +873,29 @@ if __name__ == "__main__":
             xrootdtimeout=300,
         )
 
-    output = runner(flist, treename, processor_instance)
+    try:
+        output = runner(flist, treename, processor_instance)
+    except TypeError as exc:
+        raise RuntimeError(
+            "The executor returned no chunk results. Ensure that the input files produced at least "
+            "one chunk and that the executor handled submissions correctly."
+        ) from exc
+
+    worker_exception = None
+    if isinstance(output, dict):
+        worker_exception = _format_worker_exception(output.get("exception"))
+
+    if output is None:
+        if worker_exception is not None:
+            print(f"Executor reported a worker-side exception: {worker_exception}")
+        else:
+            print("Runner returned no output; no chunks appear to have been processed.")
+        raise RuntimeError("Processing failed because no results were returned from the executor.")
+
+    if worker_exception is not None:
+        raise RuntimeError(
+            f"Processing failed because a worker raised an exception: {worker_exception}"
+        )
 
     print("Finished running the processor...")
 

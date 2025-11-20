@@ -2,6 +2,7 @@ import gzip
 import json
 import runpy
 import sys
+import types
 from pathlib import Path
 from unittest import mock
 
@@ -24,9 +25,51 @@ _EXPECTED_BASE_HISTS = {
 }
 
 
+def _mock_data_driven(monkeypatch):
+    fake_data_driven = types.ModuleType("topeft.modules.dataDrivenEstimation")
+
+    class DummyProducer:
+        def __init__(self, *_, **__):
+            pass
+
+        def dumpToPickle(self):
+            return None
+
+    fake_data_driven.DataDrivenProducer = DummyProducer
+    monkeypatch.setitem(sys.modules, "topeft.modules.dataDrivenEstimation", fake_data_driven)
+
+
+def _mock_hist_utils(monkeypatch):
+    fake_hist_utils = types.ModuleType("topcoffea.modules.hist_utils")
+
+    def _dummy_iterate_hist_from_pkl(*args, **kwargs):
+        return iter(())
+
+    fake_hist_utils.iterate_hist_from_pkl = _dummy_iterate_hist_from_pkl
+    monkeypatch.setitem(sys.modules, "topcoffea.modules.hist_utils", fake_hist_utils)
+
+
+def _mock_topcoffea_utils(monkeypatch):
+    fake_utils = types.ModuleType("topcoffea.modules.utils")
+
+    def _dummy_get_hist_from_pkl(*args, **kwargs):
+        return {}
+
+    def _dummy_dump_to_pkl(*args, **kwargs):
+        return None
+
+    fake_utils.get_hist_from_pkl = _dummy_get_hist_from_pkl
+    fake_utils.dump_to_pkl = _dummy_dump_to_pkl
+    monkeypatch.setitem(sys.modules, "topcoffea.modules.utils", fake_utils)
+
+
 def _run_run_analysis(monkeypatch, tmp_path, extra_cli_args, outname):
     output_dir = tmp_path / f"hist-output-{outname}"
     output_dir.mkdir()
+
+    _mock_data_driven(monkeypatch)
+    _mock_hist_utils(monkeypatch)
+    _mock_topcoffea_utils(monkeypatch)
 
     def dummy_futures_executor(*, workers):
         return object()
@@ -38,7 +81,7 @@ def _run_run_analysis(monkeypatch, tmp_path, extra_cli_args, outname):
         def __call__(self, fileset, treename, processor_instance):
             return processor_instance.accumulator
 
-    monkeypatch.setattr(processor, "futures_executor", dummy_futures_executor)
+    monkeypatch.setattr(processor, "futures_executor", dummy_futures_executor, raising=False)
     monkeypatch.setattr(processor, "Runner", DummyRunner)
 
     argv = [
@@ -131,7 +174,6 @@ def test_np_postprocess_defer_creates_metadata(tmp_path):
 
 def test_missing_topcoffea_data_reports_guidance(monkeypatch):
     from topcoffea.modules.paths import topcoffea_path as real_topcoffea_path
-    import types
 
     def fake_topcoffea_path(relpath):
         if relpath == "data/pileup/pileup_2016GH.root":
@@ -139,6 +181,10 @@ def test_missing_topcoffea_data_reports_guidance(monkeypatch):
         return real_topcoffea_path(relpath)
 
     monkeypatch.setattr("topcoffea.modules.paths.topcoffea_path", fake_topcoffea_path)
+
+    _mock_data_driven(monkeypatch)
+    _mock_hist_utils(monkeypatch)
+    _mock_topcoffea_utils(monkeypatch)
 
     fake_analysis_processor = types.ModuleType("analysis_processor")
 
@@ -169,3 +215,81 @@ def test_missing_topcoffea_data_reports_guidance(monkeypatch):
     message = str(excinfo.value)
     assert "scripts/install_topcoffea.sh" in message
     assert "--skip-topcoffea-data-check" in message
+
+
+def test_empty_fileset_reports_clear_message(monkeypatch, tmp_path):
+    empty_json = tmp_path / "empty.json"
+    with open(_SAMPLE_JSON) as fin:
+        payload = json.load(fin)
+
+    payload["files"] = []
+    with open(empty_json, "w") as fout:
+        json.dump(payload, fout)
+
+    _mock_data_driven(monkeypatch)
+    _mock_hist_utils(monkeypatch)
+    _mock_topcoffea_utils(monkeypatch)
+
+    def dummy_futures_executor(*, workers):
+        return object()
+
+    class DummyRunner:
+        def __init__(self, *_, **__):
+            pass
+
+        def __call__(self, *_, **__):
+            raise AssertionError("Runner should not be invoked when there are no files")
+
+    monkeypatch.setattr(processor, "futures_executor", dummy_futures_executor, raising=False)
+    monkeypatch.setattr(processor, "Runner", DummyRunner)
+
+    argv = ["run_analysis.py", str(empty_json), "-x", "futures"]
+
+    original_sys_path = list(sys.path)
+    sys.path.insert(0, str(_SCRIPT_PATH.parent))
+    try:
+        with mock.patch.object(sys, "argv", argv):
+            with pytest.raises(SystemExit) as excinfo:
+                runpy.run_path(str(_SCRIPT_PATH), run_name="__main__")
+    finally:
+        sys.path = original_sys_path
+
+    assert "No input files were available to process" in str(excinfo.value)
+
+
+def test_worker_exception_is_reported(monkeypatch, tmp_path):
+    _mock_data_driven(monkeypatch)
+
+    def dummy_futures_executor(*, workers):
+        return object()
+
+    class DummyRunner:
+        def __init__(self, exec_instance, *, schema=None, chunksize=None, maxchunks=None, **kwargs):
+            self.exec_instance = exec_instance
+
+        def __call__(self, fileset, treename, processor_instance):
+            return {"out": {}, "exception": ValueError("forced worker crash")}
+
+    monkeypatch.setattr(processor, "futures_executor", dummy_futures_executor, raising=False)
+    monkeypatch.setattr(processor, "Runner", DummyRunner)
+
+    argv = [
+        "run_analysis.py",
+        str(_SAMPLE_JSON),
+        "-x",
+        "futures",
+        "--skip-topcoffea-data-check",
+        "--hist-list",
+        "cr",
+    ]
+
+    original_sys_path = list(sys.path)
+    sys.path.insert(0, str(_SCRIPT_PATH.parent))
+    try:
+        with mock.patch.object(sys, "argv", argv):
+            with pytest.raises(RuntimeError) as excinfo:
+                runpy.run_path(str(_SCRIPT_PATH), run_name="__main__")
+    finally:
+        sys.path = original_sys_path
+
+    assert "worker raised an exception" in str(excinfo.value)
