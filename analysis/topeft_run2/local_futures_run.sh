@@ -3,7 +3,7 @@
 #
 # Expectations before running:
 #   1. Activate the shared Conda environment shipped with this repository
-#      (name: coffea20250703) so the topeft and topcoffea editable installs are
+#      (name: coffea2025) so the topeft and topcoffea editable installs are
 #      available.  The helper below attempts to activate it when possible.
 #   2. Provide local access to the desired ROOT files (either via XRootD
 #      redirectors or through EOS/PNFS mounts).  The futures executor runs on
@@ -44,7 +44,7 @@ USAGE
 }
 
 activate_env() {
-  local target_env="coffea20250703"
+  local target_env="coffea2025"
   if [[ "${CONDA_DEFAULT_ENV:-}" == "$target_env" ]]; then
     return 0
   fi

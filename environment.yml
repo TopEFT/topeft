@@ -1,18 +1,13 @@
-name: coffea20250703
+name: coffea2025
 channels:
   - conda-forge
 dependencies:
-  - conda-forge::python=3.13
-  - pip
+  - coffea=2025.7.3
+  - awkward=2.8.7
+  - ndcctools
   - conda-pack
-  - ndcctools>=7.14.11
-  - xrootd
-  - setuptools>=72
-  - numpy
   - dill
+  - xrootd
   - git
   - pyyaml
-  - pytest
-  - pip:
-      - coffea==2025.7.3
-      - awkward==2.8.7
+  - numpy

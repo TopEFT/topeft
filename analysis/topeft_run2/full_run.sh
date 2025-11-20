@@ -3,7 +3,7 @@
 #
 # Expectations before running:
 #   1. Activate the shared Conda environment shipped with this repository
-#      (name: coffea20250703) so the topeft and topcoffea editable installs are
+#      (name: coffea2025) so the topeft and topcoffea editable installs are
 #      available.  The helper below attempts to activate it when possible.
 #   2. Stage the packaged TaskVine environment tarball by running
 #      `python -m topcoffea.modules.remote_environment` after activation.  The
@@ -44,7 +44,7 @@ USAGE
 }
 
 activate_env() {
-  local target_env="coffea20250703"
+  local target_env="coffea2025"
   if [[ "${CONDA_DEFAULT_ENV:-}" == "$target_env" ]]; then
     return 0
   fi
