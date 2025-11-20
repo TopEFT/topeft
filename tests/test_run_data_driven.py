@@ -119,3 +119,54 @@ def test_run_data_driven_only_flips_and_envelope(tmp_path, monkeypatch):
     assert "value" in envelope_calls
     result = _load_pkl(output_path)
     assert list(result["njets"].axes["process"]) == ["flipsUL18"]
+
+
+def test_run_data_driven_heartbeat(tmp_path, monkeypatch, capsys):
+    input_path = tmp_path / "input.pkl.gz"
+    input_path.write_bytes(b"content")
+    output_path = tmp_path / "output.pkl.gz"
+
+    DummyProducer.output_hist = {
+        "njets": FakeHist(["flipsUL17"]),
+        "ht": FakeHist(["flipsUL17"]),
+    }
+    monkeypatch.setattr(run_data_driven, "DataDrivenProducer", DummyProducer)
+
+    run_data_driven.main(
+        [
+            "--input-pkl",
+            str(input_path),
+            "--output-pkl",
+            str(output_path),
+            "--heartbeat-seconds",
+            "0",
+        ]
+    )
+
+    captured = capsys.readouterr().out
+    assert "[run_data_driven] Processed" in captured
+    assert "Finalized 2 histograms" in captured
+
+
+def test_run_data_driven_quiet(tmp_path, monkeypatch, capsys):
+    input_path = tmp_path / "input.pkl.gz"
+    input_path.write_bytes(b"content")
+    output_path = tmp_path / "output.pkl.gz"
+
+    DummyProducer.output_hist = {"njets": FakeHist(["flipsUL17"])}
+    monkeypatch.setattr(run_data_driven, "DataDrivenProducer", DummyProducer)
+
+    run_data_driven.main(
+        [
+            "--input-pkl",
+            str(input_path),
+            "--output-pkl",
+            str(output_path),
+            "--heartbeat-seconds",
+            "0",
+            "--quiet",
+        ]
+    )
+
+    captured = capsys.readouterr().out
+    assert "[run_data_driven]" not in captured
