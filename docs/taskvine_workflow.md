@@ -13,7 +13,7 @@ available, then create the shared Conda environment shipped with the repository:
 
 ```bash
 conda env create -f environment.yml
-conda activate coffea20250703
+conda activate coffea2025
 pip install -e .
 ```
 
@@ -30,11 +30,10 @@ cd ../topeft
 ```
 
 Upgrading an existing checkout?  Run `conda env update -f environment.yml --prune`
-instead of recreating the environment.  Conda releases older than 23.11 may
-request a solver update when pulling in Python 3.13 and newer `ndcctools`
-wheels—allow the prompt (or execute `conda update -n base -c conda-forge conda`)
-and approve the follow-up `coffea==2025.7.3` / `awkward==2.8.7` pins so the
-editable installs match the packaged worker tarball.
+instead of recreating the environment.  Conda may request a solver update when
+aligning with the conda-forge builds—allow the prompt (or execute
+`conda update -n base -c conda-forge conda`) so the editable installs match the
+packaged worker tarball.
 
 ## 2. Package the TaskVine environment tarball
 

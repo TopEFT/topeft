@@ -15,7 +15,7 @@ TaskVine managers ship the same tarball built by
 
 ```sh
 conda env create -f environment.yml           # or: conda env update -f environment.yml --prune
-conda activate coffea20250703
+conda activate coffea2025
 pip install -e .                              # install topeft in editable mode
 pip install -e topcoffea/                     # install topcoffea in editable mode
 python -m topcoffea.modules.remote_environment
@@ -31,7 +31,7 @@ From `analysis/topeft_run2` prepare a run configuration (JSON/YAML/CFG as shown
 in the quickstart docs) and launch the manager:
 
 ```sh
-conda activate coffea20250703
+conda activate coffea2025
 python run_analysis.py --executor taskvine --chunksize 160000 \
     ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
 ```

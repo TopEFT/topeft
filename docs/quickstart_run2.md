@@ -12,11 +12,11 @@ to the local ``futures`` backend.
 
 Set up the shared development environment before launching the helper.  The
 repository standardises on the Coffea 2025.7 toolchain, captured in the
-`coffea20250703` Conda environment declared in `environment.yml`:
+`coffea2025` Conda environment declared in `environment.yml`:
 
 ```bash
 conda env create -f environment.yml
-conda activate coffea20250703
+conda activate coffea2025
 pip install -e .
 ```
 
