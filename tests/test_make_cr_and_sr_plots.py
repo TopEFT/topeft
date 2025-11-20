@@ -3,6 +3,7 @@ import warnings
 import hist
 import numpy as np
 import pytest
+from collections import defaultdict
 
 from analysis.topeft_run2 import make_cr_and_sr_plots
 
@@ -127,3 +128,71 @@ def test_unmatched_sample_gets_fallback_group(monkeypatch):
     finally:
         plt = make_cr_and_sr_plots.plt
         plt.close(fig)
+
+
+def test_both_njets_preserves_variables_for_merged_output(tmp_path):
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    njets_axis = hist.axis.Regular(1, 0.0, 1.0, name="njets")
+    met_axis = hist.axis.Regular(1, 0.0, 1.0, name="met")
+
+    h_njets = make_cr_and_sr_plots.SparseHist(
+        process_axis, channel_axis, syst_axis, njets_axis
+    )
+    h_met = make_cr_and_sr_plots.SparseHist(
+        process_axis, channel_axis, syst_axis, met_axis
+    )
+
+    for hist_obj in (h_njets, h_met):
+        setattr(hist_obj, "_sumw2", defaultdict(lambda: None))
+
+    for channel in ("2lss_ee_CR_1j", "2lss_em_CR_1j"):
+        h_njets.fill(
+            process="dataUL18",
+            channel=channel,
+            systematic="nominal",
+            njets=0.5,
+            weight=1.0,
+        )
+        h_njets.fill(
+            process="ttH_centralUL18",
+            channel=channel,
+            systematic="nominal",
+            njets=0.5,
+            weight=2.0,
+        )
+        h_met.fill(
+            process="dataUL18",
+            channel=channel,
+            systematic="nominal",
+            met=0.5,
+            weight=3.0,
+        )
+        h_met.fill(
+            process="ttH_centralUL18",
+            channel=channel,
+            systematic="nominal",
+            met=0.5,
+            weight=4.0,
+        )
+
+    make_cr_and_sr_plots.run_plots_for_region(
+        "CR",
+        {"njets": h_njets, "met": h_met},
+        years=["2018"],
+        save_dir_path=str(tmp_path),
+        channel_output="both-njets",
+        skip_syst_errs=True,
+        workers=1,
+        verbose=False,
+    )
+
+    merged_dir = tmp_path / "cr_2lss_1j"
+    assert merged_dir.exists()
+
+    plot_names = sorted(path.name for path in merged_dir.glob("*.png"))
+    assert {
+        "cr_2lss_1j_met.png",
+        "cr_2lss_1j_njets.png",
+    }.issubset(set(plot_names)), plot_names
