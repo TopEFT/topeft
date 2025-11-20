@@ -53,7 +53,6 @@ Use the default configuration bundle and force the futures backend for quick smo
 cd analysis/topeft_run2
 python run_analysis.py \
     ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --options configs/fullR2_run.yml:sr \
     --executor futures \
     --outpath histos/local_futures_quickstart \
     --outname plotsTopEFT
@@ -69,7 +68,6 @@ Re-use the same YAML profile with the TaskVine backend enabled. Because the exec
 cd analysis/topeft_run2
 python run_analysis.py \
     ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --options configs/fullR2_run.yml:sr \
     --executor taskvine \
     --environment-file "$(python -m topcoffea.modules.remote_environment)" \
     --outpath histos/taskvine_quickstart \
