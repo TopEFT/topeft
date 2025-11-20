@@ -88,7 +88,7 @@ python make_cr_and_sr_plots.py \
     -f histos/taskvine_quickstart/plotsTopEFT.pkl.gz \
     -o plots/taskvine_quickstart \
     -n plots \
-    -y 2018 \
+    -y 2017 \
     --skip-syst
 ```
 
