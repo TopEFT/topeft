@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Standalone helper to build data driven histograms from saved metadata."""
+"""Standalone helper to build data driven histograms from saved metadata.
+
+Quickstart examples:
+  - Metadata sidecar: python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json \
+      --apply-renormfact-envelope
+  - Direct pickle paths: python run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz \
+      --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope
+"""
 
 from __future__ import annotations
 
@@ -17,9 +24,14 @@ from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Finalize deferred nonprompt/flips histograms using the metadata emitted "
-            "by run_analysis.py."
-        )
+            "Finalize deferred nonprompt/flips histograms using the metadata emitted by run_analysis.py.\n\n"
+            "Quickstart:\n"
+            "  - Metadata sidecar: python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json\\\n"
+            "      --apply-renormfact-envelope\n"
+            "  - Direct pickle paths: python run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz\\\n"
+            "      --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--metadata-json",

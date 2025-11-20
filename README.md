@@ -60,16 +60,24 @@ If this command exits immediately with a message about missing `topcoffea` data,
 
 Run 3 workflows now emit clearer diagnostics for executor issues. When running with `-x futures` or `-x work_queue`, an empty file list (or `--nchunks 0`) fails fast with guidance instead of silently submitting nothing. Worker-side exceptions are surfaced explicitly rather than triggering a cryptic `TypeError`; review the stack trace printed in the error message and the worker logs to decide whether to retry the job or adjust the sample JSON/prefix.
 
-When `--do-np` is passed `run_analysis.py` produces the nonprompt-enhanced `_np.pkl.gz` histogram either inline (the default) or via deferred post-processing controlled by `--np-postprocess={inline,defer,skip}`. Inline mode matches the historical behaviour where the `_np.pkl.gz` file is written immediately. Deferred mode writes the regular pickle plus a sidecar metadata file named like `histos/<outname>_np.pkl.gz.metadata.json` that records the follow-up command, resolved years, and histogram locations so you can build the `_np.pkl.gz` file later.
+When `--do-np` is passed `run_analysis.py` produces the nonprompt-enhanced `_np.pkl.gz` histogram in one of two ways controlled by `--np-postprocess={inline,defer,skip}`:
 
-To request deferred mode from the wrapper run `fullR3_run.sh --do-np --defer-np --cr ...` (or invoke `run_analysis.py --do-np --np-postprocess=defer` directly). The `--do-np` flag is required to enable the nonprompt producer; `--defer-np` merely switches the producer into deferred mode so the metadata file is written instead of the `_np.pkl.gz` histogram. Once the processors finish, finalize the nonprompt step (and optionally add the renorm/fact envelope) with the helper below; it accepts either the metadata json or explicit `--input-pkl` / `--output-pkl` paths:
+* **Inline:** Add `--np-postprocess=inline` (the default) so the `_np.pkl.gz` file is written immediately alongside the base pickle. This matches the historical behaviour when you want the nonprompt/flips histogram ready as soon as the jobs finish.
+* **Deferred:** Pair `--do-np` with `--np-postprocess=defer` (or use `fullR3_run.sh --do-np --defer-np --cr ...`) to emit the base pickle plus a sidecar metadata file named like `histos/<outname>_np.pkl.gz.metadata.json`. You can finalize the nonprompt step later either by feeding the metadata back to the helper:
 
-```
-python analysis/topeft_run2/run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json \
-    --apply-renormfact-envelope
-```
+  ```
+  python analysis/topeft_run2/run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json \
+      --apply-renormfact-envelope
+  ```
 
-When no metadata file is supplied, specify `--input-pkl` and (optionally) `--output-pkl` directly.
+  or by skipping metadata entirely and pointing the helper directly at the pickle paths:
+
+  ```
+  python analysis/topeft_run2/run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz \
+      --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope
+  ```
+
+  The direct invocation is handy when the metadata json is missing or when you have relocated the base pickle and want to override the output destination in one call.
 To make use of distributed resources, the `work queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
 conda activate coffea-env
