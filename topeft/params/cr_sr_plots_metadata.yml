@@ -509,7 +509,21 @@ REGION_PLOTTING:
             - cr_2los_Z
         groups:
           - Nonprompt
-    category_skips: []
+    category_skips:
+      - categories:
+          equals:
+            - cr_2los_Z
+        variable_includes:
+          - j0
+        variable_excludes:
+          - lj0pt
+      - categories:
+          equals:
+            - cr_2lss_flip
+        variable_includes:
+          - j0
+        variable_excludes:
+          - lj0pt
     sumw2_remove_signal: true
     sumw2_remove_signal_when_blinded: false
     debug_channel_lists: false
