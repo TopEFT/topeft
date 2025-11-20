@@ -155,6 +155,8 @@ Add `--log-y` to either entry point when you need the stacked yields on a logari
 
 Console verbosity is now controlled by mutually exclusive `--verbose` and `--quiet` switches. Quiet mode remains the default and prints only high-level progress (region resolution, worker counts, summary statistics). Add `--verbose` to include the per-variable headings, sample inventories, and channel lists that previously flooded the terminal.
 
+Every histogram variable available in the pickle is plotted for all merge levels and split-lepton channels by default, so merged and per-channel outputs stay in lockstep. Add `--enable-category-skips` only when you intentionally want to reapply the YAML category filters and drop specific variable/category combinations.
+
 | Entry point | When to use |
 | --- | --- |
 | `python make_cr_and_sr_plots.py` | Direct access to every CLI flag for notebook or batch workflows. Remember to include `-y` with your desired years or aliases (e.g. `-y run2`). |
@@ -244,7 +246,7 @@ Under the hood the CLI defers to a unified region runner so that both CR and SR 
 
 `produce_region_plots()` then iterates over the requested histograms, applies the appropriate channel transformations, and orchestrates the per-category plotting. In aggregate (CR) mode the channel axis is integrated before rendering, while the SR configuration keeps each channel separate. During this sweep the code also:
 
-* Removes samples that do not belong to the selected MC/data view and applies optional group-specific removals and category skips defined in the metadata.
+* Removes samples that do not belong to the selected MC/data view and applies optional group-specific removals. Category skip rules in the metadata are ignored unless you explicitly add `--enable-category-skips`.
 * Fetches `sumw2` histograms for statistical uncertainties and combines them with shape/rate systematics where requested.
 * Switches between raw 1D plotting and the dedicated 2D heatmap path when sparse histograms are encountered.
 
@@ -257,7 +259,7 @@ The plotting behaviour is configured by `topeft/params/cr_sr_plots_metadata.yml`
 
 * **Channel maps (`CR_CHAN_DICT` / `SR_CHAN_DICT`)** – map human-readable category labels to the underlying histogram channel bins. Add or remove entries here when categories are renamed or regrouped; the CLI enforces that every plotted channel appears in these lists.
 * **Group patterns (`CR_GRP_MAP` / `SR_GRP_MAP`)** – define how raw process names are clustered into stacked contributions. Each group contains a color token and a list of substring patterns; new MC samples inherit the colour/styling of the group whose pattern matches their dataset name.
-* **Region overrides (`REGION_PLOTTING`)** – per-region knobs that adjust plotting mechanics. Highlights include `channel_mode` (aggregate CR vs. per-channel SR figures), `channel_transformations` (string rewrites such as removing jet- or flavour-suffixes before matching), sample removal/category skip rules, and blinding-specific controls like `sumw2_remove_signal_when_blinded` and `use_mc_as_data_when_blinded`.
+* **Region overrides (`REGION_PLOTTING`)** – per-region knobs that adjust plotting mechanics. Highlights include `channel_mode` (aggregate CR vs. per-channel SR figures), `channel_transformations` (string rewrites such as removing jet- or flavour-suffixes before matching), sample removal rules (and opt-in category skip rules), and blinding-specific controls like `sumw2_remove_signal_when_blinded` and `use_mc_as_data_when_blinded`.
 
 Other keys provide cohesive styling—e.g. `DATA_ERR_OPS`, `MC_ERROR_OPS`, `LUMI_COM_PAIRS`, and `WCPT_EXAMPLE`—and are consumed when building the `RegionContext`. Treat the YAML as the single source of truth for both category definitions and plot appearance to keep CR and SR outputs synchronized.
 

@@ -1,3 +1,4 @@
+import re
 import warnings
 
 import hist
@@ -240,6 +241,98 @@ def test_both_includes_split_channels_when_available(tmp_path):
     merged_dir = tmp_path / "cr_2los_Z"
     assert merged_dir.exists()
 
-    split_dirs = [tmp_path / "cr_2los_Z_ee", tmp_path / "cr_2los_Z_mm"]
+    split_dirs = [
+        tmp_path / "cr_2los_Z_ee",
+        tmp_path / "cr_2los_Z_mm",
+    ]
     for split_dir in split_dirs:
         assert split_dir.exists()
+
+
+@pytest.mark.parametrize("channel_output", ["both", "both-njets"])
+def test_all_variables_render_for_merged_and_split_categories(tmp_path, channel_output):
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    j0pt_axis = hist.axis.Regular(1, 0.0, 1.0, name="j0pt")
+    met_axis = hist.axis.Regular(1, 0.0, 1.0, name="met")
+
+    h_j0pt = make_cr_and_sr_plots.SparseHist(
+        process_axis, channel_axis, syst_axis, j0pt_axis
+    )
+    h_met = make_cr_and_sr_plots.SparseHist(
+        process_axis, channel_axis, syst_axis, met_axis
+    )
+
+    for hist_obj in (h_j0pt, h_met):
+        setattr(hist_obj, "_sumw2", defaultdict(lambda: None))
+
+    for channel, weight in ("2los_ee_CRZ_0j", 1.0), ("2los_mm_CRZ_0j", 2.0):
+        h_j0pt.fill(
+            process="dataUL18",
+            channel=channel,
+            systematic="nominal",
+            j0pt=0.5,
+            weight=weight,
+        )
+        h_j0pt.fill(
+            process="ttH_centralUL18",
+            channel=channel,
+            systematic="nominal",
+            j0pt=0.5,
+            weight=weight,
+        )
+        h_met.fill(
+            process="dataUL18",
+            channel=channel,
+            systematic="nominal",
+            met=0.5,
+            weight=weight,
+        )
+        h_met.fill(
+            process="ttH_centralUL18",
+            channel=channel,
+            systematic="nominal",
+            met=0.5,
+            weight=weight,
+        )
+
+    make_cr_and_sr_plots.run_plots_for_region(
+        "CR",
+        {"j0pt": h_j0pt, "met": h_met},
+        years=["2018"],
+        save_dir_path=str(tmp_path),
+        channel_output=channel_output,
+        skip_syst_errs=True,
+        workers=1,
+        verbose=False,
+    )
+
+    merged_dir_name = "cr_2los_Z_0j" if channel_output.endswith("njets") else "cr_2los_Z"
+    merged_dir = tmp_path / merged_dir_name
+    assert merged_dir.exists()
+
+    merged_plots = {path.name for path in merged_dir.glob("*.png")}
+    expected_merged = {f"{merged_dir_name}_j0pt.png", f"{merged_dir_name}_met.png"}
+    assert expected_merged.issubset(merged_plots)
+
+    if channel_output.endswith("njets"):
+        split_dirs = [
+            tmp_path / "cr_2los_Z_ee_0j_ee",
+            tmp_path / "cr_2los_Z_mm_0j_mm",
+        ]
+    else:
+        split_dirs = [tmp_path / "cr_2los_Z_ee", tmp_path / "cr_2los_Z_mm"]
+    for split_dir in split_dirs:
+        assert split_dir.exists()
+        split_plots = {path.name for path in split_dir.glob("*.png")}
+        base_split_name = (
+            split_dir.name
+            if channel_output.endswith("njets")
+            else re.sub(r"_0j(?=_)", "", split_dir.name)
+        )
+        expected_plots = {
+            f"{base_split_name}_j0pt.png",
+            f"{base_split_name}_met.png",
+        }
+        assert expected_plots.issubset(split_plots)

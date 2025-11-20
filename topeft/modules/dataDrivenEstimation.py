@@ -5,7 +5,7 @@ import re
 from collections import defaultdict
 
 import cloudpickle
-from topcoffea.modules.hist_utils import iterate_hist_from_pkl
+from topeft.compat.hist_utils import iterate_hist_from_pkl
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.utils import canonicalize_process_name

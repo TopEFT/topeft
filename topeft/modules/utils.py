@@ -16,7 +16,7 @@ from types import MappingProxyType
 import cloudpickle
 import uproot
 
-from topcoffea.modules.hist_utils import iterate_hist_from_pkl as _iterate_hist_from_pkl
+from topeft.compat.hist_utils import iterate_hist_from_pkl as _iterate_hist_from_pkl
 
 
 pjoin = os.path.join

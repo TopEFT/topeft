@@ -291,6 +291,20 @@ def _append_njet_suffix(label, suffix):
     return f"{label}_{normalized_suffix}"
 
 
+def _strip_njet_suffix(label):
+    """Return *label* with a trailing ``_<N>j`` suffix removed, if present."""
+
+    suffix = _extract_njet_suffix(label)
+    if not suffix:
+        return label
+
+    normalized = suffix.lower()
+    if label.lower().endswith(f"_{normalized}"):
+        return label[: -len(normalized) - 1]
+
+    return label
+
+
 def _resolve_channel_axis_labels(histogram):
     """Return the tuple of channel labels defined on *histogram*."""
 
@@ -1210,8 +1224,11 @@ def _render_variable_from_worker(task_id, payload):
         else:
             region_ctx = ctx["region_ctx"]
             channel_bins = variable_payload["channel_dict"].get(category)
-            if channel_bins is None or _should_skip_category(
-                region_ctx.category_skip_rules, category, var_name
+            if channel_bins is None or (
+                region_ctx.apply_category_skips
+                and _should_skip_category(
+                    region_ctx.category_skip_rules, category, var_name
+                )
             ):
                 stat_only, stat_and_syst, html_set = 0, 0, set()
             else:
@@ -1314,6 +1331,7 @@ def _prepare_variable_payload(
         )
     else:
         channel_display_labels = {key: key for key in channel_dict.keys()}
+
 
     if metadata_only:
         return {
@@ -1420,7 +1438,9 @@ def _render_variable(
     for hist_cat, channel_bins in channel_items:
         if channel_bins is None:
             continue
-        if _should_skip_category(region_ctx.category_skip_rules, hist_cat, var_name):
+        if region_ctx.apply_category_skips and _should_skip_category(
+            region_ctx.category_skip_rules, hist_cat, var_name
+        ):
             continue
 
         stat_only, stat_and_syst, html_set = _render_variable_category(
@@ -1505,10 +1525,13 @@ def _render_variable_category(
     channel_bins = filtered_bins
 
     base_dir = save_dir_path or ""
+    raw_display_label = (channel_display_labels or {}).get(hist_cat, hist_cat)
     display_label = (
-        channel_display_labels or {}
-    ).get(hist_cat, hist_cat)
-    save_dir_path_tmp = os.path.join(base_dir, display_label)
+        raw_display_label
+        if region_ctx.preserve_njets_bins
+        else re.sub(r"_(\d+)j$", "", raw_display_label, flags=re.IGNORECASE)
+    )
+    save_dir_path_tmp = os.path.join(base_dir, raw_display_label)
     os.makedirs(save_dir_path_tmp, exist_ok=True)
 
     stat_only_plots = 0
@@ -1824,7 +1847,9 @@ def _render_variable_category(
             if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
             else hist_mc_integrated
         )
-        title = f"{hist_cat}_{var_name}"
+        title = f"{display_label}_{var_name}"
+        if not region_ctx.preserve_njets_bins:
+            title = re.sub(r"_(\d+)j(?=_)", "", title, flags=re.IGNORECASE)
         if unit_norm_bool:
             title = f"{title}_unitnorm"
         bins_override = region_ctx.analysis_bins.get(var_name)
@@ -1854,11 +1879,14 @@ def _render_variable_category(
             unit_norm_bool=unit_norm_bool,
             **stacked_kwargs,
         )
-        fig.savefig(
-            os.path.join(save_dir_path_tmp, f"{title}.png"),
-            bbox_inches="tight",
-            pad_inches=0.05,
-        )
+        save_path = os.path.join(save_dir_path_tmp, f"{title}.png")
+        fig.savefig(save_path, bbox_inches="tight", pad_inches=0.05)
+        if not region_ctx.preserve_njets_bins:
+            clean_save_path = re.sub(
+                r"_(\d+)j(?=_[^/]+$)", "", save_path, flags=re.IGNORECASE
+            )
+            if clean_save_path != save_path:
+                os.replace(save_path, clean_save_path)
         _close_figure_payload(fig)
         has_syst_inputs = any(
             err is not None
@@ -3396,6 +3424,7 @@ class RegionContext(object):
         channel_rules=None,
         sample_removal_rules=None,
         category_skip_rules=None,
+        apply_category_skips=False,
         skip_sparse_2d=False,
         channel_mode="per-channel",
         variable_label="Variable",
@@ -3447,9 +3476,10 @@ class RegionContext(object):
             if sample_removal_rules is not None
             else []
         )
+        self.apply_category_skips = bool(apply_category_skips)
         self.category_skip_rules = (
             copy.deepcopy(category_skip_rules)
-            if category_skip_rules is not None
+            if self.apply_category_skips and category_skip_rules is not None
             else []
         )
         self.skip_sparse_2d = bool(skip_sparse_2d)
@@ -3513,7 +3543,14 @@ def _resolve_lumi_pair(year_tokens):
 
 
 def build_region_context(
-    region, dict_of_hists, years, unblind=None, *, channel_mode_override=None, preserve_njets_bins=False
+    region,
+    dict_of_hists,
+    years,
+    unblind=None,
+    *,
+    channel_mode_override=None,
+    preserve_njets_bins=False,
+    enable_category_skips=False,
 ):
     region_upper = region.upper()
     if region_upper not in ["CR","SR"]:
@@ -3731,7 +3768,9 @@ def build_region_context(
         region_plot_cfg.get("channel_transformations")
     )
     sample_removal_rules = region_plot_cfg.get("sample_removals", [])
-    category_skip_rules = region_plot_cfg.get("category_skips", [])
+    category_skip_rules = (
+        region_plot_cfg.get("category_skips", []) if enable_category_skips else []
+    )
     skip_sparse_2d = region_plot_cfg.get("skip_sparse_2d", False)
     channel_mode = region_plot_cfg.get("channel_mode", "per-channel")
     if channel_mode_override is not None:
@@ -3817,6 +3856,7 @@ def build_region_context(
         channel_rules=channel_rules,
         sample_removal_rules=sample_removal_rules,
         category_skip_rules=category_skip_rules,
+        apply_category_skips=enable_category_skips,
         skip_sparse_2d=skip_sparse_2d,
         channel_mode=channel_mode,
         variable_label=variable_label,
@@ -3905,8 +3945,11 @@ def produce_region_plots(
             hist_cat
             for hist_cat, channel_bins in variable_metadata["channel_dict"].items()
             if channel_bins is not None
-            and not _should_skip_category(
-                region_ctx.category_skip_rules, hist_cat, var_name
+            and not (
+                region_ctx.apply_category_skips
+                and _should_skip_category(
+                    region_ctx.category_skip_rules, hist_cat, var_name
+                )
             )
         ]
         variable_categories[var_name] = categories
@@ -4066,8 +4109,11 @@ def produce_region_plots(
                     stat_only, stat_and_syst, html_set = 0, 0, set()
                 else:
                     channel_bins = variable_payload["channel_dict"].get(hist_cat)
-                    if channel_bins is None or _should_skip_category(
-                        region_ctx.category_skip_rules, hist_cat, var_name
+                    if channel_bins is None or (
+                        region_ctx.apply_category_skips
+                        and _should_skip_category(
+                            region_ctx.category_skip_rules, hist_cat, var_name
+                        )
                     ):
                         stat_only, stat_and_syst, html_set = 0, 0, set()
                     else:
@@ -5543,6 +5589,7 @@ def run_plots_for_region(
     workers=1,
     verbose=False,
     channel_output="merged",
+    enable_category_skips=False,
 ):
     channel_output_cfg = CHANNEL_OUTPUT_CHOICES.get(channel_output)
     if channel_output_cfg is None:
@@ -5565,6 +5612,7 @@ def run_plots_for_region(
             unblind=unblind,
             channel_mode_override=channel_mode,
             preserve_njets_bins=preserve_njets_bins,
+            enable_category_skips=enable_category_skips,
         )
 
         if (
@@ -5627,6 +5675,14 @@ def main():
             "'split' keeps the individual channels when flavour-split inputs are available, and 'both' renders "
             "the two sets back-to-back. The '-njets' variants preserve the per-njet bins defined in cr_sr_plots_metadata.yml "
             "instead of collapsing them into the combined templates (default: merged)."
+        ),
+    )
+    parser.add_argument(
+        "--enable-category-skips",
+        action="store_true",
+        help=(
+            "Opt back into metadata-driven category filtering. When set, category_skip rules from "
+            "cr_sr_plots_metadata.yml are applied to drop matching variable/category combinations."
         ),
     )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
@@ -5816,6 +5872,7 @@ def main():
         workers=args.workers,
         verbose=args.verbose,
         channel_output=args.channel_output,
+        enable_category_skips=args.enable_category_skips,
     )
 if __name__ == "__main__":
     main()
