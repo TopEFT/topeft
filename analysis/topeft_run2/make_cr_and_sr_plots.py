@@ -149,6 +149,7 @@ if isinstance(MC_ERROR_OPS.get("edgecolor"), list):
     MC_ERROR_OPS["edgecolor"] = tuple(MC_ERROR_OPS["edgecolor"])
 CR_CHAN_DICT = _META["CR_CHAN_DICT"]
 SR_CHAN_DICT = _META["SR_CHAN_DICT"]
+CHANNEL_REFERENCE_MAP = {**CR_CHAN_DICT, **SR_CHAN_DICT}
 CR_GROUP_INFO = _META.get("CR_GRP_MAP", {})
 SR_GROUP_INFO = _META.get("SR_GRP_MAP", {})
 CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
@@ -384,6 +385,48 @@ def _resolve_channel_axis_labels(histogram):
         return tuple(str(label) for label in axis)
     except Exception:
         return tuple(axis)
+
+
+def _preview_channel_axis_labels(histogram_mapping):
+    """Return the first available set of channel labels from *histogram_mapping*."""
+
+    if isinstance(histogram_mapping, Mapping):
+        for hist_obj in histogram_mapping.values():
+            labels = _resolve_channel_axis_labels(hist_obj)
+            if labels:
+                return labels
+    else:
+        return _resolve_channel_axis_labels(histogram_mapping)
+
+    return ()
+
+
+def _warn_missing_split_channels(histogram_mapping, reference_channel_map=None):
+    """Emit a diagnostic when lepton-flavour split channels are unavailable."""
+
+    reference_channel_map = reference_channel_map or {}
+    available_channels = _preview_channel_axis_labels(histogram_mapping)
+
+    expected_split = sorted(
+        {
+            channel_name
+            for channel_bins in reference_channel_map.values()
+            for channel_name in channel_bins or ()
+            if _extract_lepflav_token(channel_name)
+        }
+    )
+
+    available_summary = (
+        ", ".join(sorted(map(str, available_channels))) if available_channels else "<none>"
+    )
+    expected_summary = ", ".join(expected_split) if expected_split else "<unspecified>"
+
+    _logger.warning(
+        "Split channel output was requested but lep-flavour labels were not found on the channel axis. "
+        "Available channel bins: %s. Expected flavour-split bins (from configuration): %s.",
+        available_summary,
+        expected_summary,
+    )
 
 
 def _filter_existing_channel_bins(bin_names, available_channels):
@@ -3520,7 +3563,9 @@ class RegionContext(object):
         self.unblind_default = unblind_default
         self.lumi_pair = lumi_pair
         self.channels_split_by_lepflav = bool(
-            yt.is_split_by_lepflav(dict_of_hists)
+            yt.is_split_by_lepflav(
+                dict_of_hists, reference_channel_map=self.channel_map
+            )
         )
         self.skip_variables = set() if skip_variables is None else set(skip_variables)
         self.analysis_bins = (
@@ -5673,7 +5718,24 @@ def run_plots_for_region(
     preserve_njets_bins = channel_output_cfg.get("preserve_njets", False)
 
     multi_mode = len(requested_channel_modes) > 1
-    split_channels_available = yt.is_split_by_lepflav(dict_of_hists)
+    split_channels_available = yt.is_split_by_lepflav(
+        dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+    )
+    restored_channel_labels = False
+
+    if not split_channels_available and "per-channel" in requested_channel_modes:
+        restored_channel_labels = yt.restore_split_channel_labels(
+            dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+        )
+        if restored_channel_labels:
+            split_channels_available = yt.is_split_by_lepflav(
+                dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+            )
+
+        if not split_channels_available:
+            _warn_missing_split_channels(
+                dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+            )
 
     for channel_mode in requested_channel_modes:
         region_ctx = build_region_context(
