@@ -5,6 +5,7 @@ straight to the information you need.
 
 ## Getting started
 
+- [Workflow and YAML overview](workflow_and_yaml_hub.md) – single entry point covering executors, presets, and how options files are merged.
 - [TaskVine workflow quickstart](taskvine_workflow.md)
 - [Run 2 quickstart pipeline](quickstart_run2.md)
 - [TOP-22-006 script walkthrough](quickstart_top22_006.md)
