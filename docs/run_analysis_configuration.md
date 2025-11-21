@@ -180,6 +180,11 @@ switching executors once the run is ready to scale beyond the local machine.
 * ``FileNotFoundError`` from :class:`SampleLoader` usually means that relative
   paths were provided.  Always invoke ``run_analysis.py`` from the repository
   root or supply absolute paths.
+* If histogram handling fails with an ``ImportError`` noting that
+  ``topcoffea.modules.histEFT``/``topcoffea.modules.HistEFT`` is missing, confirm
+  that your sibling ``topcoffea`` checkout is on the ``ch_update_calcoffea``
+  branch (or matching tag) and reinstall it with ``pip install -e ../topcoffea``
+  before retrying the run.
 
 With these pieces in place you can mix and match quickstart presets and YAML
 profiles while keeping the run history compact and shareable.  When you need to
