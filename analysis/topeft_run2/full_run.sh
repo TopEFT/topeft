@@ -4,8 +4,9 @@
 #
 # Expectations before running:
 #   1. Activate the shared Conda environment shipped with this repository
-#      (name: coffea2025) so the topeft and topcoffea editable installs are
-#      available.  The helper below attempts to activate it when possible.
+#      (name: coffea2025) or another compatible setup so the topeft and
+#      topcoffea editable installs are available. This script assumes the
+#      environment is already active and does not attempt to activate it.
 #   2. For TaskVine runs, stage the packaged environment tarball by running
 #      `python -m topcoffea.modules.remote_environment` after activation.  The
 #      script reuses the returned path as the --environment-file argument.
@@ -48,17 +49,12 @@ Notes:
 USAGE
 }
 
-activate_env() {
+check_active_env() {
   local target_env="coffea2025"
-  if [[ "${CONDA_DEFAULT_ENV:-}" == "$target_env" ]]; then
-    return 0
-  fi
-  if command -v conda >/dev/null 2>&1; then
-    # shellcheck disable=SC1091
-    source "$(conda info --base)/etc/profile.d/conda.sh"
-    conda activate "$target_env" || true
-  else
-    echo "Warning: conda not available; ensure $target_env is already active." >&2
+  if [[ -n "${CONDA_DEFAULT_ENV:-}" && "${CONDA_DEFAULT_ENV}" != "$target_env" ]]; then
+    echo "Warning: CONDA_DEFAULT_ENV='${CONDA_DEFAULT_ENV}' (expected '${target_env}' or a compatible environment)." >&2
+  elif [[ -z "${CONDA_DEFAULT_ENV:-}" ]]; then
+    echo "Note: no active conda environment detected; ensure '${target_env}' or another compatible environment is already activated." >&2
   fi
 }
 
@@ -298,7 +294,7 @@ main() {
   repo_root=$(cd "$script_dir/../.." && pwd)
   cd "$script_dir"
 
-  activate_env
+  check_active_env
   local env_tarball=""
   if [[ "$executor" == "taskvine" && "$user_env_override" == false && "$dry_run" == false ]]; then
     env_tarball=$(stage_environment)
