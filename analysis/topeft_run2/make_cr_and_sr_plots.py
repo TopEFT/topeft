@@ -14,6 +14,7 @@ import math
 import warnings
 import itertools
 import multiprocessing
+from functools import lru_cache
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -25,18 +26,24 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import mplhep as hep
 import hist
 from matplotlib.transforms import Bbox
-from topcoffea.modules.histEFT import HistEFT
-from topcoffea.modules.sparseHist import SparseHist
-from topeft.modules.axes import info as axes_info
-from topeft.modules.axes import info_2d as axes_info_2d
+import topcoffea.modules.histEFT as tc_histEFT
+import topcoffea.modules.sparseHist as tc_sparseHist
+from topeft.modules.axes import info as te_axes_info
+from topeft.modules.axes import info_2d as te_axes_info_2d
 
-from topcoffea.scripts.make_html import make_html
-import topcoffea.modules.utils as te_utils
-from topeft.modules.yield_tools import YieldTools
+from topcoffea.scripts.make_html import make_html as tc_make_html
+import topcoffea.modules.utils as tc_utils
+from topeft.modules.yield_tools import YieldTools as te_YieldTools
+from topeft.modules.get_rate_systs import (
+    get_correlation_tag as te_get_correlation_tag,
+    get_jet_dependent_syst_dict as te_get_jet_dependent_syst_dict,
+    get_syst as te_get_syst,
+    get_syst_lst as te_get_syst_lst,
+)
 
 
 _logger = logging.getLogger(__name__)
-_ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = SparseHist._read_from_reduce.__func__
+_ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = tc_sparseHist.SparseHist._read_from_reduce.__func__
 _VALUES_METHOD_CAPS = {}
 
 
@@ -95,15 +102,15 @@ def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_his
         )
 
 
-SparseHist._read_from_reduce = classmethod(_fast_sparsehist_from_reduce)
+tc_sparseHist.SparseHist._read_from_reduce = classmethod(_fast_sparsehist_from_reduce)
 
-from topcoffea.modules.paths import topcoffea_path
-from topeft.modules.paths import topeft_path
-from topcoffea.modules.get_param_from_jsons import GetParam
-get_tc_param = GetParam(topcoffea_path("params/params.json"))
+from topcoffea.modules.paths import topcoffea_path as tc_topcoffea_path
+from topeft.modules.paths import topeft_path as te_topeft_path
+from topcoffea.modules.get_param_from_jsons import GetParam as tc_GetParam
+get_tc_param = tc_GetParam(tc_topcoffea_path("params/params.json"))
 import yaml
 
-with open(topeft_path("params/cr_sr_plots_metadata.yml")) as f:
+with open(te_topeft_path("params/cr_sr_plots_metadata.yml")) as f:
     _META = yaml.safe_load(f)
 
 
@@ -180,6 +187,64 @@ LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
 PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
 STACKED_RATIO_STYLE = _META.get("STACKED_RATIO_STYLE", {})
+
+
+# Cached helpers for rate systematic metadata
+@lru_cache(maxsize=None)
+def _cached_get_syst(syst_name, proc_name=None, *, literal=False):
+    """Fetch a systematic entry from params/rate_systs.json with logging."""
+
+    try:
+        return tuple(
+            te_get_syst(syst_name, proc_name=proc_name, literal=literal)
+        )
+    except Exception as exc:  # pragma: no cover - defensive logging
+        _logger.error(
+            "Unable to retrieve rate systematic '%s' for process '%s': %s",
+            syst_name,
+            proc_name,
+            exc,
+        )
+        raise
+
+
+def _get_syst_with_default(
+    syst_name, proc_name=None, *, default=(1.0, 1.0), literal=False
+):
+    try:
+        return _cached_get_syst(syst_name, proc_name, literal=literal)
+    except Exception:  # pragma: no cover - fallback path
+        _logger.warning(
+            "Defaulting to %s for systematic '%s' and process '%s'.",
+            default,
+            syst_name,
+            proc_name,
+        )
+        return default
+
+
+@lru_cache(maxsize=1)
+def _cached_get_syst_lst():
+    return tuple(te_get_syst_lst())
+
+
+@lru_cache(maxsize=None)
+def _cached_get_correlation_tag(syst_type, proc_name):
+    try:
+        return te_get_correlation_tag(syst_type, proc_name)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        _logger.warning(
+            "No correlation tag found for systematic '%s' and process '%s': %s",
+            syst_type,
+            proc_name,
+            exc,
+        )
+        return None
+
+
+@lru_cache(maxsize=None)
+def _cached_get_jet_dependent_syst_dict(process="Diboson"):
+    return te_get_jet_dependent_syst_dict(process=process)
 
 
 YEAR_TOKEN_RULES = {
@@ -624,7 +689,7 @@ logger = logging.getLogger(__name__)
 # For example, to make unit normalized plots for 2017+2018, with the timestamp appended to the directory name, you would run:
 #     python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2017 2018 -t -u
 
-yt = YieldTools()
+yt = te_YieldTools()
 
 ######### Utility functions #########
 
@@ -1290,7 +1355,7 @@ def _prepare_variable_payload(
     is_sparse2d = _is_sparse_2d_hist(histo)
     if is_sparse2d and region_ctx.skip_sparse_2d:
         return None
-    if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
+    if is_sparse2d and (var_name not in te_axes_info_2d) and ("_vs_" not in var_name):
         print(
             f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting."
         )
@@ -1852,7 +1917,7 @@ def _render_variable_category(
         if unit_norm_bool:
             title = f"{title}_unitnorm"
         bins_override = region_ctx.analysis_bins.get(var_name)
-        axis_meta = axes_info.get(var_name, {})
+        axis_meta = te_axes_info.get(var_name, {})
         default_bins = axis_meta.get("variable")
         stacked_kwargs = {
             "group": {k: v for k, v in region_ctx.group_map.items() if v},
@@ -1939,7 +2004,7 @@ def validate_channel_group(histos, expected_labels, transformations, region, sub
 
     available_channels = set()
     for histo in histos:
-        if not isinstance(histo, (HistEFT, SparseHist)):
+        if not isinstance(histo, (tc_histEFT.HistEFT, tc_sparseHist.SparseHist)):
             continue
         if "channel" not in yt.get_axis_list(histo):
             continue
@@ -1988,7 +2053,7 @@ def populate_group_map(samples, pattern_map):
     fallback_groups = OrderedDict()
 
     for proc_name in samples:
-        canonical_name = te_utils.canonicalize_process_name(proc_name)
+        canonical_name = tc_utils.canonicalize_process_name(proc_name)
         matched = False
         for grp, patterns in pattern_map.items():
             for pat in patterns:
@@ -3119,15 +3184,15 @@ def _finalize_layout(
 
 
 def _sample_in_group(sample_name, candidates, canonical_sample=None):
-    canonical_sample = canonical_sample or te_utils.canonicalize_process_name(sample_name)
+    canonical_sample = canonical_sample or tc_utils.canonicalize_process_name(sample_name)
     return any(
-        canonical_sample == te_utils.canonicalize_process_name(candidate)
+        canonical_sample == tc_utils.canonicalize_process_name(candidate)
         for candidate in (candidates or [])
     )
 
 
 def _sample_in_signal_group(sample_name, sample_group_map, group_type):
-    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+    canonical_sample = tc_utils.canonicalize_process_name(sample_name)
 
     if group_type == "CR":
         return _sample_in_group(
@@ -3622,7 +3687,7 @@ def build_region_context(
         """Return samples that satisfy blacklist rules and multi-token requirements."""
 
         if len(whitelist) <= 1 and not allow_data_driven_reinsertion:
-            return te_utils.filter_lst_of_strs(
+            return tc_utils.filter_lst_of_strs(
                 all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
             )
 
@@ -3757,11 +3822,11 @@ def build_region_context(
     analysis_bins = {}
     for var_name, spec in region_plot_cfg.get("analysis_bins", {}).items():
         if isinstance(spec, str):
-            if spec not in axes_info:
+            if spec not in te_axes_info:
                 raise KeyError(
                     f"Analysis bin specification '{spec}' is not defined in axes_info."
                 )
-            analysis_bins[var_name] = axes_info[spec]["variable"]
+            analysis_bins[var_name] = te_axes_info[spec]["variable"]
         else:
             analysis_bins[var_name] = spec
 
@@ -4147,7 +4212,7 @@ def produce_region_plots(
 
     for html_dir in sorted(html_dirs):
         try:
-            make_html(html_dir)
+            tc_make_html(html_dir)
         except Exception as exc:
             print(f"Warning: Failed to refresh HTML in {html_dir}: {exc}")
 
@@ -4211,7 +4276,7 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 # Will return None if a match is not found
 def get_scale_name(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = None
-    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+    canonical_sample = tc_utils.canonicalize_process_name(sample_name)
     if _sample_in_group(sample_name, sample_group_map.get("Conv", []), canonical_sample):
         scale_name_for_json = "convs"
     elif _sample_in_group(sample_name, sample_group_map.get("Diboson", []), canonical_sample):
@@ -4244,7 +4309,7 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type="
                 # Would be better to handle this in a more general way
                 corr_tag = None
             else:
-                corr_tag = te_utils.cached_get_correlation_tag(
+                corr_tag = _cached_get_correlation_tag(
                     uncertainty_name, proc_name_in_json
                 )
     return corr_tag
@@ -4256,35 +4321,37 @@ def get_rate_systs(sample_name,sample_group_map,group_type="CR"):
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
     scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type=group_type)
-    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+    canonical_sample = tc_utils.canonicalize_process_name(sample_name)
 
     # Get the lumi uncty for this sample (same for all samles)
-    lumi_uncty = te_utils.cached_get_syst("lumi")
+    lumi_uncty = _get_syst_with_default("lumi")
 
     # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if _sample_in_group(sample_name, sample_group_map["Flips"], canonical_sample):
-        flip_uncty = te_utils.cached_get_syst("charge_flips", "charge_flips_sm")
+        flip_uncty = _get_syst_with_default(
+            "charge_flips", "charge_flips_sm"
+        )
     else:
-        flip_uncty = (1.0, 1, 0)
+        flip_uncty = (1.0, 1.0)
 
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
         if scale_name_for_json in PROC_WITHOUT_PDF_RATE_SYST:
             # Special cases for when we do not have a pdf uncty (this is a really brittle workaround)
             # NOTE Someday should fix this, it's a really hardcoded and brittle and bad workaround
-            pdf_uncty = (1.0, 1, 0)
+            pdf_uncty = (1.0, 1.0)
         else:
-            pdf_uncty = te_utils.cached_get_syst("pdf_scale", scale_name_for_json)
+            pdf_uncty = _get_syst_with_default("pdf_scale", scale_name_for_json)
         if scale_name_for_json == "convs":
             # Special case for conversions, since we estimate these from a LO sample, so we don't have an NLO uncty here
             # Would be better to handle this in a more general way
-            qcd_uncty = (1.0, 1, 0)
+            qcd_uncty = (1.0, 1.0)
         else:
             # In all other cases, use the qcd scale uncty that we have for the process
-            qcd_uncty = te_utils.cached_get_syst("qcd_scale", scale_name_for_json)
+            qcd_uncty = _get_syst_with_default("qcd_scale", scale_name_for_json)
     else:
-        pdf_uncty = (1.0, 1, 0)
-        qcd_uncty = (1.0, 1, 0)
+        pdf_uncty = (1.0, 1.0)
+        qcd_uncty = (1.0, 1.0)
 
     out_dict = {"pdf_scale":pdf_uncty, "qcd_scale":qcd_uncty, "lumi":lumi_uncty, "charge_flips":flip_uncty}
     return out_dict
@@ -4316,7 +4383,7 @@ def get_rate_syst_arrs(
             )
         cached_rates.append((sample_name, thissample_nom_arr, rate_syst_dict))
 
-    for rate_sys_type in te_utils.cached_get_syst_lst():
+    for rate_sys_type in _cached_get_syst_lst():
         rate_syst_arr_dict[rate_sys_type] = {}
         for sample_name, thissample_nom_arr, rate_syst_dict in cached_rates:
 
@@ -4459,7 +4526,7 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
 def _values_with_flow_or_overflow(hist_slice):
     """Return histogram values including overflow bins for different histogram types."""
 
-    if isinstance(hist_slice, HistEFT):
+    if isinstance(hist_slice, tc_histEFT.HistEFT):
         evaluated = hist_slice.eval({})
         if isinstance(evaluated, dict):
             if () in evaluated:
@@ -4659,7 +4726,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
     # Get the list of njets vals for which we have SFs
     sf_int_lst = []
-    diboson_njets_dict = te_utils.cached_get_jet_dependent_syst_dict()
+    diboson_njets_dict = _cached_get_jet_dependent_syst_dict()
     sf_str_lst = list(diboson_njets_dict.keys())
     for s in sf_str_lst: sf_int_lst.append(int(s))
     min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
@@ -4687,7 +4754,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
 
 def _is_sparse_2d_hist(histo):
-    if not isinstance(histo, SparseHist):
+    if not isinstance(histo, tc_sparseHist.SparseHist):
         return False
 
     quadratic_axis = next(
@@ -4719,7 +4786,7 @@ def make_sparse2d_fig(
     comtag="13",
     per_panel=False,
 ):
-    axes_meta = axes_info_2d.get(var, {})
+    axes_meta = te_axes_info_2d.get(var, {})
     axis_cfgs = axes_meta.get("axes", [])
     if len(axis_cfgs) < 2:
         raise ValueError(f"No 2D axis metadata configured for histogram '{var}'.")
@@ -5170,7 +5237,7 @@ def make_region_stacked_ratio_fig(
             default_color_index += 1
         colors.append(c)
 
-    display_label = axes_info.get(var, {}).get("label", var)
+    display_label = te_axes_info.get(var, {}).get("label", var)
 
     axis_edges = target_edges
     if axis_edges is None:
@@ -5841,7 +5908,7 @@ def main():
         print(
             f"[{load_start_time:%H:%M:%S}] Loading histograms from '{args.pkl_file_path}'..."
         )
-    hin_dict = te_utils.get_hist_from_pkl(args.pkl_file_path, allow_empty=False)
+    hin_dict = tc_utils.get_hist_from_pkl(args.pkl_file_path, allow_empty=False)
     if args.verbose:
         load_finish_time = datetime.datetime.now()
         print(
