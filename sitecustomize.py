@@ -2,7 +2,7 @@
 import getpass
 import os
 
-from topeft.compat.topcoffea import ensure_histEFT_py39_compat, ensure_hist_utils
+from topcoffea.modules.compat import ensure_histEFT_py39_compat, ensure_hist_utils
 
 # Ensure tests that expect a USER variable have a sensible default in CI.
 # getpass.getuser() falls back to LOGNAME/USER/..., but may raise in

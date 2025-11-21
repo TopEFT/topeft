@@ -1,6 +1,6 @@
 import topcoffea.modules.utils as utils
 from topcoffea.modules.YieldTools import YieldTools
-from topeft.modules.utils import canonicalize_process_name
+from topcoffea.modules.utils import canonicalize_process_name
 from make_cr_and_sr_plots import get_lumi_for_sample
 
 

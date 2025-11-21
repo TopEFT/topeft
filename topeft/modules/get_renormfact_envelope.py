@@ -2,7 +2,7 @@ import numpy as np
 import argparse
 
 import topcoffea.modules.utils as utils
-from topeft.modules.utils import canonicalize_process_name
+from topcoffea.modules.utils import canonicalize_process_name
 from topeft.modules.yield_tools import YieldTools
 yt = YieldTools()
 
