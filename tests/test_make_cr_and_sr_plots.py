@@ -1,3 +1,4 @@
+import copy
 import re
 import warnings
 
@@ -250,7 +251,9 @@ def test_both_includes_split_channels_when_available(tmp_path):
 
 
 @pytest.mark.parametrize("channel_output", ["both", "both-njets"])
-def test_all_variables_render_for_merged_and_split_categories(tmp_path, channel_output):
+def test_all_variables_render_for_merged_and_split_categories(
+    tmp_path, channel_output, monkeypatch
+):
     process_axis = hist.axis.StrCategory([], name="process", growth=True)
     channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
     syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
@@ -297,16 +300,34 @@ def test_all_variables_render_for_merged_and_split_categories(tmp_path, channel_
             weight=weight,
         )
 
-    make_cr_and_sr_plots.run_plots_for_region(
-        "CR",
-        {"j0pt": h_j0pt, "met": h_met},
-        years=["2018"],
-        save_dir_path=str(tmp_path),
-        channel_output=channel_output,
-        skip_syst_errs=True,
-        workers=1,
-        verbose=False,
-    )
+    with monkeypatch.context() as m:
+        patched_cfg = copy.deepcopy(
+            make_cr_and_sr_plots.REGION_PLOTTING.get("CR", {})
+        )
+        patched_cfg.update(
+            {
+                "skip_variables": ["met"],
+                "category_skips": [
+                    {
+                        "categories": {"contains": ["mm"]},
+                        "variable_includes": ["j0pt", "met"],
+                    }
+                ],
+                "skip_sparse_2d": True,
+            }
+        )
+        m.setitem(make_cr_and_sr_plots.REGION_PLOTTING, "CR", patched_cfg)
+
+        make_cr_and_sr_plots.run_plots_for_region(
+            "CR",
+            {"j0pt": h_j0pt, "met": h_met},
+            years=["2018"],
+            save_dir_path=str(tmp_path),
+            channel_output=channel_output,
+            skip_syst_errs=True,
+            workers=1,
+            verbose=False,
+        )
 
     merged_dir_name = "cr_2los_Z_0j" if channel_output.endswith("njets") else "cr_2los_Z"
     merged_dir = tmp_path / merged_dir_name

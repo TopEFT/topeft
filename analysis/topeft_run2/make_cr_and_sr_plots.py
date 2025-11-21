@@ -3752,7 +3752,9 @@ def build_region_context(
         region_upper, region_plot_cfg.get("stacked_ratio_style")
     )
 
-    skip_variables = set(region_plot_cfg.get("skip_variables", []))
+    skip_variables = (
+        set(region_plot_cfg.get("skip_variables", [])) if enable_category_skips else set()
+    )
     analysis_bins = {}
     for var_name, spec in region_plot_cfg.get("analysis_bins", {}).items():
         if isinstance(spec, str):
@@ -3771,7 +3773,9 @@ def build_region_context(
     category_skip_rules = (
         region_plot_cfg.get("category_skips", []) if enable_category_skips else []
     )
-    skip_sparse_2d = region_plot_cfg.get("skip_sparse_2d", False)
+    skip_sparse_2d = (
+        region_plot_cfg.get("skip_sparse_2d", False) if enable_category_skips else False
+    )
     channel_mode = region_plot_cfg.get("channel_mode", "per-channel")
     if channel_mode_override is not None:
         if channel_mode_override not in ("aggregate", "per-channel"):
@@ -3905,7 +3909,7 @@ def produce_region_plots(
     for var_name in variables_to_plot:
         if "sumw2" in var_name:
             continue
-        if var_name in region_ctx.skip_variables:
+        if region_ctx.apply_category_skips and var_name in region_ctx.skip_variables:
             continue
 
         variable_metadata = _prepare_variable_payload(
@@ -5602,7 +5606,8 @@ def run_plots_for_region(
     requested_channel_modes = channel_output_cfg["modes"]
     preserve_njets_bins = channel_output_cfg.get("preserve_njets", False)
 
-    multi_mode = len(requested_channel_modes) > 1 or channel_output != "merged"
+    multi_mode = len(requested_channel_modes) > 1
+    split_channels_available = yt.is_split_by_lepflav(dict_of_hists)
 
     for channel_mode in requested_channel_modes:
         region_ctx = build_region_context(
@@ -5615,10 +5620,7 @@ def run_plots_for_region(
             enable_category_skips=enable_category_skips,
         )
 
-        if (
-            region_ctx.channel_mode == "per-channel"
-            and not region_ctx.channels_split_by_lepflav
-        ):
+        if region_ctx.channel_mode == "per-channel" and not split_channels_available:
             mode_label = CHANNEL_MODE_LABELS.get(channel_mode, channel_mode)
             warnings.warn(
                 (
