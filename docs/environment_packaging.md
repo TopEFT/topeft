@@ -31,4 +31,7 @@ Remember to commit both the specification and the newly generated archive when
 updating the shipped environment.  Workflows such as ``analysis/topeft_run2/run_analysis.py``
 now default to ``--environment-file=cached`` and will error out when the tarball
 is absent, so keeping the package up to date is part of the standard review
-checklist.
+checklist.  Whenever you touch dependency pins, rebuild the tarball and reactivate
+the refreshed ``coffea2025`` environment before running either the futures or
+TaskVine executors to avoid mismatched NumPy/Pandas ABIs between the manager and
+workers.

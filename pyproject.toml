@@ -26,7 +26,8 @@ dependencies = [
     "awkward>=2.8.7",
     "dill",
     "pyyaml",
-    "numpy",
+    "pandas>=2.2,<2.3",
+    "numpy>=2.0,<2.1",
 ]
 
 [project.urls]

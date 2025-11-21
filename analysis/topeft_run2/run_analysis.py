@@ -12,9 +12,47 @@ example invocations that mirror ``fullR2_run.sh``, consult the
 from __future__ import annotations
 
 import argparse
+import importlib
 from typing import Sequence
 
 import topcoffea
+
+
+def _verify_numpy_pandas_abi() -> None:
+    """Ensure pandas and NumPy load with matching binary interfaces.
+
+    When a pandas wheel compiled against an older NumPy ABI sneaks into the
+    environment, imports can fail deep inside the Run 2 workflow (for example
+    during ``topeft.modules.systematics`` initialization).  Catch the issue
+    early with a lightweight import and extension-module check so users see an
+    actionable hint instead of an opaque crash.
+    """
+
+    try:
+        np = importlib.import_module("numpy")
+        pd = importlib.import_module("pandas")
+    except Exception as exc:  # pragma: no cover - environment guard
+        raise RuntimeError(
+            "Failed to import numpy/pandas before launching the workflow. "
+            "Recreate the coffea2025 environment and rebuild the TaskVine "
+            "tarball before rerunning: `conda env update -f environment.yml "
+            "--prune` and `python -m topcoffea.modules.remote_environment`."
+        ) from exc
+
+    try:  # pragma: no cover - environment guard
+        from pandas import _libs as _pd_libs
+
+        # Touching a compiled extension exercises the linked NumPy ABI.
+        _ = _pd_libs.hashtable.Int64HashTable
+    except Exception as exc:
+        raise RuntimeError(
+            "Detected a pandas/NumPy ABI mismatch (numpy "
+            f"{np.__version__}, pandas {pd.__version__}). Recreate the "
+            "coffea2025 environment and rebuild the TaskVine tarball: "
+            "`conda env update -f environment.yml --prune` followed by "
+            "`python -m topcoffea.modules.remote_environment`. Use the "
+            "refreshed environment for both futures and TaskVine runs."
+        ) from exc
 
 from run_analysis_helpers import RunConfigBuilder
 from topeft.modules.executor_cli import (
@@ -249,6 +287,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    _verify_numpy_pandas_abi()
+
     parser = build_parser()
     parser_defaults = parser.parse_args([])
     args = parser.parse_args(argv)
