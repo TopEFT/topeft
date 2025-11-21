@@ -6,6 +6,8 @@
 # topeft
 Top quark EFT analyses using the Coffea framework
 
+> **Workflow + YAML overview**: Start with the new [workflow and YAML hub](docs/workflow_and_yaml_hub.md) to see how the Run 2 presets, executors (futures or TaskVine), and metadata files fit together before diving into the rest of the docs.
+
 ## Repository contents
 The `topeft/topeft` directory is set up to be installed as a pip installable package.
 - `topeft/topeft`: A package containing modules and files that will be installed into the environment.
