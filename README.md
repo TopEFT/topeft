@@ -128,21 +128,17 @@ For a narrated walkthrough that ties environment preparation, tarball packaging,
 
    For HTCondor-backed pools, `condor_submit_workers` and other submission helpers ship with TaskVine; point them at the same manager string and pass `--python-env` when the helper supports it. Refer to the [remote environment maintenance guide](docs/environment_packaging.md) for details on rebuilding the tarball whenever dependencies change.
 
-   When you prefer to debug locally without spinning up a TaskVine manager,
-   switch to `analysis/topeft_run2/local_futures_run.sh`. The wrapper mirrors the
-   region/year handling of `full_run.sh` while forcing the Coffea futures
-   executor, exposing knobs like `--workers`, `--futures-prefetch`, and
-   `--futures-retries`, and emitting the same
-   `(variable, channel, application, sample, systematic)` histogram pickles.
-   Override the default sample list with `--samples` (for example pointing at
-   `input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json`) when
-   you want a quick single-node smoke test:
+   The `analysis/topeft_run2/full_run.sh` wrapper now supports both TaskVine
+   (default) and local futures executions. Add `--executor futures` to switch to
+   the single-node path and `--dry-run` to print the resolved command without
+   launching Python. The same entrypoint accepts `--samples` overrides for quick
+   JSON-based smoke tests:
 
    ```bash
    cd analysis/topeft_run2
-   ./local_futures_run.sh --sr -y UL17 --samples \
+   ./full_run.sh --sr -y UL17 --executor futures --samples \
        ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-       --outdir histos/local_debug --tag quickstart
+       --outdir histos/local_debug --tag quickstart --dry-run
    ```
 
    Work Queue has been retired from the workflow helpers. A condensed record of the historic instructions is preserved in [README_WORKQUEUE.md](README_WORKQUEUE.md) for teams pinned to older releases.
@@ -320,12 +316,16 @@ where `test_futures` is the file/test you would like to run (check the `tests` d
 
 The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used to produce the results in the TOP-22-006 paper.
 
-1. Run the processor to obtain the histograms (from the skimmed naod files). Use the `fullR2_run.sh` script in the `analysis/topEFT` directory.
-    ```
-    time source fullR2_run.sh
+1. Run the processor to obtain the histograms (from the skimmed naod files).
+   The preserved presets live in ``analysis/topeft_run2/configs/fullR2_run.yml``;
+   launch them through the unified wrapper:
+
+    ```bash
+    cd analysis/topeft_run2
+    ./full_run.sh --cr -y run2 --options configs/fullR2_run.yml --outdir histos/run2_ref --tag top22006
     ```
 
-2. Run the datacard maker to obtain the cards and templates from SM (from the pickled histogram file produced in Step 1, be sure to use the version with the nonprompt estimation, i.e. the one with `_np` appended to the name you specified for the `OUT_NAME` in `fullR2_run.sh`). This step would also produce scalings-preselect.json file which the later version is necessary for IM workspace making. Note that command option `--wc-scalings` is not mandatory but to enforce the ordering of wcs in scalings. Add command `-A` to include all EFT templates in datacards for previous AAC model. Add option `-C` to run on condor.
+2. Run the datacard maker to obtain the cards and templates from SM (from the pickled histogram file produced in Step 1, be sure to use the version with the nonprompt estimation, i.e. the one with `_np` appended to the name you specified with the ``--tag``/``--outdir`` pair in ``full_run.sh``). This step would also produce scalings-preselect.json file which the later version is necessary for IM workspace making. Note that command option `--wc-scalings` is not mandatory but to enforce the ordering of wcs in scalings. Add command `-A` to include all EFT templates in datacards for previous AAC model. Add option `-C` to run on condor.
     ```
     time python make_cards.py /path/to/your/examplename_np.pkl.gz --do-nuisance --var-lst lj0pt ptz -d /scratch365/you/somedir --unblind --do-mc-stat --wc-scalings cQQ1 cQei cQl3i cQlMi cQq11 cQq13 cQq81 cQq83 cQt1 cQt8 cbW cpQ3 cpQM cpt cptb ctG ctW ctZ ctei ctlSi ctlTi ctli ctp ctq1 ctq8 ctt1
     ```
