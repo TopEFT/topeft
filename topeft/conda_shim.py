@@ -6,12 +6,26 @@ import sys
 from pathlib import Path
 
 
-def _resolve_target():
+def _resolve_target(*, skip_self: bool = False):
     requested = os.environ.get("CONDA_EXE")
     if requested:
         return requested
 
-    found = shutil.which("conda")
+    search_path = os.environ.get("PATH", "")
+
+    if skip_self:
+        script_dir = Path(sys.argv[0]).resolve().parent
+        search_path = os.pathsep.join(
+            str(entry)
+            for entry in (
+                Path(component).resolve()
+                for component in search_path.split(os.pathsep)
+                if component
+            )
+            if entry != script_dir
+        )
+
+    found = shutil.which("conda", path=search_path)
     if found:
         return found
     return None
@@ -48,6 +62,10 @@ def main() -> int:
         module_result = _call_conda_module(sys.argv[1:])
         if module_result is not None:
             return module_result
+
+        alt_target = _resolve_target(skip_self=True)
+        if alt_target and not _is_self(alt_target):
+            return subprocess.call([alt_target, *sys.argv[1:]])
 
     micromamba = _which_micromamba()
     if micromamba:
