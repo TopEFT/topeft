@@ -18,6 +18,8 @@ analysis/*/wq-executor-tmp-*
 analysis/*/wq-*.summary
 analysis/*/envs
 analysis/*/histos
+conda_spec.yml
+topeft-envs/
 
 # Project files
 .ropeproject

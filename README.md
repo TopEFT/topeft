@@ -9,7 +9,8 @@ Top quark EFT analyses using the Coffea framework
 ## Repository contents
 The `topeft/topeft` directory is set up to be installed as a pip installable package.
 - `topeft/topeft`: A package containing modules and files that will be installed into the environment.
-- `topeft/setup.py`: File for installing the `topeft` package
+- `pyproject.toml`: PEP 517 metadata describing the package, dependencies, and bundled data.
+- `topeft/setup.py`: Minimal shim for invoking the package build
 - `topeft/analysis`: Subfolders with different analyses or studies.
 - `topeft/tests`: Scripts for testing the code with `pytest`. For additional details, please see the [README](https://github.com/TopEFT/topeft/blob/master/tests/README.md) in the `tests` directory.
 - `topeft/input_samples`: Configuration files that point to root files to process.
@@ -39,6 +40,18 @@ pip install -e .
 ```
 The commands above provision the refreshed `coffea2025` Conda environment, which tracks the Coffea 2025.7.3 base release used throughout the project.  Installing `topeft` with `pip install -e .` is now the expected workflow so that local developments are automatically folded into the packaged environment.
 
+To install both sibling repositories in one step, either request the new optional dependency group or run the helper script:
+
+```
+pip install -e .[topcoffea]
+# or
+./scripts/dev_install.sh
+```
+
+The first form pulls `topcoffea` from a sibling checkout at `../topcoffea` while the second mirrors the original command (`pip install -e ../topcoffea -e .`) for contributors who prefer an explicit, reproducible installer.
+
+If your workstation already provides a `conda` executable, the helper commands above will reuse it.  On minimal runners or fresh containers where only `micromamba` is present, the `topeft` package now exposes a lightweight `conda` shim that forwards invocations to `micromamba` so `python -m topcoffea.modules.remote_environment` continues to work without a full Conda installation.
+
 Upgrading from an older checkout?  Reuse the same directory and run `conda env update -f environment.yml --prune` before activating the environment so the existing `coffea2025` install picks up the Coffea 2025.7.3 pins and removes stale dependencies.  If the solver prompts for an update, accept it or run `conda update -n base -c conda-forge conda` first to keep in sync with conda-forge builds.
 
 To catch configuration drift, CI hashes `environment.yml` and compares it to the upstream `ttbarEFT` coffea2025 specification (see `tests/test_environment_hash.py`).  When the upstream environment changes, update this repository's `environment.yml` and refresh the expected digest in that test so the guard continues to pass.
@@ -57,7 +70,7 @@ python -c "import topcoffea"
 ```
 Keeping both repositories installed in editable mode ensures the remote-packaging helper inspects the current checkouts (and fails fast if there are unstaged edits).  **Always switch the sibling checkout to `ch_update_calcoffea` (or the matching release tag) before running `pip install -e ../topcoffea` _and_ when invoking `python -m topcoffea.modules.remote_environment`.**  Packaging the tarball from the same branch keeps the Conda + pip stack aligned with the processors.  Analysts relying on a detached tag can set `TOPCOFFEA_BRANCH=<tag>` before running `topeft` so the guard recognises the pinned reference.  All CLI entry points now validate that the resolved branch matches the expected `ch_update_calcoffea` baseline (using `.git/HEAD` when available or the `TOPCOFFEA_BRANCH` override), raising a clear error if the sibling checkout drifts.
 
-The `python -m topcoffea.modules.remote_environment` command calls into the updated `remote_environment.get_environment()` logic, which assembles a fresh TaskVine-ready tarball under `topeft-envs/`, captures the pinned Conda + pip stack, and returns the archive path that the workflow passes through the `environment_file` executor argument.  The helper will rebuild the cache whenever the specification or editable sources change, so re-running it before distributed submissions keeps the workers in sync.  The final `python -c "import topcoffea"` line mirrors the CI smoke test and confirms the namespace import succeeds for downstream tooling.
+The `python -m topcoffea.modules.remote_environment` command calls into the updated `remote_environment.get_environment()` logic, which assembles a fresh TaskVine-ready tarball under `topeft-envs/`, captures the pinned Conda + pip stack, and returns the archive path that the workflow passes through the `environment_file` executor argument.  When the inputs match a previously cached build, it reuses the existing archive instead of rebuilding, but any change to the dependency specification or editable sources will trigger a refresh.  The final `python -c "import topcoffea"` line mirrors the CI smoke test and confirms the namespace import succeeds for downstream tooling.
 
 #### Packaged TaskVine environment cache
 

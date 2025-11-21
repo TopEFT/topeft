@@ -1,0 +1,64 @@
+[build-system]
+requires = [
+    "setuptools>=69",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "topeft"
+version = "0.0.0"
+description = "Analysis code for top quark EFT analyses"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "CMS TopEFT Group" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "coffea==2025.7.3",
+    "awkward>=2.8.7",
+    "dill",
+    "pyyaml",
+    "numpy",
+]
+
+[project.urls]
+Homepage = "https://github.com/TopEFT/topeft"
+Repository = "https://github.com/TopEFT/topeft"
+Issues = "https://github.com/TopEFT/topeft/issues"
+
+[project.optional-dependencies]
+topcoffea = [
+    "topcoffea @ file:../topcoffea",
+]
+
+[project.scripts]
+conda = "topeft.conda_shim:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = [
+    "topeft*",
+    "analysis*",
+]
+
+[tool.setuptools.package-data]
+topeft = [
+    "channels/*",
+    "params/*",
+    "data/fliprates/*.pkl.gz",
+    "data/triggerSF/*.pkl.gz",
+    "data/btagSF/UL/*.pkl.gz",
+    "data/btagSF/UL/*.csv",
+    "modules/*.json",
+    "params/metadata.yml",
+]
