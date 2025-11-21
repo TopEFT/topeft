@@ -61,8 +61,25 @@ from topeft.modules.executor import (
 )
 from topeft.modules.runner_output import normalise_runner_output, tuple_dict_stats
 
-topcoffea_path = topcoffea.modules.paths.topcoffea_path
-topcoffea_utils = topcoffea.modules.utils
+
+def _import_topcoffea_submodule(submodule: str):
+    module_name = f"{topcoffea.__name__}.modules.{submodule}"
+    try:
+        return importlib.import_module(module_name)
+    except ModuleNotFoundError as exc:
+        raise ImportError(
+            (
+                "Unable to import required topcoffea helper module '%s'. "
+                "Ensure the sibling topcoffea checkout is available and on the "
+                "'ch_update_calcoffea' branch."
+            )
+            % module_name
+        ) from exc
+
+
+_topcoffea_paths = _import_topcoffea_submodule("paths")
+topcoffea_path = _topcoffea_paths.topcoffea_path
+topcoffea_utils = _import_topcoffea_submodule("utils")
 
 from .run_analysis_helpers import (
     DEFAULT_WEIGHT_VARIATIONS,
