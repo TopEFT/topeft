@@ -5,10 +5,10 @@ import re
 from collections import defaultdict
 
 import cloudpickle
-from topeft.compat.hist_utils import iterate_hist_from_pkl
+from topcoffea.modules.hist_utils import iterate_hist_from_pkl
 
 from topeft.modules.paths import topeft_path
-from topeft.modules.utils import canonicalize_process_name
+from topcoffea.modules.utils import canonicalize_process_name
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_te_param = GetParam(topeft_path("params/params.json"))
 

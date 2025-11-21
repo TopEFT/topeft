@@ -31,8 +31,7 @@ from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 
 from topcoffea.scripts.make_html import make_html
-#import topcoffea.modules.utils as utils
-import topeft.modules.utils as te_utils
+import topcoffea.modules.utils as te_utils
 from topeft.modules.yield_tools import YieldTools
 
 

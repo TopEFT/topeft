@@ -11,7 +11,7 @@ from analysis.topeft_run2 import run_data_driven
 from topcoffea.modules.sparseHist import SparseHist
 from topeft.modules import dataDrivenEstimation
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
-from topeft.modules.utils import get_hist_from_pkl
+from topcoffea.modules.utils import get_hist_from_pkl
 
 
 @pytest.fixture
@@ -83,6 +83,8 @@ def test_run_data_driven_matches_inline_output(tmp_path, sparse_hist_axes):
         str(output_path),
         only_flips=False,
         apply_envelope=False,
+        heartbeat_seconds=0.0,
+        quiet=True,
     )
 
     streamed_histograms = get_hist_from_pkl(str(output_path))

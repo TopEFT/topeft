@@ -23,7 +23,7 @@ from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 from topeft.modules.axes import info as axes_info
-from topeft.modules.utils import canonicalize_process_name
+from topcoffea.modules.utils import canonicalize_process_name
 
 BINNING = {k: v['variable'] for k,v in axes_info.items() if 'variable' in v}
 

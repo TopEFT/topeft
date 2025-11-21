@@ -2,9 +2,9 @@ import numpy as np
 import copy
 import logging
 
-from topeft.compat.topcoffea import ensure_histEFT_py39_compat
+from topcoffea.modules.compat import ensure_histEFT_py39_compat
+from topcoffea.modules.utils import canonicalize_process_name
 from topeft.modules.compatibility import add_sumw2_stub
-from topeft.modules.utils import canonicalize_process_name
 
 ensure_histEFT_py39_compat()
 
