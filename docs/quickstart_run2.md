@@ -69,31 +69,31 @@ The output pickle is stored in the directory provided through ``--output`` with
 an ``outname`` of ``quickstart`` (so you can expect something like
 ``quickstart-output/quickstart.pkl.gz``).
 
-## Local futures shell wrapper
+## Unified run wrapper
 
-For single-node debugging that mirrors the Run 2 production configuration, use
-``analysis/topeft_run2/local_futures_run.sh``. The wrapper mirrors
-``full_run.sh`` but skips the TaskVine environment staging/manager logic and
-forces the Coffea futures executor. Key features include:
+For production-style launches and single-node debugging, use
+``analysis/topeft_run2/full_run.sh``. The script auto-expands ``run2``/``run3``
+bundles, resolves the correct cfg/json inputs, and sets sensible defaults for
+both TaskVine and futures executors.
 
-* ``--workers``, ``--futures-prefetch`` and ``--futures-retries`` switches for
-  tuning the executor without editing YAML.
-* Automatic year bundle expansion and control/signal-region toggles that keep
-  the ``(variable, channel, application, sample, systematic)`` histogram schema
-  identical to the distributed workflow.
-* A ``--samples`` override so you can point directly at the tiny UL17 JSON when
-  you only need a smoke test.
+* TaskVine remains the default: ``./full_run.sh --cr -y run3 --tag dev_validation``
+* Switch to futures with ``--executor futures`` and override samples with
+  ``--samples`` for quick JSON-driven checks.
+* Add ``--dry-run`` to validate the resolved command without starting Python or
+  staging a TaskVine environment archive.
 
 Example invocation::
 
     cd analysis/topeft_run2
-    ./local_futures_run.sh --sr -y UL17 \
+    ./full_run.sh --sr -y UL17 --executor futures \
         --samples ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-        --outdir histos/local_debug --tag quickstart
+        --outdir histos/local_debug --tag quickstart --dry-run
 
-The command runs entirely on the submitting node, so make sure the referenced
-samples are locally accessible (or use ``--prefix``/XRootD) and that the active
-environment provides the Coffea 2025.7 executor stack.
+The futures path runs entirely on the submitting node, so make sure the
+referenced samples are locally accessible (or use ``--prefix``/XRootD) and that
+the active environment provides the Coffea 2025.7 executor stack. TaskVine runs
+still require a matching manager/worker setup; see the repository README for the
+pool launch helpers.
 
 ## Understanding the quickstart inputs
 

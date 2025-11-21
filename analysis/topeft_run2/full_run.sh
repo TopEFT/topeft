@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Wrapper for launching run_analysis.py with TaskVine in the current branch.
+# Unified wrapper for launching run_analysis.py with either TaskVine or the
+# Coffea futures executor.
 #
 # Expectations before running:
 #   1. Activate the shared Conda environment shipped with this repository
 #      (name: coffea2025) so the topeft and topcoffea editable installs are
 #      available.  The helper below attempts to activate it when possible.
-#   2. Stage the packaged TaskVine environment tarball by running
+#   2. For TaskVine runs, stage the packaged environment tarball by running
 #      `python -m topcoffea.modules.remote_environment` after activation.  The
 #      script reuses the returned path as the --environment-file argument.
-#   3. Launch a pool of TaskVine workers that point at the manager name used in
-#      this script (defaults to "${USER}-taskvine-coffea") via vine_submit_workers
-#      or vine_worker.  Workers should run in the same environment tarball
-#      reported by the remote_environment helper.
+#   3. When using TaskVine, launch a pool of workers that point at the manager
+#      name used in this script (defaults to "${USER}-taskvine-coffea") via
+#      vine_submit_workers or vine_worker.  Workers should run in the same
+#      environment tarball reported by the remote_environment helper.
 #
 # The run_analysis workflow emits histogram pickles keyed by
 # (variable, channel, application, sample, systematic) 5-tuples; downstream
@@ -22,24 +23,28 @@ set -euo pipefail
 PrintUsage() {
   cat <<'USAGE'
 Usage: full_run.sh [-y YEAR [YEAR ...]] [-t TAG] [--cr | --sr] \
-                   [--outdir PATH] [--manager NAME] [extra run_analysis args]
+                   [--executor {taskvine,futures}] [--outdir PATH] [--manager NAME] \
+                   [--samples PATH [PATH ...]] [--dry-run] [extra run_analysis args]
 
 Examples:
   full_run.sh --cr -y run3 -t dev_validation
-  full_run.sh --sr -y 2022 2022EE --outdir histos/run3_taskvine \
-      --chunksize 80000 --prefix root://xrootd.site/
+  full_run.sh --sr -y UL17 --executor futures --outdir histos/local_debug \
+      --samples ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+      --chunksize 4000 --dry-run
 
 Notes:
   * YEARS accept explicit values (2022, 2022EE, UL17, etc.) or bundles
     (run2 -> UL16 UL16APV UL17 UL18, run3 -> 2022 2022EE).  Unknown entries
     are rejected so mis-typed eras fail fast.
   * Required input cfg/json files live under input_samples/cfgs/ and are
-    selected automatically per year.  Add extra CLI arguments (for example
-    --options configs/fullR2_run.yml:sr) after the recognized flags to pass
-    through additional run_analysis toggles.
+    selected automatically per year.  Use --samples when you want to override
+    the list (for example pointing at the UL17 quickstart JSON).  Add extra CLI
+    arguments (for example --options configs/fullR2_run.yml:sr) after the
+    recognized flags to pass through additional run_analysis toggles.
   * The default output name is <YEARS>_(CRs|SRs)_<TAG>, saved to the specified
     output directory with the 5-tuple histogram schema used throughout this
-    branch.
+    branch.  Use --dry-run to print the resolved command without launching
+    Python (helpful for smoke tests or CI guards).
 USAGE
 }
 
@@ -77,12 +82,18 @@ main() {
   local -a years=()
   local -a expanded_years=()
   local -a resolved_years=()
+  local -a user_samples=()
   local user_chunk_override=false
   local user_env_override=false
-  local user_executor_override=false
   local outdir="histos"
   local manager_name="${USER:-coffea}-taskvine-coffea"
   local tag=""
+  local executor_choice=""
+  local workers=""
+  local futures_prefetch=1
+  local futures_retries=0
+  local futures_retry_wait=5.0
+  local dry_run=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -116,6 +127,56 @@ main() {
         manager_name="$2"
         shift 2
         ;;
+      --workers)
+        workers="$2"
+        shift 2
+        ;;
+      --samples)
+        shift
+        if [[ $# -eq 0 || "$1" == -* ]]; then
+          echo "Error: --samples requires at least one argument" >&2
+          return 1
+        fi
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            -*)
+              break
+              ;;
+            *)
+              user_samples+=("$1")
+              shift
+              ;;
+          esac
+        done
+        ;;
+      --futures-prefetch)
+        futures_prefetch="$2"
+        shift 2
+        ;;
+      --futures-retries)
+        futures_retries="$2"
+        shift 2
+        ;;
+      --futures-retry-wait)
+        futures_retry_wait="$2"
+        shift 2
+        ;;
+      --executor)
+        executor_choice="$2"
+        shift 2
+        ;;
+      --executor=*)
+        executor_choice="${1#*=}"
+        shift
+        ;;
+      --taskvine)
+        executor_choice="taskvine"
+        shift
+        ;;
+      --futures)
+        executor_choice="futures"
+        shift
+        ;;
       --cr)
         flag_cr=true
         shift
@@ -129,19 +190,22 @@ main() {
         extra_args+=("$1")
         shift
         ;;
-      -x|--executor|--executor=*)
-        user_executor_override=true
-        extra_args+=("$1")
+      -x)
+        executor_choice="$2"
+        shift 2
+        ;;
+      -h|--help)
+        PrintUsage
+        return 0
+        ;;
+      --dry-run)
+        dry_run=true
         shift
         ;;
       --environment-file|--environment-file=*)
         user_env_override=true
         extra_args+=("$1")
         shift
-        ;;
-      -h|--help)
-        PrintUsage
-        return 0
         ;;
       --)
         shift
@@ -176,6 +240,12 @@ main() {
       run3)
         expanded_years+=(2022 2022EE)
         ;;
+      --cr)
+        flag_cr=true
+        ;;
+      --sr)
+        flag_sr=true
+        ;;
       *)
         expanded_years+=("$year")
         ;;
@@ -200,6 +270,18 @@ main() {
     tag="$default_tag"
   fi
 
+  local executor
+  if [[ -n "$executor_choice" ]]; then
+    executor="$executor_choice"
+  else
+    executor="taskvine"
+  fi
+
+  if [[ "$executor" != "taskvine" && "$executor" != "futures" ]]; then
+    echo "Error: executor must be one of taskvine or futures (got '$executor')" >&2
+    return 1
+  fi
+
   local year_label
   year_label=$(IFS=-; echo "${resolved_years[*]}")
 
@@ -218,7 +300,7 @@ main() {
 
   activate_env
   local env_tarball=""
-  if [[ "$user_env_override" == false ]]; then
+  if [[ "$executor" == "taskvine" && "$user_env_override" == false && "$dry_run" == false ]]; then
     env_tarball=$(stage_environment)
   fi
 
@@ -330,34 +412,71 @@ main() {
     esac
   done
 
+  local -a input_specs=()
+  if [[ ${#user_samples[@]} -gt 0 ]]; then
+    for sample_path in "${user_samples[@]}"; do
+      if [[ ! -e "$sample_path" ]]; then
+        echo "Error: sample override not found: $sample_path" >&2
+        return 1
+      fi
+      input_specs+=("$sample_path")
+    done
+  else
+    input_specs=("${cfgs_list[@]}")
+  fi
+
+  if [[ ${#input_specs[@]} -eq 0 ]]; then
+    echo "Error: no cfg/json inputs resolved" >&2
+    return 1
+  fi
+
   local cfgs
-  cfgs=$(IFS=,; echo "${cfgs_list[*]}")
+  cfgs=$(IFS=,; echo "${input_specs[*]}")
 
   echo "Resolved years: ${resolved_years[*]}"
   echo "Resolved cfg inputs: $cfgs"
-  echo "TaskVine manager: $manager_name"
-  if [[ -n "$env_tarball" ]]; then
-    echo "Environment archive: $env_tarball"
+  echo "Executor: $executor"
+  if [[ "$executor" == "taskvine" ]]; then
+    echo "TaskVine manager: $manager_name"
+    if [[ -n "$env_tarball" ]]; then
+      echo "Environment archive: $env_tarball"
+    elif [[ "$dry_run" == false && "$user_env_override" == false ]]; then
+      echo "Warning: TaskVine environment tarball not set"
+    fi
+  else
+    echo "Futures prefetch: $futures_prefetch | retries: $futures_retries"
+  fi
+
+  if [[ -z "$workers" ]]; then
+    if [[ "$executor" == "taskvine" ]]; then
+      workers=8
+    else
+      workers=4
+    fi
   fi
 
   local -a options=(
     --outname "$out_name"
     --outpath "$outdir"
-    --nworkers 8
+    --nworkers "$workers"
     --summary-verbosity brief
+    --executor "$executor"
   )
+
   if [[ "$user_chunk_override" == false ]]; then
     options+=(--chunksize 50000)
   fi
-  if [[ "$user_executor_override" == false ]]; then
-    options+=(--executor taskvine)
-  fi
-  if [[ -n "$manager_name" ]]; then
+  if [[ "$executor" == "taskvine" ]]; then
     options+=(--manager-name "$manager_name")
+    if [[ "$user_env_override" == false && -n "$env_tarball" ]]; then
+      options+=(--environment-file "$env_tarball")
+    fi
+  else
+    options+=(--futures-prefetch "$futures_prefetch")
+    options+=(--futures-retries "$futures_retries")
+    options+=(--futures-retry-wait "$futures_retry_wait")
   fi
-  if [[ "$user_env_override" == false && -n "$env_tarball" ]]; then
-    options+=(--environment-file "$env_tarball")
-  fi
+
   if [[ "$flag_cr" == true ]]; then
     options+=(--skip-sr)
   else
@@ -368,7 +487,11 @@ main() {
   run_cmd+=("${options[@]}")
   run_cmd+=("${extra_args[@]}")
 
-  printf "\nRunning the following command:\n%s\n\n" "${run_cmd[*]}"
+  printf "\nResolved command:\n%s\n\n" "${run_cmd[*]}"
+  if [[ "$dry_run" == true ]]; then
+    return 0
+  fi
+
   time "${run_cmd[@]}"
 }
 
