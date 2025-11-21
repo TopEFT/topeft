@@ -27,10 +27,45 @@ try:  # pragma: no cover - topcoffea is optional for a subset of the tests
 except ModuleNotFoundError:
     topcoffea = None  # type: ignore[assignment]
 
-if topcoffea is not None:  # pragma: no branch - runtime optional dependency
-    HistEFT = getattr(topcoffea.modules.HistEFT, "HistEFT", None)
-else:  # pragma: no cover - fallback when HistEFT is unavailable
+
+def _load_hist_eft():  # pragma: no cover - import shim exercised in dedicated tests
+    if topcoffea is None:
+        return None
+
+    candidates = (
+        "topcoffea.modules.histEFT",
+        "topcoffea.modules.HistEFT",
+    )
+    errors = []
+    for module_path in candidates:
+        try:
+            module = __import__(module_path, fromlist=["HistEFT"])
+        except ModuleNotFoundError as exc:
+            errors.append(f"{module_path}: {exc}")
+            continue
+        except Exception as exc:
+            errors.append(f"{module_path}: {exc}")
+            continue
+
+        candidate = getattr(module, "HistEFT", None)
+        if candidate is not None:
+            return candidate
+        errors.append(f"{module_path}: missing HistEFT attribute")
+
+    raise ImportError(
+        "topcoffea is installed but does not provide a HistEFT class in either "
+        "topcoffea.modules.histEFT or topcoffea.modules.HistEFT. "
+        "Update the dependency (for example by checking out the ch_update_calcoffea "
+        "branch) and reinstall to restore tuple-keyed histogram support."
+    )
+
+
+try:  # pragma: no cover - import shim exercised in dedicated tests
+    HistEFT = _load_hist_eft()
+    _HISTEFT_IMPORT_ERROR: Optional[ImportError] = None
+except ImportError as exc:  # pragma: no cover - handled explicitly in tests
     HistEFT = None  # type: ignore[assignment]
+    _HISTEFT_IMPORT_ERROR = exc
 
 
 TupleKey = Tuple[str, Optional[str], Optional[str], Optional[str], Optional[str]]
@@ -95,6 +130,8 @@ def _summarise_histogram(histogram: Any) -> Dict[str, Any]:
         raw_variances = histogram.variances(flow=True)
         variances = None if raw_variances is None else _ensure_numpy(raw_variances)
     else:
+        if _HISTEFT_IMPORT_ERROR is not None and topcoffea is not None:
+            raise _HISTEFT_IMPORT_ERROR
         raise TypeError(f"Unsupported histogram type: {type(histogram)!r}")
 
     if values is None:
