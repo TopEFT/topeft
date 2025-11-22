@@ -16,7 +16,7 @@ Submit run_plotter.sh jobs to HTCondor with minimal boilerplate. The script
 validates plotting options by invoking run_plotter.sh --dry-run locally before
 creating a temporary submission file.
 
-Condor options (provide these before the plotting arguments):
+Condor options (provide these anywhere before an optional "--" delimiter):
   --queue N        Number of job instances to submit (default: 1)
   --log-dir PATH   Directory for Condor log, output, and error files
                    (default: ./condor_logs)
@@ -34,7 +34,10 @@ Condor options (provide these before the plotting arguments):
   -h, --help       Show this help message and exit
 
 All other arguments are forwarded directly to run_plotter.sh. The legacy "--"
-delimiter is optional; extra flags are forwarded automatically when present.
+delimiter remains supported when you need to force everything that follows to
+be treated as plotting arguments; in that case, Condor flags like --dry-run
+must be placed before the delimiter to avoid being mis-parsed as plotting
+options.
 In particular, plotting switches such as --channel-output understand the same
 merged/split/both values as the Python CLI along with the new -njets variants
 that preserve the per-njet bins defined in cr_sr_plots_metadata.yml.
@@ -63,6 +66,12 @@ main() {
     local parsing_condor=1
 
     while [[ $# -gt 0 ]]; do
+        if [[ "$1" == "--" ]]; then
+            parsing_condor=0
+            shift
+            continue
+        fi
+
         if (( parsing_condor )); then
             case "$1" in
                 --queue)
@@ -128,26 +137,20 @@ main() {
                     show_help
                     return 0
                     ;;
-                --)
-                    shift
-                    parsing_condor=0
-                    continue
-                    ;;
-                *)
-                    parsing_condor=0
-                    ;;
             esac
-        fi
-
-        if [[ "$1" == "--" ]]; then
-            # Backward compatibility: ignore the legacy delimiter while forwarding
-            # everything else verbatim.
-            shift
-            continue
         fi
 
         plotter_args+=("$1")
         shift
+    done
+
+    for arg in "${plotter_args[@]}"; do
+        if [[ "${arg}" == "--dry-run" ]]; then
+            echo "Error: --dry-run is a Condor helper flag; place Condor options before" >&2
+            echo "the plotting arguments (or omit the -- delimiter) so it is parsed" >&2
+            echo "correctly." >&2
+            return 1
+        fi
     done
 
     if (( ${#plotter_args[@]} == 0 )); then
