@@ -244,12 +244,6 @@ PY
         return 1
     fi
 
-    local entry_on_ceph="${analysis_dir}/condor_plotter_entry.sh"
-    if [[ ! -f "${entry_on_ceph}" ]]; then
-        echo "Error: '${entry_on_ceph}' was not found." >&2
-        return 1
-    fi
-
     local validation_output=""
     if ! validation_output=$("${RUN_PLOTTER}" "${plotter_args[@]}" --dry-run 2>&1); then
         echo "Error: run_plotter.sh validation failed:" >&2
@@ -293,9 +287,13 @@ PY
     printf -v arg_string ' %q' "${plotter_args[@]}"
     arg_string="${arg_string# }"
 
-    local executable_path="${entry_on_ceph}"
-    local should_transfer_files="NO"
-    local transfer_input_files=""
+    local staged_entry="${tmp_dir}/condor_plotter_entry.sh"
+    cp "${ENTRY_SCRIPT}" "${staged_entry}"
+    chmod +x "${staged_entry}"
+
+    local executable_path="${staged_entry}"
+    local should_transfer_files="YES"
+    local transfer_input_files="${staged_entry}"
 
     {
     cat <<EOF
