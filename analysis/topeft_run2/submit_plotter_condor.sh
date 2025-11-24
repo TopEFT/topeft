@@ -14,7 +14,7 @@ Usage: submit_plotter_condor.sh [condor options] [run_plotter arguments]
 
 Submit run_plotter.sh jobs to HTCondor with minimal boilerplate. The script
 validates plotting options by invoking run_plotter.sh --dry-run locally before
-creating a temporary submission file.
+creating a staged submission file and worker wrapper.
 
 Condor options (provide these anywhere before an optional "--" delimiter):
   --queue N        Number of job instances to submit (default: 1)
@@ -251,11 +251,21 @@ PY
         return 1
     fi
 
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    trap '[[ -n "${tmp_dir:-}" ]] && rm -rf "${tmp_dir}"' EXIT
+    local staging_root="${PWD}/condor_staging"
+    staging_root=$(python3 - "${staging_root}" <<'PY'
+import os
+import sys
+print(os.path.abspath(os.path.expanduser(sys.argv[1])))
+PY
+)
+    local staging_dir="${staging_root}/plotter_$(date +%Y%m%d_%H%M%S)_${RANDOM}"
+    mkdir -p "${staging_dir}"
 
-    local submit_file="${tmp_dir}/plotter_job.sub"
+    local staged_entry="${staging_dir}/condor_plotter_entry.sh"
+    cp "${ENTRY_SCRIPT}" "${staged_entry}"
+    chmod +x "${staged_entry}"
+
+    local submit_file="${staging_dir}/plotter_job.sub"
 
     local repo_root
     repo_root=$(python3 - "${analysis_dir}" <<'PY'
@@ -287,9 +297,9 @@ PY
     printf -v arg_string ' %q' "${plotter_args[@]}"
     arg_string="${arg_string# }"
 
-    local executable_path="${ENTRY_SCRIPT}"
+    local executable_path="${staged_entry}"
     local should_transfer_files="YES"
-    local transfer_input_files="${ENTRY_SCRIPT}"
+    local transfer_input_files="${staged_entry}"
 
     {
     cat <<EOF
@@ -322,6 +332,7 @@ EOF
     if (( dry_run )); then
         echo "run_plotter.sh validation output:" >&2
         printf '%s\n' "${validation_output}" >&2
+        echo "Staging directory: ${staging_dir}" >&2
         echo "Executable path: ${executable_path}" >&2
         echo "should_transfer_files: ${should_transfer_files}" >&2
         if [[ -n "${transfer_input_files}" ]]; then
