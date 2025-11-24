@@ -14,6 +14,8 @@ If you pass the argument `--private` it will understand that the _second_ pkl fi
 There is a special flag `--skip` which tells the script _not_ to draw a reweighted histogram for the second pkl file.
 This is useful when comparing Run 3 to Run 2 (at the SM) since some of the WC names have changed.
 If you pass the argument `--central` it will assume _both_ pkl files are central samples.
+By default, any missing WCs in the starting point are set to `100`, since this is what we do when making the gridpacks.
+Use `--zero` to keep these missing WCs fixded to `0`.
 
 The flag `--abs` will not normalize the ratios.
 
@@ -66,7 +68,8 @@ parser.add_argument('--var'    , default=None , help = 'Variable to plot')
 parser.add_argument('--private', action='store_true' , help = 'Use private key for second hist')
 parser.add_argument('--central', action='store_true' , help = 'Use central key for first hist')
 parser.add_argument('--abs'    , action='store_true' , help = 'Use absolute scale for ratio')
-parser.add_argument('--skip'   , action='store_true' , help = 'Use private key for second hist')
+parser.add_argument('--skip'   , action='store_true' , help = 'Skip plotting EFT points')
+parser.add_argument('--zero'   , action='store_true' , help = 'Set missing WCs to 0')
 parser.add_argument('json'     , default='', help = 'Json file(s) containing files and metadata')
 parser.add_argument('--small'   , action='store_true', help = 'Remove all |WCs| >100')
 parser.add_argument('--no-lumi' , action='store_true', help = 'Don\t rescale the lumi')
