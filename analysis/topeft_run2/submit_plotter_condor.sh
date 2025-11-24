@@ -288,12 +288,7 @@ PY
     printf -v arg_string ' %q' "${plotter_args[@]}"
     arg_string="${arg_string# }"
 
-    local wrapper_entry_arg="TOPEFT_ENTRY_DIR=${entry_dir}"
-    local arguments_line=""
-    printf -v arguments_line '%q' "${wrapper_entry_arg}"
-    if [[ -n "${arg_string}" ]]; then
-        arguments_line+=" ${arg_string}"
-    fi
+    local arguments_line="${arg_string}"
 
     local executable_path="${entry_dir}/condor_plotter_entry.sh"
     local should_transfer_files="NO"
