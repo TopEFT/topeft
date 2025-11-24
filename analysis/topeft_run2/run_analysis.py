@@ -7,6 +7,7 @@ import cloudpickle
 import gzip
 import os
 import shlex
+import subprocess
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
@@ -64,6 +65,31 @@ def _format_worker_exception(exception_obj):
         return str(exception_obj)
     except Exception:
         return repr(exception_obj)
+
+
+def _resolve_environment_file(env_override, use_remote_env, extra_pip_local=None):
+    if env_override:
+        env_path = os.path.abspath(os.path.expanduser(env_override))
+        if not os.path.exists(env_path):
+            raise SystemExit(
+                f"Requested remote environment file {env_path} does not exist. "
+                "Point --env-file at a poncho tarball built from environment.yml or drop the flag to rebuild."
+            )
+        return env_path
+
+    if not use_remote_env:
+        return None
+
+    try:
+        return remote_environment.get_environment(
+            extra_pip_local=extra_pip_local or {"topeft": ["topeft", "setup.py"]},
+        )
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            "Failed to build a remote execution environment (poncho_package_create errored). "
+            "Provide --env-file pointing to a known-good poncho tarball (e.g. generated from environment.yml) "
+            "or rerun with --no-remote-env if workers already have the dependencies."
+        ) from exc
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
@@ -261,6 +287,26 @@ if __name__ == "__main__":
             "Use only for expert/custom setups."
         ),
     )
+    parser.add_argument(
+        "--env-file",
+        default=None,
+        help=(
+            "Path to a prebuilt poncho environment tarball to ship to workers instead of generating one. "
+            "Start from the repository's environment.yml template when crafting a fallback to avoid repeated "
+            "failures from unavailable upstream pins."
+        ),
+    )
+    parser.add_argument(
+        "--no-remote-env",
+        dest="use_remote_env",
+        action="store_false",
+        help=(
+            "Disable automatic poncho environment creation; rely on worker nodes to already provide the "
+            "dependencies. Pair with --env-file to supply a known-good tarball (e.g. built from "
+            "environment.yml) when remote packaging fails."
+        ),
+    )
+    parser.set_defaults(use_remote_env=True)
 
     args = parser.parse_args()
     if args.workers is not None:
@@ -294,6 +340,8 @@ if __name__ == "__main__":
     port = args.port
     hist_list = args.hist_list
     analysis_mode = args.analysis_mode
+    env_file_override = args.env_file
+    use_remote_env = args.use_remote_env
 
     if args.options:
         import yaml
@@ -332,6 +380,8 @@ if __name__ == "__main__":
         port = ops.pop("port",port)
         ecut = ops.pop("ecut",ecut)
         analysis_mode = ops.pop("analysis_mode", analysis_mode)
+        env_file_override = ops.pop("env_file", env_file_override)
+        use_remote_env = ops.pop("use_remote_env", use_remote_env)
 
     out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
     out_pkl_file_name_np = os.path.join(outpath, outname + "_np.pkl.gz")
@@ -741,6 +791,16 @@ if __name__ == "__main__":
 
     print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
 
+    env_extra_pip_local = {"topeft": ["topeft", "setup.py"]}
+    if executor_name in ["work_queue", "taskvine"]:
+        environment_file = _resolve_environment_file(
+            env_file_override,
+            use_remote_env,
+            extra_pip_local=env_extra_pip_local,
+        )
+    else:
+        environment_file = None
+
     processor_instance = analysis_processor.AnalysisProcessor(
         samplesdict,
         wc_lst,
@@ -767,9 +827,6 @@ if __name__ == "__main__":
             "transactions_log": "tr.log",
             "stats_log": "stats.log",
             "tasks_accum_log": "tasks.log",
-            "environment_file": remote_environment.get_environment(
-                extra_pip_local={"topeft": ["topeft", "setup.py"]},
-            ),
             "extra_input_files": ["analysis_processor.py"],
             "retries": 15,
             # use mid-range compression for chunks results.
@@ -821,6 +878,9 @@ if __name__ == "__main__":
             "verbose": True,
             "print_stdout": False,
         }
+
+        if environment_file:
+            executor_args["environment_file"] = environment_file
 
     # Run the processor and get the output
     tstart = time.time()
