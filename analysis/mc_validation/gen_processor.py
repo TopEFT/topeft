@@ -189,18 +189,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         #lhe_top = ak.sum(ak.concatenate([lhepart[dilep_mask], lhepart[nu_mask], lhepart[b_mask]],axis=1), -1)
         #lhe_top  = lhepart[:,2]+lhepart[:,3]+lhepart[:,4] #FIXME
         lhe_top = lhepart[(np.abs(lhepart.pdgId) == 6)]
-        lhe_top = ak.max(lhe_top.pt, axis=1)
+        lhe_top = lhepart[np.argmax(lhe_top.pt, axis=1)]
         #lhe_top  = lhepart[:,2] # tWA top is always elemnt 2
         #lhe_top  = lhepart[:,2]+lhepart[:,3]+lhepart[:,5] #TWG central sample has b and leptons + neutrinos
         #lhe_top  = lhepart[np.abs(lhepart.pdgId) == 6]
         #lhe_top  = lhepart[:,2]
         #lhe_atop = lhepart[:,3]
         lhe_l = lhepart[(np.abs(lhepart.pdgId) == 11) | (np.abs(lhepart.pdgId) == 13) | (np.abs(lhepart.pdgId) == 15)]
-        lhe_l = ak.max(lhe_l.pt, axis=1)
+        lhe_l = lhepart[np.argmax(lhe_l.pt, axis=1)]
         #lhe_l = ak.max([lhepart[:,2].pt,lhepart[:,5].pt], axis=0)
         #lhe_ph = lhepart[:,8]
         #lhe_ph = lhepart[(np.abs(lhepart.pdgId) == 22)]
-        #lhe_ph = ak.max(lhe_ph.pt, axis=1)
+        #lhe_ph = lhepart[np.argmax(lhe_ph.pt, axis=1)]
 
         gen_l = genpart[((abs(genpart.pdgId) == 11) | (abs(genpart.pdgId) == 13) | (abs(genpart.pdgId) == 15))]
         gen_e = genpart[(abs(genpart.pdgId) == 11)]
