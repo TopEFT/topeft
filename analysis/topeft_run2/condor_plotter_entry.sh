@@ -8,8 +8,10 @@ main() {
 
     local entry_dir="${TOPEFT_ENTRY_DIR:-}"
 
-    if [[ -z "${entry_dir}" && $# -gt 0 && "$1" == TOPEFT_ENTRY_DIR=* ]]; then
-        entry_dir="${1#TOPEFT_ENTRY_DIR=}"
+    if [[ $# -gt 0 && "$1" == TOPEFT_ENTRY_DIR=* ]]; then
+        if [[ -z "${entry_dir}" ]]; then
+            entry_dir="${1#TOPEFT_ENTRY_DIR=}"
+        fi
         shift
     fi
 
