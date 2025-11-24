@@ -262,10 +262,6 @@ PY
     trap '[[ -n "${tmp_dir:-}" ]] && rm -rf "${tmp_dir}"' EXIT
 
     local submit_file="${tmp_dir}/plotter_job.sub"
-    local staged_entry="${tmp_dir}/$(basename "${ENTRY_SCRIPT}")"
-
-    cp "${ENTRY_SCRIPT}" "${staged_entry}"
-    chmod +x "${staged_entry}"
 
     local repo_root
     repo_root=$(python3 - "${analysis_dir}" <<'PY'
@@ -297,20 +293,26 @@ PY
     printf -v arg_string ' %q' "${plotter_args[@]}"
     arg_string="${arg_string# }"
 
+    local executable_path="${entry_on_ceph}"
+    local should_transfer_files="NO"
+    local transfer_input_files=""
+
     {
     cat <<EOF
 universe                = vanilla
-executable              = "${staged_entry}"
+executable              = "${executable_path}"
 arguments               = ${arg_string}
 initialdir              = ${analysis_dir}
 log                     = ${log_dir}/plotter.\$(Cluster).\$(Process).log
 output                  = ${log_dir}/plotter.\$(Cluster).\$(Process).out
 error                   = ${log_dir}/plotter.\$(Cluster).\$(Process).err
 getenv                  = True
-should_transfer_files   = YES
-transfer_executable     = True
+should_transfer_files   = ${should_transfer_files}
 environment              = "${environment_string}"
 EOF
+    if [[ -n "${transfer_input_files}" ]]; then
+        printf 'transfer_input_files    = %s\n' "${transfer_input_files}"
+    fi
     if [[ -n "${request_cpus}" ]]; then
         printf 'request_cpus            = %s\n' "${request_cpus}"
     fi
@@ -325,6 +327,13 @@ EOF
     if (( dry_run )); then
         echo "run_plotter.sh validation output:" >&2
         printf '%s\n' "${validation_output}" >&2
+        echo "Executable path: ${executable_path}" >&2
+        echo "should_transfer_files: ${should_transfer_files}" >&2
+        if [[ -n "${transfer_input_files}" ]]; then
+            echo "transfer_input_files: ${transfer_input_files}" >&2
+        else
+            echo "transfer_input_files: (none)" >&2
+        fi
         echo "--- ${submit_file} ---"
         cat "${submit_file}"
         return 0
