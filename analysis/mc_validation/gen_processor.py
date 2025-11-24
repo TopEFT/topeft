@@ -77,7 +77,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "ht"           : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht",           label=r"Scalar sum of genjet pt"), wc_names=wc_names_lst, rebin=False),
             "ht_clean"     : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht_clean",     label=r"Scalar sum of clean genjet pt"), wc_names=wc_names_lst, rebin=False),
             "lhe_t_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,   name="lhe_t_pt",     label=r"Pt of the leading LHE t"), wc_names=wc_names_lst, rebin=False),
-            "t_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,  name="t_pt",            label=r"Pt of the leading t"), wc_names=wc_names_lst, rebin=False),
+            #"t_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,  name="t_pt",            label=r"Pt of the leading t"), wc_names=wc_names_lst, rebin=False),
             "t_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(10,  0, 500,  name="t_pt",            label=r"Pt of the leading t"), wc_names=wc_names_lst, rebin=False),
             "z_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,  name="z_pt",            label=r"Pt of the leading t"), wc_names=wc_names_lst, rebin=False),
             "H_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,  name="H_pt",            label=r"Pt of the leading t"), wc_names=wc_names_lst, rebin=False),
@@ -189,18 +189,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         #lhe_top = ak.sum(ak.concatenate([lhepart[dilep_mask], lhepart[nu_mask], lhepart[b_mask]],axis=1), -1)
         #lhe_top  = lhepart[:,2]+lhepart[:,3]+lhepart[:,4] #FIXME
         lhe_top = lhepart[(np.abs(lhepart.pdgId) == 6)]
-        lhe_top = lhepart[np.argmax(lhe_top.pt, axis=1)]
+        lhe_top = ak.max(lhe_top.pt, axis=1)
         #lhe_top  = lhepart[:,2] # tWA top is always elemnt 2
         #lhe_top  = lhepart[:,2]+lhepart[:,3]+lhepart[:,5] #TWG central sample has b and leptons + neutrinos
         #lhe_top  = lhepart[np.abs(lhepart.pdgId) == 6]
         #lhe_top  = lhepart[:,2]
         #lhe_atop = lhepart[:,3]
         lhe_l = lhepart[(np.abs(lhepart.pdgId) == 11) | (np.abs(lhepart.pdgId) == 13) | (np.abs(lhepart.pdgId) == 15)]
-        lhe_l = lhepart[np.argmax(lhe_l.pt, axis=1)]
+        lhe_l = ak.max(lhe_l.pt, axis=1)
         #lhe_l = ak.max([lhepart[:,2].pt,lhepart[:,5].pt], axis=0)
         #lhe_ph = lhepart[:,8]
         #lhe_ph = lhepart[(np.abs(lhepart.pdgId) == 22)]
-        #lhe_ph = lhepart[np.argmax(lhe_ph.pt, axis=1)]
+        #lhe_ph = ak.max(lhe_ph.pt, axis=1)
 
         gen_l = genpart[((abs(genpart.pdgId) == 11) | (abs(genpart.pdgId) == 13) | (abs(genpart.pdgId) == 15))]
         gen_e = genpart[(abs(genpart.pdgId) == 11)]
@@ -386,10 +386,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             "t_pt" : ak.fill_none(ak.firsts(gen_top).pt, -1),
             "z_pt" : ak.fill_none(ak.firsts(gen_Z).pt, -1),
             "H_pt" : ak.fill_none(ak.firsts(gen_H).pt, -1),
-            "lhe_t_pt" : lhe_top.pt,
+            "lhe_t_pt" : lhe_top,
             #"lhe_t_pt" : ak.fill_none(ak.firsts(lhe_top.pt), -1),
             #"lhe_l0pt" : lhe_l,
-            #"lhe_photon_pt" : lhe_ph.pt,
+            #"lhe_photon_pt" : lhe_ph,
             "l0pt" : ak.fill_none(ak.firsts(gen_l.pt), -1),
             "j0pt" : ak.fill_none(ak.firsts(genjet_clean.pt), -1),
             "lj0pt" : ak.fill_none(ak.firsts(genjet_clean[np.abs(genjet_clean.partonFlavour)!=5].pt), -1),
