@@ -5,6 +5,8 @@ dependencies:
   - coffea=2025.7.3
   - awkward=2.8.7
   - pandas>=2.2,<2.3
+  - hist=2.9.*
+  - boost-histogram>=1.4
   - ndcctools
   - conda-pack
   - dill

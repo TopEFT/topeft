@@ -42,6 +42,8 @@ pip install -e .
 ```
 The commands above provision the refreshed `coffea2025` Conda environment, which tracks the Coffea 2025.7.3 base release used throughout the project.  Installing `topeft` with `pip install -e .` is now the expected workflow so that local developments are automatically folded into the packaged environment.
 
+The Conda specification now also pins `hist=2.9.*` and `boost-histogram>=1.4` to mirror the histogram stack required by the sibling `topcoffea` checkout.  Keep the NumPy and pandas constraints intact when updating the environment so that ABI compatibility stays aligned across both projects.
+
 To install both sibling repositories in one step, either request the new optional dependency group or run the helper script:
 
 ```
