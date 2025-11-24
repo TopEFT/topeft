@@ -555,3 +555,9 @@ def test_histogram_tuple_structure_includes_channel_metadata(processor):
     )
 
     assert expected_key in processor.accumulator
+
+
+def test_analysis_processor_matches_coffea_processorabc(processor):
+    import coffea.processor as processor_module
+
+    assert isinstance(processor, processor_module.ProcessorABC)

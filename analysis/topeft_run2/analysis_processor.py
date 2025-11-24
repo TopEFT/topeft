@@ -17,9 +17,9 @@ import re
 import logging
 
 import coffea
+import coffea.processor as processor
 import hist
 import topcoffea
-from coffea.processor import ProcessorABC
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 from typing import Dict, List, Optional, Tuple
@@ -242,7 +242,7 @@ _TAU_SF_WEIGHT_SPECS: Tuple[Tuple[str, str, str, str, str], ...] = (
 )
 
 
-class AnalysisProcessor(ProcessorABC):
+class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(
         self,
