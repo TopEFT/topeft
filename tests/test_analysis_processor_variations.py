@@ -1,5 +1,26 @@
 import awkward as ak
 import numpy as np
+import importlib
+import sys
+import types
+
+_hist_eft_stub = types.ModuleType("topcoffea.modules.HistEFT")
+
+
+class _DummyHistEFT:
+    def __init__(self, *_, **__):
+        pass
+
+    def fill(self, **__):
+        pass
+
+
+_hist_eft_stub.HistEFT = _DummyHistEFT
+importlib.import_module("topcoffea")
+modules_pkg = importlib.import_module("topcoffea.modules")
+modules_pkg.HistEFT = _hist_eft_stub  # type: ignore[attr-defined]
+sys.modules["topcoffea.modules.HistEFT"] = _hist_eft_stub
+sys.modules["topcoffea.modules.histEFT"] = _hist_eft_stub
 
 from analysis.topeft_run2 import analysis_processor as ap
 
@@ -140,7 +161,7 @@ def test_apply_object_variations_preserves_good_jet_count(monkeypatch):
     events = ak.Array({"event": [1]})
     dataset = _make_dataset_context(is_data=True)
 
-    updated_state = processor._apply_object_variations(events, dataset, variation_state, None)
+    updated_state = processor._apply_object_variations(events, dataset, variation_state)
 
     assert ak.to_list(updated_state.njets) == [1]
     assert ak.to_list(updated_state.ht) == [55.0]
@@ -201,7 +222,7 @@ def test_apply_tau_variations_updates_tau_properties(monkeypatch):
     events = ak.Array({"event": [1]})
     dataset = _make_dataset_context(is_data=False)
 
-    updated_state = processor._apply_object_variations(events, dataset, variation_state, None)
+    updated_state = processor._apply_object_variations(events, dataset, variation_state)
 
     updated_tau_pt = ak.to_list(updated_state.objects.taus.pt)
     assert updated_tau_pt == [[32.0]]
@@ -261,7 +282,7 @@ def test_lepton_ordering_is_preserved(monkeypatch):
     events = ak.Array({"event": [1]})
     dataset = _make_dataset_context(is_data=True)
 
-    updated_state = processor._apply_object_variations(events, dataset, variation_state, None)
+    updated_state = processor._apply_object_variations(events, dataset, variation_state)
 
     assert ak.to_list(updated_state.l0.pt) == [40.0]
     assert ak.to_list(updated_state.l1.pt) == [30.0]

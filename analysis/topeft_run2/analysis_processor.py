@@ -1110,7 +1110,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         variation_state: VariationState,
         *,
         dataset: DatasetContext,
-        events_cache,
     ) -> VariationState:
         objects = variation_state.objects
         jets = objects.jets
@@ -1133,7 +1132,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         tmp = ak.cartesian(
             [ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True
         )
-        cleaned_jets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]
+        jet_indices, veto_indices = ak.unzip(tmp)
+        cleaned_jets = jets[~ak.any(jet_indices == veto_indices, axis=-1)]
 
         jetptname = "pt_nom" if hasattr(cleaned_jets, "pt_nom") else "pt"
 
@@ -1150,13 +1150,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         cleaned_jets = ApplyJetCorrections(
             dataset.year, corr_type="jets", isData=dataset.is_data, era=dataset.run_era
-        ).build(cleaned_jets, lazy_cache=events_cache)
+        ).build(cleaned_jets)
         cleaned_jets = ApplyJetSystematics(
             dataset.year, cleaned_jets, variation_state.object_variation
         )
         met = ApplyJetCorrections(
             dataset.year, corr_type="met", isData=dataset.is_data, era=dataset.run_era
-        ).build(met_raw, cleaned_jets, lazy_cache=events_cache)
+        ).build(met_raw, cleaned_jets)
 
         objects.met = met
         objects.jets = cleaned_jets
@@ -1231,12 +1231,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         events,
         dataset: DatasetContext,
         variation_state: VariationState,
-        events_cache,
     ) -> VariationState:
         variation_state = self._apply_tau_variations(variation_state, dataset)
-        variation_state = self._build_cleaned_jets(
-            variation_state, dataset=dataset, events_cache=events_cache
-        )
+        variation_state = self._build_cleaned_jets(variation_state, dataset=dataset)
         if (
             self.tau_h_analysis
             and variation_state.objects.shifted_cleaning_taus is not None
@@ -2236,7 +2233,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             "data_weight", set()
         )
 
-        events_cache = events.caches[0]
         hout = self.accumulator
 
         for request in variation_requests:
@@ -2261,7 +2257,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 events,
                 dataset,
                 variation_state,
-                events_cache,
             )
 
             weights_object = self._register_weights_for_variation(
