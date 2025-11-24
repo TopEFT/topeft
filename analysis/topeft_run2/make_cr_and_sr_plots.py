@@ -74,15 +74,79 @@ SR_CHAN_DICT = {
         "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
         "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
     ],
+    "2lss_fwd_SR": [
+        "2lss_fwd_m_4j", "2lss_fwd_m_5j", "2lss_fwd_m_6j", "2lss_fwd_m_7j",
+        "2lss_fwd_p_4j", "2lss_fwd_p_5j", "2lss_fwd_p_6j", "2lss_fwd_p_7j",
+    ],
     "3l_offZ_SR" : [
         "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
         "3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j",
         "3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j",
         "3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j",
     ],
+    "3l_offZ_fwd_SR" : [
+        "3l_m_offZ_1b_fwd_2j","3l_m_offZ_1b_fwd_3j", "3l_m_offZ_1b_fwd_4j", "3l_m_offZ_1b_fwd_5j",
+        #"3l_m_offZ_2b_fwd_2j","3l_m_offZ_2b_fwd_3j", "3l_m_offZ_2b_fwd_4j", "3l_m_offZ_2b_fwd_5j",
+        "3l_p_offZ_1b_fwd_2j","3l_p_offZ_1b_fwd_3j", "3l_p_offZ_1b_fwd_4j", "3l_p_offZ_1b_fwd_5j",
+        #"3l_p_offZ_2b_fwd_2j","3l_p_offZ_2b_fwd_3j", "3l_p_offZ_2b_fwd_4j", "3l_p_offZ_2b_fwd_5j",
+    ],
+    "3l_offZ_fwd_1j_SR" : [
+        "3l_m_offZ_1b_fwd_1j",
+        #"3l_m_offZ_2b_fwd_1j",
+        "3l_p_offZ_1b_fwd_1j",
+        #"3l_p_offZ_2b_fwd_1j",
+    ],
+    "3l_offZ_fwd_2j_SR" : [
+        "3l_m_offZ_1b_fwd_2j",
+        #"3l_m_offZ_2b_fwd_2j",
+        "3l_p_offZ_1b_fwd_2j",
+        #"3l_p_offZ_2b_fwd_2j",
+    ],
+    "3l_offZ_fwd_3j_SR" : [
+        "3l_m_offZ_1b_fwd_3j",
+        #"3l_m_offZ_2b_fwd_3j",
+        "3l_p_offZ_1b_fwd_3j",
+        #"3l_p_offZ_2b_fwd_3j",
+    ],
+    "3l_offZ_fwd_4j_SR" : [
+        "3l_m_offZ_1b_fwd_4j",
+        #"3l_m_offZ_2b_fwd_4j",
+        "3l_p_offZ_1b_fwd_4j",
+        #"3l_p_offZ_2b_fwd_4j",
+    ],
+    "3l_offZ_fwd_5j_SR" : [
+        "3l_m_offZ_1b_fwd_5j",
+        #"3l_m_offZ_2b_fwd_5j",
+        "3l_p_offZ_1b_fwd_5j",
+        #"3l_p_offZ_2b_fwd_5j",
+    ],
     "3l_onZ_SR" : [
         "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
         "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
+    ],
+    "3l_onZ_fwd_SR" : [
+        "3l_onZ_1b_fwd_1j"   , "3l_onZ_1b_fwd_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
+        #"3l_onZ_2b_fwd_1j"   , "3l_onZ_2b_fwd_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
+    ],
+    "3l_onZ_fwd_1j_SR" : [
+        "3l_onZ_1b_fwd_1j"  ,
+        #"3l_onZ_2b_fwd_1j"  ,
+    ],
+    "3l_onZ_fwd_2j_SR" : [
+        "3l_onZ_1b_fwd_2j"  ,
+        #"3l_onZ_2b_fwd_2j"  ,
+    ],
+    "3l_onZ_fwd_3j_SR" : [
+        "3l_onZ_1b_fwd_3j"  ,
+        #"3l_onZ_2b_fwd_3j"  ,
+    ],
+    "3l_onZ_fwd_4j_SR" : [
+        "3l_onZ_1b_fwd_4j"  ,
+        #"3l_onZ_2b_fwd_4j"  ,
+    ],
+    "3l_onZ_fwd_5j_SR" : [
+        "3l_onZ_1b_fwd_5j"  ,
+        #"3l_onZ_2b_fwd_5j"  ,
     ],
     "4l_SR" : [
         "4l_2j", "4l_3j", "4l_4j",
@@ -242,10 +306,17 @@ def get_scale_name(sample_name,sample_group_map,group_type="CR"):
                     # This should only match once, but maybe we should put a check to enforce this
                     scale_name_for_json = proc_str
     else:
-        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
-            if proc_str in sample_name:
-                # This should only match once, but maybe we should put a check to enforce this
-                scale_name_for_json = proc_str
+        if sample_name in sample_group_map["Conv"]:
+            scale_name_for_json = "convs"
+        elif sample_name in sample_group_map["Diboson"]:
+            scale_name_for_json = "Diboson"
+        #elif "Multiboson" in sample_group_map and sample_name in sample_group_map["Multiboson"]:
+        #    scale_name_for_json = "Multiboson"
+        else:
+            for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
+                if proc_str in sample_name:
+                    # This should only match once, but maybe we should put a check to enforce this
+                    scale_name_for_json = proc_str
     return scale_name_for_json
 
 
@@ -424,9 +495,9 @@ def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,tem
             for proc_name in proc_lst:
                 if proc_name not in relevant_samples_lst: continue
 
-                n_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-                u_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic",syst_name+"Up").eval({})[()]
-                d_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic",syst_name+"Down").eval({})[()]
+                n_arr_proc = base_histo.integrate("process",proc_name).integrate("systematic","nominal").eval({})[()]
+                u_arr_proc = base_histo.integrate("process",proc_name).integrate("systematic",syst_name+"Up").eval({})[()]
+                d_arr_proc = base_histo.integrate("process",proc_name).integrate("systematic",syst_name+"Down").eval({})[()]
 
                 u_arr_proc_rel = u_arr_proc - n_arr_proc
                 d_arr_proc_rel = d_arr_proc - n_arr_proc
@@ -576,7 +647,7 @@ def make_cr_fig(h_mc,h_mc_sumw2,h_data,unit_norm_bool,axis='process',var='lj0pt'
         bins=bins,
         stack=False,
         density=unit_norm_bool,
-        label='Data',
+        label=('Data' if unblind else 'Asimov Data'),
         #flow='show',
         histtype='errorbar',
         **DATA_ERR_OPS,
@@ -977,6 +1048,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
             CR_GRP_MAP["Ttbar"].append(proc_name)
         elif "TTG" in proc_name:
             SR_GRP_MAP["Conv"].append(proc_name)
+        elif "ttg" in proc_name:
+            SR_GRP_MAP["Conv"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             SR_GRP_MAP["Triboson"].append(proc_name)
         elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
@@ -997,6 +1070,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
     #}
     analysis_bins['ptz'] = axes_info['ptz']['variable']
     analysis_bins['lj0pt'] = axes_info['lj0pt']['variable']
+    analysis_bins['l0eta'] = axes_info['l0eta']['variable']
+    analysis_bins['l1eta'] = axes_info['l1eta']['variable']
 
     # Loop over hists and make plots
     skip_lst = ['ptz', 'njets'] # Skip this hist
@@ -1013,13 +1088,13 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
         if (var_name in skip_lst): continue
-        #if (var_name not in keep_lst): continue
         print("\nVariable:",var_name)
 
         # Extract the MC,sumw2, and data hists
         hist_mc_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_mc_sumw2 = dict_of_sumw2[var_name].remove("process",samples_to_rm_from_mc_sumw2_hist)
         hist_data_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
+        if not unblind: hist_data_orig = hist_mc_orig
 
         if not unblind: hist_data_orig = hist_mc_orig
 
@@ -1071,19 +1146,6 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
             if not os.path.exists(save_dir_path_tmp):
                 os.mkdir(save_dir_path_tmp)
 
-            # Rebin into analysis bins
-            if var_name in analysis_bins.keys():
-                lep_bin = chan_name[:2]
-                # histEFT doesn't support rebinning for now
-                '''
-                if var_name == "njets":
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name][lep_bin]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name][lep_bin]))
-                else:
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name]))
-                '''
-
             if not hist_mc.eval({}):
                 print("Warning: empty mc histo, continuing")
                 continue
@@ -1120,7 +1182,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
 # Wrapper function to loop over all SR categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make two sets of plots: One with process overlay, one with channel overlay
-def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True):
+def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True,skip_syst_errs=False):
 
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
@@ -1165,6 +1227,28 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         # Make plots for each SR category
         if split_by_chan:
             for hist_cat in SR_CHAN_DICT.keys():
+
+                # Calculate the syst errors
+                p_err_arr = None
+                m_err_arr = None
+                p_err_arr_ratio = None
+                m_err_arr_ratio = None
+                if not skip_syst_errs:
+                    # Get plus and minus rate and shape arrs
+                    rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_sig, CR_GRP_MAP)
+                    shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_sig)
+                    if (var_name == "njets"):
+                        # This is a special case for the diboson jet dependent systematic
+                        db_hist = hist_sig.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
+                        shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in hist_cat else 0)) # Njets histos are assumed to start at njets=0
+                        shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in hist_cat else 0)) # Njets histos are assumed to start at njets=0
+                    # Get the arrays we will actually put in the CR plot
+                    nom_arr_all = hist_sig[{"process": sum}].integrate("systematic","nominal").eval({})[()][1:]
+                    p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:] # This goes in the main plot
+                    m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:] # This goes in the main plot
+                    p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
+                    m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
+
                 if ((var_name == "ptz") and ("3l" not in hist_cat)): continue
 
                 # Make a sub dir for this category
@@ -1388,8 +1472,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
                     db_hist = hist_mc_integrated.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
-                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
                 # Get the arrays we will actually put in the CR plot
                 nom_arr_all = hist_mc_integrated[{"process": sum}].integrate("systematic","nominal").eval({})[()][1:]
                 syst_err = np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:]
