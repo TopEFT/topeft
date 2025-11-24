@@ -198,7 +198,12 @@ runner = processor.Runner(
 attempt = 0
 while True:
     try:
-        output = runner(flist, treename, processor_instance)
+        output = runner(
+            flist,
+            processor_instance,
+            treename,
+            # coffea Runner.__call__ expects (fileset, processor_instance, treename)
+        )
     except Exception as exc:
         if executor != "futures" or attempt >= futures_retries:
             raise

@@ -955,8 +955,9 @@ class RunWorkflow:
                 try:
                     out = runner(
                         {task.sample: sample_flist},
-                        self._config.treename,
                         processor_instance,
+                        self._config.treename,
+                        # coffea Runner.__call__ expects (fileset, processor_instance, treename)
                     )
                 except Exception as exc:
                     if attempt >= max_retries:
