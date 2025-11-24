@@ -287,13 +287,9 @@ PY
     printf -v arg_string ' %q' "${plotter_args[@]}"
     arg_string="${arg_string# }"
 
-    local staged_entry="${tmp_dir}/condor_plotter_entry.sh"
-    cp "${ENTRY_SCRIPT}" "${staged_entry}"
-    chmod +x "${staged_entry}"
-
-    local executable_path="${staged_entry}"
+    local executable_path="${ENTRY_SCRIPT}"
     local should_transfer_files="YES"
-    local transfer_input_files="${staged_entry}"
+    local transfer_input_files="${ENTRY_SCRIPT}"
 
     {
     cat <<EOF
@@ -306,6 +302,7 @@ output                  = ${log_dir}/plotter.\$(Cluster).\$(Process).out
 error                   = ${log_dir}/plotter.\$(Cluster).\$(Process).err
 getenv                  = True
 should_transfer_files   = ${should_transfer_files}
+transfer_executable     = True
 environment              = "${environment_string}"
 EOF
     if [[ -n "${transfer_input_files}" ]]; then
