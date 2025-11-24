@@ -210,18 +210,6 @@ main() {
         fi
     fi
 
-    if [[ -z "${log_dir}" ]]; then
-        log_dir="${PWD}/condor_logs"
-    fi
-
-    log_dir=$(python3 - "${log_dir}" <<'PY'
-import os
-import sys
-print(os.path.abspath(os.path.expanduser(sys.argv[1])))
-PY
-)
-    mkdir -p "${log_dir}"
-
     ceph_root=$(python3 - "${ceph_root}" <<'PY'
 import os
 import sys
@@ -243,6 +231,18 @@ PY
         echo "Error: '${analysis_dir}' does not exist; check --ceph-root." >&2
         return 1
     fi
+
+    if [[ -z "${log_dir}" ]]; then
+        log_dir="${analysis_dir}/condor_logs"
+    fi
+
+    log_dir=$(python3 - "${log_dir}" <<'PY'
+import os
+import sys
+print(os.path.abspath(os.path.expanduser(sys.argv[1])))
+PY
+)
+    mkdir -p "${log_dir}"
 
     local entry_dir="${analysis_dir}"
 
@@ -295,27 +295,22 @@ PY
         arguments_line+=" ${arg_string}"
     fi
 
-    local executable_path="condor_plotter_entry.sh"
-    local should_transfer_files="YES"
-    local transfer_input_files="condor_plotter_entry.sh"
+    local executable_path="${entry_dir}/condor_plotter_entry.sh"
+    local should_transfer_files="NO"
 
     {
 cat <<EOF
 universe                = vanilla
 executable              = ${executable_path}
 arguments               = ${arguments_line}
-initialdir              = ${SCRIPT_DIR}
+initialdir              = ${entry_dir}
 log                     = ${log_dir}/plotter.\$(Cluster).\$(Process).log
 output                  = ${log_dir}/plotter.\$(Cluster).\$(Process).out
 error                   = ${log_dir}/plotter.\$(Cluster).\$(Process).err
 getenv                  = True
 should_transfer_files   = ${should_transfer_files}
-transfer_executable     = True
 environment              = "${environment_string}"
 EOF
-    if [[ -n "${transfer_input_files}" ]]; then
-        printf 'transfer_input_files    = %s\n' "${transfer_input_files}"
-    fi
     if [[ -n "${request_cpus}" ]]; then
         printf 'request_cpus            = %s\n' "${request_cpus}"
     fi
@@ -332,14 +327,9 @@ EOF
         printf '%s\n' "${validation_output}" >&2
         echo "Submit file: ${submit_file}" >&2
         echo "entry_dir: ${entry_dir}" >&2
-        echo "initialdir: ${SCRIPT_DIR}" >&2
+        echo "initialdir: ${entry_dir}" >&2
         echo "Executable path: ${executable_path}" >&2
         echo "should_transfer_files: ${should_transfer_files}" >&2
-        if [[ -n "${transfer_input_files}" ]]; then
-            echo "transfer_input_files: ${transfer_input_files}" >&2
-        else
-            echo "transfer_input_files: (none)" >&2
-        fi
         echo "--- ${submit_file} ---"
         cat "${submit_file}"
         return 0
