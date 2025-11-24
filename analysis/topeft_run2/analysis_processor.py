@@ -10,16 +10,16 @@ systematic catalogue exposed through ``topeft/params/metadata.yml`` with the
 from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
-import coffea
 import numpy as np
 import awkward as ak
 import os
 import re
 import logging
 
+import coffea
 import hist
 import topcoffea
-import coffea.processor as processor
+from coffea.processor import ProcessorABC
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 from typing import Dict, List, Optional, Tuple
@@ -242,7 +242,7 @@ _TAU_SF_WEIGHT_SPECS: Tuple[Tuple[str, str, str, str, str], ...] = (
 )
 
 
-class AnalysisProcessor(processor.ProcessorABC):
+class AnalysisProcessor(ProcessorABC):
 
     def __init__(
         self,
