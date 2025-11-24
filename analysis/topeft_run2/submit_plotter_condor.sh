@@ -293,7 +293,7 @@ PY
     {
     cat <<EOF
 universe                = vanilla
-executable              = "${executable_path}"
+executable              = ${executable_path}
 arguments               = ${arg_string}
 initialdir              = ${SCRIPT_DIR}
 log                     = ${log_dir}/plotter.\$(Cluster).\$(Process).log
