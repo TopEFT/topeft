@@ -66,11 +66,11 @@ def test_submit_plotter_condor_dry_run(tmp_path):
     assert f"output                  = {log_dir}/plotter.$(Cluster).$(Process).out" in sub_body
     assert f"error                   = {log_dir}/plotter.$(Cluster).$(Process).err" in sub_body
     assert "queue 1" in sub_body
-    assert "should_transfer_files   = YES" in sub_body
-    assert "transfer_executable     = True" in sub_body
+    assert "should_transfer_files   = NO" in sub_body
+    assert "transfer_executable" not in sub_body
 
-    staged_entry = Path(sub_path).with_name("condor_plotter_entry.sh")
-    assert f'executable              = "{staged_entry}"' in sub_body
+    ceph_entry = analysis_dir / "condor_plotter_entry.sh"
+    assert f'executable              = "{ceph_entry}"' in sub_body
 
     staged_repo_root = analysis_dir.parent
     expected_environment = (
