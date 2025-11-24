@@ -49,6 +49,9 @@ aspects are worth keeping in mind when extending it:
   describes.  The processor caches both the tuple lists (for histogram
   enumeration) and set views (for fast membership checks) so that custom
   systematic categories can be added without rewriting the ``process`` method.
+  Newer Coffea releases no longer attach ``NanoEvents.caches`` objects, so the
+  Run 2 processor operates directly on the event record without relying on
+  cache-provided lazy arrays.
 * **Golden JSONs** – when processing data samples the workflow injects the
   appropriate ``golden_json_path`` so that :class:`coffea.lumi_tools.LumiMask`
   can be used directly inside the ``process`` method.  Missing entries raise a
