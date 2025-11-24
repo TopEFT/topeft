@@ -244,6 +244,8 @@ PY
         return 1
     fi
 
+    local entry_dir="${analysis_dir}"
+
     local validation_output=""
     if ! validation_output=$("${RUN_PLOTTER}" "${plotter_args[@]}" --dry-run 2>&1); then
         echo "Error: run_plotter.sh validation failed:" >&2
@@ -266,7 +268,7 @@ PY
 
     local -a environment_entries=(
         "TOPEFT_REPO_ROOT=${repo_root}"
-        "TOPEFT_ENTRY_DIR=${analysis_dir}"
+        "TOPEFT_ENTRY_DIR=${entry_dir}"
     )
 
     if [[ -n "${conda_prefix}" ]]; then
@@ -286,15 +288,22 @@ PY
     printf -v arg_string ' %q' "${plotter_args[@]}"
     arg_string="${arg_string# }"
 
+    local wrapper_entry_arg="TOPEFT_ENTRY_DIR=${entry_dir}"
+    local arguments_line=""
+    printf -v arguments_line '%q' "${wrapper_entry_arg}"
+    if [[ -n "${arg_string}" ]]; then
+        arguments_line+=" ${arg_string}"
+    fi
+
     local executable_path="condor_plotter_entry.sh"
     local should_transfer_files="YES"
     local transfer_input_files="condor_plotter_entry.sh"
 
     {
-    cat <<EOF
+cat <<EOF
 universe                = vanilla
 executable              = ${executable_path}
-arguments               = ${arg_string}
+arguments               = ${arguments_line}
 initialdir              = ${SCRIPT_DIR}
 log                     = ${log_dir}/plotter.\$(Cluster).\$(Process).log
 output                  = ${log_dir}/plotter.\$(Cluster).\$(Process).out
@@ -322,6 +331,7 @@ EOF
         echo "run_plotter.sh validation output:" >&2
         printf '%s\n' "${validation_output}" >&2
         echo "Submit file: ${submit_file}" >&2
+        echo "entry_dir: ${entry_dir}" >&2
         echo "initialdir: ${SCRIPT_DIR}" >&2
         echo "Executable path: ${executable_path}" >&2
         echo "should_transfer_files: ${should_transfer_files}" >&2

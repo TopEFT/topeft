@@ -7,12 +7,38 @@ main() {
     unset PYTHONPATH
 
     local entry_dir="${TOPEFT_ENTRY_DIR:-}"
+
+    if [[ $# -gt 0 && "$1" == TOPEFT_ENTRY_DIR=* ]]; then
+        if [[ -z "${entry_dir}" ]]; then
+            entry_dir="${1#TOPEFT_ENTRY_DIR=}"
+        fi
+        shift
+    fi
+
     if [[ -z "${entry_dir}" ]]; then
-        echo "[condor_plotter_entry] ERROR: TOPEFT_ENTRY_DIR is not set." >&2
+        local script_dir
+        script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+        if [[ -n "${PWD:-}" ]]; then
+            entry_dir="${PWD}"
+        fi
+
+        if [[ -z "${entry_dir}" && -n "${script_dir}" ]]; then
+            entry_dir="${script_dir}"
+        fi
+    fi
+
+    if [[ -z "${entry_dir}" ]]; then
+        echo "[condor_plotter_entry] ERROR: TOPEFT_ENTRY_DIR is not set and no fallback was found." >&2
         return 1
     fi
 
-    cd "${entry_dir}"
+    echo "[condor_plotter_entry] Using entry directory: ${entry_dir}" >&2
+
+    cd "${entry_dir}" || {
+        echo "[condor_plotter_entry] ERROR: Failed to cd into '${entry_dir}'." >&2
+        return 1
+    }
 
     activate_with_conda() {
         if command -v conda >/dev/null 2>&1; then
