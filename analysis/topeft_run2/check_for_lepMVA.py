@@ -2,6 +2,7 @@ import os
 import json
 
 from coffea.nanoevents import NanoEventsFactory
+from analysis.topeft_run2.nanoevents_helpers import ensure_factory_mode
 
 import topcoffea
 
@@ -48,7 +49,8 @@ def main():
                 root_files = ["/hadoop" + x.replace("//","/") for x in jsn["files"]]
                 root_file = root_files[0]
                 print(f"\t[{idx+1:>2}/{njsns}] Checking: {root_file}")
-                nano_events = NanoEventsFactory.from_root(root_file,entry_stop=5).events()
+                factory = NanoEventsFactory.from_root(root_file,entry_stop=5)
+                nano_events = ensure_factory_mode(factory).events()
                 e = nano_events.Electron
                 print("\t\te.mvaTTHUL",e.mvaTTHUL)
 main()

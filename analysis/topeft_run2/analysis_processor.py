@@ -1144,8 +1144,30 @@ class AnalysisProcessor(processor.ProcessorABC):
         )[0]
 
         if not dataset.is_data:
+            pt_gen = None
+
+            try:
+                matched_gen = cleaned_jets.matched_gen
+            except Exception:
+                matched_gen = None
+
+            if matched_gen is not None:
+                pt_gen = matched_gen.pt
+            else:
+                genjet_idx = getattr(cleaned_jets, "genJetIdx", None)
+                event_record = getattr(cleaned_jets, "_events", None)
+                gen_jets = getattr(event_record, "GenJet", None)
+                if gen_jets is not None and genjet_idx is not None:
+                    try:
+                        pt_gen = gen_jets[genjet_idx].pt
+                    except Exception:
+                        pt_gen = None
+
+            if pt_gen is None:
+                pt_gen = ak.zeros_like(cleaned_jets.pt)
+
             cleaned_jets["pt_gen"] = ak.values_astype(
-                ak.fill_none(cleaned_jets.matched_gen.pt, 0), np.float32
+                ak.fill_none(pt_gen, 0), np.float32
             )
 
         cleaned_jets = ApplyJetCorrections(

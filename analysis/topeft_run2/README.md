@@ -88,6 +88,13 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
         config = RunConfig(json_files=["/path/to/sample.json"])
         run_workflow(config)
 
+      The Run 2 workflow always instantiates NanoEvents factories in explicit
+      ``"numpy"`` mode, so local futures runs use in-memory arrays without
+      relying on Dask. The coffea runner wiring enforces the mode when
+      building factories, which avoids ``_mode`` attribute errors seen with
+      coffea >= 0.7 and clarifies that Dask is not a requirement for the
+      standard Run 2 configuration.
+
     - A step-by-step walkthrough of the command-line interface is available in
       the [TOP-22-006 quickstart guide](../docs/quickstart_top22_006.md).  See
       also the [Run 2 quickstart overview](../docs/quickstart_run2.md), the

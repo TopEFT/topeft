@@ -2,6 +2,7 @@ import os
 import argparse
 import datetime
 from coffea.nanoevents import NanoEventsFactory
+from analysis.topeft_run2.nanoevents_helpers import ensure_factory_mode
 
 import topcoffea
 from topeft.modules.topcoffea_imports import require_script
@@ -39,7 +40,8 @@ def main():
     in_file = redirector + in_file
 
     # Get the events object and wc names from the input file
-    events = NanoEventsFactory.from_root(in_file).events()
+    factory = NanoEventsFactory.from_root(in_file)
+    events = ensure_factory_mode(factory).events()
     wc_names_lst = utils.get_list_of_wc_names(in_file)
 
     # Get the wc fit dict
