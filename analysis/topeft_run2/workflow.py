@@ -927,6 +927,14 @@ class RunWorkflow:
                 executor_mode=self._config.executor,
             )
 
+            import coffea.processor as processor
+
+            if not isinstance(processor_instance, processor.ProcessorABC):
+                raise TypeError(
+                    "AnalysisProcessor is not an instance of coffea.processor.ProcessorABC. "
+                    f"Active coffea.processor module: {getattr(processor, '__file__', 'unknown')}"
+                )
+
             self._log_task_submission(task)
 
             attempt = 0
