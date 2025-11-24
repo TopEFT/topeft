@@ -49,9 +49,27 @@ main() {
             echo "[condor_plotter_entry] ERROR: Unable to activate environment from TOPEFT_CONDA_PREFIX='${TOPEFT_CONDA_PREFIX}'." >&2
             return 1
         fi
-    elif ! activate_with_conda "clib-env" && ! activate_from_prefix "${entry_dir}/clib-env"; then
-        echo "[condor_plotter_entry] ERROR: Unable to activate clib-env; conda not found and no usable prefix discovered." >&2
-        return 1
+    elif ! activate_with_conda "clib-env"; then
+        local -a fallback_prefixes=()
+
+        if [[ -n "${TOPEFT_REPO_ROOT:-}" ]]; then
+            fallback_prefixes+=("${TOPEFT_REPO_ROOT}/clib-env")
+        fi
+
+        fallback_prefixes+=("${entry_dir}/clib-env")
+
+        local activated=0
+        for prefix in "${fallback_prefixes[@]}"; do
+            if activate_from_prefix "${prefix}"; then
+                activated=1
+                break
+            fi
+        done
+
+        if (( ! activated )); then
+            echo "[condor_plotter_entry] ERROR: Unable to activate clib-env; conda not found and no usable prefix discovered." >&2
+            return 1
+        fi
     fi
 
     ./run_plotter.sh "$@"
