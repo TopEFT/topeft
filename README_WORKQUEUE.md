@@ -25,6 +25,8 @@ The final command prints the path to the packaged environment.  Re-run it
 whenever you update dependencies or pull new commits so the archive remains in
 sync with your editable checkouts.
 
+The updated specification includes `hist=2.9.*` and `boost-histogram>=1.4` alongside the existing NumPy/pandas pins so the histogram stack matches `topcoffea`'s `pyproject.toml`.  Refresh the Conda environment and TaskVine tarball after pulling the new dependencies.
+
 ## Running the analysis with TaskVine
 
 From `analysis/topeft_run2` prepare a run configuration (JSON/YAML/CFG as shown

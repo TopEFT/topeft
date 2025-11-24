@@ -23,7 +23,8 @@ works, walk through the standard refresh steps:
        python -m topcoffea.modules.remote_environment
 
    The helper will compare the current `environment.yml` (including the
-   `coffea==2025.7.3` / `awkward==2.8.7` pins) against the cached archive in
+   `coffea==2025.7.3` / `awkward==2.8.7` pins plus the aligned
+   `hist==2.9.*` / `boost-histogram>=1.4` pair) against the cached archive in
    `topeft-envs/` and build a fresh tarball when the spec or local editable
    packages (`topeft`, `topcoffea`) have changed.
 

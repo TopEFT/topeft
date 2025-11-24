@@ -21,6 +21,8 @@ This guide walks through creating the shared environment, running `run_analysis.
    pip install -e .
    ```
 
+   The shared spec now carries `hist=2.9.*` and `boost-histogram>=1.4` alongside the existing NumPy/pandas pins so the histogram helpers match the `topcoffea` baseline.
+
 3. Clone and install the sibling [`topcoffea`](https://github.com/TopEFT/topcoffea) checkout **on the `ch_update_calcoffea` branch** so the processors and packaged environments agree on the dependency baseline:
 
    ```bash
