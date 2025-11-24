@@ -16,6 +16,7 @@ import os
 import re
 import logging
 
+import coffea
 import hist
 import topcoffea
 from coffea.processor import ProcessorABC
