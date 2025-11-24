@@ -14,7 +14,7 @@ Usage: submit_plotter_condor.sh [condor options] [run_plotter arguments]
 
 Submit run_plotter.sh jobs to HTCondor with minimal boilerplate. The script
 validates plotting options by invoking run_plotter.sh --dry-run locally before
-creating a staged submission file and worker wrapper.
+creating a submission file that spools the worker wrapper.
 
 Condor options (provide these anywhere before an optional "--" delimiter):
   --queue N        Number of job instances to submit (default: 1)
@@ -251,21 +251,10 @@ PY
         return 1
     fi
 
-    local staging_root="${PWD}/condor_staging"
-    staging_root=$(python3 - "${staging_root}" <<'PY'
-import os
-import sys
-print(os.path.abspath(os.path.expanduser(sys.argv[1])))
-PY
-)
-    local staging_dir="${staging_root}/plotter_$(date +%Y%m%d_%H%M%S)_${RANDOM}"
-    mkdir -p "${staging_dir}"
+    local submit_dir="${SCRIPT_DIR}/condor_submissions"
+    mkdir -p "${submit_dir}"
 
-    local staged_entry="${staging_dir}/condor_plotter_entry.sh"
-    cp "${ENTRY_SCRIPT}" "${staged_entry}"
-    chmod +x "${staged_entry}"
-
-    local submit_file="${staging_dir}/plotter_job.sub"
+    local submit_file="${submit_dir}/plotter_job_$(date +%Y%m%d_%H%M%S)_${RANDOM}.sub"
 
     local repo_root
     repo_root=$(python3 - "${analysis_dir}" <<'PY'
@@ -297,16 +286,16 @@ PY
     printf -v arg_string ' %q' "${plotter_args[@]}"
     arg_string="${arg_string# }"
 
-    local executable_path="${staged_entry}"
+    local executable_path="condor_plotter_entry.sh"
     local should_transfer_files="YES"
-    local transfer_input_files="${staged_entry}"
+    local transfer_input_files="condor_plotter_entry.sh"
 
     {
     cat <<EOF
 universe                = vanilla
 executable              = "${executable_path}"
 arguments               = ${arg_string}
-initialdir              = ${analysis_dir}
+initialdir              = ${SCRIPT_DIR}
 log                     = ${log_dir}/plotter.\$(Cluster).\$(Process).log
 output                  = ${log_dir}/plotter.\$(Cluster).\$(Process).out
 error                   = ${log_dir}/plotter.\$(Cluster).\$(Process).err
@@ -332,7 +321,8 @@ EOF
     if (( dry_run )); then
         echo "run_plotter.sh validation output:" >&2
         printf '%s\n' "${validation_output}" >&2
-        echo "Staging directory: ${staging_dir}" >&2
+        echo "Submit file: ${submit_file}" >&2
+        echo "initialdir: ${SCRIPT_DIR}" >&2
         echo "Executable path: ${executable_path}" >&2
         echo "should_transfer_files: ${should_transfer_files}" >&2
         if [[ -n "${transfer_input_files}" ]]; then
@@ -345,7 +335,10 @@ EOF
         return 0
     fi
 
-    condor_submit "${submit_file}"
+    (
+        cd "${SCRIPT_DIR}"
+        condor_submit "${submit_file}"
+    )
 
     return 0
 }
