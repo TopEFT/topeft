@@ -25,7 +25,19 @@ from coffea.lumi_tools import LumiMask
 from typing import Dict, List, Optional, Tuple
 
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics
+from topeft.modules.corrections import (
+    ApplyJetCorrections,
+    GetBtagEff,
+    AttachMuonSF,
+    AttachElectronSF,
+    AttachTauSF,
+    ApplyTES,
+    ApplyTESSystematic,
+    ApplyFESSystematic,
+    AttachPerLeptonFR,
+    ApplyRochesterCorrections,
+    ApplyJetSystematics,
+)
 from topeft.modules.btag_weights import register_btag_sf_weights
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
@@ -50,31 +62,40 @@ logger = logging.getLogger(__name__)
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
-np.seterr(divide='ignore', invalid='ignore', over='ignore')
+np.seterr(divide="ignore", invalid="ignore", over="ignore")
+
 
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
-    # chan_str should look something like "3l_p_offZ_1b", NOTE: This function assumes nlep comes first
-    # njet_str should look something like "atleast_5j",   NOTE: This function assumes njets comes last
-    # flav_str should look something like "emm"
-def construct_cat_name(chan_str,njet_str=None,flav_str=None):
+# chan_str should look something like "3l_p_offZ_1b", NOTE: This function assumes nlep comes first
+# njet_str should look something like "atleast_5j",   NOTE: This function assumes njets comes last
+# flav_str should look something like "emm"
+def construct_cat_name(chan_str, njet_str=None, flav_str=None):
     # Get the component strings
-    nlep_str = chan_str.split("_")[0] # Assumes n leps comes first in the str
-    chan_str = "_".join(chan_str.split("_")[1:]) # The rest of the channel name is everything that comes after nlep
-    if chan_str == "": chan_str = None # So that we properly skip this in the for loop below
+    nlep_str = chan_str.split("_")[0]  # Assumes n leps comes first in the str
+    chan_str = "_".join(
+        chan_str.split("_")[1:]
+    )  # The rest of the channel name is everything that comes after nlep
+    if chan_str == "":
+        chan_str = None  # So that we properly skip this in the for loop below
     if flav_str is not None:
         flav_str = flav_str
     if njet_str is not None:
-        njet_str = njet_str[-2:] # Assumes number of n jets comes at the end of the string
+        njet_str = njet_str[
+            -2:
+        ]  # Assumes number of n jets comes at the end of the string
         if "j" not in njet_str:
             # The njet string should really have a "j" in it
-            raise Exception(f"Something when wrong while trying to consturct channel name, is \"{njet_str}\" an njet string?")
+            raise Exception(
+                f'Something when wrong while trying to consturct channel name, is "{njet_str}" an njet string?'
+            )
 
     # Put the component strings into the channel name
     ret_str = nlep_str
-    for component in [flav_str,chan_str,njet_str]:
-        if component is None: continue
-        ret_str = "_".join([ret_str,component])
+    for component in [flav_str, chan_str, njet_str]:
+        if component is None:
+            continue
+        ret_str = "_".join([ret_str, component])
     return ret_str
 
 
@@ -143,8 +164,12 @@ class VariationObjects:
             loose_leptons=ak.copy(base.loose_leptons),
             fakeable_leptons=ak.copy(base.fakeable_leptons),
             fakeable_sorted=ak.copy(base.fakeable_sorted),
-            cleaning_taus=ak.copy(base.cleaning_taus) if base.cleaning_taus is not None else None,
-            n_loose_taus=ak.copy(base.n_loose_taus) if base.n_loose_taus is not None else None,
+            cleaning_taus=(
+                ak.copy(base.cleaning_taus) if base.cleaning_taus is not None else None
+            ),
+            n_loose_taus=(
+                ak.copy(base.n_loose_taus) if base.n_loose_taus is not None else None
+            ),
             tau0=ak.copy(base.tau0) if base.tau0 is not None else None,
             shifted_cleaning_taus=(
                 ak.copy(base.cleaning_taus) if base.cleaning_taus is not None else None
@@ -207,20 +232,68 @@ class VariationState:
 
 _LEPTON_SF_WEIGHT_SPECS: Dict[str, Tuple[Tuple[str, str, str, str, str], ...]] = {
     "1l": (
-        ("lepSF_muon", "sf_1l_muon", "sf_1l_hi_muon", "sf_1l_lo_muon", "include_muon_sf"),
-        ("lepSF_elec", "sf_1l_elec", "sf_1l_hi_elec", "sf_1l_lo_elec", "include_elec_sf"),
+        (
+            "lepSF_muon",
+            "sf_1l_muon",
+            "sf_1l_hi_muon",
+            "sf_1l_lo_muon",
+            "include_muon_sf",
+        ),
+        (
+            "lepSF_elec",
+            "sf_1l_elec",
+            "sf_1l_hi_elec",
+            "sf_1l_lo_elec",
+            "include_elec_sf",
+        ),
     ),
     "2l": (
-        ("lepSF_muon", "sf_2l_muon", "sf_2l_hi_muon", "sf_2l_lo_muon", "include_muon_sf"),
-        ("lepSF_elec", "sf_2l_elec", "sf_2l_hi_elec", "sf_2l_lo_elec", "include_elec_sf"),
+        (
+            "lepSF_muon",
+            "sf_2l_muon",
+            "sf_2l_hi_muon",
+            "sf_2l_lo_muon",
+            "include_muon_sf",
+        ),
+        (
+            "lepSF_elec",
+            "sf_2l_elec",
+            "sf_2l_hi_elec",
+            "sf_2l_lo_elec",
+            "include_elec_sf",
+        ),
     ),
     "3l": (
-        ("lepSF_muon", "sf_3l_muon", "sf_3l_hi_muon", "sf_3l_lo_muon", "include_muon_sf"),
-        ("lepSF_elec", "sf_3l_elec", "sf_3l_hi_elec", "sf_3l_lo_elec", "include_elec_sf"),
+        (
+            "lepSF_muon",
+            "sf_3l_muon",
+            "sf_3l_hi_muon",
+            "sf_3l_lo_muon",
+            "include_muon_sf",
+        ),
+        (
+            "lepSF_elec",
+            "sf_3l_elec",
+            "sf_3l_hi_elec",
+            "sf_3l_lo_elec",
+            "include_elec_sf",
+        ),
     ),
     "4l": (
-        ("lepSF_muon", "sf_4l_muon", "sf_4l_hi_muon", "sf_4l_lo_muon", "include_muon_sf"),
-        ("lepSF_elec", "sf_4l_elec", "sf_4l_hi_elec", "sf_4l_lo_elec", "include_elec_sf"),
+        (
+            "lepSF_muon",
+            "sf_4l_muon",
+            "sf_4l_hi_muon",
+            "sf_4l_lo_muon",
+            "include_muon_sf",
+        ),
+        (
+            "lepSF_elec",
+            "sf_4l_elec",
+            "sf_4l_hi_elec",
+            "sf_4l_lo_elec",
+            "include_elec_sf",
+        ),
     ),
 }
 
@@ -253,7 +326,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ecut_threshold=None,
         do_errors=False,
         split_by_lepton_flavor=False,
-        muonSyst='nominal',
+        muonSyst="nominal",
         dtype=np.float32,
         rebin=False,
         channel_dict=None,
@@ -286,7 +359,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.tau_h_analysis = "requires_tau" in self._channel_features
         self.fwd_analysis = "requires_forward" in self._channel_features
         if available_systematics is None:
-            raise ValueError("available_systematics must be provided and cannot be None")
+            raise ValueError(
+                "available_systematics must be provided and cannot be None"
+            )
         self._available_systematics = {
             key: tuple(value) for key, value in available_systematics.items()
         }
@@ -297,9 +372,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._debug_logging = bool(debug_logging)
         self._executor_mode = (executor_mode or "").strip().lower() or None
         if suppress_debug_prints is None:
-            suppress_debug_prints = (
-                self._executor_mode == "taskvine"
-                or bool(os.environ.get("TOPEFT_SUPPRESS_DEBUG_STDOUT"))
+            suppress_debug_prints = self._executor_mode == "taskvine" or bool(
+                os.environ.get("TOPEFT_SUPPRESS_DEBUG_STDOUT")
             )
         self._suppress_debug_prints = bool(suppress_debug_prints)
         self._golden_json_path = golden_json_path
@@ -313,16 +387,24 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError("hist_keys must be provided and cannot be None")
 
         if not isinstance(hist_keys, dict):
-            raise TypeError("hist_keys must be a mapping of variation name to histogram key")
+            raise TypeError(
+                "hist_keys must be a mapping of variation name to histogram key"
+            )
 
         raw_histogram_key_map = OrderedDict(hist_keys)
 
         if not raw_histogram_key_map:
             raise ValueError("hist_keys must contain at least one entry")
 
-        histogram_key_map: "OrderedDict[str, Tuple[Tuple[str, ...], ...]]" = OrderedDict()
+        histogram_key_map: "OrderedDict[str, Tuple[Tuple[str, ...], ...]]" = (
+            OrderedDict()
+        )
         for variation_label, key_entries in raw_histogram_key_map.items():
-            if isinstance(key_entries, tuple) and len(key_entries) == 5 and not isinstance(key_entries[0], (tuple, list)):
+            if (
+                isinstance(key_entries, tuple)
+                and len(key_entries) == 5
+                and not isinstance(key_entries[0], (tuple, list))
+            ):
                 normalized_entries = (tuple(key_entries),)
             else:
                 try:
@@ -332,7 +414,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                         "hist_keys values must be 5-element tuples or an iterable of such tuples"
                     ) from exc
             if not normalized_entries:
-                raise ValueError("hist_keys entries must contain at least one histogram key")
+                raise ValueError(
+                    "hist_keys entries must contain at least one histogram key"
+                )
             for entry in normalized_entries:
                 if len(entry) != 5:
                     raise ValueError("histogram keys must be 5-element tuples")
@@ -369,7 +453,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                         "All histogram keys must refer to the same variable and application"
                     )
                 if key_sample != sample_name:
-                    raise ValueError("Histogram keys must refer to the configured sample")
+                    raise ValueError(
+                        "Histogram keys must refer to the configured sample"
+                    )
 
                 if key_ch != self._channel:
                     mapped_channel = self._flavored_channel_lookup.get(key_ch)
@@ -442,8 +528,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._ecut_threshold = ecut_threshold
 
         # Set the booleans
-        self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
-        self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
+        self._do_errors = (
+            do_errors  # Whether to calculate and store the w**2 coefficients
+        )
+        self._split_by_lepton_flavor = split_by_lepton_flavor  # Whether to keep track of lepton flavors individually
 
         if systematic_variations is None:
             systematic_variations = ()
@@ -451,11 +539,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             systematic_variations = tuple(systematic_variations)
 
         self._systematic_variations = systematic_variations
-        self._systematic_info = systematic_variations[0] if systematic_variations else None
+        self._systematic_info = (
+            systematic_variations[0] if systematic_variations else None
+        )
 
         if self._systematic_variations and self._systematic_info is None:
-            raise ValueError("systematic_variations must contain at least one entry when provided")
-
+            raise ValueError(
+                "systematic_variations must contain at least one entry when provided"
+            )
 
     @staticmethod
     def _ensure_ak_array(values, dtype=None):
@@ -474,7 +565,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         if dtype is not None:
             values = ak.values_astype(values, dtype)
         return values
-
 
     @staticmethod
     def _metadata_to_mapping(metadata: Optional[object]) -> Mapping[str, object]:
@@ -506,7 +596,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             return result
         return {}
 
-
     @property
     def accumulator(self):
         return self._accumulator
@@ -528,12 +617,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         return self._var_def
 
     def _build_channel_names(self, lep_chan, njet_ch, flav_ch):
-        ch_name = construct_cat_name(
-            lep_chan, njet_str=njet_ch, flav_str=flav_ch
-        )
-        base_ch_name = construct_cat_name(
-            lep_chan, njet_str=njet_ch, flav_str=None
-        )
+        ch_name = construct_cat_name(lep_chan, njet_str=njet_ch, flav_str=flav_ch)
+        base_ch_name = construct_cat_name(lep_chan, njet_str=njet_ch, flav_str=None)
         return ch_name, base_ch_name
 
     def _build_histogram_key(
@@ -586,13 +671,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         elif hist_axis_name in get_te_param("prompt_and_conv_samples"):
             sample_type = "prompt_and_conversions"
 
-        lumi_mask = ak.ones_like(events.run, dtype=bool)
+        lumi_mask = ak.ones_like(events["run"], dtype=bool)
         if is_data:
-            lumi_mask = LumiMask(self._golden_json_path)(events.run, events.luminosityBlock)
+            lumi_mask = LumiMask(self._golden_json_path)(
+                events["run"], events["luminosityBlock"]
+            )
 
         eft_coeffs = (
             ak.to_numpy(events["EFTfitCoefficients"])
-            if hasattr(events, "EFTfitCoefficients")
+            if "EFTfitCoefficients" in events.fields
             else None
         )
         if eft_coeffs is not None and self._sample["WCnames"] != self._wc_names_lst:
@@ -644,23 +731,21 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return context
 
-    def _select_base_objects(
-        self, events, dataset: DatasetContext
-    ) -> BaseObjectState:
-        met = events.MET
-        ele = events.Electron
-        mu = events.Muon
-        tau = events.Tau
-        jets = events.Jet
+    def _select_base_objects(self, events, dataset: DatasetContext) -> BaseObjectState:
+        met = events["MET"]
+        ele = events["Electron"]
+        mu = events["Muon"]
+        tau = events["Tau"]
+        jets = events["Jet"]
 
         if dataset.is_run3:
             lepton_selection = te_os.run3leptonselection()
-            jets_rho = events.Rho["fixedGridRhoFastjetAll"]
+            jets_rho = events["Rho"]["fixedGridRhoFastjetAll"]
         else:
             lepton_selection = te_os.run2leptonselection()
-            jets_rho = events.fixedGridRhoFastjetAll
+            jets_rho = events["fixedGridRhoFastjetAll"]
 
-        events.nom = ak.ones_like(events.MET.pt)
+        events["nom"] = ak.ones_like(events["MET"].pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(
             ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie
@@ -789,7 +874,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     raise KeyError(
                         f"Missing histogram label for requested variation '{variation.name}'"
                     )
-                requests.append(VariationRequest(variation=variation, histogram_label=label))
+                requests.append(
+                    VariationRequest(variation=variation, histogram_label=label)
+                )
         else:
             requests = [VariationRequest(variation=None, histogram_label="nominal")]
 
@@ -822,7 +909,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         variation = request.variation
         variation_name = variation.name if variation is not None else "nominal"
         variation_base = variation.base if variation is not None else None
-        variation_type = getattr(variation, "type", None) if variation is not None else None
+        variation_type = (
+            getattr(variation, "type", None) if variation is not None else None
+        )
         variation_metadata = self._metadata_to_mapping(
             getattr(variation, "metadata", None) if variation is not None else None
         )
@@ -952,7 +1041,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             requested_data_weight_label = variation_name
             for _direction in ("Up", "Down"):
                 if requested_data_weight_label.endswith(_direction):
-                    requested_data_weight_label = requested_data_weight_label[: -len(_direction)]
+                    requested_data_weight_label = requested_data_weight_label[
+                        : -len(_direction)
+                    ]
                     break
 
         objects = VariationObjects.from_base(base_objects)
@@ -1048,7 +1139,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         cleaned_jets["pt_raw"] = (1 - cleaned_jets.rawFactor) * cleaned_jets.pt
         cleaned_jets["mass_raw"] = (1 - cleaned_jets.rawFactor) * cleaned_jets.mass
-        cleaned_jets["rho"] = ak.broadcast_arrays(variation_state.jets_rho, cleaned_jets.pt)[0]
+        cleaned_jets["rho"] = ak.broadcast_arrays(
+            variation_state.jets_rho, cleaned_jets.pt
+        )[0]
 
         if not dataset.is_data:
             cleaned_jets["pt_gen"] = ak.values_astype(
@@ -1078,7 +1171,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             id_cut=get_te_param("jet_id_cut"),
         )
         cleaned_jets["isFwd"] = te_os.isFwdJet(
-            getattr(cleaned_jets, jetptname), cleaned_jets.eta, cleaned_jets.jetId, jetPtCut=40.0
+            getattr(cleaned_jets, jetptname),
+            cleaned_jets.eta,
+            cleaned_jets.jetId,
+            jetPtCut=40.0,
         )
         good_jets = cleaned_jets[cleaned_jets.isGood]
         fwd_jets = cleaned_jets[cleaned_jets.isFwd]
@@ -1088,7 +1184,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         variation_state.fwd_jets = fwd_jets
         variation_state.njets = ak.num(good_jets)
         variation_state.nfwdj = ak.num(fwd_jets)
-        variation_state.ht = ak.sum(good_jets.pt, axis=-1) if "ht" in self._var_def else None
+        variation_state.ht = (
+            ak.sum(good_jets.pt, axis=-1) if "ht" in self._var_def else None
+        )
         variation_state.j0 = (
             good_jets[ak.argmax(good_jets.pt, axis=-1, keepdims=True)]
             if "j0" in self._var_def
@@ -1108,9 +1206,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         events["njets"] = variation_state.njets
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
-        te_es.add1lMaskAndSFs(events, dataset.year, dataset.is_data, dataset.sample_type)
-        te_es.add2lMaskAndSFs(events, dataset.year, dataset.is_data, dataset.sample_type)
-        te_es.add3lMaskAndSFs(events, dataset.year, dataset.is_data, dataset.sample_type)
+        te_es.add1lMaskAndSFs(
+            events, dataset.year, dataset.is_data, dataset.sample_type
+        )
+        te_es.add2lMaskAndSFs(
+            events, dataset.year, dataset.is_data, dataset.sample_type
+        )
+        te_es.add3lMaskAndSFs(
+            events, dataset.year, dataset.is_data, dataset.sample_type
+        )
         te_es.add4lMaskAndSFs(events, dataset.year, dataset.is_data)
         te_es.addLepCatMasks(events)
 
@@ -1144,12 +1248,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         if self._debug_logging:
             try:
-                total_good_jets = int(ak.sum(variation_state.njets)) if variation_state.njets is not None else 0
+                total_good_jets = (
+                    int(ak.sum(variation_state.njets))
+                    if variation_state.njets is not None
+                    else 0
+                )
             except Exception:
                 total_good_jets = 0
             try:
                 total_fwd_jets = (
-                    int(ak.sum(variation_state.nfwdj)) if variation_state.nfwdj is not None else 0
+                    int(ak.sum(variation_state.nfwdj))
+                    if variation_state.nfwdj is not None
+                    else 0
                 )
             except Exception:
                 total_fwd_jets = 0
@@ -1226,7 +1336,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         data_weight_systematics,
         data_weight_systematics_set,
     ):
-        weights_object = coffea.analysis_tools.Weights(len(events), storeIndividual=True)
+        weights_object = coffea.analysis_tools.Weights(
+            len(events), storeIndividual=True
+        )
 
         goodJets = variation_state.good_jets
         isData = dataset.is_data
@@ -1297,12 +1409,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if dataset.eft_coeffs is None:
                 genw = self._ensure_ak_array(
-                    getattr(events, "genWeight", None), dtype=self._dtype
+                    events["genWeight"] if "genWeight" in events.fields else None,
+                    dtype=self._dtype,
                 )
                 if genw is None:
-                    genw = ak.ones_like(events.event, dtype=self._dtype)
+                    genw = ak.ones_like(events["event"], dtype=self._dtype)
             else:
-                genw = ak.ones_like(events.event, dtype=self._dtype)
+                genw = ak.ones_like(events["event"], dtype=self._dtype)
 
             weights_object.add("norm", (xsec / sow) * genw * lumi)
 
@@ -1326,15 +1439,15 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if dataset.is_run2:
                 l1prefiring_args = [
-                    events.L1PreFiringWeight.Nom,
-                    events.L1PreFiringWeight.Up,
-                    events.L1PreFiringWeight.Dn,
+                    events["L1PreFiringWeight"]["Nom"],
+                    events["L1PreFiringWeight"]["Up"],
+                    events["L1PreFiringWeight"]["Dn"],
                 ]
             else:
                 l1prefiring_args = [
-                    ak.ones_like(events.nom),
-                    ak.ones_like(events.nom),
-                    ak.ones_like(events.nom),
+                    ak.ones_like(events["nom"]),
+                    ak.ones_like(events["nom"]),
+                    ak.ones_like(events["nom"]),
                 ]
 
             register_weight_variation(
@@ -1346,13 +1459,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 active=have_systematics and variation_state.base == "prefiring",
             )
 
-            pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
+            pu_central = tc_cor.GetPUSF(events["Pileup"].nTrueInt, year)
             register_weight_variation(
                 weights_object,
                 "PU",
                 pu_central,
-                up=lambda: tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "up"),
-                down=lambda: tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "down"),
+                up=lambda: tc_cor.GetPUSF(events["Pileup"].nTrueInt, year, "up"),
+                down=lambda: tc_cor.GetPUSF(events["Pileup"].nTrueInt, year, "down"),
                 active=have_systematics and variation_state.base == "pileup",
             )
 
@@ -1446,12 +1559,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                     # required during histogram filling.
                     weights_object.add(
                         btag_result.variation_label,
-                        events.nom,
+                        events["nom"],
                         btag_result.variation_up,
                         btag_result.variation_down,
                     )
             else:
-                weights_object.add("btagSF", ak.ones_like(events.nom))
+                weights_object.add("btagSF", ak.ones_like(events["nom"]))
 
             self._register_lepton_sf_weights(
                 events=events,
@@ -1486,18 +1599,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                 register_weight_variation(
                     weights_object,
                     "tauID",
-                    events.tau_SF_central,
-                    up=lambda: events.tau_SF_up,
-                    down=lambda: events.tau_SF_down,
+                    events["tau_SF_central"],
+                    up=lambda: events["tau_SF_up"],
+                    down=lambda: events["tau_SF_down"],
                     active=bool(self._systematic_variations)
                     and variation_state.base == "tauID",
                 )
                 register_weight_variation(
                     weights_object,
                     "tauMisID",
-                    events.tau_misID_central,
-                    up=lambda: events.tau_misID_up,
-                    down=lambda: events.tau_misID_down,
+                    events["tau_misID_central"],
+                    up=lambda: events["tau_misID_up"],
+                    down=lambda: events["tau_misID_down"],
                     active=bool(self._systematic_variations)
                     and variation_state.base == "tauMisID",
                 )
@@ -1519,10 +1632,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             flipfactor_down = getattr(events, "flipfactor_2l_down", None)
 
             charge_flip_central = flipfactor_central
-            charge_flip_up = (lambda: flipfactor_up) if flipfactor_up is not None else None
-            charge_flip_down = (lambda: flipfactor_down) if flipfactor_down is not None else None
+            charge_flip_up = (
+                (lambda: flipfactor_up) if flipfactor_up is not None else None
+            )
+            charge_flip_down = (
+                (lambda: flipfactor_down) if flipfactor_down is not None else None
+            )
 
             if isData and ("os" not in self.channel):
+
                 def _charge_flip_ratio(values):
                     denominator = flipfactor_central
                     ones = ak.ones_like(denominator)
@@ -1551,7 +1669,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 central_modifiers = getattr(weights_object, "_weights", None).keys()
 
-                if central_modifiers is None or "fliprate" not in set(central_modifiers):
+                if central_modifiers is None or "fliprate" not in set(
+                    central_modifiers
+                ):
                     raise AssertionError(
                         "The 2l same-sign data branch must register the central 'fliprate' weight."
                     )
@@ -1675,11 +1795,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         preselections.add("is_good_lumi", lumi_mask)
 
         preselections.add("chargedl0", (chargel0_p | chargel0_m))
-        preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
+        preselections.add("2l_nozeeveto", (events["is2l_nozeeveto"] & pass_trg))
         preselections.add("2los", charge2l_0)
-        preselections.add("2lem", events.is_em)
-        preselections.add("2lee", events.is_ee)
-        preselections.add("2lmm", events.is_mm)
+        preselections.add("2lem", events["is_em"])
+        preselections.add("2lee", events["is_ee"])
+        preselections.add("2lmm", events["is_mm"])
         preselections.add("2l_onZ_as", sfasz_2l_mask)
         preselections.add("2l_onZ", sfosz_2l_mask)
         preselections.add("bmask_atleast3m", bmask_atleast3med)
@@ -1689,28 +1809,31 @@ class AnalysisProcessor(processor.ProcessorABC):
         preselections.add("~fwdjet_mask", ~fwdjet_mask)
 
         if self.tau_h_analysis:
-            preselections.add("1l", (events.is1l & pass_trg))
+            preselections.add("1l", (events["is1l"] & pass_trg))
             preselections.add("1tau", tau_L_mask)
             preselections.add("1Ftau", tau_F_mask)
             preselections.add("0tau", no_tau_mask)
             preselections.add("onZ_tau", tl_zpeak_mask)
-            preselections.add("offZ_tau", ~tl_zpeak_mask if tl_zpeak_mask is not None else tl_zpeak_mask)
+            preselections.add(
+                "offZ_tau",
+                ~tl_zpeak_mask if tl_zpeak_mask is not None else tl_zpeak_mask,
+            )
         if self.fwd_analysis:
-            preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
+            preselections.add("2lss_fwd", (events["is2l"] & pass_trg & fwdjet_mask))
             preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
             preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
 
-        preselections.add("2lss", (events.is2l & pass_trg))
+        preselections.add("2lss", (events["is2l"] & pass_trg))
         preselections.add("2l_p", chargel0_p)
         preselections.add("2l_m", chargel0_m)
 
-        preselections.add("3l", (events.is3l & pass_trg))
+        preselections.add("3l", (events["is3l"] & pass_trg))
         preselections.add("bmask_exactly0m", bmask_exactly0med)
         preselections.add("bmask_exactly1m", bmask_exactly1med)
         preselections.add("bmask_exactly2m", bmask_exactly2med)
         preselections.add("bmask_atleast2m", bmask_atleast2med)
-        preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
-        preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
+        preselections.add("3l_p", (events["is3l"] & pass_trg & charge3l_p))
+        preselections.add("3l_m", (events["is3l"] & pass_trg & charge3l_m))
         preselections.add("3l_onZ", sfosz_3l_OnZ_mask)
 
         if self.offZ_3l_split:
@@ -1720,11 +1843,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
             preselections.add(
                 "3l_offZ_high",
-                (
-                    sfosz_3l_OffZ_mask
-                    & sfosz_3l_OffZ_any_mask
-                    & ~sfosz_3l_OffZ_low_mask
-                ),
+                (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask),
             )
             preselections.add(
                 "3l_offZ_none",
@@ -1733,7 +1852,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             preselections.add("3l_offZ", sfosz_3l_OffZ_mask)
 
-        preselections.add("4l", (events.is4l & pass_trg))
+        preselections.add("4l", (events["is4l"] & pass_trg))
 
         lep_ch = self._channel_dict["chan_def_lst"]
         tempmask = None
@@ -1748,24 +1867,24 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         del preselections
 
-        selections.add("e", events.is_e)
-        selections.add("m", events.is_m)
-        selections.add("ee", events.is_ee)
-        selections.add("em", events.is_em)
-        selections.add("mm", events.is_mm)
-        selections.add("eee", events.is_eee)
-        selections.add("eem", events.is_eem)
-        selections.add("emm", events.is_emm)
-        selections.add("mmm", events.is_mmm)
+        selections.add("e", events["is_e"])
+        selections.add("m", events["is_m"])
+        selections.add("ee", events["is_ee"])
+        selections.add("em", events["is_em"])
+        selections.add("mm", events["is_mm"])
+        selections.add("eee", events["is_eee"])
+        selections.add("eem", events["is_eem"])
+        selections.add("emm", events["is_emm"])
+        selections.add("mmm", events["is_mmm"])
         selections.add(
             "llll",
             (
-                events.is_eeee
-                | events.is_eeem
-                | events.is_eemm
-                | events.is_emmm
-                | events.is_mmmm
-                | events.is_gr4l
+                events["is_eeee"]
+                | events["is_eeem"]
+                | events["is_eemm"]
+                | events["is_emmm"]
+                | events["is_mmmm"]
+                | events["is_gr4l"]
             ),
         )
 
@@ -1784,16 +1903,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("atleast_0j", njets >= 0)
         selections.add("atmost_3j", njets <= 3)
 
-        selections.add("isSR_2lSS", (events.is2l_SR) & charge2l_1)
-        selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_1)
-        selections.add("isAR_2lSS_OS", (events.is2l_SR) & charge2l_0)
-        selections.add("isSR_2lOS", (events.is2l_SR) & charge2l_0)
-        selections.add("isAR_2lOS", (~events.is2l_SR) & charge2l_0)
+        selections.add("isSR_2lSS", (events["is2l_SR"]) & charge2l_1)
+        selections.add("isAR_2lSS", (~events["is2l_SR"]) & charge2l_1)
+        selections.add("isAR_2lSS_OS", (events["is2l_SR"]) & charge2l_0)
+        selections.add("isSR_2lOS", (events["is2l_SR"]) & charge2l_0)
+        selections.add("isAR_2lOS", (~events["is2l_SR"]) & charge2l_0)
         if self.tau_h_analysis:
-            selections.add("isSR_1l", events.is1l_SR)
-        selections.add("isSR_3l", events.is3l_SR)
-        selections.add("isAR_3l", ~events.is3l_SR)
-        selections.add("isSR_4l", events.is4l_SR)
+            selections.add("isSR_1l", events["is1l_SR"])
+        selections.add("isSR_3l", events["is3l_SR"])
+        selections.add("isAR_3l", ~events["is3l_SR"])
+        selections.add("isSR_4l", events["is4l_SR"])
 
         var_def = self.var_def
 
@@ -1834,7 +1953,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             if self.tau_h_analysis:
                 l_j_collection = ak.with_name(
                     ak.concatenate(
-                        [l_fo_conept_sorted, goodJets, variation_state.objects.cleaning_taus],
+                        [
+                            l_fo_conept_sorted,
+                            goodJets,
+                            variation_state.objects.cleaning_taus,
+                        ],
                         axis=1,
                     ),
                     "PtEtaPhiMCollection",
@@ -1862,7 +1985,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             o0pt = ljptsum = lj0pt = None
 
         if "lt" in var_def:
-            lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + variation_state.objects.met.pt
+            lt = (
+                ak.sum(l_fo_conept_sorted_padded.pt, axis=-1)
+                + variation_state.objects.met.pt
+            )
         else:
             lt = None
 
@@ -1923,7 +2049,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             else:
                 continue
 
-            if self.appregion.startswith("isSR") and wgt_fluct in data_weight_systematics_set:
+            if (
+                self.appregion.startswith("isSR")
+                and wgt_fluct in data_weight_systematics_set
+            ):
                 continue
 
             if wgt_fluct == "nominal":
@@ -2035,7 +2164,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         return self._channel
 
     @property
-    def appregion(self):    
+    def appregion(self):
         return self._appregion
 
     @property
@@ -2107,7 +2236,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "data_weight", set()
         )
 
-        events_cache = events.caches[0]
+        events_cache = events["caches"][0]
         hout = self.accumulator
 
         for request in variation_requests:
@@ -2155,7 +2284,5 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return hout
 
-
     def postprocess(self, accumulator):
         return accumulator
-
