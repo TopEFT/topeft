@@ -6,24 +6,25 @@ fi
 main() {
     unset PYTHONPATH
 
-    local SCRIPT_DIR
-    SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-    local REPO_ROOT="${TOPEFT_REPO_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
-    local ENTRY_DIR="${TOPEFT_ENTRY_DIR:-${SCRIPT_DIR}}"
+    local entry_dir="${TOPEFT_ENTRY_DIR:-}"
+    if [[ -z "${entry_dir}" ]]; then
+        echo "[condor_plotter_entry] ERROR: TOPEFT_ENTRY_DIR is not set." >&2
+        return 1
+    fi
 
-    cd "${REPO_ROOT}"
+    cd "${entry_dir}"
 
     activate_with_conda() {
         if command -v conda >/dev/null 2>&1; then
             # shellcheck disable=SC1091
             eval "$(conda shell.bash hook)"
-            conda activate clib-env
+            conda activate "${1}"
             return 0
         fi
         return 1
     }
 
-    activate_with_prefix() {
+    activate_from_prefix() {
         local prefix="$1"
         local activate_script="${prefix}/bin/activate"
 
@@ -36,7 +37,7 @@ main() {
         if [[ -f "${prefix}/etc/profile.d/conda.sh" ]]; then
             # shellcheck disable=SC1091
             source "${prefix}/etc/profile.d/conda.sh"
-            conda activate clib-env
+            conda activate "${prefix}"
             return 0
         fi
 
@@ -44,21 +45,34 @@ main() {
     }
 
     if [[ -n "${TOPEFT_CONDA_PREFIX:-}" ]]; then
-        if ! activate_with_prefix "${TOPEFT_CONDA_PREFIX}"; then
-            echo "[condor_plotter_entry] ERROR: Unable to activate clib-env from TOPEFT_CONDA_PREFIX='${TOPEFT_CONDA_PREFIX}'." >&2
+        if ! activate_with_conda "${TOPEFT_CONDA_PREFIX}" && ! activate_from_prefix "${TOPEFT_CONDA_PREFIX}"; then
+            echo "[condor_plotter_entry] ERROR: Unable to activate environment from TOPEFT_CONDA_PREFIX='${TOPEFT_CONDA_PREFIX}'." >&2
             return 1
         fi
-    elif ! activate_with_conda; then
-        local DEFAULT_PREFIX="${REPO_ROOT}/clib-env"
-        if ! activate_with_prefix "${DEFAULT_PREFIX}"; then
-            echo "[condor_plotter_entry] ERROR: Unable to activate clib-env; conda not found and neither TOPEFT_CONDA_PREFIX nor '${DEFAULT_PREFIX}' is usable." >&2
+    elif ! activate_with_conda "clib-env"; then
+        local -a fallback_prefixes=()
+
+        if [[ -n "${TOPEFT_REPO_ROOT:-}" ]]; then
+            fallback_prefixes+=("${TOPEFT_REPO_ROOT}/clib-env")
+        fi
+
+        fallback_prefixes+=("${entry_dir}/clib-env")
+
+        local activated=0
+        for prefix in "${fallback_prefixes[@]}"; do
+            if activate_from_prefix "${prefix}"; then
+                activated=1
+                break
+            fi
+        done
+
+        if (( ! activated )); then
+            echo "[condor_plotter_entry] ERROR: Unable to activate clib-env; conda not found and no usable prefix discovered." >&2
             return 1
         fi
     fi
 
-    cd "${ENTRY_DIR}"
-
-    "${ENTRY_DIR}/run_plotter.sh" "$@"
+    ./run_plotter.sh "$@"
 }
 
 if main "$@"; then
