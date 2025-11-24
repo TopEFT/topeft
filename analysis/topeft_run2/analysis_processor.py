@@ -2236,7 +2236,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "data_weight", set()
         )
 
-        events_cache = events["caches"][0]
+        events_cache = events.caches[0]
         hout = self.accumulator
 
         for request in variation_requests:
