@@ -70,7 +70,7 @@ def test_submit_plotter_condor_dry_run(tmp_path):
     assert "transfer_executable" not in sub_body
 
     ceph_entry = analysis_dir / "condor_plotter_entry.sh"
-    assert f'executable              = "{ceph_entry}"' in sub_body
+    assert f"executable              = {ceph_entry}" in sub_body
 
     staged_repo_root = analysis_dir.parent
     expected_environment = (
@@ -79,9 +79,14 @@ def test_submit_plotter_condor_dry_run(tmp_path):
     )
     assert expected_environment in sub_body
 
+    for line in sub_body.splitlines():
+        if line.strip().startswith("arguments"):
+            assert "TOPEFT_ENTRY_DIR" not in line
+
     assert "--log-y" in sub_body
     assert "--log-y" in result.stderr
 
     entry_script = (analysis_dir / "condor_plotter_entry.sh").read_text()
     assert "unset PYTHONPATH" in entry_script
-    assert '"${ENTRY_DIR}/run_plotter.sh" "$@"' in entry_script
+    assert "Using entry directory" in entry_script
+    assert './run_plotter.sh "$@"' in entry_script
