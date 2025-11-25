@@ -49,6 +49,9 @@ A colleague unfamiliar with the repository followed the quickstart above to a su
 * Consult [Work Queue executor](#work-queue-executor) for distributed runs or read `README_WORKQUEUE.md` directly.
 * Datacard production and historical reproductions remain in [Reproducing the TOP-22-006 histograms and datacards](#to-reproduce-the-top-22-006-histograms-and-datacards).
 
+### DY τℓ+τh control region
+Enabling `--tau_h_analysis` now stages a Drell–Yan–enriched validation region with one light lepton and one hadronic tau. Events must feature an opposite-sign ℓ–τh pair near the visible Z mass (either via the existing `onZ_tau` mask or a 60–120 GeV window on m(ℓ,τh)), pass the standard single-lepton trigger path, and contain no medium b tags. The region is split by electron/muon flavor and by the usual 2–4 jet bins so it can appear alongside the other CR yields and plots.
+
 ## Repository contents
 The `topeft/topeft` directory is set up to be installed as a pip installable package.
 - `topeft/topeft`: A package containing modules and files that will be installed into the environment.
