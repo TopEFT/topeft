@@ -5892,6 +5892,15 @@ def main():
         )
     selected_years = normalized_years
 
+    def _running_in_condor():
+        condor_env_vars = (
+            "_CONDOR_SCRATCH_DIR",
+            "_CONDOR_SLOT",
+            "CONDOR_JOB_AD",
+            "CONDOR_JOBID",
+        )
+        return any(os.environ.get(var) for var in condor_env_vars)
+
     def _detect_region_from_path(path):
         if not path:
             return None, False
@@ -5959,10 +5968,22 @@ def main():
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     save_dir_path = args.output_path
     outdir_name = args.output_name
-    if args.include_timestamp_tag:
+    auto_timestamp = bool(
+        _running_in_condor() and args.channel_output and not args.include_timestamp_tag
+    )
+    if auto_timestamp:
+        print(
+            "Condor environment detected; enabling timestamp tagging to reduce output collisions."
+        )
+    if args.include_timestamp_tag or auto_timestamp:
         outdir_name = outdir_name + "_" + timestamp_tag
     save_dir_path = os.path.join(save_dir_path,outdir_name)
-    os.mkdir(save_dir_path)
+    dir_preexists = os.path.exists(save_dir_path)
+    os.makedirs(save_dir_path, exist_ok=True)
+    if dir_preexists:
+        print(f"Reusing existing output directory: {save_dir_path}")
+    else:
+        print(f"Created output directory: {save_dir_path}")
 
     # Get the histograms
     load_start_time = datetime.datetime.now()
