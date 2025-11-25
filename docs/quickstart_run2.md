@@ -48,6 +48,17 @@ guide](environment_packaging.md) for rebuild strategies.  Legacy Work Queue
 instructions remain available in [`README_WORKQUEUE.md`](../README_WORKQUEUE.md)
 when you need to reproduce the historical backend.
 
+### Cache-free jet/MET corrections
+
+Run 2 processing now assumes the cache-free jet and MET correction interfaces
+shipped with the `ch_update_calcoffea` branch of `topcoffea`.  The helper and
+full workflow no longer rely on NanoEvents caches when building corrected jets
+or propagating jet variations into MET; the updated APIs materialise the
+corrections directly.  Make sure your environment uses the matching
+`topcoffea` checkout (or a release containing the same cache-free helpers) so
+the processor can run end-to-end without attaching a `lazy_cache` to the
+NanoEvents object.
+
 The quickest way to run the helper is via the dedicated module entry point::
 
     python -m topeft.quickstart input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \

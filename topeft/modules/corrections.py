@@ -12,7 +12,7 @@ import gzip
 import pickle
 import correctionlib
 import json
-from coffea.jetmet_tools import CorrectedMETFactory
+from topcoffea.modules.CorrectedMETFactory import CorrectedMETFactory
 from coffea.btag_tools import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
 
