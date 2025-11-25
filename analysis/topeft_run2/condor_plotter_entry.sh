@@ -8,16 +8,21 @@ main() {
 
     local entry_dir="${TOPEFT_ENTRY_DIR:-}"
 
-    # Set TOPEFT_CONDOR_ULIMIT=1 to opt into Condor ulimit safeguards when not
-    # automatically enabled, and to allow raising the soft process limit to the
-    # hard cap for troubleshooting runaway jobs.
+    # Condor jobs always align the soft process limit with the hard cap
+    # (or "unlimited" when available). Set TOPEFT_CONDOR_ULIMIT=1 to apply the
+    # same behavior when running outside Condor.
     local -a condor_ulimit_sources=()
     local adjust_process_limit=false
+    local condor_job=false
     if [[ -n "${_CONDOR_JOB_IWD:-}" ]]; then
         condor_ulimit_sources+=("_CONDOR_JOB_IWD")
+        condor_job=true
     fi
     if [[ -n "${TOPEFT_CONDOR_ULIMIT:-}" && "${TOPEFT_CONDOR_ULIMIT}" != "0" ]]; then
         condor_ulimit_sources+=("TOPEFT_CONDOR_ULIMIT")
+        adjust_process_limit=true
+    fi
+    if [[ "${condor_job}" == true ]]; then
         adjust_process_limit=true
     fi
 
@@ -79,10 +84,15 @@ main() {
             fi
 
             if proc_msg=$(ulimit -S -u "${target_limit}" 2>&1); then
-                echo "[condor_plotter_entry] Process limit: set soft cap to ${target_limit} (TOPEFT_CONDOR_ULIMIT enabled)." >&2
+                echo "[condor_plotter_entry] Process limit: set soft cap to ${target_limit}." >&2
             else
                 echo "[condor_plotter_entry] WARNING: Failed to raise soft process limit (${proc_msg}). Soft ${proc_soft}, hard ${proc_hard}." >&2
             fi
+
+            local proc_soft_post proc_hard_post
+            proc_soft_post=$(ulimit -S -u)
+            proc_hard_post=$(ulimit -H -u)
+            echo "[condor_plotter_entry] Process limits after adjustment (soft/hard): ${proc_soft_post}/${proc_hard_post}." >&2
         else
             echo "[condor_plotter_entry] Process limit unchanged; set TOPEFT_CONDOR_ULIMIT=1 to attempt matching the hard cap." >&2
         fi
