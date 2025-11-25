@@ -1405,13 +1405,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         btagwpl = get_tc_param(loose_tag)
         isBtagJetsLoose = goodJets.btagDeepFlavB > btagwpl
         isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
-        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+        nbtagsl = ak.sum(isBtagJetsLoose, axis=-1)
 
         medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
         btagwpm = get_tc_param(medium_tag)
         isBtagJetsMedium = goodJets.btagDeepFlavB > btagwpm
         isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
+        nbtagsm = ak.sum(isBtagJetsMedium, axis=-1)
         isBtagJetsLooseNotMedium = isBtagJetsLoose & isNotBtagJetsMedium
 
         variation_state.isBtagJetsLoose = isBtagJetsLoose
@@ -1809,8 +1809,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if isBtagJetsLoose is None or isBtagJetsMedium is None:
             raise ValueError("B-tag jet masks must be populated before histogram filling")
 
-        nbtagsl = ak.num(goodJets[isBtagJetsLoose], axis=-1)
-        nbtagsm = ak.num(goodJets[isBtagJetsMedium], axis=-1)
+        nbtagsl = ak.sum(isBtagJetsLoose, axis=-1)
+        nbtagsm = ak.sum(isBtagJetsMedium, axis=-1)
 
         for label, counts in (("nbtagsl", nbtagsl), ("nbtagsm", nbtagsm)):
             if ak.any(ak.is_none(counts)):
