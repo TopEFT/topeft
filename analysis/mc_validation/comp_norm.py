@@ -331,7 +331,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
             if 'StPt' in j:
                 st_pt = j['StPt']
     for wc in hists1[var].wc_names:
-        if st_pt is not None and wc not in st_pt:
+        if st_pt is not None and wc not in st_pt and not args.zero:
             st_pt[wc] = 100.
 
     if not args.start:
