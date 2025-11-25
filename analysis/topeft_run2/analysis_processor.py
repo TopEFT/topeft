@@ -1756,10 +1756,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         nfwdj = variation_state.nfwdj
         isBtagJetsLoose = variation_state.isBtagJetsLoose
         isNotBtagJetsLoose = variation_state.isNotBtagJetsLoose
-        nbtagsl = variation_state.nbtagsl
         isBtagJetsMedium = variation_state.isBtagJetsMedium
         isNotBtagJetsMedium = variation_state.isNotBtagJetsMedium
-        nbtagsm = variation_state.nbtagsm
         isBtagJetsLooseNotMedium = variation_state.isBtagJetsLooseNotMedium
         l_fo_conept_sorted = variation_state.objects.fakeable_sorted
         l_fo_conept_sorted_padded = variation_state.l_sorted_padded
@@ -1805,6 +1803,29 @@ class AnalysisProcessor(processor.ProcessorABC):
             te_es.dataset_dict_top22006,
             te_es.exclude_dict_top22006,
         )
+
+        if goodJets is None:
+            raise ValueError("goodJets is required to evaluate b-tag categories")
+        if isBtagJetsLoose is None or isBtagJetsMedium is None:
+            raise ValueError("B-tag jet masks must be populated before histogram filling")
+
+        nbtagsl = ak.num(goodJets[isBtagJetsLoose], axis=-1)
+        nbtagsm = ak.num(goodJets[isBtagJetsMedium], axis=-1)
+
+        for label, counts in (("nbtagsl", nbtagsl), ("nbtagsm", nbtagsm)):
+            if ak.any(ak.is_none(counts)):
+                raise ValueError(f"{label} contains missing entries; expected per-event counts")
+            try:
+                counts_np = ak.to_numpy(counts)
+            except Exception as exc:  # pragma: no cover - defensive
+                raise TypeError(
+                    f"{label} must be a numeric per-event Awkward array; received irregular layout"
+                ) from exc
+            if counts_np.ndim != 1:
+                raise TypeError(f"{label} must be a flat per-event array, not {counts_np.ndim}D")
+
+        variation_state.nbtagsl = nbtagsl
+        variation_state.nbtagsm = nbtagsm
 
         bmask_atleast1med_atleast2loose = (nbtagsm >= 1) & (nbtagsl >= 2)
         bmask_exactly0med = nbtagsm == 0

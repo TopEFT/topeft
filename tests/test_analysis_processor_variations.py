@@ -338,3 +338,199 @@ def test_lepton_ordering_is_preserved(monkeypatch):
     assert ak.to_list(updated_state.l0.pt) == [40.0]
     assert ak.to_list(updated_state.l1.pt) == [30.0]
     assert ak.to_list(updated_state.l2.pt) == [20.0]
+
+
+def test_histogram_masks_use_integer_btag_counts(monkeypatch):
+    _patch_common(monkeypatch)
+
+    monkeypatch.setattr(
+        ap.tc_es,
+        "get_Z_peak_mask",
+        lambda leptons, pt_window=0.0, flavor=None: ak.zeros_like(
+            ak.num(leptons, axis=-1), dtype=bool
+        ),
+    )
+    monkeypatch.setattr(
+        ap.tc_es,
+        "get_off_Z_mask_low",
+        lambda leptons, pt_window=0.0: ak.zeros_like(ak.num(leptons, axis=-1), dtype=bool),
+    )
+    monkeypatch.setattr(
+        ap.tc_es,
+        "get_any_sfos_pair",
+        lambda leptons: ak.zeros_like(ak.num(leptons, axis=-1), dtype=bool),
+    )
+    monkeypatch.setattr(
+        ap.tc_es,
+        "trg_pass_no_overlap",
+        lambda events, isData, trigger_dataset, year, dataset_dict, exclude_dict: ak.ones_like(
+            events["event"], dtype=bool
+        ),
+    )
+
+    processor = _make_processor()
+    processor._channel_dict = {
+        "jet_selection": "atleast_0j",
+        "chan_def_lst": ["2lss", "2lss"],
+        "lep_flav_lst": ["ee", "em", "mm"],
+        "appl_region": "isSR_2lSS",
+        "features": (),
+    }
+    processor._channel_features = frozenset()
+    processor.offZ_3l_split = False
+    processor.tau_h_analysis = False
+    processor.fwd_analysis = False
+    processor._flavored_channel_lookup = {}
+    processor._histogram_label_lookup = {}
+    processor._split_by_lepton_flavor = False
+    processor._channel = "2lss"
+    processor._appregion = "isSR_2lSS"
+    processor._var = "njets"
+    processor._var_def = "njets"
+    processor._ecut_threshold = None
+
+    jets = ak.Array(
+        [
+            [
+                {"pt": 55.0, "eta": 0.1, "phi": 0.1, "mass": 5.0, "btagDeepFlavB": 0.96},
+                {"pt": 42.0, "eta": -0.2, "phi": -0.3, "mass": 4.0, "btagDeepFlavB": 0.10},
+                {"pt": 36.0, "eta": 0.4, "phi": 0.5, "mass": 3.0, "btagDeepFlavB": 0.92},
+            ],
+            [
+                {"pt": 50.0, "eta": -0.1, "phi": 0.2, "mass": 5.0, "btagDeepFlavB": 0.08},
+                {"pt": 28.0, "eta": 0.3, "phi": -0.4, "mass": 3.5, "btagDeepFlavB": 0.75},
+            ],
+        ]
+    )
+    fakeable_sorted = ak.Array(
+        [
+            [
+                {"pt": 40.0, "conept": 40.0, "eta": 0.1, "phi": 0.1, "mass": 0.1, "charge": 1},
+                {"pt": 35.0, "conept": 35.0, "eta": -0.2, "phi": 0.2, "mass": 0.1, "charge": 1},
+                {"pt": 25.0, "conept": 25.0, "eta": 0.3, "phi": -0.3, "mass": 0.1, "charge": 1},
+            ],
+            [
+                {"pt": 45.0, "conept": 45.0, "eta": 0.1, "phi": 0.1, "mass": 0.1, "charge": -1},
+                {"pt": 32.0, "conept": 32.0, "eta": -0.2, "phi": 0.2, "mass": 0.1, "charge": -1},
+            ],
+        ]
+    )
+    fakeable_leptons = ak.Array([[], []])
+    padded_leptons = ak.pad_none(fakeable_sorted, 3, axis=1)
+
+    objects = ap.VariationObjects(
+        met=ak.Array([{"pt": 80.0, "phi": 0.0, "sumEt": 100.0}] * 2),
+        electrons=ak.Array([[], []]),
+        muons=ak.Array([[], []]),
+        taus=ak.Array([[], []]),
+        jets=jets,
+        loose_leptons=ak.Array([[], []]),
+        fakeable_leptons=fakeable_leptons,
+        fakeable_sorted=fakeable_sorted,
+        cleaning_taus=ak.Array([[], []]),
+        n_loose_taus=None,
+        tau0=None,
+    )
+    jets_rho = ak.ones_like(jets.pt) * np.float32(0.5)
+    variation_state = ap.VariationState(
+        request=ap.VariationRequest(variation=None, histogram_label="nominal"),
+        name="nominal",
+        base=None,
+        variation_type=None,
+        metadata={},
+        object_variation="nominal",
+        weight_variations=[],
+        requested_data_weight_label=None,
+        sow_variation_key_map={},
+        sow_variations={},
+        objects=objects,
+        lepton_selection=object(),
+        jets_rho=jets_rho,
+    )
+    variation_state.good_jets = jets
+    variation_state.fwd_jets = ak.Array([[], []])
+    variation_state.njets = ak.num(jets)
+    variation_state.nfwdj = ak.zeros_like(variation_state.njets)
+    variation_state.ht = ak.sum(jets.pt, axis=-1)
+    variation_state.l_sorted_padded = padded_leptons
+    variation_state.l0 = padded_leptons[:, 0]
+    variation_state.l1 = padded_leptons[:, 1]
+    variation_state.l2 = padded_leptons[:, 2]
+
+    loose_mask = ak.Array([[True, False, True], [False, True]])
+    med_mask = ak.Array([[True, False, False], [False, False]])
+    variation_state.isBtagJetsLoose = loose_mask
+    variation_state.isNotBtagJetsLoose = ~loose_mask
+    variation_state.isBtagJetsMedium = med_mask
+    variation_state.isNotBtagJetsMedium = ~med_mask
+    variation_state.isBtagJetsLooseNotMedium = loose_mask & ~med_mask
+
+    dataset = _make_dataset_context(
+        is_data=False,
+        lumi_mask=ak.Array([True, True]),
+        dataset="sample",
+        trigger_dataset="sample",
+    )
+
+    events = ak.Array(
+        {
+            "event": [1, 2],
+            "is2l_nozeeveto": [True, True],
+            "is2l": [True, True],
+            "is3l": [False, False],
+            "is4l": [False, False],
+            "is_ee": [True, False],
+            "is_em": [False, True],
+            "is_mm": [False, False],
+            "is_e": [True, True],
+            "is_m": [False, False],
+            "is_eee": [False, False],
+            "is_eem": [False, False],
+            "is_emm": [False, False],
+            "is_mmm": [False, False],
+            "is_eeee": [False, False],
+            "is_eeem": [False, False],
+            "is_eemm": [False, False],
+            "is_emmm": [False, False],
+            "is_mmmm": [False, False],
+            "is_gr4l": [False, False],
+            "is2l_SR": [True, True],
+            "is3l_SR": [False, False],
+            "is4l_SR": [False, False],
+        }
+    )
+
+    class _RecordingHist(_DummyHistEFT):
+        def __init__(self):
+            self.fills = []
+
+        def fill(self, **kwargs):
+            self.fills.append(kwargs)
+
+    histkey = processor._build_histogram_key(
+        "njets",
+        processor.channel,
+        dataset.dataset,
+        "nominal",
+        application=processor._appregion,
+    )
+    hout = {histkey: _RecordingHist()}
+
+    class _DummyWeights:
+        variations: tuple = ()
+
+        def weight(self, name=None):
+            return np.ones(len(events["event"]), dtype=float)
+
+    processor._fill_histograms_for_variation(
+        events,
+        dataset,
+        variation_state,
+        weights_object=_DummyWeights(),
+        hist_label="nominal",
+        data_weight_systematics_set=set(),
+        hout=hout,
+    )
+
+    assert len(hout[histkey].fills) == 1
+    assert ak.to_list(hout[histkey].fills[0]["njets"]) == [3, 2]
