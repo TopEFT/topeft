@@ -64,6 +64,12 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 np.seterr(divide="ignore", invalid="ignore", over="ignore")
 
+if not hasattr(ak, "stack"):
+    def _ak_stack(arrays, axis=0):
+        return ak.Array(np.stack([ak.to_numpy(arr) for arr in arrays], axis=axis))
+
+    ak.stack = _ak_stack  # type: ignore[attr-defined]
+
 
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
@@ -1177,7 +1183,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
 
         cleaned_jets = ApplyJetCorrections(
-            dataset.year, corr_type="jets", isData=dataset.is_data, era=dataset.run_era
+            dataset.year, corr_type="jet", isData=dataset.is_data, era=dataset.run_era
         ).build(cleaned_jets)
         cleaned_jets = ApplyJetSystematics(
             dataset.year, cleaned_jets, variation_state.object_variation
