@@ -1395,12 +1395,16 @@ def _prepare_variable_payload(
         return cached_payload
 
     histo = region_ctx.dict_of_hists[var_name]
-    is_sparse2d = _is_sparse_2d_hist(histo)
+    is_sparse2d = _is_sparse_2d_hist(histo, var_name=var_name)
     if is_sparse2d and region_ctx.skip_sparse_2d:
         return None
-    if is_sparse2d and (var_name not in te_axes_info_2d) and ("_vs_" not in var_name):
-        print(
-            f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting."
+    has_2d_metadata = isinstance(var_name, str) and (
+        (var_name in te_axes_info_2d) or ("_vs_" in var_name)
+    )
+    if is_sparse2d and not has_2d_metadata:
+        _logger.debug(
+            "Sparse 2D histogram '%s' lacks explicit metadata; ensure axes are configured if 2D plotting is desired.",
+            var_name,
         )
         is_sparse2d = False
 
@@ -4798,26 +4802,45 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
     return shift*shift
 
 
-def _is_sparse_2d_hist(histo):
+def _is_sparse_2d_hist(histo, *, var_name=None):
     if not isinstance(histo, tc_sparseHist.SparseHist):
         return False
+
+    variable_label = var_name if isinstance(var_name, str) else getattr(histo, "name", None)
+    has_2d_metadata = isinstance(variable_label, str) and (
+        (variable_label in te_axes_info_2d) or ("_vs_" in variable_label)
+    )
 
     quadratic_axis = next(
         (ax for ax in histo.dense_axes if getattr(ax, "name", None) == "quadratic_term"),
         None,
     )
+    quadratic_multibin = False
     if quadratic_axis is not None:
         try:
-            # Skip the sparse 2D path only when the quadratic axis has a single bin.
-            if histo.axes["quadratic_term"].size > 1:
-                return True
-        except (KeyError, AttributeError):
-            # If the axis cannot be inspected reliably, keep the conservative 2D
-            # classification to avoid mis-shaping 1D projections.
-            return True
+            quadratic_multibin = histo.axes["quadratic_term"].size > 1
+        except (KeyError, AttributeError):  # pragma: no cover - defensive logging
+            _logger.debug(
+                "Unable to inspect the quadratic_term axis for '%s'; assuming it is single-bin for sparse 2D checks.",
+                variable_label,
+            )
 
     dense_axes = [ax for ax in histo.dense_axes if ax is not quadratic_axis]
-    return len(dense_axes) > 1
+    has_multiple_dense_axes = len(dense_axes) > 1
+
+    if quadratic_multibin:
+        return True
+
+    if has_2d_metadata and has_multiple_dense_axes:
+        return True
+
+    if has_multiple_dense_axes and not has_2d_metadata:
+        _logger.debug(
+            "Histogram '%s' has multiple dense axes but no 2D metadata; treating it as 1D until metadata is provided.",
+            variable_label,
+        )
+
+    return False
 
 
 ######### Plotting functions #########
