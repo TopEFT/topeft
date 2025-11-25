@@ -405,6 +405,30 @@
                 "=3",
                 "=4"
             ]
+        },
+        "dy_tautau_CR": {
+            "lep_chan_lst": [
+                [
+                    "1l_dy_tautau_CR",
+                    "1l",
+                    "1tau",
+                    "lt_os",
+                    "lt_onZ_loose",
+                    "bmask_exactly0m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "e",
+                "m"
+            ],
+            "appl_lst": [
+                "isSR_1l"
+            ],
+            "jet_lst": [
+                "=2",
+                "=3",
+                "=4"
+            ]
         }
     },
     "OFFZ_SPLIT_CH_LST_SR": {

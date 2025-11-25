@@ -1082,6 +1082,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("0tau", (no_tau_mask))
                 preselections.add("onZ_tau", (tl_zpeak_mask))
                 preselections.add("offZ_tau", (~tl_zpeak_mask))
+                lt_os_mask = ak.fill_none((l0.charge * tau0.charge) < 0, False)
+                lt_vis_mass = ak.fill_none((l0 + tau0).mass, np.inf)
+                lt_vis_onZ_mask = ak.fill_none((lt_vis_mass > 60.0) & (lt_vis_mass < 120.0), False)
+                preselections.add("lt_os", lt_os_mask)
+                preselections.add("lt_vis_onZ", lt_vis_onZ_mask)
+                preselections.add("lt_onZ_loose", (tl_zpeak_mask | lt_vis_onZ_mask))
             if self.fwd_analysis:
                 preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
                 preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))

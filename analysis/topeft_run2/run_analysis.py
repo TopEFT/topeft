@@ -225,7 +225,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--tau_h_analysis",
         action="store_true",
-        help="Add tau channels",
+        help=(
+            "Add hadronic tau channels, including the DY-like 1l+tau_h control region "
+            "with opposite-sign pairs around the visible Z mass."
+        ),
     )
     parser.add_argument(
         "--fwd-analysis",
