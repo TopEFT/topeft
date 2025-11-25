@@ -25,6 +25,9 @@ Condor options (provide these anywhere before an optional "--" delimiter):
   --request-cpus N Request this many CPU cores (must be a positive integer)
   --request-memory SIZE
                    Request this amount of memory (HTCondor size expression)
+  --condor-ulimit  Export TOPEFT_CONDOR_ULIMIT=1 so the entry wrapper applies
+                   conservative ulimit settings (e.g., disabling core files)
+                   inside HTCondor jobs.
   --conda-prefix DIR
                    Location of the clib-env Conda environment on the worker
                    nodes. When provided, TOPEFT_CONDA_PREFIX is exported to
@@ -62,6 +65,7 @@ main() {
     local dry_run=0
     local request_cpus=""
     local request_memory=""
+    local condor_ulimit=0
     local -a plotter_args=()
     local parsing_condor=1
 
@@ -126,6 +130,11 @@ main() {
                     fi
                     request_memory="$2"
                     shift 2
+                    continue
+                    ;;
+                --condor-ulimit)
+                    condor_ulimit=1
+                    shift
                     continue
                     ;;
                 --dry-run)
@@ -273,6 +282,10 @@ PY
 
     if [[ -n "${conda_prefix}" ]]; then
         environment_entries+=("TOPEFT_CONDA_PREFIX=${conda_prefix}")
+    fi
+
+    if (( condor_ulimit )); then
+        environment_entries+=("TOPEFT_CONDOR_ULIMIT=1")
     fi
 
     local environment_string=""
