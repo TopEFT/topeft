@@ -5,6 +5,7 @@ import uuid
 
 import awkward as ak
 from coffea.nanoevents import BaseSchema, NanoEventsFactory
+from analysis.topeft_run2.nanoevents_helpers import ensure_factory_mode
 
 
 _hist_eft_stub = types.ModuleType("topcoffea.modules.HistEFT")
@@ -177,3 +178,22 @@ def test_process_handles_nanoevents_without_cache(monkeypatch):
 
     assert result == {"status": "ok"}
     assert processed_variations == ["nominal"]
+
+
+def test_factory_mode_is_set_for_numpy(monkeypatch):
+    factory = ensure_factory_mode(
+        NanoEventsFactory.from_preloaded(
+            _DummyMapping(event=ak.Array([1.0])), schemaclass=BaseSchema
+        ),
+        mode="numpy",
+    )
+
+    events = factory.events()
+
+    processor, processed_variations = _build_minimal_processor(monkeypatch)
+
+    result = processor.process(events)
+
+    assert result == {"status": "ok"}
+    assert processed_variations == ["nominal"]
+    assert getattr(factory, "_mode", None) == "numpy"

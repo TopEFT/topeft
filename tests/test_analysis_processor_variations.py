@@ -230,6 +230,43 @@ def test_apply_tau_variations_updates_tau_properties(monkeypatch):
     assert ak.to_list(updated_state.objects.tau0.pt) == [32.0]
 
 
+def test_cleaned_jets_handles_missing_gen_matches(monkeypatch):
+    _patch_common(monkeypatch)
+
+    monkeypatch.setattr(
+        ap.tc_os, "is_tight_jet", lambda pt, eta, jetId, **_: ak.ones_like(pt, dtype=bool)
+    )
+    monkeypatch.setattr(
+        ap.te_os, "isFwdJet", lambda pt, eta, jetId, jetPtCut=40.0: ak.zeros_like(pt, dtype=bool)
+    )
+
+    processor = _make_processor()
+    jets = ak.Array([
+        [
+            {
+                "pt": 55.0,
+                "eta": 0.2,
+                "phi": 0.1,
+                "mass": 10.0,
+                "rawFactor": 0.0,
+                "jetId": 6,
+                "genJetIdx": -1,
+            }
+        ]
+    ])
+    fakeable = ak.Array([[{"pt": 40.0, "eta": 0.1, "phi": 0.2, "mass": 0.1, "jetIdx": -1}]])
+    fakeable_sorted = ak.Array([[{"pt": 40.0, "conept": 40.0, "jetIdx": -1}]])
+    variation_state = _make_variation_state(
+        jets=jets, fakeable_leptons=fakeable, fakeable_sorted=fakeable_sorted
+    )
+    dataset = _make_dataset_context(is_data=False)
+
+    updated_state = processor._build_cleaned_jets(variation_state, dataset=dataset)
+
+    assert "pt_gen" in ak.fields(updated_state.objects.jets)
+    assert ak.to_list(updated_state.objects.jets.pt_gen) == [[0.0]]
+
+
 def test_lepton_ordering_is_preserved(monkeypatch):
     _patch_common(monkeypatch)
     processor = _make_processor()

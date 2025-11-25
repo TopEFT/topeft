@@ -31,6 +31,7 @@ import os
 import tempfile
 import time
 import warnings
+from functools import partial
 from pathlib import Path
 from dataclasses import asdict, dataclass, field
 from typing import (
@@ -88,6 +89,7 @@ from .run_analysis_helpers import (
     unique_preserving_order,
     weight_variations_from_metadata,
 )
+from .nanoevents_helpers import nanoevents_factory_from_root
 
 DEFAULT_SCENARIO_NAME = "TOP_22_006"
 
@@ -637,6 +639,11 @@ class ExecutorFactory:
             )
 
         runner_fields = set(getattr(processor.Runner, "__dataclass_fields__", {}))
+        runner_kwargs: Dict[str, Any] = {}
+        if "nanoevents_factory" in runner_fields:
+            runner_kwargs["nanoevents_factory"] = partial(
+                nanoevents_factory_from_root, mode="numpy"
+            )
 
         if executor == "futures":
             workers = self._config.nworkers or 1
@@ -647,10 +654,12 @@ class ExecutorFactory:
                 tailtimeout=self._config.futures_tail_timeout,
             )
 
-            runner_kwargs = futures_runner_overrides(
-                runner_fields,
-                memory=self._config.futures_memory,
-                prefetch=self._config.futures_prefetch,
+            runner_kwargs.update(
+                futures_runner_overrides(
+                    runner_fields,
+                    memory=self._config.futures_memory,
+                    prefetch=self._config.futures_prefetch,
+                )
             )
             return _build_runner(exec_instance, **runner_kwargs)
 
@@ -659,7 +668,7 @@ class ExecutorFactory:
                 exec_instance = processor.IterativeExecutor()
             except AttributeError:  # pragma: no cover - depends on coffea build
                 exec_instance = processor.iterative_executor()
-            return _build_runner(exec_instance)
+            return _build_runner(exec_instance, **runner_kwargs)
 
         if executor == "taskvine":
             port_min, port_max = parse_port_range(self._config.port)
@@ -701,6 +710,7 @@ class ExecutorFactory:
                 exec_instance,
                 skipbadfiles=True,
                 xrootdtimeout=300,
+                **runner_kwargs,
             )
 
         raise ValueError(f"Unknown executor '{executor}'")

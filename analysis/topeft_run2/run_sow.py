@@ -11,6 +11,7 @@ import coffea.processor as processor
 from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 
 import topcoffea
+from analysis.topeft_run2.nanoevents_helpers import nanoevents_factory_from_root
 
 if hasattr(NanoEventsFactory, "warn_missing_crossrefs"):
     NanoEventsFactory.warn_missing_crossrefs = False
@@ -177,6 +178,10 @@ else:
 
 runner_fields = set(getattr(processor.Runner, "__dataclass_fields__", {}))
 runner_kwargs: dict[str, Any] = {}
+if "nanoevents_factory" in runner_fields:
+    runner_kwargs["nanoevents_factory"] = lambda *args, **kwargs: nanoevents_factory_from_root(
+        *args, mode="numpy", **kwargs
+    )
 if executor == "futures":
     runner_kwargs.update(
         futures_runner_overrides(
