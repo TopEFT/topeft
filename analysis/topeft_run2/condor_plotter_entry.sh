@@ -8,12 +8,17 @@ main() {
 
     local entry_dir="${TOPEFT_ENTRY_DIR:-}"
 
+    # Set TOPEFT_CONDOR_ULIMIT=1 to opt into Condor ulimit safeguards when not
+    # automatically enabled, and to allow raising the soft process limit to the
+    # hard cap for troubleshooting runaway jobs.
     local -a condor_ulimit_sources=()
+    local adjust_process_limit=false
     if [[ -n "${_CONDOR_JOB_IWD:-}" ]]; then
         condor_ulimit_sources+=("_CONDOR_JOB_IWD")
     fi
     if [[ -n "${TOPEFT_CONDOR_ULIMIT:-}" && "${TOPEFT_CONDOR_ULIMIT}" != "0" ]]; then
         condor_ulimit_sources+=("TOPEFT_CONDOR_ULIMIT")
+        adjust_process_limit=true
     fi
 
     if [[ -z "${entry_dir}" && -n "${_CONDOR_JOB_IWD:-}" ]]; then
@@ -55,11 +60,31 @@ main() {
         echo "[condor_plotter_entry] Limits before adjustment:" >&2
         ulimit -a >&2
 
+        local proc_soft proc_hard
+        proc_soft=$(ulimit -S -u)
+        proc_hard=$(ulimit -H -u)
+        echo "[condor_plotter_entry] Process limits (soft/hard): ${proc_soft}/${proc_hard}." >&2
+
         local core_msg=""
         if core_msg=$(ulimit -S -c 0 2>&1); then
             echo "[condor_plotter_entry] Set core file size (soft) to 0." >&2
         else
             echo "[condor_plotter_entry] Could not adjust core file size (${core_msg}). Current: $(ulimit -c)." >&2
+        fi
+
+        if [[ "${adjust_process_limit}" == true ]]; then
+            local target_limit="${proc_hard}" proc_msg=""
+            if [[ "${proc_hard}" == "unlimited" ]]; then
+                target_limit="unlimited"
+            fi
+
+            if proc_msg=$(ulimit -S -u "${target_limit}" 2>&1); then
+                echo "[condor_plotter_entry] Process limit: set soft cap to ${target_limit} (TOPEFT_CONDOR_ULIMIT enabled)." >&2
+            else
+                echo "[condor_plotter_entry] WARNING: Failed to raise soft process limit (${proc_msg}). Soft ${proc_soft}, hard ${proc_hard}." >&2
+            fi
+        else
+            echo "[condor_plotter_entry] Process limit unchanged; set TOPEFT_CONDOR_ULIMIT=1 to attempt matching the hard cap." >&2
         fi
 
         adjust_memory_limit() {
@@ -89,7 +114,7 @@ main() {
         adjust_memory_limit -v "Virtual memory"
         adjust_memory_limit -m "Resident set size"
 
-        echo "[condor_plotter_entry] Limits before run_plotter.sh:" >&2
+        echo "[condor_plotter_entry] Limits before run_plotter.sh (post-adjustment):" >&2
         ulimit -a >&2
     fi
 
