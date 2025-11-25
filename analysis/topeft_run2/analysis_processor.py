@@ -1159,7 +1159,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 gen_jets = getattr(event_record, "GenJet", None)
                 if gen_jets is not None and genjet_idx is not None:
                     try:
-                        pt_gen = gen_jets[genjet_idx].pt
+                        valid_genjet_idx = genjet_idx >= 0
+                        safe_genjet_idx = ak.where(valid_genjet_idx, genjet_idx, None)
+                        pt_gen = ak.where(
+                            valid_genjet_idx,
+                            gen_jets[safe_genjet_idx].pt,
+                            ak.zeros_like(cleaned_jets.pt),
+                        )
                     except Exception:
                         pt_gen = None
 
