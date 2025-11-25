@@ -1,8 +1,9 @@
-import awkward as ak
-import numpy as np
 import importlib
 import sys
 import types
+import awkward as ak
+import numpy as np
+import pytest
 
 _hist_eft_stub = types.ModuleType("topcoffea.modules.HistEFT")
 
@@ -116,6 +117,19 @@ def _make_processor():
     processor._debug_logging = False
     processor._debug = lambda *args, **kwargs: None
     return processor
+
+
+@pytest.mark.skipif(
+    not hasattr(ap.ak, "stack"),
+    reason="Awkward build missing ak.stack; Run 2 workflow expects native support.",
+)
+def test_ak_stack_uses_awkward_native():
+    arrays = [ak.Array([1, 2]), ak.Array([3, 4])]
+    stacked_axis0 = ap.ak.stack(arrays, axis=0)
+    stacked_axis1 = ap.ak.stack(arrays, axis=1)
+
+    assert ak.to_list(stacked_axis0) == [[1, 2], [3, 4]]
+    assert ak.to_list(stacked_axis1) == [[1, 3], [2, 4]]
 
 
 def test_apply_object_variations_preserves_good_jet_count(monkeypatch):
