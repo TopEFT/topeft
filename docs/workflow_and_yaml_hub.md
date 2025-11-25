@@ -45,7 +45,7 @@ This hub pulls together the essentials for launching Run 2 analyses, choosing be
        --skip-syst
    ```
 
-Both executors emit tuple-keyed histogram pickles in the `(variable, channel, application, sample, systematic)` format that the plotting utilities expect. [analysis_processing.md](analysis_processing.md) describes the tuple schema in more detail.
+Both executors emit tuple-keyed histogram pickles in the `(variable, channel, application, sample, systematic)` format that the plotting utilities expect. [analysis_processing.md](analysis_processing.md) describes the tuple schema in more detail. The Run 2 processor also recomputes b-tag multiplicities as integer arrays right before histogramming so Awkward arithmetic has well-defined inputs when building category masks.
 
 ## YAML structure and merging
 
