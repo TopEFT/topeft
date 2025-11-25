@@ -1488,6 +1488,23 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=F
         return CorrectedMETFactory(name_map)
     return CorrectedJetsFactory(name_map, jec_stack)
 
+
+def build_corrected_jets(jet_factory, jets):
+    """Materialise corrected jets using the cache-free factory interface."""
+
+    corrected = jet_factory.build(jets)
+    return ak.Array(corrected)
+
+
+def build_corrected_met(met_factory, met, corrected_jets):
+    """Materialise corrected MET without relying on any lazy caches."""
+
+    corrected_met = met_factory.build(met, corrected_jets)
+    if isinstance(corrected_met, tuple):
+        corrected_met = corrected_met[0]
+
+    return ak.Array(corrected_met)
+
 def ApplyJetSystematics(year,cleanedJets,syst_var):
     if (syst_var == f'JER_{year}Up'):
         return cleanedJets.JER.up

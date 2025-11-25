@@ -27,6 +27,8 @@ from typing import Dict, List, Optional, Tuple
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import (
     ApplyJetCorrections,
+    build_corrected_jets,
+    build_corrected_met,
     GetBtagEff,
     AttachMuonSF,
     AttachElectronSF,
@@ -1176,15 +1178,28 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ak.fill_none(pt_gen, 0), np.float32
             )
 
-        cleaned_jets = ApplyJetCorrections(
-            dataset.year, corr_type="jet", isData=dataset.is_data, era=dataset.run_era
-        ).build(cleaned_jets)
+        cleaned_jets = build_corrected_jets(
+            ApplyJetCorrections(
+                dataset.year,
+                corr_type="jet",
+                isData=dataset.is_data,
+                era=dataset.run_era,
+            ),
+            cleaned_jets,
+        )
         cleaned_jets = ApplyJetSystematics(
             dataset.year, cleaned_jets, variation_state.object_variation
         )
-        met = ApplyJetCorrections(
-            dataset.year, corr_type="met", isData=dataset.is_data, era=dataset.run_era
-        ).build(met_raw, cleaned_jets)
+        met = build_corrected_met(
+            ApplyJetCorrections(
+                dataset.year,
+                corr_type="met",
+                isData=dataset.is_data,
+                era=dataset.run_era,
+            ),
+            met_raw,
+            cleaned_jets,
+        )
 
         objects.met = met
         objects.jets = cleaned_jets

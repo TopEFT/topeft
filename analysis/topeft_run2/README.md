@@ -55,6 +55,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 * `run_analysis.py`:
     - Provides the CLI entrypoint for the Run 2 Coffea workflow. The heavy lifting now lives in ``analysis.topeft_run2.workflow`` where the ``RunWorkflow`` class orchestrates channel planning, histogram scheduling, and executor setup.
+    - Jet and MET corrections rely on the cache-free factory interfaces shipped with the ``ch_update_calcoffea`` branch of ``topcoffea`` (or a release that includes those helpers). Keep the matching checkout available so ``run_analysis.py`` can build corrected jets/MET without attaching a ``lazy_cache`` to the NanoEvents input.
     - The Run 2 helpers assume Awkward Array ``>=2`` and rely on the library's native ``ak.stack`` implementation rather than a local compatibility shim.
     - YAML-driven presets live in ``analysis/topeft_run2/configs/``.  The ``fullR2_run.yml`` profile mirrors the historic ``fullR2_run.sh`` wrapper and includes both control-region (``default``) and signal-region (``sr``) option bundles.  Launch the control-region pass with::
 
