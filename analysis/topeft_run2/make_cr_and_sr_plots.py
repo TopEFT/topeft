@@ -1406,6 +1406,7 @@ def _prepare_variable_payload(
             "Sparse 2D histogram '%s' lacks explicit metadata; ensure axes are configured if 2D plotting is desired.",
             var_name,
         )
+        is_sparse2d = False
 
     channel_transformations = _resolve_channel_transformations(region_ctx, var_name)
     channel_dict = _apply_channel_dict_transformations(
