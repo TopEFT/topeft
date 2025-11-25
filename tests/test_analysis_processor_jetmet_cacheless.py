@@ -258,3 +258,82 @@ def test_analysis_processor_runs_without_caches_for_jetmet():
     assert result == {"status": "ok"}
     assert processed_variations == ["nominal"]
     assert ak.to_list(events["njets"]) == [1]
+
+
+def test_cache_free_corrections_stackable_with_processor():
+    jets = ak.Array(
+        [
+            [
+                {
+                    "pt": np.float32(45.0),
+                    "eta": np.float32(0.2),
+                    "phi": np.float32(0.1),
+                    "mass": np.float32(9.0),
+                    "rawFactor": np.float32(0.1),
+                    "jetId": 6,
+                    "area": np.float32(0.5),
+                }
+            ]
+        ]
+    )
+    met = ak.Array(
+        [
+            [
+                {
+                    "pt": np.float32(50.0),
+                    "phi": np.float32(0.0),
+                    "sumEt": np.float32(55.0),
+                    "MetUnclustEnUpDeltaX": np.float32(0.0),
+                    "MetUnclustEnUpDeltaY": np.float32(0.0),
+                }
+            ]
+        ]
+    )
+
+    events = NanoEventsFactory.from_preloaded(
+        _DummyMapping(event=ak.Array([1]), Jet=jets, MET=met), schemaclass=BaseSchema
+    ).events()
+
+    captures = {}
+
+    processor, _ = _build_processor()
+
+    def _capture_histograms(self, _events, _dataset, variation_state, weights, *_args, **_kwargs):
+        captures["jets"] = variation_state.cleaned_jets
+        captures["met"] = variation_state.objects.met
+        weights["filled"] = True
+
+    processor._fill_histograms_for_variation = _capture_histograms.__get__(
+        processor, ap.AnalysisProcessor
+    )
+
+    result = processor.process(events)
+
+    assert result == {"status": "ok"}
+    assert "jets" in captures and "met" in captures
+
+    stack_fn = getattr(ap.ak, "stack", None)
+    if stack_fn is None:
+        stack_fn = lambda arrays, axis=0: ak.concatenate(
+            [ak.Array(arr)[None, ...] for arr in arrays], axis=axis
+        )
+
+    jet_pts = [captures["jets"].pt]
+    if "JES_jes" in ak.fields(captures["jets"]):
+        jet_pts.extend(
+            [captures["jets"].JES_jes.up.pt, captures["jets"].JES_jes.down.pt]
+        )
+    stacked_jets = stack_fn(jet_pts, axis=0)
+
+    met_pts = [captures["met"].pt]
+    if "MET_UnclusteredEnergy" in ak.fields(captures["met"]):
+        met_pts.extend(
+            [
+                captures["met"].MET_UnclusteredEnergy.up.pt,
+                captures["met"].MET_UnclusteredEnergy.down.pt,
+            ]
+        )
+    stacked_met = stack_fn(met_pts, axis=0)
+
+    assert np.isfinite(ak.to_numpy(stacked_jets)).all()
+    assert np.isfinite(ak.to_numpy(stacked_met)).all()
