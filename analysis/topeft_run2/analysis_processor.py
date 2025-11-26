@@ -1225,8 +1225,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         variation_state.cleaned_jets = cleaned_jets
         variation_state.good_jets = good_jets
         variation_state.fwd_jets = fwd_jets
-        variation_state.njets = ak.num(good_jets)
-        variation_state.nfwdj = ak.num(fwd_jets)
+        variation_state.njets = ak.values_astype(
+            ak.fill_none(ak.num(good_jets.pt, axis=-1), 0), np.int64
+        )
+        variation_state.nfwdj = ak.values_astype(
+            ak.fill_none(ak.num(fwd_jets.pt, axis=-1), 0), np.int64
+        )
         variation_state.ht = (
             ak.sum(good_jets.pt, axis=-1) if "ht" in self._var_def else None
         )
@@ -1808,20 +1812,34 @@ class AnalysisProcessor(processor.ProcessorABC):
         if isBtagJetsLoose is None or isBtagJetsMedium is None:
             raise ValueError("B-tag jet masks must be populated before histogram filling")
 
-        nbtagsl = ak.sum(isBtagJetsLoose, axis=-1)
-        nbtagsm = ak.sum(isBtagJetsMedium, axis=-1)
+        def _ensure_flat_counts(counts, *, label, fallback=None):
+            if counts is None and fallback is not None:
+                counts = fallback
 
-        for label, counts in (("nbtagsl", nbtagsl), ("nbtagsm", nbtagsm)):
-            if ak.any(ak.is_none(counts)):
-                raise ValueError(f"{label} contains missing entries; expected per-event counts")
-            try:
-                counts_np = ak.to_numpy(counts)
-            except Exception as exc:  # pragma: no cover - defensive
+            if counts is None:
+                raise ValueError(f"{label} must be provided to evaluate selections")
+
+            if ak.fields(counts):
+                counts = fallback if fallback is not None else None
+                if counts is None:
+                    raise TypeError(
+                        f"{label} must be a numeric per-event Awkward array, not a Record"
+                    )
+
+            counts = ak.values_astype(ak.fill_none(counts, 0), np.int64)
+            counts_layout = ak.to_layout(counts, allow_record=False)
+            if counts_layout.purelist_depth != 1:
                 raise TypeError(
-                    f"{label} must be a numeric per-event Awkward array; received irregular layout"
-                ) from exc
-            if counts_np.ndim != 1:
-                raise TypeError(f"{label} must be a flat per-event array, not {counts_np.ndim}D")
+                    f"{label} must be a flat per-event array, not {counts_layout.purelist_depth}D"
+                )
+            return ak.Array(counts_layout)
+
+        nbtagsl = _ensure_flat_counts(
+            ak.sum(isBtagJetsLoose, axis=-1), label="nbtagsl"
+        )
+        nbtagsm = _ensure_flat_counts(
+            ak.sum(isBtagJetsMedium, axis=-1), label="nbtagsm"
+        )
 
         variation_state.nbtagsl = nbtagsl
         variation_state.nbtagsm = nbtagsm
@@ -1834,7 +1852,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         bmask_atmost2med = nbtagsm < 3
         bmask_atleast3med = nbtagsm >= 3
 
-        if fwdJets is not None:
+        if fwdJets is not None and "pt" in ak.fields(fwdJets):
             fwd_mask = ak.ones_like(fwdJets.pt, dtype=bool)
         elif goodJets is not None and "isFwd" in ak.fields(goodJets):
             fwd_mask = ak.fill_none(goodJets.isFwd, False)
@@ -1842,33 +1860,26 @@ class AnalysisProcessor(processor.ProcessorABC):
             fwd_mask = None
 
         if fwd_mask is not None:
-            nfwdj = ak.num(fwd_mask[fwd_mask], axis=-1)
-            nfwdj = ak.fill_none(nfwdj, 0)
-            nfwdj_layout = ak.to_layout(nfwdj, allow_record=False)
-            nfwdj = ak.values_astype(ak.Array(nfwdj_layout), np.int64)
-            if nfwdj_layout.purelist_depth != 1:
-                raise TypeError(
-                    f"nfwdj must be a flat per-event array, not {nfwdj_layout.purelist_depth}D"
-                )
-
-            fwdjet_mask = nfwdj > 0
+            fallback_nfwdj = ak.sum(fwd_mask, axis=-1)
+            fwdjet_mask = fallback_nfwdj > 0
         else:
-            nfwdj = ak.zeros_like(events["event"], dtype=np.int64)
-            nfwdj_layout = ak.to_layout(nfwdj, allow_record=False)
+            fallback_nfwdj = ak.zeros_like(events["event"], dtype=np.int64)
             fwdjet_mask = ak.zeros_like(events["event"], dtype=bool)
 
-        variation_state.nfwdj = nfwdj
+        variation_state.nfwdj = _ensure_flat_counts(
+            variation_state.nfwdj,
+            label="nfwdj",
+            fallback=fallback_nfwdj,
+        )
 
-        njets = ak.num(goodJets, axis=-1)
-        njets = ak.fill_none(njets, 0)
-        njets_layout = ak.to_layout(njets, allow_record=False)
-        njets = ak.values_astype(ak.Array(njets_layout), np.int64)
-        if njets_layout.purelist_depth != 1:
-            raise TypeError(
-                f"njets must be a flat per-event array, not {njets_layout.purelist_depth}D"
-            )
+        variation_state.njets = _ensure_flat_counts(
+            variation_state.njets,
+            label="njets",
+            fallback=ak.num(goodJets.pt, axis=-1),
+        )
 
-        variation_state.njets = njets
+        nfwdj = variation_state.nfwdj
+        njets = variation_state.njets
 
         chargel0_p = ak.fill_none((l0.charge) > 0, False)
         chargel0_m = ak.fill_none((l0.charge) < 0, False)

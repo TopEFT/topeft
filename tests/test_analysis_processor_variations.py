@@ -228,7 +228,9 @@ def _build_histogram_variation_state(monkeypatch):
     )
     variation_state.good_jets = jets
     variation_state.fwd_jets = ak.Array([[], []])
-    variation_state.njets = ak.num(jets)
+    variation_state.njets = ak.values_astype(
+        ak.fill_none(ak.num(jets.pt, axis=-1), 0), np.int64
+    )
     variation_state.nfwdj = ak.zeros_like(variation_state.njets)
     variation_state.ht = ak.sum(jets.pt, axis=-1)
     variation_state.l_sorted_padded = padded_leptons
@@ -708,3 +710,61 @@ def test_forward_histograms_handle_multijet_masks(monkeypatch):
     assert len(hout[histkey].fills) == 1
     assert ak.to_list(variation_state.nfwdj) == [2, 0]
     assert ak.to_layout(variation_state.nfwdj, allow_record=False).purelist_depth == 1
+
+
+def test_histograms_accept_zero_and_multi_jet_events(monkeypatch):
+    (
+        processor,
+        dataset,
+        variation_state,
+        events,
+        weights_object,
+        hout,
+        histkey,
+    ) = _build_histogram_variation_state(monkeypatch)
+
+    jets = ak.Array(
+        [
+            [
+                {"pt": 70.0, "eta": 0.1, "phi": 0.2, "mass": 6.0, "btagDeepFlavB": 0.90},
+                {"pt": 55.0, "eta": -0.2, "phi": -0.1, "mass": 5.0, "btagDeepFlavB": 0.40},
+                {"pt": 42.0, "eta": 0.3, "phi": 0.4, "mass": 4.2, "btagDeepFlavB": 0.15},
+            ],
+            [],
+        ]
+    )
+
+    variation_state.objects.jets = jets
+    variation_state.good_jets = jets
+    variation_state.fwd_jets = ak.Array([[], []])
+    variation_state.jets_rho = ak.ones_like(jets.pt) * np.float32(0.5)
+    variation_state.njets = ak.values_astype(
+        ak.fill_none(ak.num(jets.pt, axis=-1), 0), np.int64
+    )
+    variation_state.nfwdj = ak.zeros_like(variation_state.njets)
+    variation_state.ht = ak.sum(jets.pt, axis=-1)
+
+    loose_mask = ak.Array([[True, False, False], []])
+    med_mask = ak.Array([[True, False, False], []])
+    variation_state.isBtagJetsLoose = loose_mask
+    variation_state.isNotBtagJetsLoose = ~loose_mask
+    variation_state.isBtagJetsMedium = med_mask
+    variation_state.isNotBtagJetsMedium = ~med_mask
+    variation_state.isBtagJetsLooseNotMedium = loose_mask & ~med_mask
+
+    processor._fill_histograms_for_variation(
+        events,
+        dataset,
+        variation_state,
+        weights_object=weights_object,
+        hist_label="nominal",
+        data_weight_systematics_set=set(),
+        hout=hout,
+    )
+
+    assert len(hout[histkey].fills) == 1
+    assert ak.to_list(variation_state.njets) == [3, 0]
+    assert ak.to_numpy(variation_state.njets).dtype.kind in {"i", "u"}
+    assert ak.to_list(variation_state.nfwdj) == [0, 0]
+    assert ak.to_numpy(variation_state.nfwdj).dtype.kind in {"i", "u"}
+    assert ak.to_list(hout[histkey].fills[0]["njets"]) == [3, 0]

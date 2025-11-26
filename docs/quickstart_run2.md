@@ -62,8 +62,10 @@ NanoEvents object.
 Run 2 histogramming expects Awkward's native implementations of helpers such as
 `ak.stack` and relies on in-memory arithmetic instead of array-of-arrays
 coercions. Ensure your environment pulls a recent Awkward build (the Coffea
-2025.7 bundle does) so the masks remain regular arrays. B-tag counts are derived
-per event and must stay as flat integer arrays; custom pre-processing that
+2025.7 bundle does) so the masks remain regular arrays; Awkward 2.x is the
+supported baseline. B-tag and jet multiplicities are derived directly from
+numeric fields (for example, ``ak.num(cleaned_jets.pt)`` with ``ak.fill_none``
+and integer casts) rather than cached Records, so custom pre-processing that
 produces jagged or optional counts will raise during histogram filling.
 
 The quickest way to run the helper is via the dedicated module entry point::
