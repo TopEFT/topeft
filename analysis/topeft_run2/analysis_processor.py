@@ -1124,6 +1124,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
         met_raw = objects.met
 
+        print("\n\n\n\n\n\n")
+        print("jets before cleaning:", ak.num(jets))
+        print("jets pt before cleaning:", ak.to_list(jets.pt))
+        print("\n\n\n\n\n\n")
+
         if self.tau_h_analysis:
             vetos_tocleanjets = ak.with_name(
                 ak.concatenate([cleaning_taus, l_fo], axis=1), "PtEtaPhiMCandidate"
@@ -1136,6 +1141,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
         jet_indices, veto_indices = ak.unzip(tmp)
         cleaned_jets = jets[~ak.any(jet_indices == veto_indices, axis=-1)]
+
+        print("\n\n\n\n\n\n")
+        print("jets after cleaning:", ak.num(cleaned_jets))
+        print("jets pt after cleaning:", ak.to_list(cleaned_jets.pt))
+        print("\n\n\n\n\n\n")
 
         jetptname = "pt_nom" if hasattr(cleaned_jets, "pt_nom") else "pt"
 
@@ -1205,6 +1215,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         objects.jets = cleaned_jets
         objects.fakeable_sorted = l_fo_conept_sorted
 
+        print("jets after JEC/JER:", ak.num(cleaned_jets))
+        print("jets pt after JEC/JER:", ak.to_list(cleaned_jets.pt))
+        print("\n\n\n\n\n\n")
+
         cleaned_jets["isGood"] = tc_os.is_tight_jet(
             getattr(cleaned_jets, jetptname),
             cleaned_jets.eta,
@@ -1239,6 +1253,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             if "j0" in self._var_def
             else None
         )
+
+        print("Number of good jets:", variation_state.njets)
+        print("\n\n\n\n\n\n")
 
         return variation_state
 
