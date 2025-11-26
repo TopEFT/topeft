@@ -180,6 +180,21 @@ def test_build_channel_dict_includes_offz_features(channel_helper):
     assert "offz_split" in channel_dict["features"]
 
 
+def test_offz_split_rewrites_legacy_offz_subchannel(channel_helper):
+    channel_dict = build_dict(
+        channel_helper,
+        "3l_p_offZ_1b_2j",
+        "isSR_3l",
+        is_data=False,
+        skip_sr=False,
+        skip_cr=False,
+        scenario_names=["TOP_22_006"],
+    )
+
+    assert "3l_offZ_split" in channel_dict["chan_def_lst"]
+    assert "3l_offZ" not in channel_dict["chan_def_lst"]
+
+
 def test_build_channel_dict_includes_tau_features_for_control(channel_helper):
     channel_dict = build_dict(
         channel_helper,

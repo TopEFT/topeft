@@ -1977,6 +1977,22 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "3l_offZ_none",
                 (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask),
             )
+            preselections.add(
+                "3l_offZ_split",
+                (
+                    preselections.any("3l_offZ_low")
+                    | preselections.any("3l_offZ_high")
+                    | preselections.any("3l_offZ_none")
+                ),
+            )
+            preselections.add(
+                "3l_offZ",
+                (
+                    preselections.any("3l_offZ_low")
+                    | preselections.any("3l_offZ_high")
+                    | preselections.any("3l_offZ_none")
+                ),
+            )
         else:
             preselections.add("3l_offZ", sfosz_3l_OffZ_mask)
 

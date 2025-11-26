@@ -195,9 +195,12 @@ class ChannelPlanner:
                                 exclude_set.difference_update(include_set)
                             features = set(active_features)
                             features.update(group.features)
+                            chan_def_lst = self._normalize_channel_definition(
+                                region.to_legacy_list(), active_features
+                            )
                             return {
                                 "jet_selection": jet_key,
-                                "chan_def_lst": region.to_legacy_list(),
+                                "chan_def_lst": chan_def_lst,
                                 "lep_flav_lst": category.lepton_flavors,
                                 "appl_region": application,
                                 "features": tuple(sorted(features)),
@@ -299,6 +302,20 @@ class ChannelPlanner:
         self._cr_groups = tuple(cr_groups)
         self._active_features = tuple(sorted(active_features))
         return self._sr_groups, self._cr_groups, self._active_features
+
+    @staticmethod
+    def _normalize_channel_definition(
+        chan_def_lst: Sequence[str], active_features: Iterable[str]
+    ) -> List[str]:
+        """Return ``chan_def_lst`` adjusted for active metadata features."""
+
+        normalized = list(chan_def_lst)
+        if "offz_split" in set(active_features) and "3l_offZ" in normalized:
+            normalized = [
+                "3l_offZ_split" if entry == "3l_offZ" else entry
+                for entry in normalized
+            ]
+        return normalized
 
 
 def normalize_jet_category(jet_cat: Any) -> str:
