@@ -576,6 +576,65 @@ def test_histogram_btag_masks_handle_multijet_events(monkeypatch):
     assert ak.to_numpy(variation_state.nbtagsm).dtype.kind in {"i", "u"}
 
 
+def test_histogram_jet_selections_recompute_njets(monkeypatch):
+    (
+        processor,
+        dataset,
+        variation_state,
+        events,
+        weights_object,
+        hout,
+        histkey,
+    ) = _build_histogram_variation_state(monkeypatch)
+
+    multijet = ak.Array(
+        [
+            [
+                {"pt": 70.0, "eta": 0.3, "phi": 0.1, "mass": 6.0, "btagDeepFlavB": 0.95},
+                {"pt": 55.0, "eta": -0.4, "phi": -0.2, "mass": 5.0, "btagDeepFlavB": 0.15},
+                {"pt": 45.0, "eta": 0.2, "phi": 0.4, "mass": 4.5, "btagDeepFlavB": 0.70},
+                {"pt": 38.0, "eta": -0.1, "phi": -0.5, "mass": 3.5, "btagDeepFlavB": 0.20},
+            ],
+            [
+                {"pt": 60.0, "eta": 0.5, "phi": -0.1, "mass": 5.5, "btagDeepFlavB": 0.05},
+                {"pt": 48.0, "eta": -0.3, "phi": 0.2, "mass": 4.2, "btagDeepFlavB": 0.82},
+                {"pt": 35.0, "eta": 0.1, "phi": -0.4, "mass": 3.0, "btagDeepFlavB": 0.65},
+            ],
+        ]
+    )
+
+    variation_state.objects.jets = multijet
+    variation_state.good_jets = multijet
+    variation_state.jets_rho = ak.ones_like(multijet.pt) * np.float32(0.5)
+    variation_state.fwd_jets = None
+    variation_state.njets = multijet
+    variation_state.nfwdj = ak.zeros_like(ak.num(multijet, axis=-1))
+    variation_state.ht = ak.sum(multijet.pt, axis=-1)
+
+    loose_mask = ak.Array([[True, False, True, True], [False, True, True]])
+    med_mask = ak.Array([[True, False, False, False], [False, True, False]])
+    variation_state.isBtagJetsLoose = loose_mask
+    variation_state.isNotBtagJetsLoose = ~loose_mask
+    variation_state.isBtagJetsMedium = med_mask
+    variation_state.isNotBtagJetsMedium = ~med_mask
+    variation_state.isBtagJetsLooseNotMedium = loose_mask & ~med_mask
+
+    processor._fill_histograms_for_variation(
+        events,
+        dataset,
+        variation_state,
+        weights_object=weights_object,
+        hist_label="nominal",
+        data_weight_systematics_set=set(),
+        hout=hout,
+    )
+
+    assert len(hout[histkey].fills) == 1
+    assert ak.to_list(variation_state.njets) == [4, 3]
+    assert ak.to_numpy(variation_state.njets).dtype.kind in {"i", "u"}
+    assert ak.to_list(hout[histkey].fills[0]["njets"]) == [4, 3]
+
+
 def test_forward_jet_counts_are_recomputed(monkeypatch):
     (
         processor,

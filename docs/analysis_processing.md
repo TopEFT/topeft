@@ -69,6 +69,11 @@ aspects are worth keeping in mind when extending it:
   arrays (filling missing entries with zeros) before histogramming so that
   ``fwdjet_mask`` remains a flat boolean array even when events lack forward
   jets.
+* **Jet multiplicities** – Run 2 histogram filling recomputes ``njets`` from the
+  cleaned jet collection immediately before applying jet-category selections.
+  The counts are cast to 1D integer arrays with missing values filled as zeros
+  so comparisons such as ``exactly_4j`` or ``atmost_3j`` operate on per-event
+  scalars rather than jagged jet layouts.
 
 Because the constructor performs strict validation (checking for ``None``
 arguments, verifying tuple lengths, etc.), deviations are caught early.  The

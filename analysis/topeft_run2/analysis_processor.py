@@ -1859,6 +1859,17 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         variation_state.nfwdj = nfwdj
 
+        njets = ak.num(goodJets, axis=-1)
+        njets = ak.fill_none(njets, 0)
+        njets_layout = ak.to_layout(njets, allow_record=False)
+        njets = ak.values_astype(ak.Array(njets_layout), np.int64)
+        if njets_layout.purelist_depth != 1:
+            raise TypeError(
+                f"njets must be a flat per-event array, not {njets_layout.purelist_depth}D"
+            )
+
+        variation_state.njets = njets
+
         chargel0_p = ak.fill_none((l0.charge) > 0, False)
         chargel0_m = ak.fill_none((l0.charge) < 0, False)
         charge2l_0 = ak.fill_none(((l0.charge + l1.charge) == 0), False)
