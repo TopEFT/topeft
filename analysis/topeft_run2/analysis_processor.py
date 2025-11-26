@@ -1194,6 +1194,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
             if self.tau_h_analysis:
                 selections.add("isSR_1l",    ( events.is1l_SR))
+                selections.add("isAR_1l",    (~events.is1l_SR))
 
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)

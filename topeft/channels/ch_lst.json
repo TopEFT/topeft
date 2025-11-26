@@ -398,7 +398,8 @@
                 "m"
             ],
             "appl_lst": [
-                "isSR_1l"
+                "isSR_1l",
+                "isAR_1l"
             ],
             "jet_lst": [
                 "=2",
@@ -422,7 +423,8 @@
                 "m"
             ],
             "appl_lst": [
-                "isSR_1l"
+                "isSR_1l",
+                "isAR_1l"
             ],
             "jet_lst": [
                 "=2",
