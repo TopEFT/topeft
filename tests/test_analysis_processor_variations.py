@@ -838,3 +838,110 @@ def test_histograms_accept_zero_and_multi_jet_events(monkeypatch):
     assert ak.to_list(variation_state.nfwdj) == [0, 0]
     assert ak.to_numpy(variation_state.nfwdj).dtype.kind in {"i", "u"}
     assert ak.to_list(hout[histkey].fills[0]["njets"]) == [3, 0]
+
+
+def test_offz_split_channels_accept_legacy_offz(monkeypatch):
+    (
+        processor,
+        dataset,
+        variation_state,
+        _,
+        weights_object,
+        _,
+        _,
+    ) = _build_histogram_variation_state(monkeypatch)
+
+    processor._channel_dict = {
+        "jet_selection": "atleast_0j",
+        "chan_def_lst": [
+            "3l_m_offZ_1b",
+            "3l",
+            "3l_m",
+            "3l_offZ_split",
+            "bmask_exactly1m",
+        ],
+        "lep_flav_lst": ["eee", "eem", "emm", "mmm"],
+        "appl_region": "isSR_3l",
+        "features": ("offz_split",),
+    }
+    processor._channel_features = frozenset(["offz_split"])
+    processor.offZ_3l_split = True
+    processor._channel = "3l_m_offZ_1b"
+    processor._appregion = "isSR_3l"
+
+    negative_leptons = ak.Array(
+        [
+            [
+                {"pt": 40.0, "conept": 40.0, "eta": 0.1, "phi": 0.1, "mass": 0.1, "charge": -1},
+                {"pt": 35.0, "conept": 35.0, "eta": -0.2, "phi": 0.2, "mass": 0.1, "charge": -1},
+                {"pt": 25.0, "conept": 25.0, "eta": 0.3, "phi": -0.3, "mass": 0.1, "charge": -1},
+            ],
+            [
+                {"pt": 45.0, "conept": 45.0, "eta": 0.1, "phi": 0.1, "mass": 0.1, "charge": -1},
+                {"pt": 32.0, "conept": 32.0, "eta": -0.2, "phi": 0.2, "mass": 0.1, "charge": -1},
+                {"pt": 20.0, "conept": 20.0, "eta": 0.0, "phi": 0.0, "mass": 0.1, "charge": -1},
+            ],
+        ]
+    )
+    variation_state.objects.fakeable_sorted = negative_leptons
+    variation_state.l_sorted_padded = negative_leptons
+    variation_state.l0 = negative_leptons[:, 0]
+    variation_state.l1 = negative_leptons[:, 1]
+    variation_state.l2 = negative_leptons[:, 2]
+
+    events = ak.Array(
+        {
+            "event": [1, 2],
+            "is2l_nozeeveto": [False, False],
+            "is2l": [False, False],
+            "is3l": [True, True],
+            "is4l": [False, False],
+            "is_ee": [False, False],
+            "is_em": [False, False],
+            "is_mm": [False, False],
+            "is_e": [True, True],
+            "is_m": [False, False],
+            "is_eee": [False, False],
+            "is_eem": [False, False],
+            "is_emm": [True, True],
+            "is_mmm": [False, False],
+            "is_eeee": [False, False],
+            "is_eeem": [False, False],
+            "is_eemm": [False, False],
+            "is_emmm": [False, False],
+            "is_mmmm": [False, False],
+            "is_gr4l": [False, False],
+            "is2l_SR": [False, False],
+            "is3l_SR": [True, True],
+            "is4l_SR": [False, False],
+        }
+    )
+
+    class _RecordingHist(_DummyHistEFT):
+        def __init__(self):
+            self.fills = []
+
+        def fill(self, **kwargs):
+            self.fills.append(kwargs)
+
+    histkey = processor._build_histogram_key(
+        "njets",
+        processor.channel,
+        dataset.dataset,
+        "nominal",
+        application=processor._appregion,
+    )
+    hout = {histkey: _RecordingHist()}
+
+    processor._fill_histograms_for_variation(
+        events,
+        dataset,
+        variation_state,
+        weights_object=weights_object,
+        hist_label="nominal",
+        data_weight_systematics_set=set(),
+        hout=hout,
+    )
+
+    assert len(hout[histkey].fills) == 1
+    assert ak.to_list(hout[histkey].fills[0]["njets"]) == [3]
