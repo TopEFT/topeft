@@ -182,7 +182,8 @@ through the scenario list:
   off-Z trilepton split.
 * ``tau_analysis`` – Extends the baseline with the tau-enriched regions.
 * ``fwd_analysis`` – Adds the forward-jet selections on top of the shared
-  control suite.
+  control suite.  Forward-jet counts are recomputed as integer per-event
+  tallies before histogramming to avoid Awkward broadcasting pitfalls.
 
 Pass ``--scenario`` one or more times to request the combinations you need.  For
 example, ``--scenario TOP_22_006 --scenario tau_analysis`` layers the tau
