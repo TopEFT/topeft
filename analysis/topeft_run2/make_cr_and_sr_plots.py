@@ -3816,7 +3816,9 @@ def build_region_context(
                     continue
                 if not any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
                     continue
-                if not _label_passes(label, require_optional_tokens=False):
+                if any(token in label for token in blacklist):
+                    continue
+                if must_have_tokens and any(token not in label for token in must_have_tokens):
                     continue
                 filtered.append(label)
                 filtered_set.add(label)

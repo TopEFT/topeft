@@ -200,6 +200,43 @@ def test_both_njets_preserves_variables_for_merged_output(tmp_path):
     }.issubset(set(plot_names)), plot_names
 
 
+def test_data_driven_samples_preserved_for_1tau_cr():
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    value_axis = hist.axis.Regular(1, 0.0, 1.0, name="met")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, value_axis
+    )
+
+    channel_name = "1l_e_1tau_CR_2j"
+    sample_names = ["nonpromptUL16", "flipsUL16APV", "ttbarUL18", "dataUL18"]
+
+    for sample in sample_names:
+        hist_obj.fill(
+            process=sample,
+            channel=channel_name,
+            systematic="nominal",
+            met=0.5,
+            weight=1.0,
+        )
+
+    region_ctx = make_cr_and_sr_plots.build_region_context(
+        "CR", {"met": hist_obj}, years=["2018"], unblind=True
+    )
+
+    assert "nonpromptUL16" in region_ctx.mc_samples
+    assert "flipsUL16APV" in region_ctx.mc_samples
+    assert any(
+        sample.startswith("nonprompt")
+        for sample in region_ctx.group_map.get("Nonprompt", [])
+    )
+    assert any(
+        sample.startswith("flips") for sample in region_ctx.group_map.get("Flips", [])
+    )
+
+
 def test_both_includes_split_channels_when_available(tmp_path):
     process_axis = hist.axis.StrCategory([], name="process", growth=True)
     channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
