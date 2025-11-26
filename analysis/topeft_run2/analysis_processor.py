@@ -623,6 +623,45 @@ class AnalysisProcessor(processor.ProcessorABC):
         base_ch_name = construct_cat_name(lep_chan, njet_str=njet_ch, flav_str=None)
         return ch_name, base_ch_name
 
+    def _compute_ptbl(
+        self,
+        good_jets: ak.Array,
+        is_btag_med: ak.Array,
+        is_btag_loose: ak.Array,
+        leptons: ak.Array,
+    ) -> ak.Array:
+        ptbl_bjet = good_jets[(is_btag_med | is_btag_loose)]
+        ptbl_bjet = ak.with_name(ptbl_bjet, "PtEtaPhiMCandidate")
+        leading_b = ak.firsts(ptbl_bjet[ak.argsort(ptbl_bjet.pt, axis=-1, ascending=False)])
+        has_btag = ak.num(ptbl_bjet) > 0
+
+        zero_vector = ak.zip(
+            {
+                "pt": ak.zeros_like(ak.num(good_jets, axis=-1)) * np.float32(0.0),
+                "eta": ak.zeros_like(ak.num(good_jets, axis=-1)) * np.float32(0.0),
+                "phi": ak.zeros_like(ak.num(good_jets, axis=-1)) * np.float32(0.0),
+                "mass": ak.zeros_like(ak.num(good_jets, axis=-1)) * np.float32(0.0),
+            },
+            with_name="PtEtaPhiMCandidate",
+        )
+
+        leptons = ak.with_name(leptons, "PtEtaPhiMCandidate")
+        leading_b_filled = ak.where(has_btag, leading_b, zero_vector)
+        delta_eta = leading_b_filled.eta - leptons.eta
+        delta_phi = (leading_b_filled.phi - leptons.phi + np.pi) % (2 * np.pi) - np.pi
+        delta_r = np.hypot(delta_eta, delta_phi)
+        nearest_lep = leptons[ak.argmin(delta_r, axis=-1)]
+
+        px_b = leading_b_filled.pt * np.cos(leading_b_filled.phi)
+        py_b = leading_b_filled.pt * np.sin(leading_b_filled.phi)
+        px_l = nearest_lep.pt * np.cos(nearest_lep.phi)
+        py_l = nearest_lep.pt * np.sin(nearest_lep.phi)
+
+        pt_sum = np.hypot(px_b + px_l, py_b + py_l)
+        pt_sum = ak.firsts(ak.singletons(pt_sum))
+        pt_sum = ak.values_astype(ak.fill_none(pt_sum, -1), np.float32)
+        return ak.where(has_btag, pt_sum, np.float32(-1.0))
+
     def _build_histogram_key(
         self,
         variable: str,
@@ -2061,11 +2100,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         var_def = self.var_def
 
         if ("ptbl" in var_def) or ("b0pt" in var_def) or ("bl0pt" in var_def):
-            ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
-            ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt, axis=-1, keepdims=True)]
-            ptbl_lep = l_fo_conept_sorted
-            ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
-            ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
+            ptbl = self._compute_ptbl(
+                goodJets, isBtagJetsMedium, isBtagJetsLoose, l_fo_conept_sorted
+            )
         else:
             ptbl = None
 

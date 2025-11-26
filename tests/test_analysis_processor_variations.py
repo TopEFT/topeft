@@ -23,6 +23,65 @@ modules_pkg.HistEFT = _hist_eft_stub  # type: ignore[attr-defined]
 sys.modules["topcoffea.modules.HistEFT"] = _hist_eft_stub
 sys.modules["topcoffea.modules.histEFT"] = _hist_eft_stub
 
+_corrected_jets_stub = types.ModuleType("topcoffea.modules.CorrectedJetsFactory")
+
+
+class _CorrectedJetsFactory:
+    def __init__(self, *_, **__):
+        pass
+
+
+_corrected_jets_stub.CorrectedJetsFactory = _CorrectedJetsFactory
+modules_pkg.CorrectedJetsFactory = _corrected_jets_stub  # type: ignore[attr-defined]
+sys.modules["topcoffea.modules.CorrectedJetsFactory"] = _corrected_jets_stub
+
+_jec_stack_stub = types.ModuleType("topcoffea.modules.JECStack")
+
+
+class _JECStack:
+    def __init__(self, *_, **__):
+        pass
+
+
+_jec_stack_stub.JECStack = _JECStack
+modules_pkg.JECStack = _jec_stack_stub  # type: ignore[attr-defined]
+sys.modules["topcoffea.modules.JECStack"] = _jec_stack_stub
+
+_get_param_stub = types.ModuleType("topcoffea.modules.get_param_from_jsons")
+
+
+class _GetParam:
+    def __init__(self, *_, **__):
+        pass
+
+    def __call__(self, *_, **__):
+        return {}
+
+
+_get_param_stub.GetParam = _GetParam
+modules_pkg.get_param_from_jsons = _get_param_stub  # type: ignore[attr-defined]
+sys.modules["topcoffea.modules.get_param_from_jsons"] = _get_param_stub
+
+_corrections_stub = types.ModuleType("topcoffea.modules.corrections")
+modules_pkg.corrections = _corrections_stub  # type: ignore[attr-defined]
+sys.modules["topcoffea.modules.corrections"] = _corrections_stub
+
+_eft_helper_stub = types.ModuleType("topcoffea.modules.eft_helper")
+modules_pkg.eft_helper = _eft_helper_stub  # type: ignore[attr-defined]
+sys.modules["topcoffea.modules.eft_helper"] = _eft_helper_stub
+
+_event_sel_stub = types.ModuleType("topcoffea.modules.event_selection")
+_event_sel_stub.get_Z_peak_mask = lambda *_, **__: None
+_event_sel_stub.get_off_Z_mask_low = lambda *_, **__: None
+_event_sel_stub.get_any_sfos_pair = lambda *_, **__: None
+_event_sel_stub.trg_pass_no_overlap = lambda *_, **__: None
+modules_pkg.event_selection = _event_sel_stub  # type: ignore[attr-defined]
+sys.modules["topcoffea.modules.event_selection"] = _event_sel_stub
+
+_object_sel_stub = types.ModuleType("topcoffea.modules.object_selection")
+modules_pkg.object_selection = _object_sel_stub  # type: ignore[attr-defined]
+sys.modules["topcoffea.modules.object_selection"] = _object_sel_stub
+
 from analysis.topeft_run2 import analysis_processor as ap
 
 
@@ -550,6 +609,74 @@ def test_histogram_masks_use_integer_btag_counts(monkeypatch):
 
     assert len(hout[histkey].fills) == 1
     assert ak.to_list(hout[histkey].fills[0]["njets"]) == [3, 2]
+
+
+def test_ptbl_pairing_handles_missing_btags(monkeypatch):
+    (
+        processor,
+        dataset,
+        variation_state,
+        events,
+        weights_object,
+        _,
+        _,
+    ) = _build_histogram_variation_state(monkeypatch)
+
+    processor._var = "ptbl"
+    processor._var_def = "ptbl"
+    processor._channel = processor._channel_dict["chan_def_lst"][0] + "_0j"
+
+    variation_state.isBtagJetsLoose = ak.Array([[True, False, True], [False, False]])
+    variation_state.isNotBtagJetsLoose = ~variation_state.isBtagJetsLoose
+    variation_state.isBtagJetsMedium = ak.Array([[True, False, False], [False, False]])
+    variation_state.isNotBtagJetsMedium = ~variation_state.isBtagJetsMedium
+    variation_state.isBtagJetsLooseNotMedium = variation_state.isBtagJetsLoose & ~variation_state.isBtagJetsMedium
+
+    ptbl_values = processor._compute_ptbl(
+        variation_state.good_jets,
+        variation_state.isBtagJetsMedium,
+        variation_state.isBtagJetsLoose,
+        variation_state.objects.fakeable_sorted,
+    )
+    ptbl_flat = ak.flatten(ptbl_values, axis=None)
+    ptbl_flat_list = [float(val) for val in ak.to_list(ptbl_flat)]
+
+    assert np.isfinite(np.asarray(ptbl_flat_list)).all()
+    assert -1.0 in ptbl_flat_list
+
+    class _RecordingHist(_DummyHistEFT):
+        def __init__(self):
+            self.fills = []
+
+        def fill(self, **kwargs):
+            self.fills.append(kwargs)
+
+    lep_chan = processor._channel_dict["chan_def_lst"][0]
+    hist_channel, _ = processor._build_channel_names(
+        lep_chan, processor._channel_dict["jet_selection"], None
+    )
+    histkey = processor._build_histogram_key(
+        processor._var, hist_channel, dataset.dataset, "nominal", application=processor._appregion
+    )
+    base_histkey = processor._build_histogram_key(
+        processor._var, processor.channel, dataset.dataset, "nominal", application=processor._appregion
+    )
+    hout = {histkey: _RecordingHist(), base_histkey: _RecordingHist()}
+
+    processor._fill_histograms_for_variation(
+        events,
+        dataset,
+        variation_state,
+        weights_object=weights_object,
+        hist_label="nominal",
+        data_weight_systematics_set=set(),
+        hout=hout,
+    )
+
+    filled_hist = hout[histkey] if hout[histkey].fills else hout[base_histkey]
+    assert filled_hist.fills
+    recorded_ptbl = ak.flatten(ak.Array(filled_hist.fills[0]["ptbl"]), axis=None)
+    assert np.isfinite(np.asarray(ak.to_list(recorded_ptbl), dtype=float)).all()
 
 
 def test_histogram_btag_masks_handle_multijet_events(monkeypatch):
