@@ -1167,16 +1167,42 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not self._debug_logging:
                 return
 
-            counts = ak.num(arr)
-            preview = ak.to_list(counts[:5])
+            try:
+                target = arr
+                selected_field = None
+
+                if ak.is_record(target):
+                    for candidate in ("jets", "Jet", "pt"):
+                        if candidate in target.fields:
+                            selected_field = candidate
+                            break
+
+                    if selected_field is None and target.fields:
+                        selected_field = target.fields[0]
+
+                    if selected_field is None:
+                        raise TypeError(
+                            f"Cannot determine jet field for '{label}' from record fields={target.fields}"
+                        )
+
+                    target = target[selected_field]
+                    arr = target
+
+                counts = ak.num(target, axis=-1)
+                num_arr = ak.num(arr)
+            except Exception as exc:
+                raise TypeError(
+                    f"Unable to log jet layout for '{label}': unexpected structure {ak.type(arr)}"
+                ) from exc
+
             self._debug(
-                #"%s type=%s num[:5]=%s (len=%d)",
-                "\n\n\n\n\n\n%s %s %s %s (len=%d)\n\n\n\n\n\n",
+                "\n\n\n\n\n%s layout: arr=%s ak.num(arr)=%s nonempty=%s (len=%d)%s\n\n\n\n\n",
                 label,
                 arr,
-                ak.num(arr),
-                (ak.num(arr) > 0),
+                num_arr,
+                num_arr > 0,
                 len(counts),
+                f" selected_field={selected_field}" if selected_field else "",
             )
 
         _log_jet_layout("jets before cleaning", jets)
@@ -1247,7 +1273,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         if jet_caches:
             jet_lazy_cache = jet_caches[0]
 
-        cleaned_jets = build_corrected_jets(
+        corrected_jets = build_corrected_jets(
             ApplyJetCorrections(
                 dataset.year,
                 corr_type="jet",
@@ -1257,9 +1283,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             cleaned_jets,
             lazy_cache=jet_lazy_cache,
         )
+        _log_jet_layout("jets after build_corrected_jets", corrected_jets)
+
         cleaned_jets = ApplyJetSystematics(
-            dataset.year, cleaned_jets, variation_state.object_variation
+            dataset.year, corrected_jets, variation_state.object_variation
         )
+        _log_jet_layout("jets after ApplyJetSystematics", cleaned_jets)
+
         met = build_corrected_met(
             ApplyJetCorrections(
                 dataset.year,
