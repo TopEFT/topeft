@@ -336,7 +336,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         systematic_variations=None,
         available_systematics=None,
         metadata_path: Optional[str] = None,
-        debug_logging: bool = False,
+        debug_logging: bool = True,
         executor_mode: Optional[str] = None,
         suppress_debug_prints: Optional[bool] = None,
     ):
@@ -1170,10 +1170,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             counts = ak.num(arr)
             preview = ak.to_list(counts[:5])
             self._debug(
-                "%s type=%s num[:5]=%s (len=%d)",
+                #"%s type=%s num[:5]=%s (len=%d)",
+                "\n\n\n\n\n\n%s %s %s %s (len=%d)\n\n\n\n\n\n",
                 label,
-                ak.type(arr),
-                preview,
+                arr,
+                ak.num(arr),
+                (ak.num(arr) > 0),
                 len(counts),
             )
 
