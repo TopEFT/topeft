@@ -1163,17 +1163,32 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
         met_raw = objects.met
 
-        print("\n\n\n\n\n\n")
-        print("jets before cleaning:", ak.num(jets))
-        print("jets pt before cleaning:", ak.to_list(jets.pt))
-        print("\n\n\n\n\n\n")
+        def _log_jet_layout(label: str, arr: ak.Array) -> None:
+            if not self._debug_logging:
+                return
+
+            counts = ak.num(arr)
+            preview = ak.to_list(counts[:5])
+            self._debug(
+                "%s type=%s num[:5]=%s (len=%d)",
+                label,
+                ak.type(arr),
+                preview,
+                len(counts),
+            )
+
+        _log_jet_layout("jets before cleaning", jets)
 
         if self.tau_h_analysis:
             vetos_tocleanjets = ak.with_name(
-                ak.concatenate([cleaning_taus, l_fo], axis=1), "PtEtaPhiMCandidate"
+                ak.concatenate([cleaning_taus, l_fo], axis=1),
+                "PtEtaPhiMCandidate",
+                behavior=ak.behavior,
             )
         else:
-            vetos_tocleanjets = ak.with_name(l_fo, "PtEtaPhiMCandidate")
+            vetos_tocleanjets = ak.with_name(
+                l_fo, "PtEtaPhiMCandidate", behavior=ak.behavior
+            )
 
         tmp = ak.cartesian(
             [ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True
@@ -1181,10 +1196,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         jet_indices, veto_indices = ak.unzip(tmp)
         cleaned_jets = jets[~ak.any(jet_indices == veto_indices, axis=-1)]
 
-        print("\n\n\n\n\n\n")
-        print("jets after cleaning:", ak.num(cleaned_jets))
-        print("jets pt after cleaning:", ak.to_list(cleaned_jets.pt))
-        print("\n\n\n\n\n\n")
+        _log_jet_layout("jets after cleaning", cleaned_jets)
 
         jetptname = "pt_nom" if hasattr(cleaned_jets, "pt_nom") else "pt"
 
@@ -1261,11 +1273,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         objects.jets = cleaned_jets
         objects.fakeable_sorted = l_fo_conept_sorted
 
-        print("jets after JEC/JER:", ak.num(cleaned_jets))
-        print("jets pt after JEC/JER:", ak.to_list(cleaned_jets.pt))
-        print("\n\n\n\n\n\n")
+        _log_jet_layout("jets after JEC/JER", cleaned_jets)
 
-        cleaned_jets["isGood"] = tc_os.is_tight_jet(
+        is_good_mask = tc_os.is_tight_jet(
             getattr(cleaned_jets, jetptname),
             cleaned_jets.eta,
             cleaned_jets.jetId,
@@ -1273,14 +1283,19 @@ class AnalysisProcessor(processor.ProcessorABC):
             eta_cut=get_te_param("eta_j_cut"),
             id_cut=get_te_param("jet_id_cut"),
         )
+        is_good_mask = ak.fill_none(is_good_mask, False)
+        is_good_mask = ak.broadcast_arrays(is_good_mask, cleaned_jets.pt)[0]
+        cleaned_jets["isGood"] = is_good_mask
         cleaned_jets["isFwd"] = te_os.isFwdJet(
             getattr(cleaned_jets, jetptname),
             cleaned_jets.eta,
             cleaned_jets.jetId,
             jetPtCut=40.0,
         )
-        good_jets = cleaned_jets[cleaned_jets.isGood]
+        good_jets = cleaned_jets[is_good_mask]
         fwd_jets = cleaned_jets[cleaned_jets.isFwd]
+
+        _log_jet_layout("good jets", good_jets)
 
         variation_state.cleaned_jets = cleaned_jets
         variation_state.good_jets = good_jets
@@ -1299,9 +1314,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             if "j0" in self._var_def
             else None
         )
-
-        print("Number of good jets:", variation_state.njets)
-        print("\n\n\n\n\n\n")
 
         return variation_state
 
