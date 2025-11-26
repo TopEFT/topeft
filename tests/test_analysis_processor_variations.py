@@ -578,7 +578,7 @@ def test_histogram_btag_masks_handle_multijet_events(monkeypatch):
     assert ak.to_numpy(variation_state.nbtagsm).dtype.kind in {"i", "u"}
 
 
-def test_histogram_jet_selections_recompute_njets(monkeypatch):
+def test_histogram_jet_selections_use_jagged_counts(monkeypatch):
     (
         processor,
         dataset,
@@ -609,7 +609,9 @@ def test_histogram_jet_selections_recompute_njets(monkeypatch):
     variation_state.good_jets = multijet
     variation_state.jets_rho = ak.ones_like(multijet.pt) * np.float32(0.5)
     variation_state.fwd_jets = None
-    variation_state.njets = multijet
+    variation_state.njets = ak.values_astype(
+        ak.num(multijet.pt, axis=-1), np.int64
+    )
     variation_state.nfwdj = ak.zeros_like(ak.num(multijet, axis=-1))
     variation_state.ht = ak.sum(multijet.pt, axis=-1)
 
@@ -637,7 +639,71 @@ def test_histogram_jet_selections_recompute_njets(monkeypatch):
     assert ak.to_list(hout[histkey].fills[0]["njets"]) == [4, 3]
 
 
-def test_forward_jet_counts_are_recomputed(monkeypatch):
+def test_multi_jet_selections_do_not_broadcast(monkeypatch):
+    (
+        processor,
+        dataset,
+        variation_state,
+        events,
+        weights_object,
+        hout,
+        histkey,
+    ) = _build_histogram_variation_state(monkeypatch)
+
+    multijet = ak.Array(
+        [
+            [
+                {"pt": 75.0, "eta": 0.3, "phi": 0.1, "mass": 6.2, "btagDeepFlavB": 0.90},
+                {"pt": 62.0, "eta": -0.4, "phi": -0.2, "mass": 5.5, "btagDeepFlavB": 0.20},
+                {"pt": 50.0, "eta": 2.6, "phi": 0.5, "mass": 4.8, "btagDeepFlavB": 0.10},
+                {"pt": 44.0, "eta": -0.1, "phi": -0.5, "mass": 4.1, "btagDeepFlavB": 0.35},
+            ],
+            [
+                {"pt": 68.0, "eta": 0.6, "phi": -0.2, "mass": 5.9, "btagDeepFlavB": 0.12},
+                {"pt": 53.0, "eta": -2.5, "phi": 0.3, "mass": 4.6, "btagDeepFlavB": 0.85},
+                {"pt": 39.0, "eta": 0.2, "phi": -0.4, "mass": 3.8, "btagDeepFlavB": 0.22},
+            ],
+        ]
+    )
+
+    fwd_mask = ak.Array([[False, False, True, False], [False, True, False]])
+    variation_state.objects.jets = multijet
+    variation_state.good_jets = ak.with_field(multijet, fwd_mask, "isFwd")
+    variation_state.fwd_jets = multijet[fwd_mask]
+    variation_state.jets_rho = ak.ones_like(multijet.pt) * np.float32(0.5)
+    variation_state.njets = ak.values_astype(ak.num(multijet.pt, axis=-1), np.int64)
+    variation_state.nfwdj = ak.values_astype(ak.sum(fwd_mask, axis=-1), np.int64)
+    variation_state.ht = ak.sum(multijet.pt, axis=-1)
+
+    loose_mask = ak.Array([[True, False, True, False], [False, True, False]])
+    med_mask = ak.Array([[True, False, False, False], [False, True, False]])
+    variation_state.isBtagJetsLoose = loose_mask
+    variation_state.isNotBtagJetsLoose = ~loose_mask
+    variation_state.isBtagJetsMedium = med_mask
+    variation_state.isNotBtagJetsMedium = ~med_mask
+    variation_state.isBtagJetsLooseNotMedium = loose_mask & ~med_mask
+
+    processor.fwd_analysis = True
+
+    processor._fill_histograms_for_variation(
+        events,
+        dataset,
+        variation_state,
+        weights_object=weights_object,
+        hist_label="nominal",
+        data_weight_systematics_set=set(),
+        hout=hout,
+    )
+
+    assert len(hout[histkey].fills) == 1
+    assert ak.to_list(variation_state.njets) == [4, 3]
+    assert ak.to_list(variation_state.nfwdj) == [1, 1]
+    assert ak.to_list(variation_state.njets == 0) == [False, False]
+    assert ak.to_list(variation_state.njets >= 4) == [True, False]
+    assert ak.to_list(variation_state.nfwdj == 0) == [False, False]
+
+
+def test_forward_jet_counts_use_jagged_counts(monkeypatch):
     (
         processor,
         dataset,
@@ -660,7 +726,9 @@ def test_forward_jet_counts_are_recomputed(monkeypatch):
             ],
         ]
     )
-    variation_state.nfwdj = ak.Array([{"count": 2}, {"count": 1}])
+    variation_state.nfwdj = ak.values_astype(
+        ak.num(variation_state.fwd_jets.pt, axis=-1), np.int64
+    )
 
     processor._fill_histograms_for_variation(
         events,
@@ -690,11 +758,13 @@ def test_forward_histograms_handle_multijet_masks(monkeypatch):
 
     processor.fwd_analysis = True
     variation_state.fwd_jets = None
-    variation_state.nfwdj = ak.Array([{"bad": 3}, {"bad": 0}])
     variation_state.good_jets = ak.with_field(
         variation_state.good_jets,
         ak.Array([[True, False, True], [False, False]]),
         "isFwd",
+    )
+    variation_state.nfwdj = ak.values_astype(
+        ak.sum(variation_state.good_jets.isFwd, axis=-1), np.int64
     )
 
     processor._fill_histograms_for_variation(

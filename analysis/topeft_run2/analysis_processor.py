@@ -1837,11 +1837,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 raise ValueError(f"{label} must be provided to evaluate selections")
 
             if ak.fields(counts):
-                counts = fallback if fallback is not None else None
-                if counts is None:
-                    raise TypeError(
-                        f"{label} must be a numeric per-event Awkward array, not a Record"
-                    )
+                raise TypeError(
+                    f"{label} must be a numeric per-event Awkward array, not a Record"
+                )
 
             counts = ak.values_astype(ak.fill_none(counts, 0), np.int64)
             counts_layout = ak.to_layout(counts, allow_record=False)
