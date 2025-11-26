@@ -1188,6 +1188,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ak.fill_none(pt_gen, 0), np.float32
             )
 
+        jet_lazy_cache = None
+        jet_events = getattr(cleaned_jets, "_events", None)
+        jet_caches = getattr(jet_events, "caches", None) if jet_events is not None else None
+        if jet_caches:
+            jet_lazy_cache = jet_caches[0]
+
         cleaned_jets = build_corrected_jets(
             ApplyJetCorrections(
                 dataset.year,
@@ -1196,6 +1202,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 era=dataset.run_era,
             ),
             cleaned_jets,
+            lazy_cache=jet_lazy_cache,
         )
         cleaned_jets = ApplyJetSystematics(
             dataset.year, cleaned_jets, variation_state.object_variation
