@@ -679,6 +679,31 @@ def test_ptbl_pairing_handles_missing_btags(monkeypatch):
     assert np.isfinite(np.asarray(ak.to_list(recorded_ptbl), dtype=float)).all()
 
 
+def test_compute_ptbl_handles_zero_and_positive_btags():
+    processor = _make_processor()
+
+    good_jets = ak.Array(
+        [
+            [{"pt": 45.0, "eta": 0.1, "phi": 0.2, "mass": 5.0}],
+            [{"pt": 55.0, "eta": -0.1, "phi": -0.3, "mass": 4.0}],
+        ]
+    )
+    is_btag_med = ak.Array([[False], [True]])
+    is_btag_loose = ak.Array([[False], [False]])
+    leptons = ak.Array(
+        [
+            [{"pt": 40.0, "eta": 0.0, "phi": 0.0, "mass": 0.1}],
+            [{"pt": 42.0, "eta": 0.2, "phi": 0.1, "mass": 0.1}],
+        ]
+    )
+
+    ptbl_values = processor._compute_ptbl(good_jets, is_btag_med, is_btag_loose, leptons)
+    ptbl_flat = ak.to_list(ak.flatten(ptbl_values, axis=None))
+
+    assert ptbl_flat[0] == pytest.approx(-1.0)
+    assert ptbl_flat[1] > 0
+
+
 def test_histogram_btag_masks_handle_multijet_events(monkeypatch):
     (
         processor,
