@@ -646,10 +646,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
 
         leptons = ak.with_name(leptons, "PtEtaPhiMCandidate")
-        leading_b_filled = ak.where(has_btag, leading_b, zero_vector)
-        delta_eta = leading_b_filled.eta - leptons.eta
-        delta_phi = (leading_b_filled.phi - leptons.phi + np.pi) % (2 * np.pi) - np.pi
-        delta_r = np.hypot(delta_eta, delta_phi)
+        leading_b_filled = ak.with_name(
+            ak.where(has_btag, leading_b, zero_vector), "PtEtaPhiMCandidate"
+        )
+        delta_r = leading_b_filled.delta_r(leptons)
         nearest_lep = leptons[ak.argmin(delta_r, axis=-1)]
 
         px_b = leading_b_filled.pt * np.cos(leading_b_filled.phi)
