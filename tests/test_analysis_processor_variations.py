@@ -574,3 +574,43 @@ def test_histogram_btag_masks_handle_multijet_events(monkeypatch):
     assert ak.to_list(variation_state.nbtagsl) == [2, 1]
     assert ak.to_list(variation_state.nbtagsm) == [1, 0]
     assert ak.to_numpy(variation_state.nbtagsm).dtype.kind in {"i", "u"}
+
+
+def test_forward_jet_counts_are_recomputed(monkeypatch):
+    (
+        processor,
+        dataset,
+        variation_state,
+        events,
+        weights_object,
+        hout,
+        histkey,
+    ) = _build_histogram_variation_state(monkeypatch)
+
+    processor.fwd_analysis = True
+    variation_state.fwd_jets = ak.Array(
+        [
+            [
+                {"pt": 60.0, "eta": 2.6, "phi": 0.1, "mass": 4.0},
+                {"pt": 45.0, "eta": -2.7, "phi": -0.2, "mass": 3.5},
+            ],
+            [
+                {"pt": 55.0, "eta": 2.5, "phi": 0.3, "mass": 4.2},
+            ],
+        ]
+    )
+    variation_state.nfwdj = ak.Array([{"count": 2}, {"count": 1}])
+
+    processor._fill_histograms_for_variation(
+        events,
+        dataset,
+        variation_state,
+        weights_object=weights_object,
+        hist_label="nominal",
+        data_weight_systematics_set=set(),
+        hout=hout,
+    )
+
+    assert len(hout[histkey].fills) == 1
+    assert ak.to_list(variation_state.nfwdj) == [2, 1]
+    assert ak.to_numpy(variation_state.nfwdj).dtype.kind in {"i", "u"}

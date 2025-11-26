@@ -1753,7 +1753,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         goodJets = variation_state.good_jets
         fwdJets = variation_state.fwd_jets
         njets = variation_state.njets
-        nfwdj = variation_state.nfwdj
         isBtagJetsLoose = variation_state.isBtagJetsLoose
         isNotBtagJetsLoose = variation_state.isNotBtagJetsLoose
         isBtagJetsMedium = variation_state.isBtagJetsMedium
@@ -1834,6 +1833,27 @@ class AnalysisProcessor(processor.ProcessorABC):
         bmask_atleast2med = nbtagsm >= 2
         bmask_atmost2med = nbtagsm < 3
         bmask_atleast3med = nbtagsm >= 3
+
+        if fwdJets is not None:
+            nfwdj = ak.num(fwdJets, axis=-1)
+        elif goodJets is not None and "isFwd" in ak.fields(goodJets):
+            nfwdj = ak.sum(ak.fill_none(goodJets.isFwd, False), axis=-1)
+        else:
+            nfwdj = ak.zeros_like(events["event"], dtype=np.int64)
+
+        nfwdj = ak.fill_none(nfwdj, 0)
+        try:
+            nfwdj_np = ak.to_numpy(nfwdj)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise TypeError(
+                "nfwdj must be a numeric per-event Awkward array; unable to convert"
+            ) from exc
+        if nfwdj_np.ndim != 1:
+            raise TypeError(
+                f"nfwdj must be a flat per-event array, not {nfwdj_np.ndim}D"
+            )
+
+        variation_state.nfwdj = nfwdj
         fwdjet_mask = nfwdj > 0
 
         chargel0_p = ak.fill_none((l0.charge) > 0, False)
