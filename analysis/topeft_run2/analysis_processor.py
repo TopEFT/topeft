@@ -633,14 +633,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         ptbl_bjet = good_jets[(is_btag_med | is_btag_loose)]
         ptbl_bjet = ak.with_name(ptbl_bjet, "PtEtaPhiMCandidate")
         leading_b = ak.firsts(ptbl_bjet[ak.argsort(ptbl_bjet.pt, axis=-1, ascending=False)])
-        has_btag = ak.num(ptbl_bjet) > 0
+        has_btag = ak.num(ptbl_bjet.pt, axis=-1) > 0
 
         zero_vector = ak.zip(
             {
-                "pt": ak.zeros_like(ak.num(good_jets, axis=-1)) * np.float32(0.0),
-                "eta": ak.zeros_like(ak.num(good_jets, axis=-1)) * np.float32(0.0),
-                "phi": ak.zeros_like(ak.num(good_jets, axis=-1)) * np.float32(0.0),
-                "mass": ak.zeros_like(ak.num(good_jets, axis=-1)) * np.float32(0.0),
+                "pt": ak.zeros_like(has_btag, dtype=np.float32),
+                "eta": ak.zeros_like(has_btag, dtype=np.float32),
+                "phi": ak.zeros_like(has_btag, dtype=np.float32),
+                "mass": ak.zeros_like(has_btag, dtype=np.float32),
             },
             with_name="PtEtaPhiMCandidate",
         )
@@ -659,7 +659,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         pt_sum = np.hypot(px_b + px_l, py_b + py_l)
         pt_sum = ak.firsts(ak.singletons(pt_sum))
-        pt_sum = ak.values_astype(ak.fill_none(pt_sum, -1), np.float32)
+        pt_sum = ak.values_astype(ak.fill_none(pt_sum, np.float32(-1.0)), np.float32)
         return ak.where(has_btag, pt_sum, np.float32(-1.0))
 
     def _build_histogram_key(
