@@ -906,7 +906,8 @@ class RunWorkflow:
 
         tstart = time.time()
 
-        for task in histogram_plan.tasks:
+        for idt, task in enumerate(histogram_plan.tasks):
+            print("\n\n\n\n\n\n\n\n\n--- Starting task %d/%d ---" % (idt + 1, len(histogram_plan.tasks)))
             sample_dict = samplesdict[task.sample]
             sample_files = list(flist[task.sample])
             if self._config.executor == "futures":
