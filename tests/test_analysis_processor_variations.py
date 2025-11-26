@@ -614,3 +614,38 @@ def test_forward_jet_counts_are_recomputed(monkeypatch):
     assert len(hout[histkey].fills) == 1
     assert ak.to_list(variation_state.nfwdj) == [2, 1]
     assert ak.to_numpy(variation_state.nfwdj).dtype.kind in {"i", "u"}
+
+
+def test_forward_histograms_handle_multijet_masks(monkeypatch):
+    (
+        processor,
+        dataset,
+        variation_state,
+        events,
+        weights_object,
+        hout,
+        histkey,
+    ) = _build_histogram_variation_state(monkeypatch)
+
+    processor.fwd_analysis = True
+    variation_state.fwd_jets = None
+    variation_state.nfwdj = ak.Array([{"bad": 3}, {"bad": 0}])
+    variation_state.good_jets = ak.with_field(
+        variation_state.good_jets,
+        ak.Array([[True, False, True], [False, False]]),
+        "isFwd",
+    )
+
+    processor._fill_histograms_for_variation(
+        events,
+        dataset,
+        variation_state,
+        weights_object=weights_object,
+        hist_label="nominal",
+        data_weight_systematics_set=set(),
+        hout=hout,
+    )
+
+    assert len(hout[histkey].fills) == 1
+    assert ak.to_list(variation_state.nfwdj) == [2, 0]
+    assert ak.to_layout(variation_state.nfwdj, allow_record=False).purelist_depth == 1

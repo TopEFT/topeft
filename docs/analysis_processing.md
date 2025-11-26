@@ -64,6 +64,11 @@ aspects are worth keeping in mind when extending it:
   systematic)`` tuple so downstream data-driven estimation helpers (for
   example :class:`topeft.modules.dataDrivenEstimation.DataDrivenProducer`)
   receive the application tag without relying on categorical axes.
+* **Forward-jet bookkeeping** – forward-jet selections recompute the per-event
+  counts from their masks with ``ak.num`` and immediately cast them to numeric
+  arrays (filling missing entries with zeros) before histogramming so that
+  ``fwdjet_mask`` remains a flat boolean array even when events lack forward
+  jets.
 
 Because the constructor performs strict validation (checking for ``None``
 arguments, verifying tuple lengths, etc.), deviations are caught early.  The
