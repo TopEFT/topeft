@@ -1839,19 +1839,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         elif goodJets is not None and "isFwd" in ak.fields(goodJets):
             fwd_mask = ak.fill_none(goodJets.isFwd, False)
         else:
-            fwd_mask = ak.zeros_like(events["event"], dtype=bool)
+            fwd_mask = None
 
-        nfwdj = ak.num(fwd_mask[fwd_mask], axis=-1)
-        nfwdj = ak.fill_none(nfwdj, 0)
-        nfwdj_layout = ak.to_layout(nfwdj, allow_record=False)
-        nfwdj = ak.values_astype(ak.Array(nfwdj_layout), np.int64)
-        if nfwdj_layout.purelist_depth != 1:
-            raise TypeError(
-                f"nfwdj must be a flat per-event array, not {nfwdj_layout.purelist_depth}D"
-            )
+        if fwd_mask is not None:
+            nfwdj = ak.num(fwd_mask[fwd_mask], axis=-1)
+            nfwdj = ak.fill_none(nfwdj, 0)
+            nfwdj_layout = ak.to_layout(nfwdj, allow_record=False)
+            nfwdj = ak.values_astype(ak.Array(nfwdj_layout), np.int64)
+            if nfwdj_layout.purelist_depth != 1:
+                raise TypeError(
+                    f"nfwdj must be a flat per-event array, not {nfwdj_layout.purelist_depth}D"
+                )
+
+            fwdjet_mask = nfwdj > 0
+        else:
+            nfwdj = ak.zeros_like(events["event"], dtype=np.int64)
+            nfwdj_layout = ak.to_layout(nfwdj, allow_record=False)
+            fwdjet_mask = ak.zeros_like(events["event"], dtype=bool)
 
         variation_state.nfwdj = nfwdj
-        fwdjet_mask = nfwdj > 0
 
         chargel0_p = ak.fill_none((l0.charge) > 0, False)
         chargel0_m = ak.fill_none((l0.charge) < 0, False)
