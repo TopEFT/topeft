@@ -922,6 +922,16 @@ class RunWorkflow:
             if not channel_dict:
                 continue
 
+            if task.clean_channel != "3l_m_offZ_1b_2j":
+                print("Skipping task for channel", task.clean_channel)
+                continue
+
+            print("\n\n\n\n\n--- Running task for channel", task.clean_channel)
+            print("Channel metadata:", channel_dict)
+            print("Task:", task)
+            print("---\n\n\n\n\n")
+            #raise NotImplementedError("Temporarily disabled")
+
             golden_json_path = None
             if sample_dict.get("isData"):
                 year_key = str(sample_dict["year"])
