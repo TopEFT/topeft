@@ -1167,42 +1167,47 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not self._debug_logging:
                 return
 
+            original_type = ak.type(arr)
+
             try:
                 target = arr
                 selected_field = None
 
-                if ak.is_record(target):
-                    for candidate in ("jets", "Jet", "pt"):
-                        if candidate in target.fields:
+                fields = ak.fields(target)
+                if fields:
+                    for candidate in ("jets", "Jet"):
+                        if candidate in fields:
                             selected_field = candidate
                             break
 
-                    if selected_field is None and target.fields:
-                        selected_field = target.fields[0]
-
                     if selected_field is None:
-                        raise TypeError(
-                            f"Cannot determine jet field for '{label}' from record fields={target.fields}"
-                        )
+                        selected_field = fields[0]
 
                     target = target[selected_field]
-                    arr = target
 
-                counts = ak.num(target, axis=-1)
-                num_arr = ak.num(arr)
+                target_fields = ak.fields(target)
+                if "pt" in target_fields:
+                    counts = ak.num(target.pt, axis=-1)
+                else:
+                    counts = ak.num(target, axis=-1)
+
+                counts = ak.values_astype(ak.fill_none(counts, 0), np.int64)
             except Exception as exc:
                 raise TypeError(
-                    f"Unable to log jet layout for '{label}': unexpected structure {ak.type(arr)}"
+                    f"Unable to log jet layout for '{label}': "
+                    f"original_type={original_type!r}, target_type={ak.type(target)!r}, error={exc}"
                 ) from exc
 
+            preview = ak.to_list(counts[:5])
+            nonempty = ak.to_list((counts > 0)[:5])
             self._debug(
-                "\n\n\n\n\n%s layout: arr=%s ak.num(arr)=%s nonempty=%s (len=%d)%s\n\n\n\n\n",
+                "\n\n%s layout: type=%s selected_field=%s counts=%s nonempty=%s (len=%d)\n",
                 label,
-                arr,
-                num_arr,
-                num_arr > 0,
+                ak.type(target),
+                selected_field,
+                preview,
+                nonempty,
                 len(counts),
-                f" selected_field={selected_field}" if selected_field else "",
             )
 
         _log_jet_layout("jets before cleaning", jets)
