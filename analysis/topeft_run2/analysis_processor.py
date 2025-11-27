@@ -1173,19 +1173,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                 target = arr
                 selected_field = None
 
-                if ak.is_record(target):
+                fields = ak.fields(target)
+                if fields:
                     for candidate in ("jets", "Jet", "pt"):
-                        if candidate in target.fields:
+                        if candidate in fields:
                             selected_field = candidate
                             break
 
-                    if selected_field is None and target.fields:
-                        selected_field = target.fields[0]
-
                     if selected_field is None:
-                        raise TypeError(
-                            f"Cannot determine jet field for '{label}' from record fields={target.fields}"
-                        )
+                        selected_field = fields[0]
 
                     target = target[selected_field]
 
