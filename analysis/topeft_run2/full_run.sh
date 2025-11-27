@@ -25,7 +25,8 @@ PrintUsage() {
   cat <<'USAGE'
 Usage: full_run.sh [-y YEAR [YEAR ...]] [-t TAG] [--cr | --sr] \
                    [--executor {taskvine,futures}] [--outdir PATH] [--manager NAME] \
-                   [--samples PATH [PATH ...]] [--dry-run] [extra run_analysis args]
+                   [--samples PATH [PATH ...]] [--debug-logging] [--dry-run] \
+                   [extra run_analysis args]
 
 Examples:
   full_run.sh --cr -y run3 -t dev_validation
@@ -45,7 +46,8 @@ Notes:
   * The default output name is <YEARS>_(CRs|SRs)_<TAG>, saved to the specified
     output directory with the 5-tuple histogram schema used throughout this
     branch.  Use --dry-run to print the resolved command without launching
-    Python (helpful for smoke tests or CI guards).
+    Python (helpful for smoke tests or CI guards).  Pass --debug-logging to forward
+    the instrumentation flag to run_analysis.py when deeper diagnostics are needed.
 USAGE
 }
 
@@ -90,6 +92,7 @@ main() {
   local futures_retries=0
   local futures_retry_wait=5.0
   local dry_run=false
+  local debug_logging=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -196,6 +199,17 @@ main() {
         ;;
       --dry-run)
         dry_run=true
+        shift
+        ;;
+      --debug-logging)
+        debug_logging=true
+        shift
+        ;;
+      --debug-logging=*)
+        local value="${1#*=}"
+        if [[ "${value,,}" != "0" && "${value,,}" != "false" && -n "$value" ]]; then
+          debug_logging=true
+        fi
         shift
         ;;
       --environment-file|--environment-file=*)
@@ -477,6 +491,10 @@ main() {
     options+=(--skip-sr)
   else
     options+=(--skip-cr --do-systs)
+  fi
+
+  if [[ "$debug_logging" == true ]]; then
+    options+=(--debug-logging)
   fi
 
   local -a run_cmd=(python run_analysis.py "$cfgs")

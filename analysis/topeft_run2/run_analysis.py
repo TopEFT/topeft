@@ -208,6 +208,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--debug-logging",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable verbose AnalysisProcessor debugging/instrumentation. "
+            "Leave unset to suppress debug logs during normal production runs."
+        ),
+    )
+    parser.add_argument(
         "--log-tasks",
         action="store_true",
         help=(
@@ -316,4 +325,3 @@ def main(argv: Sequence[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
-

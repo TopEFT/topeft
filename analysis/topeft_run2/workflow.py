@@ -963,6 +963,7 @@ class RunWorkflow:
                 available_systematics=task.available_systematics,
                 metadata_path=self._metadata_path,
                 executor_mode=self._config.executor,
+                debug_logging=bool(self._config.debug_logging),
             )
 
             import coffea.processor as processor
@@ -1310,4 +1311,3 @@ __all__ = [
     "run_workflow",
     "normalize_jet_category",
 ]
-

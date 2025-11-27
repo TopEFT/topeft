@@ -1302,6 +1302,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "Jet systematic variations must preserve the central jet multiplicities"
             )
 
+        if self._debug_logging:
+            self._debug(
+                "Building MET for variation '%s': object_variation=%s request_variation=%r dataset_year=%s is_data=%s corrected_jets_fields=%s",
+                variation_state.name,
+                variation_state.object_variation,
+                variation_state.request.variation,
+                dataset.year,
+                dataset.is_data,
+                tuple(ak.fields(corrected_jets)),
+            )
+
         met = build_corrected_met(
             ApplyJetCorrections(
                 dataset.year,
@@ -2554,6 +2565,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                 variation_state.name,
                 variation_state.variation_type,
                 variation_state.base,
+            )
+
+            self._debug(
+                "Object/systematic context for '%s': request_variation=%r object_variation=%s weight_variations=%s histogram_label=%s",
+                variation_state.name,
+                variation_state.request.variation,
+                variation_state.object_variation,
+                variation_state.weight_variations,
+                variation_state.request.histogram_label,
             )
 
             variation_state = self._apply_object_variations(

@@ -3,6 +3,8 @@
  into coffea format of corrections.
 '''
 
+import logging
+
 from coffea import lookup_tools
 from topeft.modules.paths import topeft_path
 import numpy as np
@@ -26,6 +28,8 @@ get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
 from collections import OrderedDict
+
+logger = logging.getLogger(__name__)
 
 basepathFromTTH = 'data/fromTTH/'
 
@@ -1508,6 +1512,27 @@ def build_corrected_jets(jet_factory, jets, lazy_cache=None):
 
 def build_corrected_met(met_factory, met, corrected_jets):
     """Materialise corrected MET without relying on any lazy caches."""
+
+    factory_name = type(met_factory).__name__
+    name_map = getattr(met_factory, "name_map", None)
+    uncertainties_provider = getattr(met_factory, "uncertainties", None)
+    uncertainties = []
+    if callable(uncertainties_provider):
+        try:
+            uncertainties = uncertainties_provider()
+        except Exception:
+            uncertainties = []
+
+    if logger.isEnabledFor(logging.DEBUG):
+        name_map_keys = list(name_map.keys()) if hasattr(name_map, "keys") else name_map
+        corrected_fields = tuple(ak.fields(corrected_jets))
+        logger.debug(
+            "Corrected MET build inputs: factory=%s name_map_keys=%s uncertainties=%s corrected_jets_fields=%s",
+            factory_name,
+            name_map_keys,
+            uncertainties,
+            corrected_fields,
+        )
 
     corrected_met = met_factory.build(met, corrected_jets)
     if isinstance(corrected_met, tuple):
