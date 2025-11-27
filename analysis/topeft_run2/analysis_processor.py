@@ -1295,6 +1295,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
         _log_jet_layout("jets after ApplyJetSystematics", cleaned_jets)
 
+        central_jet_counts = ak.num(corrected_jets.pt, axis=-1)
+        variation_jet_counts = ak.num(cleaned_jets.pt, axis=-1)
+        if not ak.all(variation_jet_counts == central_jet_counts):
+            raise AssertionError(
+                "Jet systematic variations must preserve the central jet multiplicities"
+            )
+
         met = build_corrected_met(
             ApplyJetCorrections(
                 dataset.year,
@@ -1551,6 +1558,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         nlep_cat = re.match(r"\d+l", self.channel).group(0)
         channel_prefix = nlep_cat[:2]
 
+        def _assert_mask_matches_jets(mask: ak.Array, jets: ak.Array, *, label: str) -> None:
+            mask_counts = ak.num(mask, axis=-1)
+            jet_counts = ak.num(jets.pt, axis=-1)
+            if not ak.all(mask_counts == jet_counts):
+                raise AssertionError(
+                    f"{label} must broadcast to the per-jet jagged structure"
+                )
+
         if year == "2016":
             year_light = "2016APV"
         else:
@@ -1562,12 +1577,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
         nbtagsl = ak.sum(isBtagJetsLoose, axis=-1)
 
+        _assert_mask_matches_jets(isBtagJetsLoose, goodJets, label="Loose b-tag mask")
+        _assert_mask_matches_jets(
+            isNotBtagJetsLoose, goodJets, label="Inverse loose b-tag mask"
+        )
+
         medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
         btagwpm = get_tc_param(medium_tag)
         isBtagJetsMedium = goodJets.btagDeepFlavB > btagwpm
         isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
         nbtagsm = ak.sum(isBtagJetsMedium, axis=-1)
         isBtagJetsLooseNotMedium = isBtagJetsLoose & isNotBtagJetsMedium
+
+        _assert_mask_matches_jets(isBtagJetsMedium, goodJets, label="Medium b-tag mask")
+        _assert_mask_matches_jets(
+            isNotBtagJetsMedium, goodJets, label="Inverse medium b-tag mask"
+        )
+        _assert_mask_matches_jets(
+            isBtagJetsLooseNotMedium, goodJets, label="Loose-not-medium b-tag mask"
+        )
 
         variation_state.isBtagJetsLoose = isBtagJetsLoose
         variation_state.isNotBtagJetsLoose = isNotBtagJetsLoose
@@ -1597,6 +1625,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             variation_state.light_mask = light_mask
             variation_state.bc_mask = bc_mask
+
+            _assert_mask_matches_jets(light_mask, goodJets, label="Light-flavour mask")
+            _assert_mask_matches_jets(bc_mask, goodJets, label="Heavy-flavour mask")
             jets_light = goodJets[light_mask]
             jets_bc = goodJets[bc_mask]
             variation_state.jets_light = jets_light
