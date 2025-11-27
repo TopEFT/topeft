@@ -1198,15 +1198,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                 counts = ak.num(target, axis=-1)
             except Exception as exc:
                 raise TypeError(
-                    f"Unable to log jet layout for '{label}': original_type={original_type!r}, arr_type={ak.type(arr)!r}, error={exc}"
+                    f"Unable to log jet layout for '{label}': "
+                    f"original_type={original_type!r}, arr_type={ak.type(arr)!r}, error={exc}"
                 ) from exc
 
             self._debug(
-                "\n\n\n\n\n%s layout: original_type=%s selected_field=%s target=%s counts=%s nonempty=%s (len=%d)\n\n\n\n\n",
+                "\n\n\n\n\n%s layout: original_type=%s selected_field=%s target=%s target_type=%s counts=%s nonempty=%s (len=%d)\n\n\n\n\n",
                 label,
                 original_type,
                 selected_field,
                 target,
+                ak.type(target),
                 counts,
                 counts > 0,
                 len(counts),
