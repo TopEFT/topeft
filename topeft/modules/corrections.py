@@ -1516,20 +1516,64 @@ def build_corrected_met(met_factory, met, corrected_jets):
     return ak.Array(corrected_met)
 
 def ApplyJetSystematics(year,cleanedJets,syst_var):
+    def _jet_reference_field(jets: ak.Array) -> ak.Array:
+        if "pt" in ak.fields(jets):
+            return jets.pt
+        return jets
+
+    def _coerce_variation_shape(variation: ak.Array, central_counts: ak.Array) -> ak.Array:
+        """
+        Normalize a jet systematic variation layout to match the central jets.
+
+        This helper peels common wrappers (a top-level "Jet" record and single-field
+        records), drops any leading "source" axis (e.g. sources × events × jets) until
+        the per-event jet counts share the same dimensionality as ``central_counts``,
+        and asserts the resulting counts exactly match ``central_counts``. Raises
+        ``AssertionError`` if the counts cannot be reconciled.
+        """
+        variation_arr = ak.Array(variation)
+        variation_fields = ak.fields(variation_arr)
+
+        if "Jet" in variation_fields:
+            variation_arr = variation_arr["Jet"]
+            variation_fields = ak.fields(variation_arr)
+
+        if len(variation_fields) == 1:
+            variation_arr = variation_arr[variation_fields[0]]
+
+        while ak.num(_jet_reference_field(variation_arr), axis=-1).ndim > central_counts.ndim:
+            variation_arr = variation_arr[0]
+
+        variation_counts = ak.num(_jet_reference_field(variation_arr), axis=-1)
+        if not ak.all(variation_counts == central_counts):
+            raise AssertionError(
+                "Jet systematic variation counts must match the central jet counts"
+            )
+
+        return variation_arr
+
+    central_counts = ak.num(_jet_reference_field(cleanedJets), axis=-1)
+
     if (syst_var == f'JER_{year}Up'):
-        return cleanedJets.JER.up
+        return _coerce_variation_shape(cleanedJets.JER.up, central_counts)
     elif (syst_var == f'JER_{year}Down'):
-        return cleanedJets.JER.down
+        return _coerce_variation_shape(cleanedJets.JER.down, central_counts)
     elif (syst_var == 'JESUp'):
-        return cleanedJets.JES_jes.up
+        return _coerce_variation_shape(cleanedJets.JES_jes.up, central_counts)
     elif (syst_var == 'JESDown'):
-        return cleanedJets.JES_jes.down
+        return _coerce_variation_shape(cleanedJets.JES_jes.down, central_counts)
     elif (syst_var == 'nominal'):
         return cleanedJets
-    elif (syst_var in ['nominal','MuonESUp','MuonESDown', 'TESUp', 'TESDown', 'FESUp', 'FESDown']):
+    elif (syst_var in ['MuonESUp','MuonESDown', 'TESUp', 'TESDown', 'FESUp', 'FESDown']):
         return cleanedJets
-    elif ('JES_FlavorQCD' in syst_var in syst_var):
+    elif ("JES_FlavorQCD" in syst_var):
         # Overwrite FlavorQCD with the proper jet flavor uncertainty
+        if "JES_FlavorQCD" not in cleanedJets.fields:
+            logger.warning(
+                "Requested JES_FlavorQCD variation '%s' but no usable JES_FlavorQCD field could be derived; returning nominal jets.",
+                syst_var,
+            )
+            return cleanedJets
         bmask = np.array(ak.flatten(abs(cleanedJets.partonFlavour)==5))
         cmask = abs(cleanedJets.partonFlavour)==4
         cmask = np.array(ak.flatten(cmask))
@@ -1545,7 +1589,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
             corrections[gmask] = corrections[gmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[gmask]
             corrections = ak.unflatten(corrections, ak.num(cleanedJets.JES_FlavorQCD.up.pt))
             cleanedJets['JES_FlavorQCD']['up']['pt'] = corrections
-            return cleanedJets.JES_FlavorQCD.up
+            return _coerce_variation_shape(cleanedJets.JES_FlavorQCD.up, central_counts)
         if 'Down' in syst_var:
             corrections[bmask] = corrections[bmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[bmask]
             corrections[cmask] = corrections[cmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[cmask]
@@ -1553,12 +1597,25 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
             corrections[gmask] = corrections[gmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[gmask]
             corrections = ak.unflatten(corrections, ak.num(cleanedJets.JES_FlavorQCD.down.pt))
             cleanedJets['JES_FlavorQCD']['down']['pt'] = corrections
-            return cleanedJets.JES_FlavorQCD.down
+            return _coerce_variation_shape(cleanedJets.JES_FlavorQCD.down, central_counts)
+        logger.warning(
+            "Requested JES_FlavorQCD variation '%s' but no usable JES_FlavorQCD field could be derived; returning nominal jets.",
+            syst_var,
+        )
+        return cleanedJets
     # Save `2016APV` as `2016APV` but look up `2016` corrections (no separate APV corrections available)
     elif ('Up' in syst_var and syst_var[:-2].replace('APV', '') in cleanedJets.fields):
-        return cleanedJets[syst_var.replace('Up', '').replace("Pile", "PileUp").replace('APV', '')].up
+        return _coerce_variation_shape(
+            cleanedJets[syst_var.replace('Up', '').replace("Pile", "PileUp").replace('APV', '')].up,
+            central_counts,
+        )
     elif ('Down' in syst_var and syst_var[:-4].replace('APV', '') in cleanedJets.fields):
-        return cleanedJets[syst_var.replace('Down', '').replace('APV', '')].down
+        return _coerce_variation_shape(
+            cleanedJets[
+                syst_var.replace('Down', '').replace("Pile", "PileUp").replace('APV', '')
+            ].down,
+            central_counts,
+        )
     else:
         raise Exception(f"Error: Unknown variation \"{syst_var}\".")
 
