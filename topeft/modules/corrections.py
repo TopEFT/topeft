@@ -1555,9 +1555,9 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         return _coerce_variation_shape(cleanedJets.JES_jes.down, central_counts)
     elif (syst_var == 'nominal'):
         return cleanedJets
-    elif (syst_var in ['nominal','MuonESUp','MuonESDown', 'TESUp', 'TESDown', 'FESUp', 'FESDown']):
+    elif (syst_var in ['MuonESUp','MuonESDown', 'TESUp', 'TESDown', 'FESUp', 'FESDown']):
         return cleanedJets
-    elif ('JES_FlavorQCD' in syst_var in syst_var):
+    elif ("JES_FlavorQCD" in syst_var):
         # Overwrite FlavorQCD with the proper jet flavor uncertainty
         bmask = np.array(ak.flatten(abs(cleanedJets.partonFlavour)==5))
         cmask = abs(cleanedJets.partonFlavour)==4
@@ -1591,7 +1591,9 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         )
     elif ('Down' in syst_var and syst_var[:-4].replace('APV', '') in cleanedJets.fields):
         return _coerce_variation_shape(
-            cleanedJets[syst_var.replace('Down', '').replace('APV', '')].down,
+            cleanedJets[
+                syst_var.replace('Down', '').replace("Pile", "PileUp").replace('APV', '')
+            ].down,
             central_counts,
         )
     else:
