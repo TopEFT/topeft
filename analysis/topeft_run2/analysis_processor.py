@@ -1175,7 +1175,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 fields = ak.fields(target)
                 if fields:
-                    for candidate in ("jets", "Jet", "pt"):
+                    for candidate in ("jets", "Jet"):
                         if candidate in fields:
                             selected_field = candidate
                             break
@@ -1185,28 +1185,28 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     target = target[selected_field]
 
-                target_layout = ak.to_layout(target, allow_record=False)
-                if target_layout.purelist_depth < 2:
-                    raise TypeError(
-                        f"Jet layout for '{label}' must be a list-of-jets (purelist_depth>=2), got depth={target_layout.purelist_depth} for type {ak.type(target)}"
-                    )
+                target_fields = ak.fields(target)
+                if "pt" in target_fields:
+                    counts = ak.num(target.pt, axis=-1)
+                else:
+                    counts = ak.num(target, axis=-1)
 
-                counts = ak.num(target, axis=-1)
+                counts = ak.values_astype(ak.fill_none(counts, 0), np.int64)
             except Exception as exc:
                 raise TypeError(
                     f"Unable to log jet layout for '{label}': "
-                    f"original_type={original_type!r}, arr_type={ak.type(arr)!r}, error={exc}"
+                    f"original_type={original_type!r}, target_type={ak.type(target)!r}, error={exc}"
                 ) from exc
 
+            preview = ak.to_list(counts[:5])
+            nonempty = ak.to_list((counts > 0)[:5])
             self._debug(
-                "\n\n\n\n\n%s layout: original_type=%s selected_field=%s target=%s target_type=%s counts=%s nonempty=%s (len=%d)\n\n\n\n\n",
+                "\n\n%s layout: type=%s selected_field=%s counts=%s nonempty=%s (len=%d)\n",
                 label,
-                original_type,
-                selected_field,
-                target,
                 ak.type(target),
-                counts,
-                counts > 0,
+                selected_field,
+                preview,
+                nonempty,
                 len(counts),
             )
 
