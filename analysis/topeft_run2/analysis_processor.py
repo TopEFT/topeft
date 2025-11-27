@@ -1167,6 +1167,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not self._debug_logging:
                 return
 
+            original_type = ak.type(arr)
+
             try:
                 target = arr
                 selected_field = None
@@ -1186,23 +1188,28 @@ class AnalysisProcessor(processor.ProcessorABC):
                         )
 
                     target = target[selected_field]
-                    arr = target
+
+                target_layout = ak.to_layout(target, allow_record=False)
+                if target_layout.purelist_depth < 2:
+                    raise TypeError(
+                        f"Jet layout for '{label}' must be a list-of-jets (purelist_depth>=2), got depth={target_layout.purelist_depth} for type {ak.type(target)}"
+                    )
 
                 counts = ak.num(target, axis=-1)
-                num_arr = ak.num(arr)
             except Exception as exc:
                 raise TypeError(
-                    f"Unable to log jet layout for '{label}': unexpected structure {ak.type(arr)}"
+                    f"Unable to log jet layout for '{label}': {exc}"
                 ) from exc
 
             self._debug(
-                "\n\n\n\n\n%s layout: arr=%s ak.num(arr)=%s nonempty=%s (len=%d)%s\n\n\n\n\n",
+                "\n\n\n\n\n%s layout: original_type=%s selected_field=%s target=%s counts=%s nonempty=%s (len=%d)\n\n\n\n\n",
                 label,
-                arr,
-                num_arr,
-                num_arr > 0,
+                original_type,
+                selected_field,
+                target,
+                counts,
+                counts > 0,
                 len(counts),
-                f" selected_field={selected_field}" if selected_field else "",
             )
 
         _log_jet_layout("jets before cleaning", jets)
