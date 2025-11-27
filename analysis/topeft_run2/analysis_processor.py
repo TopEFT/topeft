@@ -1307,36 +1307,75 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         _log_jet_layout("jets after JEC/JER", cleaned_jets)
 
-        is_good_mask = tc_os.is_tight_jet(
-            getattr(cleaned_jets, jetptname),
-            cleaned_jets.eta,
-            cleaned_jets.jetId,
-            pt_cut=30.0,
-            eta_cut=get_te_param("eta_j_cut"),
-            id_cut=get_te_param("jet_id_cut"),
+        def _ensure_boolean_mask(mask: ak.Array, reference: ak.Array, *, label: str):
+            mask = ak.fill_none(mask, False)
+            mask = ak.broadcast_arrays(mask, reference)[0]
+            reference_counts = ak.num(reference, axis=-1)
+            mask_counts = ak.num(mask, axis=-1)
+            if not ak.all(mask_counts == reference_counts):
+                raise AssertionError(
+                    f"{label} must match the jagged structure of the reference array"
+                )
+            return mask
+
+        is_good_mask = _ensure_boolean_mask(
+            tc_os.is_tight_jet(
+                getattr(cleaned_jets, jetptname),
+                cleaned_jets.eta,
+                cleaned_jets.jetId,
+                pt_cut=30.0,
+                eta_cut=get_te_param("eta_j_cut"),
+                id_cut=get_te_param("jet_id_cut"),
+            ),
+            cleaned_jets.pt,
+            label="Jet tight-selection mask",
         )
-        is_good_mask = ak.fill_none(is_good_mask, False)
-        is_good_mask = ak.broadcast_arrays(is_good_mask, cleaned_jets.pt)[0]
+        is_fwd_mask = _ensure_boolean_mask(
+            te_os.isFwdJet(
+                getattr(cleaned_jets, jetptname),
+                cleaned_jets.eta,
+                cleaned_jets.jetId,
+                jetPtCut=40.0,
+            ),
+            cleaned_jets.pt,
+            label="Forward-jet mask",
+        )
+
         cleaned_jets["isGood"] = is_good_mask
-        cleaned_jets["isFwd"] = te_os.isFwdJet(
-            getattr(cleaned_jets, jetptname),
-            cleaned_jets.eta,
-            cleaned_jets.jetId,
-            jetPtCut=40.0,
-        )
+        cleaned_jets["isFwd"] = is_fwd_mask
+
         good_jets = cleaned_jets[is_good_mask]
-        fwd_jets = cleaned_jets[cleaned_jets.isFwd]
+        fwd_jets = cleaned_jets[is_fwd_mask]
+
+        good_counts_from_mask = ak.sum(is_good_mask, axis=-1)
+        good_counts_from_jets = ak.num(good_jets.pt, axis=-1)
+        if not ak.all(good_counts_from_mask == good_counts_from_jets):
+            raise AssertionError("Good-jet selection must preserve jagged structure")
+
+        fwd_counts_from_mask = ak.sum(is_fwd_mask, axis=-1)
+        fwd_counts_from_jets = ak.num(fwd_jets.pt, axis=-1)
+        if not ak.all(fwd_counts_from_mask == fwd_counts_from_jets):
+            raise AssertionError("Forward-jet selection must preserve jagged structure")
+
+        def _ensure_flat_numeric_counts(counts: ak.Array, *, label: str) -> ak.Array:
+            counts = ak.values_astype(ak.fill_none(counts, 0), np.int64)
+            counts_layout = ak.to_layout(counts, allow_record=False)
+            if counts_layout.purelist_depth != 1:
+                raise AssertionError(
+                    f"{label} must be a 1D numeric per-event array, not {counts_layout.purelist_depth}D"
+                )
+            return ak.Array(counts_layout)
 
         _log_jet_layout("good jets", good_jets)
 
         variation_state.cleaned_jets = cleaned_jets
         variation_state.good_jets = good_jets
         variation_state.fwd_jets = fwd_jets
-        variation_state.njets = ak.values_astype(
-            ak.fill_none(ak.num(good_jets.pt, axis=-1), 0), np.int64
+        variation_state.njets = _ensure_flat_numeric_counts(
+            good_counts_from_jets, label="njets"
         )
-        variation_state.nfwdj = ak.values_astype(
-            ak.fill_none(ak.num(fwd_jets.pt, axis=-1), 0), np.int64
+        variation_state.nfwdj = _ensure_flat_numeric_counts(
+            fwd_counts_from_mask, label="nfwdj"
         )
         variation_state.ht = (
             ak.sum(good_jets.pt, axis=-1) if "ht" in self._var_def else None
