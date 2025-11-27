@@ -42,7 +42,7 @@ def _build_processor(monkeypatch):
     processor = ap.AnalysisProcessor.__new__(ap.AnalysisProcessor)
     processor._debug_logging = True
     processor._debug = lambda *_, **__: None
-    processor._var_def = {"ht", "j0"}
+    processor._var_def = "ht"
     processor.tau_h_analysis = False
 
     class _NoopJetCorrections:
@@ -80,38 +80,35 @@ def _build_processor(monkeypatch):
 def test_jets_and_masks_have_flat_counts(monkeypatch):
     processor = _build_processor(monkeypatch)
 
-    jets = ak.Array(
-        [
-            [
-                {
-                    "pt": np.float32(55.0),
-                    "eta": np.float32(0.5),
-                    "phi": np.float32(0.1),
-                    "mass": np.float32(10.0),
-                    "rawFactor": np.float32(0.1),
-                    "jetId": 6,
-                },
-                {
-                    "pt": np.float32(75.0),
-                    "eta": np.float32(2.6),
-                    "phi": np.float32(-0.4),
-                    "mass": np.float32(12.0),
-                    "rawFactor": np.float32(0.05),
-                    "jetId": 6,
-                },
-            ]
-        ]
-    )
+    jets_per_event = [
+        {
+            "pt": np.float32(55.0),
+            "eta": np.float32(0.5),
+            "phi": np.float32(0.1),
+            "mass": np.float32(10.0),
+            "rawFactor": np.float32(0.1),
+            "jetId": 6,
+        },
+        {
+            "pt": np.float32(75.0),
+            "eta": np.float32(2.6),
+            "phi": np.float32(-0.4),
+            "mass": np.float32(12.0),
+            "rawFactor": np.float32(0.05),
+            "jetId": 6,
+        },
+    ]
+    jets = ak.Array([jets_per_event] * 5)
 
     variation_objects = ap.VariationObjects(
-        met=ak.Array([[{"pt": np.float32(50.0), "phi": np.float32(0.0), "sumEt": np.float32(55.0)}]]),
-        electrons=ak.Array([[[]]]),
-        muons=ak.Array([[[]]]),
-        taus=ak.Array([[[]]]),
+        met=ak.Array([[{"pt": np.float32(50.0), "phi": np.float32(0.0), "sumEt": np.float32(55.0)}]] * 5),
+        electrons=ak.Array([[]] * 5),
+        muons=ak.Array([[]] * 5),
+        taus=ak.Array([[]] * 5),
         jets=jets,
-        loose_leptons=ak.Array([[[]]]),
-        fakeable_leptons=ak.Array([[{"jetIdx": -1}]]),
-        fakeable_sorted=ak.Array([[{"jetIdx": -1}]]),
+        loose_leptons=ak.Array([[]] * 5),
+        fakeable_leptons=ak.Array([[{"jetIdx": -1}]] * 5),
+        fakeable_sorted=ak.Array([[{"jetIdx": -1}]] * 5),
         cleaning_taus=None,
         n_loose_taus=None,
         tau0=None,
@@ -130,7 +127,7 @@ def test_jets_and_masks_have_flat_counts(monkeypatch):
         sow_variations={},
         objects=variation_objects,
         lepton_selection=object(),
-        jets_rho=ak.Array([np.float32(0.5)]),
+        jets_rho=ak.Array([np.float32(0.5)] * 5),
     )
 
     dataset = ap.DatasetContext(
@@ -147,25 +144,36 @@ def test_jets_and_masks_have_flat_counts(monkeypatch):
         is_run3=False,
         sample_type="data",
         is_lo_sample=False,
-        lumi_mask=ak.Array([True]),
+        lumi_mask=ak.Array([True] * 5),
         lumi=1.0,
         eft_coeffs=None,
         eft_w2_coeffs=None,
     )
 
-    events = _DummyMapping(event=ak.Array([1]))
+    events = _DummyMapping(event=ak.Array(np.arange(5)))
 
     processed_state = processor._apply_object_variations(events, dataset, variation_state)
 
+    cleaned_counts = ak.num(processed_state.cleaned_jets.pt, axis=-1)
+    good_counts = ak.num(processed_state.good_jets.pt, axis=-1)
+    fwd_counts = ak.num(processed_state.fwd_jets.pt, axis=-1)
     jet_counts = ak.num(processed_state.good_jets.pt, axis=-1)
     good_mask_counts = ak.sum(processed_state.cleaned_jets.isGood, axis=-1)
     fwd_mask_counts = ak.sum(processed_state.cleaned_jets.isFwd, axis=-1)
 
-    for counts in (jet_counts, good_mask_counts, fwd_mask_counts):
+    for counts in (
+        cleaned_counts,
+        good_counts,
+        fwd_counts,
+        good_mask_counts,
+        fwd_mask_counts,
+        processed_state.njets,
+        processed_state.nfwdj,
+    ):
         assert ak.to_layout(counts).purelist_depth == 1
 
-    assert ak.all(jet_counts == processed_state.njets)
-    assert ak.all(fwd_mask_counts == processed_state.nfwdj)
+    assert ak.all(good_counts == processed_state.njets)
+    assert ak.all(fwd_counts == processed_state.nfwdj)
 
-    assert ak.all(good_mask_counts == ak.num(processed_state.good_jets.pt, axis=-1))
-    assert ak.all(fwd_mask_counts == ak.num(processed_state.fwd_jets.pt, axis=-1))
+    assert ak.all(good_counts == good_mask_counts)
+    assert ak.all(fwd_counts == fwd_mask_counts)
