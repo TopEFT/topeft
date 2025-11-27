@@ -1522,6 +1522,15 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         return jets
 
     def _coerce_variation_shape(variation: ak.Array, central_counts: ak.Array) -> ak.Array:
+        """
+        Normalize a jet systematic variation layout to match the central jets.
+
+        This helper peels common wrappers (a top-level "Jet" record and single-field
+        records), drops any leading "source" axis (e.g. sources × events × jets) until
+        the per-event jet counts share the same dimensionality as ``central_counts``,
+        and asserts the resulting counts exactly match ``central_counts``. Raises
+        ``AssertionError`` if the counts cannot be reconciled.
+        """
         variation_arr = ak.Array(variation)
         variation_fields = ak.fields(variation_arr)
 
@@ -1559,6 +1568,12 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         return cleanedJets
     elif ("JES_FlavorQCD" in syst_var):
         # Overwrite FlavorQCD with the proper jet flavor uncertainty
+        if "JES_FlavorQCD" not in cleanedJets.fields:
+            logger.warning(
+                "Requested JES_FlavorQCD variation '%s' but no usable JES_FlavorQCD field could be derived; returning nominal jets.",
+                syst_var,
+            )
+            return cleanedJets
         bmask = np.array(ak.flatten(abs(cleanedJets.partonFlavour)==5))
         cmask = abs(cleanedJets.partonFlavour)==4
         cmask = np.array(ak.flatten(cmask))
@@ -1583,6 +1598,11 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
             corrections = ak.unflatten(corrections, ak.num(cleanedJets.JES_FlavorQCD.down.pt))
             cleanedJets['JES_FlavorQCD']['down']['pt'] = corrections
             return _coerce_variation_shape(cleanedJets.JES_FlavorQCD.down, central_counts)
+        logger.warning(
+            "Requested JES_FlavorQCD variation '%s' but no usable JES_FlavorQCD field could be derived; returning nominal jets.",
+            syst_var,
+        )
+        return cleanedJets
     # Save `2016APV` as `2016APV` but look up `2016` corrections (no separate APV corrections available)
     elif ('Up' in syst_var and syst_var[:-2].replace('APV', '') in cleanedJets.fields):
         return _coerce_variation_shape(
