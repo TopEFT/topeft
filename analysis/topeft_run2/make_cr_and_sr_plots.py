@@ -387,6 +387,36 @@ def _resolve_channel_axis_labels(histogram):
         return tuple(axis)
 
 
+def _resolve_process_axis_labels(histogram):
+    """Return the tuple of process labels defined on *histogram*."""
+
+    if histogram is None:
+        return ()
+
+    try:
+        axis = histogram.axes["process"]
+    except Exception:
+        return ()
+
+    try:
+        return tuple(str(label) for label in axis)
+    except Exception:
+        return tuple(axis)
+
+
+def _has_axis(histogram, axis_name):
+    """Return ``True`` when *histogram* exposes *axis_name* as an axis."""
+
+    if histogram is None:
+        return False
+
+    try:
+        histogram.axes[axis_name]
+        return True
+    except Exception:
+        return False
+
+
 def _preview_channel_axis_labels(histogram_mapping):
     """Return the first available set of channel labels from *histogram_mapping*."""
 
@@ -722,6 +752,191 @@ def _hist_has_content(histogram):
         if np.any(~np.isclose(values[finite_mask], 0.0, atol=1e-12)):
             return True
     return False
+
+
+def _integrate_nominal_axis(histogram):
+    """Project *histogram* onto the nominal systematic slice, if present."""
+
+    if histogram is None:
+        return None
+
+    if not _has_axis(histogram, "systematic"):
+        return histogram
+
+    try:
+        return histogram.integrate("systematic", "nominal")
+    except Exception:
+        return histogram
+
+
+def _describe_data_driven_matcher(matcher):
+    """Return a human-friendly label for a data-driven matcher."""
+
+    pattern = getattr(matcher, "pattern", str(matcher))
+    if pattern.startswith("^"):
+        pattern = pattern[1:]
+    return pattern
+
+
+def _summarize_zero_yield_processes(
+    dict_of_hists,
+    *,
+    region_name,
+    preserve_njets_bins=False,
+):
+    """Return a structured summary of zero-yield processes per channel."""
+
+    summary = {
+        "region": region_name,
+        "channels_scanned": 0,
+        "channel_entries": [],
+        "zero_process_total": 0,
+        "data_driven_zero_total": 0,
+        "missing_data_driven_prefixes": set(),
+        "errors": [],
+    }
+
+    try:
+        reference_hist_name = _find_reference_hist_name(dict_of_hists)
+    except Exception as exc:  # pragma: no cover - defensive
+        summary["errors"].append(str(exc))
+        return summary
+
+    base_hist = dict_of_hists.get(reference_hist_name)
+    available_channels = set(_resolve_channel_axis_labels(base_hist))
+    available_processes = tuple(_resolve_process_axis_labels(base_hist))
+
+    if not _has_axis(base_hist, "process"):
+        summary["errors"].append("No process axis available for zero-yield scan.")
+        return summary
+
+    if not available_channels:
+        summary["errors"].append("No channel axis labels available for zero-yield scan.")
+        return summary
+
+    if not available_processes:
+        summary["errors"].append("No process labels available for zero-yield scan.")
+        return summary
+
+    channel_map = CR_CHAN_DICT if region_name.upper() == "CR" else SR_CHAN_DICT
+    data_driven_availability = {
+        _describe_data_driven_matcher(matcher): [
+            proc for proc in available_processes if matcher.search(proc)
+        ]
+        for matcher in DATA_DRIVEN_MATCHERS
+    }
+
+    for chan_label, chan_bins in channel_map.items():
+        summary["channels_scanned"] += 1
+        unique_bins = tuple(dict.fromkeys(chan_bins))
+        selected_bins = [bin_name for bin_name in unique_bins if bin_name in available_channels]
+        missing_bins = [bin_name for bin_name in unique_bins if bin_name not in available_channels]
+
+        if not selected_bins:
+            summary["channel_entries"].append(
+                {
+                    "label": chan_label,
+                    "missing_bins": tuple(missing_bins),
+                    "zero_processes": [],
+                }
+            )
+            continue
+
+        zero_processes = []
+        for proc in available_processes:
+            try:
+                proc_hist = base_hist.integrate("process", [proc])
+                proc_hist = proc_hist.integrate("channel", selected_bins)
+            except Exception:
+                continue
+
+            proc_hist = _integrate_nominal_axis(proc_hist)
+
+            if not _hist_has_content(proc_hist):
+                is_data_driven = any(
+                    matcher.search(proc) for matcher in DATA_DRIVEN_MATCHERS
+                )
+                zero_processes.append((proc, is_data_driven))
+
+        if zero_processes or missing_bins:
+            summary["channel_entries"].append(
+                {
+                    "label": chan_label,
+                    "missing_bins": tuple(missing_bins),
+                    "zero_processes": zero_processes,
+                }
+            )
+            summary["zero_process_total"] += len(zero_processes)
+            summary["data_driven_zero_total"] += sum(
+                1 for _, is_data_driven in zero_processes if is_data_driven
+            )
+
+    for pattern_label, matches in data_driven_availability.items():
+        if not matches:
+            summary["missing_data_driven_prefixes"].add(pattern_label)
+
+    return summary
+
+
+def _emit_zero_yield_summary(summary, *, detailed=False):
+    """Print a short or detailed zero-yield report for the supplied *summary*."""
+
+    region_label = summary.get("region", "<unknown>")
+    flagged_channels = summary.get("channel_entries", [])
+    channel_count = summary.get("channels_scanned", 0)
+    zero_total = summary.get("zero_process_total", 0)
+    data_driven_zero_total = summary.get("data_driven_zero_total", 0)
+    missing_data_driven = summary.get("missing_data_driven_prefixes", set())
+    errors = summary.get("errors", [])
+
+    if detailed:
+        print("\nZero-yield content summary:")
+        for entry in flagged_channels:
+            issues = []
+            if entry.get("missing_bins"):
+                issues.append(
+                    "missing channels: " + ", ".join(sorted(entry["missing_bins"]))
+                )
+            if entry.get("zero_processes"):
+                zero_labels = []
+                for proc, is_data_driven in entry["zero_processes"]:
+                    label = proc
+                    if is_data_driven:
+                        label = f"{label} [data-driven]"
+                    zero_labels.append(label)
+                issues.append("zero-content processes: " + ", ".join(zero_labels))
+            if issues:
+                print(f"  - {region_label}::{entry['label']}: " + "; ".join(issues))
+
+        if missing_data_driven:
+            print(
+                "  Missing data-driven families: "
+                + ", ".join(sorted(missing_data_driven))
+            )
+
+    notice = (
+        f"Zero-yield scan for {region_label}: {zero_total} zero-content processes"
+        f" across {channel_count} channel groups"
+    )
+
+    if data_driven_zero_total or missing_data_driven:
+        notice += (
+            f" (data-driven zeros: {data_driven_zero_total}, missing families:"
+            f" {len(missing_data_driven)})"
+        )
+
+    has_issues = bool(flagged_channels or missing_data_driven)
+
+    if errors:
+        notice += f"; unable to scan fully ({'; '.join(errors)})"
+    elif not has_issues:
+        notice += "; no issues detected."
+    else:
+        notice += "."
+        if not detailed:
+            notice += " Pass --report-zero-yields for details."
+
+    print(notice)
 
 
 logger = logging.getLogger(__name__)
@@ -5730,6 +5945,7 @@ def run_plots_for_region(
     verbose=False,
     channel_output="merged",
     enable_category_skips=False,
+    report_zero_yields=False,
 ):
     channel_output_cfg = CHANNEL_OUTPUT_CHOICES.get(channel_output)
     if channel_output_cfg is None:
@@ -5799,6 +6015,18 @@ def run_plots_for_region(
             workers=workers,
             verbose=verbose,
         )
+
+    zero_yield_summary = _summarize_zero_yield_processes(
+        dict_of_hists,
+        region_name=region_name,
+        preserve_njets_bins=preserve_njets_bins,
+    )
+    _emit_zero_yield_summary(
+        zero_yield_summary,
+        detailed=bool(report_zero_yields),
+    )
+
+    return zero_yield_summary
 
 def main():
 
@@ -5892,6 +6120,14 @@ def main():
         type=int,
         default=1,
         help="Number of worker processes for parallel variable rendering (default: 1).",
+    )
+    parser.add_argument(
+        "--report-zero-yields",
+        action="store_true",
+        help=(
+            "Emit a detailed region/channel summary of processes with zero or missing yields"
+            " after plotting."
+        ),
     )
     verbosity_group = parser.add_mutually_exclusive_group()
     verbosity_group.add_argument(
@@ -6049,6 +6285,7 @@ def main():
         verbose=args.verbose,
         channel_output=args.channel_output,
         enable_category_skips=args.enable_category_skips,
+        report_zero_yields=args.report_zero_yields,
     )
 if __name__ == "__main__":
     main()
