@@ -527,6 +527,76 @@ def test_cleaned_jets_handles_missing_gen_matches(monkeypatch):
     assert ak.to_list(updated_state.objects.jets.pt_gen) == [[0.0]]
 
 
+def test_cleaned_jets_masks_preserve_structure(monkeypatch):
+    _patch_common(monkeypatch)
+
+    monkeypatch.setattr(
+        ap.tc_os,
+        "is_tight_jet",
+        lambda pt, eta, jetId, **_: ak.Array(
+            [[True, False], [False, True, True]]
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        ap.te_os,
+        "isFwdJet",
+        lambda pt, eta, jetId, jetPtCut=40.0: ak.Array(
+            [[False, False], [True, False, False]]
+        ),
+        raising=False,
+    )
+
+    processor = _make_processor()
+    jets = ak.Array(
+        [
+            [
+                {"pt": 60.0, "eta": 0.2, "phi": 0.1, "mass": 10.0, "rawFactor": 0.0, "jetId": 6},
+                {"pt": 25.0, "eta": -2.1, "phi": -0.2, "mass": 5.0, "rawFactor": 0.0, "jetId": 6},
+            ],
+            [
+                {"pt": 80.0, "eta": 2.6, "phi": 0.3, "mass": 12.0, "rawFactor": 0.0, "jetId": 6},
+                {"pt": 45.0, "eta": 0.5, "phi": -0.1, "mass": 7.5, "rawFactor": 0.0, "jetId": 6},
+                {"pt": 35.0, "eta": -1.2, "phi": 0.4, "mass": 6.0, "rawFactor": 0.0, "jetId": 6},
+            ],
+        ]
+    )
+    fakeable = ak.Array(
+        [
+            [{"pt": 0.0, "eta": 0.0, "phi": 0.0, "mass": 0.0, "jetIdx": -1}],
+            [{"pt": 0.0, "eta": 0.0, "phi": 0.0, "mass": 0.0, "jetIdx": -1}],
+        ]
+    )
+    fakeable_sorted = ak.Array(
+        [
+            [{"pt": 0.0, "conept": 0.0, "jetIdx": -1}],
+            [{"pt": 0.0, "conept": 0.0, "jetIdx": -1}],
+        ]
+    )
+    variation_state = _make_variation_state(
+        jets=jets, fakeable_leptons=fakeable, fakeable_sorted=fakeable_sorted
+    )
+    dataset = _make_dataset_context(is_data=True)
+
+    updated_state = processor._build_cleaned_jets(variation_state, dataset=dataset)
+
+    cleaned_jets = updated_state.cleaned_jets
+    assert ak.to_list(ak.num(cleaned_jets.isGood, axis=-1)) == ak.to_list(
+        ak.num(cleaned_jets.pt, axis=-1)
+    )
+    assert ak.to_list(ak.num(updated_state.good_jets.pt, axis=-1)) == [1, 2]
+    assert ak.to_list(ak.num(updated_state.fwd_jets.pt, axis=-1)) == [0, 1]
+
+    assert ak.to_list(updated_state.njets) == [1, 2]
+    assert ak.to_list(updated_state.nfwdj) == [0, 1]
+    assert (
+        ak.to_layout(updated_state.njets, allow_record=False).purelist_depth == 1
+    )
+    assert (
+        ak.to_layout(updated_state.nfwdj, allow_record=False).purelist_depth == 1
+    )
+
+
 def test_lepton_ordering_is_preserved(monkeypatch):
     _patch_common(monkeypatch)
     processor = _make_processor()
