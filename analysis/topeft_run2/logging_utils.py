@@ -46,6 +46,8 @@ def configure_logging(level_name: str, *, formatter: Optional[str] = None) -> No
     # repeatedly; reuse existing root handlers whenever they are present.
     attach_handler = not root.handlers
     if attach_handler:
+        # Prefer tqdm-aware logging so progress bars and INFO lines do not stomp
+        # on each other; fall back to a plain stream handler if tqdm is missing.
         if TqdmLoggingHandler is not None:
             handler: logging.Handler = TqdmLoggingHandler()
         else:

@@ -318,6 +318,8 @@ _TAU_SF_WEIGHT_SPECS: Tuple[Tuple[str, str, str, str, str], ...] = (
 
 
 class AnalysisProcessor(processor.ProcessorABC):
+    # Internal accumulator slot for per-task variation recaps; RunWorkflow pops
+    # this key before serialized outputs are returned to users or saved.
     VARIATION_SUMMARY_KEY = "__topeft_variation_summary__"
 
     def __init__(

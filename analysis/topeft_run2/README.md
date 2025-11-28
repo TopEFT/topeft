@@ -128,7 +128,9 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
         - Each histogram task now ends with a concise “variation recap” line that lists the
           requested variation labels, the object/weight variations that actually executed,
           and the histogram labels that were filled; search for ``Completed histogram task`` to
-          see the summary for a given sample/channel combination.
+          see the summary for a given sample/channel combination.  Internally the processor
+          stashes these recaps in a reserved accumulator key, which the workflow pops before
+          writing outputs so downstream consumers only see the usual histograms.
         - Example 5-event futures run with full diagnostics::
 
             python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
