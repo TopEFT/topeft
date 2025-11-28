@@ -22,7 +22,7 @@ import hist
 import topcoffea
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import (
@@ -230,6 +230,16 @@ class VariationState:
     include_elec_sf: bool = False
     include_tau_real_sf: bool = False
     include_tau_fake_sf: bool = False
+
+
+@dataclass(frozen=True)
+class PtBlComputation:
+    """Result of the ptbl evaluation plus reusable leading b-jet information."""
+
+    values: ak.Array
+    leading_b: ak.Array
+    leading_b_pt: ak.Array
+    has_btag: ak.Array
 
 
 _LEPTON_SF_WEIGHT_SPECS: Dict[str, Tuple[Tuple[str, str, str, str, str], ...]] = {
@@ -661,38 +671,110 @@ class AnalysisProcessor(processor.ProcessorABC):
         is_btag_med: ak.Array,
         is_btag_loose: ak.Array,
         leptons: ak.Array,
-    ) -> ak.Array:
-        ptbl_bjet = good_jets[(is_btag_med | is_btag_loose)]
-        ptbl_bjet = ak.with_name(ptbl_bjet, "PtEtaPhiMCandidate")
-        leading_b = ak.firsts(ptbl_bjet[ak.argsort(ptbl_bjet.pt, axis=-1, ascending=False)])
-        has_btag = ak.num(ptbl_bjet.pt, axis=-1) > 0
+        *,
+        with_details: bool = False,
+    ) -> Union[ak.Array, PtBlComputation]:
+        """Compute ptbl and optionally expose the selected leading b-jet."""
 
-        zero_vector = ak.zip(
-            {
-                "pt": ak.zeros_like(has_btag, dtype=np.float32),
-                "eta": ak.zeros_like(has_btag, dtype=np.float32),
-                "phi": ak.zeros_like(has_btag, dtype=np.float32),
-                "mass": ak.zeros_like(has_btag, dtype=np.float32),
-            },
-            with_name="PtEtaPhiMCandidate",
-        )
+        btag_mask = is_btag_med | is_btag_loose
+        ptbl_bjets = ak.with_name(good_jets[btag_mask], "PtEtaPhiMCandidate")
+        sorted_bjets = ptbl_bjets[ak.argsort(ptbl_bjets.pt, axis=-1, ascending=False)]
+        leading_b = ak.firsts(ak.pad_none(sorted_bjets, 1, axis=-1, clip=True))
+        leading_b = ak.with_name(leading_b, "PtEtaPhiMCandidate")
+        has_btag = ak.num(ptbl_bjets.pt, axis=-1) > 0
 
         leptons = ak.with_name(leptons, "PtEtaPhiMCandidate")
-        leading_b_filled = ak.with_name(
-            ak.where(has_btag, leading_b, zero_vector), "PtEtaPhiMCandidate"
-        )
-        delta_r = leading_b_filled.delta_r(leptons)
-        nearest_lep = leptons[ak.argmin(delta_r, axis=-1)]
+        has_lepton = ak.num(leptons.pt, axis=-1) > 0
 
-        px_b = leading_b_filled.pt * np.cos(leading_b_filled.phi)
-        py_b = leading_b_filled.pt * np.sin(leading_b_filled.phi)
-        px_l = nearest_lep.pt * np.cos(nearest_lep.phi)
-        py_l = nearest_lep.pt * np.sin(nearest_lep.phi)
+        def _pack_candidate(candidate: ak.Array) -> ak.Array:
+            return ak.zip(
+                {
+                    "pt": ak.values_astype(ak.fill_none(candidate.pt, np.float32(0.0)), np.float32),
+                    "eta": ak.values_astype(ak.fill_none(candidate.eta, np.float32(0.0)), np.float32),
+                    "phi": ak.values_astype(ak.fill_none(candidate.phi, np.float32(0.0)), np.float32),
+                    "mass": ak.values_astype(ak.fill_none(candidate.mass, np.float32(0.0)), np.float32),
+                },
+                with_name="PtEtaPhiMCandidate",
+            )
+
+        leading_b_vector = _pack_candidate(leading_b)
+        delta_eta = leading_b_vector.eta - leptons.eta
+        delta_phi = (leading_b_vector.phi - leptons.phi + np.pi) % (2.0 * np.pi) - np.pi
+        delta_r = np.hypot(delta_eta, delta_phi)
+        nearest_idx = ak.argmin(delta_r, axis=-1, keepdims=True)
+        nearest_lep = ak.firsts(leptons[nearest_idx])
+        nearest_lep_vector = _pack_candidate(nearest_lep)
+
+        px_b = leading_b_vector.pt * np.cos(leading_b_vector.phi)
+        py_b = leading_b_vector.pt * np.sin(leading_b_vector.phi)
+        px_l = nearest_lep_vector.pt * np.cos(nearest_lep_vector.phi)
+        py_l = nearest_lep_vector.pt * np.sin(nearest_lep_vector.phi)
 
         pt_sum = np.hypot(px_b + px_l, py_b + py_l)
-        pt_sum = ak.firsts(ak.singletons(pt_sum))
-        pt_sum = ak.values_astype(ak.fill_none(pt_sum, np.float32(-1.0)), np.float32)
-        return ak.where(has_btag, pt_sum, np.float32(-1.0))
+        pt_sum = ak.values_astype(pt_sum, np.float32)
+        has_valid_pair = has_btag & has_lepton
+        ptbl_values = ak.where(has_valid_pair, pt_sum, np.float32(-1.0))
+
+        if with_details:
+            leading_b_pt = ak.values_astype(
+                ak.fill_none(leading_b.pt, np.float32(-1.0)), np.float32
+            )
+            return PtBlComputation(
+                values=ptbl_values,
+                leading_b=leading_b,
+                leading_b_pt=leading_b_pt,
+                has_btag=has_btag,
+            )
+        return ptbl_values
+
+    def _check_dense_axis_invariants(
+        self, var_name: str, dense_axis_vals: Any, n_events: int
+    ) -> ak.Array:
+        """Ensure dense histogram axes have exactly one numeric value per event."""
+
+        dense_array = ak.Array(dense_axis_vals)
+        try:
+            array_length = len(dense_array)
+        except TypeError as exc:  # pragma: no cover - defensive
+            raise ValueError(
+                f"Dense axis '{var_name}' did not return an event-aligned array"
+            ) from exc
+
+        if array_length != n_events:
+            raise ValueError(
+                f"Dense axis '{var_name}' returned {array_length} entries, "
+                f"but {n_events} events are being processed"
+            )
+
+        type_str = str(ak.type(dense_array))
+        if "union[" in type_str.lower():
+            raise ValueError(
+                f"Dense axis '{var_name}' produced a union layout ({type_str}), "
+                "which cannot be converted into a dense histogram axis per the Awkward "
+                "union rules (see doc/external/awkward-src/docs/user-guide/how-to-create-constructors.md)."
+            )
+
+        sanitized = dense_array
+        layout = ak.to_layout(sanitized, allow_record=False)
+        depth = layout.purelist_depth
+        if depth == 0:
+            raise ValueError(
+                f"Dense axis '{var_name}' resolved to a scalar ({type_str}); expected one value per event."
+            )
+
+        while depth > 1:
+            counts = ak.num(sanitized, axis=-1)
+            if bool(ak.any(counts > 1)):
+                preview = ak.to_list(counts[: min(5, len(counts))])
+                raise ValueError(
+                    f"Dense axis '{var_name}' has {type_str} with >1 values per event "
+                    f"(example lengths: {preview})."
+                )
+            sanitized = ak.firsts(sanitized, axis=-1)
+            layout = ak.to_layout(sanitized, allow_record=False)
+            depth = layout.purelist_depth
+
+        return sanitized
 
     def _build_histogram_key(
         self,
@@ -2259,11 +2341,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         var_def = self.var_def
 
         if ("ptbl" in var_def) or ("b0pt" in var_def) or ("bl0pt" in var_def):
-            ptbl = self._compute_ptbl(
-                goodJets, isBtagJetsMedium, isBtagJetsLoose, l_fo_conept_sorted
+            ptbl_result = self._compute_ptbl(
+                goodJets,
+                isBtagJetsMedium,
+                isBtagJetsLoose,
+                l_fo_conept_sorted,
+                with_details=True,
             )
+            ptbl = ptbl_result.values
+            ptbl_leading_b = ptbl_result.leading_b
+            ptbl_leading_b_pt = ptbl_result.leading_b_pt
         else:
             ptbl = None
+            ptbl_leading_b = None
+            ptbl_leading_b_pt = None
+
+        logging.info("ptbl: %s", ak.to_list(ptbl)) if ptbl is not None else None
 
         if "ptz" in var_def:
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:, 0:3], 10.0)
@@ -2364,7 +2457,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         logging.info("Variable name: %s", self._var)
         logging.info("Variable definition: %s", self._var_def)
         dense_axis_name = self._var
+        n_events = len(events)
         dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
+        dense_axis_vals = self._check_dense_axis_invariants(
+            dense_axis_name, dense_axis_vals, n_events
+        )
         logging.info("Variable values: %s", ak.to_list(dense_axis_vals))
         
         weight_variations_to_run = list(variation_state.weight_variations)
