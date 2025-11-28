@@ -2074,6 +2074,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau = variation_state.objects.taus
         nLtau = variation_state.objects.n_loose_taus
         tau0 = variation_state.objects.tau0
+        j0 = variation_state.j0
+        ht = variation_state.ht
+        met = variation_state.objects.met
 
         histAxisName = dataset.hist_axis_name
         trigger_dataset = dataset.trigger_dataset
