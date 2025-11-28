@@ -18,7 +18,7 @@ import warnings
 
 from .._dependency_checks import ensure_topcoffea_branch
 
-ensure_topcoffea_branch()
+#ensure_topcoffea_branch()
 
 
 def parse_port_range(port: str) -> Tuple[int, int]:
