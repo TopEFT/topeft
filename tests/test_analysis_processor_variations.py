@@ -175,6 +175,7 @@ def _make_processor():
     processor.tau_h_analysis = False
     processor._debug_logging = False
     processor._debug = lambda *args, **kwargs: None
+    processor._executed_variations = []
     return processor
 
 
@@ -708,11 +709,10 @@ def test_ptbl_pairing_handles_missing_btags(monkeypatch):
         variation_state.isBtagJetsLoose,
         variation_state.objects.fakeable_sorted,
     )
-    ptbl_flat = ak.flatten(ptbl_values, axis=None)
-    ptbl_flat_list = [float(val) for val in ak.to_list(ptbl_flat)]
+    ptbl_list = [float(val) for val in ak.to_list(ptbl_values)]
 
-    assert np.isfinite(np.asarray(ptbl_flat_list)).all()
-    assert -1.0 in ptbl_flat_list
+    assert np.isfinite(np.asarray(ptbl_list)).all()
+    assert -1.0 in ptbl_list
 
     class _RecordingHist(_DummyHistEFT):
         def __init__(self):
@@ -768,10 +768,76 @@ def test_compute_ptbl_handles_zero_and_positive_btags():
     )
 
     ptbl_values = processor._compute_ptbl(good_jets, is_btag_med, is_btag_loose, leptons)
-    ptbl_flat = ak.to_list(ak.flatten(ptbl_values, axis=None))
+    ptbl_flat = ak.to_list(ptbl_values)
 
     assert ptbl_flat[0] == pytest.approx(-1.0)
     assert ptbl_flat[1] > 0
+
+
+def test_compute_ptbl_with_details_exposes_leading_bjet():
+    processor = _make_processor()
+
+    good_jets = ak.Array(
+        [
+            [
+                {"pt": 45.0, "eta": 0.1, "phi": 0.2, "mass": 5.0},
+                {"pt": 30.0, "eta": -0.2, "phi": -0.4, "mass": 4.5},
+            ],
+            [
+                {"pt": 55.0, "eta": -0.1, "phi": -0.3, "mass": 4.0},
+                {"pt": 35.0, "eta": 0.3, "phi": 0.5, "mass": 3.0},
+            ],
+        ]
+    )
+    is_btag_med = ak.Array([[False, True], [True, False]])
+    is_btag_loose = ak.Array([[False, False], [False, True]])
+    leptons = ak.Array(
+        [
+            [{"pt": 40.0, "eta": 0.0, "phi": 0.0, "mass": 0.1}],
+            [{"pt": 42.0, "eta": 0.2, "phi": 0.1, "mass": 0.1}],
+        ]
+    )
+
+    result = processor._compute_ptbl(
+        good_jets, is_btag_med, is_btag_loose, leptons, with_details=True
+    )
+
+    assert isinstance(result, ap.PtBlComputation)
+    assert ak.to_list(result.leading_b_pt) == pytest.approx([30.0, 55.0])
+
+
+def test_dense_axis_invariant_allows_scalar_arrays():
+    processor = _make_processor()
+    array = ak.Array([1.0, 2.0, 3.0])
+
+    sanitized = processor._check_dense_axis_invariants("ht", array, 3)
+
+    assert ak.to_list(sanitized) == [1.0, 2.0, 3.0]
+
+
+def test_dense_axis_invariant_squeezes_length_one_lists():
+    processor = _make_processor()
+    array = ak.Array([[1.0], [2.0], [None]])
+
+    sanitized = processor._check_dense_axis_invariants("pt", array, 3)
+
+    assert ak.to_list(sanitized) == [1.0, 2.0, None]
+
+
+def test_dense_axis_invariant_rejects_multi_entries():
+    processor = _make_processor()
+    array = ak.Array([[1.0, 2.0], [3.0]])
+
+    with pytest.raises(ValueError):
+        processor._check_dense_axis_invariants("bad", array, 2)
+
+
+def test_dense_axis_invariant_rejects_union_layouts():
+    processor = _make_processor()
+    array = ak.Array([1.0, [2.0]])
+
+    with pytest.raises(ValueError):
+        processor._check_dense_axis_invariants("union", array, 2)
 
 
 def test_histogram_btag_masks_handle_multijet_events(monkeypatch):
