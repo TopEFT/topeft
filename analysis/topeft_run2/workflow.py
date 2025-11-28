@@ -1014,9 +1014,9 @@ class RunWorkflow:
             if not channel_dict:
                 continue
 
-            # if task.clean_channel != "3l_m_offZ_1b_2j":
-            #     print("Skipping task for channel", task.clean_channel)
-            #     continue
+            if task.clean_channel != "3l_m_offZ_1b_2j":
+                logging.info("Skipping task for channel %s", task.clean_channel)
+                continue
 
             if self._config.debug_logging:
                 logger.info("Channel %s metadata: %s", task.clean_channel, channel_dict)

@@ -2361,9 +2361,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             ecut_mask = None
 
+        logging.info("Variable name: %s", self._var)
+        logging.info("Variable definition: %s", self._var_def)
         dense_axis_name = self._var
         dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
-
+        logging.info("Variable values: %s", ak.to_list(dense_axis_vals))
+        
         weight_variations_to_run = list(variation_state.weight_variations)
         if weight_variations_to_run:
             wgt_var_lst = []
