@@ -5,6 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+try:  # pragma: no cover - tqdm is bundled with coffea
+    from tqdm.contrib.logging import TqdmLoggingHandler
+except Exception:  # pragma: no cover - fallback when tqdm is unavailable
+    TqdmLoggingHandler = None  # type: ignore[assignment]
+
 from .run_analysis_helpers import VALID_LOG_LEVELS
 
 logger = logging.getLogger(__name__)
@@ -41,7 +46,12 @@ def configure_logging(level_name: str, *, formatter: Optional[str] = None) -> No
     # repeatedly; reuse existing root handlers whenever they are present.
     attach_handler = not root.handlers
     if attach_handler:
-        handler = logging.StreamHandler()
+        # Prefer tqdm-aware logging so progress bars and INFO lines do not stomp
+        # on each other; fall back to a plain stream handler if tqdm is missing.
+        if TqdmLoggingHandler is not None:
+            handler: logging.Handler = TqdmLoggingHandler()
+        else:
+            handler = logging.StreamHandler()
         handler.setFormatter(
             logging.Formatter(
                 formatter or "%(asctime)s %(levelname)s %(name)s: %(message)s"

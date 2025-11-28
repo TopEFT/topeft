@@ -22,7 +22,7 @@ import hist
 import topcoffea
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import (
@@ -318,6 +318,9 @@ _TAU_SF_WEIGHT_SPECS: Tuple[Tuple[str, str, str, str, str], ...] = (
 
 
 class AnalysisProcessor(processor.ProcessorABC):
+    # Internal accumulator slot for per-task variation recaps; RunWorkflow pops
+    # this key before serialized outputs are returned to users or saved.
+    VARIATION_SUMMARY_KEY = "__topeft_variation_summary__"
 
     def __init__(
         self,
@@ -378,6 +381,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 os.environ.get("TOPEFT_SUPPRESS_DEBUG_STDOUT")
             )
         self._suppress_debug_prints = bool(suppress_debug_prints)
+        self._executed_variations: List[Dict[str, Any]] = []
         self._golden_json_path = golden_json_path
         if self._sample.get("isData") and not self._golden_json_path:
             raise ValueError("golden_json_path must be provided for data samples")
@@ -524,6 +528,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         self._histogram_key_map = histogram_key_map
 
+        histogram[self.VARIATION_SUMMARY_KEY] = []
         self._accumulator = histogram
 
         # Set the energy threshold to cut on
@@ -597,6 +602,33 @@ class AnalysisProcessor(processor.ProcessorABC):
                 result[key] = value
             return result
         return {}
+
+    def _record_variation_execution(
+        self,
+        variation_state: VariationState,
+        *,
+        histogram_label: str,
+        executed_weight_variations: Sequence[str],
+    ) -> None:
+        """Capture a lightweight summary of the variation that just ran."""
+
+        variation = variation_state.request.variation
+        components: Tuple[Any, ...] = ()
+        if variation is not None:
+            raw_components = getattr(variation, "components", ()) or ()
+            components = tuple(str(component) for component in raw_components)
+
+        entry: Dict[str, Any] = {
+            "requested_name": variation_state.name,
+            "variation_type": variation_state.variation_type or "nominal",
+            "histogram_label": histogram_label,
+            "object_variation": variation_state.object_variation or "nominal",
+            "executed_weight_variations": tuple(executed_weight_variations),
+            "requested_weight_variations": tuple(variation_state.weight_variations),
+            "data_weight_label": variation_state.requested_data_weight_label,
+            "components": components,
+        }
+        self._executed_variations.append(entry)
 
     @property
     def accumulator(self):
@@ -2341,6 +2373,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             if name not in wgt_var_lst:
                 wgt_var_lst.append(name)
 
+        executed_weight_variations: List[str] = []
+
         lep_chan = self._channel_dict["chan_def_lst"][0]
         jet_req = self._channel_dict["jet_selection"]
         lep_flav_iter = (
@@ -2362,6 +2396,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 and wgt_fluct in data_weight_systematics_set
             ):
                 continue
+            executed_weight_variations.append(wgt_fluct)
 
             if wgt_fluct == "nominal":
                 hist_variation_label = hist_label
@@ -2467,6 +2502,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                     continue
                 hout[histkey].fill(**axes_fill_info_dict)
 
+        self._record_variation_execution(
+            variation_state,
+            histogram_label=hist_label,
+            executed_weight_variations=executed_weight_variations,
+        )
+
     @property
     def channel(self):
         return self._channel
@@ -2535,6 +2576,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         dataset = self._build_dataset_context(events)
         base_objects = self._select_base_objects(events, dataset)
         variation_requests = self._build_variation_requests()
+        self._executed_variations.clear()
 
         object_systematics = self._available_systematics.get("object", ())
         weight_systematics = self._available_systematics.get("weight", ())
@@ -2597,6 +2639,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 hout,
             )
 
+        hout[self.VARIATION_SUMMARY_KEY] = list(self._executed_variations)
         return hout
 
     def postprocess(self, accumulator):
