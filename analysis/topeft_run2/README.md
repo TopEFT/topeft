@@ -118,6 +118,10 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
         - ``AnalysisProcessor._debug_logging`` is automatically synchronized with
           the effective logging level: it is ``True`` when the level is
           ``DEBUG`` and ``False`` otherwise.
+        - Most analysis-level diagnostics (dataset context, task planning, MET/JEC summaries)
+          now emit at ``INFO`` so you can see them without enabling the extremely verbose
+          DEBUG logs from dependencies; reserve ``--log-level DEBUG`` for deep dives into
+          third-party internals.
         - Example 5-event futures run with full diagnostics::
 
             python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \

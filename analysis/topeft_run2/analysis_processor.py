@@ -755,20 +755,19 @@ class AnalysisProcessor(processor.ProcessorABC):
             eft_w2_coeffs=eft_w2_coeffs,
         )
 
-        if self._debug_logging:
-            features = tuple(sorted(self._channel_features))
-            self._debug(
-                "Resolved dataset context: dataset=%s trigger_dataset=%s features=%s "
-                "is_data=%s is_eft=%s sample_type=%s run_era=%s year=%s",
-                context.dataset,
-                context.trigger_dataset,
-                features,
-                context.is_data,
-                context.is_eft,
-                context.sample_type,
-                context.run_era,
-                context.year,
-            )
+        features = tuple(sorted(self._channel_features))
+        logger.info(
+            "Resolved dataset context: dataset=%s trigger_dataset=%s features=%s "
+            "is_data=%s is_eft=%s sample_type=%s run_era=%s year=%s",
+            context.dataset,
+            context.trigger_dataset,
+            features,
+            context.is_data,
+            context.is_eft,
+            context.sample_type,
+            context.run_era,
+            context.year,
+        )
 
         return context
 
@@ -921,19 +920,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             requests = [VariationRequest(variation=None, histogram_label="nominal")]
 
-        if self._debug_logging:
-            summary = [
-                (
-                    req.variation.name if req.variation is not None else "nominal",
-                    req.histogram_label,
-                )
-                for req in requests
-            ]
-            self._debug(
-                "Prepared %d variation requests: %s",
-                len(requests),
-                summary,
+        summary = [
+            (
+                req.variation.name if req.variation is not None else "nominal",
+                req.histogram_label,
             )
+            for req in requests
+        ]
+        logger.info(
+            "Prepared %d variation requests: %s",
+            len(requests),
+            summary,
+        )
 
         return requests
 
@@ -957,20 +955,19 @@ class AnalysisProcessor(processor.ProcessorABC):
             getattr(variation, "metadata", None) if variation is not None else None
         )
 
-        if self._debug_logging:
-            components = (
-                tuple(getattr(variation, "components", ()))
-                if variation is not None
-                else ()
-            )
-            self._debug(
-                "Resolved variation metadata for '%s': type=%s base=%s components=%s metadata=%s",
-                variation_name,
-                variation_type,
-                variation_base,
-                components,
-                dict(variation_metadata),
-            )
+        components = (
+            tuple(getattr(variation, "components", ()))
+            if variation is not None
+            else ()
+        )
+        logger.info(
+            "Variation '%s': type=%s base=%s components=%s metadata_keys=%s",
+            variation_name,
+            variation_type,
+            variation_base,
+            components,
+            tuple(sorted(variation_metadata.keys())),
+        )
 
         variation_base_str = variation_base or ""
         metadata_lepton_flavor_value = (
@@ -2560,15 +2557,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                 data_weight_systematics,
             )
 
-            self._debug(
+            logger.info(
                 "Processing variation '%s' (type: %s, base: %s)",
                 variation_state.name,
                 variation_state.variation_type,
                 variation_state.base,
             )
 
-            self._debug(
-                "Object/systematic context for '%s': request_variation=%r object_variation=%s weight_variations=%s histogram_label=%s",
+            logger.info(
+                "Variation context '%s': request_variation=%r object_variation=%s weight_variations=%s histogram_label=%s",
                 variation_state.name,
                 variation_state.request.variation,
                 variation_state.object_variation,
