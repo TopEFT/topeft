@@ -1088,18 +1088,42 @@ variables:
   #   - 1000
   #   label: '$m_{\ell\ell}$ (GeV) '
   #   definition: mll_0_1
-  # ptbl:
-  #   regular:
-  #   - 40
-  #   - 0
-  #   - 1000
-  #   variable:
-  #   - 0
-  #   - 100
-  #   - 200
-  #   - 400
-  #   label: '$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) '
-  #   definition: ptbl
+  ptbl:
+    regular:
+    - 40
+    - 0
+    - 1000
+    variable:
+    - 0
+    - 100
+    - 200
+    - 400
+    label: '$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) '
+    definition: ptbl
+  b0pt:
+    regular:
+    - 10
+    - 0
+    - 500
+    variable:
+    - 0
+    - 100
+    - 200
+    - 400
+    label: 'Leading b jet  $p_{T}$ (GeV) '
+    definition: b0pt
+  ptbl_leading_b_pt:
+    regular:
+    - 10
+    - 0
+    - 500
+    variable:
+    - 0
+    - 100
+    - 200
+    - 400
+    label: 'Leading b jet $p_{T}$ (GeV) (ptbl helper)'
+    definition: ptbl_leading_b_pt
   # ptz:
   #   regular:
   #   - 12
@@ -1175,13 +1199,6 @@ variables:
   #   - 500
   #   label: 'Leading jet  $p_{T}$ (GeV) '
   #   definition: j0.pt
-  # b0pt:
-  #   regular:
-  #   - 10
-  #   - 0
-  #   - 500
-  #   label: 'Leading b jet  $p_{T}$ (GeV) '
-  #   definition: ptbl_leading_b.pt
   # l0eta:
   #   regular:
   #   - 20
