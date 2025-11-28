@@ -855,6 +855,81 @@ class RunWorkflow:
             ", ".join(unique_labels),
         )
 
+    def _log_variation_recap(
+        self,
+        *,
+        task_index: int,
+        total_tasks: int,
+        task: HistogramTask,
+        summary_entries: Sequence[Mapping[str, Any]],
+    ) -> None:
+        """Emit a single INFO log describing which variations actually ran."""
+
+        def _unique_strings(values: Iterable[Any]) -> List[str]:
+            normalized = []
+            for value in values:
+                if value in (None, ""):
+                    continue
+                normalized.append(str(value))
+            return unique_preserving_order(normalized)
+
+        def _flatten(entry_key: str) -> List[str]:
+            return _unique_strings(
+                value
+                for entry in summary_entries
+                for value in entry.get(entry_key, ())
+            )
+
+        def _format(values: Sequence[str]) -> str:
+            return "[" + ", ".join(values) + "]" if values else "[]"
+
+        if not summary_entries:
+            logger.info(
+                "Completed histogram task %d/%d: sample=%s channel=%s variable=%s application=%s (no variation summary returned)",
+                task_index,
+                total_tasks,
+                task.sample,
+                task.clean_channel,
+                task.variable,
+                task.application,
+            )
+            return
+
+        requested_variations = _unique_strings(
+            entry.get("requested_name") for entry in summary_entries
+        )
+        object_variations = _unique_strings(
+            entry.get("object_variation") for entry in summary_entries
+        )
+        histogram_labels = _unique_strings(
+            entry.get("histogram_label") for entry in summary_entries
+        )
+        executed_weight_variations = _flatten("executed_weight_variations")
+        requested_weight_variations = _flatten("requested_weight_variations")
+        skipped_weights = [
+            weight
+            for weight in requested_weight_variations
+            if weight not in set(executed_weight_variations)
+        ]
+
+        logger.info(
+            (
+                "Completed histogram task %d/%d: sample=%s channel=%s variable=%s application=%s "
+                "requested_variations=%s object_variations=%s executed_weight_variations=%s "
+                "histogram_labels=%s skipped_weight_variations=%s"
+            ),
+            task_index,
+            total_tasks,
+            task.sample,
+            task.clean_channel,
+            task.variable,
+            task.application,
+            _format(requested_variations),
+            _format(object_variations),
+            _format(executed_weight_variations),
+            _format(histogram_labels),
+            _format(_unique_strings(skipped_weights)),
+        )
     def run(self) -> None:
         from topeft.modules.systematics import SystematicsHelper
         from . import analysis_processor
@@ -1028,6 +1103,15 @@ class RunWorkflow:
                     continue
                 else:
                     break
+            summary_payload = out.pop(
+                analysis_processor.AnalysisProcessor.VARIATION_SUMMARY_KEY, ()
+            )
+            self._log_variation_recap(
+                task_index=idt + 1,
+                total_tasks=total_tasks,
+                task=task,
+                summary_entries=summary_payload or (),
+            )
             output.update(out)
 
         dt = time.time() - tstart

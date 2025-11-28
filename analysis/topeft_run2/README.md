@@ -122,6 +122,13 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
           now emit at ``INFO`` so you can see them without enabling the extremely verbose
           DEBUG logs from dependencies; reserve ``--log-level DEBUG`` for deep dives into
           third-party internals.
+        - Progress bars and logging output no longer trample each other: the CLI uses a
+          ``tqdm``-aware logging handler so ``INFO`` lines remain readable even while coffea
+          updates its per-task progress display.
+        - Each histogram task now ends with a concise “variation recap” line that lists the
+          requested variation labels, the object/weight variations that actually executed,
+          and the histogram labels that were filled; search for ``Completed histogram task`` to
+          see the summary for a given sample/channel combination.
         - Example 5-event futures run with full diagnostics::
 
             python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
