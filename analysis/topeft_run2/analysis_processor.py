@@ -2354,10 +2354,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptbl = ptbl_result.values
             ptbl_leading_b = ptbl_result.leading_b
             ptbl_leading_b_pt = ptbl_result.leading_b_pt
+            b0pt = ptbl_leading_b_pt
         else:
             ptbl = None
             ptbl_leading_b = None
             ptbl_leading_b_pt = None
+            b0pt = None
 
         logging.info("ptbl: %s", ak.to_list(ptbl)) if ptbl is not None else None
 
@@ -2377,8 +2379,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)
             ]
             bl_pairs = ak.cartesian({"b": bjetsl, "l": l_fo_conept_sorted})
-            blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
-            bl0pt = ak.flatten(blpt[ak.argmax(blpt, axis=-1, keepdims=True)])
+            bl_b = bl_pairs["b"]
+            bl_l = bl_pairs["l"]
+            bl_px = bl_b.pt * np.cos(bl_b.phi) + bl_l.pt * np.cos(bl_l.phi)
+            bl_py = bl_b.pt * np.sin(bl_b.phi) + bl_l.pt * np.sin(bl_l.phi)
+            blpt = np.hypot(bl_px, bl_py)
+            blpt_desc = ak.sort(blpt, axis=-1, ascending=False)
+            bl0pt_candidate = ak.firsts(
+                ak.pad_none(blpt_desc, 1, axis=-1, clip=True)
+            )
+            bl0pt = ak.values_astype(
+                ak.fill_none(bl0pt_candidate, np.float32(-1.0)), np.float32
+            )
         else:
             bl0pt = None
 

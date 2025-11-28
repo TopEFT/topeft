@@ -840,6 +840,77 @@ def test_dense_axis_invariant_rejects_union_layouts():
         processor._check_dense_axis_invariants("union", array, 2)
 
 
+def _capture_dense_axis_values(monkeypatch, var_name):
+    (
+        processor,
+        dataset,
+        variation_state,
+        events,
+        weights_object,
+        _,
+        _,
+    ) = _build_histogram_variation_state(monkeypatch)
+    processor._var = var_name
+    processor._var_def = var_name
+    ch_name, _ = processor._build_channel_names(
+        processor._channel_dict["chan_def_lst"][0],
+        processor._channel_dict["jet_selection"] if var_name != "njets" else None,
+        None,
+    )
+    histkey = processor._build_histogram_key(
+        var_name,
+        ch_name,
+        dataset.dataset,
+        "nominal",
+        application=processor._appregion,
+    )
+
+    recorded = {}
+    original_check = ap.AnalysisProcessor._check_dense_axis_invariants
+
+    def recording_check(self, name, values, n_events):
+        sanitized = original_check(self, name, values, n_events)
+        recorded[name] = sanitized
+        return sanitized
+
+    monkeypatch.setattr(
+        ap.AnalysisProcessor, "_check_dense_axis_invariants", recording_check
+    )
+
+    hout = {histkey: _DummyHistEFT()}
+    processor._fill_histograms_for_variation(
+        events,
+        dataset,
+        variation_state,
+        weights_object=weights_object,
+        hist_label="nominal",
+        data_weight_systematics_set=set(),
+        hout=hout,
+    )
+
+    sanitized = recorded.get(var_name)
+    assert sanitized is not None
+    return sanitized, len(events)
+
+
+def test_b0pt_dense_axis_is_scalar(monkeypatch):
+    sanitized, n_events = _capture_dense_axis_values(monkeypatch, "b0pt")
+
+    assert len(sanitized) == n_events
+    assert "union" not in str(ak.type(sanitized)).lower()
+    assert np.asarray(ak.to_list(sanitized), dtype=float).tolist() == [55.0, 28.0]
+
+
+def test_bl0pt_dense_axis_is_scalar(monkeypatch):
+    sanitized, n_events = _capture_dense_axis_values(monkeypatch, "bl0pt")
+
+    assert len(sanitized) == n_events
+    assert "union" not in str(ak.type(sanitized)).lower()
+    values = np.asarray(ak.to_list(sanitized), dtype=float)
+    assert np.isfinite(values).all()
+    assert values.min() >= -1.0
+
+
 def test_histogram_btag_masks_handle_multijet_events(monkeypatch):
     (
         processor,
