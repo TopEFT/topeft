@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import logging
 from typing import Sequence
 
 import topcoffea
@@ -54,7 +55,7 @@ def _verify_numpy_pandas_abi() -> None:
             "refreshed environment for both futures and TaskVine runs."
         ) from exc
 
-from run_analysis_helpers import RunConfigBuilder
+from run_analysis_helpers import RunConfig, RunConfigBuilder
 from topeft.modules.executor_cli import (
     ExecutorCLIHelper,
     FuturesArgumentSpec,
@@ -63,6 +64,9 @@ from topeft.modules.executor_cli import (
 from topeft.modules.executor import resolve_environment_file
 
 from analysis.topeft_run2.workflow import run_workflow
+from analysis.topeft_run2.logging_utils import configure_logging
+
+logger = logging.getLogger(__name__)
 
 remote_environment = topcoffea.modules.remote_environment
 
@@ -217,6 +221,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--log-level",
+        default=None,
+        help=(
+            "Set the Python logging level "
+            "(DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to INFO when unset."
+        ),
+    )
+    parser.add_argument(
         "--log-tasks",
         action="store_true",
         help=(
@@ -295,12 +307,29 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_logging_controls(config: RunConfig) -> tuple[str, bool]:
+    """Return the log level and processor-debug flag based on CLI inputs."""
+
+    if config.debug_logging:
+        return "DEBUG", True
+    if config.log_level:
+        normalized = config.log_level.upper()
+        return normalized, normalized == "DEBUG"
+    return "INFO", False
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     _verify_numpy_pandas_abi()
 
     parser = build_parser()
     parser_defaults = parser.parse_args([])
     args = parser.parse_args(argv)
+
+    logger.info(
+        "[DEBUG CHECK] args.log_level=%r, args.debug_logging=%r",
+        getattr(args, "log_level", None),
+        getattr(args, "debug_logging", None),
+    )
     executor_choice = (getattr(args, "executor", "") or "").strip().lower()
     if not executor_choice:
         executor_choice = "taskvine"
@@ -311,6 +340,27 @@ def main(argv: Sequence[str] | None = None) -> None:
         args,
         getattr(args, "options", None),
     )
+
+    run_cfg = config
+    logger.info(
+        "[DEBUG CHECK] builder input: log_level from args=%r",
+        getattr(args, "log_level", None),
+    )
+    logger.info(
+        "[DEBUG CHECK] builder output: run_cfg.log_level=%r, run_cfg.debug_logging=%r",
+        run_cfg.log_level,
+        run_cfg.debug_logging,
+    )
+
+    effective_log_level, processor_debug = _resolve_logging_controls(config)
+    # Currently configures logging for the driver process; futures workers keep
+    # their default handlers until we plumb a per-worker hook.
+    configure_logging(effective_log_level)
+
+    logger.info("[DEBUG CHECK] effective_log_level=%r", effective_log_level)
+
+    config.log_level = effective_log_level
+    config.debug_logging = processor_debug
 
     if config.executor == "taskvine":
         config.environment_file = resolve_environment_file(

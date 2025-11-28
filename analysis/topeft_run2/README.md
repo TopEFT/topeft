@@ -107,6 +107,25 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
       JSON from ``input_samples/sample_jsons/``—the helper resolves your samples
       and dispatches a lightweight futures job before returning the recorded
       ``RunConfig`` instance.
+    - Logging controls:
+        - ``--log-level`` accepts the standard Python logging levels
+          (DEBUG/INFO/WARNING/ERROR/CRITICAL, case-insensitive) and defaults to
+          ``INFO`` when no explicit flag is provided.  The legacy
+          ``--debug-logging`` flag remains available; when present it forces the
+          logging level to ``DEBUG`` and turns on the extra
+          ``AnalysisProcessor._debug_logging`` instrumentation even if
+          ``--log-level`` was also supplied.
+        - ``AnalysisProcessor._debug_logging`` is automatically synchronized with
+          the effective logging level: it is ``True`` when the level is
+          ``DEBUG`` and ``False`` otherwise.
+        - Most analysis-level diagnostics (dataset context, task planning, MET/JEC summaries)
+          now emit at ``INFO`` so you can see them without enabling the extremely verbose
+          DEBUG logs from dependencies; reserve ``--log-level DEBUG`` for deep dives into
+          third-party internals.
+        - Example 5-event futures run with full diagnostics::
+
+            python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+                --executor futures --nworkers 1 --chunksize 5 --nchunks 1 --log-level DEBUG
 
 * `full_run.sh`: Unified TaskVine and futures wrapper that mirrors the
   ``fullR3_run.sh`` behavior from the Run 3 development branch.  The script
@@ -170,4 +189,3 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - It also can parse the condor log files and dump a summary of the contents
     - Additionally, it can also grab the right set of ptz and lj0pt templates (for the right categories) used in TOP-22-006
     - Example: `python datacards_post_processing.py /path/to/your/datacards/dir -c -s`
-

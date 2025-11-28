@@ -27,6 +27,7 @@ import importlib
 import getpass
 import gzip
 import json
+import logging
 import os
 import tempfile
 import time
@@ -61,6 +62,8 @@ from topeft.modules.executor import (
     taskvine_log_configurator,
 )
 from topeft.modules.runner_output import normalise_runner_output, tuple_dict_stats
+
+logger = logging.getLogger(__name__)
 
 
 def _import_topcoffea_submodule(submodule: str):
@@ -847,7 +850,10 @@ class RunWorkflow:
             return
 
         unique_labels = unique_preserving_order(combination_labels)
-        print(f"[futures] submitting histogram task for {', '.join(unique_labels)}")
+        logger.info(
+            "[futures] submitting histogram task for %s",
+            ", ".join(unique_labels),
+        )
 
     def run(self) -> None:
         from topeft.modules.systematics import SystematicsHelper
@@ -864,7 +870,7 @@ class RunWorkflow:
         nevts_total = sum(sample["nEvents"] for sample in samplesdict.values())
 
         if self._config.pretend:
-            print("pretending...")
+            logger.info("Pretend mode active; skipping execution after configuration phase.")
             return
 
         self._ensure_wilson_coefficients(samplesdict)
@@ -906,8 +912,18 @@ class RunWorkflow:
 
         tstart = time.time()
 
+        total_tasks = len(histogram_plan.tasks)
         for idt, task in enumerate(histogram_plan.tasks):
-            print("\n\n\n\n\n\n\n\n\n--- Starting task %d/%d ---" % (idt + 1, len(histogram_plan.tasks)))
+            logger.info(
+                "Starting histogram task %d/%d: sample=%s channel=%s variable=%s application=%s variations=%d",
+                idt + 1,
+                total_tasks,
+                task.sample,
+                task.clean_channel,
+                task.variable,
+                task.application,
+                len(task.variations),
+            )
             sample_dict = samplesdict[task.sample]
             sample_files = list(flist[task.sample])
             if self._config.executor == "futures":
@@ -923,15 +939,9 @@ class RunWorkflow:
             if not channel_dict:
                 continue
 
-            if task.clean_channel != "3l_m_offZ_1b_2j":
-                print("Skipping task for channel", task.clean_channel)
-                continue
-
-            print("\n\n\n\n\n--- Running task for channel", task.clean_channel)
-            print("Channel metadata:", channel_dict)
-            print("Task:", task)
-            print("---\n\n\n\n\n")
-            #raise NotImplementedError("Temporarily disabled")
+            if self._config.debug_logging:
+                logger.info("Channel %s metadata: %s", task.clean_channel, channel_dict)
+                logger.info("Task detail: %s", task)
 
             golden_json_path = None
             if sample_dict.get("isData"):
@@ -1002,13 +1012,12 @@ class RunWorkflow:
                     if attempt >= max_retries:
                         raise
                     attempt += 1
-                    print(
-                        "[futures] task for {sample} failed (attempt {attempt}/{max_attempts}): {error}.".format(
-                            sample=task.sample,
-                            attempt=attempt,
-                            max_attempts=max_retries,
-                            error=exc,
-                        )
+                    logger.warning(
+                        "[futures] task for %s failed (attempt %d/%d): %s",
+                        task.sample,
+                        attempt,
+                        max_retries,
+                        exc,
                     )
                     if retry_wait > 0:
                         time.sleep(retry_wait)
@@ -1020,16 +1029,19 @@ class RunWorkflow:
         dt = time.time() - tstart
 
         if self._config.executor == "taskvine" and nevts_total:
-            print(
-                "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
-                    nevts_total, dt, nevts_total / dt if dt else 0
-                )
+            logger.info(
+                "Processed %d events in %.2f seconds (%.2f evts/sec)",
+                nevts_total,
+                dt,
+                (nevts_total / dt) if dt else 0.0,
             )
 
         if self._config.executor == "futures":
-            print(
-                "Processing time: %1.2f s with %i workers (%.2f s cpu overall)"
-                % (dt, self._config.nworkers, dt * self._config.nworkers)
+            logger.info(
+                "Processing time: %.2f s with %d workers (%.2f s cpu overall)",
+                dt,
+                self._config.nworkers,
+                dt * self._config.nworkers,
             )
 
         self._store_output(output)
@@ -1055,14 +1067,14 @@ class RunWorkflow:
         def _format_values(values: Sequence[str]) -> str:
             return ", ".join(values) if values else "None"
 
-        print("\nPlanned histogram summary:")
-        print(f"- Samples: {_format_values(samples)}")
-        print(
-            "- Channels & applications: "
-            + _format_values([f"{channel} ({application})" for channel, application in channel_pairs])
+        logger.info("Planned histogram summary:")
+        logger.info("- Samples: %s", _format_values(samples))
+        logger.info(
+            "- Channels & applications: %s",
+            _format_values([f"{channel} ({application})" for channel, application in channel_pairs]),
         )
-        print(f"- Variables: {_format_values(variables)}")
-        print(f"- Systematics: {_format_values(systematics)}")
+        logger.info("- Variables: %s", _format_values(variables))
+        logger.info("- Systematics: %s", _format_values(systematics))
 
         if verbosity == "brief":
             return
@@ -1086,27 +1098,26 @@ class RunWorkflow:
         row_format = "  ".join(f"{{:{width}}}" for width in column_widths)
 
         if getattr(self._config, "split_lep_flavor", False):
-            print(
-                "\nNote: lepton-flavor channels reuse the processor task configured for their base channel "
-                "when flavor splitting is enabled."
+            logger.info(
+                "Note: lepton-flavor channels reuse the processor task configured for their base channel when flavor splitting is enabled."
             )
 
-        print("\nPlanned histogram combinations:")
-        print(row_format.format(*headers))
-        print("  ".join("-" * width for width in column_widths))
+        logger.info("Planned histogram combinations:")
+        logger.info(row_format.format(*headers))
+        logger.info("  ".join("-" * width for width in column_widths))
         for row in rows:
-            print(row_format.format(*row))
+            logger.info(row_format.format(*row))
 
         summary_payload = [asdict(entry) for entry in plan.summary]
 
-        print("\nStructured summary:")
+        logger.info("Structured summary:")
         try:
             import yaml  # type: ignore
 
             dumped = yaml.safe_dump(summary_payload, sort_keys=False).strip()
-            print(dumped or "[]")
+            logger.info("%s", dumped or "[]")
         except Exception:  # pragma: no cover - optional dependency
-            print(json.dumps(summary_payload, indent=2))
+            logger.info("%s", json.dumps(summary_payload, indent=2))
 
     def _validate_config(self) -> None:
         if self._config.executor not in LST_OF_KNOWN_EXECUTORS:
@@ -1128,16 +1139,19 @@ class RunWorkflow:
                 self._config.nchunks = 2
                 self._config.chunksize = 100
                 self._config.nworkers = 1
-                print(
-                    "Running a fast test with %i workers, %i chunks of %i events"
-                    % (self._config.nworkers, self._config.nchunks, self._config.chunksize)
+                logger.info(
+                    "Running a fast futures test with %d workers, %d chunks of %d events",
+                    self._config.nworkers,
+                    self._config.nchunks,
+                    self._config.chunksize,
                 )
             elif self._config.executor == "iterative":
                 self._config.nchunks = 2
                 self._config.chunksize = 100
-                print(
-                    "Running a fast iterative test with %i chunks of %i events"
-                    % (self._config.nchunks, self._config.chunksize)
+                logger.info(
+                    "Running a fast iterative test with %d chunks of %d events",
+                    self._config.nchunks,
+                    self._config.chunksize,
                 )
             else:
                 raise Exception(
@@ -1178,9 +1192,9 @@ class RunWorkflow:
                 wc_print = " and ".join(self._config.wc_list)
             else:
                 wc_print = ", ".join(self._config.wc_list[:-1]) + ", and " + self._config.wc_list[-1]
-            print(f"Wilson Coefficients: {wc_print}.")
+            logger.info("Wilson coefficients: %s", wc_print)
         else:
-            print("No Wilson coefficients specified")
+            logger.info("No Wilson coefficients specified")
 
     def _store_output(self, output: Mapping[str, Any]) -> None:
         if not os.path.isdir(self._config.outpath):
@@ -1192,28 +1206,28 @@ class RunWorkflow:
             total_bins, filled_bins = tuple_dict_stats(serialised_output)
             if total_bins:
                 fill_fraction = (100 * filled_bins / total_bins)
-                print("Filled %.0f bins, nonzero bins: %1.1f %%" % (total_bins, fill_fraction))
+                logger.info("Filled %.0f bins, nonzero bins: %1.1f %%", total_bins, fill_fraction)
 
-        print(f"\nSaving output in {out_pkl_file}...")
+        logger.info("Saving output in %s", out_pkl_file)
         with gzip.open(out_pkl_file, "wb") as fout:
             import cloudpickle
 
             cloudpickle.dump(serialised_output, fout)
-        print("Done!")
+        logger.info("Finished writing %s", out_pkl_file)
 
         if self._config.do_np:
-            print("\nDoing the nonprompt estimation...")
+            logger.info("Starting nonprompt estimation")
             out_pkl_file_name_np = os.path.join(
                 self._config.outpath, self._config.outname + "_np.pkl.gz"
             )
             from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 
             ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
-            print(f"Saving output in {out_pkl_file_name_np}...")
+            logger.info("Saving nonprompt output in %s", out_pkl_file_name_np)
             ddp.dumpToPickle()
-            print("Done!")
+            logger.info("Finished writing nonprompt output")
             if self._config.do_renormfact_envelope:
-                print("\nDoing the renorm. fact. envelope calculation...")
+                logger.info("Applying renorm/fact envelope to nonprompt output")
                 from topeft.modules.get_renormfact_envelope import (
                     get_renormfact_envelope,
                 )

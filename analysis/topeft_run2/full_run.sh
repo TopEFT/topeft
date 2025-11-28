@@ -25,7 +25,7 @@ PrintUsage() {
   cat <<'USAGE'
 Usage: full_run.sh [-y YEAR [YEAR ...]] [-t TAG] [--cr | --sr] \
                    [--executor {taskvine,futures}] [--outdir PATH] [--manager NAME] \
-                   [--samples PATH [PATH ...]] [--debug-logging] [--dry-run] \
+                   [--samples PATH [PATH ...]] [--log-level LEVEL] [--debug-logging] [--dry-run] \
                    [extra run_analysis args]
 
 Examples:
@@ -47,7 +47,8 @@ Notes:
     output directory with the 5-tuple histogram schema used throughout this
     branch.  Use --dry-run to print the resolved command without launching
     Python (helpful for smoke tests or CI guards).  Pass --debug-logging to forward
-    the instrumentation flag to run_analysis.py when deeper diagnostics are needed.
+    the instrumentation flag (always DEBUG) or --log-level LEVEL to tweak the Python
+    logging verbosity seen in run_analysis.py.
 USAGE
 }
 
@@ -93,6 +94,7 @@ main() {
   local futures_retry_wait=5.0
   local dry_run=false
   local debug_logging=false
+  local log_level=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -203,6 +205,14 @@ main() {
         ;;
       --debug-logging)
         debug_logging=true
+        shift
+        ;;
+      --log-level)
+        log_level="$2"
+        shift 2
+        ;;
+      --log-level=*)
+        log_level="${1#*=}"
         shift
         ;;
       --debug-logging=*)
@@ -495,6 +505,9 @@ main() {
 
   if [[ "$debug_logging" == true ]]; then
     options+=(--debug-logging)
+  fi
+  if [[ -n "$log_level" ]]; then
+    options+=(--log-level "$log_level")
   fi
 
   local -a run_cmd=(python run_analysis.py "$cfgs")

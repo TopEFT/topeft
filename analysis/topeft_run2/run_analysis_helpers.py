@@ -40,6 +40,7 @@ DEFAULT_WEIGHT_VARIATIONS = [
     "nSumOfWeights_renormfactDown",
 ]
 
+VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
 
 def normalize_sequence(value: Any) -> List[str]:
     """Flatten ``value`` into a list of strings."""
@@ -196,6 +197,22 @@ def coerce_summary_verbosity(value: Any) -> str:
 
     raise ValueError(
         "summary_verbosity must be one of 'none', 'brief', or 'full'"
+    )
+
+
+def coerce_log_level(value: Any) -> Optional[str]:
+    """Normalize logging level names to a known uppercase identifier."""
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        normalized = value.strip().upper()
+        if not normalized:
+            return None
+        if normalized in VALID_LOG_LEVELS:
+            return normalized
+    raise ValueError(
+        f"log_level must be one of {', '.join(sorted(VALID_LOG_LEVELS))}"
     )
 
 
@@ -363,6 +380,7 @@ class RunConfig:
     ecut: Optional[float] = None
     summary_verbosity: str = "brief"
     debug_logging: bool = False
+    log_level: Optional[str] = None
     log_tasks: bool = False
     environment_file: Optional[str] = "cached"
     futures_status: Optional[bool] = None
@@ -418,6 +436,7 @@ class RunConfigBuilder:
             "skip_cr": ("skip_cr", coerce_bool),
             "do_np": ("do_np", coerce_bool),
             "do_renormfact_envelope": ("do_renormfact_envelope", coerce_bool),
+            "log_level": ("log_level", coerce_log_level),
             "wc_list": ("wc_list", normalize_sequence),
             "ecut": ("ecut", coerce_optional_float),
             "port": ("port", coerce_port),
@@ -575,6 +594,8 @@ class RunConfigBuilder:
                 "resources_mode": "resources_mode",
                 "taskvine_print_stdout": "taskvine_print_stdout",
                 "environment_file": "environment_file",
+                "log_level": "log_level",
+                "debug_logging": "debug_logging",
                 "futures_status": "futures_status",
                 "futures_tail_timeout": "futures_tail_timeout",
                 "futures_memory": "futures_memory",
@@ -596,6 +617,10 @@ class RunConfigBuilder:
                     cli_values[key] = current_value
 
             _apply_source(cli_values)
+
+        cli_log_level_value = getattr(args, "log_level", None)
+        if cli_log_level_value not in (None, ""):
+            config.log_level = coerce_log_level(cli_log_level_value)
 
         if config.taskvine_print_stdout is None:
             config.taskvine_print_stdout = True
