@@ -594,6 +594,8 @@ class RunConfigBuilder:
                 "resources_mode": "resources_mode",
                 "taskvine_print_stdout": "taskvine_print_stdout",
                 "environment_file": "environment_file",
+                "log_level": "log_level",
+                "debug_logging": "debug_logging",
                 "futures_status": "futures_status",
                 "futures_tail_timeout": "futures_tail_timeout",
                 "futures_memory": "futures_memory",
@@ -615,6 +617,10 @@ class RunConfigBuilder:
                     cli_values[key] = current_value
 
             _apply_source(cli_values)
+
+        cli_log_level_value = getattr(args, "log_level", None)
+        if cli_log_level_value not in (None, ""):
+            config.log_level = coerce_log_level(cli_log_level_value)
 
         if config.taskvine_print_stdout is None:
             config.taskvine_print_stdout = True
