@@ -357,10 +357,6 @@ def main(argv: Sequence[str] | None = None) -> None:
     # their default handlers until we plumb a per-worker hook.
     configure_logging(effective_log_level)
 
-    logger.debug(
-        "run_analysis: configure_logging applied (effective_level=%s)",
-        effective_log_level,
-    )
     logger.info("[DEBUG CHECK] effective_log_level=%r", effective_log_level)
 
     config.log_level = effective_log_level

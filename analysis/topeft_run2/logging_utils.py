@@ -7,6 +7,7 @@ from typing import Optional
 
 from .run_analysis_helpers import VALID_LOG_LEVELS
 
+logger = logging.getLogger(__name__)
 _configured = False
 
 
@@ -36,18 +37,26 @@ def configure_logging(level_name: str, *, formatter: Optional[str] = None) -> No
     numeric_level = _level_name_to_numeric(level_name)
     root = logging.getLogger()
 
-    if not _configured:
+    # Avoid stacking multiple handlers when run_analysis.py is imported or invoked
+    # repeatedly; reuse existing root handlers whenever they are present.
+    attach_handler = not root.handlers
+    if attach_handler:
         handler = logging.StreamHandler()
         handler.setFormatter(
             logging.Formatter(
                 formatter or "%(asctime)s %(levelname)s %(name)s: %(message)s"
             )
         )
-        handler.setLevel(numeric_level)
         root.addHandler(handler)
-        _configured = True
-    else:
-        for handler in root.handlers:
-            handler.setLevel(numeric_level)
+        logger.debug(
+            "configure_logging applied (effective_level=%s)", level_name.upper()
+        )
+
+    # Root already had handlers (for example when run_analysis.py is imported in a
+    # larger application); reuse them instead of stacking duplicates and update
+    # their levels to follow the latest CLI request.
+    for handler in root.handlers:
+        handler.setLevel(numeric_level)
 
     root.setLevel(numeric_level)
+    _configured = True
