@@ -1375,6 +1375,31 @@ def test_ensure_object_collection_layout_accepts_jets_record():
     assert {"pt", "eta", "isGood"}.issubset(set(ak.fields(sanitized[0][0])))
 
 
+def test_ensure_object_collection_layout_accepts_canonical_jets_struct_of_arrays():
+    processor = _make_processor()
+    jets_struct = ak.Array(
+        {
+            "pt": [[45.0, 30.0], [50.0]],
+            "eta": [[0.3, -0.5], [0.0]],
+            "phi": [[0.1, -0.1], [0.2]],
+            "mass": [[4.2, 3.8], [5.1]],
+            "isGood": [[True, False], [True]],
+            "isFwd": [[False, True], [False]],
+        }
+    )
+
+    sanitized = processor._ensure_object_collection_layout(
+        jets_struct,
+        name="goodJets",
+        n_events=2,
+    )
+
+    assert len(sanitized) == 2
+    assert ak.to_list(ak.num(sanitized, axis=-1)) == [2, 1]
+    assert ak.to_list(sanitized.pt) == [[45.0, 30.0], [50.0]]
+    assert ak.to_list(sanitized.isFwd) == [[False, True], [False]]
+
+
 def test_ensure_object_collection_layout_rejects_ambiguous_wrapper_records():
     processor = _make_processor()
     base_jets = ak.Array(

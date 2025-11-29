@@ -798,6 +798,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         original_type = ak.type(arr)
         arr = ak.Array(arr)
 
+        if name == "goodJets" and self._debug_logging:
+            self._debug("goodJets input layout: %s", original_type)
+
         def _is_list_like(value: Any) -> bool:
             return ak.to_layout(value, allow_record=True).is_list
 
@@ -818,13 +821,37 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if _is_list_like(candidate):
                     list_like_candidates.append((field, candidate))
 
-            if len(list_like_candidates) != 1:
+            canonical_jets_fields = {"pt", "eta", "phi"}
+            canonical_jets_record = canonical_jets_fields.issubset(set(fields)) and all(
+                _is_list_like(ak.Array(collection[field])) for field in canonical_jets_fields
+            )
+            zipped_collection = None
+            if canonical_jets_record:
+                try:
+                    zipped_collection = ak.zip(
+                        {field: collection[field] for field in fields},
+                        depth_limit=2,
+                    )
+                except Exception as exc:
+                    raise ValueError(
+                        f"{name}: canonical jets record has inconsistent field shapes (type: {ak.type(collection)})"
+                    ) from exc
+
+            if len(list_like_candidates) == 1:
+                collection = list_like_candidates[0][1]
+            elif zipped_collection is not None:
+                collection = ak.Array(zipped_collection)
+                if self._debug_logging:
+                    self._debug(
+                        "%s canonical jets record zipped to %s",
+                        name,
+                        ak.type(collection),
+                    )
+            else:
                 raise ValueError(
                     f"{name}: ambiguous record layout with fields {fields}; "
-                    "expected one wrapper field for the object collection"
+                    "expected one wrapper field or canonical jets struct-of-arrays"
                 )
-
-            collection = list_like_candidates[0][1]
 
         # Drop an outer singleton axis that wraps an [events][objects] collection.
         while len(collection) == 1:
