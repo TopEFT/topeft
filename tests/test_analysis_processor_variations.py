@@ -1304,3 +1304,196 @@ def test_offz_split_channels_accept_legacy_offz(monkeypatch):
 
     assert len(hout[histkey].fills) == 1
     assert ak.to_list(hout[histkey].fills[0]["njets"]) == [3]
+
+
+def test_ensure_object_collection_layout_handles_variation_axis():
+    processor = _make_processor()
+    n_events = 2
+    wrapped = ak.Array(
+        [
+            [
+                [{"pt": 42.0, "eta": 0.1}],
+                [{"pt": 38.0, "eta": -0.2}],
+            ]
+        ]
+    )
+    sanitized = processor._ensure_object_collection_layout(
+        wrapped,
+        name="wrapped_jets",
+        n_events=n_events,
+    )
+
+    assert len(sanitized) == n_events
+    assert ak.to_list(ak.num(sanitized, axis=-1)) == [1, 1]
+
+
+def test_ensure_object_collection_layout_accepts_jets_record():
+    processor = _make_processor()
+    good_jets = ak.Array(
+        [
+            [
+                {
+                    "pt": 45.0,
+                    "eta": 0.3,
+                    "phi": 0.1,
+                    "mass": 4.2,
+                    "isGood": True,
+                    "isFwd": False,
+                    "btagDeepB": 0.8,
+                },
+                {
+                    "pt": 30.0,
+                    "eta": -0.5,
+                    "phi": -0.1,
+                    "mass": 3.8,
+                    "isGood": False,
+                    "isFwd": True,
+                    "btagDeepB": 0.2,
+                },
+            ],
+            [
+                {
+                    "pt": 50.0,
+                    "eta": 0.0,
+                    "phi": 0.2,
+                    "mass": 5.1,
+                    "isGood": True,
+                    "isFwd": False,
+                    "btagDeepB": 0.9,
+                }
+            ],
+        ]
+    )
+    sanitized = processor._ensure_object_collection_layout(
+        good_jets,
+        name="goodJets",
+        n_events=len(good_jets),
+    )
+
+    assert len(sanitized) == 2
+    assert ak.to_list(ak.num(sanitized, axis=-1)) == [2, 1]
+    assert {"pt", "eta", "isGood"}.issubset(set(ak.fields(sanitized[0][0])))
+
+
+def test_ensure_object_collection_layout_accepts_canonical_jets_struct_of_arrays():
+    processor = _make_processor()
+    jets_struct = ak.Array(
+        {
+            "pt": [[45.0, 30.0], [50.0]],
+            "eta": [[0.3, -0.5], [0.0]],
+            "phi": [[0.1, -0.1], [0.2]],
+            "mass": [[4.2, 3.8], [5.1]],
+            "isGood": [[True, False], [True]],
+            "isFwd": [[False, True], [False]],
+        }
+    )
+
+    sanitized = processor._ensure_object_collection_layout(
+        jets_struct,
+        name="goodJets",
+        n_events=2,
+    )
+
+    assert len(sanitized) == 2
+    assert ak.to_list(ak.num(sanitized, axis=-1)) == [2, 1]
+    assert ak.to_list(sanitized.pt) == [[45.0, 30.0], [50.0]]
+    assert ak.to_list(sanitized.isFwd) == [[False, True], [False]]
+
+
+def test_ensure_object_collection_layout_rejects_ambiguous_wrapper_records():
+    processor = _make_processor()
+    base_jets = ak.Array(
+        [
+            [{"pt": 20.0, "eta": 0.1}],
+            [{"pt": 30.0, "eta": -0.1}],
+        ]
+    )
+    wrapper = ak.Array(
+        {
+            "central": base_jets,
+            "up": base_jets,
+        }
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        processor._ensure_object_collection_layout(
+            wrapper,
+            name="jets_wrapper",
+            n_events=len(base_jets),
+        )
+
+    assert "ambiguous record layout" in str(excinfo.value)
+
+
+def test_ensure_object_collection_layout_unwraps_single_field_records():
+    processor = _make_processor()
+    base = ak.Array(
+        [
+            [{"pt": 10.0, "eta": 0.1}],
+            [{"pt": 20.0, "eta": -0.1}],
+        ]
+    )
+    wrapped = ak.Array({"jets": base})
+    sanitized = processor._ensure_object_collection_layout(
+        wrapped,
+        name="jets",
+        n_events=2,
+    )
+
+    assert ak.to_list(ak.num(sanitized, axis=-1)) == [1, 1]
+
+
+def test_ensure_object_collection_layout_returns_empty_for_none():
+    processor = _make_processor()
+    result = processor._ensure_object_collection_layout(
+        None,
+        name="none",
+        n_events=3,
+    )
+
+    assert len(result) == 3
+    assert ak.to_list(ak.num(result, axis=-1)) == [0, 0, 0]
+
+
+def test_ensure_object_collection_layout_rejects_shallow_layouts():
+    processor = _make_processor()
+    with pytest.raises(ValueError) as excinfo:
+        processor._ensure_object_collection_layout(
+            ak.Array([1, 2]),
+            name="shallow",
+            n_events=2,
+        )
+    assert "shallow" in str(excinfo.value)
+
+
+def test_lj_collection_concatenate_tolerates_wrapper_axes():
+    processor = _make_processor()
+    n_events = 2
+    leptons = ak.Array(
+        [
+            [{"pt": 25.0, "eta": 0.0, "phi": 0.0, "mass": 0.1}],
+            [{"pt": 30.0, "eta": -0.1, "phi": 0.2, "mass": 0.2}],
+        ]
+    )
+    jets = ak.Array(
+        [
+            [{"pt": 50.0, "eta": 0.3, "phi": 0.1, "mass": 4.5}],
+            [{"pt": 40.0, "eta": -0.2, "phi": -0.1, "mass": 4.0}],
+        ]
+    )
+    wrapped_jets = ak.Array([jets])
+
+    sanitized_leptons = processor._ensure_object_collection_layout(
+        leptons,
+        name="leptons",
+        n_events=n_events,
+    )
+    sanitized_jets = processor._ensure_object_collection_layout(
+        wrapped_jets,
+        name="goodJets",
+        n_events=n_events,
+    )
+
+    combined = ak.concatenate([sanitized_leptons, sanitized_jets], axis=1)
+    assert len(combined) == n_events
+    assert ak.to_list(ak.num(combined, axis=-1)) == [2, 2]

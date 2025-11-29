@@ -776,6 +776,148 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return sanitized
 
+    def _ensure_object_collection_layout(
+        self,
+        arr: Optional[ak.Array],
+        *,
+        name: str,
+        n_events: int,
+    ) -> ak.Array:
+        """
+        Normalize arbitrary object collections to a [events][objects] jagged layout.
+
+        Accepts:
+          * ``None`` (returns an empty `[n_events][0]` collection),
+          * a plain list-of-records `[events][objects]`,
+          * a struct-of-arrays record that exposes per-object lists such as
+            ``pt/eta/phi`` (our canonical jets layout),
+          * either representation with an extra leading singleton axis from
+            variation wrapping.
+        Returns:
+          * an ``ak.Array`` shaped [events][objects] (list-of-records) that is
+            safe to concatenate with ``ak.concatenate(..., axis=1)``.
+        Raises:
+          * when ``n_events`` does not match the inferred event axis length,
+          * when an ambiguous record bundles multiple independent collections
+            (rather than a single wrapper or a canonical jets struct).
+        """
+
+        if arr is None:
+            sanitized = ak.Array([[] for _ in range(n_events)])
+            if self._debug_logging:
+                self._debug(
+                    "%s layout sanitized: None -> %s",
+                    name,
+                    ak.type(sanitized),
+                )
+            return sanitized
+
+        original_type = ak.type(arr)
+        arr = ak.Array(arr)
+
+        if name == "goodJets" and self._debug_logging:
+            self._debug("goodJets input layout: %s", original_type)
+
+        def _is_list_like(value: Any) -> bool:
+            return ak.to_layout(value, allow_record=True).is_list
+
+        def _is_record(value: Any) -> bool:
+            return ak.to_layout(value, allow_record=True).is_record
+
+        collection = arr
+        if not _is_list_like(collection):
+            if not _is_record(collection):
+                raise ValueError(
+                    f"{name}: expected a list-like object collection, but got {ak.type(collection)}"
+                )
+
+            fields = ak.fields(collection)
+            list_like_candidates = []
+            for field in fields:
+                candidate = ak.Array(collection[field])
+                if _is_list_like(candidate):
+                    list_like_candidates.append((field, candidate))
+
+            canonical_jets_fields = {"pt", "eta", "phi"}
+            canonical_jets_record = canonical_jets_fields.issubset(set(fields)) and all(
+                _is_list_like(ak.Array(collection[field])) for field in canonical_jets_fields
+            )
+            zipped_collection = None
+            if canonical_jets_record:
+                try:
+                    zipped_collection = ak.zip(
+                        {field: collection[field] for field in fields},
+                        depth_limit=2,
+                    )
+                except Exception as exc:
+                    raise ValueError(
+                        f"{name}: canonical jets record has inconsistent field shapes (type: {ak.type(collection)})"
+                    ) from exc
+
+            if len(list_like_candidates) == 1:
+                collection = list_like_candidates[0][1]
+            elif zipped_collection is not None:
+                collection = ak.Array(zipped_collection)
+                if self._debug_logging:
+                    self._debug(
+                        "%s canonical jets record zipped to %s",
+                        name,
+                        ak.type(collection),
+                    )
+            else:
+                raise ValueError(
+                    f"{name}: ambiguous record layout with fields {fields}; "
+                    "expected one wrapper field or canonical jets struct-of-arrays"
+                )
+
+        # Drop an outer singleton axis that wraps an [events][objects] collection.
+        while len(collection) == 1:
+            first_entry = collection[0]
+            if not _is_list_like(first_entry):
+                break
+            try:
+                if len(first_entry) == n_events:
+                    collection = ak.Array(first_entry)
+                    continue
+            except TypeError:
+                pass
+            break
+
+        if not _is_list_like(collection):
+            raise ValueError(
+                f"{name}: expected a list-like object collection after normalization, "
+                f"but got {ak.type(collection)}"
+            )
+
+        try:
+            event_count = len(collection)
+        except TypeError as exc:
+            raise ValueError(
+                f"{name}: could not determine event axis length (type: {ak.type(collection)})"
+            ) from exc
+
+        if event_count != n_events:
+            raise ValueError(
+                f"{name}: expected event axis length {n_events}, got {event_count} (type: {ak.type(collection)})"
+            )
+
+        layout = ak.to_layout(collection, allow_record=False)
+        if layout.purelist_depth < 2:
+            raise ValueError(
+                f"{name}: expected at least a [events][objects] jagged layout for axis=1 concatenation, "
+                f"but got {ak.type(collection)}"
+            )
+
+        if self._debug_logging:
+            self._debug(
+                "%s layout sanitized: %s -> %s",
+                name,
+                original_type,
+                ak.type(collection),
+            )
+
+        return ak.Array(collection)
+
     def _build_histogram_key(
         self,
         variable: str,
@@ -2078,6 +2220,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht = variation_state.ht
         met = variation_state.objects.met
 
+        n_events = len(events)
+
         histAxisName = dataset.hist_axis_name
         trigger_dataset = dataset.trigger_dataset
         year = dataset.year
@@ -2394,27 +2538,39 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             bl0pt = None
 
+        l_fo_conept_sorted_sanitized = self._ensure_object_collection_layout(
+            l_fo_conept_sorted,
+            name="l_fo_conept_sorted",
+            n_events=n_events,
+        )
+        good_jets_sanitized = self._ensure_object_collection_layout(
+            goodJets,
+            name="goodJets",
+            n_events=n_events,
+        )
+        cleaning_taus_sanitized = self._ensure_object_collection_layout(
+            variation_state.objects.cleaning_taus,
+            name="cleaning_taus",
+            n_events=n_events,
+        )
+
+        def _build_lj_collection() -> ak.Array:
+            components = [
+                l_fo_conept_sorted_sanitized,
+                good_jets_sanitized,
+            ]
+            if self.tau_h_analysis:
+                components.append(cleaning_taus_sanitized)
+            return ak.with_name(
+                ak.concatenate(components, axis=1),
+                "PtEtaPhiMCollection",
+            )
+
         need_lj_collection = any(
             token in var_def for token in ["o0pt", "lj0pt", "ljptsum"]
         ) or (self._ecut_threshold is not None)
         if need_lj_collection:
-            if self.tau_h_analysis:
-                l_j_collection = ak.with_name(
-                    ak.concatenate(
-                        [
-                            l_fo_conept_sorted,
-                            goodJets,
-                            variation_state.objects.cleaning_taus,
-                        ],
-                        axis=1,
-                    ),
-                    "PtEtaPhiMCollection",
-                )
-            else:
-                l_j_collection = ak.with_name(
-                    ak.concatenate([l_fo_conept_sorted, goodJets], axis=1),
-                    "PtEtaPhiMCollection",
-                )
+            l_j_collection = _build_lj_collection()
             if "o0pt" in var_def:
                 o0pt = ak.max(l_j_collection.pt, axis=-1)
             else:
@@ -2448,22 +2604,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         if self._ecut_threshold is not None:
             if ljptsum is None:
                 if self.tau_h_analysis:
-                    l_j_collection = ak.with_name(
-                        ak.concatenate(
-                            [
-                                l_fo_conept_sorted,
-                                goodJets,
-                                variation_state.objects.cleaning_taus,
-                            ],
-                            axis=1,
-                        ),
-                        "PtEtaPhiMCollection",
-                    )
-                else:
-                    l_j_collection = ak.with_name(
-                        ak.concatenate([l_fo_conept_sorted, goodJets], axis=1),
-                        "PtEtaPhiMCollection",
-                    )
+                    l_j_collection = _build_lj_collection()
                 ljptsum = ak.sum(l_j_collection.pt, axis=-1)
             ecut_mask = ljptsum < self._ecut_threshold
         else:
@@ -2472,7 +2613,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         logging.info("Variable name: %s", self._var)
         logging.info("Variable definition: %s", self._var_def)
         dense_axis_name = self._var
-        n_events = len(events)
         dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
         dense_axis_vals = self._check_dense_axis_invariants(
             dense_axis_name, dense_axis_vals, n_events
