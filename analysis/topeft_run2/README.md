@@ -131,6 +131,12 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
           see the summary for a given sample/channel combination.  Internally the processor
           stashes these recaps in a reserved accumulator key, which the workflow pops before
           writing outputs so downstream consumers only see the usual histograms.
+        - The combined l–j variables (e.g., ``o0pt``, ``ljptsum``, ``lj0pt``) rely on
+          ``_ensure_object_collection_layout`` to normalize the FO lepton and jet inputs
+          into a shared ``[events][objects]`` layout before concatenation; if the inputs
+          wrap multiple collections or have mismatched event counts, the helper now raises
+          an explicit error indicating the offending layout rather than failing deeper inside
+          Awkward.
         - Example 5-event futures run with full diagnostics::
 
             python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \

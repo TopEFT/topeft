@@ -783,7 +783,24 @@ class AnalysisProcessor(processor.ProcessorABC):
         name: str,
         n_events: int,
     ) -> ak.Array:
-        """Normalize arbitrary object collections to [events][objects] layouts."""
+        """
+        Normalize arbitrary object collections to a [events][objects] jagged layout.
+
+        Accepts:
+          * ``None`` (returns an empty `[n_events][0]` collection),
+          * a plain list-of-records `[events][objects]`,
+          * a struct-of-arrays record that exposes per-object lists such as
+            ``pt/eta/phi`` (our canonical jets layout),
+          * either representation with an extra leading singleton axis from
+            variation wrapping.
+        Returns:
+          * an ``ak.Array`` shaped [events][objects] (list-of-records) that is
+            safe to concatenate with ``ak.concatenate(..., axis=1)``.
+        Raises:
+          * when ``n_events`` does not match the inferred event axis length,
+          * when an ambiguous record bundles multiple independent collections
+            (rather than a single wrapper or a canonical jets struct).
+        """
 
         if arr is None:
             sanitized = ak.Array([[] for _ in range(n_events)])
