@@ -906,6 +906,9 @@ def test_bl0pt_dense_axis_is_scalar(monkeypatch):
     assert len(sanitized) == n_events
     assert ak.to_layout(sanitized, allow_record=False).purelist_depth == 1
     assert "union" not in str(ak.type(sanitized)).lower()
+    values = np.asarray(ak.to_list(sanitized), dtype=float)
+    assert np.isfinite(values).all()
+    assert values.min() >= -1.0
 
 
 def test_bl0pt_pairing_handles_multiple_bjets():
@@ -960,16 +963,6 @@ def test_bl0pt_pairing_handles_multiple_bjets():
 
     assert values[0] > 0
     assert values[1] == -1.0
-
-
-def test_bl0pt_dense_axis_is_scalar(monkeypatch):
-    sanitized, n_events = _capture_dense_axis_values(monkeypatch, "bl0pt")
-
-    assert len(sanitized) == n_events
-    assert "union" not in str(ak.type(sanitized)).lower()
-    values = np.asarray(ak.to_list(sanitized), dtype=float)
-    assert np.isfinite(values).all()
-    assert values.min() >= -1.0
 
 
 def test_histogram_btag_masks_handle_multijet_events(monkeypatch):
