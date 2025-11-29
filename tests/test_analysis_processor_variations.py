@@ -1327,6 +1327,79 @@ def test_ensure_object_collection_layout_handles_variation_axis():
     assert ak.to_list(ak.num(sanitized, axis=-1)) == [1, 1]
 
 
+def test_ensure_object_collection_layout_accepts_jets_record():
+    processor = _make_processor()
+    good_jets = ak.Array(
+        [
+            [
+                {
+                    "pt": 45.0,
+                    "eta": 0.3,
+                    "phi": 0.1,
+                    "mass": 4.2,
+                    "isGood": True,
+                    "isFwd": False,
+                    "btagDeepB": 0.8,
+                },
+                {
+                    "pt": 30.0,
+                    "eta": -0.5,
+                    "phi": -0.1,
+                    "mass": 3.8,
+                    "isGood": False,
+                    "isFwd": True,
+                    "btagDeepB": 0.2,
+                },
+            ],
+            [
+                {
+                    "pt": 50.0,
+                    "eta": 0.0,
+                    "phi": 0.2,
+                    "mass": 5.1,
+                    "isGood": True,
+                    "isFwd": False,
+                    "btagDeepB": 0.9,
+                }
+            ],
+        ]
+    )
+    sanitized = processor._ensure_object_collection_layout(
+        good_jets,
+        name="goodJets",
+        n_events=len(good_jets),
+    )
+
+    assert len(sanitized) == 2
+    assert ak.to_list(ak.num(sanitized, axis=-1)) == [2, 1]
+    assert {"pt", "eta", "isGood"}.issubset(set(ak.fields(sanitized[0][0])))
+
+
+def test_ensure_object_collection_layout_rejects_ambiguous_wrapper_records():
+    processor = _make_processor()
+    base_jets = ak.Array(
+        [
+            [{"pt": 20.0, "eta": 0.1}],
+            [{"pt": 30.0, "eta": -0.1}],
+        ]
+    )
+    wrapper = ak.Array(
+        {
+            "central": base_jets,
+            "up": base_jets,
+        }
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        processor._ensure_object_collection_layout(
+            wrapper,
+            name="jets_wrapper",
+            n_events=len(base_jets),
+        )
+
+    assert "ambiguous record layout" in str(excinfo.value)
+
+
 def test_ensure_object_collection_layout_unwraps_single_field_records():
     processor = _make_processor()
     base = ak.Array(

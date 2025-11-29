@@ -798,57 +798,70 @@ class AnalysisProcessor(processor.ProcessorABC):
         original_type = ak.type(arr)
         arr = ak.Array(arr)
 
-        while True:
-            layout = ak.to_layout(arr, allow_record=True)
-            fields = ak.fields(arr)
-            if not fields or layout.purelist_depth > 1:
-                break
+        def _is_list_like(value: Any) -> bool:
+            return ak.to_layout(value, allow_record=True).is_list
 
-            selected_field = None
-            for candidate in ("Jet", "jets", "central", "nominal"):
-                if candidate in fields:
-                    selected_field = candidate
-                    break
+        def _is_record(value: Any) -> bool:
+            return ak.to_layout(value, allow_record=True).is_record
 
-            if selected_field is None and len(fields) == 1:
-                selected_field = fields[0]
+        collection = arr
+        if not _is_list_like(collection):
+            if not _is_record(collection):
+                raise ValueError(
+                    f"{name}: expected a list-like object collection, but got {ak.type(collection)}"
+                )
 
-            if selected_field is None:
+            fields = ak.fields(collection)
+            list_like_candidates = []
+            for field in fields:
+                candidate = ak.Array(collection[field])
+                if _is_list_like(candidate):
+                    list_like_candidates.append((field, candidate))
+
+            if len(list_like_candidates) != 1:
                 raise ValueError(
                     f"{name}: ambiguous record layout with fields {fields}; "
                     "expected one wrapper field for the object collection"
                 )
 
-            arr = ak.Array(arr[selected_field])
+            collection = list_like_candidates[0][1]
 
         # Drop an outer singleton axis that wraps an [events][objects] collection.
-        while len(arr) == 1:
-            first_entry = arr[0]
+        while len(collection) == 1:
+            first_entry = collection[0]
+            if not _is_list_like(first_entry):
+                break
             try:
                 if len(first_entry) == n_events:
-                    arr = ak.Array(first_entry)
+                    collection = ak.Array(first_entry)
                     continue
             except TypeError:
                 pass
             break
 
+        if not _is_list_like(collection):
+            raise ValueError(
+                f"{name}: expected a list-like object collection after normalization, "
+                f"but got {ak.type(collection)}"
+            )
+
         try:
-            event_count = len(arr)
+            event_count = len(collection)
         except TypeError as exc:
             raise ValueError(
-                f"{name}: could not determine event axis length (type: {ak.type(arr)})"
+                f"{name}: could not determine event axis length (type: {ak.type(collection)})"
             ) from exc
 
         if event_count != n_events:
             raise ValueError(
-                f"{name}: expected event axis length {n_events}, got {event_count} (type: {ak.type(arr)})"
+                f"{name}: expected event axis length {n_events}, got {event_count} (type: {ak.type(collection)})"
             )
 
-        layout = ak.to_layout(arr, allow_record=False)
+        layout = ak.to_layout(collection, allow_record=False)
         if layout.purelist_depth < 2:
             raise ValueError(
                 f"{name}: expected at least a [events][objects] jagged layout for axis=1 concatenation, "
-                f"but got {ak.type(arr)}"
+                f"but got {ak.type(collection)}"
             )
 
         if self._debug_logging:
@@ -856,10 +869,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "%s layout sanitized: %s -> %s",
                 name,
                 original_type,
-                ak.type(arr),
+                ak.type(collection),
             )
 
-        return ak.Array(arr)
+        return ak.Array(collection)
 
     def _build_histogram_key(
         self,
