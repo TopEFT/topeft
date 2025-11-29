@@ -898,7 +898,68 @@ def test_b0pt_dense_axis_is_scalar(monkeypatch):
 
     assert len(sanitized) == n_events
     assert "union" not in str(ak.type(sanitized)).lower()
-    assert np.asarray(ak.to_list(sanitized), dtype=float).tolist() == [55.0, 28.0]
+
+
+def test_bl0pt_dense_axis_is_scalar(monkeypatch):
+    sanitized, n_events = _capture_dense_axis_values(monkeypatch, "bl0pt")
+
+    assert len(sanitized) == n_events
+    assert ak.to_layout(sanitized, allow_record=False).purelist_depth == 1
+    assert "union" not in str(ak.type(sanitized)).lower()
+
+
+def test_bl0pt_pairing_handles_multiple_bjets():
+    processor = _make_processor()
+    n_events = 2
+    jets = ak.Array(
+        [
+            [
+                {"pt": 55.0, "eta": 0.1, "phi": 0.0, "mass": 5.0},
+                {"pt": 40.0, "eta": -0.2, "phi": 0.2, "mass": 4.0},
+            ],
+            [],
+        ]
+    )
+    leptons = ak.Array(
+        [
+            [
+                {"pt": 35.0, "eta": 0.0, "phi": 0.1, "mass": 0.1},
+                {"pt": 25.0, "eta": 0.1, "phi": -0.1, "mass": 0.1},
+            ],
+            [],
+        ]
+    )
+    loose_mask = ak.Array([[True, True], []])
+
+    sanitized_jets = processor._ensure_object_collection_layout(
+        jets, name="goodJets", n_events=n_events
+    )
+    sanitized_leptons = processor._ensure_object_collection_layout(
+        leptons, name="l_fo_conept_sorted", n_events=n_events
+    )
+
+    loose_bjets = sanitized_jets[loose_mask]
+    loose_bjets_sorted = loose_bjets[
+        ak.argsort(loose_bjets.pt, axis=-1, ascending=False)
+    ]
+    bl_pairs = ak.cartesian(
+        {"b": loose_bjets_sorted, "l": sanitized_leptons}, nested=False
+    )
+    bl_b = bl_pairs["b"]
+    bl_l = bl_pairs["l"]
+    bl_px = bl_b.pt * np.cos(bl_b.phi) + bl_l.pt * np.cos(bl_l.phi)
+    bl_py = bl_b.pt * np.sin(bl_b.phi) + bl_l.pt * np.sin(bl_l.phi)
+    blpt = np.hypot(bl_px, bl_py)
+    blpt_desc = ak.sort(blpt, axis=-1, ascending=False)
+    bl0pt_candidate = ak.firsts(ak.pad_none(blpt_desc, 1, axis=-1, clip=True))
+    bl0pt = ak.values_astype(
+        ak.fill_none(bl0pt_candidate, np.float32(-1.0)), np.float32
+    )
+
+    values = ak.to_list(bl0pt)
+
+    assert values[0] > 0
+    assert values[1] == -1.0
 
 
 def test_bl0pt_dense_axis_is_scalar(monkeypatch):

@@ -2518,26 +2518,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             ptz_wtau = None
 
-        if "bl0pt" in var_def:
-            bjetsl = goodJets[isBtagJetsLoose][
-                ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)
-            ]
-            bl_pairs = ak.cartesian({"b": bjetsl, "l": l_fo_conept_sorted})
-            bl_b = bl_pairs["b"]
-            bl_l = bl_pairs["l"]
-            bl_px = bl_b.pt * np.cos(bl_b.phi) + bl_l.pt * np.cos(bl_l.phi)
-            bl_py = bl_b.pt * np.sin(bl_b.phi) + bl_l.pt * np.sin(bl_l.phi)
-            blpt = np.hypot(bl_px, bl_py)
-            blpt_desc = ak.sort(blpt, axis=-1, ascending=False)
-            bl0pt_candidate = ak.firsts(
-                ak.pad_none(blpt_desc, 1, axis=-1, clip=True)
-            )
-            bl0pt = ak.values_astype(
-                ak.fill_none(bl0pt_candidate, np.float32(-1.0)), np.float32
-            )
-        else:
-            bl0pt = None
-
         l_fo_conept_sorted_sanitized = self._ensure_object_collection_layout(
             l_fo_conept_sorted,
             name="l_fo_conept_sorted",
@@ -2553,6 +2533,32 @@ class AnalysisProcessor(processor.ProcessorABC):
             name="cleaning_taus",
             n_events=n_events,
         )
+        # Scalar observables like ptbl, b0pt, bl0pt, and lj0pt should consume
+        # these sanitized jagged inputs so that no extra variation axes survive.
+
+        if "bl0pt" in var_def:
+            loose_bjets = good_jets_sanitized[isBtagJetsLoose]
+            loose_bjets_sorted = loose_bjets[
+                ak.argsort(loose_bjets.pt, axis=-1, ascending=False)
+            ]
+            bl_pairs = ak.cartesian(
+                {"b": loose_bjets_sorted, "l": l_fo_conept_sorted_sanitized},
+                nested=False,
+            )
+            bl_b = bl_pairs["b"]
+            bl_l = bl_pairs["l"]
+            bl_px = bl_b.pt * np.cos(bl_b.phi) + bl_l.pt * np.cos(bl_l.phi)
+            bl_py = bl_b.pt * np.sin(bl_b.phi) + bl_l.pt * np.sin(bl_l.phi)
+            blpt = np.hypot(bl_px, bl_py)
+            blpt_desc = ak.sort(blpt, axis=-1, ascending=False)
+            bl0pt_candidate = ak.firsts(
+                ak.pad_none(blpt_desc, 1, axis=-1, clip=True)
+            )
+            bl0pt = ak.values_astype(
+                ak.fill_none(bl0pt_candidate, np.float32(-1.0)), np.float32
+            )
+        else:
+            bl0pt = None
 
         def _build_lj_collection() -> ak.Array:
             components = [
