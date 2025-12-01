@@ -25,6 +25,12 @@ IGNORE_LINES = [
 # Default scenario to mirror run_analysis.py
 DEFAULT_SCENARIO = "TOP_22_006"
 
+# Historical expected file counts for standard scenarios (text, root).
+# Acts as a lightweight safety net when copying templates.
+EXPECTED_FILE_COUNTS = {
+    "TOP_22_006": (43, 43),
+}
+
 
 # Return list of lines in a file
 def read_file(filename):
@@ -85,6 +91,19 @@ def determine_histogram_suffix(region, jet_value, analysis_mode):
     return "lj0pt"
 
 def _analysis_mode_for_group(group, scenario_name):
+    """Return the legacy analysis-mode tag for ``group``.
+
+    The analysis mode feeds into ``determine_histogram_suffix`` to preserve the
+    historical `_ptz`, `_lj0pt`, `_lt`, and `_ptz_wtau` suffixes that datacards
+    expect.  Features recorded on the channel group (or the high-level scenario)
+    drive the mapping:
+
+    * ``offz_split`` → ``"offZdivision"``
+    * ``requires_tau`` or tau scenario → ``"tau"``
+    * ``requires_forward`` or forward scenario → ``"fwd"``
+    * otherwise → ``"top22006"`` (baseline behaviour)
+    """
+
     features = set(group.features)
     if "offz_split" in features:
         return "offZdivision"
@@ -127,7 +146,12 @@ def resolve_scenario_metadata(scenario_args: Iterable[str]) -> Tuple[str, str, C
 def collect_datacard_channels(
     channel_helper: ChannelMetadataHelper, scenario_name: str
 ) -> List[str]:
-    """Derive the list of datacard channel names for ``scenario_name``."""
+    """Return the canonical datacard channel list for ``scenario_name``.
+
+    This helper is the single source of truth for channel naming and is shared
+    by both ``datacards_post_processing.py`` and ``make_cards.py`` to guarantee
+    that template copying, WC selection, and condor jobs stay in sync.
+    """
 
     channel_names: List[str] = []
     group_names = channel_helper.selected_group_names([scenario_name])
@@ -268,6 +292,22 @@ def main():
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
     print(f"\tNumber of root templates copied: {n_root}")
+
+    expected_counts = EXPECTED_FILE_COUNTS.get(scenario_name)
+    if expected_counts is not None:
+        exp_txt, exp_root = expected_counts
+        if n_txt != exp_txt or n_root != exp_root:
+            raise Exception(
+                "Unexpected number of files copied for scenario "
+                f"'{scenario_name}'. Expected {exp_txt} text and {exp_root} root "
+                f"templates, saw {n_txt} text and {n_root} root."
+            )
+    else:
+        print(
+            f"\tNo reference file counts registered for scenario '{scenario_name}'; "
+            "skipping sanity check."
+        )
+
     print("Done.\n")
 
 

@@ -230,6 +230,8 @@ def main():
         print(f"ERROR: {exc}")
         sys.exit(1)
 
+    # Channel naming is centralized via collect_datacard_channels so both
+    # datacard scripts operate on identical identifiers.
     scenario_channels = collect_datacard_channels(channel_helper, scenario_name)
     if not ch_lst:
         ch_lst = scenario_channels
