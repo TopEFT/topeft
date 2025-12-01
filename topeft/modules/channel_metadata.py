@@ -224,6 +224,11 @@ class ChannelMetadataHelper:
                 groups=groups,
             )
 
+    def has_scenarios(self) -> bool:
+        """Return ``True`` when the metadata enumerates scenario group lists."""
+
+        return bool(self._scenarios)
+
     def group(self, name: str) -> ChannelGroup:
         """Return the :class:`ChannelGroup` registered under ``name``."""
 
@@ -264,6 +269,50 @@ class ChannelMetadataHelper:
         # scopes groups to the desired scenario and therefore expose every
         # available group for whichever scenario name the caller provides.
         return tuple(self._groups.keys())
+
+    def selected_group_names(
+        self, scenario_names: Optional[Sequence[str]]
+    ) -> Tuple[str, ...]:
+        """Return the ordered group names for the requested scenarios.
+
+        When the metadata exposes explicit scenario definitions, ``scenario_names``
+        is used to select the relevant groups.  Otherwise all known groups are
+        returned since the metadata file already represents a single scenario.
+        """
+
+        if self._scenarios:
+            if not scenario_names:
+                raise ValueError(
+                    "This metadata defines scenarios but none were requested. "
+                    "Specify at least one scenario name."
+                )
+            normalized: List[str] = []
+            seen = set()
+            for scenario_name in scenario_names:
+                scenario = self._scenarios.get(scenario_name)
+                if scenario is None:
+                    raise KeyError(
+                        f"Scenario {scenario_name!r} not found in metadata"
+                    )
+                for group_name in scenario.groups:
+                    if group_name not in self._groups:
+                        raise KeyError(
+                            f"Scenario {scenario_name!r} references unknown group {group_name!r}"
+                        )
+                    if group_name not in seen:
+                        seen.add(group_name)
+                        normalized.append(group_name)
+            return tuple(normalized)
+
+        # No scenario list is present; return all groups in metadata order.
+        ordered_groups: List[str] = []
+        seen_all = set()
+        for group_name in self._groups.keys():
+            if group_name in seen_all:
+                continue
+            seen_all.add(group_name)
+            ordered_groups.append(group_name)
+        return tuple(ordered_groups)
 
 @dataclass(frozen=True)
 class ChannelScenario:

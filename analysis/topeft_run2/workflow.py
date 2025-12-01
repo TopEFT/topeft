@@ -293,10 +293,9 @@ class ChannelPlanner:
                 if not self._skip_sr and group not in sr_groups:
                     sr_groups.append(group)
 
-        scenario_names = list(self._scenario_names)
-        for scenario_name in scenario_names:
-            for group_name in channel_helper.scenario_groups(scenario_name):
-                _register_group(group_name)
+        group_names = channel_helper.selected_group_names(self._scenario_names)
+        for group_name in group_names:
+            _register_group(group_name)
 
         if not sr_groups and not cr_groups and not seen_groups:
             raise ValueError("No channel groups selected. Please specify at least one scenario")
@@ -1336,10 +1335,13 @@ def run_workflow(config: RunConfig) -> None:
 
     import yaml
     from topeft.modules.channel_metadata import ChannelMetadataHelper
-    from topeft.modules.paths import topeft_path
 
-    default_metadata_path = topeft_path("params/metadata.yml")
-    metadata_source = config.metadata_path or default_metadata_path
+    metadata_source = config.metadata_path
+    if not metadata_source:
+        raise ValueError(
+            "RunConfig.metadata_path is not set. The scenario registry or options profile "
+            "must select a metadata bundle before launching run_workflow."
+        )
     candidate_path = Path(metadata_source).expanduser()
     if not candidate_path.is_absolute():
         candidate_path = Path.cwd() / candidate_path
