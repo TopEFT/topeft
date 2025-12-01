@@ -29,10 +29,12 @@ helpers consume these values.
   and strings are accepted interchangeably for sequence-like fields such as
   `scenarios` and `wc_list`.  Integers and booleans are coerced from strings when
   needed.【F:analysis/topeft_run2/run_analysis_helpers.py†L103-L306】
-* **Metadata defaults** – Omitting `metadata` defers to
-  `topeft/params/metadata.yml`, matching the quickstart helpers.  The
-  [metadata configuration](run_analysis_configuration.md#metadata-configuration)
-  section describes how the planners consume the file.【F:analysis/topeft_run2/workflow.py†L934-L1002】【F:docs/run_analysis_configuration.md†L15-L63】
+* **Metadata defaults** – CLI runs always resolve the selected `--scenario`
+  through the scenario registry in
+  `analysis/topeft_run2/scenario_registry.py`, which maps scenario names to the
+  production metadata YAMLs.  Options profiles can still override the metadata
+  path via the `metadata`/`metadata_path` keys when backward compatibility is
+  needed.【F:analysis/topeft_run2/run_analysis.py†L320-L412】【F:analysis/topeft_run2/scenario_registry.py†L18-L71】
 
 ## Command-line flags and YAML keys
 
@@ -54,13 +56,12 @@ backwards compatibility when writing YAML.
 | `--outname`, `-o` | `outname` | string | `"plotsTopEFT"` | Histogram filename stem.【F:analysis/topeft_run2/run_analysis.py†L38-L132】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】 |
 | `--outpath`, `-p` | `outpath` | string | `"histos"` | Output directory for results.【F:analysis/topeft_run2/run_analysis.py†L38-L132】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】 |
 | `--treename` | `treename` | string | `"Events"` | Input TTree name.【F:analysis/topeft_run2/run_analysis.py†L38-L132】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】 |
-| `--metadata` | `metadata`, `metadata_path`* | optional string | `None` | When omitted the workflow loads `topeft/params/metadata.yml`.  See the metadata configuration guide for structure details.【F:analysis/topeft_run2/run_analysis.py†L38-L132】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】【F:analysis/topeft_run2/workflow.py†L934-L1002】【F:docs/run_analysis_configuration.md†L15-L63】 |
 | `--do-errors` | `do_errors` | bool | `False` | Persists quadratic weights (`w**2`) for uncertainty propagation.【F:analysis/topeft_run2/run_analysis.py†L64-L163】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】 |
 | `--do-systs` | `do_systs` | bool | `False` | Enables systematic planning based on metadata definitions.【F:analysis/topeft_run2/run_analysis.py†L64-L163】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】【F:docs/run_analysis_configuration.md†L136-L211】 |
 | `--split-lep-flavor` | `split_lep_flavor` | bool | `False` | Splits histogram categories by lepton flavour.  Mentioned in the summary verbosity description for awareness.【F:analysis/topeft_run2/run_analysis.py†L64-L163】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】 |
 | `--summary-verbosity` | `summary_verbosity` | string (`"none"`, `"brief"`, `"full"`) | `"brief"` | Controls the textual run summary printed before execution.【F:analysis/topeft_run2/run_analysis.py†L132-L173】【F:analysis/topeft_run2/run_analysis_helpers.py†L188-L238】【F:analysis/topeft_run2/workflow.py†L972-L1002】 |
 | `--log-tasks` | `log_tasks` | bool | `False` | Emits a one-line log for each submitted histogram task.【F:analysis/topeft_run2/run_analysis.py†L173-L206】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】 |
-| `--scenario` (repeatable) | `scenarios` | list of strings | `[]` (resolved to `['TOP_22_006']` when empty) | Scenarios map to channel groups in the metadata file.【F:analysis/topeft_run2/run_analysis.py†L173-L206】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】【F:analysis/topeft_run2/workflow.py†L972-L1016】【F:docs/run_analysis_configuration.md†L15-L63】 |
+| `--scenario` (repeatable) | `scenarios` | list of strings | `[]` (resolved to `['TOP_22_006']` when empty) | Scenarios map to channel groups via the registry; invalid names trigger a friendly error that lists the supported values.【F:analysis/topeft_run2/run_analysis.py†L173-L420】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L338】【F:analysis/topeft_run2/scenario_registry.py†L18-L71】【F:analysis/topeft_run2/workflow.py†L934-L1016】 |
 | `--skip-sr` | `skip_sr` | bool | `False` | Drops all signal-region categories during planning.【F:analysis/topeft_run2/run_analysis.py†L173-L206】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】 |
 | `--skip-cr` | `skip_cr` | bool | `False` | Drops all control-region categories during planning.【F:analysis/topeft_run2/run_analysis.py†L173-L206】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】 |
 | `--do-np` | `do_np` | bool | `False` | Requests nonprompt estimation after histogram production.【F:analysis/topeft_run2/run_analysis.py†L173-L206】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L318】【F:analysis/topeft_run2/workflow.py†L906-L976】 |
@@ -74,7 +75,7 @@ backwards compatibility when writing YAML.
 | `--resource-monitor` | `resource_monitor` | optional string | `None` | TaskVine resource monitor setting (for example `measure`).  Use `none`/`null` to defer to the executor default.【F:analysis/topeft_run2/run_analysis.py†L236-L261】【F:analysis/topeft_run2/run_analysis_helpers.py†L103-L210】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L338】【F:analysis/topeft_run2/workflow.py†L604-L682】 |
 | `--resources-mode` | `resources_mode` | optional string | `None` | TaskVine resources-mode override passed directly to the executor when set.【F:analysis/topeft_run2/run_analysis.py†L236-L261】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L338】【F:analysis/topeft_run2/workflow.py†L604-L682】 |
 | `--environment-file` | `environment_file` | optional string | `"cached"` | Environment tarball shipped with distributed executors.  The default resolves the newest cached archive without rebuilding.  Use `auto` to trigger `remote_environment` packaging, provide a path explicitly, or disable shipping with keywords such as `none`/`false`.【F:analysis/topeft_run2/run_analysis.py†L188-L223】【F:analysis/topeft_run2/run_analysis_helpers.py†L124-L175】【F:analysis/topeft_run2/run_analysis_helpers.py†L240-L338】【F:analysis/topeft_run2/workflow.py†L586-L682】 |
-| `--options` | *(YAML only)* | string | `None` | Selects the YAML options file and optional profile.  When set, the CLI values above are ignored in favour of the YAML content.【F:analysis/topeft_run2/run_analysis.py†L198-L206】【F:analysis/topeft_run2/run_analysis_helpers.py†L319-L415】 |
+| `--options` | *(YAML only)* | string | `None` | Selects the YAML options file and optional profile.  When set, CLI flags (including `--scenario`) are ignored; combining `--options` with `--scenario` now raises an error to keep runs reproducible.【F:analysis/topeft_run2/run_analysis.py†L198-L420】【F:analysis/topeft_run2/run_analysis_helpers.py†L319-L415】 |
 
 ### YAML-only helper keys
 

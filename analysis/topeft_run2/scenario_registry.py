@@ -8,8 +8,9 @@ while preventing ad-hoc path strings from spreading throughout the workflow.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable
+from typing import Dict, Iterable, List, Sequence, Tuple
 
 # Paths are stored relative to the topeft repository root.  The CLI converts
 # them into absolute paths via ``topeft.modules.paths.topeft_path`` before
@@ -30,22 +31,45 @@ def known_scenarios() -> Iterable[str]:
     return _SCENARIO_REGISTRY.keys()
 
 
-def resolve_scenario_path(name: str) -> str:
-    """Return the metadata YAML path for ``name``.
+@dataclass(frozen=True)
+class ScenarioResolution:
+    """Describes the metadata path lookup for a scenario."""
+
+    metadata_path: str
+    known_scenarios: Sequence[str]
+
+
+def resolve_scenario_choice(name: str) -> ScenarioResolution:
+    """Return the metadata path and known names for ``name``.
+
+    Args:
+        name: Scenario identifier supplied via CLI/YAML.
 
     Raises:
-        ValueError: if ``name`` is not registered.  The exception message lists
-            the available scenarios to help steer the user.
+        ValueError: if ``name`` is unknown. The exception message includes the
+            available scenarios so the caller can surface a user-friendly hint.
     """
 
-    try:
-        rel_path = _SCENARIO_REGISTRY[name]
-        return str((_REPO_ROOT / rel_path).resolve())
-    except KeyError as exc:  # pragma: no cover - simple guard
-        available = ", ".join(sorted(known_scenarios()))
+    known: List[str] = list(known_scenarios())
+    rel_path = _SCENARIO_REGISTRY.get(name)
+    if rel_path is None:  # pragma: no cover - simple guard
+        available = ", ".join(known)
         raise ValueError(
             f"Unknown scenario '{name}'. Known scenarios: {available}"
-        ) from exc
+        )
+    metadata_path = str((_REPO_ROOT / rel_path).resolve())
+    return ScenarioResolution(metadata_path=metadata_path, known_scenarios=known)
 
 
-__all__ = ["known_scenarios", "resolve_scenario_path"]
+def resolve_scenario_path(name: str) -> str:
+    """Return only the metadata path for ``name`` for backwards compatibility."""
+
+    return resolve_scenario_choice(name).metadata_path
+
+
+__all__ = [
+    "ScenarioResolution",
+    "known_scenarios",
+    "resolve_scenario_choice",
+    "resolve_scenario_path",
+]

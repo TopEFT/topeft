@@ -14,11 +14,12 @@ from __future__ import annotations
 import argparse
 import importlib
 import logging
+import sys
 from typing import Sequence
 
 import topcoffea
 
-from analysis.topeft_run2.scenario_registry import resolve_scenario_path
+from analysis.topeft_run2.scenario_registry import resolve_scenario_choice
 
 
 def _verify_numpy_pandas_abi() -> None:
@@ -177,15 +178,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Name of the tree inside the files",
     )
     parser.add_argument(
-        "--metadata",
-        default=None,
-        help=(
-            "Path to the metadata YAML describing channels, variables, and"
-            " systematics. When omitted, the selected --scenario is resolved"
-            " through the scenario registry to pick the correct metadata file."
-        ),
-    )
-    parser.add_argument(
         "--do-errors",
         action="store_true",
         help="Save the w**2 coefficients",
@@ -320,8 +312,14 @@ def _resolve_logging_controls(config: RunConfig) -> tuple[str, bool]:
     return "INFO", False
 
 
-def _apply_scenario_metadata_defaults(config: RunConfig) -> None:
-    """Populate metadata path via the scenario registry when needed."""
+def _apply_scenario_metadata_defaults(config: RunConfig) -> tuple[str, str, bool]:
+    """Resolve the effective scenario and metadata selection.
+
+    Returns:
+        Tuple containing the scenario name, metadata path, and a boolean flag
+        indicating whether the metadata came from an options profile (True)
+        versus the scenario registry (False).
+    """
 
     scenario_names = config.scenario_names or ["TOP_22_006"]
     config.scenario_names = scenario_names
@@ -333,11 +331,13 @@ def _apply_scenario_metadata_defaults(config: RunConfig) -> None:
             "future all_analysis meta-scenario." % ", ".join(scenario_names)
         )
 
-    if config.metadata_path:
-        return
-
     scenario_name = scenario_names[0]
-    config.metadata_path = resolve_scenario_path(scenario_name)
+    if config.metadata_path:
+        return scenario_name, config.metadata_path, True
+
+    resolution = resolve_scenario_choice(scenario_name)
+    config.metadata_path = resolution.metadata_path
+    return scenario_name, config.metadata_path, False
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -346,6 +346,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = build_parser()
     parser_defaults = parser.parse_args([])
     args = parser.parse_args(argv)
+
+    if getattr(args, "options", None) and getattr(args, "scenarios", None):
+        parser.error(
+            "Scenario selection must come from either --scenario or --options. "
+            "Set the scenario inside the options profile or drop the CLI flag."
+        )
 
     logger.info(
         "[DEBUG CHECK] args.log_level=%r, args.debug_logging=%r",
@@ -363,7 +369,15 @@ def main(argv: Sequence[str] | None = None) -> None:
         getattr(args, "options", None),
     )
 
-    _apply_scenario_metadata_defaults(config)
+    try:
+        scenario_name, metadata_path, metadata_from_options = _apply_scenario_metadata_defaults(config)
+    except ValueError as exc:
+        message = str(exc)
+        if message:
+            logger.error("%s", message)
+        else:
+            logger.error("Failed to resolve metadata scenario")
+        sys.exit(1)
 
     run_cfg = config
     logger.info(
@@ -376,15 +390,25 @@ def main(argv: Sequence[str] | None = None) -> None:
         run_cfg.debug_logging,
     )
 
-    logger.info("Using scenarios: %s", config.scenario_names)
-    logger.info("Using metadata file: %s", config.metadata_path)
-
     effective_log_level, processor_debug = _resolve_logging_controls(config)
     # Currently configures logging for the driver process; futures workers keep
     # their default handlers until we plumb a per-worker hook.
     configure_logging(effective_log_level)
 
     logger.info("[DEBUG CHECK] effective_log_level=%r", effective_log_level)
+
+    if metadata_from_options:
+        logger.info(
+            "Using scenario '%s' with metadata '%s' (from options profile)",
+            scenario_name,
+            metadata_path,
+        )
+    else:
+        logger.info(
+            "Using scenario '%s' with metadata '%s'",
+            scenario_name,
+            metadata_path,
+        )
 
     config.log_level = effective_log_level
     config.debug_logging = processor_debug
