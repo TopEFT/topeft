@@ -14,6 +14,23 @@ Each section starts from a clean checkout of the repository with the editable
 recommended environment setup).  The commands shown below assume that you are in
 ``analysis/topeft_run2`` unless otherwise noted.
 
+The CLI always resolves `--scenario` via
+[`analysis/topeft_run2/scenario_registry.py`](../analysis/topeft_run2/scenario_registry.py),
+so passing a friendly name (or relying on the default `TOP_22_006`) automatically
+selects the corresponding metadata YAML.  A minimal pretend run looks like:
+
+```bash
+python run_analysis.py \
+    ../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg \
+    --scenario TOP_22_006 \
+    --pretend --executor iterative --nworkers 1
+```
+
+!!! warning
+    When ``--options`` is supplied the YAML profile becomes the source of truth
+    for scenarios and metadata paths.  Do not repeat ``--scenario`` on the CLI in
+    that case—define the scenario list directly inside the profile instead.
+
 For details on how the scenarios map onto metadata-driven channel and histogram
 definitions, refer back to the [metadata configuration guide](run_analysis_configuration.md#metadata-configuration).
 
