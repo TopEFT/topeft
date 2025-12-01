@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import json
 import shutil
@@ -8,6 +9,10 @@ import numpy as np
 import topcoffea
 
 from topeft.modules.datacard_tools import *
+from analysis.topeft_run2.datacards_post_processing import (
+    collect_datacard_channels,
+    resolve_scenario_metadata,
+)
 
 regex_match = topcoffea.modules.utils.regex_match
 clean_dir = topcoffea.modules.utils.clean_dir
@@ -181,6 +186,15 @@ def main():
     parser.add_argument("--use-AAC","-A",action="store_true",help="Include all EFT templates in datacards for AAC model")
     parser.add_argument("--wc-vals", default="",action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
     parser.add_argument("--wc-scalings", default=[],action="extend",nargs="+",help="Specify a list of wc ordering for scalings.json")
+    parser.add_argument(
+        "--scenario",
+        action="append",
+        default=[],
+        help=(
+            "Scenario name to determine default channel list (e.g. TOP_22_006, "
+            "tau_analysis, fwd_analysis). Only one scenario per run is supported."
+        ),
+    )
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
@@ -209,6 +223,25 @@ def main():
 
     if isinstance(wcs,str):
         wcs = wcs.split(",")
+
+    try:
+        scenario_name, metadata_path, channel_helper = resolve_scenario_metadata(args.scenario)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        sys.exit(1)
+
+    # Channel naming is centralized via collect_datacard_channels so both
+    # datacard scripts operate on identical identifiers.
+    scenario_channels = collect_datacard_channels(channel_helper, scenario_name)
+    if not ch_lst:
+        ch_lst = scenario_channels
+        print(
+            f"Using all {len(ch_lst)} channels resolved from scenario '{scenario_name}'"
+        )
+    else:
+        print(
+            f"Using user-specified channel selection ({len(ch_lst)} entries) for scenario '{scenario_name}'"
+        )
 
     kwargs = {
         "wcs": wcs,
@@ -309,4 +342,6 @@ def main():
     print(f"Total Time: {dt:.2f} s")
     print("Finished!")
 
-main()
+
+if __name__ == "__main__":
+    main()

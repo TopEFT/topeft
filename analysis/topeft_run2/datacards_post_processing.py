@@ -2,8 +2,12 @@ import os
 import shutil
 import argparse
 import json
+import sys
+from typing import Iterable, List, Tuple
+
 import yaml
-from topeft.modules.paths import topeft_path
+
+from analysis.topeft_run2.scenario_registry import resolve_scenario_choice
 from topeft.modules.channel_metadata import ChannelMetadataHelper
 
 # This script does some basic checks of the cards and templates produced by the `make_cards.py` script.
@@ -17,6 +21,16 @@ IGNORE_LINES = [
     "ImportError: coffea.hist is deprecated",
     "warnings.warn(message, FutureWarning)",
 ]
+
+# Default scenario to mirror run_analysis.py
+DEFAULT_SCENARIO = "TOP_22_006"
+
+# Historical expected file counts for standard scenarios (text, root).
+# Acts as a lightweight safety net when copying templates.
+EXPECTED_FILE_COUNTS = {
+    "TOP_22_006": (43, 43),
+}
+
 
 # Return list of lines in a file
 def read_file(filename):
@@ -76,34 +90,125 @@ def determine_histogram_suffix(region, jet_value, analysis_mode):
 
     return "lj0pt"
 
-# Check the output of the datacard maekr
+def _analysis_mode_for_group(group, scenario_name):
+    """Return the legacy analysis-mode tag for ``group``.
+
+    The analysis mode feeds into ``determine_histogram_suffix`` to preserve the
+    historical `_ptz`, `_lj0pt`, `_lt`, and `_ptz_wtau` suffixes that datacards
+    expect.  Features recorded on the channel group (or the high-level scenario)
+    drive the mapping:
+
+    * ``offz_split`` → ``"offZdivision"``
+    * ``requires_tau`` or tau scenario → ``"tau"``
+    * ``requires_forward`` or forward scenario → ``"fwd"``
+    * otherwise → ``"top22006"`` (baseline behaviour)
+    """
+
+    features = set(group.features)
+    if "offz_split" in features:
+        return "offZdivision"
+    if "requires_tau" in features or scenario_name == "tau_analysis":
+        return "tau"
+    if "requires_forward" in features or scenario_name == "fwd_analysis":
+        return "fwd"
+    return "top22006"
+
+
+def resolve_scenario_metadata(scenario_args: Iterable[str]) -> Tuple[str, str, ChannelMetadataHelper]:
+    """Return the scenario name, metadata path, and helper for ``scenario_args``."""
+
+    scenario_names = [name for name in (scenario_args or []) if name]
+    if not scenario_names:
+        scenario_names = [DEFAULT_SCENARIO]
+
+    if len(scenario_names) != 1:
+        raise ValueError(
+            "Datacard tooling currently supports one scenario per run. "
+            f"Requested scenarios: {', '.join(scenario_names)}"
+        )
+
+    scenario_name = scenario_names[0]
+    resolution = resolve_scenario_choice(scenario_name)
+
+    with open(resolution.metadata_path, "r", encoding="utf-8") as metadata_file:
+        metadata = yaml.safe_load(metadata_file) or {}
+
+    channels_metadata = metadata.get("channels")
+    if not channels_metadata:
+        raise ValueError(
+            f"Channel metadata is missing from the metadata YAML ({resolution.metadata_path})."
+        )
+
+    helper = ChannelMetadataHelper(channels_metadata)
+    return scenario_name, resolution.metadata_path, helper
+
+
+def collect_datacard_channels(
+    channel_helper: ChannelMetadataHelper, scenario_name: str
+) -> List[str]:
+    """Return the canonical datacard channel list for ``scenario_name``.
+
+    This helper is the single source of truth for channel naming and is shared
+    by both ``datacards_post_processing.py`` and ``make_cards.py`` to guarantee
+    that template copying, WC selection, and condor jobs stay in sync.
+    """
+
+    channel_names: List[str] = []
+    group_names = channel_helper.selected_group_names([scenario_name])
+    for group_name in group_names:
+        if group_name.endswith("_CR"):
+            continue
+        group = channel_helper.group(group_name)
+        analysis_mode = _analysis_mode_for_group(group, scenario_name)
+        for category in group.categories():
+            jet_bins = [extract_number(item) for item in category.jet_bins]
+            jet_bins = [jet for jet in jet_bins if jet]
+            for region in category.region_definitions:
+                for jet in jet_bins:
+                    hist_suffix = determine_histogram_suffix(region, jet, analysis_mode)
+                    channel_names.append(f"{region.name}_{jet}j_{hist_suffix}")
+
+    seen = set()
+    ordered_unique: List[str] = []
+    for name in sorted(channel_names):
+        if name in seen:
+            continue
+        seen.add(name)
+        ordered_unique.append(name)
+    return ordered_unique
+
+
+# Check the output of the datacard maker
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("datacards_path", help = "The path to the directory with the datacards in it.")
-    parser.add_argument("-c", "--check-condor-logs", action="store_true", help = "Check the contents of the condor err files.")
-    parser.add_argument("-s", "--set-up-top22006", action="store_true", help = "Copy the ptz and lj0pt cards used in TOP-22-006 into their own directory.")
-    parser.add_argument("-z", "--set-up-offZdivision", action="store_true", help = "Copy the ptz and lj0pt cards with 3l offZ division.")
-    parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
-    parser.add_argument("-f", "--fwd-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
+    parser.add_argument("datacards_path", help="The path to the directory with the datacards in it.")
+    parser.add_argument(
+        "-c",
+        "--check-condor-logs",
+        action="store_true",
+        help="Check the contents of the condor err files.",
+    )
+    parser.add_argument(
+        "--scenario",
+        action="append",
+        default=[],
+        help=(
+            "Scenario name to copy channels for (e.g. TOP_22_006, tau_analysis, fwd_analysis). "
+            "Only one scenario per run is currently supported."
+        ),
+    )
     args = parser.parse_args()
 
-    ###### Check that you run one only type of analysis ######
+    try:
+        scenario_name, metadata_path, channel_helper = resolve_scenario_metadata(args.scenario)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        sys.exit(1)
 
-    # collect your booleans
-    flags = [
-        args.set_up_top22006,
-        args.set_up_offZdivision,
-        args.tau_flag,
-        args.fwd_flag,
-    ]
-
-    # check exactly one is True
-    if sum(flags) != 1:
-        raise ValueError(
-            "Exactly one of --set_up_top22006, "
-            "--set_up_offZdivision, --tau_flag, --fwd_flag must be set."
-        )
+    CATSELECTED = collect_datacard_channels(channel_helper, scenario_name)
+    if not CATSELECTED:
+        raise ValueError(f"No signal-region channels found for scenario '{scenario_name}'.")
 
     ###### Print out general info ######
 
@@ -156,59 +261,12 @@ def main():
             print(f"\t\t* In {line[0]}: {line[1]}")
 
 
-    ####### Copy the TOP-22-006 relevant files to their own dir ######
-    metadata_path = topeft_path("params/metadata.yml")
-    with open(metadata_path, "r") as metadata_file:
-        metadata = yaml.safe_load(metadata_file)
-
-    channels_metadata = metadata.get("channels") if metadata else None
-    if not channels_metadata:
-        raise ValueError("Channel metadata missing from params/metadata.yml")
-
-    channel_helper = ChannelMetadataHelper(channels_metadata)
-
-    if args.set_up_top22006:
-        selected_groups = [channel_helper.group("TOP22_006_CH_LST_SR")]
-        analysis_mode = "top22006"
-    elif args.set_up_offZdivision:
-        selected_groups = [channel_helper.group("OFFZ_SPLIT_CH_LST_SR")]
-        analysis_mode = "offZdivision"
-    elif args.tau_flag:
-        selected_groups = [channel_helper.group("TAU_CH_LST_SR")]
-        analysis_mode = "tau"
-    elif args.fwd_flag:
-        selected_groups = [channel_helper.group("FWD_CH_LST_SR")]
-        analysis_mode = "fwd"
-
-    CATSELECTED = []
-    for group in selected_groups:
-        for category in group.categories():
-            jet_bins = [extract_number(item) for item in category.jet_bins]
-            if not jet_bins:
-                continue
-            for region in category.region_definitions:
-                for jet in jet_bins:
-                    if not jet:
-                        continue
-                    hist_suffix = determine_histogram_suffix(region, jet, analysis_mode)
-                    channelname = f"{region.name}_{jet}j_{hist_suffix}"
-                    CATSELECTED.append(channelname)
-
-    CATSELECTED = sorted(CATSELECTED)
-
-    # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
+    # Grab the ptz/lj0pt/lt cards we want for the selected scenario
     n_txt = 0
     n_root = 0
     ptzlj0pt_path = os.path.join(args.datacards_path,"ptz-lj0pt_withSys")
     os.mkdir(ptzlj0pt_path)
-    if args.set_up_top22006:
-        print(f"\nCopying TOP-22-006 relevant files to {ptzlj0pt_path}...")
-    elif args.set_up_offZdivision:
-        print(f"\nCopying 3l-offZ-division relevant files to {ptzlj0pt_path}...")
-    elif args.tau_flag:
-        print(f"\nCopying tau analysis relevant files to {ptzlj0pt_path}...")
-    elif args.fwd_flag:
-        print(f"\nCopying forward jets analysis relevant files to {ptzlj0pt_path}...")
+    print(f"\nCopying {scenario_name} relevant files to {ptzlj0pt_path}...")
 
     for fname in datacard_files:
         file_name_strip_ext = os.path.splitext(fname)[0]
@@ -234,8 +292,24 @@ def main():
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
     print(f"\tNumber of root templates copied: {n_root}")
-    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))):
-        raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
+
+    expected_counts = EXPECTED_FILE_COUNTS.get(scenario_name)
+    if expected_counts is not None:
+        exp_txt, exp_root = expected_counts
+        if n_txt != exp_txt or n_root != exp_root:
+            raise Exception(
+                "Unexpected number of files copied for scenario "
+                f"'{scenario_name}'. Expected {exp_txt} text and {exp_root} root "
+                f"templates, saw {n_txt} text and {n_root} root."
+            )
+    else:
+        print(
+            f"\tNo reference file counts registered for scenario '{scenario_name}'; "
+            "skipping sanity check."
+        )
+
     print("Done.\n")
 
-main()
+
+if __name__ == "__main__":
+    main()
