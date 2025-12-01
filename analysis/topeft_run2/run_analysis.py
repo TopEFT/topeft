@@ -18,6 +18,8 @@ from typing import Sequence
 
 import topcoffea
 
+from analysis.topeft_run2.scenario_registry import resolve_scenario_path
+
 
 def _verify_numpy_pandas_abi() -> None:
     """Ensure pandas and NumPy load with matching binary interfaces.
@@ -179,8 +181,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Path to the metadata YAML describing channels, variables, and"
-            " systematics. Defaults to topeft/params/metadata.yml when"
-            " omitted."
+            " systematics. When omitted, the selected --scenario is resolved"
+            " through the scenario registry to pick the correct metadata file."
         ),
     )
     parser.add_argument(
@@ -318,6 +320,26 @@ def _resolve_logging_controls(config: RunConfig) -> tuple[str, bool]:
     return "INFO", False
 
 
+def _apply_scenario_metadata_defaults(config: RunConfig) -> None:
+    """Populate metadata path via the scenario registry when needed."""
+
+    scenario_names = config.scenario_names or ["TOP_22_006"]
+    config.scenario_names = scenario_names
+
+    if len(scenario_names) != 1:
+        raise ValueError(
+            "Multiple scenarios in one run are not supported yet. "
+            "Requested scenarios: %s. Run them separately or wait for the "
+            "future all_analysis meta-scenario." % ", ".join(scenario_names)
+        )
+
+    if config.metadata_path:
+        return
+
+    scenario_name = scenario_names[0]
+    config.metadata_path = resolve_scenario_path(scenario_name)
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     _verify_numpy_pandas_abi()
 
@@ -341,6 +363,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         getattr(args, "options", None),
     )
 
+    _apply_scenario_metadata_defaults(config)
+
     run_cfg = config
     logger.info(
         "[DEBUG CHECK] builder input: log_level from args=%r",
@@ -351,6 +375,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         run_cfg.log_level,
         run_cfg.debug_logging,
     )
+
+    logger.info("Using scenarios: %s", config.scenario_names)
+    logger.info("Using metadata file: %s", config.metadata_path)
 
     effective_log_level, processor_debug = _resolve_logging_controls(config)
     # Currently configures logging for the driver process; futures workers keep

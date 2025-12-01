@@ -202,9 +202,19 @@ class ChannelMetadataHelper:
             for name, group_metadata in groups_metadata.items()
         }
 
-        scenarios_metadata = channels_metadata.get("scenarios", [])
+        scenarios_metadata = channels_metadata.get("scenarios")
+        scenario_entries: Sequence[Mapping[str, object]]
+        if scenarios_metadata is None:
+            scenario_entries = []
+        elif isinstance(scenarios_metadata, Sequence):
+            scenario_entries = scenarios_metadata  # type: ignore[assignment]
+        else:
+            raise TypeError("metadata['channels']['scenarios'] must be a sequence when provided")
+
         self._scenarios: Dict[str, ChannelScenario] = {}
-        for scenario in scenarios_metadata:
+        for scenario in scenario_entries:
+            if not isinstance(scenario, Mapping):
+                continue
             name = scenario.get("name")
             if not name:
                 continue
@@ -241,10 +251,19 @@ class ChannelMetadataHelper:
     def scenario_groups(self, scenario_name: str) -> Tuple[str, ...]:
         """Return the group names participating in ``scenario_name``."""
 
-        try:
-            return self._scenarios[scenario_name].groups
-        except KeyError as exc:
-            raise KeyError(f"Scenario {scenario_name!r} not found in metadata") from exc
+        if self._scenarios:
+            try:
+                return self._scenarios[scenario_name].groups
+            except KeyError as exc:
+                raise KeyError(f"Scenario {scenario_name!r} not found in metadata") from exc
+
+        if not self._groups:
+            raise KeyError("No channel groups are defined in the metadata")
+
+        # When scenarios are not enumerated we assume the metadata file already
+        # scopes groups to the desired scenario and therefore expose every
+        # available group for whichever scenario name the caller provides.
+        return tuple(self._groups.keys())
 
 @dataclass(frozen=True)
 class ChannelScenario:
