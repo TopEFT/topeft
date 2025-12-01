@@ -246,17 +246,25 @@ variations are evaluated.  Key sections include:
 
 When you need a custom configuration, copy the metadata file to a new name (for
 example `analysis/topeft_run2/configs/metadata_myteam.yml`) so your edits stay
-isolated.  Both the quickstart helper and `run_analysis.py` accept the clone via
-`--metadata`, removing the need to swap files in `topeft/params/metadata.yml`.
-When you are driving the workflow through a YAML profile, set a top-level
-`metadata: configs/metadata_myteam.yml` entry so the override lives alongside
-the rest of your configuration knobs.
-For example, the following command launches the full workflow with a bespoke
-metadata bundle kept alongside your analysis configs:
+isolated.  Quickstart helpers can still consume the clone directly via their own
+`--metadata` flag, but `run_analysis.py` now resolves metadata solely through
+the scenario registry or YAML options files.  Add a `metadata:` entry to the
+profile you launch with `--options` so the override lives alongside the rest of
+your configuration knobs.  A minimal example profile looks like:
+
+```yaml
+# analysis/topeft_run2/configs/fullR2_run_myteam.yml
+metadata: configs/metadata_myteam.yml
+jsonFiles:
+  - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
+scenarios:
+  - TOP_22_006
+```
+
+Run the custom configuration with:
 
 ```bash
-python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --metadata configs/metadata_myteam.yml --executor taskvine --nworkers 1 --chunksize 128000
+python run_analysis.py --options analysis/topeft_run2/configs/fullR2_run_myteam.yml
 ```
 
 The [metadata configuration guide](docs/run_analysis_configuration.md#metadata-configuration)
@@ -360,5 +368,4 @@ The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used t
     ```
 
 5. Proceed to the [Steps for reproducing the "official" TOP-22-006 workspace](https://github.com/TopEFT/EFTFit#steps-for-reproducing-the-official-top-22-006-workspace) steps listed in the EFTFit Readme. Remember that in addition to the files cards and templates, you will also need the `selectedWCs.txt` file. 
-
 

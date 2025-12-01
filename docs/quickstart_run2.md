@@ -165,14 +165,11 @@ To test custom metadata, copy ``topeft/params/metadata.yml`` to a new location,
 edit the clone, and pass it to the helper via ``--metadata``.  Keeping the clone
 under version control (for example ``analysis/topeft_run2/configs/metadata_dev.yml``)
 makes it easy to promote the same configuration to the full workflow once the
-quickstart validation looks good.  The same path can be handed to
-``analysis/topeft_run2/run_analysis.py`` via ``--metadata`` when you are ready to
-run the full job:
-
-```bash
-python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --metadata configs/metadata_dev.yml --executor taskvine
-```
+quickstart validation looks good.  When you are ready to run
+``analysis/topeft_run2/run_analysis.py``, reference the same clone from a YAML
+profile launched with ``--options`` by adding ``metadata: configs/metadata_dev.yml``
+near the top of the file.  This keeps custom metadata tied to the profile while
+allowing the CLI to keep relying on the scenario registry for standard runs.
 
 ### Metadata scenarios
 

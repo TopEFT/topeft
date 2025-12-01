@@ -39,10 +39,10 @@ place.  A common workflow is:
 1. Copy ``topeft/params/metadata.yml`` to ``analysis/topeft_run2/configs/metadata_<tag>.yml`` (or another tracked location).
 2. Update the cloned YAML with any new regions, variables, or systematics.
 3. Point ``python -m topeft.quickstart`` at the clone with ``--metadata`` to test
-   the changes quickly.  For ``run_analysis.py`` runs, reference the clone via the
-   CLI (``--metadata configs/metadata_<tag>.yml``) or add ``metadata:
-   configs/metadata_<tag>.yml`` to your ``--options`` YAML so the workflow stays
-   reproducible without touching the baseline file.
+   the changes quickly.  For ``run_analysis.py`` runs, set ``metadata:
+   configs/metadata_<tag>.yml`` (or similar) inside the YAML profile you launch
+   with ``--options`` so the override stays version-controlled while the CLI
+   continues to rely on the scenario registry for standard runs.
 
 The quickstart and scenario guides link back to this section so that anyone
 tweaking the Run 2 configuration knows where each dial is sourced.

@@ -138,12 +138,11 @@ scenarios declared in ``topeft/params/metadata.yml``.
    run.
 
    When you need to test changes to the metadata catalogue, clone
-   ``topeft/params/metadata.yml`` and pass the new path with ``--metadata``.  For
-   example, to reuse the JSON inputs above with a custom metadata bundle in
-   ``configs/metadata_dev.yml`` run::
-
-       python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-           --metadata configs/metadata_dev.yml --executor taskvine --nworkers 1
+   ``topeft/params/metadata.yml`` and reference the new path from the YAML
+   profile you launch with ``--options``.  Add ``metadata: configs/metadata_dev.yml``
+   (or similar) near the top of your options file so the override is captured in
+   version control, then run ``python run_analysis.py --options <your_yaml>`` to
+   exercise the edits.
 
 ## Next steps {#top22-quickstart-next-steps}
 
