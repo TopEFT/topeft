@@ -1,0 +1,216 @@
+scenario:
+  name: fwd_analysis
+  description: Run-2 multilepton analysis with forward-jet categories.
+golden_jsons:
+  '2016': data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+  2016APV: data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+  '2017': data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt
+  '2018': data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt
+  '2022': data/goldenJsons/Cert_Collisions2022_355100_362760_Golden.txt
+  '2023': data/goldenJsons/Cert_Collisions2023_366442_370790_Golden.txt
+channels:
+  groups:
+    FWD_CH_LST_SR:
+      description: Forward-enriched signal regions targeting events with forward leptons.
+      features:
+      - requires_forward
+      scenarios:
+      - fwd_analysis
+      regions:
+      - lepton_category: 2l
+        lepton_flavors:
+        - ee
+        - em
+        - mm
+        region_definitions:
+        - name: 2lss_p
+          channel: 2lss
+          subchannel: 2l_p
+          tags:
+          - bmask_atleast1m2l
+          - bmask_atmost2m
+          - ~fwdjet_mask
+        - name: 2lss_m
+          channel: 2lss
+          subchannel: 2l_m
+          tags:
+          - bmask_atleast1m2l
+          - bmask_atmost2m
+          - ~fwdjet_mask
+        - name: 2lss_4t_p
+          channel: 2lss
+          subchannel: 2l_p
+          tags:
+          - bmask_atleast1m2l
+          - bmask_atleast3m
+        - name: 2lss_4t_m
+          channel: 2lss
+          subchannel: 2l_m
+          tags:
+          - bmask_atleast1m2l
+          - bmask_atleast3m
+        - name: 2lss_fwd_p
+          channel: 2lss_fwd
+          subchannel: 2l_fwd_p
+          tags:
+          - bmask_atleast1m2l
+          - bmask_atmost2m
+        - name: 2lss_fwd_m
+          channel: 2lss_fwd
+          subchannel: 2l_fwd_m
+          tags:
+          - bmask_atleast1m2l
+          - bmask_atmost2m
+        jet_bins:
+        - =4
+        - =5
+        - =6
+        - '>7'
+        histogram_variables:
+          exclude:
+          - ptz
+          - ptz_wtau
+          - tau0pt
+        application_tags:
+          mc:
+          - isSR_2lSS
+          - isAR_2lSS
+          data:
+          - isAR_2lSS_OS
+      - lepton_category: 3l
+        lepton_flavors:
+        - eee
+        - eem
+        - emm
+        - mmm
+        region_definitions:
+        - name: 3l_onZ_1b
+          channel: 3l
+          subchannel: 3l_onZ
+          tags:
+          - bmask_exactly1m
+        - name: 3l_onZ_2b
+          channel: 3l
+          subchannel: 3l_onZ
+          tags:
+          - bmask_atleast2m
+        - name: 3l_m_offZ_1b
+          channel: 3l_m
+          subchannel: 3l_offZ
+          tags:
+          - bmask_exactly1m
+          histogram_variables:
+            exclude:
+            - ptz
+        - name: 3l_m_offZ_2b
+          channel: 3l_m
+          subchannel: 3l_offZ
+          tags:
+          - bmask_atleast2m
+          histogram_variables:
+            exclude:
+            - ptz
+        - name: 3l_p_offZ_1b
+          channel: 3l_p
+          subchannel: 3l_offZ
+          tags:
+          - bmask_exactly1m
+          histogram_variables:
+            exclude:
+            - ptz
+        - name: 3l_p_offZ_2b
+          channel: 3l_p
+          subchannel: 3l_offZ
+          tags:
+          - bmask_atleast2m
+          histogram_variables:
+            exclude:
+            - ptz
+        jet_bins:
+        - =2
+        - =3
+        - =4
+        - '>5'
+        histogram_variables:
+          exclude:
+          - lt
+          - ptz_wtau
+          - tau0pt
+        application_tags:
+          mc:
+          - isSR_3l
+          - isAR_3l
+      - lepton_category: 4l
+        lepton_flavors:
+        - llll
+        region_definitions:
+        - name: 4l
+          channel: 4l
+          tags:
+          - bmask_atleast1m2l
+        jet_bins:
+        - =2
+        - =3
+        - '>4'
+        histogram_variables:
+          exclude:
+          - ptz
+          - lt
+          - ptz_wtau
+          - tau0pt
+        application_tags:
+          mc:
+          - isSR_4l
+    CH_LST_CR:
+      description: Shared control regions for fake, charge-flip, and validation studies.
+      scenarios:
+      - TOP_22_006
+      - tau_analysis
+      - fwd_analysis
+      regions:
+      - lepton_category: 2los_CRZ
+        lepton_flavors:
+        - ee
+        - mm
+        region_definitions:
+        - name: 2los_CRZ
+          channel: 2l_nozeeveto
+          subchannel: 2los
+          tags:
+          - 2l_onZ
+          - bmask_exactly0m
+        jet_bins:
+        - '>0'
+        histogram_variables:
+          exclude:
+          - ptz
+          - j0pt
+          - j0eta
+          - o0pt
+          - b0pt
+          - bl0pt
+          - ptz_wtau
+          - tau0pt
+        application_tags:
+          mc:
+          - isSR_2lOS
+variables:
+  lt:
+    regular:
+    - 12
+    - 0
+    - 600
+    variable:
+    - 0
+    - 150
+    - 250
+    - 500
+    label: Scalar sum of met at leading leptons (GeV)
+    definition: lt
+systematics:
+  nominal:
+    type: nominal
+    applies_to:
+    - all
+    variations:
+    - value: nominal

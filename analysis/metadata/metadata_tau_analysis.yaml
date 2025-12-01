@@ -1,0 +1,194 @@
+scenario:
+  name: tau_analysis
+  description: Run-2 multilepton analysis with hadronic tau categories.
+golden_jsons:
+  '2016': data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+  2016APV: data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+  '2017': data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt
+  '2018': data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt
+  '2022': data/goldenJsons/Cert_Collisions2022_355100_362760_Golden.txt
+  '2023': data/goldenJsons/Cert_Collisions2023_366442_370790_Golden.txt
+channels:
+  groups:
+    TAU_CH_LST_SR:
+      description: Signal regions enhanced with hadronic tau selections. Extends the
+        baseline categories with dedicated tau-enriched bins.
+      features:
+      - requires_tau
+      scenarios:
+      - tau_analysis
+      regions:
+      - lepton_category: 2lss_1tau
+        lepton_flavors:
+        - ee
+        - em
+        - mm
+        region_definitions:
+        - name: 2lss_m_1tau_onZ
+          channel: 2lss
+          subchannel: 2l_m
+          tags:
+          - bmask_atleast1m2l
+          - 1tau
+          - onZ_tau
+        - name: 2lss_p_1tau_offZ
+          channel: 2lss
+          subchannel: 2l_p
+          tags:
+          - bmask_atleast1m2l
+          - 1tau
+          - offZ_tau
+        - name: 2lss_m_1tau_offZ
+          channel: 2lss
+          subchannel: 2l_m
+          tags:
+          - bmask_atleast1m2l
+          - 1tau
+          - offZ_tau
+        - name: 2lss_p_1tau_onZ
+          channel: 2lss
+          subchannel: 2l_p
+          tags:
+          - bmask_atleast1m2l
+          - 1tau
+          - onZ_tau
+        jet_bins:
+        - =3
+        - =4
+        - =5
+        - '>6'
+        histogram_variables:
+          exclude:
+          - ptz
+        application_tags:
+          mc:
+          - isSR_2lSS
+          - isAR_2lSS
+          data:
+          - isAR_2lSS_OS
+    TAU_CH_LST_CR:
+      description: Control regions supporting the tau-enhanced analysis.
+      scenarios:
+      - tau_analysis
+      regions:
+      - lepton_category: 2los_1tau
+        lepton_flavors:
+        - ee
+        - em
+        - mm
+        region_definitions:
+        - name: 2los_1tau_Ftau
+          channel: 2los
+          subchannel: 2l_nozeeveto
+          tags:
+          - bmask_atleast1m2l
+          - 1Ftau
+        - name: 2los_1tau_Ttau
+          channel: 2los
+          subchannel: 2l_nozeeveto
+          tags:
+          - bmask_atleast1m2l
+          - 1tau
+        jet_bins:
+        - =2
+        - =3
+        - =4
+        histogram_variables:
+          exclude:
+          - j0pt
+          - j0eta
+          - o0pt
+          - b0pt
+          - bl0pt
+        application_tags:
+          mc:
+          - isSR_2lOS
+      - lepton_category: 1l_1tau_CR
+        lepton_flavors:
+        - e
+        - m
+        region_definitions:
+        - name: 1l_1tau_CR
+          channel: 1l
+          tags:
+          - bmask_atleast2m
+          - 1tau
+        jet_bins:
+        - =2
+        - =3
+        - =4
+        histogram_variables:
+          exclude:
+          - j0pt
+          - j0eta
+          - o0pt
+          - b0pt
+          - bl0pt
+        application_tags:
+          mc:
+          - isSR_1l
+    CH_LST_CR:
+      description: Shared control regions for fake, charge-flip, and validation studies.
+      scenarios:
+      - TOP_22_006
+      - tau_analysis
+      - fwd_analysis
+      regions:
+      - lepton_category: 2los_CRZ
+        lepton_flavors:
+        - ee
+        - mm
+        region_definitions:
+        - name: 2los_CRZ
+          channel: 2l_nozeeveto
+          subchannel: 2los
+          tags:
+          - 2l_onZ
+          - bmask_exactly0m
+        jet_bins:
+        - '>0'
+        histogram_variables:
+          exclude:
+          - ptz
+          - j0pt
+          - j0eta
+          - o0pt
+          - b0pt
+          - bl0pt
+          - ptz_wtau
+          - tau0pt
+        application_tags:
+          mc:
+          - isSR_2lOS
+variables:
+  ptz_wtau:
+    regular:
+    - 12
+    - 0
+    - 600
+    variable:
+    - 0
+    - 150
+    - 250
+    - 500
+    label: 'pt of lepton hadronic tau pair (GeV) '
+    definition: ptz_wtau
+  tau0pt:
+    regular:
+    - 12
+    - 0
+    - 600
+    variable:
+    - 0
+    - 150
+    - 250
+    - 500
+    label: 'pt of leading hadronic tau (GeV) '
+    definition: tau0.pt
+systematics:
+  nominal:
+    type: nominal
+    applies_to:
+    - all
+    variations:
+    - value: nominal
