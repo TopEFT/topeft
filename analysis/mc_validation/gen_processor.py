@@ -387,7 +387,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "z_pt" : ak.fill_none(ak.firsts(gen_Z).pt, -1),
             "H_pt" : ak.fill_none(ak.firsts(gen_H).pt, -1),
             #"lhe_t_pt" : lhe_top,
-            #"lhe_t_pt" : ak.fill_none(ak.pad_none(lhe_top, 1), -1),
+            "lhe_t_pt" : ak.fill_none(lhe_top, -1),
             #"lhe_l0pt" : lhe_l,
             #"lhe_photon_pt" : lhe_ph,
             "l0pt" : ak.fill_none(ak.firsts(gen_l.pt), -1),
