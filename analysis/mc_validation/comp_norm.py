@@ -338,7 +338,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         val = [1.0] * len(wc)
 
     if st_pt is None:
-        st_pt = dict(zip(wc, val))
+        st_pt = dict(zip(hists1[var].wc_names, val))
     if args.small:
         st_pt = {wc:(val*.1 if abs(val) < 100 else 0) for wc,val in st_pt.items()}
 
@@ -419,7 +419,7 @@ if __name__ == '__main__':
     if args.var is None:
         plot('photon_pt', fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         ##plot('lhe_photon_pt', fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
-        #plot('lhe_t_pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
+        plot('lhe_t_pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('t_pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         ##plot('lhe_l0pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('l0pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
