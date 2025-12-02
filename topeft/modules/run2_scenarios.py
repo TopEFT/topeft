@@ -53,6 +53,20 @@ def resolve_scenario_groups(name: str) -> ScenarioDefinition:
         ) from exc
 
 
+def known_run2_scenarios() -> Tuple[str, ...]:
+    """Return the scenario names enumerated in ``run2_scenarios.yaml``."""
+
+    return tuple(_load_run2_scenarios().keys())
+
+
+def is_run2_scenario(name: str) -> bool:
+    """Return ``True`` when ``name`` is defined in ``run2_scenarios.yaml``."""
+
+    if not name:
+        return False
+    return name in _load_run2_scenarios()
+
+
 def load_run2_channels_for_scenario(name: str) -> Mapping[str, object]:
     """Return metadata suitable for :class:`ChannelMetadataHelper`.
 
