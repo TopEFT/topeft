@@ -483,36 +483,27 @@ channels:
         - emm
         - mmm
         region_definitions:
-        - name: 3l_onZ_1b
-          channel: 3l
-          subchannel: 3l_onZ
-          tags:
-          - bmask_exactly1m
-          - 0tau
-        - name: 3l_onZ_2b
-          channel: 3l
-          subchannel: 3l_onZ
-          tags:
-          - bmask_atleast2m
-          - 0tau
         - name: 3l_m_offZ_low_1b
           channel: 3l_m
           subchannel: 3l_offZ_low
           tags:
           - bmask_exactly1m
           - 0tau
+          - ~fwdjet_mask
         - name: 3l_m_offZ_high_1b
           channel: 3l_m
           subchannel: 3l_offZ_high
           tags:
           - bmask_exactly1m
           - 0tau
+          - ~fwdjet_mask
         - name: 3l_m_offZ_none_1b
           channel: 3l_m
           subchannel: 3l_offZ_none
           tags:
           - bmask_exactly1m
           - 0tau
+          - ~fwdjet_mask
           histogram_variables:
             exclude:
             - ptz
@@ -522,18 +513,21 @@ channels:
           tags:
           - bmask_atleast2m
           - 0tau
+          - ~fwdjet_mask
         - name: 3l_m_offZ_high_2b
           channel: 3l_m
           subchannel: 3l_offZ_high
           tags:
           - bmask_atleast2m
           - 0tau
+          - ~fwdjet_mask
         - name: 3l_m_offZ_none_2b
           channel: 3l_m
           subchannel: 3l_offZ_none
           tags:
           - bmask_atleast2m
           - 0tau
+          - ~fwdjet_mask
           histogram_variables:
             exclude:
             - ptz
@@ -543,18 +537,21 @@ channels:
           tags:
           - bmask_exactly1m
           - 0tau
+          - ~fwdjet_mask
         - name: 3l_p_offZ_high_1b
           channel: 3l_p
           subchannel: 3l_offZ_high
           tags:
           - bmask_exactly1m
           - 0tau
+          - ~fwdjet_mask
         - name: 3l_p_offZ_none_1b
           channel: 3l_p
           subchannel: 3l_offZ_none
           tags:
           - bmask_exactly1m
           - 0tau
+          - ~fwdjet_mask
           histogram_variables:
             exclude:
             - ptz
@@ -564,18 +561,21 @@ channels:
           tags:
           - bmask_atleast2m
           - 0tau
+          - ~fwdjet_mask
         - name: 3l_p_offZ_high_2b
           channel: 3l_p
           subchannel: 3l_offZ_high
           tags:
           - bmask_atleast2m
           - 0tau
+          - ~fwdjet_mask
         - name: 3l_p_offZ_none_2b
           channel: 3l_p
           subchannel: 3l_offZ_none
           tags:
           - bmask_atleast2m
           - 0tau
+          - ~fwdjet_mask
           histogram_variables:
             exclude:
             - ptz
