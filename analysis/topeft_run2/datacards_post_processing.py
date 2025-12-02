@@ -8,6 +8,7 @@ from typing import Iterable, List, Tuple
 import yaml
 
 from analysis.topeft_run2.scenario_registry import resolve_scenario_choice
+from topeft.modules import run2_scenarios
 from topeft.modules.channel_metadata import ChannelMetadataHelper
 
 # This script does some basic checks of the cards and templates produced by the `make_cards.py` script.
@@ -134,12 +135,26 @@ def resolve_scenario_metadata(scenario_args: Iterable[str]) -> Tuple[str, str, C
         metadata = yaml.safe_load(metadata_file) or {}
 
     channels_metadata = metadata.get("channels")
-    if not channels_metadata:
+    channels_data = channels_metadata
+    if run2_scenarios.is_run2_scenario(scenario_name):
+        try:
+            channels_data = run2_scenarios.load_run2_channels_for_scenario(
+                scenario_name
+            )
+        except Exception as exc:
+            print(
+                f"WARNING: Failed to load canonical Run 2 channels for {scenario_name}: {exc}. "
+                "Falling back to metadata YAML contents."
+            )
+            channels_data = channels_metadata
+
+    if not channels_data:
         raise ValueError(
-            f"Channel metadata is missing from the metadata YAML ({resolution.metadata_path})."
+            f"Channel metadata is missing for scenario '{scenario_name}'. "
+            f"Checked canonical Run 2 definitions and metadata YAML ({resolution.metadata_path})."
         )
 
-    helper = ChannelMetadataHelper(channels_metadata)
+    helper = ChannelMetadataHelper(channels_data)
     return scenario_name, resolution.metadata_path, helper
 
 

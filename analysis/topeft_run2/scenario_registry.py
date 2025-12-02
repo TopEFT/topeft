@@ -19,7 +19,12 @@ _SCENARIO_REGISTRY: Dict[str, str] = {
     "TOP_22_006": "analysis/metadata/metadata_TOP_22_006.yaml",
     "tau_analysis": "analysis/metadata/metadata_tau_analysis.yaml",
     "fwd_analysis": "analysis/metadata/metadata_fwd_analysis.yaml",
-    # NOTE: intentionally not exposing "all_analysis" yet.
+    # Supplemental Run-2 layouts reuse the closest metadata bundle for
+    # variables/systematics while their channel groups are driven by
+    # analysis/metadata/run2_scenarios.yaml.
+    "offz_tau_analysis": "analysis/metadata/metadata_tau_analysis.yaml",
+    "offz_fwd_analysis": "analysis/metadata/metadata_fwd_analysis.yaml",
+    "all_analysis": "analysis/metadata/metadata_tau_analysis.yaml",
 }
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
