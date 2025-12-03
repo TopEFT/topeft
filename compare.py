@@ -9,7 +9,6 @@ new_metadata = "metadata_TOP_22_006.yaml"
 base = Path(".")
 params_yml = base / "topeft" / "params" / "metadata.yml"
 top_scenario_yml = base / "analysis" / "metadata" / new_metadata
-ch_lst_json = base / "topeft" / "channels" / "ch_lst.json"  # from master clone if needed
 
 def load_yaml(path):
     with open(path) as f:

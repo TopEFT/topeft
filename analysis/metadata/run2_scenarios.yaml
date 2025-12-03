@@ -1,0 +1,42 @@
+# Run 2 scenario composition. This file is the single source of truth
+# for mapping high-level scenario names to channel groups. Each group
+# is defined in one of the Run 2 metadata bundles:
+#   - analysis/metadata/metadata_TOP_22_006.yaml
+#   - analysis/metadata/metadata_tau_analysis.yaml
+#   - analysis/metadata/metadata_fwd_analysis.yaml
+#   - analysis/metadata/metadata_run2_groups.yaml
+# Consumed by topeft.modules.run2_scenarios and the Run-2
+# workflow/datacard tools.
+scenarios:
+  TOP_22_006:
+    description: Baseline Run-2 reinterpretation without tau/off-Z split extras.
+    groups:
+      - TOP22_006_CH_LST_SR
+      - CH_LST_CR
+
+  tau_analysis:
+    description: Tau-enriched Run-2 interpretation with dedicated SR/CR.
+    groups:
+      - TAU_CH_LST_SR
+      - TAU_CH_LST_CR
+      - CH_LST_CR
+
+  offz_tau_analysis:
+    description: Off-Z split trileptons plus tau CR support.
+    groups:
+      - OFFZ_TAU_SPLIT_CH_LST_SR
+      - TAU_CH_LST_CR
+      - CH_LST_CR
+
+  offz_fwd_analysis:
+    description: Forward/off-Z layout without tau categories.
+    groups:
+      - OFFZ_FWD_SPLIT_CH_LST_SR
+      - CH_LST_CR
+
+  all_analysis:
+    description: Full superset analysis combining all SRs with tau CRs.
+    groups:
+      - ALL_CH_LST_SR
+      - TAU_CH_LST_CR
+      - CH_LST_CR

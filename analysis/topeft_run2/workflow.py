@@ -1362,17 +1362,51 @@ def run_workflow(config: RunConfig) -> None:
         default_prefix=config.prefix, weight_variables=weight_variations
     )
 
-    channels_metadata = metadata.get("channels")
-    if not channels_metadata:
-        raise ValueError(
-            f"Channel metadata is missing from the metadata YAML ({metadata_file})."
-        )
-
-    channel_helper = ChannelMetadataHelper(channels_metadata)
     scenario_names = unique_preserving_order(config.scenario_names)
     if not scenario_names:
         scenario_names = [DEFAULT_SCENARIO_NAME]
     config.scenario_names = list(scenario_names)
+    primary_scenario = config.scenario_names[0]
+
+    from topeft.modules import run2_scenarios
+
+    channels_metadata = metadata.get("channels")
+    channels_data = channels_metadata
+    use_run2_channels = run2_scenarios.is_run2_scenario(primary_scenario)
+    if use_run2_channels:
+        if len(config.scenario_names) > 1:
+            logger.warning(
+                "Run 2 scenario '%s' requested alongside additional scenarios (%s). "
+                "Only the primary scenario can be used for channel selection; "
+                "ignoring the rest.",
+                primary_scenario,
+                ", ".join(config.scenario_names[1:]),
+            )
+            config.scenario_names = [primary_scenario]
+        try:
+            channels_data = run2_scenarios.load_run2_channels_for_scenario(
+                primary_scenario
+            )
+            logger.info(
+                "Loaded %d Run 2 channel groups for scenario '%s'.",
+                len((channels_data or {}).get("groups", {})),
+                primary_scenario,
+            )
+        except Exception as exc:  # pragma: no cover - defensive guard
+            logger.warning(
+                "Falling back to inline channel metadata for scenario '%s': %s",
+                primary_scenario,
+                exc,
+            )
+            channels_data = channels_metadata
+
+    if not channels_data:
+        raise ValueError(
+            f"Channel metadata is missing for scenario '{primary_scenario}'. "
+            f"Checked canonical Run 2 definitions and metadata YAML ({metadata_file})."
+        )
+
+    channel_helper = ChannelMetadataHelper(channels_data)
 
     channel_planner = ChannelPlanner(
         channel_helper,
