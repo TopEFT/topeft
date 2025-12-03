@@ -151,12 +151,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--chunksize",
         "-s",
+        type=int,
         default=100000,
         help="Number of events per chunk",
     )
     parser.add_argument(
         "--nchunks",
         "-c",
+        type=int,
         default=None,
         help="You can choose to run only a number of chunks",
     )
@@ -340,12 +342,34 @@ def _apply_scenario_metadata_defaults(config: RunConfig) -> tuple[str, str, bool
     return scenario_name, config.metadata_path, False
 
 
+def _argument_supplied(
+    argv: Sequence[str],
+    long_opt: str,
+    short_opt: str | None = None,
+) -> bool:
+    """Return True when ``long_opt``/``short_opt`` appear in ``argv``."""
+
+    for token in argv:
+        if token == long_opt or token.startswith(f"{long_opt}="):
+            return True
+        if short_opt:
+            if token == short_opt:
+                return True
+            if token.startswith(short_opt) and token != short_opt:
+                return True
+    return False
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     _verify_numpy_pandas_abi()
 
     parser = build_parser()
     parser_defaults = parser.parse_args([])
-    args = parser.parse_args(argv)
+    if argv is None:
+        argv_list = list(sys.argv[1:])
+    else:
+        argv_list = list(argv)
+    args = parser.parse_args(argv_list)
 
     if getattr(args, "options", None) and getattr(args, "scenarios", None):
         parser.error(
@@ -353,6 +377,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             "Set the scenario inside the options profile or drop the CLI flag."
         )
 
+    executor_from_cli = _argument_supplied(argv_list, "--executor", "-x")
+    chunksize_from_cli = _argument_supplied(argv_list, "--chunksize", "-s")
+    nchunks_from_cli = _argument_supplied(argv_list, "--nchunks", "-c")
+    executor_default = (getattr(parser_defaults, "executor", "") or "").strip().lower() or "taskvine"
     logger.info(
         "[DEBUG CHECK] args.log_level=%r, args.debug_logging=%r",
         getattr(args, "log_level", None),
@@ -360,7 +388,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
     executor_choice = (getattr(args, "executor", "") or "").strip().lower()
     if not executor_choice:
-        executor_choice = "taskvine"
+        executor_choice = executor_default
     setattr(args, "executor", executor_choice)
 
     config_builder = RunConfigBuilder(parser_defaults)
@@ -412,6 +440,24 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     config.log_level = effective_log_level
     config.debug_logging = processor_debug
+
+    if chunksize_from_cli:
+        config.chunksize = getattr(args, "chunksize", config.chunksize)
+    if nchunks_from_cli:
+        config.nchunks = getattr(args, "nchunks", config.nchunks)
+
+    current_executor = (getattr(config, "executor", "") or "").strip().lower()
+    if executor_from_cli:
+        current_executor = executor_choice
+    elif not current_executor:
+        current_executor = executor_choice
+    config.executor = current_executor
+    logger.info(
+        "Using executor: %s | chunksize=%s | maxchunks=%s",
+        config.executor,
+        config.chunksize,
+        config.nchunks if config.nchunks is not None else "unbounded",
+    )
 
     if config.executor == "taskvine":
         config.environment_file = resolve_environment_file(

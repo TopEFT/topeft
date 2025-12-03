@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Unified wrapper for launching run_analysis.py with either TaskVine or the
-# Coffea futures executor.
+# Unified wrapper for launching run_analysis.py with TaskVine, Coffea futures,
+# or the local iterative executor now that Run-2 scenarios are driven by
+# run2_scenarios.yaml.
 #
-# Expectations before running:
+# Expectations before running (same as before):
 #   1. Activate the shared Conda environment shipped with this repository
 #      (name: coffea2025) or another compatible setup so the topeft and
 #      topcoffea editable installs are available. This script assumes the
@@ -24,31 +25,44 @@ set -euo pipefail
 PrintUsage() {
   cat <<'USAGE'
 Usage: full_run.sh [-y YEAR [YEAR ...]] [-t TAG] [--cr | --sr] \
-                   [--executor {taskvine,futures}] [--outdir PATH] [--manager NAME] \
-                   [--samples PATH [PATH ...]] [--log-level LEVEL] [--debug-logging] [--dry-run] \
-                   [extra run_analysis args]
+                   [--executor {taskvine,futures,iterative}] [--outdir PATH] [--manager NAME] \
+                   [--samples PATH [PATH ...]] [--scenario NAME] [--log-level LEVEL] \
+                   [--debug-logging] [--dry-run] [extra run_analysis args]
 
 Examples:
-  full_run.sh --cr -y run3 -t dev_validation
+  # Control-region TaskVine run over Run-3 bundles using defaults defined in the
+  # Run-3 configs (user-supplied --options forwarded via extra args).
+  full_run.sh --cr -y run3 -t dev_validation --executor taskvine \
+      --outdir histos/run3_validation --dry-run
+
+  # Signal-region futures launch for UL17 using explicit sample JSONs.
   full_run.sh --sr -y UL17 --executor futures --outdir histos/local_debug \
       --samples ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-      --chunksize 4000 --dry-run
+      --scenario TOP_22_006 --chunksize 4000 --dry-run
+
+  # Run-2 superset (all_analysis) using futures and the default Run-2 profile.
+  full_run.sh --sr -y run2 --executor futures --outdir histos/run2_all \
+      --scenario all_analysis --dry-run
 
 Notes:
   * YEARS accept explicit values (2022, 2022EE, UL17, etc.) or bundles
     (run2 -> UL16 UL16APV UL17 UL18, run3 -> 2022 2022EE).  Unknown entries
     are rejected so mis-typed eras fail fast.
+  * Run-2 invocations without an explicit --scenario will prefer the default
+    run_analysis options file (analysis/topeft_run2/configs/fullR2_run.yml) and
+    select the SR/CR profile automatically.  Provide --scenario or --options
+    explicitly to override this behaviour.
   * Required input cfg/json files live under input_samples/cfgs/ and are
-    selected automatically per year.  Use --samples when you want to override
-    the list (for example pointing at the UL17 quickstart JSON).  Add extra CLI
-    arguments (for example --options configs/fullR2_run.yml:sr) after the
-    recognized flags to pass through additional run_analysis toggles.
+    selected automatically per year when --samples is not specified.  Supply
+    --samples to point at bespoke JSONs.  Append additional run_analysis flags
+    (for example --options configs/fullR2_run.yml:sr or --split-lep-flavor)
+    after the recognized wrapper arguments.
   * The default output name is <YEARS>_(CRs|SRs)_<TAG>, saved to the specified
     output directory with the 5-tuple histogram schema used throughout this
     branch.  Use --dry-run to print the resolved command without launching
-    Python (helpful for smoke tests or CI guards).  Pass --debug-logging to forward
-    the instrumentation flag (always DEBUG) or --log-level LEVEL to tweak the Python
-    logging verbosity seen in run_analysis.py.
+    Python.  Pass --debug-logging to forward the instrumentation flag (always
+    DEBUG) or --log-level LEVEL to tweak the Python logging verbosity seen in
+    run_analysis.py.
 USAGE
 }
 
@@ -82,8 +96,11 @@ main() {
   local -a expanded_years=()
   local -a resolved_years=()
   local -a user_samples=()
+  local -a scenario_args=()
+  local scenario_specified=false
   local user_chunk_override=false
   local user_env_override=false
+  local user_options_override=false
   local outdir="histos"
   local manager_name="${USER:-coffea}-taskvine-coffea"
   local tag=""
@@ -95,6 +112,7 @@ main() {
   local dry_run=false
   local debug_logging=false
   local log_level=""
+  local auto_options_spec=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -178,6 +196,10 @@ main() {
         executor_choice="futures"
         shift
         ;;
+      --iterative)
+        executor_choice="iterative"
+        shift
+        ;;
       --cr)
         flag_cr=true
         shift
@@ -222,6 +244,40 @@ main() {
         fi
         shift
         ;;
+      --options)
+        user_options_override=true
+        if [[ $# -lt 2 ]]; then
+          echo "Error: --options expects a value" >&2
+          return 1
+        fi
+        extra_args+=("$1" "$2")
+        shift 2
+        ;;
+      --options=*)
+        user_options_override=true
+        extra_args+=("$1")
+        shift
+        ;;
+      --scenario)
+        scenario_specified=true
+        shift
+        if [[ $# -eq 0 || "$1" == -* ]]; then
+          echo "Error: --scenario expects a name" >&2
+          return 1
+        fi
+        scenario_args+=("$1")
+        shift
+        ;;
+      --scenario=*)
+        scenario_specified=true
+        local scenario_value="${1#*=}"
+        if [[ -z "$scenario_value" ]]; then
+          echo "Error: --scenario expects a name" >&2
+          return 1
+        fi
+        scenario_args+=("$scenario_value")
+        shift
+        ;;
       --environment-file|--environment-file=*)
         user_env_override=true
         extra_args+=("$1")
@@ -244,6 +300,22 @@ main() {
     echo
     PrintUsage
     return 1
+  fi
+
+  if [[ "$user_options_override" == true && "$scenario_specified" == true ]]; then
+    echo "Error: --scenario cannot be combined with --options; encode the scenario inside the options profile instead." >&2
+    return 1
+  fi
+
+  if [[ "$user_options_override" == false && ${#extra_args[@]} -gt 0 ]]; then
+    for passthrough_arg in "${extra_args[@]}"; do
+      case "$passthrough_arg" in
+        --options|--options=*)
+          echo "Error: '--options' supplied after '--'. Pass --options before the passthrough separator so the wrapper can enforce the scenario/options guard (or drop --scenario)." >&2
+          return 1
+          ;;
+      esac
+    done
   fi
 
   if [[ ${#years[@]} -eq 0 ]]; then
@@ -297,8 +369,8 @@ main() {
     executor="taskvine"
   fi
 
-  if [[ "$executor" != "taskvine" && "$executor" != "futures" ]]; then
-    echo "Error: executor must be one of taskvine or futures (got '$executor')" >&2
+  if [[ "$executor" != "taskvine" && "$executor" != "futures" && "$executor" != "iterative" ]]; then
+    echo "Error: executor must be one of taskvine, futures, or iterative (got '$executor')" >&2
     return 1
   fi
 
@@ -366,6 +438,56 @@ main() {
     "$cfgs_path/2022_mc_background_samples.cfg"
     "$cfgs_path/2022EE_data_samples.cfg"
   )
+
+  local has_run2=false
+  local has_run3=false
+  for year in "${resolved_years[@]}"; do
+    local lower_year=${year,,}
+    if [[ -n "${run2_year_map[$lower_year]:-}" ]]; then
+      has_run2=true
+    elif [[ "$year" == "2022" || "$year" == "2022EE" ]]; then
+      has_run3=true
+    fi
+  done
+
+  if [[ "$has_run2" == true && "$has_run3" == true ]]; then
+    echo "Error: mixing Run-2 and Run-3 eras in a single invocation is not supported." >&2
+    return 1
+  fi
+
+  if [[ "$scenario_specified" == false ]]; then
+    # Default scenarios mirror the canonical Run-2/Run-3 bundles wired through
+    # analysis/topeft_run2/scenario_registry.py.
+    if [[ "$has_run2" == true ]]; then
+      scenario_args=("TOP_22_006")
+    elif [[ "$has_run3" == true ]]; then
+      scenario_args=("fwd_analysis")
+    fi
+  fi
+
+  if [[ ${#scenario_args[@]} -gt 1 ]]; then
+    echo "Error: only one --scenario can be specified per run (requested: ${scenario_args[*]})." >&2
+    return 1
+  fi
+
+  local scenario_name=""
+  if [[ ${#scenario_args[@]} -eq 1 ]]; then
+    scenario_name="${scenario_args[0]}"
+  fi
+
+  if [[ "$scenario_specified" == false && "$user_options_override" == false && \
+        "$has_run2" == true && "$has_run3" == false ]]; then
+    local run2_options_path="$script_dir/configs/fullR2_run.yml"
+    if [[ -f "$run2_options_path" ]]; then
+      local profile_name
+      if [[ "$flag_cr" == true ]]; then
+        profile_name="cr"
+      else
+        profile_name="sr"
+      fi
+      auto_options_spec="$run2_options_path:$profile_name"
+    fi
+  fi
 
   declare -A seen_cfgs=()
   add_cfg() {
@@ -453,6 +575,11 @@ main() {
   local cfgs
   cfgs=$(IFS=,; echo "${input_specs[*]}")
 
+  local options_in_effect=false
+  if [[ "$user_options_override" == true || -n "$auto_options_spec" ]]; then
+    options_in_effect=true
+  fi
+
   echo "Resolved years: ${resolved_years[*]}"
   echo "Resolved cfg inputs: $cfgs"
   echo "Executor: $executor"
@@ -466,13 +593,29 @@ main() {
   else
     echo "Futures prefetch: $futures_prefetch | retries: $futures_retries"
   fi
+  if [[ "$options_in_effect" == true ]]; then
+    if [[ -n "$auto_options_spec" ]]; then
+      echo "Options profile: $auto_options_spec (auto-selected)"
+    else
+      echo "Options profile: supplied via CLI"
+    fi
+    echo "Scenario: controlled by options profile"
+  elif [[ -n "$scenario_name" ]]; then
+    echo "Scenario: $scenario_name"
+  fi
 
   if [[ -z "$workers" ]]; then
-    if [[ "$executor" == "taskvine" ]]; then
-      workers=8
-    else
-      workers=4
-    fi
+    case "$executor" in
+      taskvine)
+        workers=8
+        ;;
+      futures)
+        workers=4
+        ;;
+      iterative)
+        workers=1
+        ;;
+    esac
   fi
 
   local -a options=(
@@ -491,7 +634,7 @@ main() {
     if [[ "$user_env_override" == false && -n "$env_tarball" ]]; then
       options+=(--environment-file "$env_tarball")
     fi
-  else
+  elif [[ "$executor" == "futures" ]]; then
     options+=(--futures-prefetch "$futures_prefetch")
     options+=(--futures-retries "$futures_retries")
     options+=(--futures-retry-wait "$futures_retry_wait")
@@ -512,6 +655,12 @@ main() {
 
   local -a run_cmd=(python run_analysis.py "$cfgs")
   run_cmd+=("${options[@]}")
+  if [[ -n "$auto_options_spec" ]]; then
+    run_cmd+=(--options "$auto_options_spec")
+  fi
+  if [[ "$options_in_effect" == false && -n "$scenario_name" ]]; then
+    run_cmd+=(--scenario "$scenario_name")
+  fi
   run_cmd+=("${extra_args[@]}")
 
   printf "\nResolved command:\n%s\n\n" "${run_cmd[*]}"
