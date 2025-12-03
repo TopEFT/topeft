@@ -307,6 +307,17 @@ main() {
     return 1
   fi
 
+  if [[ "$user_options_override" == false && ${#extra_args[@]} -gt 0 ]]; then
+    for passthrough_arg in "${extra_args[@]}"; do
+      case "$passthrough_arg" in
+        --options|--options=*)
+          echo "Error: '--options' supplied after '--'. Pass --options before the passthrough separator so the wrapper can enforce the scenario/options guard (or drop --scenario)." >&2
+          return 1
+          ;;
+      esac
+    done
+  fi
+
   if [[ ${#years[@]} -eq 0 ]]; then
     echo "Warning: YEAR not provided, using default YEAR=$default_year"
     years=("$default_year")
@@ -445,6 +456,8 @@ main() {
   fi
 
   if [[ "$scenario_specified" == false ]]; then
+    # Default scenarios mirror the canonical Run-2/Run-3 bundles wired through
+    # analysis/topeft_run2/scenario_registry.py.
     if [[ "$has_run2" == true ]]; then
       scenario_args=("TOP_22_006")
     elif [[ "$has_run3" == true ]]; then

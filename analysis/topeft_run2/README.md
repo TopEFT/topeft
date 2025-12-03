@@ -153,6 +153,23 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
           ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \\
           --outdir histos/local_debug --tag quickstart``
 
+    - UL18 iterative dry-run smoke test relying on the default Run-2 SR profile::
+
+          analysis/topeft_run2/full_run.sh --sr -y UL18 \
+              --executor iterative \
+              --outdir histos/debug_iter_UL18 \
+              --chunksize 10 --nchunks 1 --dry-run
+
+      Prints the resolved command without running Python, making it easy to confirm the iterative executor wiring.
+
+    - Run-2 SR production-style launch using the canonical futures defaults (auto-injected Run-2 options profile and `TOP_22_006` scenario)::
+
+          analysis/topeft_run2/full_run.sh --sr -y run2 \
+              --executor futures \
+              --outdir histos/run2_TOP22_006
+
+      Leaves `--scenario/--options` unset so the wrapper auto-selects `analysis/topeft_run2/configs/fullR2_run.yml:sr` and the canonical Run-2 scenario.
+
     - Add ``--dry-run`` to print the resolved command without launching Python
       (handy for CI smoke tests and argument validation).
 
