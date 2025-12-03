@@ -1,63 +1,10 @@
 # TOP-22-006 Quickstart Guide
 
-This guide walks through the minimal setup needed to reproduce the Run 2
-signal-region (SR) and control-region (CR) histograms for the TOP-22-006
-analysis using the refactored `run_analysis.py` entrypoint.  It assumes you
-are starting from a clean checkout of the repository and would like to reuse
-the shared metadata bundles defined in the Run 2 preset YAML configuration.
-
-## Prerequisites
-
-Before running the workflow you will need (the
-[TaskVine workflow quickstart](taskvine_workflow.md) expands each step into a
-single distributed-execution checklist):
-
-1. **A working Python environment.**  The analysis is developed and tested
-   against the conda environment shipped with the repository.  Create and
-   activate it with:
-
-   ```bash
-   conda env create -f environment.yml
-   conda activate coffea2025
-   ```
-
-   The packaged environment tracks the Coffea 2025.7.3 release. Rebuild the TaskVine archive after dependency changes with `python -m topcoffea.modules.remote_environment`; the helper caches the resulting tarball under `topeft-envs/` using the Conda specification plus the Git commits of editable packages.  Each invocation prints the active path and automatically refreshes the archive when it detects new commits or unstaged edits in `topeft` or `topcoffea`.  To force a rebuild (for example after a branch reset), remove the cached file or run ``python -c "from topcoffea.modules.remote_environment import get_environment; print(get_environment(force=True))"``.  Developers upgrading an existing checkout can run `conda env update -f environment.yml --prune` instead of recreating the environment from scratch.
-
-2. **The editable `topeft` and `topcoffea` packages.**  From the repository
-   root install the local modules with:
-
-   ```bash
-   pip install -e .
-   ```
-
-   The workflow depends on the companion [`topcoffea`](https://github.com/TopEFT/topcoffea)
-   utilities.  Install them in the same environment:
-
-   ```bash
-   git clone https://github.com/TopEFT/topcoffea.git
-   cd topcoffea
-   git switch ch_update_calcoffea
-   pip install -e .
-   ```
-
-   Run `python -m topcoffea.modules.remote_environment` from the same branch (or
-   release tag) so the packaged tarball matches your processors.  The branch
-   guard embedded in the CLI entry points inspects `.git/HEAD` (or the
-   `TOPCOFFEA_BRANCH` override for detached tags) and aborts early when the
-   sibling checkout drifts from `ch_update_calcoffea`.
-
-3. **Access to the Run 2 metadata bundles.**  The YAML preset points to
-   configuration files already tracked in this repository under
-   `input_samples/cfgs/`.  Ensure your checkout includes the following files:
-
-   - `mc_signal_samples_NDSkim.cfg`
-   - `mc_background_samples_NDSkim.cfg`
-   - `data_samples_NDSkim.cfg`
-   - `mc_background_samples_cr_NDSkim.cfg`
-
-   These files enumerate the JSON sample metadata produced for the Run 2
-   campaign and do not require any additional downloads for the quickstart
-   example.
+This guide builds on the [Run 2 quickstart pipeline](quickstart_run2.md) and
+shows how to launch the canonical TOP‑22‑006 control- and signal-region passes
+using the shared YAML presets. Read the main quickstart (and the
+[workflow & YAML hub](workflow_and_yaml_hub.md)) first so your environment,
+sample manifests, and plotting workflow are already in place.
 
 ## Running the workflow with the preset YAML
 
@@ -131,18 +78,13 @@ scenarios declared in ``topeft/params/metadata.yml``.
    The SR profile keeps the shared defaults while swapping in the signal and
    data metadata bundles and disabling the control regions.
 
-5. Adjust any additional options directly inside the YAML file.  Once
+5. Adjust any additional options directly inside the YAML file. Once
    ``--options`` is provided, command-line flags (such as ``--executor`` or
    ``--outname``) are ignored so that the captured configuration remains
-   reproducible.  Drop ``--options`` entirely if you need a one-off CLI-driven
-   run.
-
-   When you need to test changes to the metadata catalogue, clone
-   ``topeft/params/metadata.yml`` and reference the new path from the YAML
-   profile you launch with ``--options``.  Add ``metadata: configs/metadata_dev.yml``
-   (or similar) near the top of your options file so the override is captured in
-   version control, then run ``python run_analysis.py --options <your_yaml>`` to
-   exercise the edits.
+   reproducible. Drop ``--options`` entirely if you need a one-off CLI-driven
+   run. When testing metadata changes, clone ``topeft/params/metadata.yml``,
+   reference it via ``metadata: …`` near the top of your options file, and
+   commit the override alongside the preset.
 
 ## Next steps {#top22-quickstart-next-steps}
 

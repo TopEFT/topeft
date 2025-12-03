@@ -1,52 +1,26 @@
 # Run 2 quickstart pipeline
 
-The Run 2 quickstart helpers are designed to let new users validate their
-software environment without having to digest the entire set of options exposed
-by `analysis/topeft_run2/run_analysis.py`.  They configure the
-:class:`analysis.topeft_run2.workflow.RunWorkflow` and the
-:class:`analysis.topeft_run2.analysis_processor.AnalysisProcessor` with
-conservative defaults, load a small histogram list and keep the executor limited
-to the local ``futures`` backend.
+This is the single entry point for running a small Run‑2 job end to end: prepare
+an input JSON, launch the helper or wrapper, then make a first plot. It assumes
+you have already read the [workflow & YAML hub](workflow_and_yaml_hub.md) and
+set up the shared `coffea2025` environment plus the sibling
+[`topcoffea`](https://github.com/TopEFT/topcoffea) checkout.
 
 ## Prerequisites
 
-Set up the shared development environment before launching the helper.  The
-repository standardises on the Coffea 2025.7 toolchain, captured in the
-`coffea2025` Conda environment declared in `environment.yml`:
+1. Follow the “Start here” hub to create/activate the shared environment, install
+   both repositories in editable mode, and build the TaskVine environment
+   tarball (when needed).
+2. Keep `topcoffea` on the `ch_update_calcoffea` branch (or matching tag) so
+   cache-free jet/MET corrections match the workflow expectations.
+3. Pick a sample manifest such as
+   `input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json`. The
+   helper accepts directories and `.cfg` bundles as well; see
+   [sample_metadata_reference.md](sample_metadata_reference.md) for schema
+   details.
 
-```bash
-conda env create -f environment.yml
-conda activate coffea2025
-pip install -e .
-```
-
-Install the companion [`topcoffea`](https://github.com/TopEFT/topcoffea)
-package in the same environment and rebuild the packaged TaskVine archive so the
-workflow can hand a consistent tarball to remote workers (see the
-[TaskVine workflow quickstart](taskvine_workflow.md) for the full end-to-end
-checklist):
-
-```bash
-git clone https://github.com/TopEFT/topcoffea.git
-cd topcoffea
-git switch ch_update_calcoffea
-pip install -e .
-cd ../topeft
-python -m topcoffea.modules.remote_environment
-```
-
-Always invoke `python -m topcoffea.modules.remote_environment` from the same
-branch (or tag) you just installed so the packaged tarball matches the source.
-All CLI entry points validate the active branch via `.git/HEAD` (or the
-`TOPCOFFEA_BRANCH` override for detached tags) and raise immediately when the
-checkout diverges from `ch_update_calcoffea`.
-
-The helper emits the cache path under `topeft-envs/`.  Pass the same value to
-``vine_submit_workers --python-env`` when scaling beyond the default local
-executor, or consult the [remote environment maintenance
-guide](environment_packaging.md) for rebuild strategies.  Legacy Work Queue
-instructions remain available in [`README_WORKQUEUE.md`](../README_WORKQUEUE.md)
-when you need to reproduce the historical backend.
+With the prerequisites in place, you can validate the workflow locally in a few
+minutes using the quickstart module below.
 
 ### Cache-free jet/MET corrections
 
@@ -68,52 +42,80 @@ numeric fields (for example, ``ak.num(cleaned_jets.pt)`` with ``ak.fill_none``
 and integer casts) rather than cached Records, so custom pre-processing that
 produces jagged or optional counts will raise during histogram filling.
 
-The quickest way to run the helper is via the dedicated module entry point::
+## Step 1 – Run the quickstart helper
 
-    python -m topeft.quickstart input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-        --prefix root://cmsxrootd.fnal.gov/ \
-        --output quickstart-output
+Launch the lightweight helper module from the repository root:
 
-The command performs two steps:
+```bash
+python -m topeft.quickstart \
+    input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+    --prefix root://cmsxrootd.fnal.gov/ \
+    --output quickstart-output
+```
 
-1. :func:`analysis.topeft_run2.quickstart.prepare_samples` resolves the JSON file
-   (directories and ``.cfg`` files are also accepted), validates that the file is
-   reachable and that the requested metadata scenario exists, and prints a
-   summary of the number of samples and events discovered.
-2. :func:`analysis.topeft_run2.quickstart.run_quickstart` launches the Coffea
-   processor with a single histogram (`lj0pt` by default), ``nchunks=2`` and a
-   local futures executor.  This keeps the runtime to a couple of minutes even on
-   a laptop.
+The helper:
 
-The output pickle is stored in the directory provided through ``--output`` with
-an ``outname`` of ``quickstart`` (so you can expect something like
-``quickstart-output/quickstart.pkl.gz``).
+1. Resolves the manifest (directories and `.cfg` bundles also work), validates
+   the requested scenario, and prints a summary of the discovered samples.
+2. Runs a trimmed `AnalysisProcessor` job with `nchunks=2`, a local futures
+   executor, and a single histogram so the end-to-end test finishes quickly.
 
-## Unified run wrapper
+The output histogram pickle is stored in the requested directory:
+`quickstart-output/quickstart.pkl.gz`.
 
-For production-style launches and single-node debugging, use
-``analysis/topeft_run2/full_run.sh``. The script auto-expands ``run2``/``run3``
-bundles, resolves the correct cfg/json inputs, and sets sensible defaults for
-both TaskVine and futures executors.
+## Step 2 – Try the unified run wrapper
 
-* TaskVine remains the default: ``./full_run.sh --cr -y run3 --tag dev_validation``
-* Switch to futures with ``--executor futures`` and override samples with
-  ``--samples`` for quick JSON-driven checks.
-* Add ``--dry-run`` to validate the resolved command without starting Python or
-  staging a TaskVine environment archive.
+When you want to exercise the full workflow, use
+`analysis/topeft_run2/full_run.sh`. It expands the `run2`/`run3` presets,
+resolves cfg/json bundles, and selects sensible defaults for both TaskVine and
+futures executors.
 
-Example invocation::
+```
+cd analysis/topeft_run2
+./full_run.sh --sr -y UL17 \
+    --executor futures \
+    --samples ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+    --outdir histos/local_debug \
+    --tag quickstart --dry-run
+```
 
-    cd analysis/topeft_run2
-    ./full_run.sh --sr -y UL17 --executor futures \
-        --samples ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-        --outdir histos/local_debug --tag quickstart --dry-run
+Drop `--dry-run` to execute the command. TaskVine is still the default backend;
+append `--executor taskvine` (and make sure workers connect with the advertised
+manager name) to run distributed jobs. The wrapper honours the `fullR2_run.yml`
+profiles by default and selects SR/CR bundles based on the `--sr/--cr` choice.
 
-The futures path runs entirely on the submitting node, so make sure the
-referenced samples are locally accessible (or use ``--prefix``/XRootD) and that
-the active environment provides the Coffea 2025.7 executor stack. TaskVine runs
-still require a matching manager/worker setup; see the repository README for the
-pool launch helpers.
+## Step 3 – Plot the results
+
+Once a helper or wrapper run finishes you will have tuple-keyed histogram
+pickles such as `histos/local_debug/plotsTopEFT.pkl.gz` (wrapper) or
+`quickstart-output/quickstart.pkl.gz` (module). Use the existing plotting helper
+to turn them into quick validation plots:
+
+```bash
+cd analysis/topeft_run2
+python make_cr_and_sr_plots.py \
+    -f histos/local_debug/plotsTopEFT.pkl.gz \
+    -o plots/local_debug \
+    -n plots \
+    -y 2017 \
+    --skip-syst
+```
+
+For notebook-driven checks you can also materialise the tuple summaries from
+Python:
+
+```python
+import gzip, pickle
+from topeft.modules.runner_output import materialise_tuple_dict
+
+with gzip.open("histos/local_debug/plotsTopEFT.pkl.gz", "rb") as handle:
+    tuple_summary = materialise_tuple_dict(pickle.load(handle))
+print(list(tuple_summary.items())[:2])
+```
+
+Both paths assume the stored histogram tuples follow the canonical
+`(variable, channel, application, sample, systematic)` convention described in
+[analysis_processing.md](analysis_processing.md).
 
 ## Understanding the quickstart inputs
 
