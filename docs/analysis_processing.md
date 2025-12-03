@@ -23,7 +23,7 @@ The high-level flow is:
    combinations by crossing samples, channel metadata, Coffea applications, and
    systematic toggles.  The result is a :class:`HistogramPlan` which records the
   ``(variable, channel, application, sample, systematic)`` tuples described in
-  the shared [tuple-key reference](https://github.com/TopEFT/topcoffea/blob/ch_update_calcoffea/docs/analysis_processing.md)
+  the shared [tuple-key reference](tuple_key_audit.md)
   before the tasks are processed.
 5. An :class:`analysis.topeft_run2.workflow.ExecutorFactory` creates the
    requested backend runner (``futures``, ``iterative`` or ``taskvine``).  Each
@@ -137,7 +137,7 @@ from analysis.topeft_run2.workflow import run_workflow
 parser = build_parser()
 args = parser.parse_args([
     "input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json",
-    "--options", "analysis/topeft_run2/examples/options.yml:sr",
+    "--options", "analysis/topeft_run2/configs/fullR2_run.yml:sr",
 ])
 
 builder = RunConfigBuilder()
@@ -150,5 +150,7 @@ utilities.  Persisting it (for example via ``dataclasses.asdict``) provides a
 compact audit trail that complements the stored output pickle.
 
 When ``--options`` is present the YAML file becomes authoritative—CLI flags are
-ignored so that the captured configuration remains reproducible.  Drop the
+ignored so that the captured configuration remains reproducible (aside from the
+handful of workload overrides noted in
+[run_analysis_configuration.md](run_analysis_configuration.md)).  Drop the
 argument entirely for ad-hoc runs driven purely from the command line.
