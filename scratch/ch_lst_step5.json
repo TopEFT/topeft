@@ -415,96 +415,96 @@
                     "3l_m",
                     "3l_offZ_low",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_high_1b",
                     "3l_m",
                     "3l_offZ_high",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_none_1b",
                     "3l_m",
                     "3l_offZ_none",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_low_2b",
                     "3l_m",
                     "3l_offZ_low",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_high_2b",
                     "3l_m",
                     "3l_offZ_high",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_none_2b",
                     "3l_m",
                     "3l_offZ_none",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_low_1b",
                     "3l_p",
                     "3l_offZ_low",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_high_1b",
                     "3l_p",
                     "3l_offZ_high",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_none_1b",
                     "3l_p",
                     "3l_offZ_none",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_low_2b",
                     "3l_p",
                     "3l_offZ_low",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_high_2b",
                     "3l_p",
                     "3l_offZ_high",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_none_2b",
                     "3l_p",
                     "3l_offZ_none",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ]
             ],
             "lep_flav_lst": [
@@ -642,7 +642,7 @@
                 ">1"
             ]
         }
-    },    
+    },
     "ALL_CH_LST_SR": {
         "2l": {
             "lep_chan_lst": [
@@ -653,7 +653,7 @@
                     "bmask_atleast1m2l",
                     "bmask_atmost2m",
                     "~fwdjet_mask",
-		    "0tau"
+                    "0tau"
                 ],
                 [
                     "2lss_m",
@@ -662,7 +662,7 @@
                     "bmask_atleast1m2l",
                     "bmask_atmost2m",
                     "~fwdjet_mask",
-		    "0tau"
+                    "0tau"
                 ],
                 [
                     "2lss_4t_p",
@@ -670,7 +670,7 @@
                     "2l_p",
                     "bmask_atleast1m2l",
                     "bmask_atleast3m",
-		    "0tau"
+                    "0tau"
                 ],
                 [
                     "2lss_4t_m",
@@ -678,7 +678,7 @@
                     "2l_m",
                     "bmask_atleast1m2l",
                     "bmask_atleast3m",
-		    "0tau"
+                    "0tau"
                 ],
                 [
                     "2lss_fwd_p",
@@ -686,8 +686,8 @@
                     "2l_p",
                     "bmask_atleast1m2l",
                     "bmask_atmost2m",
-		    "fwdjet_mask",
-		    "0tau"
+                    "fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "2lss_fwd_m",
@@ -695,8 +695,8 @@
                     "2l_m",
                     "bmask_atleast1m2l",
                     "bmask_atmost2m",
-		    "fwdjet_mask",
-		    "0tau"
+                    "fwdjet_mask",
+                    "0tau"
                 ]
             ],
             "lep_flav_lst": [
@@ -803,7 +803,7 @@
                     "3l_onZ",
                     "bmask_exactly1m",
                     "~fwdjet_mask",
-		    "0tau"
+                    "0tau"
                 ],
                 [
                     "3l_onZ_2b",
@@ -811,7 +811,7 @@
                     "3l_onZ",
                     "bmask_atleast2m",
                     "~fwdjet_mask",
-		    "0tau"
+                    "0tau"
                 ],
                 [
                     "3l_1tau_1b",
@@ -828,103 +828,103 @@
                     "3l_m",
                     "3l_offZ_low",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_high_1b",
                     "3l_m",
                     "3l_offZ_high",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_none_1b",
                     "3l_m",
                     "3l_offZ_none",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_low_2b",
                     "3l_m",
                     "3l_offZ_low",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_high_2b",
                     "3l_m",
                     "3l_offZ_high",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_m_offZ_none_2b",
                     "3l_m",
                     "3l_offZ_none",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_low_1b",
                     "3l_p",
                     "3l_offZ_low",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_high_1b",
                     "3l_p",
                     "3l_offZ_high",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_none_1b",
                     "3l_p",
                     "3l_offZ_none",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_low_2b",
                     "3l_p",
                     "3l_offZ_low",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_high_2b",
                     "3l_p",
                     "3l_offZ_high",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ],
                 [
                     "3l_p_offZ_none_2b",
                     "3l_p",
                     "3l_offZ_none",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
-		    "0tau"
+                    "~fwdjet_mask",
+                    "0tau"
                 ]
             ],
             "lep_flav_lst": [
                 "eee",
                 "eem",
                 "emm",
-        "mmm"
+                "mmm"
             ],
             "appl_lst": [
                 "isSR_3l",
@@ -938,7 +938,7 @@
                 ">5"
             ]
         },
-	"3l_fwd": {
+        "3l_fwd": {
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b_fwd",
@@ -961,14 +961,14 @@
                 "eee",
                 "eem",
                 "emm",
-        "mmm"
+                "mmm"
             ],
             "appl_lst": [
                 "isSR_3l",
                 "isAR_3l"
             ],
             "jet_lst": [
-		"=1",
+                "=1",
                 "=2",
                 "=3",
                 ">4"
@@ -1000,7 +1000,6 @@
                     "fwdjet_mask",
                     "0tau"
                 ],
-
                 [
                     "3l_p_offZ_2b_fwd",
                     "3l_p",
@@ -1009,12 +1008,12 @@
                     "fwdjet_mask",
                     "0tau"
                 ]
-        ],
+            ],
             "lep_flav_lst": [
                 "eee",
                 "eem",
                 "emm",
-        "mmm"
+                "mmm"
             ],
             "appl_lst": [
                 "isSR_3l",

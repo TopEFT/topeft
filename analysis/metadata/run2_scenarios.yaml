@@ -5,7 +5,8 @@
 #   - analysis/metadata/metadata_tau_analysis.yaml
 #   - analysis/metadata/metadata_fwd_analysis.yaml
 #   - analysis/metadata/metadata_run2_groups.yaml
-# The workflow will be wired to this file in a later step.
+# Consumed by topeft.modules.run2_scenarios and the Run-2
+# workflow/datacard tools.
 scenarios:
   TOP_22_006:
     description: Baseline Run-2 reinterpretation without tau/off-Z split extras.
