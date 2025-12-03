@@ -151,12 +151,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--chunksize",
         "-s",
+        type=int,
         default=100000,
         help="Number of events per chunk",
     )
     parser.add_argument(
         "--nchunks",
         "-c",
+        type=int,
         default=None,
         help="You can choose to run only a number of chunks",
     )
@@ -376,6 +378,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
 
     executor_from_cli = _argument_supplied(argv_list, "--executor", "-x")
+    chunksize_from_cli = _argument_supplied(argv_list, "--chunksize", "-s")
+    nchunks_from_cli = _argument_supplied(argv_list, "--nchunks", "-c")
     executor_default = (getattr(parser_defaults, "executor", "") or "").strip().lower() or "taskvine"
     logger.info(
         "[DEBUG CHECK] args.log_level=%r, args.debug_logging=%r",
@@ -437,13 +441,23 @@ def main(argv: Sequence[str] | None = None) -> None:
     config.log_level = effective_log_level
     config.debug_logging = processor_debug
 
+    if chunksize_from_cli:
+        config.chunksize = getattr(args, "chunksize", config.chunksize)
+    if nchunks_from_cli:
+        config.nchunks = getattr(args, "nchunks", config.nchunks)
+
     current_executor = (getattr(config, "executor", "") or "").strip().lower()
     if executor_from_cli:
         current_executor = executor_choice
     elif not current_executor:
         current_executor = executor_choice
     config.executor = current_executor
-    logger.info("Using executor: %s", config.executor)
+    logger.info(
+        "Using executor: %s | chunksize=%s | maxchunks=%s",
+        config.executor,
+        config.chunksize,
+        config.nchunks if config.nchunks is not None else "unbounded",
+    )
 
     if config.executor == "taskvine":
         config.environment_file = resolve_environment_file(
