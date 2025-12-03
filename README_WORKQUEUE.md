@@ -1,4 +1,9 @@
-# Distributed execution with TaskVine
+# Distributed execution with TaskVine *(archival notes)*
+
+> **Legacy status:** this file captures historical TaskVine/Work Queue guidance.
+> For the current workflow and quickstart, see
+> [docs/workflow_and_yaml_hub.md](docs/workflow_and_yaml_hub.md) and
+> [docs/taskvine_workflow.md](docs/taskvine_workflow.md).
 
 TaskVine is the supported distributed backend for `topeft`.  The helpers in
 `analysis/topeft_run2/workflow.py` and the command line interfaces default to the
@@ -66,3 +71,7 @@ instructions remain available in the Git history prior to this change.  If you
 are required to operate against a Coffea build that still exposes
 `WorkQueueExecutor`, pin the repository to a revision before the TaskVine-only
 switch and follow the historic instructions that accompanied that release.
+
+For active distributed-execution documentation, see
+[docs/taskvine_workflow.md](docs/taskvine_workflow.md) and the landing flow
+linked from [docs/index.md](docs/index.md).

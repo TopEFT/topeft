@@ -1,10 +1,9 @@
 # Run and plot quickstart (legacy appendix)
 
-This page is no longer the primary starting point for new users. Follow the
-[Run 2 quickstart pipeline](quickstart_run2.md) for the current end-to-end
-instructions (environment → run → plot). The sections below collect a few extra
-plotting tips that did not fit in the main quickstart yet; they are safe to skip
-unless you need the additional context.
+> **Legacy appendix:** kept for historical plotting tips only. Follow the
+> [Run 2 quickstart pipeline](quickstart_run2.md) for the supported environment,
+> run, and plot workflow. Use this page only when you need the supplementary
+> plotting tricks recorded below.
 
 ## Additional plotting tips
 
@@ -36,5 +35,5 @@ unless you need the additional context.
   sample, systematic)` tuples match expectations before writing custom plotting
   helpers.
 
-This file will be retired once the remaining tips are merged into the main
-quickstart during the later 6B.* steps.
+This file is preserved for reference; the canonical Run‑2 quickstart lives in
+`docs/quickstart_run2.md`.

@@ -9,10 +9,10 @@ overlapping quickstarts.
 
 - [Workflow and YAML hub](workflow_and_yaml_hub.md) – **Start here** for
   prerequisites, YAML merging, and executor choices.
-- [Run 2 quickstart pipeline](quickstart_run2.md) – Current end-to-end Run‑2
-  walkthrough (to be consolidated with plotting guides in a later step).
-- [Run and plot quickstart](run_and_plot_quickstart.md) – Plotting appendix for
-  the quickstart; slated for merger into the main quickstart during 6B.2.
+- [Run 2 quickstart pipeline](quickstart_run2.md) – Primary end-to-end Run‑2
+  walkthrough (environment → run → plot).
+- [Run and plot quickstart](run_and_plot_quickstart.md) – Legacy plotting
+  appendix with extra tips beyond the main quickstart.
 - [TOP-22-006 script walkthrough](quickstart_top22_006.md) – Scenario-specific
   quickstart extending the Run‑2 presets.
 
@@ -48,8 +48,7 @@ overlapping quickstarts.
 ## Legacy / archival
 
 - [analysis/topeft_run2/README.md](../analysis/topeft_run2/README.md) – Legacy
-  directory README; pending cleanup during later steps.
-- [README_WORKQUEUE.md](../README_WORKQUEUE.md) – Archived Work Queue/TaskVine
-  transition notes.
-- [README_FITTING.md](../README_FITTING.md) – Datacard/fit instructions retained
-  for historical reference.
+  directory README preserved for historical context.
+- [README_WORKQUEUE.md](../README_WORKQUEUE.md) – Archived notes for the retired
+  Work Queue backend (TaskVine is current).
+- [README_FITTING.md](../README_FITTING.md) – Historic datacard/fit instructions.
