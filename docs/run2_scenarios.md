@@ -1,161 +1,108 @@
-# Run 2 metadata scenarios guide
+# Run‑2 scenarios, groups, and workflows
 
-This guide expands on the quickstart documentation by showing how to run the
-Run 2 workflows with the three metadata scenarios distributed in
-`topeft/params/metadata.yml`:
+Run‑2 executions are driven entirely by metadata rather than ad‑hoc JSON lists.
+Two layers work together:
 
-- `TOP_22_006`
-- `tau_analysis`
-- `fwd_analysis`
+* **Groups** – Logical bundles of channels defined in
+  `analysis/metadata/metadata_run2_groups.yaml`. Each group enumerates the
+  regions, applications, and histogram selections that the processor should
+  evaluate. The `ChannelMetadataHelper` from `topeft.modules.channel_metadata`
+  reads this file and exposes the groups by name.
+* **Scenarios** – Named combinations of one or more groups. The mapping lives in
+  `analysis/metadata/run2_scenarios.yaml` and is loaded by
+  `analysis/topeft_run2/run2_scenarios.py`. The CLI and quickstart helpers look
+  up scenarios through `analysis/topeft_run2/scenario_registry.py`, which
+  returns the correct metadata bundle (for example `metadata_TOP_22_006.yaml`)
+  and tracks the names exposed to `--scenario` and YAML profiles.
 
-Each section starts from a clean checkout of the repository with the editable
-``topeft`` and ``topcoffea`` packages installed (see the
-[TOP-22-006 quickstart](quickstart_top22_006.md#prerequisites) for the
-recommended environment setup).  The commands shown below assume that you are in
-``analysis/topeft_run2`` unless otherwise noted.
+When `run_analysis.py` or `full_run.sh` receives a `--scenario` value, the
+workflow:
 
-The CLI always resolves `--scenario` via
-[`analysis/topeft_run2/scenario_registry.py`](../analysis/topeft_run2/scenario_registry.py),
-so passing a friendly name (or relying on the default `TOP_22_006`) automatically
-selects the corresponding metadata YAML.  A minimal pretend run looks like:
+1. Resolves the scenario through `scenario_registry.py` to find the metadata
+   document.
+2. Loads the groups referenced in `run2_scenarios.yaml`.
+3. Passes the fully expanded channel list to `ChannelMetadataHelper`, which
+   feeds `ChannelPlanner` and `HistogramPlanner`.
 
-```bash
-python run_analysis.py \
-    ../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg \
-    --scenario TOP_22_006 \
-    --pretend --executor iterative --nworkers 1
-```
+Legacy JSON manifests (such as `scratch/ch_lst_step5.json`) are now used only by
+the validation scripts; production code is 100% YAML‑driven.
 
-!!! warning
-    When ``--options`` is supplied the YAML profile becomes the source of truth
-    for scenarios and metadata paths.  Do not repeat ``--scenario`` on the CLI in
-    that case—define the scenario list directly inside the profile instead.
+## Canonical Run‑2 scenarios
 
-For details on how the scenarios map onto metadata-driven channel and histogram
-definitions, refer back to the [metadata configuration guide](run_analysis_configuration.md#metadata-configuration).
+| Scenario | Description | Typical uses |
+| --- | --- | --- |
+| `TOP_22_006` | Baseline TOP‑22‑006 reinterpretation groups plus shared control regions. | Default Run‑2 SR/CR campaigns, QA launches, and `fullR2_run.yml` presets. |
+| `tau_analysis` | Adds tau‑enriched SRs/CRs on top of the core control suite. | Tau reinterpretation studies and datacard cross‑checks. |
+| `offz_tau_analysis` | Keeps the off‑Z split used during tau studies without activating the forward categories. | Targeted comparisons against the tau analysis without the full scenario stack. |
+| `offz_fwd_analysis` | Preserves the forward/off‑Z split required for forward‑jet studies. | Forward‑jet reinterpretations and closure tests. |
+| `all_analysis` | Union of the canonical Run‑2 groups (core, tau, forward, off‑Z). | Comprehensive bookkeeping runs or datacard production that needs every category at once. |
 
-!!! important
-    Once ``--options`` is supplied the YAML file becomes authoritative.  Append
-    ``:profile`` to select a preset (for example ``configs/fullR2_run.yml:sr``)
-    and edit the YAML directly to enable additional scenarios.  Drop
-    ``--options`` entirely if you need to experiment with ad-hoc CLI flags.
-
-!!! note
-    The ``--channel-feature`` flag has been retired.  Use the scenarios below—on
-    their own or in combination—to activate the tau, forward, and off-Z
-    variations.
-
-## Running individual scenarios
-
-### TOP_22_006 baseline
-
-The TOP-22-006 scenario powers both the Run 2 quickstart helper and the default
-YAML profile.  To launch the full control-region job from the preset YAML, run:
-
-```bash
-python run_analysis.py --options configs/fullR2_run.yml
-```
-
-Switch to the signal-region profile by appending ``:sr`` to the YAML path:
-
-```bash
-python run_analysis.py --options configs/fullR2_run.yml:sr
-```
-
-You can reach the same configuration from the quickstart helper with:
-
-```bash
-python -m topeft.quickstart \
-    ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --prefix root://cmsxrootd.fnal.gov/ \
-    --scenario TOP_22_006
-```
-
-### Tau-enriched workflow
-
-The ``tau_analysis`` bundle adds the dedicated signal and control regions needed
-by the tau reinterpretation.  When using ``run_analysis.py`` with the preset
-YAML, edit the configuration to include ``tau_analysis`` in the ``scenarios``
-list (for example by copying ``configs/fullR2_run.yml`` to
-``configs/fullR2_run_tau.yml`` and updating the defaults).  After the edit, run
-``python run_analysis.py --options configs/fullR2_run_tau.yml``.
-
-From the quickstart helper the equivalent command is:
-
-```bash
-python -m topeft.quickstart \
-    ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --prefix root://cmsxrootd.fnal.gov/ \
-    --scenario tau_analysis
-```
-
-### Forward-jet workflow
-
-The ``fwd_analysis`` bundle activates the forward-jet categories while reusing
-the shared Run 2 control regions.  Update your YAML preset to list
-``fwd_analysis`` under ``scenarios`` (or create a dedicated profile) before
-launching ``python run_analysis.py --options <your_yaml>``.
-
-And the matching quickstart invocation is:
-
-```bash
-python -m topeft.quickstart \
-    ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --prefix root://cmsxrootd.fnal.gov/ \
-    --scenario fwd_analysis
-```
+The Run‑3 default scenario is `fwd_analysis` (reused from the table above), but
+when you request Run‑3 eras the wrapper automatically switches to the Run‑3
+metadata bundle.
 
 ## Combining scenarios
 
-Metadata scenarios can be combined to produce hybrid category selections.  The
-planner validates that the requested combinations are compatible before any
-processing starts, so invalid bundles fail fast.  The baseline ``TOP_22_006``
-scenario already ships with the refined off-Z split; layering ``tau_analysis``
-or ``fwd_analysis`` on top keeps those specialised categories active alongside
-the shared control regions.
+Scenarios can be combined on the CLI or inside YAML:
 
-### YAML profiles
+```bash
+python analysis/topeft_run2/run_analysis.py \
+    input_samples/cfgs/mc_signal_samples_NDSkim.cfg \
+    --scenario TOP_22_006 \
+    --scenario tau_analysis \
+    --scenario offz_fwd_analysis \
+    --executor iterative --nchunks 1 --chunksize 5
+```
 
-To combine scenarios in a YAML profile, set the ``scenario`` key to a list.  The
-following snippet extends the default Run 2 configuration with both the tau and
-forward regions:
+When you supply `--options path.yml` the YAML becomes authoritative. Encode the
+scenario list there instead of repeating `--scenario`:
 
 ```yaml
-# configs/fullR2_run_tau_fwd.yml
-infile: ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
-scenario:
-  - TOP_22_006
-  - tau_analysis
-  - fwd_analysis
+# analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml
+defaults:
+  scenarios:
+    - TOP_22_006
+    - tau_analysis
+    - offz_fwd_analysis
+profiles:
+  sr:
+    skip_cr: true
+  cr:
+    skip_sr: true
 ```
 
-YAML values merge with the base profile when the file is passed through
-``--options``.  CLI flags are ignored in this mode, so bake any additional
-overrides into the file before launching the workflow.
+Remember that the CLI enforces a mutual exclusion rule: `--scenario` cannot be
+combined with `--options`. The wrapper (`full_run.sh`) surfaces the same guard
+for convenience.
 
-### Command-line runs without YAML
+## Adding or modifying a scenario
 
-You can request the same combination directly on the command line by dropping
-``--options``.  Each time ``--scenario`` is provided the value is appended to the
-active set:
+1. **Update the metadata groups** – Extend
+   `analysis/metadata/metadata_run2_groups.yaml` (or the relevant metadata file)
+   with the new regions, variables, or applications. Run
+   `python -m topeft.quickstart --emit-options` to sanity‑check your changes.
+2. **Register the group composition** – Edit
+   `analysis/metadata/run2_scenarios.yaml` to add or modify the scenario name
+   and its group list. Keep names descriptive and avoid overlapping the
+   canonical identifiers above unless you intend to redefine them.
+3. **Expose the scenario to the CLI** – If the metadata bundle changed, update
+   `analysis/topeft_run2/scenario_registry.py` so the new metadata path is
+   discoverable via `--scenario`. For Run‑2 additions this typically means
+   reusing `metadata_run2_groups.yaml` and pointing the registry to the same
+   file.
+4. **Validate** – Run the Step‑5 validators from `scratch/` to confirm the new
+   scenario is internally consistent:
 
-```bash
-python run_analysis.py \
-    --scenario TOP_22_006 \
-    --scenario tau_analysis \
-    --scenario fwd_analysis
-```
+   ```bash
+   PYTHONNOUSERSITE=1 PYTHONPATH="" /users/apiccine/work/miniconda3/envs/coffea2025/bin/python \
+       scratch/validate_run2_scenarios_step5.py
+   ```
 
-For quickstart tests, the equivalent call is:
+   The scripts compare the YAML source against the generated channel lists and
+   will raise if group definitions conflict. For the canonical Run‑2 scenarios,
+   the validators also echo the SR-channel counts (43 / 68 / 48 / 121 / 148),
+   providing a quick sanity check that your metadata has not drifted.
 
-```bash
-python -m topeft.quickstart \
-    ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-    --prefix root://cmsxrootd.fnal.gov/ \
-    --scenario TOP_22_006 \
-    --scenario tau_analysis \
-    --scenario fwd_analysis
-```
-
-The planner will echo the resolved scenario list before launching the Coffea
-processor, making it easy to confirm the combined configuration.
+By following these steps the CLI, quickstart helpers, and `full_run.sh` wrapper
+will all recognize the scenario automatically, keeping the Run‑2 documentation
+and workflow in sync with the metadata source of truth.

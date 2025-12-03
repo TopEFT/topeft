@@ -107,6 +107,85 @@ The helpers are designed so that the resulting :class:`RunConfig` can be stored
 or passed around.  For example, the quickstart workflow returns the configuration
 it used so that you can plug the same object into :func:`run_workflow` later.
 
+## CLI highlights
+
+While the dedicated [`run_analysis.py` CLI reference](run_analysis_cli_reference.md)
+lists every flag in detail (path and default values, grouped by category), the
+most important Run‑2 knobs are summarised below:
+
+* **Scenario selection** – Use `--scenario NAME` to enable a metadata scenario
+  (for example `TOP_22_006`). Repeat the flag to combine scenarios. When a YAML
+  profile is supplied via `--options path.yml[:profile]`, the profile becomes
+  authoritative and `--scenario` must be encoded inside the YAML. The CLI
+  enforces the mutual exclusion rule so that misconfigured runs fail fast.
+* **YAML profiles (`--options`)** – Apply reusable presets such as
+  `analysis/topeft_run2/configs/fullR2_run.yml:sr`. `RunConfigBuilder` merges
+  `defaults`, the selected profile, then any top‑level overrides. Explicit CLI
+  flags still win for key workload controls like `--executor`, `--chunksize`,
+  and `--nchunks`, so you can tweak those without cloning the YAML file.
+  `full_run.sh` automatically selects the Run‑2 SR/CR profiles when you request
+  Run‑2 eras without `--scenario/--options`; for Run‑3 runs you typically pass a
+  dedicated Run‑3 YAML.
+* **Executor choice** – `--executor taskvine|futures|iterative` selects the
+  backend. TaskVine is recommended for distributed campaigns, `futures` for
+  local multi‑core runs, and `iterative` for tiny smoke tests. The wrapper
+  (`full_run.sh`) defaults to TaskVine but exposes the same flag.
+* **Workload controls** – `--chunksize` (number of events per chunk),
+  `--nchunks` (maximum chunks processed), and `--nworkers` (threads/processes)
+  are the primary levers when tuning runtimes. Futures runs also accept
+  `--futures-prefetch`, `--futures-retries`, and `--futures-retry-wait` to
+  control task pipelining and retry behaviour.
+* **Region toggles** – `--skip-sr`, `--skip-cr`, and `--do-systs` mirror the
+  settings embedded in the Run‑2 YAML profiles. They can be set from the CLI or
+  encoded in the profile depending on how reproducible you need the launch to
+  be.
+
+For a comprehensive, flag-by-flag breakdown (including defaults and YAML keys),
+refer to [`run_analysis_cli_reference.md`](run_analysis_cli_reference.md).
+
+### Example commands
+
+Direct CLI runs remain useful for tiny tests or bespoke scans:
+
+```bash
+# From the topeft repository root
+# UL18 smoke test using the iterative executor and small chunks
+python analysis/topeft_run2/run_analysis.py \
+    input_samples/cfgs/mc_signal_samples_NDSkim.cfg \
+    --scenario TOP_22_006 \
+    --executor iterative \
+    --chunksize 10 --nchunks 2 \
+    --summary-verbosity brief \
+    --skip-cr --do-systs
+```
+
+```bash
+# From the topeft repository root
+# Futures run driven by the canonical Run-2 SR profile
+python analysis/topeft_run2/run_analysis.py \
+    input_samples/cfgs/mc_signal_samples_NDSkim.cfg,\
+    input_samples/cfgs/mc_background_samples_NDSkim.cfg,\
+    input_samples/cfgs/data_samples_NDSkim.cfg \
+    --options analysis/topeft_run2/configs/fullR2_run.yml:sr \
+    --executor futures --nworkers 8 --chunksize 50000
+```
+
+The first example relies purely on CLI flags; the second mirrors a typical
+`full_run.sh` command, showing how the YAML preset controls scenarios, metadata,
+and SR/CR toggles while still allowing executor overrides.
+
+### Common pitfalls
+
+* `--scenario` and `--options` are mutually exclusive on the CLI. When the
+  wrapper (`full_run.sh`) detects `--options` in the passthrough arguments it
+  aborts early so that the guard remains enforced.
+* If a YAML profile sets `executor: taskvine` but you want to run locally,
+  override it with `--executor futures`. The CLI now normalizes the value before
+  `RunConfigBuilder` runs so that explicit CLI choices always win.
+* `--chunksize` and `--nchunks` follow the same precedence rules: YAML provides
+  defaults, but CLI overrides are reapplied after merging so that experimental
+  runs can shrink their workload without editing the options file.
+
 ## Systematic handling
 
 Systematic switches are managed collaboratively by the helpers:

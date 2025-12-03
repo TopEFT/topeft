@@ -141,7 +141,12 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
   ``fullR3_run.sh`` behavior from the Run 3 development branch.  The script
   expands ``run2``/``run3`` bundles, resolves the appropriate cfg/json inputs,
   and builds the ``run_analysis.py`` invocation for both distributed and
-  single-node runs.
+  single-node runs. When you request Run-2 eras without passing `--scenario` or
+  `--options`, the wrapper auto-selects `analysis/topeft_run2/configs/fullR2_run.yml`
+  (picking the SR/CR profile based on `--sr/--cr`) and sets the scenario to
+  `TOP_22_006`. Run-3 invocations default to the `fwd_analysis` scenario and
+  Run-3 cfg bundles. Explicit `--scenario` or `--options` arguments override
+  these defaults.
 
     - TaskVine example:
 
@@ -160,7 +165,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
               --outdir histos/debug_iter_UL18 \
               --chunksize 10 --nchunks 1 --dry-run
 
-      Prints the resolved command without running Python, making it easy to confirm the iterative executor wiring.
+      Prints the resolved command without running Python, making it easy to confirm the iterative executor wiring and chunk overrides.
 
     - Run-2 SR production-style launch using the canonical futures defaults (auto-injected Run-2 options profile and `TOP_22_006` scenario)::
 
@@ -170,8 +175,26 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
       Leaves `--scenario/--options` unset so the wrapper auto-selects `analysis/topeft_run2/configs/fullR2_run.yml:sr` and the canonical Run-2 scenario.
 
+    - Run-3 TaskVine control-region run (defaults to the `fwd_analysis` scenario and Run-3 cfg bundles)::
+
+          analysis/topeft_run2/full_run.sh --cr -y run3 \
+              --executor taskvine \
+              --outdir histos/run3_fwd_validation \
+              --tag dev_validation
+
+      Requests the Run-3 year bundle (2022+2022EE), keeps the default TaskVine executor, and prints the resolved `fwd_analysis` scenario plus manager/environment settings.
+
     - Add ``--dry-run`` to print the resolved command without launching Python
       (handy for CI smoke tests and argument validation).
+
+    Guardrails enforced by the wrapper:
+
+    - Run-2 and Run-3 eras cannot be mixed in a single invocation.
+    - `--scenario` and `--options` are mutually exclusive at the wrapper level,
+      mirroring the CLI. Embed the scenario in the YAML profile when using
+      `--options`.
+    - `--options` supplied after the `--` passthrough separator is rejected with
+      a clear error so that the guard above cannot be bypassed accidentally.
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
