@@ -110,7 +110,8 @@ it used so that you can plug the same object into :func:`run_workflow` later.
 ## CLI highlights
 
 While the dedicated [`run_analysis.py` CLI reference](run_analysis_cli_reference.md)
-lists every flag, the most important Run‑2 knobs are summarised below:
+lists every flag in detail (path and default values, grouped by category), the
+most important Run‑2 knobs are summarised below:
 
 * **Scenario selection** – Use `--scenario NAME` to enable a metadata scenario
   (for example `TOP_22_006`). Repeat the flag to combine scenarios. When a YAML
@@ -139,11 +140,15 @@ lists every flag, the most important Run‑2 knobs are summarised below:
   encoded in the profile depending on how reproducible you need the launch to
   be.
 
+For a comprehensive, flag-by-flag breakdown (including defaults and YAML keys),
+refer to [`run_analysis_cli_reference.md`](run_analysis_cli_reference.md).
+
 ### Example commands
 
 Direct CLI runs remain useful for tiny tests or bespoke scans:
 
 ```bash
+# From the topeft repository root
 # UL18 smoke test using the iterative executor and small chunks
 python analysis/topeft_run2/run_analysis.py \
     input_samples/cfgs/mc_signal_samples_NDSkim.cfg \
@@ -155,6 +160,7 @@ python analysis/topeft_run2/run_analysis.py \
 ```
 
 ```bash
+# From the topeft repository root
 # Futures run driven by the canonical Run-2 SR profile
 python analysis/topeft_run2/run_analysis.py \
     input_samples/cfgs/mc_signal_samples_NDSkim.cfg,\

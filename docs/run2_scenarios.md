@@ -99,7 +99,9 @@ for convenience.
    ```
 
    The scripts compare the YAML source against the generated channel lists and
-   will raise if group definitions conflict.
+   will raise if group definitions conflict. For the canonical Run‑2 scenarios,
+   the validators also echo the SR-channel counts (43 / 68 / 48 / 121 / 148),
+   providing a quick sanity check that your metadata has not drifted.
 
 By following these steps the CLI, quickstart helpers, and `full_run.sh` wrapper
 will all recognize the scenario automatically, keeping the Run‑2 documentation
