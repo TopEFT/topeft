@@ -1,4 +1,9 @@
-## topEFT
+## topEFT *(legacy directory README)*
+
+> **Legacy status:** this file documents historic utilities in `analysis/topeft_run2/`.
+> For the current Run‑2 workflow and quickstart, see
+> [docs/workflow_and_yaml_hub.md](../docs/workflow_and_yaml_hub.md) and
+> [docs/quickstart_run2.md](../docs/quickstart_run2.md).
 This directory contains scripts for the Full Run 2 EFT analysis. This README documents and explains how to run the scrips.
 
 ### Scripts for remaking reference files that the CI tests against

@@ -103,3 +103,37 @@ configuration, metadata catalogues, and the Coffea execution pipeline.  Editing
 one layer (for example, adding a new systematic in the YAML) automatically
 propagates through the JSON schema validation, histogram planning, and task
 summaries without additional glue code.
+
+## Metadata editing checklist
+
+Use this checklist when introducing or modifying Run‑2 metadata:
+
+1. **Edit locations**
+   - Clone ``topeft/params/metadata.yml`` to a tracked file (for example
+     ``analysis/topeft_run2/configs/metadata_dev.yml``) before making changes.
+   - Update scenario/group compositions in
+     ``analysis/metadata/run2_scenarios.yaml`` and related metadata files under
+     ``analysis/metadata/`` when adding new channel bundles.
+   - Point YAML options (such as ``analysis/topeft_run2/configs/fullR2_run.yml``)
+     at the new metadata file via the ``metadata`` key so the presets stay in sync.
+2. **Validate the updates**
+   - Run the validators under ``scratch/`` after each change:
+     - ``python scratch/validate_run2_scenarios_step5.py`` – confirms scenario
+       definitions and prints per-scenario counts.
+     - ``python scratch/validate_run2_groups_step5.py`` – compares YAML group
+       counts against the legacy JSON snapshot.
+     - ``python scratch/validate_run2_datacard_channels_step5.py`` – checks that
+       datacard channel counts match the expected SR totals.
+   - These scripts assume the Run‑2 metadata lives under ``analysis/metadata`` and
+     should be executed from the repository root so relative imports resolve.
+3. **Smoke-test the workflow**
+   - Use the [Run 2 quickstart pipeline](quickstart_run2.md) or
+     ``analysis/topeft_run2/full_run.sh`` with the updated YAML to confirm the
+     new metadata runs end to end (``--dry-run`` first, then a short futures pass).
+   - Keep scenario names consistent with ``run2_scenarios.yaml`` so CLI
+     invocations and presets (like ``fullR2_run.yml:sr``) continue to work.
+4. **Share presets wisely**
+   - For experimental configurations, create a dedicated YAML file (for example
+     ``fullR2_run_tau_dev.yml``) instead of editing production presets directly.
+     Reference the new metadata path in that file and document it alongside the
+     change so collaborators can reproduce your setup.

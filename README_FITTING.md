@@ -1,4 +1,9 @@
-# How to fit the results
+# How to fit the results *(archival reference)*
+
+> **Legacy status:** this guide preserves historic datacard/fit notes. For the
+> current Run‑2 workflow and outputs, start with
+> [docs/workflow_and_yaml_hub.md](docs/workflow_and_yaml_hub.md) and
+> [docs/quickstart_run2.md](docs/quickstart_run2.md).
 
 The first step is to produce the datacard text files and root files that combine will use, and this step takes place within `topcoffea`.  The next step is to run combine, which takes place inside of a CMSSW release, outside of `topcoffea`.
 
@@ -16,3 +21,6 @@ python make_cards.py path/to/your.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d
 ## Running combine
 
  The next step is to run combine. This takes place inside of a CMSSW release, outside of `topcoffea`. See the [EFTFit](https://github.com/TopEFT/EFTFit) repo for instructions.
+
+For the current analysis workflow, metadata, and plotting docs, start with
+[docs/index.md](docs/index.md) and the linked quickstarts.

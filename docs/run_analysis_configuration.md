@@ -54,7 +54,7 @@ root::
 
     python analysis/topeft_run2/run_analysis.py \
         input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
-        --options analysis/topeft_run2/examples/options.yml:sr
+        --options analysis/topeft_run2/configs/fullR2_run.yml:sr
 
 1. **Argument parsing** – :func:`analysis.topeft_run2.run_analysis.build_parser`
    defines the CLI options that downstream helpers understand.  The parser keeps
@@ -75,6 +75,15 @@ root::
    When an options file is supplied, the YAML becomes the single source of truth.
    Drop ``--options`` if you need to experiment with ad-hoc CLI flags; otherwise
    bake the desired configuration into the file before launching the workflow.
+
+   !!! note "CLI vs YAML precedence"
+       ``--options`` tells ``RunConfigBuilder`` to merge ``defaults``, the selected
+       profile, and any top-level keys before evaluating CLI flags. Workload knobs
+       such as ``--executor``, ``--chunksize``, and ``--nchunks`` are still honoured
+       so you can downscale a run without cloning the YAML, but most configuration
+       values (metadata, scenarios, region toggles, etc.) must be provided directly
+       in the options file. ``full_run.sh`` applies the same rules when it selects
+       the Run‑2 presets on your behalf.
 
 3. **Configuration normalization** – the builder converts all inputs into a
    :class:`analysis.topeft_run2.run_analysis_helpers.RunConfig` dataclass.  The

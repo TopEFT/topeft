@@ -23,13 +23,49 @@ The high-level flow is:
    combinations by crossing samples, channel metadata, Coffea applications, and
    systematic toggles.  The result is a :class:`HistogramPlan` which records the
   ``(variable, channel, application, sample, systematic)`` tuples described in
-  the shared [tuple-key reference](https://github.com/TopEFT/topcoffea/blob/ch_update_calcoffea/docs/analysis_processing.md)
+  the shared [tuple-key reference](tuple_key_audit.md)
   before the tasks are processed.
 5. An :class:`analysis.topeft_run2.workflow.ExecutorFactory` creates the
    requested backend runner (``futures``, ``iterative`` or ``taskvine``).  Each
    histogram task is turned into an :class:`AnalysisProcessor` instance with the
    correct per-sample metadata and systematic configuration before being
    submitted to the executor.
+
+## Architecture overview
+
+At a high level, :mod:`analysis.topeft_run2.run_analysis` collects CLI flags and
+YAML options, then hands them to
+:class:`analysis.topeft_run2.run_analysis_helpers.RunConfigBuilder`. The builder
+merges the inputs into a single :class:`RunConfig`, honouring the CLI/YAML
+precedence rules described in
+[run_analysis_configuration.md](run_analysis_configuration.md). The Run‑2
+quickstart helpers return the same dataclass so notebook-driven runs can reuse
+it directly.
+
+:class:`analysis.topeft_run2.workflow.RunWorkflow` consumes the ``RunConfig``:
+:class:`SampleLoader` expands JSON/CFG inputs,
+:class:`ChannelPlanner` resolves metadata scenarios, and
+:class:`HistogramPlanner` enumerates the histogram tasks fed to the Coffea
+executors. Each task carries the metadata required to instantiate
+:class:`AnalysisProcessor`, including channel features and systematic labels.
+When ``summary_verbosity`` is ``"brief"`` or ``"full"``, the workflow emits the
+list of unique samples, channels, applications, and variation labels before
+submitting any work so you can confirm the run contents.
+
+Execution is delegated to :class:`analysis.topeft_run2.workflow.ExecutorFactory`.
+It builds either a local ``futures`` runner, the legacy ``iterative`` backend,
+or a distributed ``taskvine`` executor, forwarding the relevant knobs from the
+``RunConfig``. Each executor receives a fully configured ``AnalysisProcessor``
+instance together with the metadata bundle for that histogram task.
+
+The processor produces tuple-keyed histograms labelled as
+``(variable, channel, application, sample, systematic)``. The tuple contract is
+documented in detail in [tuple_key_audit.md](tuple_key_audit.md). Pickled outputs
+preserve those tuples so downstream helpers—such as
+``analysis/topeft_run2/make_cr_and_sr_plots.py`` or custom plotting scripts—can
+select channels and systematics without relying on categorical histogram axes.
+The [Run 2 quickstart pipeline](quickstart_run2.md) walks through this entire
+architecture with concrete commands.
 
 ## AnalysisProcessor responsibilities
 
@@ -137,7 +173,7 @@ from analysis.topeft_run2.workflow import run_workflow
 parser = build_parser()
 args = parser.parse_args([
     "input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json",
-    "--options", "analysis/topeft_run2/examples/options.yml:sr",
+    "--options", "analysis/topeft_run2/configs/fullR2_run.yml:sr",
 ])
 
 builder = RunConfigBuilder()
@@ -150,5 +186,7 @@ utilities.  Persisting it (for example via ``dataclasses.asdict``) provides a
 compact audit trail that complements the stored output pickle.
 
 When ``--options`` is present the YAML file becomes authoritative—CLI flags are
-ignored so that the captured configuration remains reproducible.  Drop the
+ignored so that the captured configuration remains reproducible (aside from the
+handful of workload overrides noted in
+[run_analysis_configuration.md](run_analysis_configuration.md)).  Drop the
 argument entirely for ad-hoc runs driven purely from the command line.
