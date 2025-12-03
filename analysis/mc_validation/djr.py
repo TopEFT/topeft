@@ -74,7 +74,7 @@ if __name__ == '__main__':
         n_events = ak.num(djr_values10, axis=0)
     print(f"Efficiency is {n_events/n_events_in}, assuming {n_events_in} where simulated")
 
-    print(f"Plotting...")
+    print("Plotting...")
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         fig, axs = plt.subplots(3,2, figsize=(15,21))
@@ -83,24 +83,24 @@ if __name__ == '__main__':
             for j in range(2):
                 transition = 2*i+j
                 djr[:, :, transition].plot1d(
-                        overlay='n',
-                        ax=axs[i][j],
-                        label= [f'{k} partons' for k in range(4)]
+                    overlay='n',
+                    ax=axs[i][j],
+                    label= [f'{k} partons' for k in range(4)]
                 )
                 djr[:, :, transition][{'n':sum}].plot1d(
-                        ax=axs[i][j],
-                        label = ['total'],
-                        color = 'gray',
+                    ax=axs[i][j],
+                    label = ['total'],
+                    color = 'gray',
                 )
 
                 axs[i][j].set_xlabel(r'$DJR\ %s \to %s$'%(transition, transition+1))
                 axs[i][j].set_yscale('log')
                 axs[i][j].set_ylim(0.3,n_events*1000)
                 axs[i][j].legend(
-                        loc='upper right',
-                        bbox_to_anchor=(0.03, 0.88, 0.90, .11),
-                        mode="expand",
-                        ncol=2,
+                    loc='upper right',
+                    bbox_to_anchor=(0.03, 0.88, 0.90, .11),
+                    mode="expand",
+                    ncol=2,
                 )
 
         fig.savefig(args.output)

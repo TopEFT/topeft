@@ -9,7 +9,6 @@ python eft_weights.py \
 
 #!/usr/bin/env python3
 
-import uproot
 import hist
 import os
 import awkward as ak
@@ -17,9 +16,7 @@ from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 import numpy as np
 import matplotlib.pyplot as plt
 import mplhep as hep
-import warnings
 import topcoffea.modules.utils as utils
-from topcoffea.modules.histEFT import HistEFT
 plt.style.use(hep.style.CMS)
 
 NanoAODSchema.warn_missing_crossrefs = False
@@ -33,7 +30,7 @@ if __name__ == '__main__':
     argParser.add_argument('--input', action='store', default='root://cmseos.fnal.gov//store/user/dspitzba/EFT/nanogen_small.root', help="Input file")
     argParser.add_argument('--output', action='store', default='./weights.pdf', help="Output file")
     args = argParser.parse_args()
- 
+
     path = args.input
     #files = ['nanogen_12.root', 'nanogen_49.root', 'nanogen_51.root', 'nanogen_54.root', 'nanogen_5.root', 'nanogen_82.root', 'nanogen_13.root', 'nanogen_4.root', 'nanogen_52.root', 'nanogen_55.root', 'nanogen_63.root', 'nanogen_9.root', 'nanogen_2.root', 'nanogen_50.root', 'nanogen_53.root', 'nanogen_56.root', 'nanogen_7.root']
     files = [f for f in os.listdir(path) if '.root' in f]
