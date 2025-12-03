@@ -1,3 +1,11 @@
+'''
+This script produces the DJR plots from nanoGEN files
+(assuming the DJR were also saved)
+Example Run
+python djr.py \
+--input /cms/cephfs/data/store/user/byates/tttt/nanoGEN_Run3/2022/tttt_LO_EFT/crab_tttt_nanoGEN_Run3/250715_223705/0000/ \
+--output /users/byates2/afs/www/EFT/tttt_Run3/weights/weights.pdf
+'''
 #!/usr/bin/env python3
 
 import uproot
