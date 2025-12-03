@@ -12,6 +12,6 @@ def test_make_1d_quad_plots():
     ]
 
     # Run make_1d_quad
-    subprocess.run(args)
+    assert subprocess.run(args)
 
     glob.glob('tmp_quad_plos*')
