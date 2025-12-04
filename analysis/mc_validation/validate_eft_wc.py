@@ -185,7 +185,11 @@ def get_mg_weight(fname, run='run0', runs=[1,2,3], xsec=1, sow=1):
             print(irun, f'EFT_weights{int_run-skip} not found, adding 0')
             weights.append(0)
     if 'SM_weights' in hists:
-        if args.debug: print(f'Adding run{run} SM ' + str(np.sum(hists[f"SM_weights"].values())) + ' -> ' + str(np.sum(hists[f"SM_weights"].values()) / sow) + f' {sow=} {xsec=}')
+        if args.debug:
+            val = np.sum(hists["SM_weights"].values())
+            print(
+                f"Adding run{run} SM {val} -> {val / sow} {sow=} {xsec=}"
+            )
         weights.append(np.sum(hists['SM_weights'].values()) / sow)
     else:
         weights.append(0)
@@ -456,7 +460,8 @@ if __name__ == '__main__':
             # sow = sows[irun]
             #xsec = get_xsec(h, wc_pt, sow)# * jobs[irun])
             xsec = get_xsec(h, wc_pt, jobs[irun])
-            if xsec is None: continue
+            if xsec is None:
+                continue
             #print(wc_pt, f'{xsec=}')
             #print(f'Reweighting {run} to {runs[ipt]} ({wc_pt})')
             pdiff = np.round(100 * (1 - xsecs[ipt] / xsec), TOLERANCE)
