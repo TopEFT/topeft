@@ -111,6 +111,7 @@ main() {
   local futures_retry_wait=5.0
   local dry_run=false
   local debug_logging=false
+  local processor_debug=false
   local log_level=""
   local auto_options_spec=""
 
@@ -229,6 +230,10 @@ main() {
         debug_logging=true
         shift
         ;;
+      --processor-debug)
+        processor_debug=true
+        shift
+        ;;
       --log-level)
         log_level="$2"
         shift 2
@@ -241,6 +246,13 @@ main() {
         local value="${1#*=}"
         if [[ "${value,,}" != "0" && "${value,,}" != "false" && -n "$value" ]]; then
           debug_logging=true
+        fi
+        shift
+        ;;
+      --processor-debug=*)
+        local value="${1#*=}"
+        if [[ "${value,,}" != "0" && "${value,,}" != "false" && -n "$value" ]]; then
+          processor_debug=true
         fi
         shift
         ;;
@@ -618,6 +630,10 @@ main() {
     esac
   fi
 
+  if [[ "$debug_logging" == true && "$processor_debug" == false ]]; then
+    processor_debug=true
+  fi
+
   local -a options=(
     --outname "$out_name"
     --outpath "$outdir"
@@ -648,6 +664,9 @@ main() {
 
   if [[ "$debug_logging" == true ]]; then
     options+=(--debug-logging)
+  fi
+  if [[ "$processor_debug" == true ]]; then
+    options+=(--processor-debug)
   fi
   if [[ -n "$log_level" ]]; then
     options+=(--log-level "$log_level")
