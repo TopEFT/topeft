@@ -466,7 +466,6 @@ if __name__ == '__main__':
             #print(f'Reweighting {run} to {runs[ipt]} ({wc_pt})')
             pdiff = np.round(100 * (1 - xsecs[ipt] / xsec), TOLERANCE)
             if np.abs(xsec - xsecs[ipt]) < 10**(-1*TOLERANCE) or np.abs(xsecs[ipt] - xsec) < xsec_errs[ipt]:
-            #if np.abs(xsec - xsecs[ipt]) < 10**(-1*TOLERANCE) or (np.abs(pdiff) < 4):
                 print(f'{sample} {run}: {np.round(xsecs[irun], TOLERANCE)} -> {np.round(xsec, TOLERANCE)} {runs[ipt]}: {np.round(xsecs[ipt], TOLERANCE)} +/- {xsec_errs[ipt]} {match} ({pdiff}% diff) (MG xsec={orig_xsecs[irun]})')
             else:
                 print(f'{sample} {run}: {np.round(xsecs[irun], TOLERANCE)} -> {np.round(xsec, TOLERANCE)} {runs[ipt]}: {np.round(xsecs[ipt], TOLERANCE)} +/- {xsec_errs[ipt]} {bad} {pdiff}% diff (expected {xsecs[ipt]}) (MG xsec={orig_xsecs[irun]})')
