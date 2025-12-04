@@ -186,7 +186,7 @@ class ExecutorCLIHelper:
             "--executor",
             "-x",
             default=self._default_executor,
-            help="Which executor to use (futures, iterative, or taskvine)",
+            help="Which executor to use (futures, iterative, taskvine, or ddr)",
         )
         parser.add_argument(
             "--port",
@@ -481,4 +481,3 @@ __all__ = [
     "TaskVineArgumentSpec",
     "TaskVineConfig",
 ]
-

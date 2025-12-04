@@ -60,6 +60,8 @@ from topeft.modules.executor import (
     parse_port_range,
     resolve_environment_file,
     taskvine_log_configurator,
+    _select_manager_port,
+    _is_port_allocation_error,
 )
 from topeft.modules.runner_output import normalise_runner_output, tuple_dict_stats
 
@@ -100,7 +102,21 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type checking
     from topeft.modules.channel_metadata import ChannelMetadataHelper
     from topeft.modules.systematics import SystematicsHelper
 
-LST_OF_KNOWN_EXECUTORS = ["futures", "iterative", "taskvine"]
+LST_OF_KNOWN_EXECUTORS = ["futures", "iterative", "taskvine", "ddr"]
+
+
+@dataclass(frozen=True)
+class TaskVineContext:
+    """Describe directories and settings shared by TaskVine/DDR executions."""
+
+    executor: str
+    port_range: Tuple[int, int]
+    staging_dir: Path
+    logs_dir: Path
+    manager_name: Optional[str]
+    manager_template: Optional[str]
+    environment_file: Optional[str]
+    extra_input_files: Tuple[str, ...]
 
 
 class ChannelPlanner:
@@ -639,14 +655,13 @@ class ExecutorFactory:
 
     def __init__(self, config: RunConfig) -> None:
         self._config = config
+        self._remote_environment = topcoffea.modules.remote_environment
 
     def create_runner(self) -> Any:
         import coffea.processor as processor
         from coffea.nanoevents import NanoAODSchema
 
         executor = (self._config.executor or "taskvine").lower()
-
-        remote_environment = topcoffea.modules.remote_environment
 
         def _build_runner(exec_instance: Any, **runner_kwargs: Any) -> Any:
             return processor.Runner(
@@ -690,38 +705,23 @@ class ExecutorFactory:
             return _build_runner(exec_instance, **runner_kwargs)
 
         if executor == "taskvine":
-            port_min, port_max = parse_port_range(self._config.port)
-            staging_dir = self._distributed_staging_dir(executor)
-            logs_dir = self._executor_logs_dir(executor, staging_dir)
-            manager_default = self._manager_name_base(executor)
-            manager_name = self._config.manager_name or manager_default
-            manager_template = self._config.manager_name_template
-            if manager_template is None and manager_name:
-                manager_template = f"{manager_name}-{{pid}}"
-            environment_file = resolve_environment_file(
-                self._config.environment_file,
-                remote_environment,
-                extra_pip_local={"topeft": ["topeft", "setup.py"]},
-                extra_conda=["pyyaml"],
-            )
-
-            extra_input_files = self._processor_extra_input_files()
+            context = self.taskvine_context(executor)
             taskvine_args = build_taskvine_args(
-                staging_dir=staging_dir,
-                logs_dir=logs_dir,
-                manager_name=manager_name,
-                manager_name_template=manager_template,
-                extra_input_files=extra_input_files,
+                staging_dir=context.staging_dir,
+                logs_dir=context.logs_dir,
+                manager_name=context.manager_name,
+                manager_name_template=context.manager_template,
+                extra_input_files=context.extra_input_files,
                 resource_monitor=self._config.resource_monitor,
                 resources_mode=self._config.resources_mode,
-                environment_file=environment_file,
+                environment_file=context.environment_file,
                 print_stdout=self._config.taskvine_print_stdout,
-                custom_init=taskvine_log_configurator(logs_dir),
+                custom_init=taskvine_log_configurator(context.logs_dir),
             )
             exec_instance = instantiate_taskvine_executor(
                 processor,
                 taskvine_args,
-                port_range=(port_min, port_max),
+                port_range=context.port_range,
                 negotiate_port=bool(self._config.negotiate_manager_port),
             )
 
@@ -733,6 +733,35 @@ class ExecutorFactory:
             )
 
         raise ValueError(f"Unknown executor '{executor}'")
+
+    def taskvine_context(self, executor: str) -> TaskVineContext:
+        """Return TaskVine/DDR runtime metadata derived from config."""
+
+        port_range = parse_port_range(self._config.port)
+        staging_dir = self._distributed_staging_dir(executor)
+        logs_dir = self._executor_logs_dir(executor, staging_dir)
+        manager_default = self._manager_name_base(executor)
+        manager_name = self._config.manager_name or manager_default
+        manager_template = self._config.manager_name_template
+        if manager_template is None and manager_name:
+            manager_template = f"{manager_name}-{{pid}}"
+        environment_file = resolve_environment_file(
+            self._config.environment_file,
+            self._remote_environment,
+            extra_pip_local={"topeft": ["topeft", "setup.py"]},
+            extra_conda=["pyyaml"],
+        )
+        extra_input_files = tuple(self._processor_extra_input_files())
+        return TaskVineContext(
+            executor=executor,
+            port_range=port_range,
+            staging_dir=staging_dir,
+            logs_dir=logs_dir,
+            manager_name=manager_name,
+            manager_template=manager_template,
+            environment_file=environment_file,
+            extra_input_files=extra_input_files,
+        )
 
     
     def _distributed_staging_dir(self, executor: str) -> Path:
@@ -820,6 +849,7 @@ class RunWorkflow:
         self._executor_factory = executor_factory
         self._weight_variations = list(weight_variations)
         self._metadata_path = metadata_path
+        self._golden_json_cache: Dict[str, Optional[str]] = {}
 
     def _log_task_submission(self, task: HistogramTask) -> None:
         """Emit a concise log describing the histogram combinations for ``task``."""
@@ -929,9 +959,231 @@ class RunWorkflow:
             _format(histogram_labels),
             _format(_unique_strings(skipped_weights)),
         )
+
+    def _build_processor_instance(
+        self,
+        *,
+        task: HistogramTask,
+        sample_dict: Mapping[str, Any],
+        channel_dict: Mapping[str, Any],
+        analysis_processor_module: Any,
+        coffea_processor_module: Any,
+        golden_jsons: Mapping[str, str],
+        ecut_threshold: Optional[float],
+    ) -> Any:
+        golden_json_path = self._resolve_golden_json(sample_dict, golden_jsons)
+        processor_instance = analysis_processor_module.AnalysisProcessor(
+            sample_dict,
+            self._config.wc_list,
+            hist_keys=task.hist_keys,
+            var_info=task.variable_info,
+            ecut_threshold=ecut_threshold,
+            do_errors=self._config.do_errors,
+            split_by_lepton_flavor=self._config.split_lep_flavor,
+            channel_dict=channel_dict,
+            golden_json_path=golden_json_path,
+            systematic_variations=task.variations,
+            available_systematics=task.available_systematics,
+            metadata_path=self._metadata_path,
+            executor_mode=self._config.executor,
+            debug_logging=bool(getattr(self._config, "processor_debug", self._config.debug_logging)),
+        )
+        if not isinstance(processor_instance, coffea_processor_module.ProcessorABC):
+            raise TypeError(
+                "AnalysisProcessor is not an instance of coffea.processor.ProcessorABC. "
+                f"Active coffea.processor module: {getattr(coffea_processor_module, '__file__', 'unknown')}"
+            )
+        return processor_instance
+
+    def _resolve_golden_json(
+        self,
+        sample_dict: Mapping[str, Any],
+        golden_jsons: Mapping[str, str],
+    ) -> Optional[str]:
+        if not sample_dict.get("isData"):
+            return None
+        year_key = str(sample_dict.get("year"))
+        if not year_key:
+            return None
+        cache = getattr(self, "_golden_json_cache", None)
+        if cache is None:
+            cache = {}
+            self._golden_json_cache = cache
+        if year_key in cache:
+            return cache[year_key]
+        try:
+            golden_json_relpath = golden_jsons[year_key]
+        except KeyError as exc:
+            raise ValueError(
+                f"No golden JSON configured for data year '{year_key}' in {self._metadata_path}."
+            ) from exc
+        golden_json_path = topcoffea_path(golden_json_relpath)
+        if not os.path.exists(golden_json_path):
+            raise FileNotFoundError(
+                f"Golden JSON file '{golden_json_path}' for year '{year_key}' was not found."
+            )
+        cache[year_key] = golden_json_path
+        return golden_json_path
+
+    def _execute_ddr(
+        self,
+        *,
+        histogram_plan: HistogramPlan,
+        samplesdict: Mapping[str, Mapping[str, Any]],
+        flist: Mapping[str, Any],
+        golden_jsons: Mapping[str, str],
+        ecut_threshold: Optional[float],
+        analysis_processor_module: Any,
+        coffea_processor_module: Any,
+    ) -> Mapping[str, Any]:
+        try:
+            from topcoffea.modules import dynamic_data_reduction as ddr_helpers
+        except ImportError as exc:  # pragma: no cover - dependency guard
+            raise RuntimeError(
+                "The 'ddr' executor requires topcoffea.modules.dynamic_data_reduction. "
+                "Update the topcoffea checkout to include tc/feat-ddr-helpers."
+            ) from exc
+
+        from coffea.nanoevents import NanoAODSchema
+
+        context = self._executor_factory.taskvine_context("ddr")
+        data = ddr_helpers.build_ddr_data_from_flist(
+            flist,
+            object_path=self._config.treename or "Events",
+        )
+        processors = self._build_ddr_processors(
+            histogram_plan=histogram_plan,
+            samplesdict=samplesdict,
+            golden_jsons=golden_jsons,
+            analysis_processor_module=analysis_processor_module,
+            coffea_processor_module=coffea_processor_module,
+            ecut_threshold=ecut_threshold,
+        )
+        if not processors:
+            logger.warning("DDR executor selected but no histogram tasks were constructed; returning empty output.")
+            return {}
+
+        logger.info("[ddr] Launching CoffeaDynamicDataReduction with %d processors", len(processors))
+        manager = self._create_ddr_manager(context)
+        log_configurator = taskvine_log_configurator(context.logs_dir)
+        try:
+            log_configurator(manager)
+        except Exception:
+            logger.debug("DDR log configuration failed", exc_info=True)
+        try:
+            manager.enable_monitoring(watchdog=False)
+        except Exception:
+            logger.debug("DDR manager monitoring setup failed", exc_info=True)
+        try:
+            manager.tune("hungry-minimum", 1)
+        except Exception:
+            logger.debug("DDR manager tuning failed", exc_info=True)
+
+        results_dir = context.logs_dir.parent / "ddr-results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        ddr_kwargs = {
+            "results_directory": str(results_dir),
+            "resources_processing": {"cores": max(1, int(self._config.nworkers or 1))},
+        }
+
+        try:
+            return ddr_helpers.run_ddr(
+                manager=manager,
+                data=data,
+                processors=processors,
+                accumulator=analysis_processor_module.AnalysisProcessor,
+                schema=NanoAODSchema,
+                extra_files=list(context.extra_input_files),
+                tree_name=self._config.treename or "Events",
+                ddr_kwargs=ddr_kwargs,
+            )
+        finally:
+            try:
+                manager.shutdown()
+            except Exception:
+                logger.debug("DDR manager shutdown encountered an error", exc_info=True)
+
+    def _build_ddr_processors(
+        self,
+        *,
+        histogram_plan: HistogramPlan,
+        samplesdict: Mapping[str, Mapping[str, Any]],
+        golden_jsons: Mapping[str, str],
+        analysis_processor_module: Any,
+        coffea_processor_module: Any,
+        ecut_threshold: Optional[float],
+    ) -> Dict[str, Any]:
+        processors: Dict[str, Any] = {}
+        for idx, task in enumerate(histogram_plan.tasks):
+            channel_dict = task.channel_metadata
+            if not channel_dict:
+                continue
+            if task.clean_channel != "3l_m_offZ_1b_2j":
+                logging.info("Skipping task for channel %s", task.clean_channel)
+                continue
+            sample_info = samplesdict[task.sample]
+            processor_instance = self._build_processor_instance(
+                task=task,
+                sample_dict=sample_info,
+                channel_dict=channel_dict,
+                analysis_processor_module=analysis_processor_module,
+                coffea_processor_module=coffea_processor_module,
+                golden_jsons=golden_jsons,
+                ecut_threshold=ecut_threshold,
+            )
+            processors[self._ddr_processor_key(idx, task)] = processor_instance
+        return processors
+
+    @staticmethod
+    def _ddr_processor_key(index: int, task: HistogramTask) -> str:
+        return f"{index:05d}:{task.sample}:{task.clean_channel}:{task.variable}:{task.application}"
+
+    def _create_ddr_manager(self, context: TaskVineContext) -> Any:
+        import ndcctools.taskvine as vine
+
+        port_min, port_max = context.port_range
+        staging_dir = context.staging_dir
+        run_info_path = staging_dir / "vine-run-info"
+        run_info_path.mkdir(parents=True, exist_ok=True)
+
+        def _instantiate(port: int) -> Any:
+            return vine.Manager(
+                port=port,
+                name=context.manager_name,
+                staging_path=str(staging_dir),
+                run_info_path=str(run_info_path),
+            )
+
+        if not bool(self._config.negotiate_manager_port):
+            try:
+                return _instantiate(port_min)
+            except Exception as exc:  # pragma: no cover - best effort
+                if _is_port_allocation_error(exc):
+                    raise RuntimeError(f"DDR manager could not bind port {port_min}.") from exc
+                raise
+
+        attempted: Set[int] = set()
+        last_error: Optional[BaseException] = None
+        for _ in range(port_min, port_max + 1):
+            port = _select_manager_port(port_min, port_max, exclude=attempted)
+            attempted.add(port)
+            try:
+                return _instantiate(port)
+            except Exception as exc:
+                if _is_port_allocation_error(exc):
+                    last_error = exc
+                    continue
+                raise
+
+        range_desc = f"{port_min}-{port_max}" if port_min != port_max else str(port_min)
+        message = f"DDR manager could not bind a port in range {range_desc}."
+        if last_error is not None:
+            raise RuntimeError(message) from last_error
+        raise RuntimeError(message)
     def run(self) -> None:
         from topeft.modules.systematics import SystematicsHelper
         from . import analysis_processor
+        import coffea.processor as coffea_processor
 
         self._validate_config()
 
@@ -979,12 +1231,36 @@ class RunWorkflow:
 
         self._emit_histogram_summary(histogram_plan)
 
-        runner = self._executor_factory.create_runner()
-
-        output: Dict[str, Any] = {}
         ecut_threshold = self._config.ecut if self._config.ecut is None else float(self._config.ecut)
 
         tstart = time.time()
+        executor_mode = (self._config.executor or "taskvine").strip().lower()
+        if executor_mode == "ddr":
+            output = self._execute_ddr(
+                histogram_plan=histogram_plan,
+                samplesdict=samplesdict,
+                flist=flist,
+                golden_jsons=golden_jsons,
+                ecut_threshold=ecut_threshold,
+                analysis_processor_module=analysis_processor,
+                coffea_processor_module=coffea_processor,
+            )
+            dt = time.time() - tstart
+            if nevts_total:
+                logger.info(
+                    "[ddr] Processed %d events in %.2f seconds (%.2f evts/sec)",
+                    nevts_total,
+                    dt,
+                    (nevts_total / dt) if dt else 0.0,
+                )
+            else:
+                logger.info("[ddr] CoffeaDynamicDataReduction finished in %.2f seconds", dt)
+            self._store_output(output)
+            return
+
+        runner = self._executor_factory.create_runner()
+
+        output: Dict[str, Any] = {}
 
         total_tasks = len(histogram_plan.tasks)
         for idt, task in enumerate(histogram_plan.tasks):
@@ -1021,46 +1297,15 @@ class RunWorkflow:
                 logger.info("Channel %s metadata: %s", task.clean_channel, channel_dict)
                 logger.info("Task detail: %s", task)
 
-            golden_json_path = None
-            if sample_dict.get("isData"):
-                year_key = str(sample_dict["year"])
-                try:
-                    golden_json_relpath = golden_jsons[year_key]
-                except KeyError as exc:
-                    raise ValueError(
-                        f"No golden JSON configured for data year '{year_key}' in "
-                        f"{self._metadata_path}."
-                    ) from exc
-                golden_json_path = topcoffea_path(golden_json_relpath)
-                if not os.path.exists(golden_json_path):
-                    raise FileNotFoundError(
-                        f"Golden JSON file '{golden_json_path}' for year '{year_key}' was not found."
-                    )
-
-            processor_instance = analysis_processor.AnalysisProcessor(
-                sample_dict,
-                self._config.wc_list,
-                hist_keys=task.hist_keys,
-                var_info=task.variable_info,
-                ecut_threshold=ecut_threshold,
-                do_errors=self._config.do_errors,
-                split_by_lepton_flavor=self._config.split_lep_flavor,
+            processor_instance = self._build_processor_instance(
+                task=task,
+                sample_dict=sample_dict,
                 channel_dict=channel_dict,
-                golden_json_path=golden_json_path,
-                systematic_variations=task.variations,
-                available_systematics=task.available_systematics,
-                metadata_path=self._metadata_path,
-                executor_mode=self._config.executor,
-                debug_logging=bool(getattr(self._config, "processor_debug", self._config.debug_logging)),
+                analysis_processor_module=analysis_processor,
+                coffea_processor_module=coffea_processor,
+                golden_jsons=golden_jsons,
+                ecut_threshold=ecut_threshold,
             )
-
-            import coffea.processor as processor
-
-            if not isinstance(processor_instance, processor.ProcessorABC):
-                raise TypeError(
-                    "AnalysisProcessor is not an instance of coffea.processor.ProcessorABC. "
-                    f"Active coffea.processor module: {getattr(processor, '__file__', 'unknown')}"
-                )
 
             self._log_task_submission(task)
 

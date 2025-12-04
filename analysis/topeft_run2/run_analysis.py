@@ -73,6 +73,11 @@ logger = logging.getLogger(__name__)
 
 remote_environment = topcoffea.modules.remote_environment
 
+EXECUTOR_ALIASES = {
+    "taskvine_ddr": "ddr",
+    "work_queue": "taskvine",
+}
+
 
 EXECUTOR_CLI = ExecutorCLIHelper(
     remote_environment=remote_environment,
@@ -311,6 +316,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _normalize_executor_name(value: str | None) -> str:
+    """Return a normalized executor identifier after applying aliases."""
+
+    normalized = (value or "").strip().lower()
+    if not normalized:
+        return ""
+    return EXECUTOR_ALIASES.get(normalized, normalized)
+
+
 def _resolve_logging_controls(config: RunConfig) -> tuple[str, bool]:
     """Return the log level and processor-debug flag based on CLI inputs."""
 
@@ -388,14 +402,16 @@ def main(argv: Sequence[str] | None = None) -> None:
     executor_from_cli = _argument_supplied(argv_list, "--executor", "-x")
     chunksize_from_cli = _argument_supplied(argv_list, "--chunksize", "-s")
     nchunks_from_cli = _argument_supplied(argv_list, "--nchunks", "-c")
-    executor_default = (getattr(parser_defaults, "executor", "") or "").strip().lower() or "taskvine"
+    executor_default = _normalize_executor_name(getattr(parser_defaults, "executor", ""))
+    if not executor_default:
+        executor_default = "taskvine"
     logger.info(
         "[DEBUG CHECK] args.log_level=%r, args.debug_logging=%r, args.processor_debug=%r",
         getattr(args, "log_level", None),
         getattr(args, "debug_logging", None),
         getattr(args, "processor_debug", None),
     )
-    executor_choice = (getattr(args, "executor", "") or "").strip().lower()
+    executor_choice = _normalize_executor_name(getattr(args, "executor", ""))
     if not executor_choice:
         executor_choice = executor_default
     setattr(args, "executor", executor_choice)
@@ -458,7 +474,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if nchunks_from_cli:
         config.nchunks = getattr(args, "nchunks", config.nchunks)
 
-    current_executor = (getattr(config, "executor", "") or "").strip().lower()
+    current_executor = _normalize_executor_name(getattr(config, "executor", ""))
     if executor_from_cli:
         current_executor = executor_choice
     elif not current_executor:
