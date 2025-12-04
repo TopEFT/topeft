@@ -380,6 +380,7 @@ class RunConfig:
     ecut: Optional[float] = None
     summary_verbosity: str = "brief"
     debug_logging: bool = False
+    processor_debug: bool = False
     log_level: Optional[str] = None
     log_tasks: bool = False
     environment_file: Optional[str] = "cached"
@@ -456,6 +457,7 @@ class RunConfigBuilder:
             "taskvine_print_stdout": ("taskvine_print_stdout", coerce_bool),
             "summary_verbosity": ("summary_verbosity", coerce_summary_verbosity),
             "debug_logging": ("debug_logging", coerce_bool),
+            "processor_debug": ("processor_debug", coerce_bool),
             "log_tasks": ("log_tasks", coerce_bool),
             "environment_file": ("environment_file", coerce_environment_file),
             "futures_status": ("futures_status", coerce_bool),

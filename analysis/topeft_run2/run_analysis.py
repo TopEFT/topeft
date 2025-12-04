@@ -217,6 +217,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--processor-debug",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable AnalysisProcessor-specific debug instrumentation without raising the global log level."
+        ),
+    )
+    parser.add_argument(
         "--log-level",
         default=None,
         help=(
@@ -382,9 +390,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     nchunks_from_cli = _argument_supplied(argv_list, "--nchunks", "-c")
     executor_default = (getattr(parser_defaults, "executor", "") or "").strip().lower() or "taskvine"
     logger.info(
-        "[DEBUG CHECK] args.log_level=%r, args.debug_logging=%r",
+        "[DEBUG CHECK] args.log_level=%r, args.debug_logging=%r, args.processor_debug=%r",
         getattr(args, "log_level", None),
         getattr(args, "debug_logging", None),
+        getattr(args, "processor_debug", None),
     )
     executor_choice = (getattr(args, "executor", "") or "").strip().lower()
     if not executor_choice:
@@ -413,12 +422,13 @@ def main(argv: Sequence[str] | None = None) -> None:
         getattr(args, "log_level", None),
     )
     logger.info(
-        "[DEBUG CHECK] builder output: run_cfg.log_level=%r, run_cfg.debug_logging=%r",
+        "[DEBUG CHECK] builder output: run_cfg.log_level=%r, run_cfg.debug_logging=%r, run_cfg.processor_debug=%r",
         run_cfg.log_level,
         run_cfg.debug_logging,
+        getattr(run_cfg, "processor_debug", None),
     )
 
-    effective_log_level, processor_debug = _resolve_logging_controls(config)
+    effective_log_level, driver_debug = _resolve_logging_controls(config)
     # Currently configures logging for the driver process; futures workers keep
     # their default handlers until we plumb a per-worker hook.
     configure_logging(effective_log_level)
@@ -438,8 +448,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             metadata_path,
         )
 
+    processor_debug = bool(getattr(config, "processor_debug", False) or driver_debug)
     config.log_level = effective_log_level
-    config.debug_logging = processor_debug
+    config.debug_logging = driver_debug
+    config.processor_debug = processor_debug
 
     if chunksize_from_cli:
         config.chunksize = getattr(args, "chunksize", config.chunksize)
