@@ -172,7 +172,14 @@ def get_mg_weight(fname, run='run0', runs=[1,2,3], xsec=1, sow=1):
             #weights.append(np.sum(hists[f'EFT_weights{int_run-skip}'].values()) / np.sum(hists['SumOfWeights'].values()) / sow)
             weights.append(np.sum(hists[f'EFT_weights{int_run-skip}'].values()) / sow)
             #weights.append(hists[f'EFT_weights{irun-skip}'] / sow)
-            if args.debug: print(f'Adding run{run} wgt{int_run-skip} ' + str(np.sum(hists[f"EFT_weights{int_run-skip}"].values())) + ' -> ' + str(np.sum(hists[f"EFT_weights{int_run-skip}"].values()) / sow) + f' {sow=} {xsec=}')
+            key = f"EFT_weights{int_run-skip}"
+            if args.debug:
+                print(
+                    f"Adding run{run} wgt{int_run-skip} "
+                    f"{np.sum(hists[key].values())} -> "
+                    f"{np.sum(hists[key].values()) / sow} "
+                    f"{sow=} {xsec=}"
+                )
             #weights.append(hists[f'EFT_weights{irun}'] / sow * xsec)
         else:
             print(irun, f'EFT_weights{int_run-skip} not found, adding 0')
@@ -429,7 +436,7 @@ if __name__ == '__main__':
 
     for irun,run in enumerate(runs):
         for ipt, wc_pt in enumerate(wc_pts):
-            if irun == ipt: 
+            if irun == ipt:
                 continue
             h = get_sow(dname + '/' + fname, run)
             if h is None: continue
