@@ -9,6 +9,12 @@ wc_tag: an optional tag used when making the nanoGEN samples (defaults to blank/
 tolerance: adjust the threshold for agreement
 debug: print out more messages
 
+This script first looks for the customize cards in `InputCards`.
+If it can't find that folder, it will try to extract it from the gridpacks.
+To run properly, either ensure you have the gridpacks on the same servery you'll run from,
+or simply copy the customize cards with a strucutre like:
+`InputCards/ttllNuNuJetNoHiggs/ttllNuNuJetNoHiggs_Run3Dim6TopWithTOP22006AxisScan_run0_customizecards.dat`
+
 Example:
 `python validate_eft_wc.py --proc ttH --tag Run3Dim6TopWithTOP22006AxisScan --wc-tag 7pts_500 --wc ctp`
 '''
