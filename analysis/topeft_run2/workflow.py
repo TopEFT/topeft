@@ -1114,14 +1114,27 @@ class RunWorkflow:
         ecut_threshold: Optional[float],
     ) -> Dict[str, Any]:
         processors: Dict[str, Any] = {}
+        total_tasks = len(histogram_plan.tasks)
         for idx, task in enumerate(histogram_plan.tasks):
             channel_dict = task.channel_metadata
             if not channel_dict:
+                logger.debug(
+                    "[ddr] Skipping task %s (%s/%s) due to missing channel metadata",
+                    idx,
+                    task.sample,
+                    task.clean_channel,
+                )
                 continue
-            if task.clean_channel != "3l_m_offZ_1b_2j":
-                logging.info("Skipping task for channel %s", task.clean_channel)
+            sample_name = task.sample
+            sample_info = samplesdict.get(sample_name)
+            if sample_info is None:
+                logger.warning(
+                    "[ddr] Skipping task %s (%s/%s) because sample is absent from samplesdict",
+                    idx,
+                    sample_name,
+                    task.clean_channel,
+                )
                 continue
-            sample_info = samplesdict[task.sample]
             processor_instance = self._build_processor_instance(
                 task=task,
                 sample_dict=sample_info,
@@ -1131,7 +1144,21 @@ class RunWorkflow:
                 golden_jsons=golden_jsons,
                 ecut_threshold=ecut_threshold,
             )
-            processors[self._ddr_processor_key(idx, task)] = processor_instance
+            processor_key = self._ddr_processor_key(idx, task)
+            processors[processor_key] = processor_instance
+            logger.debug(
+                "[ddr] Added processor %s for sample=%s channel=%s variable=%s application=%s",
+                processor_key,
+                task.sample,
+                task.clean_channel,
+                task.variable,
+                task.application,
+            )
+        logger.info(
+            "[ddr] Constructed %d processors from %d histogram tasks",
+            len(processors),
+            total_tasks,
+        )
         return processors
 
     @staticmethod
