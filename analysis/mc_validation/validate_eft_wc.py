@@ -10,7 +10,7 @@ tolerance: adjust the threshold for agreement
 debug: print out more messages
 
 Example:
-`python validate_eft_wc.py --proc $proc  --tag Run3Dim6TopWithTOP22006AxisScan --wc-tag 7pts_500 --wc ctp`
+`python validate_eft_wc.py --proc ttH --tag Run3Dim6TopWithTOP22006AxisScan --wc-tag 7pts_500 --wc ctp`
 '''
 import os
 import sys
