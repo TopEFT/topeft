@@ -211,7 +211,7 @@ def test_data_driven_samples_preserved_for_1tau_cr():
     )
 
     channel_name = "1l_e_1tau_CR_2j"
-    sample_names = ["nonpromptUL16", "flipsUL16APV", "ttbarUL18", "dataUL18"]
+    sample_names = ["nonpromptUL18", "flipsUL18", "ttbarUL18", "dataUL18"]
 
     for sample in sample_names:
         hist_obj.fill(
@@ -226,8 +226,8 @@ def test_data_driven_samples_preserved_for_1tau_cr():
         "CR", {"met": hist_obj}, years=["2018"], unblind=True
     )
 
-    assert "nonpromptUL16" in region_ctx.mc_samples
-    assert "flipsUL16APV" in region_ctx.mc_samples
+    assert "nonpromptUL18" in region_ctx.mc_samples
+    assert "flipsUL18" in region_ctx.mc_samples
     assert any(
         sample.startswith("nonprompt")
         for sample in region_ctx.group_map.get("Nonprompt", [])
@@ -394,3 +394,81 @@ def test_all_variables_render_for_merged_and_split_categories(
             f"{base_split_name}_met.png",
         }
         assert expected_plots.issubset(split_plots)
+
+
+def test_data_driven_reinsertion_respects_year_tokens():
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    value_axis = hist.axis.Regular(1, 0.0, 1.0, name="met")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, value_axis
+    )
+
+    channel_name = "2lss_em_CR_1j"
+    sample_names = [
+        "ttbar2022",
+        "data2022",
+        "ttbarUL16",
+        "dataUL16",
+        "nonprompt2022",
+        "nonprompt2022EE",
+        "nonprompt2023",
+        "nonprompt2023BPix",
+        "flips2022",
+        "flips2022EE",
+        "flips2023",
+        "flips2023BPix",
+        "nonpromptUL16",
+        "nonpromptUL17",
+        "flipsUL16",
+        "flipsUL17",
+    ]
+
+    for sample in sample_names:
+        hist_obj.fill(
+            process=sample,
+            channel=channel_name,
+            systematic="nominal",
+            met=0.5,
+            weight=1.0,
+        )
+
+    hist_inputs = {"met": hist_obj}
+
+    ctx_2022 = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["2022"], unblind=True
+    )
+    assert "nonprompt2022" in ctx_2022.mc_samples
+    assert "flips2022" in ctx_2022.mc_samples
+    assert "nonprompt2023" not in ctx_2022.mc_samples
+    assert "flips2023BPix" not in ctx_2022.mc_samples
+    assert "nonpromptUL16" not in ctx_2022.mc_samples
+
+    ctx_pair = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["2022", "2022EE"], unblind=True
+    )
+    assert "nonprompt2022" in ctx_pair.mc_samples
+    assert "nonprompt2022EE" in ctx_pair.mc_samples
+    assert "flips2022EE" in ctx_pair.mc_samples
+    assert "nonprompt2023" not in ctx_pair.mc_samples
+
+    ctx_run3 = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["run3"], unblind=True
+    )
+    for label in [
+        "nonprompt2022",
+        "nonprompt2022EE",
+        "nonprompt2023",
+        "nonprompt2023BPix",
+    ]:
+        assert label in ctx_run3.mc_samples
+
+    ctx_run2 = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["run2"], unblind=True
+    )
+    for label in ["nonpromptUL16", "nonpromptUL17", "flipsUL16", "flipsUL17"]:
+        assert label in ctx_run2.mc_samples
+    assert "nonprompt2022" not in ctx_run2.mc_samples
+    assert "flips2022" not in ctx_run2.mc_samples

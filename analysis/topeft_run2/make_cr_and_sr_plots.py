@@ -267,6 +267,25 @@ YEAR_TOKEN_RULES = {
     "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
 }
 
+DD_YEAR_TOKENS = (
+    "UL16",
+    "UL16APV",
+    "UL17",
+    "UL18",
+    "2022",
+    "2022EE",
+    "2023",
+    "2023BPix",
+)
+DD_ALIAS_MAP = {
+    "run2": ("UL16", "UL16APV", "UL17", "UL18"),
+    "run3": ("2022", "2022EE", "2023", "2023BPix"),
+    "2016": ("UL16",),
+    "2016apv": ("UL16APV",),
+    "2017": ("UL17",),
+    "2018": ("UL18",),
+}
+
 _YEAR_SUFFIX_TOKENS = tuple(sorted(YEAR_TOKEN_RULES, key=len, reverse=True))
 _LEPFLAV_TOKENS = (
     "eee",
@@ -686,6 +705,7 @@ CHANNEL_MODE_LABELS = {
 }
 
 _YEAR_TOKEN_CANONICAL = {token.lower(): token for token in YEAR_TOKEN_RULES}
+_DD_YEAR_CANONICAL = {token.lower(): token for token in DD_YEAR_TOKENS}
 
 YEAR_WHITELIST_OPTIONALS = set()
 for _year_rule in YEAR_TOKEN_RULES.values():
@@ -719,6 +739,35 @@ def _normalize_year_tokens(raw_values):
                 seen.add(canonical)
                 normalized.append(canonical)
     return normalized
+
+
+def _extract_dd_year_tokens_from_cli_years(year_tokens):
+    """Return canonical DD year tokens derived from *year_tokens*."""
+
+    collected = []
+    seen = set()
+
+    for raw_value in year_tokens or ():
+        if raw_value is None:
+            continue
+        for token in str(raw_value).split(","):
+            cleaned = token.strip()
+            if not cleaned:
+                continue
+            lowered = cleaned.lower()
+            canonical = _DD_YEAR_CANONICAL.get(lowered)
+            if canonical is None:
+                mapped_tokens = DD_ALIAS_MAP.get(lowered)
+            else:
+                mapped_tokens = (canonical,)
+            if not mapped_tokens:
+                continue
+            for mapped in mapped_tokens:
+                if mapped not in seen:
+                    seen.add(mapped)
+                    collected.append(mapped)
+
+    return tuple(collected) if collected else None
 
 
 def _hist_has_content(histogram):
@@ -3889,26 +3938,37 @@ def build_region_context(
     data_wl = ["data"]
     data_bl = []
     if years is None:
-        year_tokens = []
+        raw_year_tokens = []
     elif isinstance(years, str):
-        year_tokens = [years]
+        raw_year_tokens = [years]
     else:
-        year_tokens = list(years)
+        raw_year_tokens = list(years)
 
-    normalized_year_tokens = []
-    seen_years = set()
-    for token in year_tokens:
+    invalid_tokens = []
+    for token in raw_year_tokens:
         if token is None:
             continue
-        cleaned = str(token).strip()
-        if not cleaned or cleaned in seen_years:
+        cleaned = str(token).strip().lower()
+        if not cleaned:
             continue
-        if cleaned not in YEAR_TOKEN_RULES:
-            raise ValueError(
-                "Error: Unknown year token '{}' requested. Supported tokens: {}".format(
-                    cleaned, ", ".join(sorted(YEAR_TOKEN_RULES))
-                )
+        if cleaned in _YEAR_TOKEN_CANONICAL:
+            continue
+        if cleaned in YEAR_AGGREGATE_ALIASES:
+            continue
+        invalid_tokens.append(token)
+    if invalid_tokens:
+        raise ValueError(
+            "Error: Unknown year token(s) {} requested. Supported tokens: {}".format(
+                ", ".join(str(token) for token in invalid_tokens),
+                ", ".join(sorted(YEAR_TOKEN_RULES)),
             )
+        )
+
+    normalized_year_tokens = _normalize_year_tokens(raw_year_tokens)
+    seen_years = set()
+    for cleaned in normalized_year_tokens:
+        if cleaned in seen_years:
+            continue
         rules = YEAR_TOKEN_RULES[cleaned]
 
         mc_wl_values = rules.get("mc_wl", [])
@@ -3939,7 +3999,6 @@ def build_region_context(
                     continue
                 data_bl.append(value)
         seen_years.add(cleaned)
-        normalized_year_tokens.append(cleaned)
 
     try:
         all_samples = yt.get_cat_lables(dict_of_hists, "process")
@@ -3947,7 +4006,14 @@ def build_region_context(
         ref_hist = _find_reference_hist_name(dict_of_hists)
         all_samples = yt.get_cat_lables(dict_of_hists, "process", h_name=ref_hist)
 
-    def _filter_samples(all_labels, whitelist, blacklist, *, allow_data_driven_reinsertion=False):
+    def _filter_samples(
+        all_labels,
+        whitelist,
+        blacklist,
+        *,
+        allow_data_driven_reinsertion=False,
+        dd_year_tokens=None,
+    ):
         """Return samples that satisfy blacklist rules and multi-token requirements."""
 
         if len(whitelist) <= 1 and not allow_data_driven_reinsertion:
@@ -4035,21 +4101,31 @@ def build_region_context(
                     continue
                 if must_have_tokens and any(token not in label for token in must_have_tokens):
                     continue
+                if dd_year_tokens is not None and not any(
+                    token in label for token in dd_year_tokens
+                ):
+                    continue
                 filtered.append(label)
                 filtered_set.add(label)
         return filtered
+
+    dd_year_tokens = _extract_dd_year_tokens_from_cli_years(
+        raw_year_tokens if raw_year_tokens else normalized_year_tokens
+    )
 
     mc_samples = _filter_samples(
         all_samples,
         mc_wl,
         mc_bl,
         allow_data_driven_reinsertion=True,
+        dd_year_tokens=dd_year_tokens,
     )
     data_samples = _filter_samples(
         all_samples,
         data_wl,
         data_bl,
         allow_data_driven_reinsertion=False,
+        dd_year_tokens=dd_year_tokens,
     )
     samples_to_remove = {
         "mc": [sample for sample in all_samples if sample not in mc_samples],
