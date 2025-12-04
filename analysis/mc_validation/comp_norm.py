@@ -3,6 +3,8 @@ This script produces plots comparing two input pkl files made from `gen_processo
 The minimum set of inputs is the paths to each pkl file and the json for one of them.
 If the json file contains the starting points ("StPt") it will draw a green curve reweighted to that value,
 otherwise it will set all WCs to 1 for the green curve.
+You can get the official starting points from the GridpackGeneration repo
+e.g. Run 3 dim6top: https://github.com/TopEFT/GridpackGeneration/blob/dim6top_run3/mcgeneration/scanfiles/startpts_scale_by_1p1_Run3_dim6top.json
 
 Variables:
 You can specify a single variable using `--var <your variable>`,
