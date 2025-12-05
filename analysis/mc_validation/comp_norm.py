@@ -435,6 +435,9 @@ if __name__ == '__main__':
         plot('draj'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('mll'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('invm'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
+        plot('invm_ttX'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
+        plot('invm_tX'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
+        plot('invm_4t'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('njets'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         #plot('photon_eta'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
     else:
