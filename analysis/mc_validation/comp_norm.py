@@ -352,7 +352,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     #if flow=='show': eft_err = eft_err[1:]
     if not args.central and not args.skip: hep.histplot(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{args.str1} pt.', ax=ax, density=density, flow=flow, ls='--', yerr=eft_err)
     if args.private and not args.skip and not args.central: #FIXME
-        hep.histplot(hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{str2} EFT pt.', ax=ax, density=density, flow=flow, yerr=False, ls='--')
+        hep.histplot(hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{str2} EFT pt.', ax=ax, density=density, flow=flow, yerr=False, ls='-.')
     #eft_st = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt).values()
     #eft_err = np.sqrt(eft_st)/np.sum(eft_st)
     #eft_err = np.sqrt(eft_st)
@@ -380,7 +380,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if flow=='show': eft_err = eft_err[1:]
     norm = np.sum(sm.values()) / np.sum(eft.values())
     if args.abs: norm = 1
-    if not args.central and not args.skip: (eft/sm * norm).plot1d(yerr=eft_err, ax=rax, flow=flow, ls='--')
+    if not args.central and not args.skip: (eft/sm * norm).plot1d(yerr=eft_err, ax=rax, flow=flow, ls='-.')
 
     eft_start_norm = np.sum(eft.values(flow=True)[()]) #/ sm_scale
     if args.abs: norm = 1
@@ -434,6 +434,7 @@ if __name__ == '__main__':
         #plot('dral_sec'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('draj'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('mll'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
+        plot('invm'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('njets'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         #plot('photon_eta'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
     else:
