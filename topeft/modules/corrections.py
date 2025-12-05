@@ -1094,7 +1094,7 @@ def AttachPerLeptonFR(leps, flavor, year):
 
         json_path = topeft_path("data/fakerates/fake_rates_Run3.json")
         ceval = correctionlib.CorrectionSet.from_file(json_path)
-        pt = ak.flatten(leps.pt)
+        pt = ak.flatten(leps.conept)
         abseta = ak.flatten(abs(leps.eta))
         abspdgid = ak.flatten(abs(leps.pdgId))
 
@@ -1114,7 +1114,7 @@ def AttachPerLeptonFR(leps, flavor, year):
         chargeflip_sf = ak.ones_like(leps.pdgId, dtype=np.float64) #get_te_param("chargeflip_sf_dict")[flip_year_name]
 
         for syst in ffSysts:
-            fr = ak.unflatten(ceval["fakeRate_2022_2022EE"].evaluate(pt_masked, abseta, syst, abspdgid), ak.num(leps.pt))
+            fr = ak.unflatten(ceval["fakeRate_2022_2022EE"].evaluate(pt_masked, abseta, syst, abspdgid), ak.num(leps.conept))
             leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0)
             leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.0 + 1.0
             leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0

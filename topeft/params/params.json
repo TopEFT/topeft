@@ -20,7 +20,8 @@
     "iso_cut" : 0.4,
 
     "fo_m_jetRelIso_cut" : 0.5,
-    "fo_e_jetRelIso_cut" : 1.0,
+    "fo_e_jetRelIso_cut_run2" : 1.0,
+    "fo_e_jetRelIso_cut_run3" : 0.9,
 
     "fo_e_mvaiso_cut_run3" : 0.6,
 
