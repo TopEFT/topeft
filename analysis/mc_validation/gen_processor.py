@@ -74,6 +74,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             "mll_fromzg_t" : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_t", label=r"invmass tautau from z/gamma"), wc_names=wc_names_lst, rebin=False),
             "mll"          : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(30,  0, 300,  name="mll",          label=r"Invmass l0l1"), wc_names=wc_names_lst, rebin=False),
             "invm"          : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Variable([300, 310, 320, 350, 400, 500, 700, 1000],  name="invm",        label=r"Invmass of system"), wc_names=wc_names_lst, rebin=False),
+            "invm_ttX"          : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Variable([300, 310, 320, 350, 400, 500, 700, 1000],  name="invm_ttX",        label=r"Invmass of system"), wc_names=wc_names_lst, rebin=False),
+            "invm_tX"          : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Variable([200, 300, 310, 320, 350, 400, 500, 700, 1000],  name="invm_tX",        label=r"Invmass of system"), wc_names=wc_names_lst, rebin=False),
+            "invm_4t"          : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Variable([700, 750, 800, 850, 900, 1000, 2000, 3000],  name="invm_4t",        label=r"Invmass of system"), wc_names=wc_names_lst, rebin=False),
             "ht"           : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht",           label=r"Scalar sum of genjet pt"), wc_names=wc_names_lst, rebin=False),
             "ht_clean"     : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht_clean",     label=r"Scalar sum of clean genjet pt"), wc_names=wc_names_lst, rebin=False),
             "lhe_t_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,   name="lhe_t_pt",     label=r"Pt of the leading LHE t"), wc_names=wc_names_lst, rebin=False),
@@ -176,7 +179,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         gen_Z   = ak.pad_none(genpart[(abs(genpart.pdgId) == 23)],2)
         gen_H   = ak.pad_none(genpart[(abs(genpart.pdgId) == 25)],2)
         gen_bos = ak.pad_none(genpart[(abs(genpart.pdgId) == 23) | (abs(genpart.pdgId) == 24) | abs(genpart.pdgId) == 25],2)
-        gen_bos = ak.pad_none(genpart[abs(genpart.pdgId) == 25],2)
+        #gen_bos = ak.pad_none(genpart[abs(genpart.pdgId) == 25],2)
         #dilep_mask = (np.abs(lhepart.pdgId)) == 13 | (np.abs(lhepart.pdgId) == 11)
         #nu_mask = (np.abs(lhepart.pdgId)) == 14 | (np.abs(lhepart.pdgId) == 12)
         #b_mask = (np.abs(lhepart.pdgId)) == 5
@@ -383,6 +386,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             "photon_eta" : gen_p_eta,
             "mll"  : ak.fill_none(mll_l0l1, -1),
             "invm" : ak.fill_none(tX.mass, -1),
+            "invm_ttX" : ak.fill_none(tX.mass, -1),
+            "invm_tX" : ak.fill_none(tX.mass, -1),
+            "invm_4t" : ak.fill_none(tX.mass, -1),
             "t_pt" : ak.fill_none(ak.firsts(gen_top).pt, -1),
             "z_pt" : ak.fill_none(ak.firsts(gen_Z).pt, -1),
             "H_pt" : ak.fill_none(ak.firsts(gen_H).pt, -1),
