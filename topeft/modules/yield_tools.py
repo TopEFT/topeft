@@ -1,11 +1,18 @@
 import numpy as np
 import copy
 import logging
+
+import hist
+
+from topcoffea.modules.compat import ensure_histEFT_py39_compat
+from topcoffea.modules.utils import canonicalize_process_name
+from topeft.modules.compatibility import add_sumw2_stub
+
+ensure_histEFT_py39_compat()
+
 from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
 import topcoffea.modules.utils as utils
-from topeft.modules.compatibility import add_sumw2_stub
-from topeft.modules.utils import canonicalize_process_name
 
 logger = logging.getLogger(__name__)
 
@@ -333,7 +340,8 @@ class YieldTools():
         if not isinstance(histo, (HistEFT, SparseHist)):
             raise TypeError(f"Unsupported histogram container type: {type(histo)}")
 
-        return list(histo.axes[axis])
+        labels = list(histo.axes[axis])
+        return [str(label) if not isinstance(label, str) else label for label in labels]
 
     # Remove the njet component of a category name, returns a new str
     def get_str_without_njet(self,in_str):
@@ -375,15 +383,92 @@ class YieldTools():
 
 
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
-    def is_split_by_lepflav(self,hin_dict):
+    def _lepflav_tokens(self, reference_channel_map=None):
+        lep_flav_lst = ["e", "m", "ee", "em", "mm", "eee", "eem", "emm", "mmm"]
+
+        for bins in (reference_channel_map or {}).values():
+            for name in bins or ():
+                for component in str(name).split("_"):
+                    if component and component not in lep_flav_lst:
+                        # Accept mixed-case tokens or extended flavour tags from
+                        # run-dependent configurations.
+                        lower_component = component.lower()
+                        if lower_component in lep_flav_lst:
+                            lep_flav_lst.append(component)
+                        elif any(char in lower_component for char in ("e", "m")) and len(component) <= 4:
+                            lep_flav_lst.append(component)
+
+        return tuple(dict.fromkeys(lep_flav_lst))
+
+    def is_split_by_lepflav(self,hin_dict, reference_channel_map=None):
         ch_names_lst = self.get_cat_lables(hin_dict,axis="channel")
-        lep_flav_lst = ["e","m","ee","em","mm","eee","eem","emm","mmm"]
+        lep_flav_lst = self._lepflav_tokens(reference_channel_map=reference_channel_map)
         for ch_name in ch_names_lst:
-            ch_components = ch_name.split("_")
+            ch_components = str(ch_name).split("_")
             for lep_flav_name in lep_flav_lst:
                 if lep_flav_name in ch_components:
                     return True
         return False
+
+    def restore_split_channel_labels(self, hin_dict, reference_channel_map=None):
+        if not isinstance(hin_dict, dict):
+            return False
+
+        ref_map = reference_channel_map or {}
+        if not ref_map:
+            return False
+
+        flavour_candidates = {}
+        for entries in ref_map.values():
+            for channel_name in entries or ():
+                base_name = self.get_str_without_lepflav(str(channel_name))
+                flavour_candidates.setdefault(base_name, set()).add(str(channel_name))
+
+        restored_any = False
+
+        for hist_name, hist_obj in hin_dict.items():
+            try:
+                channel_axis = hist_obj.axes["channel"]
+            except Exception:
+                continue
+
+            growth_flag = getattr(getattr(channel_axis, "traits", None), "growth", False)
+            channel_labels = [str(label) if not isinstance(label, str) else label for label in channel_axis]
+
+            if self.is_split_by_lepflav({hist_name: hist_obj}, reference_channel_map=ref_map):
+                continue
+
+            new_labels = []
+            replacements = 0
+            for label in channel_labels:
+                base_label = self.get_str_without_lepflav(label)
+                candidates = flavour_candidates.get(base_label, set())
+                candidate_label = None
+
+                if len(candidates) == 1:
+                    candidate_label = next(iter(candidates))
+
+                if candidate_label and candidate_label != label:
+                    new_labels.append(candidate_label)
+                    replacements += 1
+                else:
+                    new_labels.append(label)
+
+            if replacements == 0:
+                continue
+
+            try:
+                new_axis = hist.axis.StrCategory(new_labels, name="channel", growth=growth_flag)
+                hin_dict[hist_name] = hist_obj.replace_axis("channel", new_axis)
+                restored_any = True
+            except Exception:
+                logger.debug(
+                    "Failed to replace channel axis on histogram '%s' when attempting to restore lepflav labels.",
+                    hist_name,
+                )
+                continue
+
+        return restored_any
 
 
     # Takes a histogram and a dictionary that specifies categories, integrates out the categories listed in the dictionry

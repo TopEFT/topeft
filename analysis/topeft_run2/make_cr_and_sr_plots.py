@@ -14,6 +14,7 @@ import math
 import warnings
 import itertools
 import multiprocessing
+from functools import lru_cache
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -25,19 +26,24 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import mplhep as hep
 import hist
 from matplotlib.transforms import Bbox
-from topcoffea.modules.histEFT import HistEFT
-from topcoffea.modules.sparseHist import SparseHist
-from topeft.modules.axes import info as axes_info
-from topeft.modules.axes import info_2d as axes_info_2d
+import topcoffea.modules.histEFT as tc_histEFT
+import topcoffea.modules.sparseHist as tc_sparseHist
+from topeft.modules.axes import info as te_axes_info
+from topeft.modules.axes import info_2d as te_axes_info_2d
 
-from topcoffea.scripts.make_html import make_html
-#import topcoffea.modules.utils as utils
-import topeft.modules.utils as te_utils
-from topeft.modules.yield_tools import YieldTools
+from topcoffea.scripts.make_html import make_html as tc_make_html
+import topcoffea.modules.utils as tc_utils
+from topeft.modules.yield_tools import YieldTools as te_YieldTools
+from topeft.modules.get_rate_systs import (
+    get_correlation_tag as te_get_correlation_tag,
+    get_jet_dependent_syst_dict as te_get_jet_dependent_syst_dict,
+    get_syst as te_get_syst,
+    get_syst_lst as te_get_syst_lst,
+)
 
 
 _logger = logging.getLogger(__name__)
-_ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = SparseHist._read_from_reduce.__func__
+_ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = tc_sparseHist.SparseHist._read_from_reduce.__func__
 _VALUES_METHOD_CAPS = {}
 
 
@@ -96,15 +102,15 @@ def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_his
         )
 
 
-SparseHist._read_from_reduce = classmethod(_fast_sparsehist_from_reduce)
+tc_sparseHist.SparseHist._read_from_reduce = classmethod(_fast_sparsehist_from_reduce)
 
-from topcoffea.modules.paths import topcoffea_path
-from topeft.modules.paths import topeft_path
-from topcoffea.modules.get_param_from_jsons import GetParam
-get_tc_param = GetParam(topcoffea_path("params/params.json"))
+from topcoffea.modules.paths import topcoffea_path as tc_topcoffea_path
+from topeft.modules.paths import topeft_path as te_topeft_path
+from topcoffea.modules.get_param_from_jsons import GetParam as tc_GetParam
+get_tc_param = tc_GetParam(tc_topcoffea_path("params/params.json"))
 import yaml
 
-with open(topeft_path("params/cr_sr_plots_metadata.yml")) as f:
+with open(te_topeft_path("params/cr_sr_plots_metadata.yml")) as f:
     _META = yaml.safe_load(f)
 
 
@@ -143,6 +149,7 @@ if isinstance(MC_ERROR_OPS.get("edgecolor"), list):
     MC_ERROR_OPS["edgecolor"] = tuple(MC_ERROR_OPS["edgecolor"])
 CR_CHAN_DICT = _META["CR_CHAN_DICT"]
 SR_CHAN_DICT = _META["SR_CHAN_DICT"]
+CHANNEL_REFERENCE_MAP = {**CR_CHAN_DICT, **SR_CHAN_DICT}
 CR_GROUP_INFO = _META.get("CR_GRP_MAP", {})
 SR_GROUP_INFO = _META.get("SR_GRP_MAP", {})
 CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
@@ -183,6 +190,64 @@ REGION_PLOTTING = _META.get("REGION_PLOTTING", {})
 STACKED_RATIO_STYLE = _META.get("STACKED_RATIO_STYLE", {})
 
 
+# Cached helpers for rate systematic metadata
+@lru_cache(maxsize=None)
+def _cached_get_syst(syst_name, proc_name=None, *, literal=False):
+    """Fetch a systematic entry from params/rate_systs.json with logging."""
+
+    try:
+        return tuple(
+            te_get_syst(syst_name, proc_name=proc_name, literal=literal)
+        )
+    except Exception as exc:  # pragma: no cover - defensive logging
+        _logger.error(
+            "Unable to retrieve rate systematic '%s' for process '%s': %s",
+            syst_name,
+            proc_name,
+            exc,
+        )
+        raise
+
+
+def _get_syst_with_default(
+    syst_name, proc_name=None, *, default=(1.0, 1.0), literal=False
+):
+    try:
+        return _cached_get_syst(syst_name, proc_name, literal=literal)
+    except Exception:  # pragma: no cover - fallback path
+        _logger.warning(
+            "Defaulting to %s for systematic '%s' and process '%s'.",
+            default,
+            syst_name,
+            proc_name,
+        )
+        return default
+
+
+@lru_cache(maxsize=1)
+def _cached_get_syst_lst():
+    return tuple(te_get_syst_lst())
+
+
+@lru_cache(maxsize=None)
+def _cached_get_correlation_tag(syst_type, proc_name):
+    try:
+        return te_get_correlation_tag(syst_type, proc_name)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        _logger.warning(
+            "No correlation tag found for systematic '%s' and process '%s': %s",
+            syst_type,
+            proc_name,
+            exc,
+        )
+        return None
+
+
+@lru_cache(maxsize=None)
+def _cached_get_jet_dependent_syst_dict(process="Diboson"):
+    return te_get_jet_dependent_syst_dict(process=process)
+
+
 YEAR_TOKEN_RULES = {
     "2016": {
         "mc_wl": ["UL16"],
@@ -202,6 +267,25 @@ YEAR_TOKEN_RULES = {
     "2023BPix": {"mc_wl": ["2023BPix"], "data_wl": ["2023BPix"]},
 }
 
+DD_YEAR_TOKENS = (
+    "UL16",
+    "UL16APV",
+    "UL17",
+    "UL18",
+    "2022",
+    "2022EE",
+    "2023",
+    "2023BPix",
+)
+DD_ALIAS_MAP = {
+    "run2": ("UL16", "UL16APV", "UL17", "UL18"),
+    "run3": ("2022", "2022EE", "2023", "2023BPix"),
+    "2016": ("UL16",),
+    "2016apv": ("UL16APV",),
+    "2017": ("UL17",),
+    "2018": ("UL18",),
+}
+
 _YEAR_SUFFIX_TOKENS = tuple(sorted(YEAR_TOKEN_RULES, key=len, reverse=True))
 _LEPFLAV_TOKENS = (
     "eee",
@@ -214,6 +298,7 @@ _LEPFLAV_TOKENS = (
     "e",
     "m",
 )
+_NJET_SUFFIX_PATTERN = re.compile(r"_(\d+)j$", re.IGNORECASE)
 
 
 def _strip_year_token(value):
@@ -268,10 +353,270 @@ def _derive_channel_display_label(base_label, bin_names):
     return f"{base_label}_{flavour_token}"
 
 
-def _group_channels_by_yearless_label(channel_dict):
+def _extract_njet_suffix(value):
+    """Return the trailing ``_<N>j`` suffix detected in *value*, if present."""
+
+    if not isinstance(value, str):
+        return None
+
+    match = _NJET_SUFFIX_PATTERN.search(value)
+    if not match:
+        return None
+
+    return f"{match.group(1).lower()}j"
+
+
+def _append_njet_suffix(label, suffix):
+    if not suffix:
+        return label
+    normalized_suffix = suffix.lower()
+    if label.lower().endswith(f"_{normalized_suffix}"):
+        return label
+    return f"{label}_{normalized_suffix}"
+
+
+def _strip_njet_suffix(label):
+    """Return *label* with a trailing ``_<N>j`` suffix removed, if present."""
+
+    suffix = _extract_njet_suffix(label)
+    if not suffix:
+        return label
+
+    normalized = suffix.lower()
+    if label.lower().endswith(f"_{normalized}"):
+        return label[: -len(normalized) - 1]
+
+    return label
+
+
+def _resolve_channel_axis_labels(histogram):
+    """Return the tuple of channel labels defined on *histogram*."""
+
+    if histogram is None:
+        return ()
+
+    try:
+        axis = histogram.axes["channel"]
+    except Exception:
+        return ()
+
+    try:
+        return tuple(str(label) for label in axis)
+    except Exception:
+        return tuple(axis)
+
+
+def _resolve_process_axis_labels(histogram):
+    """Return the tuple of process labels defined on *histogram*."""
+
+    if histogram is None:
+        return ()
+
+    try:
+        axis = histogram.axes["process"]
+    except Exception:
+        return ()
+
+    try:
+        return tuple(str(label) for label in axis)
+    except Exception:
+        return tuple(axis)
+
+
+def _has_axis(histogram, axis_name):
+    """Return ``True`` when *histogram* exposes *axis_name* as an axis."""
+
+    if histogram is None:
+        return False
+
+    try:
+        histogram.axes[axis_name]
+        return True
+    except Exception:
+        return False
+
+
+def _preview_channel_axis_labels(histogram_mapping):
+    """Return the first available set of channel labels from *histogram_mapping*."""
+
+    if isinstance(histogram_mapping, Mapping):
+        for hist_obj in histogram_mapping.values():
+            labels = _resolve_channel_axis_labels(hist_obj)
+            if labels:
+                return labels
+    else:
+        return _resolve_channel_axis_labels(histogram_mapping)
+
+    return ()
+
+
+def _warn_missing_split_channels(histogram_mapping, reference_channel_map=None):
+    """Emit a diagnostic when lepton-flavour split channels are unavailable."""
+
+    reference_channel_map = reference_channel_map or {}
+    available_channels = _preview_channel_axis_labels(histogram_mapping)
+
+    expected_split = sorted(
+        {
+            channel_name
+            for channel_bins in reference_channel_map.values()
+            for channel_name in channel_bins or ()
+            if _extract_lepflav_token(channel_name)
+        }
+    )
+
+    available_summary = (
+        ", ".join(sorted(map(str, available_channels))) if available_channels else "<none>"
+    )
+    expected_summary = ", ".join(expected_split) if expected_split else "<unspecified>"
+
+    _logger.warning(
+        "Split channel output was requested but lep-flavour labels were not found on the channel axis. "
+        "Available channel bins: %s. Expected flavour-split bins (from configuration): %s.",
+        available_summary,
+        expected_summary,
+    )
+
+
+def _filter_existing_channel_bins(bin_names, available_channels):
+    """Return ``(filtered, missing)`` for *bin_names* against *available_channels*."""
+
+    if not bin_names:
+        return [], []
+
+    available_set = None
+    if available_channels:
+        available_set = {str(label) for label in available_channels}
+
+    filtered = []
+    missing = []
+    seen = set()
+    for bin_name in bin_names:
+        if available_set is not None and bin_name not in available_set:
+            missing.append(bin_name)
+            continue
+        if bin_name in seen:
+            continue
+        seen.add(bin_name)
+        filtered.append(bin_name)
+
+    return filtered, missing
+
+
+def _prune_empty_channel_entries(channel_dict):
+    """Drop channel entries that no longer contain any bins."""
+
+    pruned = OrderedDict()
+    for key, channel_bins in channel_dict.items():
+        if channel_bins is None:
+            pruned[key] = None
+            continue
+        if channel_bins:
+            pruned[key] = channel_bins
+    return pruned
+
+
+def _maybe_preserve_njet_bins(
+    channel_dict,
+    *,
+    preserve=False,
+    available_channels=None,
+):
+    """Return *channel_dict* with entries split by njets suffix when requested."""
+
+    if not preserve:
+        return channel_dict
+
+    preserved = OrderedDict()
+    available_channels = tuple(available_channels or ())
+
+    for key, channel_bins in channel_dict.items():
+        if channel_bins is None:
+            preserved[key] = None
+            continue
+
+        filtered_bins, _ = _filter_existing_channel_bins(
+            list(channel_bins), available_channels
+        )
+        if not filtered_bins:
+            continue
+
+        suffix_buckets = OrderedDict()
+        suffix_order = []
+        for bin_name in filtered_bins:
+            suffix = _extract_njet_suffix(bin_name)
+            if suffix not in suffix_buckets:
+                suffix_buckets[suffix] = []
+                suffix_order.append(suffix)
+            suffix_buckets[suffix].append(bin_name)
+
+        suffixes = [suffix for suffix in suffix_order if suffix is not None]
+        if not suffixes:
+            preserved[key] = filtered_bins
+            continue
+
+        for suffix in suffix_order:
+            bucket = suffix_buckets[suffix]
+            if suffix is None:
+                filtered_bucket, _ = _filter_existing_channel_bins(
+                    bucket, available_channels
+                )
+                if filtered_bucket:
+                    preserved[key] = filtered_bucket
+                continue
+            filtered_bucket, _ = _filter_existing_channel_bins(
+                bucket, available_channels
+            )
+            if not filtered_bucket:
+                continue
+            new_key = _append_njet_suffix(key, suffix)
+            preserved[new_key] = filtered_bucket
+
+    return preserved
+
+
+def _augment_split_channel_entries(
+    channel_dict,
+    *,
+    available_channels=None,
+    reference_channel_map=None,
+    channel_mode=None,
+):
+    """Inject split-lepton categories from the reference map when available."""
+
+    if channel_mode != "per-channel":
+        return channel_dict
+
+    available_set = {str(label) for label in available_channels or ()}
+    if not available_set:
+        return channel_dict
+
+    augmented = OrderedDict(channel_dict)
+    for key, bin_names in (reference_channel_map or {}).items():
+        if key in augmented:
+            continue
+        if not bin_names:
+            continue
+        filtered_bins = [name for name in bin_names if name in available_set]
+        if not filtered_bins:
+            continue
+        if not any(_extract_lepflav_token(name) for name in filtered_bins):
+            continue
+        augmented[key] = filtered_bins
+
+    return augmented
+
+
+def _group_channels_by_yearless_label(
+    channel_dict,
+    *,
+    preserve_njets=False,
+    available_channels=None,
+):
     """Return grouped channel entries and their display labels."""
 
     grouped = OrderedDict()
+    available_channels = tuple(available_channels or ())
 
     for key, channel_bins in channel_dict.items():
         normalized_key = _strip_year_token(key)
@@ -285,7 +630,13 @@ def _group_channels_by_yearless_label(channel_dict):
             bucket = OrderedDict()
             grouped[normalized_key] = bucket
 
-        for bin_name in channel_bins:
+        filtered_bins, _ = _filter_existing_channel_bins(
+            list(channel_bins), available_channels
+        )
+        if not filtered_bins:
+            continue
+
+        for bin_name in filtered_bins:
             bucket.setdefault(bin_name, None)
 
     normalized = OrderedDict()
@@ -296,6 +647,8 @@ def _group_channels_by_yearless_label(channel_dict):
             continue
 
         bin_names = list(bucket.keys())
+        if not bin_names:
+            continue
         token_groups = OrderedDict()
         for bin_name in bin_names:
             token = _extract_lepflav_token(bin_name)
@@ -332,9 +685,18 @@ YEAR_AGGREGATE_ALIASES = {
 }
 
 CHANNEL_OUTPUT_CHOICES = {
-    "merged": ("aggregate",),
-    "split": ("per-channel",),
-    "both": ("aggregate", "per-channel"),
+    "merged": {"modes": ("aggregate",), "preserve_njets": False},
+    "split": {"modes": ("per-channel",), "preserve_njets": False},
+    "both": {
+        "modes": ("aggregate", "per-channel"),
+        "preserve_njets": False,
+    },
+    "merged-njets": {"modes": ("aggregate",), "preserve_njets": True},
+    "split-njets": {"modes": ("per-channel",), "preserve_njets": True},
+    "both-njets": {
+        "modes": ("aggregate", "per-channel"),
+        "preserve_njets": True,
+    },
 }
 
 CHANNEL_MODE_LABELS = {
@@ -343,6 +705,7 @@ CHANNEL_MODE_LABELS = {
 }
 
 _YEAR_TOKEN_CANONICAL = {token.lower(): token for token in YEAR_TOKEN_RULES}
+_DD_YEAR_CANONICAL = {token.lower(): token for token in DD_YEAR_TOKENS}
 
 YEAR_WHITELIST_OPTIONALS = set()
 for _year_rule in YEAR_TOKEN_RULES.values():
@@ -378,6 +741,35 @@ def _normalize_year_tokens(raw_values):
     return normalized
 
 
+def _extract_dd_year_tokens_from_cli_years(year_tokens):
+    """Return canonical DD year tokens derived from *year_tokens*."""
+
+    collected = []
+    seen = set()
+
+    for raw_value in year_tokens or ():
+        if raw_value is None:
+            continue
+        for token in str(raw_value).split(","):
+            cleaned = token.strip()
+            if not cleaned:
+                continue
+            lowered = cleaned.lower()
+            canonical = _DD_YEAR_CANONICAL.get(lowered)
+            if canonical is None:
+                mapped_tokens = DD_ALIAS_MAP.get(lowered)
+            else:
+                mapped_tokens = (canonical,)
+            if not mapped_tokens:
+                continue
+            for mapped in mapped_tokens:
+                if mapped not in seen:
+                    seen.add(mapped)
+                    collected.append(mapped)
+
+    return tuple(collected) if collected else None
+
+
 def _hist_has_content(histogram):
     """Return True if *histogram* contains any finite, non-zero entries."""
 
@@ -411,6 +803,191 @@ def _hist_has_content(histogram):
     return False
 
 
+def _integrate_nominal_axis(histogram):
+    """Project *histogram* onto the nominal systematic slice, if present."""
+
+    if histogram is None:
+        return None
+
+    if not _has_axis(histogram, "systematic"):
+        return histogram
+
+    try:
+        return histogram.integrate("systematic", "nominal")
+    except Exception:
+        return histogram
+
+
+def _describe_data_driven_matcher(matcher):
+    """Return a human-friendly label for a data-driven matcher."""
+
+    pattern = getattr(matcher, "pattern", str(matcher))
+    if pattern.startswith("^"):
+        pattern = pattern[1:]
+    return pattern
+
+
+def _summarize_zero_yield_processes(
+    dict_of_hists,
+    *,
+    region_name,
+    preserve_njets_bins=False,
+):
+    """Return a structured summary of zero-yield processes per channel."""
+
+    summary = {
+        "region": region_name,
+        "channels_scanned": 0,
+        "channel_entries": [],
+        "zero_process_total": 0,
+        "data_driven_zero_total": 0,
+        "missing_data_driven_prefixes": set(),
+        "errors": [],
+    }
+
+    try:
+        reference_hist_name = _find_reference_hist_name(dict_of_hists)
+    except Exception as exc:  # pragma: no cover - defensive
+        summary["errors"].append(str(exc))
+        return summary
+
+    base_hist = dict_of_hists.get(reference_hist_name)
+    available_channels = set(_resolve_channel_axis_labels(base_hist))
+    available_processes = tuple(_resolve_process_axis_labels(base_hist))
+
+    if not _has_axis(base_hist, "process"):
+        summary["errors"].append("No process axis available for zero-yield scan.")
+        return summary
+
+    if not available_channels:
+        summary["errors"].append("No channel axis labels available for zero-yield scan.")
+        return summary
+
+    if not available_processes:
+        summary["errors"].append("No process labels available for zero-yield scan.")
+        return summary
+
+    channel_map = CR_CHAN_DICT if region_name.upper() == "CR" else SR_CHAN_DICT
+    data_driven_availability = {
+        _describe_data_driven_matcher(matcher): [
+            proc for proc in available_processes if matcher.search(proc)
+        ]
+        for matcher in DATA_DRIVEN_MATCHERS
+    }
+
+    for chan_label, chan_bins in channel_map.items():
+        summary["channels_scanned"] += 1
+        unique_bins = tuple(dict.fromkeys(chan_bins))
+        selected_bins = [bin_name for bin_name in unique_bins if bin_name in available_channels]
+        missing_bins = [bin_name for bin_name in unique_bins if bin_name not in available_channels]
+
+        if not selected_bins:
+            summary["channel_entries"].append(
+                {
+                    "label": chan_label,
+                    "missing_bins": tuple(missing_bins),
+                    "zero_processes": [],
+                }
+            )
+            continue
+
+        zero_processes = []
+        for proc in available_processes:
+            try:
+                proc_hist = base_hist.integrate("process", [proc])
+                proc_hist = proc_hist.integrate("channel", selected_bins)
+            except Exception:
+                continue
+
+            proc_hist = _integrate_nominal_axis(proc_hist)
+
+            if not _hist_has_content(proc_hist):
+                is_data_driven = any(
+                    matcher.search(proc) for matcher in DATA_DRIVEN_MATCHERS
+                )
+                zero_processes.append((proc, is_data_driven))
+
+        if zero_processes or missing_bins:
+            summary["channel_entries"].append(
+                {
+                    "label": chan_label,
+                    "missing_bins": tuple(missing_bins),
+                    "zero_processes": zero_processes,
+                }
+            )
+            summary["zero_process_total"] += len(zero_processes)
+            summary["data_driven_zero_total"] += sum(
+                1 for _, is_data_driven in zero_processes if is_data_driven
+            )
+
+    for pattern_label, matches in data_driven_availability.items():
+        if not matches:
+            summary["missing_data_driven_prefixes"].add(pattern_label)
+
+    return summary
+
+
+def _emit_zero_yield_summary(summary, *, detailed=False):
+    """Print a short or detailed zero-yield report for the supplied *summary*."""
+
+    region_label = summary.get("region", "<unknown>")
+    flagged_channels = summary.get("channel_entries", [])
+    channel_count = summary.get("channels_scanned", 0)
+    zero_total = summary.get("zero_process_total", 0)
+    data_driven_zero_total = summary.get("data_driven_zero_total", 0)
+    missing_data_driven = summary.get("missing_data_driven_prefixes", set())
+    errors = summary.get("errors", [])
+
+    if detailed:
+        print("\nZero-yield content summary:")
+        for entry in flagged_channels:
+            issues = []
+            if entry.get("missing_bins"):
+                issues.append(
+                    "missing channels: " + ", ".join(sorted(entry["missing_bins"]))
+                )
+            if entry.get("zero_processes"):
+                zero_labels = []
+                for proc, is_data_driven in entry["zero_processes"]:
+                    label = proc
+                    if is_data_driven:
+                        label = f"{label} [data-driven]"
+                    zero_labels.append(label)
+                issues.append("zero-content processes: " + ", ".join(zero_labels))
+            if issues:
+                print(f"  - {region_label}::{entry['label']}: " + "; ".join(issues))
+
+        if missing_data_driven:
+            print(
+                "  Missing data-driven families: "
+                + ", ".join(sorted(missing_data_driven))
+            )
+
+    notice = (
+        f"Zero-yield scan for {region_label}: {zero_total} zero-content processes"
+        f" across {channel_count} channel groups"
+    )
+
+    if data_driven_zero_total or missing_data_driven:
+        notice += (
+            f" (data-driven zeros: {data_driven_zero_total}, missing families:"
+            f" {len(missing_data_driven)})"
+        )
+
+    has_issues = bool(flagged_channels or missing_data_driven)
+
+    if errors:
+        notice += f"; unable to scan fully ({'; '.join(errors)})"
+    elif not has_issues:
+        notice += "; no issues detected."
+    else:
+        notice += "."
+        if not detailed:
+            notice += " Pass --report-zero-yields for details."
+
+    print(notice)
+
+
 logger = logging.getLogger(__name__)
 
 # This script takes an input pkl file that should have both data and background MC included.
@@ -419,7 +996,7 @@ logger = logging.getLogger(__name__)
 # For example, to make unit normalized plots for 2017+2018, with the timestamp appended to the directory name, you would run:
 #     python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2017 2018 -t -u
 
-yt = YieldTools()
+yt = te_YieldTools()
 
 ######### Utility functions #########
 
@@ -1018,8 +1595,11 @@ def _render_variable_from_worker(task_id, payload):
         else:
             region_ctx = ctx["region_ctx"]
             channel_bins = variable_payload["channel_dict"].get(category)
-            if channel_bins is None or _should_skip_category(
-                region_ctx.category_skip_rules, category, var_name
+            if channel_bins is None or (
+                region_ctx.apply_category_skips
+                and _should_skip_category(
+                    region_ctx.category_skip_rules, category, var_name
+                )
             ):
                 stat_only, stat_and_syst, html_set = 0, 0, set()
             else:
@@ -1042,6 +1622,7 @@ def _render_variable_from_worker(task_id, payload):
                     channel_display_labels=variable_payload.get(
                         "channel_display_labels", {}
                     ),
+                    available_channels=variable_payload.get("available_channels"),
                 )
     return task_id, stat_only, stat_and_syst, html_set
 
@@ -1071,16 +1652,23 @@ def _prepare_variable_payload(
                 "channel_display_labels": cached_payload.get(
                     "channel_display_labels", {}
                 ),
+                "available_channels": cached_payload.get(
+                    "available_channels", ()
+                ),
             }
         return cached_payload
 
     histo = region_ctx.dict_of_hists[var_name]
-    is_sparse2d = _is_sparse_2d_hist(histo)
+    is_sparse2d = _is_sparse_2d_hist(histo, var_name=var_name)
     if is_sparse2d and region_ctx.skip_sparse_2d:
         return None
-    if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
-        print(
-            f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting."
+    has_2d_metadata = isinstance(var_name, str) and (
+        (var_name in te_axes_info_2d) or ("_vs_" in var_name)
+    )
+    if is_sparse2d and not has_2d_metadata:
+        _logger.debug(
+            "Sparse 2D histogram '%s' lacks explicit metadata; ensure axes are configured if 2D plotting is desired.",
+            var_name,
         )
         is_sparse2d = False
 
@@ -1090,14 +1678,35 @@ def _prepare_variable_payload(
     )
     channel_dict = _deduplicate_channel_bins(channel_dict)
     channel_dict = _prune_unsplit_flavour_entries(channel_dict, region_ctx)
+
+    available_channels = _resolve_channel_axis_labels(histo)
+
+    channel_dict = _augment_split_channel_entries(
+        channel_dict,
+        available_channels=available_channels,
+        reference_channel_map=region_ctx.channel_map,
+        channel_mode=region_ctx.channel_mode,
+    )
+
+    channel_dict = _maybe_preserve_njet_bins(
+        channel_dict,
+        preserve=region_ctx.preserve_njets_bins,
+        available_channels=available_channels,
+    )
+    channel_dict = _deduplicate_channel_bins(channel_dict)
+    channel_dict = _prune_empty_channel_entries(channel_dict)
     channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
+    channel_dict = _prune_empty_channel_entries(channel_dict)
     channel_display_labels = {}
     if region_ctx.channel_mode == "per-channel":
         channel_dict, channel_display_labels = _group_channels_by_yearless_label(
-            channel_dict
+            channel_dict,
+            preserve_njets=region_ctx.preserve_njets_bins,
+            available_channels=available_channels,
         )
     else:
         channel_display_labels = {key: key for key in channel_dict.keys()}
+
 
     if metadata_only:
         return {
@@ -1105,6 +1714,7 @@ def _prepare_variable_payload(
             "channel_transformations": channel_transformations,
             "is_sparse2d": is_sparse2d,
             "channel_display_labels": channel_display_labels,
+            "available_channels": available_channels,
         }
 
     mc_to_remove = tuple(region_ctx.samples_to_remove.get("mc") or ())
@@ -1151,6 +1761,7 @@ def _prepare_variable_payload(
         "hist_mc_sumw2_orig": hist_mc_sumw2_orig,
         "is_sparse2d": is_sparse2d,
         "channel_display_labels": channel_display_labels,
+        "available_channels": available_channels,
     }
 
 
@@ -1202,7 +1813,9 @@ def _render_variable(
     for hist_cat, channel_bins in channel_items:
         if channel_bins is None:
             continue
-        if _should_skip_category(region_ctx.category_skip_rules, hist_cat, var_name):
+        if region_ctx.apply_category_skips and _should_skip_category(
+            region_ctx.category_skip_rules, hist_cat, var_name
+        ):
             continue
 
         stat_only, stat_and_syst, html_set = _render_variable_category(
@@ -1222,6 +1835,7 @@ def _render_variable(
             unblind_flag=unblind_flag,
             verbose=verbose,
             channel_display_labels=channel_display_labels,
+            available_channels=variable_payload.get("available_channels"),
         )
         stat_only_plots += stat_only
         stat_and_syst_plots += stat_and_syst
@@ -1248,6 +1862,7 @@ def _render_variable_category(
     unblind_flag,
     verbose=False,
     channel_display_labels=None,
+    available_channels=None,
 ):
     """Render a single (variable, category) pair and return bookkeeping totals."""
 
@@ -1260,11 +1875,38 @@ def _render_variable_category(
         variable=var_name,
     )
 
+    if available_channels is None:
+        available_channels = _resolve_channel_axis_labels(hist_mc)
+    else:
+        available_channels = tuple(available_channels)
+
+    filtered_bins, missing_bins = _filter_existing_channel_bins(
+        list(channel_bins or []), available_channels
+    )
+
+    if region_ctx.preserve_njets_bins and missing_bins and not filtered_bins:
+        _logger.info(
+            "Skipping %s/%s for variable '%s': no preserved njet bins overlap with histogram axis (missing=%s, available=%s)",
+            region_ctx.name,
+            hist_cat,
+            var_name,
+            sorted(missing_bins),
+            sorted(str(label) for label in available_channels),
+        )
+
+    if not filtered_bins:
+        return 0, 0, set()
+
+    channel_bins = filtered_bins
+
     base_dir = save_dir_path or ""
+    raw_display_label = (channel_display_labels or {}).get(hist_cat, hist_cat)
     display_label = (
-        channel_display_labels or {}
-    ).get(hist_cat, hist_cat)
-    save_dir_path_tmp = os.path.join(base_dir, display_label)
+        raw_display_label
+        if region_ctx.preserve_njets_bins
+        else re.sub(r"_(\d+)j$", "", raw_display_label, flags=re.IGNORECASE)
+    )
+    save_dir_path_tmp = os.path.join(base_dir, raw_display_label)
     os.makedirs(save_dir_path_tmp, exist_ok=True)
 
     stat_only_plots = 0
@@ -1580,11 +2222,13 @@ def _render_variable_category(
             if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
             else hist_mc_integrated
         )
-        title = f"{hist_cat}_{var_name}"
+        title = f"{display_label}_{var_name}"
+        if not region_ctx.preserve_njets_bins:
+            title = re.sub(r"_(\d+)j(?=_)", "", title, flags=re.IGNORECASE)
         if unit_norm_bool:
             title = f"{title}_unitnorm"
         bins_override = region_ctx.analysis_bins.get(var_name)
-        axis_meta = axes_info.get(var_name, {})
+        axis_meta = te_axes_info.get(var_name, {})
         default_bins = axis_meta.get("variable")
         stacked_kwargs = {
             "group": {k: v for k, v in region_ctx.group_map.items() if v},
@@ -1610,11 +2254,14 @@ def _render_variable_category(
             unit_norm_bool=unit_norm_bool,
             **stacked_kwargs,
         )
-        fig.savefig(
-            os.path.join(save_dir_path_tmp, f"{title}.png"),
-            bbox_inches="tight",
-            pad_inches=0.05,
-        )
+        save_path = os.path.join(save_dir_path_tmp, f"{title}.png")
+        fig.savefig(save_path, bbox_inches="tight", pad_inches=0.05)
+        if not region_ctx.preserve_njets_bins:
+            clean_save_path = re.sub(
+                r"_(\d+)j(?=_[^/]+$)", "", save_path, flags=re.IGNORECASE
+            )
+            if clean_save_path != save_path:
+                os.replace(save_path, clean_save_path)
         _close_figure_payload(fig)
         has_syst_inputs = any(
             err is not None
@@ -1668,7 +2315,7 @@ def validate_channel_group(histos, expected_labels, transformations, region, sub
 
     available_channels = set()
     for histo in histos:
-        if not isinstance(histo, (HistEFT, SparseHist)):
+        if not isinstance(histo, (tc_histEFT.HistEFT, tc_sparseHist.SparseHist)):
             continue
         if "channel" not in yt.get_axis_list(histo):
             continue
@@ -1717,7 +2364,7 @@ def populate_group_map(samples, pattern_map):
     fallback_groups = OrderedDict()
 
     for proc_name in samples:
-        canonical_name = te_utils.canonicalize_process_name(proc_name)
+        canonical_name = tc_utils.canonicalize_process_name(proc_name)
         matched = False
         for grp, patterns in pattern_map.items():
             for pat in patterns:
@@ -2848,15 +3495,15 @@ def _finalize_layout(
 
 
 def _sample_in_group(sample_name, candidates, canonical_sample=None):
-    canonical_sample = canonical_sample or te_utils.canonicalize_process_name(sample_name)
+    canonical_sample = canonical_sample or tc_utils.canonicalize_process_name(sample_name)
     return any(
-        canonical_sample == te_utils.canonicalize_process_name(candidate)
+        canonical_sample == tc_utils.canonicalize_process_name(candidate)
         for candidate in (candidates or [])
     )
 
 
 def _sample_in_signal_group(sample_name, sample_group_map, group_type):
-    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+    canonical_sample = tc_utils.canonicalize_process_name(sample_name)
 
     if group_type == "CR":
         return _sample_in_group(
@@ -2903,6 +3550,8 @@ def _resolve_channel_transformations(region_ctx, var_name):
     ordered = []
     seen = set()
     for transform in transformations:
+        if transform == "njets" and region_ctx.preserve_njets_bins:
+            continue
         if transform not in seen:
             ordered.append(transform)
             seen.add(transform)
@@ -3150,6 +3799,7 @@ class RegionContext(object):
         channel_rules=None,
         sample_removal_rules=None,
         category_skip_rules=None,
+        apply_category_skips=False,
         skip_sparse_2d=False,
         channel_mode="per-channel",
         variable_label="Variable",
@@ -3158,6 +3808,7 @@ class RegionContext(object):
         sumw2_remove_signal_when_blinded=False,
         use_mc_as_data_when_blinded=False,
         rate_syst_by_sample=None,
+        preserve_njets_bins=False,
     ):
         self.name = name
         self.dict_of_hists = dict_of_hists
@@ -3180,7 +3831,9 @@ class RegionContext(object):
         self.unblind_default = unblind_default
         self.lumi_pair = lumi_pair
         self.channels_split_by_lepflav = bool(
-            yt.is_split_by_lepflav(dict_of_hists)
+            yt.is_split_by_lepflav(
+                dict_of_hists, reference_channel_map=self.channel_map
+            )
         )
         self.skip_variables = set() if skip_variables is None else set(skip_variables)
         self.analysis_bins = (
@@ -3200,9 +3853,10 @@ class RegionContext(object):
             if sample_removal_rules is not None
             else []
         )
+        self.apply_category_skips = bool(apply_category_skips)
         self.category_skip_rules = (
             copy.deepcopy(category_skip_rules)
-            if category_skip_rules is not None
+            if self.apply_category_skips and category_skip_rules is not None
             else []
         )
         self.skip_sparse_2d = bool(skip_sparse_2d)
@@ -3215,6 +3869,7 @@ class RegionContext(object):
         )
         self.use_mc_as_data_when_blinded = bool(use_mc_as_data_when_blinded)
         self.rate_syst_by_sample = rate_syst_by_sample
+        self.preserve_njets_bins = bool(preserve_njets_bins)
 
 
 def _format_decimal_string(value):
@@ -3264,7 +3919,16 @@ def _resolve_lumi_pair(year_tokens):
     return (_format_decimal_string(combined_lumi), com_tags.pop())
 
 
-def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mode_override=None):
+def build_region_context(
+    region,
+    dict_of_hists,
+    years,
+    unblind=None,
+    *,
+    channel_mode_override=None,
+    preserve_njets_bins=False,
+    enable_category_skips=False,
+):
     region_upper = region.upper()
     if region_upper not in ["CR","SR"]:
         raise ValueError(f"Unsupported region '{region}'.")
@@ -3274,26 +3938,37 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
     data_wl = ["data"]
     data_bl = []
     if years is None:
-        year_tokens = []
+        raw_year_tokens = []
     elif isinstance(years, str):
-        year_tokens = [years]
+        raw_year_tokens = [years]
     else:
-        year_tokens = list(years)
+        raw_year_tokens = list(years)
 
-    normalized_year_tokens = []
-    seen_years = set()
-    for token in year_tokens:
+    invalid_tokens = []
+    for token in raw_year_tokens:
         if token is None:
             continue
-        cleaned = str(token).strip()
-        if not cleaned or cleaned in seen_years:
+        cleaned = str(token).strip().lower()
+        if not cleaned:
             continue
-        if cleaned not in YEAR_TOKEN_RULES:
-            raise ValueError(
-                "Error: Unknown year token '{}' requested. Supported tokens: {}".format(
-                    cleaned, ", ".join(sorted(YEAR_TOKEN_RULES))
-                )
+        if cleaned in _YEAR_TOKEN_CANONICAL:
+            continue
+        if cleaned in YEAR_AGGREGATE_ALIASES:
+            continue
+        invalid_tokens.append(token)
+    if invalid_tokens:
+        raise ValueError(
+            "Error: Unknown year token(s) {} requested. Supported tokens: {}".format(
+                ", ".join(str(token) for token in invalid_tokens),
+                ", ".join(sorted(YEAR_TOKEN_RULES)),
             )
+        )
+
+    normalized_year_tokens = _normalize_year_tokens(raw_year_tokens)
+    seen_years = set()
+    for cleaned in normalized_year_tokens:
+        if cleaned in seen_years:
+            continue
         rules = YEAR_TOKEN_RULES[cleaned]
 
         mc_wl_values = rules.get("mc_wl", [])
@@ -3324,7 +3999,6 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
                     continue
                 data_bl.append(value)
         seen_years.add(cleaned)
-        normalized_year_tokens.append(cleaned)
 
     try:
         all_samples = yt.get_cat_lables(dict_of_hists, "process")
@@ -3332,11 +4006,18 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
         ref_hist = _find_reference_hist_name(dict_of_hists)
         all_samples = yt.get_cat_lables(dict_of_hists, "process", h_name=ref_hist)
 
-    def _filter_samples(all_labels, whitelist, blacklist, *, allow_data_driven_reinsertion=False):
+    def _filter_samples(
+        all_labels,
+        whitelist,
+        blacklist,
+        *,
+        allow_data_driven_reinsertion=False,
+        dd_year_tokens=None,
+    ):
         """Return samples that satisfy blacklist rules and multi-token requirements."""
 
         if len(whitelist) <= 1 and not allow_data_driven_reinsertion:
-            return te_utils.filter_lst_of_strs(
+            return tc_utils.filter_lst_of_strs(
                 all_labels, substr_whitelist=whitelist, substr_blacklist=blacklist
             )
 
@@ -3416,23 +4097,35 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
                     continue
                 if not any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
                     continue
-                if not _label_passes(label, require_optional_tokens=False):
+                if any(token in label for token in blacklist):
+                    continue
+                if must_have_tokens and any(token not in label for token in must_have_tokens):
+                    continue
+                if dd_year_tokens is not None and not any(
+                    token in label for token in dd_year_tokens
+                ):
                     continue
                 filtered.append(label)
                 filtered_set.add(label)
         return filtered
+
+    dd_year_tokens = _extract_dd_year_tokens_from_cli_years(
+        raw_year_tokens if raw_year_tokens else normalized_year_tokens
+    )
 
     mc_samples = _filter_samples(
         all_samples,
         mc_wl,
         mc_bl,
         allow_data_driven_reinsertion=True,
+        dd_year_tokens=dd_year_tokens,
     )
     data_samples = _filter_samples(
         all_samples,
         data_wl,
         data_bl,
         allow_data_driven_reinsertion=False,
+        dd_year_tokens=dd_year_tokens,
     )
     samples_to_remove = {
         "mc": [sample for sample in all_samples if sample not in mc_samples],
@@ -3465,15 +4158,17 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
         region_upper, region_plot_cfg.get("stacked_ratio_style")
     )
 
-    skip_variables = set(region_plot_cfg.get("skip_variables", []))
+    skip_variables = (
+        set(region_plot_cfg.get("skip_variables", [])) if enable_category_skips else set()
+    )
     analysis_bins = {}
     for var_name, spec in region_plot_cfg.get("analysis_bins", {}).items():
         if isinstance(spec, str):
-            if spec not in axes_info:
+            if spec not in te_axes_info:
                 raise KeyError(
                     f"Analysis bin specification '{spec}' is not defined in axes_info."
                 )
-            analysis_bins[var_name] = axes_info[spec]["variable"]
+            analysis_bins[var_name] = te_axes_info[spec]["variable"]
         else:
             analysis_bins[var_name] = spec
 
@@ -3481,8 +4176,12 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
         region_plot_cfg.get("channel_transformations")
     )
     sample_removal_rules = region_plot_cfg.get("sample_removals", [])
-    category_skip_rules = region_plot_cfg.get("category_skips", [])
-    skip_sparse_2d = region_plot_cfg.get("skip_sparse_2d", False)
+    category_skip_rules = (
+        region_plot_cfg.get("category_skips", []) if enable_category_skips else []
+    )
+    skip_sparse_2d = (
+        region_plot_cfg.get("skip_sparse_2d", False) if enable_category_skips else False
+    )
     channel_mode = region_plot_cfg.get("channel_mode", "per-channel")
     if channel_mode_override is not None:
         if channel_mode_override not in ("aggregate", "per-channel"):
@@ -3567,6 +4266,7 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
         channel_rules=channel_rules,
         sample_removal_rules=sample_removal_rules,
         category_skip_rules=category_skip_rules,
+        apply_category_skips=enable_category_skips,
         skip_sparse_2d=skip_sparse_2d,
         channel_mode=channel_mode,
         variable_label=variable_label,
@@ -3575,6 +4275,7 @@ def build_region_context(region,dict_of_hists,years,unblind=None, *, channel_mod
         sumw2_remove_signal_when_blinded=sumw2_remove_signal_when_blinded,
         use_mc_as_data_when_blinded=use_mc_as_data_when_blinded,
         rate_syst_by_sample=rate_syst_by_sample,
+        preserve_njets_bins=preserve_njets_bins,
     )
 
 
@@ -3614,7 +4315,7 @@ def produce_region_plots(
     for var_name in variables_to_plot:
         if "sumw2" in var_name:
             continue
-        if var_name in region_ctx.skip_variables:
+        if region_ctx.apply_category_skips and var_name in region_ctx.skip_variables:
             continue
 
         variable_metadata = _prepare_variable_payload(
@@ -3654,8 +4355,11 @@ def produce_region_plots(
             hist_cat
             for hist_cat, channel_bins in variable_metadata["channel_dict"].items()
             if channel_bins is not None
-            and not _should_skip_category(
-                region_ctx.category_skip_rules, hist_cat, var_name
+            and not (
+                region_ctx.apply_category_skips
+                and _should_skip_category(
+                    region_ctx.category_skip_rules, hist_cat, var_name
+                )
             )
         ]
         variable_categories[var_name] = categories
@@ -3815,8 +4519,11 @@ def produce_region_plots(
                     stat_only, stat_and_syst, html_set = 0, 0, set()
                 else:
                     channel_bins = variable_payload["channel_dict"].get(hist_cat)
-                    if channel_bins is None or _should_skip_category(
-                        region_ctx.category_skip_rules, hist_cat, var_name
+                    if channel_bins is None or (
+                        region_ctx.apply_category_skips
+                        and _should_skip_category(
+                            region_ctx.category_skip_rules, hist_cat, var_name
+                        )
                     ):
                         stat_only, stat_and_syst, html_set = 0, 0, set()
                     else:
@@ -3847,7 +4554,7 @@ def produce_region_plots(
 
     for html_dir in sorted(html_dirs):
         try:
-            make_html(html_dir)
+            tc_make_html(html_dir)
         except Exception as exc:
             print(f"Warning: Failed to refresh HTML in {html_dir}: {exc}")
 
@@ -3911,7 +4618,7 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 # Will return None if a match is not found
 def get_scale_name(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = None
-    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+    canonical_sample = tc_utils.canonicalize_process_name(sample_name)
     if _sample_in_group(sample_name, sample_group_map.get("Conv", []), canonical_sample):
         scale_name_for_json = "convs"
     elif _sample_in_group(sample_name, sample_group_map.get("Diboson", []), canonical_sample):
@@ -3944,7 +4651,7 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type="
                 # Would be better to handle this in a more general way
                 corr_tag = None
             else:
-                corr_tag = te_utils.cached_get_correlation_tag(
+                corr_tag = _cached_get_correlation_tag(
                     uncertainty_name, proc_name_in_json
                 )
     return corr_tag
@@ -3956,35 +4663,37 @@ def get_rate_systs(sample_name,sample_group_map,group_type="CR"):
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
     scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type=group_type)
-    canonical_sample = te_utils.canonicalize_process_name(sample_name)
+    canonical_sample = tc_utils.canonicalize_process_name(sample_name)
 
     # Get the lumi uncty for this sample (same for all samles)
-    lumi_uncty = te_utils.cached_get_syst("lumi")
+    lumi_uncty = _get_syst_with_default("lumi")
 
     # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if _sample_in_group(sample_name, sample_group_map["Flips"], canonical_sample):
-        flip_uncty = te_utils.cached_get_syst("charge_flips", "charge_flips_sm")
+        flip_uncty = _get_syst_with_default(
+            "charge_flips", "charge_flips_sm"
+        )
     else:
-        flip_uncty = (1.0, 1, 0)
+        flip_uncty = (1.0, 1.0)
 
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
         if scale_name_for_json in PROC_WITHOUT_PDF_RATE_SYST:
             # Special cases for when we do not have a pdf uncty (this is a really brittle workaround)
             # NOTE Someday should fix this, it's a really hardcoded and brittle and bad workaround
-            pdf_uncty = (1.0, 1, 0)
+            pdf_uncty = (1.0, 1.0)
         else:
-            pdf_uncty = te_utils.cached_get_syst("pdf_scale", scale_name_for_json)
+            pdf_uncty = _get_syst_with_default("pdf_scale", scale_name_for_json)
         if scale_name_for_json == "convs":
             # Special case for conversions, since we estimate these from a LO sample, so we don't have an NLO uncty here
             # Would be better to handle this in a more general way
-            qcd_uncty = (1.0, 1, 0)
+            qcd_uncty = (1.0, 1.0)
         else:
             # In all other cases, use the qcd scale uncty that we have for the process
-            qcd_uncty = te_utils.cached_get_syst("qcd_scale", scale_name_for_json)
+            qcd_uncty = _get_syst_with_default("qcd_scale", scale_name_for_json)
     else:
-        pdf_uncty = (1.0, 1, 0)
-        qcd_uncty = (1.0, 1, 0)
+        pdf_uncty = (1.0, 1.0)
+        qcd_uncty = (1.0, 1.0)
 
     out_dict = {"pdf_scale":pdf_uncty, "qcd_scale":qcd_uncty, "lumi":lumi_uncty, "charge_flips":flip_uncty}
     return out_dict
@@ -4016,7 +4725,7 @@ def get_rate_syst_arrs(
             )
         cached_rates.append((sample_name, thissample_nom_arr, rate_syst_dict))
 
-    for rate_sys_type in te_utils.cached_get_syst_lst():
+    for rate_sys_type in _cached_get_syst_lst():
         rate_syst_arr_dict[rate_sys_type] = {}
         for sample_name, thissample_nom_arr, rate_syst_dict in cached_rates:
 
@@ -4159,7 +4868,7 @@ def get_shape_syst_arrs(base_histo,group_type="CR"):
 def _values_with_flow_or_overflow(hist_slice):
     """Return histogram values including overflow bins for different histogram types."""
 
-    if isinstance(hist_slice, HistEFT):
+    if isinstance(hist_slice, tc_histEFT.HistEFT):
         evaluated = hist_slice.eval({})
         if isinstance(evaluated, dict):
             if () in evaluated:
@@ -4359,7 +5068,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
     # Get the list of njets vals for which we have SFs
     sf_int_lst = []
-    diboson_njets_dict = te_utils.cached_get_jet_dependent_syst_dict()
+    diboson_njets_dict = _cached_get_jet_dependent_syst_dict()
     sf_str_lst = list(diboson_njets_dict.keys())
     for s in sf_str_lst: sf_int_lst.append(int(s))
     min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
@@ -4386,26 +5095,45 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
     return shift*shift
 
 
-def _is_sparse_2d_hist(histo):
-    if not isinstance(histo, SparseHist):
+def _is_sparse_2d_hist(histo, *, var_name=None):
+    if not isinstance(histo, tc_sparseHist.SparseHist):
         return False
+
+    variable_label = var_name if isinstance(var_name, str) else getattr(histo, "name", None)
+    has_2d_metadata = isinstance(variable_label, str) and (
+        (variable_label in te_axes_info_2d) or ("_vs_" in variable_label)
+    )
 
     quadratic_axis = next(
         (ax for ax in histo.dense_axes if getattr(ax, "name", None) == "quadratic_term"),
         None,
     )
+    quadratic_multibin = False
     if quadratic_axis is not None:
         try:
-            # Skip the sparse 2D path only when the quadratic axis has a single bin.
-            if histo.axes["quadratic_term"].size > 1:
-                return True
-        except (KeyError, AttributeError):
-            # If the axis cannot be inspected reliably, keep the conservative 2D
-            # classification to avoid mis-shaping 1D projections.
-            return True
+            quadratic_multibin = histo.axes["quadratic_term"].size > 1
+        except (KeyError, AttributeError):  # pragma: no cover - defensive logging
+            _logger.debug(
+                "Unable to inspect the quadratic_term axis for '%s'; assuming it is single-bin for sparse 2D checks.",
+                variable_label,
+            )
 
     dense_axes = [ax for ax in histo.dense_axes if ax is not quadratic_axis]
-    return len(dense_axes) > 1
+    has_multiple_dense_axes = len(dense_axes) > 1
+
+    if quadratic_multibin:
+        return True
+
+    if has_2d_metadata and has_multiple_dense_axes:
+        return True
+
+    if has_multiple_dense_axes and not has_2d_metadata:
+        _logger.debug(
+            "Histogram '%s' has multiple dense axes but no 2D metadata; treating it as 1D until metadata is provided.",
+            variable_label,
+        )
+
+    return False
 
 
 ######### Plotting functions #########
@@ -4419,7 +5147,7 @@ def make_sparse2d_fig(
     comtag="13",
     per_panel=False,
 ):
-    axes_meta = axes_info_2d.get(var, {})
+    axes_meta = te_axes_info_2d.get(var, {})
     axis_cfgs = axes_meta.get("axes", [])
     if len(axis_cfgs) < 2:
         raise ValueError(f"No 2D axis metadata configured for histogram '{var}'.")
@@ -4870,7 +5598,7 @@ def make_region_stacked_ratio_fig(
             default_color_index += 1
         colors.append(c)
 
-    display_label = axes_info.get(var, {}).get("label", var)
+    display_label = te_axes_info.get(var, {}).get("label", var)
 
     axis_edges = target_edges
     if axis_edges is None:
@@ -5292,16 +6020,39 @@ def run_plots_for_region(
     workers=1,
     verbose=False,
     channel_output="merged",
+    enable_category_skips=False,
+    report_zero_yields=False,
 ):
-    requested_channel_modes = CHANNEL_OUTPUT_CHOICES.get(channel_output)
-    if requested_channel_modes is None:
+    channel_output_cfg = CHANNEL_OUTPUT_CHOICES.get(channel_output)
+    if channel_output_cfg is None:
         raise ValueError(
             "Unsupported channel_output '{}' requested. Expected one of: {}".format(
                 channel_output, ", ".join(sorted(CHANNEL_OUTPUT_CHOICES))
             )
         )
 
-    multi_mode = len(requested_channel_modes) > 1 or channel_output != "merged"
+    requested_channel_modes = channel_output_cfg["modes"]
+    preserve_njets_bins = channel_output_cfg.get("preserve_njets", False)
+
+    multi_mode = len(requested_channel_modes) > 1
+    split_channels_available = yt.is_split_by_lepflav(
+        dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+    )
+    restored_channel_labels = False
+
+    if not split_channels_available and "per-channel" in requested_channel_modes:
+        restored_channel_labels = yt.restore_split_channel_labels(
+            dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+        )
+        if restored_channel_labels:
+            split_channels_available = yt.is_split_by_lepflav(
+                dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+            )
+
+        if not split_channels_available:
+            _warn_missing_split_channels(
+                dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+            )
 
     for channel_mode in requested_channel_modes:
         region_ctx = build_region_context(
@@ -5310,12 +6061,11 @@ def run_plots_for_region(
             years,
             unblind=unblind,
             channel_mode_override=channel_mode,
+            preserve_njets_bins=preserve_njets_bins,
+            enable_category_skips=enable_category_skips,
         )
 
-        if (
-            region_ctx.channel_mode == "per-channel"
-            and not region_ctx.channels_split_by_lepflav
-        ):
+        if region_ctx.channel_mode == "per-channel" and not split_channels_available:
             mode_label = CHANNEL_MODE_LABELS.get(channel_mode, channel_mode)
             warnings.warn(
                 (
@@ -5342,6 +6092,18 @@ def run_plots_for_region(
             verbose=verbose,
         )
 
+    zero_yield_summary = _summarize_zero_yield_processes(
+        dict_of_hists,
+        region_name=region_name,
+        preserve_njets_bins=preserve_njets_bins,
+    )
+    _emit_zero_yield_summary(
+        zero_yield_summary,
+        detailed=bool(report_zero_yields),
+    )
+
+    return zero_yield_summary
+
 def main():
 
     # Set up the command line parser
@@ -5358,13 +6120,28 @@ def main():
     )
     parser.add_argument(
         "--channel-output",
-        choices=("merged", "split", "both"),
+        choices=(
+            "merged",
+            "split",
+            "both",
+            "merged-njets",
+            "split-njets",
+            "both-njets",
+        ),
         default="merged",
         help=(
-            "Control how channel categories are rendered: 'merged' integrates each category before plotting "
-            "and suppresses split-only folders when the input histograms are already merged, 'split' keeps "
-            "the individual channels but is skipped when the payload lacks per-flavour bins, and 'both' "
-            "renders the two sets back-to-back (default: merged)."
+            "Control how channel categories are rendered: 'merged' integrates each category before plotting, "
+            "'split' keeps the individual channels when flavour-split inputs are available, and 'both' renders "
+            "the two sets back-to-back. The '-njets' variants preserve the per-njet bins defined in cr_sr_plots_metadata.yml "
+            "instead of collapsing them into the combined templates (default: merged)."
+        ),
+    )
+    parser.add_argument(
+        "--enable-category-skips",
+        action="store_true",
+        help=(
+            "Opt back into metadata-driven category filtering. When set, category_skip rules from "
+            "cr_sr_plots_metadata.yml are applied to drop matching variable/category combinations."
         ),
     )
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
@@ -5420,6 +6197,14 @@ def main():
         default=1,
         help="Number of worker processes for parallel variable rendering (default: 1).",
     )
+    parser.add_argument(
+        "--report-zero-yields",
+        action="store_true",
+        help=(
+            "Emit a detailed region/channel summary of processes with zero or missing yields"
+            " after plotting."
+        ),
+    )
     verbosity_group = parser.add_mutually_exclusive_group()
     verbosity_group.add_argument(
         "--verbose",
@@ -5443,6 +6228,15 @@ def main():
             )
         )
     selected_years = normalized_years
+
+    def _running_in_condor():
+        condor_env_vars = (
+            "_CONDOR_SCRATCH_DIR",
+            "_CONDOR_SLOT",
+            "CONDOR_JOB_AD",
+            "CONDOR_JOBID",
+        )
+        return any(os.environ.get(var) for var in condor_env_vars)
 
     def _detect_region_from_path(path):
         if not path:
@@ -5511,10 +6305,22 @@ def main():
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     save_dir_path = args.output_path
     outdir_name = args.output_name
-    if args.include_timestamp_tag:
+    auto_timestamp = bool(
+        _running_in_condor() and args.channel_output and not args.include_timestamp_tag
+    )
+    if auto_timestamp:
+        print(
+            "Condor environment detected; enabling timestamp tagging to reduce output collisions."
+        )
+    if args.include_timestamp_tag or auto_timestamp:
         outdir_name = outdir_name + "_" + timestamp_tag
     save_dir_path = os.path.join(save_dir_path,outdir_name)
-    os.mkdir(save_dir_path)
+    dir_preexists = os.path.exists(save_dir_path)
+    os.makedirs(save_dir_path, exist_ok=True)
+    if dir_preexists:
+        print(f"Reusing existing output directory: {save_dir_path}")
+    else:
+        print(f"Created output directory: {save_dir_path}")
 
     # Get the histograms
     load_start_time = datetime.datetime.now()
@@ -5522,7 +6328,7 @@ def main():
         print(
             f"[{load_start_time:%H:%M:%S}] Loading histograms from '{args.pkl_file_path}'..."
         )
-    hin_dict = te_utils.get_hist_from_pkl(args.pkl_file_path, allow_empty=False)
+    hin_dict = tc_utils.get_hist_from_pkl(args.pkl_file_path, allow_empty=False)
     if args.verbose:
         load_finish_time = datetime.datetime.now()
         print(
@@ -5554,6 +6360,8 @@ def main():
         workers=args.workers,
         verbose=args.verbose,
         channel_output=args.channel_output,
+        enable_category_skips=args.enable_category_skips,
+        report_zero_yields=args.report_zero_yields,
     )
 if __name__ == "__main__":
     main()

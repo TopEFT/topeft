@@ -20,7 +20,8 @@
     "iso_cut" : 0.4,
 
     "fo_m_jetRelIso_cut" : 0.5,
-    "fo_e_jetRelIso_cut" : 1.0,
+    "fo_e_jetRelIso_cut_run2" : 1.0,
+    "fo_e_jetRelIso_cut_run3" : 0.9,
 
     "fo_e_mvaiso_cut_run3" : 0.6,
 
@@ -47,7 +48,15 @@
         "DY50_centralUL16",
         "DYJetsToLL_centralUL17",
         "DY10to50_centralUL18",
-        "DY50_centralUL18"
+        "DY50_centralUL18",
+        "DYJetsToLL_MLL-10to50_central2022",
+        "DYJetsToLL_MLL-50_central2022",
+        "DYJetsToLL_MLL-10to50_central2022EE",
+        "DYJetsToLL_MLL-50_central2022EE",
+        "DYJetsToLL_MLL-10to50_central2023",
+        "DYJetsToLL_MLL-50_central2023",
+        "DYJetsToLL_MLL-10to50_central2023BPix",
+        "DYJetsToLL_MLL-50_central2023BPix"
     ],
 
     "conv_samples": [
@@ -62,20 +71,83 @@
         "TTGamma_centralUL16APV",
         "TTGamma_centralUL16",
         "TTGamma_centralUL17",
-        "TTGamma_centralUL18"
+        "TTGamma_centralUL18",
+        "ZG_MLL-4to50_PTG-10to100_central2022",
+        "ZG_MLL-4to50_PTG-100to200_central2022",
+        "ZG_MLL-4to50_PTG-200_central2022",
+        "ZG_MLL-50_PTG-10to100_central2022",
+        "ZG_MLL-50_PTG-100to200_central2022",
+        "ZG_MLL-50_PTG-200to400_central2022",
+        "ZG_MLL-50_PTG-400to600_central2022",
+        "ZG_MLL-50_PTG-600_central2022",
+        "TTG-1Jets_PTG-10to100_central2022",
+        "TTG-1Jets_PTG-100to200_central2022",
+        "TTG-1Jets_PTG-200_central2022",
+
+        "ZG_MLL-4to50_PTG-10to100_central2022EE",
+        "ZG_MLL-4to50_PTG-100to200_central2022EE",
+        "ZG_MLL-4to50_PTG-200_central2022EE",
+        "ZG_MLL-50_PTG-10to100_central2022EE",
+        "ZG_MLL-50_PTG-100to200_central2022EE",
+        "ZG_MLL-50_PTG-200to400_central2022EE",
+        "ZG_MLL-50_PTG-400to600_central2022EE",
+        "ZG_MLL-50_PTG-600_central2022EE",
+        "TTG-1Jets_PTG-10to100_central2022EE",
+        "TTG-1Jets_PTG-100to200_central2022EE",
+        "TTG-1Jets_PTG-200_central2022EE",
+
+        "ZG_MLL-4to50_PTG-10to100_central2023",
+        "ZG_MLL-4to50_PTG-100to200_central2023",
+        "ZG_MLL-4to50_PTG-200_central2023",
+        "ZG_MLL-50_PTG-10to100_central2023",
+        "ZG_MLL-50_PTG-100to200_central2023",
+        "ZG_MLL-50_PTG-200to400_central2023",
+        "ZG_MLL-50_PTG-400to600_central2023",
+        "ZG_MLL-50_PTG-600_central2023",
+        "TTG-1Jets_PTG-10to100_central2023",
+        "TTG-1Jets_PTG-100to200_central2023",
+        "TTG-1Jets_PTG-200_central2023",
+
+        "ZG_MLL-4to50_PTG-10to100_central2023BPix",
+        "ZG_MLL-4to50_PTG-100to200_central2023BPix",
+        "ZG_MLL-4to50_PTG-200_central2023BPix",
+        "ZG_MLL-50_PTG-10to100_central2023BPix",
+        "ZG_MLL-50_PTG-100to200_central2023BPix",
+        "ZG_MLL-50_PTG-200to400_central2023BPix",
+        "ZG_MLL-50_PTG-400to600_central2023BPix",
+        "ZG_MLL-50_PTG-600_central2023BPix",
+        "TTG-1Jets_PTG-10to100_central2023BPix",
+        "TTG-1Jets_PTG-100to200_central2023BPix",
+        "TTG-1Jets_PTG-200_central2023BPix"
     ],
 
     "prompt_subtraction_samples": [
         "TTTo2L2Nu_central",
         "TTToSemiLeptonic_central",
+        "TTtoLNu2Q_central",
+
         "TTZToLL_M1to10_central",
+        
         "TWZToLL_central",
+        "TWZ_Tto2Q_WtoLNu_Zto2L_central",
+        "TWZ_TtoLNu_Wto2Q_Zto2L_central",
+        "TWZ_TtoLNu_WtoLNu_Zto2L_central",
+
         "TTGamma_central",
         "TTGJets_central",
+        "TTG-1Jets_PTG-10to100_central",
+        "TTG-1Jets_PTG-100to200_central",
+        "TTG-1Jets_PTG-200_central",
+
         "WWW_central",
+
         "WWZ_4F_central",
+        "WWZ_central",
+
         "WZTo3LNu_central",
+
         "WZZ_central",
+        
         "ZZTo4L_central",
         "ZZZ_central",
         "WWW_4F_central",

@@ -70,6 +70,9 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Thin wrapper around `analysis_processor.py` used for the standard CR/analysis histogram production. The canned histogram lists now include the 2D `lepton_pt_vs_eta` observable (and keep the matching `_sumw2` companion unless `--no-sumw2` is passed) so downstream tools can rely on a consistent pt vs $|\eta|$ binning description.
     - Leave the default `sumw²` companions enabled whenever you plan to run downstream uncertainty-aware tooling such as the tau fake-rate fitter or the diboson scale-factor extractor. Disabling them with `--no-sumw2` drops the `*_sumw2` histograms (for example `tau0pt_sumw2`), which causes those utilities to fail or to lose their statistical error propagation. If you need to trim the histogram list, remove individual observables instead of the sumw² accumulators.
     - Pass `--years YEAR [YEAR ...]` to filter the loaded JSON samples to the requested campaign tokens. Supported values are `2016`, `2016APV`, `2017`, `2018`, `2022`, `2022EE`, `2023`, `2023BPix`, their UL aliases (`UL16`, `UL16APV`, `UL17`, `UL18`), and the aggregate shorthands `run2` (`UL16 UL16APV UL17 UL18`) and `run3` (`2022 2022EE 2023 2023BPix`). Legacy tokens remain valid, so existing command snippets do not require changes. When the option is absent every sample in the configuration is retained as before.
+    - The data-driven helper now supports inline and deferred workflows. Keep the historical behaviour by relying on the default `--np-postprocess=inline` (paired with `--do-np`) so the `_np.pkl.gz` file appears immediately. Choose `--np-postprocess=defer` **together with `--do-np`** to emit the base pickle along with `histos/<outname>_np.pkl.gz.metadata.json`, which records the resolved years, follow-up command, and absolute histogram paths for later processing. Setting `--np-postprocess=skip` suppresses the data-driven step entirely.
+    - Startup now includes a quick sanity check that resolves `data/pileup/pileup_2016GH.root` via `topcoffea_path` and ensures the file exists. When it fails the CLI exits with instructions to re-run `scripts/install_topcoffea.sh`, verify the `external/topcoffea` checkout (currently `run3_test_mmerged`) is available, and try again. Use `--skip-topcoffea-data-check` only when you intentionally manage the shared pileup files outside of the helper script.
+    - The metadata sidecar allows the deferred helper to reconstruct the `_np.pkl.gz` file without repeating the whole analysis: `python run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json`. Pass `--input-pkl / --output-pkl` directly if you prefer not to use the metadata. The helper also exposes `--apply-renormfact-envelope` so the deferred runs match the inline envelope path.
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
@@ -77,7 +80,32 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 * `fullR3_run.sh`: Recommended wrapper script for both Run 2 and Run 3 histogram production. It expands the aggregate campaign aliases (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`) before dispatching to `run_analysis.py`, superseding the legacy helper while keeping the historical single-year tokens functioning as before.
     - Whenever the Run 2 bundle is activated (any of `2016`, `2016APV`, `2017`, `2018`, `UL16`, `UL16APV`, `UL17`, or `UL18` appear in `-y/--year`), the wrapper forwards the matching Run 2 payload to `run_analysis.py` via `--years`. Aliases are resolved so that `UL16` behaves like `2016`, `UL16APV` like `2016APV`, and similarly for `UL17`/`2017` and `UL18`/`2018`.
+    - Add both `--do-np` and `--defer-np` when you want the wrapper to append `--do-np --np-postprocess=defer` to the delegated `run_analysis.py` command. The first flag enables the nonprompt producer, and the second switches it to deferred mode so the wrapper prints the metadata path (`histos/<outname>_np.pkl.gz.metadata.json`) and the follow-up helper has everything it needs. Passing only `--defer-np` leaves the producer disabled, so neither the metadata nor the `_np.pkl.gz` histogram will be created.
+    - The wrapper inherits the same `topcoffea` data probe as `run_analysis.py`. If the command exits before queueing any jobs, re-run `scripts/install_topcoffea.sh` (or confirm that `external/topcoffea` tracks the branch advertised in the repository README) so the shared pileup payloads are restored. Expert setups can add `--skip-topcoffea-data-check` to the forwarded arguments, but keep the default enabled to avoid wasting Run 3 campaigns on misconfigured environments.
 * `fullR2_run.sh`: Historical wrapper for the original TOP-22-006 pickle production. Keep it around for archival reproducibility; new workflows should prefer `fullR3_run.sh`.
+
+* `run_data_driven.py`:
+    - Finalizes deferred nonprompt/flips histograms using either the metadata emitted by `run_analysis.py --np-postprocess=defer` or manually specified pickle paths. See the dedicated usage notes below.
+
+#### `run_data_driven.py` usage and recovery paths
+
+- **Metadata-driven:** when `run_analysis.py` was run with `--np-postprocess=defer`, point the helper at the recorded sidecar to reconstruct the `_np.pkl.gz` output and (optionally) add the renorm/fact envelope:
+
+  ```bash
+  python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json \
+      --apply-renormfact-envelope
+  ```
+
+- **Direct pickle path:** skip metadata entirely by forwarding the original histogram pickle and your desired destination explicitly:
+
+  ```bash
+  python run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz \
+      --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope
+  ```
+
+  The helper streams `.pkl`/`.pkl.gz` inputs one histogram at a time, so even multi-GB dictionaries can be processed without holding everything in memory. Expect the `--input-pkl` file to be the base (pre-nonprompt) histograms and the `--output-pkl` path to receive the `_np.pkl.gz` variant ready for datacard production.
+
+- **Troubleshooting missing metadata or moved pickles:** if the sidecar no longer matches your filesystem (for example, after relocating the histogram directory), re-run the helper with explicit `--input-pkl`/`--output-pkl` paths. You can also pass an absolute path to `--metadata-json` so relative entries resolve correctly when the metadata lives in a different folder than the pickle.
 
 > **Sourcing helpers:** `run_plotter.sh`, `submit_plotter_condor.sh`, `fullR3_run.sh`, `fullR3_run_diboson.sh`, and `condor_plotter_entry.sh` now funnel their work through a `main()` function. They return non-zero statuses instead of exiting outright when validation fails, so sourcing them in an interactive shell will surface the error without tearing down your session. Executing the scripts directly still exits with the same return codes as before.
 
@@ -88,9 +116,10 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - This script produces stacked yield and ratio plots for the configured analysis regions and can also drive dedicated comparison overlays.
     - The script takes as input a pkl file that should have both data and background MC included.
     - Example usage: `python make_cr_and_sr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2017 2018 -t -u --variables lj0pt ptz`
-    - Omitting `--variables` processes every histogram in the input pickle, while providing one or more names limits the run to those histograms.
+    - Omitting `--variable/--variables` processes every histogram in the input pickle. Add a single histogram with `--variable name` or pass multiple tokens through `--variables name1 name2 ...` to focus the render on a shortlist.
     - `--year YEAR [YEAR ...]` filters both MC and data histograms to the selected campaign tokens before plotting. The resolver mirrors the datacard utilities, accepts the Run 2 (`run2` → `UL16 UL16APV UL17 UL18`) and Run 3 (`run3` → `2022 2022EE 2023 2023BPix`) aggregates, and prints a summary of the samples that were retained or vetoed alongside the traditional single-year tokens.
-    - `--channel-output {merged,split,both}` selects how channel categories are rendered. `merged` integrates every category into the legacy combined templates and automatically drops split-only folders (for example the per-flavour CR variations) so the directory layout matches historical outputs, `split` preserves each individual channel when the input histograms are flavour-split and otherwise emits a warning while skipping the per-channel plots, and `both` renders the two sets back-to-back. The default is `merged`.
+- `--channel-output {merged,split,both,merged-njets,split-njets,both-njets}` selects how channel categories are rendered. `merged` integrates every category into the legacy combined templates and automatically drops split-only folders (for example the per-flavour CR variations) so the directory layout matches historical outputs, `split` preserves each individual channel when the input histograms are flavour-split and otherwise emits a warning while skipping the per-channel plots, and `both` renders the two sets back-to-back. When the inputs contain flavour-split channel labels, `both` always emits the merged category alongside every matching split directory (including the `both-njets` variant). Append `-njets` to any mode to keep the per-njet bins defined in `cr_sr_plots_metadata.yml` instead of collapsing them into their aggregate parents. The default is `merged`.
+      When requesting `both` or `both-njets`, expect two parallel directory trees: the merged view mirrors the split view's variable list even though the channel bins are aggregated (or grouped by jet multiplicity), so you can always find the full set of rendered histograms under both outputs.
     - `--workers N` enables multiprocessing when `N>1`. The plotter distributes the requested variables across worker processes and, when spare capacity remains, further fans out over `(variable, category)` pairs so SR-sized channel maps can render in parallel. Start with 2–4 workers; each process keeps a full copy of the histogram dictionary so memory usage still grows roughly linearly with `N`.
     - Pass `--log-y` to draw the stacked yields with a logarithmic y-axis (the ratio panel remains linear). The flag defaults to off so existing plots keep their linear scale unless explicitly requested, and is available both on the Python CLI and via `run_plotter.sh`.
     - Pass `--verbose` when you need detailed diagnostics (sample inventories, per-variable channel dumps). The default `--quiet` mode keeps the console output to high-level progress summaries.
@@ -126,6 +155,8 @@ Add `--log-y` to either entry point when you need the stacked yields on a logari
 
 Console verbosity is now controlled by mutually exclusive `--verbose` and `--quiet` switches. Quiet mode remains the default and prints only high-level progress (region resolution, worker counts, summary statistics). Add `--verbose` to include the per-variable headings, sample inventories, and channel lists that previously flooded the terminal.
 
+Every histogram variable available in the pickle is plotted for all merge levels and split-lepton channels by default, so merged and per-channel outputs stay in lockstep. The plotter now ignores the YAML `skip_variables`, `skip_sparse_2d`, and `category_skips` lists unless you opt in with `--enable-category-skips`, keeping the default runs aligned with the full histogram payload.
+
 | Entry point | When to use |
 | --- | --- |
 | `python make_cr_and_sr_plots.py` | Direct access to every CLI flag for notebook or batch workflows. Remember to include `-y` with your desired years or aliases (e.g. `-y run2`). |
@@ -135,7 +166,7 @@ Common invocation patterns (`-y/--year` now accepts multiple tokens for combined
 
 * Control-region scan with automatic blinding: `python make_cr_and_sr_plots.py -f histos/plotsCR_Run2.pkl.gz -y run2`
 * Summing luminosities across multiple years: `python make_cr_and_sr_plots.py -f histos/plotsCR_Run2.pkl.gz -y 2016APV 2016 2017 2018`
-* Signal-region pass where the filename already encodes `SR`: `python make_cr_and_sr_plots.py -f histos/SR2018.pkl.gz -o ~/www/sr -y 2018 --variables lj0pt ptz`
+* Signal-region pass where the filename already encodes `SR`: `python make_cr_and_sr_plots.py -f histos/SR2018.pkl.gz -o ~/www/sr -y 2018 --variable lj0pt --variable ptz`
 * Overriding the heuristic and forcing a blinded SR workflow: `python make_cr_and_sr_plots.py -f histos/plotsTopEFT.pkl.gz -y run3 --sr --blind`
 * Producing unblinded CR plots with explicit tagging and timestamped directories: `python make_cr_and_sr_plots.py -f histos/CR2018.pkl.gz -y 2018 --cr -t -n cr_2018_scan`
 * Switching the stacked panel to a log scale: `python make_cr_and_sr_plots.py -f histos/plotsCR_Run2.pkl.gz -y run2 --log-y`
@@ -144,7 +175,7 @@ Common invocation patterns (`-y/--year` now accepts multiple tokens for combined
 
 The `run_plotter.sh` helper script lives alongside `make_cr_and_sr_plots.py` and reproduces the same filename-based auto-detection for control vs. signal regions. After resolving the region it appends the corresponding `--cr` or `--sr` flag before delegating to the Python CLI. When both `CR` and `SR` tokens appear in the filename the wrapper prints a warning and falls back to the control-region defaults unless you pass an explicit override.
 
-Wrapper options match the Python interface so that README guidance applies verbatim. The required `-y/--year` flag shares the same individual years and `run2`/`run3` aggregates as the Python CLI (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`), so you can reuse the shortcuts when hopping between Run 2 and Run 3 payloads. `--channel-output` forwards the merged/split selection, `--variables` accepts the same list of histogram names, and `--blind` / `--unblind` toggle data visibility after the wrapper has selected a region. You can still provide manual `--cr` or `--sr` overrides, and any other switches the wrapper does not understand are forwarded untouched to `make_cr_and_sr_plots.py`. The historical `--` passthrough marker remains accepted for backward compatibility but is no longer required.
+Wrapper options match the Python interface so that README guidance applies verbatim. The required `-y/--year` flag shares the same individual years and `run2`/`run3` aggregates as the Python CLI (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`), so you can reuse the shortcuts when hopping between Run 2 and Run 3 payloads. `--channel-output` forwards the merged/split/both selection along with the `*-njets` variants that preserve the per-njet bins from `cr_sr_plots_metadata.yml`, `--variable` adds a single histogram name per invocation while `--variables` continues to accept the whitespace-delimited list, and `--blind` / `--unblind` toggle data visibility after the wrapper has selected a region. You can still provide manual `--cr` or `--sr` overrides, and any other switches the wrapper does not understand are forwarded untouched to `make_cr_and_sr_plots.py`. The historical `--` passthrough marker remains accepted for backward compatibility but is no longer required.
 
 The wrapper also exposes the new `--workers` flag; the argument is forwarded directly to the Python CLI, so the same variable/category fan-out and memory-usage caveats apply when you request more than one worker.
 
@@ -154,7 +185,7 @@ Example commands:
 
 * Auto-detected control-region plotting with timestamped outputs: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots -y run2 --timestamp`
 * Combining Run-3 campaigns in one call: `./run_plotter.sh -f histos/CR2022_combo.pkl.gz -o ~/www/cr_run3 -y run3`
-* Enforcing a blinded SR pass with specific variables: `./run_plotter.sh -f histos/plotsTopEFT.pkl.gz -o ~/www/sr -n sr_scan -y run3 --sr --blind --variables lj0pt ptz`
+* Enforcing a blinded SR pass with specific variables: `./run_plotter.sh -f histos/plotsTopEFT.pkl.gz -o ~/www/sr -n sr_scan -y run3 --sr --blind --variable lj0pt --variable ptz`
 * Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 -y 2018 --unblind --no-sumw2`
 * Switching the stacked panel to a log scale via the wrapper: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots -y run2 --log-y`
 
@@ -181,16 +212,16 @@ Example commands:
   --log-dir /cephfs/<group>/<netid>/topeft/logs \
   -f /cephfs/<group>/<netid>/topeft/pickles/plotsCR_Run2.pkl.gz \
   -o /cephfs/<group>/<netid>/topeft/plots/run2_combo \
-  -y run2 --variables lj0pt ptz
+  -y run2 --variable lj0pt --variable ptz
 ```
 
 Prefix the command with `--dry-run` when you want to review the generated job wrapper and `.sub` file without actually queueing the job. Adjust the batch resources with `--request-cpus`, `--request-memory`, or `--request-disk`, and add `--queue N` to launch an array of identical submissions. The optional `--sandbox /cephfs/.../templates` flag ships extra payload files alongside the job so the execute node can pick up custom style sheets or metadata.
 
-`--request-cpus` requires a positive integer and `--request-memory` must be a non-empty HTCondor size string; the helper validates both before submitting so typos are caught locally during the dry-run step. The generated submit file exports `TOPEFT_REPO_ROOT` (the parent directory of `analysis/topeft_run2`) and `TOPEFT_ENTRY_DIR` (`analysis/topeft_run2` itself), mirroring the `${analysis_dir}/..` and `${analysis_dir}` values in the helper, so the entry script can override its working tree automatically; add `--conda-prefix ...` when you also need the helper to append `TOPEFT_CONDA_PREFIX` for environment activation. A literal `--` separator is still tolerated if you have scripts that emit it, but new invocations can omit it entirely.
+`--request-cpus` requires a positive integer and `--request-memory` must be a non-empty HTCondor size string; the helper validates both before submitting so typos are caught locally during the dry-run step. The generated submit file exports `TOPEFT_REPO_ROOT` (the parent directory of `analysis/topeft_run2`) and `TOPEFT_ENTRY_DIR` (`analysis/topeft_run2` itself) to mirror the `initialdir` specified in the submit description, so the entry script can derive its working directory deterministically; add `--conda-prefix ...` when you also need the helper to append `TOPEFT_CONDA_PREFIX` for environment activation. A literal `--` separator is still tolerated if you have scripts that emit it, but new invocations can omit it entirely.
 
 **Entry-script environment steps**
 
-Jobs land in `analysis/topeft_run2/condor_plotter_entry.sh`, which unsets `PYTHONPATH`, honours `TOPEFT_REPO_ROOT`/`TOPEFT_ENTRY_DIR` to pick the checkout and working directory, and activates `clib-env` via either the discovered Conda installation or an explicit `TOPEFT_CONDA_PREFIX`. Override those environment variables in the submit script when you need to point at a different checkout, wrapper directory, or Conda stack, or if you prefer to activate a bespoke environment before calling `run_plotter.sh`. The entry script shares the same `main()`-style return handling as the other helpers, so sourcing it during local smoke tests or unit checks surfaces failures without exiting your shell.
+Jobs land in `analysis/topeft_run2/condor_plotter_entry.sh`, which unsets `PYTHONPATH`, resolves its working directory from `TOPEFT_ENTRY_DIR`/Condor's `initialdir`/the script path, logs the choice, and activates `clib-env` via either the discovered Conda installation or an explicit `TOPEFT_CONDA_PREFIX`. Override those environment variables in the submit script when you need to point at a different checkout, wrapper directory, or Conda stack, or if you prefer to activate a bespoke environment before calling `run_plotter.sh`. The entry script shares the same `main()`-style return handling as the other helpers, so sourcing it during local smoke tests or unit checks surfaces failures without exiting your shell.
 
 **Inspecting jobs and logs**
 
@@ -215,7 +246,7 @@ Under the hood the CLI defers to a unified region runner so that both CR and SR 
 
 `produce_region_plots()` then iterates over the requested histograms, applies the appropriate channel transformations, and orchestrates the per-category plotting. In aggregate (CR) mode the channel axis is integrated before rendering, while the SR configuration keeps each channel separate. During this sweep the code also:
 
-* Removes samples that do not belong to the selected MC/data view and applies optional group-specific removals and category skips defined in the metadata.
+* Removes samples that do not belong to the selected MC/data view and applies optional group-specific removals. Category skip rules in the metadata are ignored unless you explicitly add `--enable-category-skips`.
 * Fetches `sumw2` histograms for statistical uncertainties and combines them with shape/rate systematics where requested.
 * Switches between raw 1D plotting and the dedicated 2D heatmap path when sparse histograms are encountered.
 
@@ -228,7 +259,7 @@ The plotting behaviour is configured by `topeft/params/cr_sr_plots_metadata.yml`
 
 * **Channel maps (`CR_CHAN_DICT` / `SR_CHAN_DICT`)** – map human-readable category labels to the underlying histogram channel bins. Add or remove entries here when categories are renamed or regrouped; the CLI enforces that every plotted channel appears in these lists.
 * **Group patterns (`CR_GRP_MAP` / `SR_GRP_MAP`)** – define how raw process names are clustered into stacked contributions. Each group contains a color token and a list of substring patterns; new MC samples inherit the colour/styling of the group whose pattern matches their dataset name.
-* **Region overrides (`REGION_PLOTTING`)** – per-region knobs that adjust plotting mechanics. Highlights include `channel_mode` (aggregate CR vs. per-channel SR figures), `channel_transformations` (string rewrites such as removing jet- or flavour-suffixes before matching), sample removal/category skip rules, and blinding-specific controls like `sumw2_remove_signal_when_blinded` and `use_mc_as_data_when_blinded`.
+* **Region overrides (`REGION_PLOTTING`)** – per-region knobs that adjust plotting mechanics. Highlights include `channel_mode` (aggregate CR vs. per-channel SR figures), `channel_transformations` (string rewrites such as removing jet- or flavour-suffixes before matching), sample removal rules (and opt-in category skip rules), and blinding-specific controls like `sumw2_remove_signal_when_blinded` and `use_mc_as_data_when_blinded`.
 
 Other keys provide cohesive styling—e.g. `DATA_ERR_OPS`, `MC_ERROR_OPS`, `LUMI_COM_PAIRS`, and `WCPT_EXAMPLE`—and are consumed when building the `RegionContext`. Treat the YAML as the single source of truth for both category definitions and plot appearance to keep CR and SR outputs synchronized.
 
@@ -242,6 +273,8 @@ The `analysis_bins` map inside `REGION_PLOTTING` (for example the `SR` block’s
 
 
 ### Scripts for making and checking the datacards
+
+All of the utilities in this section expect the nonprompt-enhanced histogram pickle (filename ending in `_np.pkl.gz`). Produce it inline via `run_analysis.py --do-np --np-postprocess=inline` or, when using the deferred workflow, call `python run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json` before pointing the datacard maker at the pickle.
 
 * `make_cards.py`
     - Example usage: `time python make_cards.py /path/to/your.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d /path/to/output/dir --unblind --do-mc-stat`

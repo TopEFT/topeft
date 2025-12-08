@@ -335,7 +335,11 @@ if __name__ == '__main__':
     tstart = time.time()
 
     if executor == "futures":
-        exec_instance = processor.futures_executor(workers=nworkers)
+        futures_factory = getattr(processor, "futures_executor", None)
+        if callable(futures_factory):
+            exec_instance = futures_factory(workers=nworkers)
+        else:
+            exec_instance = processor.FuturesExecutor(workers=nworkers)
         runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
     elif executor ==  "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)

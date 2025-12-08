@@ -263,7 +263,7 @@ class run2leptonselection:
         btabReq    = (ele.jetBTag<bTagCut)
         ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
-        mvaReq     = ((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")) | ((ele.mvaFall17V2noIso_WP90) & (ele.jetBTag<smoothBFlav(0.9*ele.pt*(1+ele.jetRelIso),20,45,year, btagger=self.btagger)) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
+        mvaReq     = ((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")) | ((ele.mvaFall17V2noIso_WP90) & (ele.jetBTag<smoothBFlav(0.9*ele.pt*(1+ele.jetRelIso),20,45,year, btagger=self.btagger)) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut_run2"))))
 
         return ptReq & btabReq & qualityReq & mvaReq
 
@@ -325,9 +325,9 @@ class run3leptonselection:
         ptReq      = (ele.conept>get_te_param("fo_pt_cut_run3"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
         if not self.useMVA:
-            mvaReq     = (((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
+            mvaReq     = (((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut_run3"))))
         else:
-            mvaReq     = ((ele.mvaTTHrun3 > get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3")) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut")))) ##original cut from Sergio
+            mvaReq     = ((ele.mvaTTHrun3 > get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3")) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut_run3")))) ##original cut from Sergio
         return ptReq & btagReq & qualityReq & mvaReq
         #return ptReq & qualityReq & mvaReq
 

@@ -16,7 +16,7 @@ Consult the "CR/SR plotting CLI quickstart" section of analysis/topeft_run2/READ
 for more workflow examples.
 
 Required arguments:
-  -f, --input PATH          Input histogram pickle (e.g. histos/plotsCR_Run2.pkl.gz)
+  -f, --input PATH          Input histogram pickle (must exist and be readable, e.g. histos/plotsCR_Run2.pkl.gz)
   -o, --output-dir PATH     Directory where plots will be written
   -y, --year YEAR [YEAR ...]
                            One or more year tokens forwarded to the plotter.
@@ -31,9 +31,13 @@ Optional arguments:
   -s, --skip-syst           Skip systematic error bands
   -u, --unit-norm           Enable unit-normalized plotting
       --log-y              Use a logarithmic y-axis for the stacked panel
-      --variables VAR [VAR...]  Limit plotting to the listed histogram variables
+      --variable VAR          Limit plotting to a single histogram variable (repeat to add more)
+      --variables VAR [VAR...]
+                           Limit plotting to the listed histogram variables
       --workers N          Number of worker processes for parallel plotting (default: 1; start with 2-4; higher values use more memory)
-      --channel-output MODE  Forward merged/split channel selection (merged, split, both; default: merged)
+      --channel-output MODE  Forward merged/split channel selection (merged, split, both, merged-njets,
+                           split-njets, both-njets). The -njets variants behave like their counterparts
+                           but keep the per-njet bins defined in cr_sr_plots_metadata.yml (default: merged)
   -v, --verbose            Forward --verbose to enable detailed diagnostics
       --quiet              Forward --quiet to suppress per-variable chatter (default)
       --cr | --sr           Override the auto-detected region
@@ -219,11 +223,17 @@ main() {
             blind_override="unblind"
             shift
             ;;
-        --variables)
+        --variable|--variables)
+            local flag="$1"
             shift
             if [[ $# -eq 0 ]]; then
-                echo "Error: --variables requires at least one argument" >&2
+                echo "Error: ${flag} requires at least one argument" >&2
                 return 1
+            fi
+            if [[ "${flag}" == "--variable" ]]; then
+                variables+=("$1")
+                shift
+                continue
             fi
             while [[ $# -gt 0 ]]; do
                 case "$1" in
@@ -255,10 +265,10 @@ main() {
             fi
             channel_output="${2,,}"
             case "${channel_output}" in
-                merged|split|both)
+                merged|split|both|merged-njets|split-njets|both-njets)
                     ;;
                 *)
-                    echo "Error: --channel-output expects one of: merged, split, both" >&2
+                    echo "Error: --channel-output expects one of: merged, split, both, merged-njets, split-njets, both-njets" >&2
                     return 1
                     ;;
             esac
@@ -305,6 +315,11 @@ main() {
 
     if [[ -z "${input_path}" ]]; then
         echo "Error: An input pickle must be provided with -f/--input." >&2
+        return 1
+    fi
+
+    if [[ ! -r "${input_path}" ]]; then
+        echo "Error: Input pickle '${input_path}' is missing or unreadable." >&2
         return 1
     fi
 

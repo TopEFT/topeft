@@ -102,6 +102,21 @@ CR_CHAN_DICT:
     - 1l_m_1tau_CR_2j
     - 1l_m_1tau_CR_3j
     - 1l_m_1tau_CR_4j
+  cr_dy_tautau:
+    - 1l_e_dy_tautau_CR_2j
+    - 1l_e_dy_tautau_CR_3j
+    - 1l_e_dy_tautau_CR_4j
+    - 1l_m_dy_tautau_CR_2j
+    - 1l_m_dy_tautau_CR_3j
+    - 1l_m_dy_tautau_CR_4j
+  cr_dy_tautau_e:
+    - 1l_e_dy_tautau_CR_2j
+    - 1l_e_dy_tautau_CR_3j
+    - 1l_e_dy_tautau_CR_4j
+  cr_dy_tautau_m:
+    - 1l_m_dy_tautau_CR_2j
+    - 1l_m_dy_tautau_CR_3j
+    - 1l_m_dy_tautau_CR_4j
 SR_CHAN_DICT:
   2lss_SR:
     - 2lss_4t_m_4j

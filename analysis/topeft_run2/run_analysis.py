@@ -6,12 +6,17 @@ import time
 import cloudpickle
 import gzip
 import os
+import shlex
+import shutil
+import subprocess
+import tempfile
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
 import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
+from topcoffea.modules.paths import topcoffea_path
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
@@ -32,6 +37,92 @@ WGT_VAR_LST = [
     #"nSumOfWeights_renormfactDown",
 ]
 
+
+def _ensure_topcoffea_data_available(skip_check=False):
+    if skip_check:
+        return
+
+    target_relpath = "data/pileup/pileup_2016GH.root"
+    guidance = (
+        "Topcoffea shared data files are missing. Re-run scripts/install_topcoffea.sh "
+        "from the topeft checkout so the matching topcoffea branch (e.g. run3_test_mmerged) "
+        "and its data bundles are installed, or pass --skip-topcoffea-data-check if your setup "
+        "provides the resources elsewhere."
+    )
+
+    try:
+        pileup_path = topcoffea_path(target_relpath)
+    except FileNotFoundError as exc:
+        raise SystemExit(f"{guidance} (lookup failed for {target_relpath}).") from exc
+
+    if not os.path.exists(pileup_path):
+        raise SystemExit(f"{guidance} (expected {pileup_path}).")
+
+
+def _format_worker_exception(exception_obj):
+    if exception_obj in (None, 0):
+        return None
+
+    try:
+        return str(exception_obj)
+    except Exception:
+        return repr(exception_obj)
+
+
+def _resolve_environment_file(env_override, use_remote_env, extra_pip_local=None):
+    if env_override:
+        env_path = os.path.abspath(os.path.expanduser(env_override))
+        if not os.path.exists(env_path):
+            raise SystemExit(
+                f"Requested remote environment file {env_path} does not exist. "
+                "Point --env-file at a poncho tarball built from environment.yml or drop the flag to rebuild."
+            )
+        return env_path
+
+    if not use_remote_env:
+        return None
+
+    try:
+        return remote_environment.get_environment(
+            extra_pip_local=extra_pip_local or {"topeft": ["topeft", "setup.py"]},
+        )
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            "Failed to build a remote execution environment (poncho_package_create errored). "
+            "Provide --env-file pointing to a known-good poncho tarball (e.g. generated from environment.yml) "
+            "or rerun with --no-remote-env if workers already have the dependencies."
+        ) from exc
+
+
+def _prepare_work_queue_staging_directory(filepath_override=None):
+    requested_path = filepath_override or f"/tmp/{os.environ.get('USER', 'user')}-workers"
+    path_preexisted = os.path.exists(requested_path)
+
+    try:
+        os.makedirs(requested_path, exist_ok=True)
+        return requested_path, not path_preexisted
+    except OSError as exc:
+        print(
+            "Warning: Failed to create Work Queue staging directory {} ({}). Falling back to a "
+            "system temporary location.".format(requested_path, exc)
+        )
+
+    fallback_path = tempfile.gettempdir()
+    print(f"Using fallback Work Queue staging directory: {fallback_path}")
+    return fallback_path, False
+
+
+def _cleanup_work_queue_staging_directory(path, eligible_for_cleanup):
+    if not path or not eligible_for_cleanup:
+        return
+
+    try:
+        shutil.rmtree(path, ignore_errors=False)
+    except OSError as exc:
+        print(
+            "Warning: Failed to clean up Work Queue staging directory {} ({}). You may want to "
+            "remove it manually.".format(path, exc)
+        )
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
     parser.add_argument(
@@ -68,7 +159,13 @@ if __name__ == "__main__":
         "--nworkers",
         "-n",
         default=8,
+        type=int,
         help="Number of workers",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        help="Alias for --nworkers (kept for backwards compatibility)",
     )
     parser.add_argument(
         "--chunksize",
@@ -128,7 +225,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--tau_h_analysis",
         action="store_true",
-        help="Add tau channels",
+        help=(
+            "Add hadronic tau channels, including the DY-like 1l+tau_h control region "
+            "with opposite-sign pairs around the visible Z mass."
+        ),
     )
     parser.add_argument(
         "--fwd-analysis",
@@ -152,6 +252,16 @@ if __name__ == "__main__":
             "Perform nonprompt estimation on the output hist, and save a new hist "
             "with the np contribution included. Signal, background and data samples "
             "must all be processed together."
+        ),
+    )
+    parser.add_argument(
+        "--np-postprocess",
+        choices=["inline", "defer", "skip"],
+        default="inline",
+        help=(
+            "Control when the nonprompt post-processing step runs. "
+            "Use 'inline' (default) to run immediately, 'defer' to emit metadata "
+            "for a follow-up job, or 'skip' to omit the step entirely."
         ),
     )
     parser.add_argument(
@@ -185,6 +295,14 @@ if __name__ == "__main__":
         help="Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.",
     )
     parser.add_argument(
+        "--wq-filepath",
+        default=None,
+        help=(
+            "Override the Work Queue staging directory (default: /tmp/${USER}-workers). The path will be "
+            "created if missing; if creation fails a system temporary directory will be used instead."
+        ),
+    )
+    parser.add_argument(
         "--noRun3MVA",
         action='store_false',
         default=True,
@@ -204,11 +322,42 @@ if __name__ == "__main__":
             "or 'taufitter' to enable tau fitter specific handling."
         ),
     )
+    parser.add_argument(
+        "--skip-topcoffea-data-check",
+        action="store_true",
+        help=(
+            "Bypass the startup sanity check that verifies the shared topcoffea data files are present. "
+            "Use only for expert/custom setups."
+        ),
+    )
+    parser.add_argument(
+        "--env-file",
+        default=None,
+        help=(
+            "Path to a prebuilt poncho environment tarball to ship to workers instead of generating one. "
+            "Start from the repository's environment.yml template when crafting a fallback to avoid repeated "
+            "failures from unavailable upstream pins."
+        ),
+    )
+    parser.add_argument(
+        "--no-remote-env",
+        dest="use_remote_env",
+        action="store_false",
+        help=(
+            "Disable automatic poncho environment creation; rely on worker nodes to already provide the "
+            "dependencies. Pair with --env-file to supply a known-good tarball (e.g. built from "
+            "environment.yml) when remote packaging fails."
+        ),
+    )
+    parser.set_defaults(use_remote_env=True)
 
     args = parser.parse_args()
+    if args.workers is not None:
+        args.nworkers = args.workers
+    _ensure_topcoffea_data_available(args.skip_topcoffea_data_check)
     jsonFiles = args.jsonFiles
     prefix = args.prefix
-    executor = args.executor
+    executor_name = args.executor
     dotest = args.test
     nworkers = int(args.nworkers)
     chunksize = int(args.chunksize)
@@ -226,13 +375,17 @@ if __name__ == "__main__":
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
+    np_postprocess_mode = args.np_postprocess
     useRun3MVA = args.noRun3MVA #NB: default value is True, the arg starts with no because its usage prevents making selections with the run3 MVA
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
     ecut = args.ecut
     port = args.port
+    wq_filepath = args.wq_filepath
     hist_list = args.hist_list
     analysis_mode = args.analysis_mode
+    env_file_override = args.env_file
+    use_remote_env = args.use_remote_env
 
     if args.options:
         import yaml
@@ -240,7 +393,7 @@ if __name__ == "__main__":
             ops = yaml.load(f,Loader=yaml.Loader)
         jsonFiles = ops.pop("jsonFiles",jsonFiles)
         prefix = ops.pop("prefix",prefix)
-        executor = ops.pop("executor",executor)
+        executor_name = ops.pop("executor",executor_name)
         dotest = ops.pop("test",dotest)
         nworkers = ops.pop("nworkers",nworkers)
         chunksize = ops.pop("chunksize",chunksize)
@@ -264,17 +417,25 @@ if __name__ == "__main__":
         skip_sr = ops.pop("skip_sr",skip_sr)
         skip_cr = ops.pop("skip_cr",skip_cr)
         do_np = ops.pop("do_np",do_np)
+        np_postprocess_mode = ops.pop("np_postprocess", np_postprocess_mode)
         do_renormfact_envelope = ops.pop("do_renormfact_envelope",do_renormfact_envelope)
         wc_lst = ops.pop("wc_list",wc_lst)
         hist_list = ops.pop("hist_list",hist_list)
         port = ops.pop("port",port)
+        wq_filepath = ops.pop("wq_filepath", wq_filepath)
         ecut = ops.pop("ecut",ecut)
         analysis_mode = ops.pop("analysis_mode", analysis_mode)
+        env_file_override = ops.pop("env_file", env_file_override)
+        use_remote_env = ops.pop("use_remote_env", use_remote_env)
+
+    out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
+    out_pkl_file_name_np = os.path.join(outpath, outname + "_np.pkl.gz")
+    np_metadata_file = out_pkl_file_name_np + ".metadata.json"
 
     # Check if we have valid options
-    if executor not in LST_OF_KNOWN_EXECUTORS:
+    if executor_name not in LST_OF_KNOWN_EXECUTORS:
         raise Exception(
-            f'The "{executor}" executor is not known. Please specify an executor from the known executors ({LST_OF_KNOWN_EXECUTORS}). Exiting.'
+            f'The "{executor_name}" executor is not known. Please specify an executor from the known executors ({LST_OF_KNOWN_EXECUTORS}). Exiting.'
         )
     if do_renormfact_envelope:
         if not do_systs:
@@ -285,8 +446,12 @@ if __name__ == "__main__":
             raise Exception(
                 "Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step."
             )
+        if np_postprocess_mode != "inline":
+            raise Exception(
+                "Error: Renorm/fact envelope requires inline nonprompt post-processing."
+            )
     if dotest:
-        if executor == "futures":
+        if executor_name == "futures":
             nchunks = 2
             chunksize = 10000
             nworkers = 1
@@ -296,7 +461,7 @@ if __name__ == "__main__":
             )
         else:
             raise Exception(
-                f'The "test" option is not set up to work with the {executor} executor. Exiting.'
+                f'The "test" option is not set up to work with the {executor_name} executor. Exiting.'
             )
 
     # Set the threshold for the ecut (if not applying a cut, should be None)
@@ -304,7 +469,7 @@ if __name__ == "__main__":
     if ecut_threshold is not None:
         ecut_threshold = float(ecut)
 
-    if executor in ["work_queue", "taskvine"]:
+    if executor_name in ["work_queue", "taskvine"]:
         # construct wq port range
         port = list(map(int, port.split("-")))
         if len(port) < 1:
@@ -428,6 +593,8 @@ if __name__ == "__main__":
                     allInputFiles.append(jsonFile + f)
         else:
             allInputFiles.append(jsonFile)
+
+    resolved_input_jsons = list(allInputFiles)
 
     # Read from cfg files
     for f in allInputFiles:
@@ -569,11 +736,83 @@ if __name__ == "__main__":
         for fname in samplesdict[sname]["files"]:
             print("     %s" % fname)
 
-        if executor == "futures":
+        if executor_name == "futures":
             break
+
+    sample_years_from_inputs = sorted(
+        {
+            str(sample.get("year"))
+            for sample in samplesdict.values()
+            if sample.get("year") is not None
+        }
+    )
+
+    def _build_np_followup_command():
+        followup_snippet = (
+            "from topeft.modules.dataDrivenEstimation import DataDrivenProducer; "
+            f"DataDrivenProducer({out_pkl_file!r}, {out_pkl_file_name_np!r}).dumpToPickle()"
+        )
+        return f"python -c {shlex.quote(followup_snippet)}"
+
+    def _build_np_metadata_payload():
+        resolved_year_list = (
+            sorted(requested_years) if requested_years is not None else sample_years_from_inputs
+        )
+        payload = {
+            "metadata_version": 1,
+            "timestamp": time.time(),
+            "input_histogram": out_pkl_file,
+            "output_histogram": out_pkl_file_name_np,
+            "metadata_path": np_metadata_file,
+            "np_postprocess": np_postprocess_mode,
+            "pretend_mode": pretend,
+            "do_np": do_np,
+            "resolved_years": resolved_year_list,
+            "sample_years": sample_years_from_inputs,
+            "input_jsons": resolved_input_jsons,
+            "analysis_mode": analysis_mode,
+            "hist_list": hist_lst,
+            "wc_list": wc_lst,
+            "executor": executor_name,
+            "options_file": args.options,
+            "flags": {
+                "split_lep_flavor": split_lep_flavor,
+                "offZ_split": offZ_split,
+                "tau_h_analysis": tau_h_analysis,
+                "fwd_analysis": fwd_analysis,
+                "skip_sr": skip_sr,
+                "skip_cr": skip_cr,
+                "do_systs": do_systs,
+                "fill_sumw2": fill_sumw2,
+                "useRun3MVA": useRun3MVA,
+            },
+            "followup_command": _build_np_followup_command(),
+        }
+        return payload
+
+    def _write_np_metadata_sidecar(*, pretend_override=None):
+        payload = _build_np_metadata_payload()
+        if pretend_override is not None:
+            payload["pretend_mode"] = pretend_override
+        os.makedirs(outpath, exist_ok=True)
+        with open(np_metadata_file, "w") as metadata_stream:
+            json.dump(payload, metadata_stream, indent=2, sort_keys=True)
+        return payload
+
+    def _print_np_defer_instructions(metadata_payload):
+        followup_command = metadata_payload.get("followup_command", _build_np_followup_command())
+        print(
+            "Nonprompt estimation deferred. Metadata saved to {}.\n"
+            "Run the following command to finalize the nonprompt histograms:\n  {}".format(
+                metadata_payload.get("metadata_path", np_metadata_file), followup_command
+            )
+        )
             
     if pretend:
         print("pretending...")
+        if do_np and np_postprocess_mode == "defer":
+            metadata_payload = _write_np_metadata_sidecar(pretend_override=True)
+            _print_np_defer_instructions(metadata_payload)
         exit()
 
     # Extract the list of all WCs, as long as we haven't already specified one.
@@ -597,6 +836,18 @@ if __name__ == "__main__":
 
     print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
 
+    env_extra_pip_local = {"topeft": ["topeft", "setup.py"]}
+    wq_staging_dir = None
+    wq_cleanup_after = False
+    if executor_name in ["work_queue", "taskvine"]:
+        environment_file = _resolve_environment_file(
+            env_file_override,
+            use_remote_env,
+            extra_pip_local=env_extra_pip_local,
+        )
+    else:
+        environment_file = None
+
     processor_instance = analysis_processor.AnalysisProcessor(
         samplesdict,
         wc_lst,
@@ -614,7 +865,8 @@ if __name__ == "__main__":
         tau_run_mode=analysis_mode
     )
 
-    if executor in ["work_queue", "taskvine"]:
+    if executor_name in ["work_queue", "taskvine"]:
+        wq_staging_dir, wq_cleanup_after = _prepare_work_queue_staging_directory(wq_filepath)
         executor_args = {
             "manager_name": f"{os.environ['USER']}-workqueue-coffea",
             # find a port to run work queue in this range:
@@ -623,9 +875,6 @@ if __name__ == "__main__":
             "transactions_log": "tr.log",
             "stats_log": "stats.log",
             "tasks_accum_log": "tasks.log",
-            "environment_file": remote_environment.get_environment(
-                extra_pip_local={"topeft": ["topeft", "setup.py"]},
-            ),
             "extra_input_files": ["analysis_processor.py"],
             "retries": 15,
             # use mid-range compression for chunks results.
@@ -640,8 +889,8 @@ if __name__ == "__main__":
             # 'resource_monitor': True,
             "resource_monitor": "measure",
             "resources_mode": "auto",
-            #'filepath': f'/tmp/{os.environ["USER"]}-workers', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
-            "filepath": '/tmp',
+            'filepath': wq_staging_dir,
+            #"filepath": '/tmp',
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.
@@ -678,31 +927,53 @@ if __name__ == "__main__":
             "print_stdout": False,
         }
 
+        if environment_file:
+            executor_args["environment_file"] = environment_file
+
     # Run the processor and get the output
     tstart = time.time()
 
-    if executor == "futures":
-        exec_instance = processor.futures_executor(workers=nworkers)
+    def _ensure_nonempty_chunks():
+        total_files = sum(len(files) for files in flist.values())
+        if total_files == 0:
+            raise SystemExit(
+                "No input files were available to process; verify the sample JSON and prefix "
+                "and retry with at least one file."
+            )
+
+        if nchunks == 0:
+            raise SystemExit(
+                "Requested zero chunks; increase --nchunks or drop the flag to process the full dataset."
+            )
+
+    if executor_name == "futures":
+        futures_factory = getattr(processor, "futures_executor", None)
+        if callable(futures_factory):
+            exec_instance = futures_factory(workers=nworkers)
+        else:
+            exec_instance = processor.FuturesExecutor(workers=nworkers)
+        _ensure_nonempty_chunks()
         runner = processor.Runner(
             exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
         )
-    elif executor == "work_queue":
-        executor = processor.WorkQueueExecutor(**executor_args)
+    elif executor_name == "work_queue":
+        executor_instance = processor.WorkQueueExecutor(**executor_args)
+        _ensure_nonempty_chunks()
         runner = processor.Runner(
-            executor,
+            executor_instance,
             schema=NanoAODSchema,
             chunksize=chunksize,
             maxchunks=nchunks,
             skipbadfiles=False,
             xrootdtimeout=180,
         )
-    elif executor == "taskvine":
+    elif executor_name == "taskvine":
         try:
-            executor = processor.TaskVineExecutor(**executor_args)
+            executor_instance = processor.TaskVineExecutor(**executor_args)
         except AttributeError:
             raise RuntimeError("TaskVineExecutor not available.")
         runner = processor.Runner(
-            executor,
+            executor_instance,
             schema=NanoAODSchema,
             chunksize=chunksize,
             maxchunks=nchunks,
@@ -710,59 +981,92 @@ if __name__ == "__main__":
             xrootdtimeout=300,
         )
 
-    output = runner(flist, treename, processor_instance)
+    run_succeeded = False
+    try:
+        try:
+            output = runner(flist, treename, processor_instance)
+        except TypeError as exc:
+            raise RuntimeError(
+                "The executor returned no chunk results. Ensure that the input files produced at least "
+                "one chunk and that the executor handled submissions correctly."
+            ) from exc
 
-    print("Finished running the processor...")
+        worker_exception = None
+        if isinstance(output, dict):
+            worker_exception = _format_worker_exception(output.get("exception"))
 
-    dt = time.time() - tstart
+        if output is None:
+            if worker_exception is not None:
+                print(f"Executor reported a worker-side exception: {worker_exception}")
+            else:
+                print("Runner returned no output; no chunks appear to have been processed.")
+            raise RuntimeError("Processing failed because no results were returned from the executor.")
 
-    if executor in ["work_queue", "taskvine"]:
-        print(
-            "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
-                nevts_total, dt, nevts_total / dt
+        if worker_exception is not None:
+            raise RuntimeError(
+                f"Processing failed because a worker raised an exception: {worker_exception}"
             )
-        )
 
-    # nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-    # nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-    # print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+        print("Finished running the processor...")
 
-    if executor == "futures":
-        print(
-            "Processing time: %1.2f s with %i workers (%.2f s cpu overall)"
-            % (
-                dt,
-                nworkers,
-                dt * nworkers,
+        dt = time.time() - tstart
+
+        if executor_name in ["work_queue", "taskvine"]:
+            print(
+                "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
+                    nevts_total, dt, nevts_total / dt
+                )
             )
-        )
 
-    # Save the output
-    if not os.path.isdir(outpath):
-        os.system("mkdir -p %s" % outpath)
-    out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
-    print(f"\nSaving output in {out_pkl_file}...")
-    with gzip.open(out_pkl_file, "wb") as fout:
-        cloudpickle.dump(output, fout)
-    print("Done!")
+        # nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+        # nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+        # print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
-    # Run the data driven estimation, save the output
-    if do_np:
-        print("\nDoing the nonprompt estimation...")
-        out_pkl_file_name_np = os.path.join(outpath, outname + "_np.pkl.gz")
-        ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
-        print(f"Saving output in {out_pkl_file_name_np}...")
-        ddp.dumpToPickle()
+        if executor_name == "futures":
+            print(
+                "Processing time: %1.2f s with %i workers (%.2f s cpu overall)"
+                % (
+                    dt,
+                    nworkers,
+                    dt * nworkers,
+                )
+            )
+
+        # Save the output
+        os.makedirs(outpath, exist_ok=True)
+        print(f"\nSaving output in {out_pkl_file}...")
+        with gzip.open(out_pkl_file, "wb") as fout:
+            cloudpickle.dump(output, fout)
         print("Done!")
-        # Run the renorm fact envelope calculation
-        if do_renormfact_envelope:
-            print("\nDoing the renorm. fact. envelope calculation...")
-            dict_of_histos = utils.get_hist_from_pkl(
-                out_pkl_file_name_np, allow_empty=False
-            )
-            dict_of_histos_after_applying_envelope = get_renormfact_envelope(
-                dict_of_histos
-            )
-            utils.dump_to_pkl(
-                out_pkl_file_name_np, dict_of_histos_after_applying_envelope
-            )
+
+        # Run the data driven estimation, save the output
+        if do_np:
+            if np_postprocess_mode == "inline":
+                print("\nDoing the nonprompt estimation...")
+                ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
+                print(f"Saving output in {out_pkl_file_name_np}...")
+                ddp.dumpToPickle()
+                print("Done!")
+                if do_renormfact_envelope:
+                    print("\nDoing the renorm. fact. envelope calculation...")
+                    dict_of_histos = utils.get_hist_from_pkl(
+                        out_pkl_file_name_np, allow_empty=False
+                    )
+                    dict_of_histos_after_applying_envelope = get_renormfact_envelope(
+                        dict_of_histos
+                    )
+                    utils.dump_to_pkl(
+                        out_pkl_file_name_np, dict_of_histos_after_applying_envelope
+                    )
+            elif np_postprocess_mode == "defer":
+                print("\nDeferring the nonprompt estimation and writing metadata...")
+                metadata_payload = _write_np_metadata_sidecar()
+                _print_np_defer_instructions(metadata_payload)
+            else:
+                print("\nSkipping the nonprompt estimation as requested (--np-postprocess=skip).")
+            run_succeeded = True
+        else:
+            run_succeeded = True
+    finally:
+        if run_succeeded and wq_cleanup_after:
+            _cleanup_work_queue_staging_directory(wq_staging_dir, wq_cleanup_after)

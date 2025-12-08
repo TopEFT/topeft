@@ -1,69 +1,104 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5258003.svg)](https://doi.org/10.5281/zenodo.5258002)
-[![CI](https://github.com/TopEFT/topcoffea/actions/workflows/main.yml/badge.svg)](https://github.com/TopEFT/topeft/actions/workflows/main.yml)
+[![CI](https://github.com/TopEFT/topeft/actions/workflows/main.yml/badge.svg)](https://github.com/TopEFT/topeft/actions/workflows/main.yml)
 [![Coffea-casa](https://img.shields.io/badge/launch-Coffea--casa-green)](https://cmsaf-jh.unl.edu/hub/spawn)
 [![codecov](https://codecov.io/gh/TopEFT/topcoffea/branch/master/graph/badge.svg?token=U2DMI1C22F)](https://codecov.io/gh/TopEFT/topcoffea)
 
 # topeft
-Top quark EFT analyses using the Coffea framework
+Top quark EFT analyses using the Coffea framework.
+
+## Newcomer quickstart (one page)
+Follow these steps on a clean machine to get to your first `run_analysis.py` call. The example processes a single ROOT file locally with the `futures` executor.
+
+1. **Clone and enter the repository**
+   ```bash
+   git clone https://github.com/TopEFT/topeft.git
+   cd topeft
+   unset PYTHONPATH  # Avoid stale paths from other environments
+   ```
+2. **Create and activate the environment**
+   ```bash
+   conda env create -f environment.yml
+   conda activate coffea-env
+   pip install -e .
+   ```
+3. **Install the matching `topcoffea` checkout and data bundle** (default branch: `run3_test_mmerged`)
+   ```bash
+   scripts/install_topcoffea.sh
+   python -c "import topeft, topcoffea"  # Sanity check
+   ```
+4. **Run a first analysis**
+   ```bash
+   cd analysis/topeft_run2
+   wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
+   python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures
+   ```
+
+A colleague unfamiliar with the repository followed the quickstart above to a successful `run_analysis.py` invocation, confirming the steps work end-to-end on a fresh checkout.
+
+### Nonprompt post-processing at a glance
+| Mode | How to request | When to use | Follow-up |
+| --- | --- | --- | --- |
+| Inline (default) | `--do-np --np-postprocess=inline` | Produce the `_np.pkl.gz` file immediately after the main histograms. | No extra steps—the nonprompt pickle is ready when the job finishes. |
+| Deferred | `--do-np --np-postprocess=defer` (or `fullR3_run.sh --do-np --defer-np`) | Separate heavy processing from later nonprompt combination runs. | Run `python run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json` (or use `--input-pkl/--output-pkl`) to finalize. |
+| Skip | `--np-postprocess=skip` | Disable the nonprompt helper entirely. | None—no `_np.pkl.gz` is created. |
+
+### Where to go next
+* Processor- and plotting-specific details live in `analysis/topeft_run2/README.md`.
+* See [Nonprompt workflows](#nonprompt-workflows) for inline vs. deferred recipes.
+* Jump to [Executor diagnostics and troubleshooting](#executor-diagnostics-and-troubleshooting) for advanced flags and data checks.
+* Consult [Work Queue executor](#work-queue-executor) for distributed runs or read `README_WORKQUEUE.md` directly.
+* Datacard production and historical reproductions remain in [Reproducing the TOP-22-006 histograms and datacards](#to-reproduce-the-top-22-006-histograms-and-datacards).
+
+### DY τℓ+τh control region
+Enabling `--tau_h_analysis` now stages a Drell–Yan–enriched validation region with one light lepton and one hadronic tau. Events must feature an opposite-sign ℓ–τh pair near the visible Z mass (either via the existing `onZ_tau` mask or a 60–120 GeV window on m(ℓ,τh)), pass the standard single-lepton trigger path, and contain no medium b tags. The region is split by electron/muon flavor and by the usual 2–4 jet bins so it can appear alongside the other CR yields and plots.
 
 ## Repository contents
 The `topeft/topeft` directory is set up to be installed as a pip installable package.
-- `topeft/topeft`: A package containing modules and files that will be installed into the environment. 
+- `topeft/topeft`: A package containing modules and files that will be installed into the environment.
 - `topeft/setup.py`: File for installing the `topeft` package
-- `topeft/analysis`: Subfolders with different analyses or studies. 
+- `topeft/analysis`: Subfolders with different analyses or studies.
 - `topeft/tests`: Scripts for testing the code with `pytest`. For additional details, please see the [README](https://github.com/TopEFT/topeft/blob/master/tests/README.md) in the `tests` directory.
 - `topeft/input_samples`: Configuration files that point to root files to process.
 
-## Getting started
+## Environment notes
+`scripts/install_topcoffea.sh` vendors `topcoffea` into `external/topcoffea`, checks out the repository's default branch (or whichever branch you request via `TOPCOFFEA_GIT_REF`), and performs an editable install so that the `topcoffea` package is immediately importable inside the current virtual environment. **This step is mandatory:** the helper is also responsible for staging the official `topcoffea/data` payloads (pileup profiles, scale factors, golden JSONs, etc.), so skipping it will leave `run_analysis.py` unable to complete its startup data checks. Override `TOPCOFFEA_GIT_REF`, `TOPCOFFEA_REPO_URL`, or `TOPCOFFEA_DIR` if you need a different branch, fork, or destination.
 
-### Setting up
-If conda is not already available, download and install it:
-```
-curl https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > conda-install.sh
-bash conda-install.sh
-```
-The topeft directory is set up to be installed as a python package. First clone the repository as shown, then run the following commands to set up the environment (note that `environment.yml` is a file that is a part of the `topeft` repository, so you should `cd` into `topeft` before running the command):
-```
-git clone https://github.com/TopEFT/topeft.git
-cd topeft
-unset PYTHONPATH # To avoid conflicts.  
-conda env create -f environment.yml
-conda activate coffea-env
-pip install -e .
-```
-The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`. 
-The `topcoffea` package upon which this analysis also depends is not yet available on `PyPI`, so we need to clone the `topcoffea` repo and install it ourselves.
-```
-cd /your/favorite/directory
-git clone https://github.com/TopEFT/topcoffea.git
-cd topcoffea
-pip install -e .  
-```
-Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The next time you want to use it, all you have to do is to activate the environment via `conda activate coffea-env`. 
+`analysis/topeft_run2/run_analysis.py` verifies that the shared `topcoffea` data bundle is reachable by resolving a representative file (`data/pileup/pileup_2016GH.root`) through `topcoffea_path`. When the lookup fails the CLI exits early with guidance to re-run `scripts/install_topcoffea.sh`, ensure the expected branch (currently `run3_test_mmerged`) is available, and retry. Pass `--skip-topcoffea-data-check` only if you manage the pileup files yourself and understand the consequences—the default should remain enabled so typical runs fail fast instead of crashing deep inside the processing step.
 
+The next time you return to the repository, all you have to do is activate the environment via `conda activate coffea-env` (the editable installs keep `import topeft` and `import topcoffea` working).
 
-### To run an example job 
+## Nonprompt workflows
+When `--do-np` is passed `run_analysis.py` produces the nonprompt-enhanced `_np.pkl.gz` histogram in one of two ways controlled by `--np-postprocess={inline,defer,skip}`. Inline mode mirrors the historical behaviour so the nonprompt/flips histogram is ready as soon as the jobs finish. Deferred mode emits the base pickle plus a sidecar metadata file named like `histos/<outname>_np.pkl.gz.metadata.json`.
 
-First `cd` into `analysis/topeft_run2` and run the `run_analysis.py` script, passing it the path to your config file or json file. In this example we'll process a single root file locally, using a json file that is already set up. 
+Finalize deferred outputs with either:
+```bash
+python analysis/topeft_run2/run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json --apply-renormfact-envelope
 ```
-cd analysis/topeft_run2
-wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
-python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures
+or by skipping metadata entirely and pointing the helper directly at the pickle paths:
+```bash
+python analysis/topeft_run2/run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz \
+    --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope
+```
+The direct invocation is handy when the metadata json is missing or when you have relocated the base pickle and want to override the output destination in one call. Long-running deferred jobs emit lightweight progress heartbeats while histograms are combined; tune the cadence with `--heartbeat-seconds` (set to `0` to log every histogram) or silence the messages with `--quiet` for batch use.
 
-```
-To make use of distributed resources, the `work queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
-```
+## Executor diagnostics and troubleshooting
+Run 3 workflows emit clearer diagnostics for executor issues. When running with `-x futures` or `-x work_queue`, an empty file list (or `--nchunks 0`) fails fast with guidance instead of silently submitting nothing. Worker-side exceptions are surfaced explicitly rather than triggering a cryptic `TypeError`; review the stack trace printed in the error message and the worker logs to decide whether to retry the job or adjust the sample JSON/prefix.
+
+Startup failures that mention missing `topcoffea` data almost always indicate the `scripts/install_topcoffea.sh` step was skipped or the `external/topcoffea` checkout is on the wrong branch. Re-run the helper and try again before reaching for `--skip-topcoffea-data-check`.
+
+## Work Queue executor
+To make use of distributed resources, the `work_queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
+```bash
 conda activate coffea-env
 condor_submit_workers -M ${USER}-work_queue-coffea -t 900 --cores 12 --memory 48000 --disk 100000 10
 ```
-The workers will terminate themselves after 15 minutes of inactivity. More details on the work queue executor can be found [here](https://github.com/TopEFT/topeft/blob/master/README_WORKQUEUE.md).
-
+The workers will terminate themselves after 15 minutes of inactivity. More details on the work queue executor can be found in [README_WORKQUEUE.md](README_WORKQUEUE.md).
 
 ## How to contribute
 
 If you would like to push changes to the repo, please make a branch and open a PR and ensure that the CI passes. Note that if you are developing on a fork, the CodeCov CI will fail.
 
-Note, if your branch gets out of date as other PRs are merged into the master branch, you may need to merge those changes into your brnach and fix any conflicts prior to your PR being merged. 
+Note, if your branch gets out of date as other PRs are merged into the master branch, you may need to merge those changes into your branch and fix any conflicts prior to your PR being merged.
 
 If your branch changes anything that is expected to causes the yields to change, please run the following to updated the reference yields:
 ```bash
@@ -71,7 +106,7 @@ cd analysis/topEFT/
 sh remake_ci_ref_yields.sh
 sh remake_ci_ref_datacard.sh
 ```
-The first script remakes the reference `json` file for the yields, and the second remakes the reference `txt` file for the datacar maker. If you are sure these change are expected, commit and push them to the PR.
+The first script remakes the reference `json` file for the yields, and the second remakes the reference `txt` file for the datacard maker. If you are sure these change are expected, commit and push them to the PR.
 
 ## Installing and running pytest locally
 To install `pytest` for local testing, run:
@@ -90,8 +125,6 @@ pytest -k test_futures
 ```
 where `test_futures` is the file/test you would like to run (check the `tests` directory for all the available tests, or write your own and push it!). If you would also like to see how the coverage changes, you can add `--cov=./ --cov-report=html` to `pytest` commands. This will create an `html` directory that you can then copy to any folder which you have web access to (e.g. `~/www/` on Earth) For a better printout of what passed and failed, add `-rP` to the `pytest` commands.
 
-
-
 ## To reproduce the TOP-22-006 histograms and datacards
 
 The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used to produce the results in the TOP-22-006 paper.
@@ -101,12 +134,14 @@ The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used t
     time source fullR3_run.sh
     ```
 
-2. Run the datacard maker to obtain the cards and templates from SM (from the pickled histogram file produced in Step 1, be sure to use the version with the nonprompt estimation, i.e. the one with `_np` appended to the name you specified for the `OUT_NAME` in `fullR3_run.sh`). This step would also produce scalings-preselect.json file which the later version is necessary for IM workspace making. Note that command option `--wc-scalings` is not mandatory but to enforce the ordering of wcs in scalings. Add command `-A` to include all EFT templates in datacards for previous AAC model. Add option `-C` to run on condor.
+    Inline mode is still the default, but `fullR3_run.sh` does **not** automatically add `--do-np`. Pass it yourself (e.g. `time source fullR3_run.sh --do-np ...`) so that `run_analysis.py --np-postprocess=inline --do-np` runs and the `_np.pkl.gz` file is ready when the wrapper exits. To defer the nonprompt/flips step (e.g. when you want to rerun the data-driven combination without repeating the entire processing campaign) pass both `--do-np` and `--defer-np` to the helper; the former enables the producer and the latter switches it to deferred mode. In that configuration the wrapper records the follow-up command in `histos/<outname>_np.pkl.gz.metadata.json`. Later run `python analysis/topeft_run2/run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json` to materialize the `_np.pkl.gz` file before moving on to Step 2.
+
+2. Run the datacard maker to obtain the cards and templates from SM (from the pickled histogram file produced in Step 1, be sure to use the version with the nonprompt estimation, i.e. the one with `_np` appended to the name you specified for the `OUT_NAME` in `fullR3_run.sh`). Whether you produced `_np.pkl.gz` inline or via the deferred helper, point the datacard maker at the final `_np.pkl.gz`. This step would also produce scalings-preselect.json file which the later version is necessary for IM workspace making. Note that command option `--wc-scalings` is not mandatory but to enforce the ordering of wcs in scalings. Add command `-A` to include all EFT templates in datacards for previous AAC model. Add option `-C` to run on condor.
     ```
     time python make_cards.py /path/to/your/examplename_np.pkl.gz --do-nuisance --var-lst lj0pt ptz -d /scratch365/you/somedir --unblind --do-mc-stat --wc-scalings cQQ1 cQei cQl3i cQlMi cQq11 cQq13 cQq81 cQq83 cQt1 cQt8 cbW cpQ3 cpQM cpt cptb ctG ctW ctZ ctei ctlSi ctlTi ctli ctp ctq1 ctq8 ctt1
     ```
 
-3. Run the post-processing checks on the cards to look for any unexpected errors, to grab the right set of ptz and lj0pt templates/cards used in TOP-22-006, and to get final version of scalings.json file. The script will copy the relevant cards/templates/ and create the json file to a directory called `ptz-lj0pt_withSys` that it makes inside of the directory you pass that points to the cards and templates made in Step 2. This `ptz-lj0pt_withSys` is the directory that can be copied to wherever you plan to run the `combine` steps (e.g. PSI). Can also run this on condor with `-c`.
+3. Run the post-processing checks on the cards to look for any unexpected errors, to grab the right set of ptz and lj0pt templates/cards used in TOP-22-006, and to get final version of scalings.json file. The script will copy the relevant cards/templates, and create the json file to a directory called `ptz-lj0pt_withSys` that it makes inside of the directory you pass that points to the cards and templates made in Step 2. This `ptz-lj0pt_withSys` is the directory that can be copied to wherever you plan to run the `combine` steps (e.g. PSI). Can also run this on condor with `-c`.
     ```
     time python datacards_post_processing.py /scratch365/you/somedir -s
     ```
@@ -116,6 +151,4 @@ The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used t
     python get_datacard_yields.py /scratch365/you/somedir/ptz-lj0pt_withSys/ --unblind
     ```
 
-5. Proceed to the [Steps for reproducing the "official" TOP-22-006 workspace](https://github.com/TopEFT/EFTFit#steps-for-reproducing-the-official-top-22-006-workspace) steps listed in the EFTFit Readme. Remember that in addition to the files cards and templates, you will also need the `selectedWCs.txt` file. 
-
-
+5. Proceed to the [Steps for reproducing the "official" TOP-22-006 workspace](https://github.com/TopEFT/EFTFit#steps-for-reproducing-the-official-top-22-006-workspace) steps listed in the EFTFit Readme. Remember that in addition to the files cards and templates, you will also need the `selectedWCs.txt` file.
