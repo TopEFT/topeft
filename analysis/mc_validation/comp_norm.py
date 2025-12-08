@@ -342,7 +342,9 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if not args.start:
         val = [1.0] * len(wc)
 
+    lab = 'st pt.'
     if st_pt is None:
+        lab = 'pt.'
         wcs = hists1[var].wc_names
         val = [1.0] * len(wcs)
         st_pt = dict(zip(wcs, val))
@@ -353,9 +355,9 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if not args.central and not args.skip: eft_err = np.sqrt(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt).variances(flow=(flow=='show')))
     eft_err = False
     #if flow=='show': eft_err = eft_err[1:]
-    if not args.central and not args.skip: hep.histplot(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{args.str1} pt.', ax=ax, density=density, flow=flow, ls='--', yerr=eft_err)
+    if not args.central and not args.skip: hep.histplot(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{args.str1} {lab}', ax=ax, density=density, flow=flow, ls='--', yerr=eft_err)
     if args.private and not args.skip and not args.central: #FIXME
-        hep.histplot(hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{str2} EFT pt.', ax=ax, density=density, flow=flow, yerr=False, ls='-.')
+        hep.histplot(hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{str2} {lab}', ax=ax, density=density, flow=flow, yerr=False, ls='-.')
     #eft_st = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt).values()
     #eft_err = np.sqrt(eft_st)/np.sum(eft_st)
     #eft_err = np.sqrt(eft_st)
