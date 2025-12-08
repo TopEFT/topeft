@@ -146,10 +146,12 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     chan = 'incl_0j'
     appl = 'isAR_incl'
 
+    hep.style.use("CMS")
+
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(7,7),
+        figsize=(12,12),
         gridspec_kw={"height_ratios": (3, 1)},
         sharex=True
     )
@@ -282,9 +284,9 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     eft = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}]
     err = np.sqrt(eft.as_hist({}).variances()[()])#/np.sum(eft.values()[()])
 
+    max_lumi = max(lumi1, lumi2)
     if args.info:
         tab = '    '
-        max_lumi = max(lumi1, lumi2)
         print('\n\nSummary information:')
         if args.no_lumi:
             print(f'{tab}{args.fin1} with lumi removed {np.round(np.sum(eft.eval({})[()]) / lumi1, 3)}')
@@ -415,6 +417,8 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     plt.show()
     user = os.getlogin()
     #plt.savefig('/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp.png')
+    com = 13 if 'UL' in args.fin1 else '13.6'
+    hep.cms.label(lumi=f'{max_lumi/1000.:.2f}', com=com)
     plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp_{var}.png')
     plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp_{var}.pdf')
     plt.close()
