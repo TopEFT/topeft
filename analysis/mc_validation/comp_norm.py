@@ -50,6 +50,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import argparse
 import json
+import math
 import mplhep as hep
 from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
@@ -419,7 +420,8 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     #plt.savefig('/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp.png')
     com = '13' if 'UL' in args.fin1 else '13.6'
     com = '13.6 vs 13' if 'UL' in args.fin2 and 'UL' not in args.fin1 else com
-    hep.cms.label(lumi=f'{max_lumi/1000.:.2f}', com=com)
+    n_dec = 3 - math.ceil(np.log10(max_lumi/1000.))
+    hep.cms.label(lumi=np.round(max_lumi/1000., n_dec), com=com)
     plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp_{var}.png')
     plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp_{var}.pdf')
     plt.close()
