@@ -417,7 +417,8 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     plt.show()
     user = os.getlogin()
     #plt.savefig('/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp.png')
-    com = 13 if 'UL' in args.fin1 else '13.6'
+    com = '13' if 'UL' in args.fin1 else '13.6'
+    com = '13.6 vs 13' if 'UL' in args.fin2 and 'UL' not in args.fin1 else com
     hep.cms.label(lumi=f'{max_lumi/1000.:.2f}', com=com)
     plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp_{var}.png')
     plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp_{var}.pdf')
