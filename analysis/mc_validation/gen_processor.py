@@ -348,7 +348,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht_clean = ak.sum(genjet_clean.pt,axis=-1)
 
         tops_pt = gen_top.sum().pt
-        tX      = gen_top.sum() + ak.firsts(gen_bos)
+        alltX   = gen_top.sum() + ak.firsts(gen_bos)
+        tX      = ak.firsts(gen_top) + ak.firsts(gen_bos)
+        ttX     = gen_top[:,0:2].sum() + ak.firsts(gen_bos)
+        tttt    = gen_top[:,0:5].sum()# + ak.firsts(gen_bos)
         #tX      = gen_top[:,0:1].sum() + gen_bos[:,0]#.sum()
 
         # Pt of the t(t)X system
@@ -385,10 +388,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             #"photon_l_pt" : ak.fill_none(ak.firsts(gen_p_l).pt, -1),
             "photon_eta" : gen_p_eta,
             "mll"  : ak.fill_none(mll_l0l1, -1),
-            "invm" : ak.fill_none(tX.mass, -1),
-            "invm_ttX" : ak.fill_none(tX.mass, -1),
+            "invm" : ak.fill_none(alltX.mass, -1),
+            "invm_ttX" : ak.fill_none(ttX.mass, -1),
             "invm_tX" : ak.fill_none(tX.mass, -1),
-            "invm_4t" : ak.fill_none(tX.mass, -1),
+            "invm_4t" : ak.fill_none(tttt.mass, -1),
             "t_pt" : ak.fill_none(ak.firsts(gen_top).pt, -1),
             "z_pt" : ak.fill_none(ak.firsts(gen_Z).pt, -1),
             "H_pt" : ak.fill_none(ak.firsts(gen_H).pt, -1),
