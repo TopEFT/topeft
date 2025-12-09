@@ -349,6 +349,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         val = [1.0] * len(wcs)
         st_pt = dict(zip(wcs, val))
     if args.small:
+        lab = 'non-SM pt.'
         st_pt = {wc:(val*.1 if abs(val) < 100 else 0) for wc,val in st_pt.items()}
 
     if not args.central: print(f'Using {st_pt=}')
