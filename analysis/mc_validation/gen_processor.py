@@ -302,7 +302,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("incl_sfos30_dral0p4", sfos30 & (ak.firsts(genlep_clean_DR)>0.4)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
         selections.add("2los_ph_sfos30", is2lOS & sfos30 & (nbjets==2) & (atleast_1ph) & (ak.firsts(gen_p).pt>20)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
         selections.add("2los_ph_sfos30_dral0p4", is2lOS & sfos30 & (ak.firsts(genlep_clean_DR)>0.4) & (nbjets==2) & (atleast_1ph) & (ak.firsts(gen_p).pt>20)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
-        selections.add("incl_0p_sfos30_dral0p4", (sfos30 & ((events.LHE.Nc + events.LHE.Nuds + events.LHE.Nglu)==0) & ak.fill_none(ak.firsts(genlep_clean_DR)>0.4, False))) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
         selections.add("ee",  ((np.abs(gen_l[:,0].pdgId)==11) & (np.abs(gen_l[:,1].pdgId)==11)))
         selections.add("em",  (((np.abs(gen_l[:,0].pdgId)==11) & (np.abs(gen_l[:,1].pdgId)==13)) | ((np.abs(gen_l[:,0].pdgId)==13) & (np.abs(gen_l[:,1].pdgId)==11))))
         selections.add("mm",  ((np.abs(gen_l[:,0].pdgId)==13) & (np.abs(gen_l[:,1].pdgId)==13)))
@@ -377,7 +376,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             },
             "incl": {
                 "atleast_0j" : {
-                    "lep_chan_lst" : ["incl", "incl_sfos30", "incl_draj_dral0p4", "incl_draj0p5_dral0p4", "incl_sfos30_dral0p4", "2los_ph", "2los_ph_dral0p4", "2los_ph_sfos30", "2los_ph_sfos30_dral0p4", "incl_0p", "incl_1p", "incl_0p_dral0p4", "incl_1p_dral0p4", "incl_0p_sfos30_dral0p4", "incl_l0pt", "incl_l0pt_dral0p4"],
+                    "lep_chan_lst" : ["incl", "incl_sfos30", "incl_draj_dral0p4", "incl_draj0p5_dral0p4", "incl_sfos30_dral0p4", "2los_ph", "2los_ph_dral0p4", "2los_ph_sfos30", "2los_ph_sfos30_dral0p4", "incl_l0pt", "incl_l0pt_dral0p4"],
                     "lep_flav_lst" : ["em", "ee", "mm"],
                     "appl_lst"     : ["isAR_incl", "isSR_2lOS"],
                 },
