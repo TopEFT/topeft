@@ -3,7 +3,7 @@ This script is used to make sets of json files much faster (using the updates ad
 It makes use of the `just_write` option skip the slow step of loading the number of events (a field we don't use)
 
 Run with:
-python make_jsons_new.py
+python make_jsons_fast.py
 
 The basics:
 Modify `make_jsons_for_dict_of_samples` to point to the dictionary you want to process.
