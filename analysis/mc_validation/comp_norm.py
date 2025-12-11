@@ -158,27 +158,6 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     )
     fig.subplots_adjust(hspace=.07)
 
-    #hists1[var] *=  1 / 2.2471 / (1000*41.48)
-    #hists2[var] *=  1 / 2.2471 / (1000*41.48)
-    #hists2[var] *=  41.48/59.83
-    #hists1[var] *=  1.513 / 2.2471
-    #hists1[var] /=  3.75 / 2.2471
-    #hists1[var] /=  3.75 / 2.629
-    #hists1[var] *=  3.489 / 2.2471
-    #hists1[var] /=  0.8548255479147789 #dral
-    #hists1[var] *=  1.33158521443235 #dral central/private
-    #hists1[var] *=  1.3120242975018286 #dral dressed leptons central/private
-    #hists1[var] *=  1.58040479981269 # 2los ph 3j
-    #hists1[var] /= 0.7440378616686412
-    #hists1[var] /=  0.44528
-    #hists1[var] /=  1.426547908273073
-    #hists1[var] *=  2.629 / 2.2471
-    #hists1[var] *=  2.629 / 3.75
-    #hists1[var] /=  1.513 / 2.2471
-    #hists1[var] /=  1.3904 / 2.2471
-    #hists1[var] *=  3.754 / 2.2471
-    #hists1[var] *=  2.499 / 2.2471
-
     if var == 'njets':
         chan = 'incl'
 
@@ -225,10 +204,6 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     elif not args.density:
         print(f'\n\nWARNING: Could not infer the luminosity.\n         Make sure {args.fin1} and {args.fin2} are normalized the same!\n\n')
 
-    #hists1[var] /= lumi
-    #hists1[var] *= 41.48/7.9804
-    #hists2[var] /= lumi
-
     if args.private: sm = hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({})
     else: sm = hists2[var][{'process': [s for s in hists2[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({})
     err = np.sqrt(sm.variances()[()])/np.sum(sm.values()[()])
@@ -239,26 +214,15 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if not args.private: hists2[var][{'process': [s for s in hists2[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=err, label=str2 + ' SM', ax=ax, density=density, flow=flow)
     else: hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=err, label=str2 + ' @ SM', ax=ax, density=density, flow=flow)
 
-    #hists1[var] *=  143723.62086377045 / 47358.43419695908
-    #hists1[var] *= 1 + 47358.43419695908 / 143723.62086377045
-
-    #s = np.sum(sm.values()) / np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values())
-    #hists1[var] *= s
-
     global printout
     if printout and var=='dral':
         printout = False
         print('hist1 / lumi', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)) / lumi)
         print('hist1 / lumi / xsec / k', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)) / 2.2471 / lumi)
         print('hist1 / lumi / 3.75', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)) / 3.75 / lumi)
-        #print('hist1 * sow / lumi / xsec / k', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=False)) / 2.2471 / lumi *  143723.62086377045)
-        #hists1[var] *=  1.513/ 2.2471 # undo k-factor
         print('hist1 / lumi / xsec', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)) / 1.513 / lumi)
-        #lumi = (1000*59.83)
         print('hist2 / lumi / xsec / k', np.sum(sm.values(flow=True)) / 2.2471 / lumi)
         print('hist2 / lumi / xsec', np.sum(sm.values(flow=True)) / 1.513 / lumi)
-        #print('hist2 / lumi / xsec / k', np.sum(sm.values(flow=True)) / 2.2471 / (1000*41.48))
-        #print('hist2 / lumi / xsec', np.sum(sm.values(flow=True)) / 1.513 / (1000*41.48))
         print('Removing dral<0.1: hist1 / (hist>0.1) / xsec', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)) / np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)[10:]) / 2.2471)
         print('Removing dral<0.1: hist1 / (hist>0.1)', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)) / np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)[10:]))
         print('Removing dral<0.1: (hist>0.1)', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True)[10:]) / lumi)
@@ -274,14 +238,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if printout:
         print(f'{var} int(hist1)=', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values()), 'int(hist2)=', np.sum(sm.values()))
     s = np.sum(sm.values(flow=True)) / np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True))
-    #s = np.sum(sm.values()) / np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values())
     print(f'Ratio {s}')
-    #hists1[var] *= 1.26
-    #hists1[var] *= s
-    #hists1[var] /= 0.3141 / 0.04406 # tWA ratio of MG / SM xsec
-    #print(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True) / hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True))
-    #hists1[var] *= 3
-    #hists1[var] *= 10.7 / 1.513
     eft = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}]
     err = np.sqrt(eft.as_hist({}).variances()[()])#/np.sum(eft.values()[()])
 
@@ -299,32 +256,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
             print(f'{tab}{args.fin2} with lumi removed {np.round(np.sum(sm.values(flow=True)[()]) / max_lumi, 3)}')
         print('\n\n')
 
-
-    #eft.as_hist({}).plot1d(yerr=False, label='nanoAOD gen-level to SM', ax=ax, density=density)#, flow='show')
-    st_pt = {'ctq1': 0.64, 'ctq8': 0.86, 'cQq81': 0.79, 'cQq83': -1.19, 'ctW': 1.49, 'cpQM': -1.02, 'ctZ': 0.94, 'ctG': 0.24, 'cQq13': 0.51, 'cQq11': -0.53, 'cpt': 1.5}
-    #st_pt = {'ctq1': 0.64, 'ctq8': 0.86, 'cQq81': 0.79, 'cQq83': -1.19, 'ctW': 1.49, 'ctZ': 0.94, 'ctG': 0.24, 'cQq13': 0.51, 'cQq11': -0.53, 'cpt': 1.5}
-    st_pt = {"cpQM": 62.000000, "ctW": 1.580000, "ctq1": 1.190000, "cQq81": 2.430000, "ctZ": 2.560000, "cQq83": 2.780000, "ctG": 0.310000, "ctq8": 2.020000, "cQq13": 1.340000, "cQq11": 1.350000, "cpt": 32.930000} # dim6top
-    st_pt = {"cHQ1": 62.000000, "ctWRe": 1.580000, "ctj1": 1.190000, "cQj18": 2.430000, "ctBRe": 2.560000, "cQj38": 2.780000, "ctGRe": 0.310000, "ctj8": 2.020000, "cQj31": 1.340000, "cQj11": 1.350000, "cHt": 32.930000} # SMEFTsim
-    #st_pt = {"ctW": 1.580000, "ctq1": 1.190000, "cQq81": 2.430000, "ctZ": 2.560000, "cQq83": 2.780000, "ctG": 0.310000, "ctq8": 2.020000, "cQq13": 1.340000, "cQq11": 1.350000}
-    #st_pt = {"cHQ1": 62.000000, "ctWRe": 1.580000, "ctj1": 1.190000, "cQj18": 2.430000, "ctBRe": 2.560000, "cQj38": 2.780000, "ctGRe": 0.310000, "ctj8": 2.020000, "cQj31": 1.340000, "cQj11": 1.350000} # Run3 TTGamma missing "cHt" bunt run1 has it
-    #wc = ["ctHRe", "cHQ1", "ctWRe", "ctBRe", "ctGRe", "cbWRe", "cHQ3", "cHtbRe", "cHt", "cQl3", "cQl1", "cQe", "ctl", "cte", "cleQt1Re", "cleQt3Re", "cQj31", "cQj38", "cQj11", "ctj1", "cQj18", "ctj8", "ctt", "cQQ1", "cQt1", "cQt8"]
-    wc = ['cpt', 'ctp', 'ctt1', 'cptb', 'ctG', 'cQq11', 'cQl3i', 'ctlSi', 'ctq8', 'ctZ', 'cQq83', 'ctlTi', 'ctq1', 'cpQM', 'cQq13', 'cQt1', 'cbW', 'ctli', 'cQt8', 'ctei', 'cQq81', 'cQlMi', 'cQQ1', 'cpQ3', 'cQei', 'ctW']
-    val = [-1.66, 100.0, 0.13, 100.0, -2.07, 0.3, 0.71, -1.35, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 0.05, -0.21, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]
-
-    wc = ['cQq11', 'cptb', 'ctlTi', 'ctZ', 'ctq1', 'cQl3i', 'cQlMi', 'cpQ3', 'ctW', 'ctp', 'cQq13', 'cbB', 'cbG', 'cpt', 'ctlSi', 'cbW', 'cpQM', 'ctq8', 'ctG', 'ctei', 'cQq81', 'cQei', 'ctli', 'cQq83']
-    val = [-1.66, 1.0, 1.0, -2.07, 0.3, 0.71, -1.35, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.05, -0.21, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-
-    wc = ['cpt', 'ctp', 'cptb', 'cQlMi', 'cQq81', 'cQq11', 'cQl3i', 'ctq8', 'ctlTi', 'ctq1', 'ctli', 'cQq13', 'cbW', 'cpQM', 'cpQ3', 'ctei', 'cQei', 'ctW', 'ctlSi', 'cQq83', 'ctZ', 'ctG']
-    wc = ['ctW', 'ctG', 'ctZ']
-    #wc = ['cbBRe', 'cQl1', 'cld', 'cQu8', 'cHQ1', 'cQu1', 'ctt', 'cleQt1Re33', 'cQd8', 'clu', 'ctWRe', 'cHt', 'clj1', 'cleQt3Re22', 'ctd8', 'cQt8', 'cleQt3Re33', 'ctj1', 'cleQt1Re11', 'cQj31', 'ctHRe', 'cQe', 'cQj18', 'ctj8', 'ctu1', 'ctGRe', 'cleQt1Re22', 'cHbox', 'cbGRe', 'cQQ1', 'cQl3', 'cQt1', 'ctu8', 'cQj38', 'ctl', 'ctBRe', 'cleQt3Re11', 'cHQ3', 'ctb8', 'cte', 'ctd1', 'cHtbRe', 'cbWRe', 'cQj11', 'cQb8', 'cQd1']
-    #wc = ['cQq11', 'ctq8', 'ctq1', 'ctW', 'cQq81', 'cQq13', 'ctZ', 'cQq83', 'ctG']
-    #wc = ['cbBRe', 'cQl1', 'cld', 'cQu8', 'cHQ1', 'cQu1', 'ctt', 'cleQt1Re33', 'cQd8', 'clu', 'ctWRe', 'cHt', 'clj1', 'cleQt3Re22', 'ctd8', 'cQt8', 'cleQt3Re33', 'ctj1', 'cleQt1Re11', 'cQj31', 'ctHRe', 'cQe', 'cQj18', 'ctj8', 'ctu1', 'ctGRe', 'cleQt1Re22', 'cHbox', 'cbGRe', 'cQQ1', 'cQl3', 'cQt1', 'ctu8', 'cQj38', 'ctl', 'ctBRe', 'cleQt3Re11', 'cHQ3', 'ctb8', 'cte', 'ctd1', 'cHtbRe', 'cbWRe', 'cQj11', 'cQb8', 'cQd1']
-
-    if not wc:
-        hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=False, label=args.str1 + ' @ SM', ax=ax, density=density, flow=flow)
-    else:
-        hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=False, label=args.str1 + ' @ SM', ax=ax, density=density, flow=flow)
-    #hists1[var][{'process': [s for s in hists1[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=False, label='nanoAOD central pt', ax=ax, density=density)#, flow='show')
+    hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=False, label=args.str1 + ' @ SM', ax=ax, density=density, flow=flow)
 
     st_pt = None
 
@@ -355,19 +287,15 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if not args.central: print(f'Using {st_pt=}')
     if not args.central and not args.skip: eft_err = np.sqrt(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt).variances(flow=(flow=='show')))
     eft_err = False
-    #if flow=='show': eft_err = eft_err[1:]
+    #if flow=='show': eft_err = eft_err[1:] # FIXME fix overflow, some vars need the extra bin
     if not args.central and not args.skip: hep.histplot(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{args.str1} {lab}', ax=ax, density=density, flow=flow, ls='--', yerr=eft_err)
     if args.private and not args.skip and not args.central: #FIXME
         hep.histplot(hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{str2} {lab}', ax=ax, density=density, flow=flow, yerr=False, ls='-.')
-    #eft_st = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt).values()
-    #eft_err = np.sqrt(eft_st)/np.sum(eft_st)
-    #eft_err = np.sqrt(eft_st)
     yerr = hists2[var][{'process': sum, 'channel': chan, 'systematic': 'nominal', 'appl': appl}].as_hist({}).values()[()]
 
     err = np.sqrt(sm.variances(flow=(flow=='show'))[()])/sm.values(flow=(flow=='show'))[()]
     if flow=='show': err = err[1:]
     eft = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({})
-    #eft = hists1[var][{'process': [s for s in hists1[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({})
     plt.sca(rax)
     (sm/sm).plot1d(yerr=err, ax=rax, flow=flow)
     norm = np.sum(sm.values()) / np.sum(eft.values())
@@ -376,7 +304,6 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
 
     ax2 = fig.add_axes([0.7, 0.55, 0.15, 0.15])
     eb1 = ax2.errorbar([1], 1, xerr=0.05, yerr=np.sqrt(np.sum(sm.values(flow=True)))/np.sum(sm.values(flow=True)))
-    #eb1 = ax2.errorbar([1], np.sum(sm.values(flow=True)), xerr=0.05, yerr=np.sqrt(np.sum(sm.values(flow=True))))
     eft_sm_norm = np.sum(eft.values(flow=True)[()]) #/ sm_scale
     eb2 = ax2.errorbar([1], eft_sm_norm / np.sum(sm.values(flow=True)), xerr=0.05)
     plt.gca().set_xticks([])
@@ -399,7 +326,6 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         if args.abs: norm = 1
         (eft/sm * norm).plot1d(yerr=False, ax=rax, flow=flow, ls='--')
 
-    #ax = plt.gca()
     if density:
         ax.set_yscale('log')
         ax.set_ylim(1e-4, 5e-2)
@@ -415,12 +341,10 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         var_label = var_label.split('pt')[0]
     if args.abs: rax.set_ylabel(r'$\frac{dN_{\rm{EFT}}}{d p_{\rm{T}}} / \frac{dN_{\rm{ref}}}{d p_{\rm{T}}}$')
     else: rax.set_ylabel(r'$(\frac{1}{N_{\rm{EFT}}} \frac{dN_{\rm{EFT}}}{d p_{\rm{T}}}) / (\frac{1}{N_{\rm{ref}}} \frac{dN_{\rm{ref}}}{d p_{\rm{T}}})$')
-    #else: rax.set_ylabel(r'$(\frac{1}{N_{\rm{EFT}}} \frac{dN_{\rm{EFT}}}{d p_{\rm{T}} \gamma}) / (\frac{1}{N_{\rm{SM}}} \frac{dN_{\rm{SM}}}{d p_{\rm{T}} \gamma})$')
     plt.sca(ax)
     plt.legend()
     plt.show()
     user = os.getlogin()
-    #plt.savefig('/afs/crc.nd.edu/user/{user[0]}/{user}/www/comp.png')
     com = '13' if 'UL' in args.fin1 else '13.6'
     com = '13.6 vs 13' if 'UL' in args.fin2 and 'UL' not in args.fin1 else com
     n_dec = 3 - math.ceil(np.log10(max_lumi/1000.))
@@ -432,16 +356,13 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
 if __name__ == '__main__':
     if args.var is None:
         plot('photon_pt', fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
-        ##plot('lhe_photon_pt', fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('lhe_t_pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('t_pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
-        ##plot('lhe_l0pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('l0pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('j0pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('bj0pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('lj0pt'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('dral'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
-        #plot('dral_sec'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('draj'     , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('mll'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('invm'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
@@ -449,6 +370,5 @@ if __name__ == '__main__':
         plot('invm_tX'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('invm_4t'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
         plot('njets'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
-        #plot('photon_eta'      , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)
     else:
         plot(var        , fin1=fin1, fin2=fin2, flow=flow, private=args.private, hists1=hists1, hists2=hists2)

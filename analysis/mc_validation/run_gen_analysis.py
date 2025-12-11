@@ -83,10 +83,7 @@ if __name__ == '__main__':
     skip_cr    = args.skip_cr
     do_np      = args.do_np
     do_renormfact_envelope = args.do_renormfact_envelope
-                                                            # Default to TOP-22-006 26 WCs
     wc_lst = args.wc_list if args.wc_list is not None else []
-    #wc_lst = args.wc_list if args.wc_list is not None else ["cpt", "ctp", "ctt1", "cptb", "ctG", "cQq11", "cQl3i", "ctlSi", "ctq8", "ctZ", "cQq83", "ctlTi", "ctq1", "cpQM", "cQq13", "cQt1", "cbW", "ctli", "cQt8", "ctei", "cQq81", "cQlMi", "cQQ1", "cpQ3", "cQei", "ctW"] # dim6top
-    #wc_lst = args.wc_list if args.wc_list is not None else ["ctHRe", "cHQ1", "ctWRe", "ctBRe", "ctGRe", "cbWRe", "cHQ3", "cHtbRe", "cHt", "cQl3", "cQl1", "cQe", "ctl", "cte", "cleQt1Re", "cleQt3Re", "cQj31", "cQj38", "cQj11", "ctj1", "cQj18", "ctj8", "ctt", "cQQ1", "cQt1", "cQt8"] # SMEFTsim
 
     # Check if we have valid options
     if executor not in LST_OF_KNOWN_EXECUTORS:
@@ -349,10 +346,6 @@ if __name__ == '__main__':
 
     if executor == "work_queue":
         print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
-
-    #nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-    #nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-    #print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
     if executor == "futures":
         print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))

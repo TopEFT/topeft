@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 '''
 This script produces histograms of the log of the event weights
 It assumes the MG weights are saved in the nanoGEN file.
@@ -5,7 +6,6 @@ It assumes the MG weights are saved in the nanoGEN file.
 Example:
 python run_gen_hist_eventweights_processor.py ../../input_samples/sample_jsons/signal_samples/private_UL/2022_tllq_NewStPt4_nanoGEN.json -o 2022_tllq_NewStPt4 -x futures -r file:///cms/cephfs/data/ -p gen_hist_eventweights_processor.py
 '''
-#!/usr/bin/env python
 import awkward as ak
 import numpy as np
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
