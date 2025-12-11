@@ -1713,11 +1713,11 @@ def main():
     ######### Make/remake JSONs #########
 
     # Private UL samples
-    #make_jsons_for_dict_of_samples(test_private_UL17_dict,"/hadoop","2017",out_dir_test_private_UL)
-    #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
-    #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
-    #make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
-    #make_jsons_for_dict_of_samples(private_UL16APV_dict,"/hadoop","2016APV",out_dir_private_UL) # Not sure what we need here for the year, can remake the JSONs later to update when we have SFs etc set up for 2016 stuff (right now I think it's mostly just 18)
+    #make_jsons_for_dict_of_samples(test_private_UL17_dict,"/cms/cephfs/data","2017",out_dir_test_private_UL)
+    make_jsons_for_dict_of_samples(private_UL17_dict,"/cms/cephfs/data","2017",out_dir_private_UL)
+    make_jsons_for_dict_of_samples(private_UL18_dict,"/cms/cephfs/data","2018",out_dir_private_UL)
+    make_jsons_for_dict_of_samples(private_UL16_dict,"/cms/cephfs/data","2016",out_dir_private_UL)
+    make_jsons_for_dict_of_samples(private_UL16APV_dict,"/cms/cephfs/data","2016APV",out_dir_private_UL) # Not sure what we need here for the year, can remake the JSONs later to update when we have SFs etc set up for 2016 stuff (right now I think it's mostly just 18)
 
     # Subsets of files for small debugging tests local files (scratch365 at ND)
     #make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
@@ -1728,21 +1728,21 @@ def main():
     #make_jsons_for_dict_of_samples(central_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_2016APV,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
-    #make_jsons_for_dict_of_samples(central_2017_dict,"/hadoop","2017",out_dir_central_2017,on_das=False) # ttH, ttW, ttZ, and tZq are at ND
+    #make_jsons_for_dict_of_samples(central_2017_dict,"/cms/cephfs/data","2017",out_dir_central_2017,on_das=False) # ttH, ttW, ttZ, and tZq are at ND
     #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
-    #make_jsons_for_dict_of_samples(central_UL16_dict,    "/hadoop","2016",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
-    #make_jsons_for_dict_of_samples(central_UL16APV_dict, "/hadoop","2016APV", out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
-    #make_jsons_for_dict_of_samples(central_UL17_dict,    "/hadoop","2017",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
-    #make_jsons_for_dict_of_samples(central_UL18_dict,    "/hadoop","2018",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL16_dict,    "/cms/cephfs/data","2016",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL16APV_dict, "/cms/cephfs/data","2016APV", out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL17_dict,    "/cms/cephfs/data","2017",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL18_dict,    "/cms/cephfs/data","2018",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
 
     # Central background samples
     # Note: Some of the bkg dicts have both a "path" and a "path_local" (these are samples that generated JSONs for after moving the samples to ND),
     #       while the others only have a "path" (i.e. dataset name), these were the ones we produced JSONs for prior to moving the samples to ND, but
     #       these should also be located at ND, so if the samples need to be remade, you can add a "local_path" with the path starting with /store
-    make_jsons_for_dict_of_samples(central_UL17_bkg_dict,   "/hadoop","2017",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-    make_jsons_for_dict_of_samples(central_UL18_bkg_dict,   "/hadoop","2018",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-    make_jsons_for_dict_of_samples(central_UL16_bkg_dict,   "/hadoop","2016",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-    make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    #make_jsons_for_dict_of_samples(central_UL17_bkg_dict,   "/cms/cephfs/data","2017",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    #make_jsons_for_dict_of_samples(central_UL18_bkg_dict,   "/cms/cephfs/data","2018",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    #make_jsons_for_dict_of_samples(central_UL16_bkg_dict,   "/cms/cephfs/data","2016",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/cms/cephfs/data","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
 
     # Data samples
     #make_jsons_for_dict_of_samples(data_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_data_2016,on_das=True)
