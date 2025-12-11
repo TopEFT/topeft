@@ -2,21 +2,31 @@
 "CW": 0.88136 # PDG W / Z mass ratio 
 "SW": "np.sqrt(1 - np.square({CW}))" # eval in python
 
-# SMEFTsim j <-> dim6top q
-"ctj1": "ctq1"
-"cQj31": "cQq13"
-"ctj8": "ctq8"
-"cQj11": "cQq11"
-"cQj18": "cQq81"
-"cQj38": "cQq83"
+# dim6top q <-> SMEFTsim j
+"ctq1": "ctj1"
+"cQq13": "cQj31"
+"ctq8": "ctj8"
+"cQq11": "cQj11"
+"cQq81": "cQj18"
+"cQq83": "cQj38"
 
-"cQQ1": ["expr::SEMFTsim_cQQ1('0.5 * @0', {cQQ1})", ["cQQ1"]]
-"ctt": "ctt1"
+"cQQ1": ["expr::dim6top_cQQ1('0.5 * @0', {cQQ1})", ["cQQ1"]]
+"ctt1": "ctt"
+"ctp": "ctHRe"
+"cpt": "cHt"
+"cptb": "cHtbRe"
+
+"ctlSi": "cleQt1Rei"
+"ctlTi": "cleQt3Rei"
+
+# cpQM, cpQ3 <-> cHQ1, cHQ3
+"cpQM": ["expr::cpQM('@0 - @1', {cHQ1}, {cHQ3})", ["cHQ1", "cHQ3"]] # cpQM = cpQ1 - cpQ3
+"cQlMi": ["expr::cQlMi('@0 - @1', {cQl1i}, {cQl3i})", ["cQl1i", "cQl3i"]] # cQlMi = cQl1i - cQl3i
 
 # ctG relative minus sign
-"ctGRe": ["expr::ctGRe('-1 * @0', {ctG})", ["ctG"]]
-"ctGIm": ["expr::ctGIm('-1 * @0', {ctGI})", ["ctGI"]]
+"ctG":  ["expr::ctG('-1 * @0', {ctGRe})", ["ctGRe"]]
+"ctGI": ["expr::ctGI('-1 * @0', {ctGIm})", ["ctGIm"]]
 
 # ctW,ctB <-> ctW,ctZ
-"ctWRe": ["expr::ctWRe('-1 * @0', {ctW})", ["ctW"]]
-"ctBRe": ["expr::ctBRe('@0 / {SW} - @1 * {CW}/{SW} ', {ctZ}, {ctW})", ["ctZ", "ctW"]] # {ctZ}/SW - {ctW}/TW (TW = tan Weinberg angle)
+"ctW": ["expr::ctW('-1 * @0', {ctWRe})", ["ctWRe"]]
+"ctZ": ["expr::ctZ('@0 * {SW} - @1 * {CW}', {ctBRe}, {ctWRe})", ["ctBRe", "ctWRe"]] # {ctBRe}*SW - {ctWRe}*CW
