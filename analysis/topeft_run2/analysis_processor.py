@@ -499,8 +499,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Tau selection ####################
 
         if self.tau_h_analysis:
-            tau_fo_tag = "VLoose" #if is_run2 else "Loose"
-            tau_T_tag = "Loose" #if is_run2 else "Medium"
+            tau_fo_tag = "VLoose" if is_run2 else "Loose"
+            tau_T_tag = "Loose" if is_run2 else "Medium"
 
             if is_run2:
                 vs_jet = tau.idDeepTau2017v2p1VSjet
@@ -614,15 +614,15 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if not isData:
                 AttachTauSF(events, tau_T, year=year, vsJetWP=tau_T_tag)
-                print("\n\n\n\n\n\n")
-                print("taus[pt]", ak.to_list(tau_T.pt))
-                print("taus[isLoose]", ak.to_list(tau_T.isLoose))
-                print("taus[isMedium]", ak.to_list(tau_T.isMedium))
-                print("taus[sf_tau_real]", ak.to_list(tau_T.sf_tau_real))
-                print("taus[sf_tau_fake]", ak.to_list(tau_T.sf_tau_real))
-                print("events[sf_2l_taus_real]", ak.to_list(events["sf_2l_taus_real"]))
-                print("events[sf_2l_taus_fake]", ak.to_list(events["sf_2l_taus_fake"]))
-                print("\n\n\n\n\n\n")
+                # print("\n\n\n\n\n\n")
+                # print("taus[pt]", ak.to_list(tau_T.pt))
+                # print("taus[isLoose]", ak.to_list(tau_T.isLoose))
+                # print("taus[isMedium]", ak.to_list(tau_T.isMedium))
+                # print("taus[sf_tau_real]", ak.to_list(tau_T.sf_tau_real))
+                # print("taus[sf_tau_fake]", ak.to_list(tau_T.sf_tau_fake))
+                # print("events[sf_2l_taus_real]", ak.to_list(events["sf_2l_taus_real"]))
+                # print("events[sf_2l_taus_fake]", ak.to_list(events["sf_2l_taus_fake"]))
+                # print("\n\n\n\n\n\n")
 
         else:
             if is_run2:

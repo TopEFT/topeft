@@ -972,14 +972,14 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 )
             )
 
-            print("\n\n\n\n\n")
-            print("vsjet_flat_mask:", ak.to_list(vsjet_flat_mask))
-            print("vse_flat_mask:", ak.to_list(vse_flat_mask))
-            print("flat_pt:", ak.to_list(flat_pt))
-            print("flat_dm:", ak.to_list(flat_dm))
-            print("flat_gen:", ak.to_list(flat_gen))
-            print("ceval[discr].evaluate(*arg_sf):", ak.to_list(ceval[discr].evaluate(*arg_sf)))
-            print("\n\n\n\n\n")
+            # print("\n\n\n\n\n")
+            # print("vsjet_flat_mask:", ak.to_list(vsjet_flat_mask))
+            # print("vse_flat_mask:", ak.to_list(vse_flat_mask))
+            # print("flat_pt:", ak.to_list(flat_pt))
+            # print("flat_dm:", ak.to_list(flat_dm))
+            # print("flat_gen:", ak.to_list(flat_gen))
+            # print("ceval[discr].evaluate(*arg_sf):", ak.to_list(ceval[discr].evaluate(*arg_sf)))
+            # print("\n\n\n\n\n")
 
             if "VSjet" in discr:
                 arg_up = arg_list + ("up", "dm")
