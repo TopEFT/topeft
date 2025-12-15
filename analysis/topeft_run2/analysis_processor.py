@@ -511,7 +511,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 vs_e = tau.idDeepTau2018v2p5VSe
                 vs_mu = tau.idDeepTau2018v2p5VSmu
 
-            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData, "Medium") #tau_T_tag)
+            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData, tau_T_tag)
 
             tau["isVLoose"] = tauSelection.isVLooseTau(vs_jet)
             tau["isLoose"] = tauSelection.isLooseTau(vs_jet)
@@ -613,7 +613,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
 
             if not isData:
-                AttachTauSF(events, tau_T, year=year, vsJetWP="Medium")
+                AttachTauSF(events, tau_T, year=year, vsJetWP=tau_T_tag)
                 print("\n\n\n\n\n\n")
                 print("taus[pt]", ak.to_list(tau_T.pt))
                 print("taus[isLoose]", ak.to_list(tau_T.isLoose))
