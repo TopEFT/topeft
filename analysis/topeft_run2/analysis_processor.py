@@ -499,7 +499,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Tau selection ####################
 
         if self.tau_h_analysis:
-            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData)
+            tau_fo_tag = "VLoose" #if is_run2 else "Loose"
+            tau_T_tag = "Loose" #if is_run2 else "Medium"
+
             if is_run2:
                 vs_jet = tau.idDeepTau2017v2p1VSjet
                 vs_e = tau.idDeepTau2017v2p1VSe
@@ -509,8 +511,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 vs_e = tau.idDeepTau2018v2p5VSe
                 vs_mu = tau.idDeepTau2018v2p5VSmu
 
+            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData, "Medium") #tau_T_tag)
+
             tau["isVLoose"] = tauSelection.isVLooseTau(vs_jet)
             tau["isLoose"] = tauSelection.isLooseTau(vs_jet)
+            tau["isMedium"] = tauSelection.isMediumTau(vs_jet)
             tau["iseTight"] = tauSelection.iseTightTau(vs_e)
             tau["ismTight"] = ak.values_astype(tauSelection.ismTightTau(vs_mu), np.int8)
             tau["isPresVLoose"] = tauSelection.isPresTau(
@@ -535,7 +540,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                 minpt=20,
                 vsJetWP="Loose",
             )
-            tau["isPres"] = tau["isPresVLoose"]
+            tau["isPresMedium"] = tauSelection.isPresTau(
+                tau.pt,
+                tau.eta,
+                tau.dxy,
+                tau.dz,
+                vs_jet,
+                vs_e,
+                vs_mu,
+                minpt=20,
+                vsJetWP="Medium",
+            )
+
+            tau["isPres"] = tau[f"isPres{tau_fo_tag}"]
 
             tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
@@ -563,28 +580,28 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
             tau = tau[tau['DMflag']]
 
-            tau_vloose = tau
-            tau_vloose_padded = ak.pad_none(tau_vloose, 1)
-            tau0_vloose = tau_vloose_padded[:,0]
+            tau_fo = tau
+            tau_fo_padded = ak.pad_none(tau_fo, 1)
+            tau0_fo = tau_fo_padded[:,0]
 
-            tau_loose = tau_vloose[tau_vloose["isLoose"]>0]
-            tau_loose_padded = ak.pad_none(tau_loose, 1)
-            tau0_loose = tau_loose_padded[:,0]
+            tau_T = tau_fo[tau_fo["isLoose"]>0]
+            tau_T_padded = ak.pad_none(tau_T, 1)
+            tau0_T = tau_T_padded[:,0]
 
-            cleaning_taus = tau_loose
-            nLtau  = ak.num(tau_loose)
+            cleaning_taus = tau_T
+            nLtau  = ak.num(tau_T)
 
             if self.tau_run_mode == "standard":
-                tau_F_mask = (ak.num(tau_vloose) == 1)
+                tau_F_mask = (ak.num(tau_fo) == 1)
                 tau_L_mask = (nLtau == 1)
             elif self.tau_run_mode == "taufitter":
-                tau_F_mask = (ak.num(tau_vloose) >= 1)
+                tau_F_mask = (ak.num(tau_fo) >= 1)
                 tau_L_mask = (nLtau >= 1)
             else:
                 raise ValueError(f"Unknown tau_run_mode '{self.tau_run_mode}'")
             no_tau_mask = (nLtau == 0)
 
-            tau0 = ak.where(tau_L_mask, tau0_loose, tau0_vloose)
+            tau0 = ak.where(tau_L_mask, tau0_T, tau0_fo)
 
             _log_tau_flag_counts(
                 "tau_h_event_masks",
@@ -596,11 +613,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
 
             if not isData:
-                AttachTauSF(events, tau_loose, year=year, vsJetWP="Loose")
+                AttachTauSF(events, tau_T, year=year, vsJetWP="Medium")
                 print("\n\n\n\n\n\n")
-                print("taus[pt]", ak.to_list(tau_loose.pt))
-                print("taus[sf_tau_real]", ak.to_list(tau_loose.sf_tau_real))
-                print("taus[sf_tau_fake]", ak.to_list(tau_loose.sf_tau_real))
+                print("taus[pt]", ak.to_list(tau_T.pt))
+                print("taus[isLoose]", ak.to_list(tau_T.isLoose))
+                print("taus[isMedium]", ak.to_list(tau_T.isMedium))
+                print("taus[sf_tau_real]", ak.to_list(tau_T.sf_tau_real))
+                print("taus[sf_tau_fake]", ak.to_list(tau_T.sf_tau_real))
                 print("events[sf_2l_taus_real]", ak.to_list(events["sf_2l_taus_real"]))
                 print("events[sf_2l_taus_fake]", ak.to_list(events["sf_2l_taus_fake"]))
                 print("\n\n\n\n\n\n")
