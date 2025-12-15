@@ -2,6 +2,7 @@
     "eta_e_cut" : 2.5,
     "eta_m_cut" : 2.4,
     "eta_t_cut" : 2.3,
+    "eta_t_cut_run3" : 2.5,
     "eta_j_cut" : 2.4,
 
     "fo_pt_cut" : 10.0,

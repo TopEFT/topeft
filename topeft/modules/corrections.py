@@ -897,7 +897,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
         wp   = taus.idDeepTau2017v2p1VSjet
 
         ## legacy
-        whereFlag = ((pt>20) & (pt<205) & (gen==5) & (taus[f"is{vsJetWP}"]>0))
+        whereFlag = ((pt>20) & (pt<205) & (gen==5) & (taus[f"is{vsJetWP}"]>0) )
         real_sf_loose = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}'](dm,pt), 1)
         real_sf_loose_up = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}_up'](dm,pt), 1)
         real_sf_loose_down = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}_down'](dm,pt), 1)
@@ -940,8 +940,8 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
         deep_tau_cuts = [
             (
                 "DeepTau2018v2p5VSjet",
-                vsjet_flat_mask,
-                (flat_pt, flat_dm, flat_gen, vsJetWP, "Tight"),
+                (vsjet_flat_mask & vse_flat_mask),
+                (flat_pt, flat_dm, flat_gen, vsJetWP, "VVLoose"),
                 (flat_gen == 5),
             ),
             (
@@ -960,9 +960,10 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
             tau_mask_flat = ak.fill_none(id_mask_flat & pt_mask_flat & gen_mask_flat, False)
 
             if "VSjet" in discr:
-                arg_sf = arg_list + ("nom", "pt")
+                arg_sf = arg_list + ("nom", "dm")
             else:
                 arg_sf = arg_list + ("nom",)
+
             DT_sf_list.append(
                 ak.where(
                     ~tau_mask_flat,
@@ -972,7 +973,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
             )
 
             if "VSjet" in discr:
-                arg_up = arg_list + ("up", "pt")
+                arg_up = arg_list + ("up", "dm")
             else:
                 arg_up = arg_list + ("up",)
             DT_up_list.append(
@@ -983,7 +984,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 )
             )
             if "VSjet" in discr:
-                arg_down = arg_list + ("down", "pt")
+                arg_down = arg_list + ("down", "dm")
             else:
                 arg_down = arg_list + ("down",)
             DT_do_list.append(
@@ -1012,10 +1013,13 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 fake_elec_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
                 fake_elec_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
 
-        whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
-        new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF_Run3'](pt), 1)
-        new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_up'](pt), 1)
-        new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_down'](pt), 1)
+        # whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
+        # new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF_Run3'](pt), 1)
+        # new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_up'](pt), 1)
+        # new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_down'](pt), 1)
+        new_fake_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        new_fake_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        new_fake_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
 
         # Run3 tau muon SF may be needed in the future
         fake_muon_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
@@ -1493,7 +1497,6 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
 
     if is_run3:
         if looseWP != "none":
-            #print("\n\n\n\n\nI'm applying EGM loose SFs\n\n\n\n\n")
             loose_sf_flat = None
             loose_up_flat = None
             loose_do_flat = None
@@ -1520,7 +1523,6 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
             loose_up = ak.unflatten(loose_up_flat, ak.num(pt))
             loose_do = ak.unflatten(loose_do_flat, ak.num(pt))
         else:
-            #print("\n\n\n\n\nI'm NOT applying EGM loose SFs\n\n\n\n\n")
             loose_sf = ak.ones_like(reco_sf)
             loose_up = ak.ones_like(reco_sf)
             loose_do = ak.ones_like(reco_sf)
@@ -1599,14 +1601,6 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
         iso_err = SFevaluator['ElecIsoSF_{year}_er'.format(year=year)](np.abs(eta),pt)
         iso_up = iso_sf + iso_err
         iso_do = iso_sf - iso_err
-
-    #print("\n\n\n\n\n\n\n")
-    #print('new_sf', new_sf)
-    #print('new_sf_2l', new_sf_2l)
-    #print('new_sf_3l', new_sf_3l)
-    #print('sf_nom_2l_elec', ak.to_list(reco_sf * new_sf_2l * loose_sf * iso_sf))
-    #print('sf_nom_3l_elec', ak.to_list(reco_sf * new_sf_2l * loose_sf))
-    #print("\n\n\n\n\n\n\n")
 
     electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf * iso_sf
     electrons['sf_hi_2l_elec']  = (reco_up) * new_up_2l * loose_up * iso_up

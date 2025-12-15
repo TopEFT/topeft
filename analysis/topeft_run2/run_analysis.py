@@ -606,7 +606,7 @@ if __name__ == "__main__":
         # Open cfg files
         else:
             with open(f) as fin:
-                print(" >> Reading json from cfg file...")
+                print(" >> Reading json from cfg file...", f)
                 lines = fin.readlines()
                 for l in lines:
                     if "#" in l:
@@ -679,7 +679,11 @@ if __name__ == "__main__":
 
             requested_years.update(year_synonyms.get(year_str, {year_str}))
 
+    print(">> Loaded a total of %i samples from json files." % len(samplesdict))
+    print("requested_years:", requested_years)
+
     if requested_years is not None:
+        print([sample.get("year") for sample in samplesdict.values()])
         samplesdict = {
             name: sample
             for name, sample in samplesdict.items()
