@@ -645,7 +645,7 @@ def ApplyTES(year, taus, isData, vsJetWP="Loose"):
 
         # Genuine taus (genmatch==5) receive the TES weights
         tes_kin = (flat_pt > 20) & (flat_pt < 205)
-        tes_dm  = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 2) | (flat_dm == 10) | (flat_dm == 11)
+        tes_dm  = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 10) | (flat_dm == 11)
         tes_where = tes_kin & tes_dm & (flat_gen == 5)
 
         full_tes = np.ones_like(flat_all_pt_np, dtype=np.float32)
@@ -667,7 +667,7 @@ def ApplyTES(year, taus, isData, vsJetWP="Loose"):
 
         # Electron/muon fakes (genmatch 1-4) receive the FES weights
         fes_kin = (flat_pt > 20) & (flat_pt < 205)
-        fes_dm  = (flat_dm == 0) | (flat_dm == 1)
+        fes_dm  = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 10) | (flat_dm == 11)
         fes_where = fes_kin & fes_dm & (flat_gen >= 1) & (flat_gen <= 4)
 
         full_fes = np.ones_like(flat_all_pt_np, dtype=np.float32)

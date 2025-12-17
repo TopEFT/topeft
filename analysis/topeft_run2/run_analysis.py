@@ -486,7 +486,8 @@ if __name__ == "__main__":
         hist_lst = ["njets", "lj0pt", "ptz"]
         if tau_h_analysis:
             hist_lst.append("ptz_wtau")
-            hist_lst.append("tau0pt")
+            hist_lst.append("tau0Tpt")
+            hist_lst.append("tau0Fpt")
         if fwd_analysis:
             hist_lst.append("lt")
         if "lepton_pt_vs_eta" not in hist_lst:
@@ -560,7 +561,8 @@ if __name__ == "__main__":
             # "l1_eta_vs_phi",
         ]
         if tau_h_analysis:
-            hist_lst.append("tau0pt")
+            hist_lst.append("tau0Tpt")
+            hist_lst.append("tau0Fpt")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists

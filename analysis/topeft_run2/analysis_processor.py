@@ -601,7 +601,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 raise ValueError(f"Unknown tau_run_mode '{self.tau_run_mode}'")
             no_tau_mask = (nLtau == 0)
 
-            tau0 = ak.where(tau_L_mask, tau0_T, tau0_fo)
+            tau0 = tau0_T
 
             _log_tau_flag_counts(
                 "tau_h_event_masks",
@@ -780,8 +780,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not isData:
                 cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
                 if self.tau_h_analysis:
-                    tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var)
-                    tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var)
+                    tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var, tau_T_tag)
+                    tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var, tau_T_tag)
 
             events_cache = events.caches[0]
             cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
@@ -1431,7 +1431,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
-                varnames["tau0pt"] = tau0.pt
+                varnames["tau0Tpt"] = tau0_T.pt
+                varnames["tau0Fpt"] = tau0_fo.pt
                 pass
 
             for varname, var in varnames.items():
