@@ -949,7 +949,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 select_cat_dict = json.load(ch_json_test)
 
             if not self._skip_signal_regions:
-            # If we are not skipping the signal regions, we will import the SR categories
+                # If we are not skipping the signal regions, we will import the SR categories
                 # This dictionary keeps track of which selections go with which SR categories
                 if self.offZ_3l_split:
                     import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
@@ -957,15 +957,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                     import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
                 elif self.fwd_analysis:
                     import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+                elif self.all_analysis:
+                    import_sr_cat_dict = select_cat_dict["ALL_CH_LST_SR"]
                 else:
                     import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
 
             if not self._skip_control_regions:
-            # If we are not skipping the control regions, we will import the CR categories
+                # If we are not skipping the control regions, we will import the CR categories
                 # This dictionary keeps track of which selections go with which CR categories
-                import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
-                if self.tau_h_analysis:
-                    import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
+                if self.tau_h_analysis or self.all_analysis:
+                    import_cr_cat_dict = select_cat_dict["TAU_CH_LST_CR"]
+                else:
+                    import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+ 
 
             #This list keeps track of the lepton categories
             lep_cats = []
