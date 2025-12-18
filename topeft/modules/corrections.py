@@ -1091,7 +1091,7 @@ def AttachPerLeptonFR(leps, flavor, year):
         flip_year_name = year
         with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
             flip_hist = pickle.load(fin)
-            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
+            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["abseta"].edges])
 
         # Apply scaling factor for electrons
         if flavor == "Elec":
