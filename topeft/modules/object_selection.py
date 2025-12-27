@@ -186,7 +186,7 @@ class run3leptonselection:
         dz_mask    = (abs(ele.dz)  < get_te_param("dz_cut"))
         iso_mask   = (ele.miniPFRelIso_all  < get_te_param("iso_cut"))
         sip3d_mask = (ele.sip3d    < get_te_param("sip3d_cut"))
-        ecal_crack_mask = (((abs(ele.etaSC) < 1.4442) | (abs(ele.etaSC) > 1.566)))
+        ecal_crack_mask = (((abs(ele.deltaEtaSC+ele.eta) < 1.4442) | (abs(ele.deltaEtaSC+ele.eta) > 1.566)))
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask & ecal_crack_mask)
 
     def isPresMuon(self, muon):
