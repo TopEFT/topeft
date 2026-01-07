@@ -284,10 +284,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
 
-        print("\n\n\n\n\n")
-        print("histAxisName:", histAxisName)
-        print("\n\n\n\n\n")
-
         is_run3 = False
         if year.startswith("202"):
             is_run3 = True

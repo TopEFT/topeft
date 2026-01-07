@@ -170,7 +170,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--chunksize",
         "-s",
-        default=100000,
+        default=50000,
         help="Number of events per chunk",
     )
     parser.add_argument(
@@ -296,7 +296,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--wq-filepath",
-        default=None,
+        default="/tmp/${USER}-workers",
         help=(
             "Override the Work Queue staging directory (default: /tmp/${USER}-workers). The path will be "
             "created if missing; if creation fails a system temporary directory will be used instead."
@@ -453,7 +453,7 @@ if __name__ == "__main__":
     if dotest:
         if executor_name == "futures":
             nchunks = 2
-            chunksize = 10000
+            chunksize = 100
             nworkers = 1
             print(
                 "Running a fast test with %i workers, %i chunks of %i events"
@@ -490,26 +490,26 @@ if __name__ == "__main__":
             hist_lst.append("tau0Fpt")
         if fwd_analysis:
             hist_lst.append("lt")
-        if "lepton_pt_vs_eta" not in hist_lst:
-            hist_lst.append("lepton_pt_vs_eta")
-        if "l0_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
-            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY")
-        if "l0_eta_vs_phi" not in hist_lst:
-            hist_lst.append("l0_eta_vs_phi")
-        if "l1_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
-            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
-        if "l1_eta_vs_phi" not in hist_lst:
-            hist_lst.append("l1_eta_vs_phi")
-        if fill_sumw2 and "lepton_pt_vs_eta_sumw2" not in hist_lst:
-            hist_lst.append("lepton_pt_vs_eta_sumw2")
-        if fill_sumw2 and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
-            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        if fill_sumw2 and "l0_eta_vs_phi_sumw2" not in hist_lst:
-            hist_lst.append("l0_eta_vs_phi_sumw2")
-        if fill_sumw2 and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
-            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        if fill_sumw2 and "l1_eta_vs_phi_sumw2" not in hist_lst:
-            hist_lst.append("l1_eta_vs_phi_sumw2")
+        # if "lepton_pt_vs_eta" not in hist_lst:
+        #     hist_lst.append("lepton_pt_vs_eta")
+        # if "l0_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+        #     hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY")
+        # if "l0_eta_vs_phi" not in hist_lst:
+        #     hist_lst.append("l0_eta_vs_phi")
+        # if "l1_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+        #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
+        # if "l1_eta_vs_phi" not in hist_lst:
+        #     hist_lst.append("l1_eta_vs_phi")
+        # if fill_sumw2 and "lepton_pt_vs_eta_sumw2" not in hist_lst:
+        #     hist_lst.append("lepton_pt_vs_eta_sumw2")
+        # if fill_sumw2 and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+        #     hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        # if fill_sumw2 and "l0_eta_vs_phi_sumw2" not in hist_lst:
+        #     hist_lst.append("l0_eta_vs_phi_sumw2")
+        # if fill_sumw2 and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+        #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        # if fill_sumw2 and "l1_eta_vs_phi_sumw2" not in hist_lst:
+        #     hist_lst.append("l1_eta_vs_phi_sumw2")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
@@ -682,10 +682,8 @@ if __name__ == "__main__":
             requested_years.update(year_synonyms.get(year_str, {year_str}))
 
     print(">> Loaded a total of %i samples from json files." % len(samplesdict))
-    print("requested_years:", requested_years)
 
     if requested_years is not None:
-        print([sample.get("year") for sample in samplesdict.values()])
         samplesdict = {
             name: sample
             for name, sample in samplesdict.items()
