@@ -170,7 +170,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--chunksize",
         "-s",
-        default=100000,
+        default=50000,
         help="Number of events per chunk",
     )
     parser.add_argument(
@@ -296,7 +296,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--wq-filepath",
-        default=None,
+        default="/tmp/${USER}-workers",
         help=(
             "Override the Work Queue staging directory (default: /tmp/${USER}-workers). The path will be "
             "created if missing; if creation fails a system temporary directory will be used instead."
@@ -453,7 +453,7 @@ if __name__ == "__main__":
     if dotest:
         if executor_name == "futures":
             nchunks = 2
-            chunksize = 10000
+            chunksize = 100
             nworkers = 1
             print(
                 "Running a fast test with %i workers, %i chunks of %i events"
@@ -486,29 +486,30 @@ if __name__ == "__main__":
         hist_lst = ["njets", "lj0pt", "ptz"]
         if tau_h_analysis:
             hist_lst.append("ptz_wtau")
-            hist_lst.append("tau0pt")
+            hist_lst.append("tau0Tpt")
+            hist_lst.append("tau0Fpt")
         if fwd_analysis:
             hist_lst.append("lt")
-        if "lepton_pt_vs_eta" not in hist_lst:
-            hist_lst.append("lepton_pt_vs_eta")
-        if "l0_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
-            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY")
-        if "l0_eta_vs_phi" not in hist_lst:
-            hist_lst.append("l0_eta_vs_phi")
-        if "l1_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
-            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
-        if "l1_eta_vs_phi" not in hist_lst:
-            hist_lst.append("l1_eta_vs_phi")
-        if fill_sumw2 and "lepton_pt_vs_eta_sumw2" not in hist_lst:
-            hist_lst.append("lepton_pt_vs_eta_sumw2")
-        if fill_sumw2 and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
-            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        if fill_sumw2 and "l0_eta_vs_phi_sumw2" not in hist_lst:
-            hist_lst.append("l0_eta_vs_phi_sumw2")
-        if fill_sumw2 and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
-            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        if fill_sumw2 and "l1_eta_vs_phi_sumw2" not in hist_lst:
-            hist_lst.append("l1_eta_vs_phi_sumw2")
+        # if "lepton_pt_vs_eta" not in hist_lst:
+        #     hist_lst.append("lepton_pt_vs_eta")
+        # if "l0_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+        #     hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY")
+        # if "l0_eta_vs_phi" not in hist_lst:
+        #     hist_lst.append("l0_eta_vs_phi")
+        # if "l1_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+        #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
+        # if "l1_eta_vs_phi" not in hist_lst:
+        #     hist_lst.append("l1_eta_vs_phi")
+        # if fill_sumw2 and "lepton_pt_vs_eta_sumw2" not in hist_lst:
+        #     hist_lst.append("lepton_pt_vs_eta_sumw2")
+        # if fill_sumw2 and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+        #     hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        # if fill_sumw2 and "l0_eta_vs_phi_sumw2" not in hist_lst:
+        #     hist_lst.append("l0_eta_vs_phi_sumw2")
+        # if fill_sumw2 and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+        #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        # if fill_sumw2 and "l1_eta_vs_phi_sumw2" not in hist_lst:
+        #     hist_lst.append("l1_eta_vs_phi_sumw2")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
@@ -560,7 +561,8 @@ if __name__ == "__main__":
             # "l1_eta_vs_phi",
         ]
         if tau_h_analysis:
-            hist_lst.append("tau0pt")
+            hist_lst.append("tau0Tpt")
+            hist_lst.append("tau0Fpt")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
@@ -606,7 +608,7 @@ if __name__ == "__main__":
         # Open cfg files
         else:
             with open(f) as fin:
-                print(" >> Reading json from cfg file...")
+                print(" >> Reading json from cfg file...", f)
                 lines = fin.readlines()
                 for l in lines:
                     if "#" in l:
@@ -678,6 +680,8 @@ if __name__ == "__main__":
                 )
 
             requested_years.update(year_synonyms.get(year_str, {year_str}))
+
+    print(">> Loaded a total of %i samples from json files." % len(samplesdict))
 
     if requested_years is not None:
         samplesdict = {
@@ -880,7 +884,7 @@ if __name__ == "__main__":
             # use mid-range compression for chunks results.
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            "compression": 8,
+            "compression": 9,
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
             # tasks. on resource exhaustion, they are retried with the maximum resource
@@ -906,7 +910,9 @@ if __name__ == "__main__":
             # 'disk': 8000,   #MB
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
-            "treereduction": 10,
+            # "treereduction": 10,
+            'chunks_per_accum': 25,
+            'chunks_accum_in_mem': 2,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.

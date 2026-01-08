@@ -97,7 +97,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return base_hist_names_ordered, expanded_hist_names_ordered
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True, tau_run_mode="standard"):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard"):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -105,6 +105,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.offZ_3l_split = offZ_split
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
+        self.all_analysis = all_analysis
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
         self.tau_run_mode = tau_run_mode
         # self._tau_wp_checked = False
@@ -495,7 +496,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Tau selection ####################
 
         if self.tau_h_analysis:
-            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData)
+            tau_fo_tag = "VLoose" if is_run2 else "Loose"
+            tau_T_tag = "Loose" if is_run2 else "Medium"
+
             if is_run2:
                 vs_jet = tau.idDeepTau2017v2p1VSjet
                 vs_e = tau.idDeepTau2017v2p1VSe
@@ -505,8 +508,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 vs_e = tau.idDeepTau2018v2p5VSe
                 vs_mu = tau.idDeepTau2018v2p5VSmu
 
+            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData, tau_T_tag)
+
             tau["isVLoose"] = tauSelection.isVLooseTau(vs_jet)
             tau["isLoose"] = tauSelection.isLooseTau(vs_jet)
+            tau["isMedium"] = tauSelection.isMediumTau(vs_jet)
             tau["iseTight"] = tauSelection.iseTightTau(vs_e)
             tau["ismTight"] = ak.values_astype(tauSelection.ismTightTau(vs_mu), np.int8)
             tau["isPresVLoose"] = tauSelection.isPresTau(
@@ -531,7 +537,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                 minpt=20,
                 vsJetWP="Loose",
             )
-            tau["isPres"] = tau["isPresVLoose"]
+            tau["isPresMedium"] = tauSelection.isPresTau(
+                tau.pt,
+                tau.eta,
+                tau.dxy,
+                tau.dz,
+                vs_jet,
+                vs_e,
+                vs_mu,
+                minpt=20,
+                vsJetWP="Medium",
+            )
+
+            tau["isPres"] = tau[f"isPres{tau_fo_tag}"]
 
             tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
@@ -559,28 +577,28 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
             tau = tau[tau['DMflag']]
 
-            tau_vloose = tau
-            tau_vloose_padded = ak.pad_none(tau_vloose, 1)
-            tau0_vloose = tau_vloose_padded[:,0]
+            tau_fo = tau
+            tau_fo_padded = ak.pad_none(tau_fo, 1)
+            tau0_fo = tau_fo_padded[:,0]
 
-            tau_loose = tau_vloose[tau_vloose["isLoose"]>0]
-            tau_loose_padded = ak.pad_none(tau_loose, 1)
-            tau0_loose = tau_loose_padded[:,0]
+            tau_T = tau_fo[tau_fo["isLoose"]>0]
+            tau_T_padded = ak.pad_none(tau_T, 1)
+            tau0_T = tau_T_padded[:,0]
 
-            cleaning_taus = tau_loose
-            nLtau  = ak.num(tau_loose)
+            cleaning_taus = tau_T
+            nLtau  = ak.num(tau_T)
 
             if self.tau_run_mode == "standard":
-                tau_F_mask = (ak.num(tau_vloose) == 1)
+                tau_F_mask = (ak.num(tau_fo) == 1)
                 tau_L_mask = (nLtau == 1)
             elif self.tau_run_mode == "taufitter":
-                tau_F_mask = (ak.num(tau_vloose) >= 1)
+                tau_F_mask = (ak.num(tau_fo) >= 1)
                 tau_L_mask = (nLtau >= 1)
             else:
                 raise ValueError(f"Unknown tau_run_mode '{self.tau_run_mode}'")
             no_tau_mask = (nLtau == 0)
 
-            tau0 = ak.where(tau_L_mask, tau0_loose, tau0_vloose)
+            tau0 = tau0_T
 
             _log_tau_flag_counts(
                 "tau_h_event_masks",
@@ -592,20 +610,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
 
             if not isData:
-                AttachTauSF(events, tau_loose, year=year, vsJetWP="Loose")
-
-            # if (not self._tau_wp_checked) and len(events) > 0:
-            #     n_tau_vloose = int(ak.sum(tau_F_mask))
-            #     n_tau_loose = int(ak.sum(tau_L_mask))
-            #     n_tau_vloose_only = int(ak.sum(tau_F_mask & ~tau_L_mask))
-            #     print(
-            #         f"\n\n\n\n\n\n\n\n\n[Tau WP check - {self.tau_run_mode}] Events with >=1 VLoose tau: {ak.to_list(n_tau_vloose)};\n>=1 Loose tau: {ak.to_list(n_tau_loose)};\nVLoose-only: {ak.to_list(n_tau_vloose_only)}\n\n\n\n\n\n\n\n\n"
-            #     )
-            #     if self.tau_run_mode == "standard":
-            #         masks_identical = bool(ak.all(tau_F_mask == tau_L_mask)) if len(events) > 0 else False
-            #         if masks_identical and (n_tau_vloose > 0 or n_tau_loose > 0):
-            #             raise AssertionError("Ftau and Ttau masks are identical; check tau WP separation")
-            #     self._tau_wp_checked = True
+                AttachTauSF(events, tau_T, year=year, vsJetWP=tau_T_tag)
+                # print("\n\n\n\n\n\n")
+                # print("taus[pt]", ak.to_list(tau_T.pt))
+                # print("taus[isLoose]", ak.to_list(tau_T.isLoose))
+                # print("taus[isMedium]", ak.to_list(tau_T.isMedium))
+                # print("taus[sf_tau_real]", ak.to_list(tau_T.sf_tau_real))
+                # print("taus[sf_tau_fake]", ak.to_list(tau_T.sf_tau_fake))
+                # print("events[sf_2l_taus_real]", ak.to_list(events["sf_2l_taus_real"]))
+                # print("events[sf_2l_taus_fake]", ak.to_list(events["sf_2l_taus_fake"]))
+                # print("\n\n\n\n\n\n")
 
         else:
             if is_run2:
@@ -763,8 +777,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not isData:
                 cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
                 if self.tau_h_analysis:
-                    tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var)
-                    tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var)
+                    tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var, tau_T_tag)
+                    tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var, tau_T_tag)
 
             events_cache = events.caches[0]
             cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
@@ -932,7 +946,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 select_cat_dict = json.load(ch_json_test)
 
             if not self._skip_signal_regions:
-            # If we are not skipping the signal regions, we will import the SR categories
+                # If we are not skipping the signal regions, we will import the SR categories
                 # This dictionary keeps track of which selections go with which SR categories
                 if self.offZ_3l_split:
                     import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
@@ -940,15 +954,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                     import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
                 elif self.fwd_analysis:
                     import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+                elif self.all_analysis:
+                    import_sr_cat_dict = select_cat_dict["ALL_CH_LST_SR"]
                 else:
                     import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
 
             if not self._skip_control_regions:
-            # If we are not skipping the control regions, we will import the CR categories
+                # If we are not skipping the control regions, we will import the CR categories
                 # This dictionary keeps track of which selections go with which CR categories
-                import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
-                if self.tau_h_analysis:
-                    import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
+                if self.tau_h_analysis or self.all_analysis:
+                    import_cr_cat_dict = select_cat_dict["TAU_CH_LST_CR"]
+                else:
+                    import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+ 
 
             #This list keeps track of the lepton categories
             lep_cats = []
@@ -1414,7 +1432,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
-                varnames["tau0pt"] = tau0.pt
+                varnames["tau0Tpt"] = tau0_T.pt
+                varnames["tau0Fpt"] = tau0_fo.pt
                 pass
 
             for varname, var in varnames.items():

@@ -111,10 +111,15 @@ info = {
         "variable": [0, 150, 250, 500],
         "label": r"pt of lepton hadronic tau pair (GeV) ",
     },
-    "tau0pt": {
+    "tau0Tpt": {
         "regular": (20, 0, 200),
         #"variable": [0, 150, 250, 500],
-        "label": r"pt of leading hadronic tau (GeV) ",
+        "label": r"pt of leading tight hadronic tau (GeV) ",
+    },
+    "tau0Fpt": {
+        "regular": (20, 0, 200),
+        #"variable": [0, 150, 250, 500],
+        "label": r"pt of leading FO hadronic tau (GeV) ",
     },
     "lt": {
         "regular": (12, 0, 600),

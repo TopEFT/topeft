@@ -92,7 +92,7 @@ class run3TauSelection:
 
         base_mask = (
             (pt > minpt)
-            & (abs(eta) < get_te_param("eta_t_cut"))
+            & (abs(eta) < get_te_param("eta_t_cut_run3"))
             & (abs(dxy) < get_te_param("dxy_tau_cut"))
             & (abs(dz) < get_te_param("dz_tau_cut"))
             & (idDeepTauVSe >= 2)

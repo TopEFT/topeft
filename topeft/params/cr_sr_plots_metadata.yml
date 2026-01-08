@@ -1,386 +1,479 @@
 DATA_ERR_OPS:
   linestyle: none
-  marker: '.'
+  marker: .
   markersize: 10.0
   color: k
   elinewidth: 1
 MC_ERROR_OPS:
-  label: 'Stat. Unc.'
-  hatch: '////'
+  label: Stat. Unc.
+  hatch: ////
   facecolor: none
-  edgecolor: [0,0,0,0.5]
+  edgecolor:
+  - 0
+  - 0
+  - 0
+  - 0.5
   linewidth: 0
 DATA_DRIVEN_PREFIXES:
-  - nonprompt
-  - flips
+- nonprompt
+- flips
 CR_CHAN_DICT:
   cr_2los_Z:
-    - 2los_ee_CRZ_0j
-    - 2los_mm_CRZ_0j
+  - 2los_ee_CRZ_0j
+  - 2los_mm_CRZ_0j
   cr_2los_Z_ee:
-    - 2los_ee_CRZ_0j
+  - 2los_ee_CRZ_0j
   cr_2los_Z_mm:
-    - 2los_mm_CRZ_0j
+  - 2los_mm_CRZ_0j
   cr_2los_tt:
-    - 2los_em_CRtt_2j
+  - 2los_em_CRtt_2j
   cr_2lss:
-    - 2lss_ee_CR_1j
-    - 2lss_em_CR_1j
-    - 2lss_mm_CR_1j
-    - 2lss_ee_CR_2j
-    - 2lss_em_CR_2j
-    - 2lss_mm_CR_2j
-    - 2lss_ee_CR_3j
-    - 2lss_em_CR_3j
-    - 2lss_mm_CR_3j
+  - 2lss_ee_CR_1j
+  - 2lss_em_CR_1j
+  - 2lss_mm_CR_1j
+  - 2lss_ee_CR_2j
+  - 2lss_em_CR_2j
+  - 2lss_mm_CR_2j
+  - 2lss_ee_CR_3j
+  - 2lss_em_CR_3j
+  - 2lss_mm_CR_3j
   cr_2lss_ee:
-    - 2lss_ee_CR_1j
-    - 2lss_ee_CR_2j
-    - 2lss_ee_CR_3j
+  - 2lss_ee_CR_1j
+  - 2lss_ee_CR_2j
+  - 2lss_ee_CR_3j
   cr_2lss_em:
-    - 2lss_em_CR_1j
-    - 2lss_em_CR_2j
-    - 2lss_em_CR_3j
+  - 2lss_em_CR_1j
+  - 2lss_em_CR_2j
+  - 2lss_em_CR_3j
   cr_2lss_mm:
-    - 2lss_mm_CR_1j
-    - 2lss_mm_CR_2j
-    - 2lss_mm_CR_3j
+  - 2lss_mm_CR_1j
+  - 2lss_mm_CR_2j
+  - 2lss_mm_CR_3j
   cr_2lss_flip:
-    - 2lss_ee_CRflip_3j
+  - 2lss_ee_CRflip_3j
   cr_3l:
-    - 3l_eee_CR_0j
-    - 3l_eem_CR_0j
-    - 3l_emm_CR_0j
-    - 3l_mmm_CR_0j
-    - 3l_eee_CR_1j
-    - 3l_eem_CR_1j
-    - 3l_emm_CR_1j
-    - 3l_mmm_CR_1j
+  - 3l_eee_CR_0j
+  - 3l_eem_CR_0j
+  - 3l_emm_CR_0j
+  - 3l_mmm_CR_0j
+  - 3l_eee_CR_1j
+  - 3l_eem_CR_1j
+  - 3l_emm_CR_1j
+  - 3l_mmm_CR_1j
   cr_3l_eee:
-    - 3l_eee_CR_0j
-    - 3l_eee_CR_1j
+  - 3l_eee_CR_0j
+  - 3l_eee_CR_1j
   cr_3l_mixed:
-    - 3l_eem_CR_0j
-    - 3l_emm_CR_0j
-    - 3l_eem_CR_1j
-    - 3l_emm_CR_1j
+  - 3l_eem_CR_0j
+  - 3l_emm_CR_0j
+  - 3l_eem_CR_1j
+  - 3l_emm_CR_1j
   cr_3l_mmm:
-    - 3l_mmm_CR_0j
-    - 3l_mmm_CR_1j
+  - 3l_mmm_CR_0j
+  - 3l_mmm_CR_1j
   cr_2los_1tau_Ftau:
-    - 2los_ee_1tau_Ftau_2j
-    - 2los_ee_1tau_Ftau_3j
-    - 2los_ee_1tau_Ftau_4j
-    - 2los_em_1tau_Ftau_2j
-    - 2los_em_1tau_Ftau_3j
-    - 2los_em_1tau_Ftau_4j
-    - 2los_mm_1tau_Ftau_2j
-    - 2los_mm_1tau_Ftau_3j
-    - 2los_mm_1tau_Ftau_4j
+  - 2los_ee_1tau_Ftau_2j
+  - 2los_ee_1tau_Ftau_3j
+  - 2los_ee_1tau_Ftau_4j
+  - 2los_em_1tau_Ftau_2j
+  - 2los_em_1tau_Ftau_3j
+  - 2los_em_1tau_Ftau_4j
+  - 2los_mm_1tau_Ftau_2j
+  - 2los_mm_1tau_Ftau_3j
+  - 2los_mm_1tau_Ftau_4j
   cr_2los_1tau_Ttau:
-    - 2los_ee_1tau_Ttau_2j
-    - 2los_ee_1tau_Ttau_3j
-    - 2los_ee_1tau_Ttau_4j
-    - 2los_em_1tau_Ttau_2j
-    - 2los_em_1tau_Ttau_3j
-    - 2los_em_1tau_Ttau_4j
-    - 2los_mm_1tau_Ttau_2j
-    - 2los_mm_1tau_Ttau_3j
-    - 2los_mm_1tau_Ttau_4j
+  - 2los_ee_1tau_Ttau_2j
+  - 2los_ee_1tau_Ttau_3j
+  - 2los_ee_1tau_Ttau_4j
+  - 2los_em_1tau_Ttau_2j
+  - 2los_em_1tau_Ttau_3j
+  - 2los_em_1tau_Ttau_4j
+  - 2los_mm_1tau_Ttau_2j
+  - 2los_mm_1tau_Ttau_3j
+  - 2los_mm_1tau_Ttau_4j
   cr_1l_1tau:
-    - 1l_e_1tau_CR_2j
-    - 1l_e_1tau_CR_3j
-    - 1l_e_1tau_CR_4j
-    - 1l_m_1tau_CR_2j
-    - 1l_m_1tau_CR_3j
-    - 1l_m_1tau_CR_4j
+  - 1l_e_1tau_CR_2j
+  - 1l_e_1tau_CR_3j
+  - 1l_e_1tau_CR_4j
+  - 1l_m_1tau_CR_2j
+  - 1l_m_1tau_CR_3j
+  - 1l_m_1tau_CR_4j
   cr_1l_1tau_e:
-    - 1l_e_1tau_CR_2j
-    - 1l_e_1tau_CR_3j
-    - 1l_e_1tau_CR_4j
+  - 1l_e_1tau_CR_2j
+  - 1l_e_1tau_CR_3j
+  - 1l_e_1tau_CR_4j
   cr_1l_1tau_m:
-    - 1l_m_1tau_CR_2j
-    - 1l_m_1tau_CR_3j
-    - 1l_m_1tau_CR_4j
+  - 1l_m_1tau_CR_2j
+  - 1l_m_1tau_CR_3j
+  - 1l_m_1tau_CR_4j
   cr_dy_tautau:
-    - 1l_e_dy_tautau_CR_2j
-    - 1l_e_dy_tautau_CR_3j
-    - 1l_e_dy_tautau_CR_4j
-    - 1l_m_dy_tautau_CR_2j
-    - 1l_m_dy_tautau_CR_3j
-    - 1l_m_dy_tautau_CR_4j
+  - 1l_e_dy_tautau_CR_2j
+  - 1l_e_dy_tautau_CR_3j
+  - 1l_e_dy_tautau_CR_4j
+  - 1l_m_dy_tautau_CR_2j
+  - 1l_m_dy_tautau_CR_3j
+  - 1l_m_dy_tautau_CR_4j
   cr_dy_tautau_e:
-    - 1l_e_dy_tautau_CR_2j
-    - 1l_e_dy_tautau_CR_3j
-    - 1l_e_dy_tautau_CR_4j
+  - 1l_e_dy_tautau_CR_2j
+  - 1l_e_dy_tautau_CR_3j
+  - 1l_e_dy_tautau_CR_4j
   cr_dy_tautau_m:
-    - 1l_m_dy_tautau_CR_2j
-    - 1l_m_dy_tautau_CR_3j
-    - 1l_m_dy_tautau_CR_4j
+  - 1l_m_dy_tautau_CR_2j
+  - 1l_m_dy_tautau_CR_3j
+  - 1l_m_dy_tautau_CR_4j
 SR_CHAN_DICT:
   2lss_SR:
-    - 2lss_4t_m_4j
-    - 2lss_4t_m_5j
-    - 2lss_4t_m_6j
-    - 2lss_4t_m_7j
-    - 2lss_4t_p_4j
-    - 2lss_4t_p_5j
-    - 2lss_4t_p_6j
-    - 2lss_4t_p_7j
-    - 2lss_m_4j
-    - 2lss_m_5j
-    - 2lss_m_6j
-    - 2lss_m_7j
-    - 2lss_p_4j
-    - 2lss_p_5j
-    - 2lss_p_6j
-    - 2lss_p_7j
+  - 2lss_4t_m_4j
+  - 2lss_4t_m_5j
+  - 2lss_4t_m_6j
+  - 2lss_4t_m_7j
+  - 2lss_4t_p_4j
+  - 2lss_4t_p_5j
+  - 2lss_4t_p_6j
+  - 2lss_4t_p_7j
+  - 2lss_m_4j
+  - 2lss_m_5j
+  - 2lss_m_6j
+  - 2lss_m_7j
+  - 2lss_p_4j
+  - 2lss_p_5j
+  - 2lss_p_6j
+  - 2lss_p_7j
   3l_offZ_SR:
-    - 3l_m_offZ_1b_2j
-    - 3l_m_offZ_1b_3j
-    - 3l_m_offZ_1b_4j
-    - 3l_m_offZ_1b_5j
-    - 3l_m_offZ_2b_2j
-    - 3l_m_offZ_2b_3j
-    - 3l_m_offZ_2b_4j
-    - 3l_m_offZ_2b_5j
-    - 3l_p_offZ_1b_2j
-    - 3l_p_offZ_1b_3j
-    - 3l_p_offZ_1b_4j
-    - 3l_p_offZ_1b_5j
-    - 3l_p_offZ_2b_2j
-    - 3l_p_offZ_2b_3j
-    - 3l_p_offZ_2b_4j
-    - 3l_p_offZ_2b_5j
+  - 3l_m_offZ_1b_2j
+  - 3l_m_offZ_1b_3j
+  - 3l_m_offZ_1b_4j
+  - 3l_m_offZ_1b_5j
+  - 3l_m_offZ_2b_2j
+  - 3l_m_offZ_2b_3j
+  - 3l_m_offZ_2b_4j
+  - 3l_m_offZ_2b_5j
+  # - 3l_m_offZ_high_1b_1j
+  # - 3l_m_offZ_high_1b_2j
+  # - 3l_m_offZ_high_1b_3j
+  # - 3l_m_offZ_high_1b_4j
+  # - 3l_m_offZ_high_1b_5j
+  # - 3l_m_offZ_high_2b_1j
+  # - 3l_m_offZ_high_2b_2j
+  # - 3l_m_offZ_high_2b_3j
+  # - 3l_m_offZ_high_2b_4j
+  # - 3l_m_offZ_high_2b_5j
+  # - 3l_m_offZ_low_1b_1j
+  # - 3l_m_offZ_low_1b_2j
+  # - 3l_m_offZ_low_1b_3j
+  # - 3l_m_offZ_low_1b_4j
+  # - 3l_m_offZ_low_1b_5j
+  # - 3l_m_offZ_low_2b_1j
+  # - 3l_m_offZ_low_2b_2j
+  # - 3l_m_offZ_low_2b_3j
+  # - 3l_m_offZ_low_2b_4j
+  # - 3l_m_offZ_low_2b_5j
+  # - 3l_m_offZ_none_1b_1j
+  # - 3l_m_offZ_none_1b_2j
+  # - 3l_m_offZ_none_1b_3j
+  # - 3l_m_offZ_none_1b_4j
+  # - 3l_m_offZ_none_1b_5j
+  # - 3l_m_offZ_none_2b_1j
+  # - 3l_m_offZ_none_2b_2j
+  # - 3l_m_offZ_none_2b_3j
+  # - 3l_m_offZ_none_2b_4j
+  # - 3l_m_offZ_none_2b_5j
+  - 3l_p_offZ_1b_2j
+  - 3l_p_offZ_1b_3j
+  - 3l_p_offZ_1b_4j
+  - 3l_p_offZ_1b_5j
+  - 3l_p_offZ_2b_2j
+  - 3l_p_offZ_2b_3j
+  - 3l_p_offZ_2b_4j
+  - 3l_p_offZ_2b_5j
+  # - 3l_p_offZ_high_1b_1j
+  # - 3l_p_offZ_high_1b_2j
+  # - 3l_p_offZ_high_1b_3j
+  # - 3l_p_offZ_high_1b_4j
+  # - 3l_p_offZ_high_1b_5j
+  # - 3l_p_offZ_high_2b_1j
+  # - 3l_p_offZ_high_2b_2j
+  # - 3l_p_offZ_high_2b_3j
+  # - 3l_p_offZ_high_2b_4j
+  # - 3l_p_offZ_high_2b_5j
+  # - 3l_p_offZ_low_1b_1j
+  # - 3l_p_offZ_low_1b_2j
+  # - 3l_p_offZ_low_1b_3j
+  # - 3l_p_offZ_low_1b_4j
+  # - 3l_p_offZ_low_1b_5j
+  # - 3l_p_offZ_low_2b_1j
+  # - 3l_p_offZ_low_2b_2j
+  # - 3l_p_offZ_low_2b_3j
+  # - 3l_p_offZ_low_2b_4j
+  # - 3l_p_offZ_low_2b_5j
+  # - 3l_p_offZ_none_1b_1j
+  # - 3l_p_offZ_none_1b_2j
+  # - 3l_p_offZ_none_1b_3j
+  # - 3l_p_offZ_none_1b_4j
+  # - 3l_p_offZ_none_1b_5j
+  # - 3l_p_offZ_none_2b_1j
+  # - 3l_p_offZ_none_2b_2j
+  # - 3l_p_offZ_none_2b_3j
+  # - 3l_p_offZ_none_2b_4j
+  # - 3l_p_offZ_none_2b_5j
   3l_onZ_SR:
-    - 3l_onZ_1b_2j
-    - 3l_onZ_1b_3j
-    - 3l_onZ_1b_4j
-    - 3l_onZ_1b_5j
-    - 3l_onZ_2b_2j
-    - 3l_onZ_2b_3j
-    - 3l_onZ_2b_4j
-    - 3l_onZ_2b_5j
+  - 3l_onZ_1b_1j
+  - 3l_onZ_1b_2j
+  - 3l_onZ_1b_3j
+  - 3l_onZ_1b_4j
+  - 3l_onZ_1b_5j
+  - 3l_onZ_2b_1j
+  - 3l_onZ_2b_2j
+  - 3l_onZ_2b_3j
+  - 3l_onZ_2b_4j
+  - 3l_onZ_2b_5j
   4l_SR:
-    - 4l_2j
-    - 4l_3j
-    - 4l_4j
-  4l_2j:
-    - 4l_2j
-  4l_3j:
-    - 4l_3j
-  4l_4j:
-    - 4l_4j
+  - 4l_2j
+  - 4l_3j
+  - 4l_4j
   2lss_1tau_onZ:
-    - 2lss_m_1tau_onZ_3j
-    - 2lss_m_1tau_onZ_4j
-    - 2lss_m_1tau_onZ_5j
-    - 2lss_m_1tau_onZ_6j
-    - 2lss_p_1tau_onZ_3j
-    - 2lss_p_1tau_onZ_4j
-    - 2lss_p_1tau_onZ_5j
-    - 2lss_p_1tau_onZ_6j
+  - 2lss_m_1tau_onZ_3j
+  - 2lss_m_1tau_onZ_4j
+  - 2lss_m_1tau_onZ_5j
+  - 2lss_m_1tau_onZ_6j
+  - 2lss_p_1tau_onZ_3j
+  - 2lss_p_1tau_onZ_4j
+  - 2lss_p_1tau_onZ_5j
+  - 2lss_p_1tau_onZ_6j
   2lss_1tau_offZ:
-    - 2lss_m_1tau_offZ_3j
-    - 2lss_m_1tau_offZ_4j
-    - 2lss_m_1tau_offZ_5j
-    - 2lss_m_1tau_offZ_6j
-    - 2lss_p_1tau_offZ_3j
-    - 2lss_p_1tau_offZ_4j
-    - 2lss_p_1tau_offZ_5j
-    - 2lss_p_1tau_offZ_6j
+  - 2lss_m_1tau_offZ_3j
+  - 2lss_m_1tau_offZ_4j
+  - 2lss_m_1tau_offZ_5j
+  - 2lss_m_1tau_offZ_6j
+  - 2lss_p_1tau_offZ_3j
+  - 2lss_p_1tau_offZ_4j
+  - 2lss_p_1tau_offZ_5j
+  - 2lss_p_1tau_offZ_6j
   2los_onZ_1tau:
-    - 2los_onZ_1tau_5j
-  3l_1tau_1b:
-    - 3l_1tau_1b_2j
-    - 3l_1tau_1b_3j
-    - 3l_1tau_1b_4j
-    - 3l_1tau_1b_5j
-  3l_1tau_2b:
-    - 3l_1tau_2b_2j
-    - 3l_1tau_2b_3j
-    - 3l_1tau_2b_4j
-    - 3l_1tau_2b_5j
+  - 2los_onZ_1tau_5j
+  2lss_1tau:
+  - 2lss_m_1tau_onZ_3j
+  - 2lss_p_1tau_offZ_3j
+  - 2lss_m_1tau_offZ_3j
+  - 2lss_p_1tau_onZ_3j
+  - 2lss_m_1tau_onZ_4j
+  - 2lss_p_1tau_offZ_4j
+  - 2lss_m_1tau_offZ_4j
+  - 2lss_p_1tau_onZ_4j
+  - 2lss_m_1tau_onZ_5j
+  - 2lss_p_1tau_offZ_5j
+  - 2lss_m_1tau_offZ_5j
+  - 2lss_p_1tau_onZ_5j
+  - 2lss_m_1tau_onZ_6j
+  - 2lss_p_1tau_offZ_6j
+  - 2lss_m_1tau_offZ_6j
+  - 2lss_p_1tau_onZ_6j
+  3l_offZ_fwd:
+  - 3l_m_offZ_1b_fwd_1j
+  - 3l_p_offZ_1b_fwd_1j
+  - 3l_m_offZ_2b_fwd_1j
+  - 3l_p_offZ_2b_fwd_1j
+  - 3l_m_offZ_1b_fwd_2j
+  - 3l_p_offZ_1b_fwd_2j
+  - 3l_m_offZ_2b_fwd_2j
+  - 3l_p_offZ_2b_fwd_2j
+  - 3l_m_offZ_1b_fwd_3j
+  - 3l_p_offZ_1b_fwd_3j
+  - 3l_m_offZ_2b_fwd_3j
+  - 3l_p_offZ_2b_fwd_3j
+  - 3l_m_offZ_1b_fwd_4j
+  - 3l_p_offZ_1b_fwd_4j
+  - 3l_m_offZ_2b_fwd_4j
+  - 3l_p_offZ_2b_fwd_4j
+  2lss:
+  - 2lss_p_4j
+  - 2lss_m_4j
+  - 2lss_4t_p_4j
+  - 2lss_4t_m_4j
+  - 2lss_p_5j
+  - 2lss_m_5j
+  - 2lss_4t_p_5j
+  - 2lss_4t_m_5j
+  - 2lss_p_6j
+  - 2lss_m_6j
+  - 2lss_4t_p_6j
+  - 2lss_4t_m_6j
+  - 2lss_p_7j
+  - 2lss_m_7j
+  - 2lss_4t_p_7j
+  - 2lss_4t_m_7j
+  2lss_fwd:
+  - 2lss_fwd_m_4j
+  - 2lss_fwd_m_5j
+  - 2lss_fwd_m_6j
+  - 2lss_fwd_m_7j
+  - 2lss_fwd_p_4j
+  - 2lss_fwd_p_5j
+  - 2lss_fwd_p_6j
+  - 2lss_fwd_p_7j
+  3l_1tau:
+  - 3l_1tau_1b_1j
+  - 3l_1tau_1b_2j
+  - 3l_1tau_1b_3j
+  - 3l_1tau_1b_4j
+  - 3l_1tau_1b_5j
+  - 3l_1tau_2b_1j
+  - 3l_1tau_2b_2j
+  - 3l_1tau_2b_3j
+  - 3l_1tau_2b_4j
+  - 3l_1tau_2b_5j
+  3l_onZ_fwd:
+  - 3l_onZ_1b_fwd_1j
+  - 3l_onZ_2b_fwd_1j
+  - 3l_onZ_1b_fwd_2j
+  - 3l_onZ_2b_fwd_2j
+  - 3l_onZ_1b_fwd_3j
+  - 3l_onZ_2b_fwd_3j
+  - 3l_onZ_1b_fwd_4j
+  - 3l_onZ_2b_fwd_4j
 CR_GRP_MAP:
   Data:
     color: black
     patterns:
-      - data
+    - data
   DY:
     color: tab:blue
     patterns:
-      - DY
+    - DY
   Ttbar:
     color: darkgreen
     patterns:
-      - TTTo
-      - TTto
+    - TTTo
+    - TTto
   ZGamma:
     color: tab:orange
     patterns:
-      - ZG
+    - ZG
   Diboson:
     color: tab:cyan
     patterns:
-      - WWTo2L2Nu
-      - ZZTo4L
-      - WZTo3LNu
-      - WZto3LNu
-      - ZZTo4mu
-      - ZZTo4tau
-      - ZZTo4e
-      - ZZTo2mu2tau
-      - ZZTo2e2tau
-      - ZZTo2e2mu
+    - WWTo2L2Nu
+    - ZZTo4L
+    - WZTo3LNu
+    - WZto3LNu
+    - ZZTo4mu
+    - ZZTo4tau
+    - ZZTo4e
+    - ZZTo2mu2tau
+    - ZZTo2e2tau
+    - ZZTo2e2mu
   Triboson:
     color: tab:purple
     patterns:
-      - WWW
-      - WWZ
-      - WZZ
-      - ZZZ
-  'Single top':
+    - WWW
+    - WWZ
+    - WZZ
+    - ZZZ
+  Single top:
     color: tab:pink
     patterns:
-      - ST
-      - tW
-      - tbarW
-      - TZQB-Zto2L
+    - ST
+    - tW
+    - tbarW
+    - TZQB-Zto2L
   tWZ:
     color: tab:gray
     patterns:
-      - TWZ
+    - TWZ
   Singleboson:
     color: tan
     patterns:
-      - WJets
+    - WJets
   Conv:
     color: mediumseagreen
     patterns:
-      - TTG
+    - TTG
   Nonprompt:
     color: tab:red
     patterns:
-      - nonprompt
+    - nonprompt
   Flips:
     color: brown
     patterns:
-      - flips
+    - flips
   Signal:
     color: yellowgreen
     patterns:
-      - ttH
-      - ttlnu
-      - TTLL
-      - ttll
-      - tllq
-      - tHq
-      - tttt
-      - TTZToLL_M1to10
-      - TTTT
-      - ttLNu
-  # WWTo2L2Nu:
-  #   color: brown
-  #   patterns:
-  #     - WWTo2L2Nu
-  # ZZTo4L:
-  #   color: goldenrod
-  #   patterns:
-  #     - ZZTo4L
-  # WZTo3LNu:
-  #   color: yellow
-  #   patterns:
-  #     - WZto3LNu
-  #     - WZTo3LNu
-  # ZZTo4mu:
-  #   color: darkviolet
-  #   patterns:
-  #     - ZZTo4mu
-  # ZZTo4tau:
-  #   color: olive
-  #   patterns:
-  #     - ZZTo4tau
-  # ZZTo4e:
-  #   color: coral
-  #   patterns:
-  #     - ZZTo4e
-  # ZZTo2mu2tau:
-  #   color: navy
-  #   patterns:
-  #     - ZZTo2mu2tau
-  # ZZTo2e2tau:
-  #   color: yellowgreen
-  #   patterns:
-  #     - ZZTo2e2tau
-  # ZZTo2e2mu:
-  #   color: aquamarine
-  #   patterns:
-  #     - ZZTo2e2mu
+    - ttH
+    - ttlnu
+    - TTLL
+    - ttll
+    - tllq
+    - tHq
+    - tttt
+    - TTZToLL_M1to10
+    - TTTT
+    - ttLNu
 SR_GRP_MAP:
   Data:
     color: black
     patterns:
-      - data
+    - data
   Nonprompt:
     color: tab:red
     patterns:
-      - nonprompt
+    - nonprompt
   Flips:
     color: brown
     patterns:
-      - flips
+    - flips
   ttH:
     color: tab:orange
     patterns:
-      - ttH
+    - ttH
   ttlnu:
     color: tab:cyan
     patterns:
-      - ttlnu
+    - ttlnu
   ttll:
     color: tab:purple
     patterns:
-      - ttll
-      - TTZToLL_M1to10
-      - TTToSemiLeptonic
-      - TTTo2L2Nu
+    - ttll
+    - TTZToLL_M1to10
+    - TTToSemiLeptonic
+    - TTTo2L2Nu
   tXq:
     color: tab:pink
     patterns:
-      - tllq
-      - tHq
+    - tllq
+    - tHq
   tttt:
     color: tan
     patterns:
-      - tttt
+    - tttt
   Conv:
     color: mediumseagreen
     patterns:
-      - TTG
+    - TTG
   Triboson:
     color: tab:purple
     patterns:
-      - WWW
-      - WWZ
-      - WZZ
-      - ZZZ
+    - WWW
+    - WWZ
+    - WZZ
+    - ZZZ
   tWZ:
     color: tab:gray
     patterns:
-      - TWZ
+    - TWZ
   Diboson:
     color: tab:cyan
     patterns:
-      - WWTo2L2Nu
-      - ZZTo4L
-      - WZTo3LNu
-      - WZto3LNu
-      - ZZTo4mu
-      - ZZTo4tau
-      - ZZTo4e
-      - ZZTo2mu2tau
-      - ZZTo2e2tau
-      - ZZTo2e2mu
+    - WWTo2L2Nu
+    - ZZTo4L
+    - WZTo3LNu
+    - WZto3LNu
+    - ZZTo4mu
+    - ZZTo4tau
+    - ZZTo4e
+    - ZZTo2mu2tau
+    - ZZTo2e2tau
+    - ZZTo2e2mu
 WCPT_EXAMPLE:
   ctW: -0.74
   ctZ: -0.86
@@ -409,26 +502,46 @@ WCPT_EXAMPLE:
   cQt8: -2.89
   cQt1: -1.24
 LUMI_COM_PAIRS:
-  '2016': ['35.9', '13']
-  '2016APV': ['19.5', '13']
-  '2017': ['41.5', '13']
-  '2018': ['59.8', '13']
-  '2022': ['7.98', '13.6']
-  '2022EE': ['26.67', '13.6']
-  '2023': ['17.79', '13.6']
-  '2023BPix': ['9.451', '13.6']
+  '2016':
+  - '35.9'
+  - '13'
+  2016APV:
+  - '19.5'
+  - '13'
+  '2017':
+  - '41.5'
+  - '13'
+  '2018':
+  - '59.8'
+  - '13'
+  '2022':
+  - '7.98'
+  - '13.6'
+  2022EE:
+  - '26.67'
+  - '13.6'
+  '2023':
+  - '17.79'
+  - '13.6'
+  2023BPix:
+  - '9.451'
+  - '13.6'
 PROC_WITHOUT_PDF_RATE_SYST:
-  - tttt
-  - ttll
-  - ttlnu
-  - Triboson
-  - tWZ
-  - convs
+- tttt
+- ttll
+- ttlnu
+- Triboson
+- tWZ
+- convs
 STACKED_RATIO_STYLE:
   defaults:
     figure:
-      figsize: [10, 8]
-      height_ratios: [4, 1]
+      figsize:
+      - 10
+      - 8
+      height_ratios:
+      - 4
+      - 1
       hspace: 0.07
     cms:
       fontsize: 18.0
@@ -442,14 +555,16 @@ STACKED_RATIO_STYLE:
       spine_width: 1.0
       y_offset: -0.07
       offset_fontsize: 18
-      ratio_label: "Ratio"
+      ratio_label: Ratio
       ratio_label_fontsize: 18
       ratio_label_margin: 0.002
       ticklabel_format:
         style: scientific
-        scilimits: [0, 6]
+        scilimits:
+        - 0
+        - 6
         useMathText: true
-      overflow_label: ">500"
+      overflow_label: '>500'
       apply_secondary_ticks:
         x: true
         y: true
@@ -460,14 +575,18 @@ STACKED_RATIO_STYLE:
       columnspacing: 0.8
       handletextpad: 0.6
       loc: upper center
-      bbox_to_anchor: [0.5, 1.0]
+      bbox_to_anchor:
+      - 0.5
+      - 1.0
       borderaxespad: 0.15
       top_margin_min: 0.01
       top_margin_scale: 0.25
       overlap_margin: 0.01
     uncertainty_legend:
       loc: upper right
-      bbox_to_anchor: [0.98, 0.98]
+      bbox_to_anchor:
+      - 0.98
+      - 0.98
       fontsize: 10
       ncol: 2
       columnspacing: 1.0
@@ -481,85 +600,57 @@ STACKED_RATIO_STYLE:
   per_region: {}
 REGION_PLOTTING:
   CR:
-    variable_label: "Var name"
+    variable_label: Var name
     skip_sparse_2d: false
-    # channel_mode selects how the plotting loop interprets the channel axis for
-    # every histogram that belongs to this region.  "aggregate" means that the
-    # per-category channel list from CR_CHAN_DICT is collapsed into a single
-    # combined template before the figure is rendered, reproducing the legacy
-    # behaviour where CR plots integrate over all flavours/jet bins inside a
-    # category.  Switching to "per-channel" (used by SR below) leaves the
-    # channel axis intact so that each entry in the region channel map generates
-    # its own figure.  Only these two literal values are supported; any other
-    # string will raise during RegionContext construction.
     channel_mode: aggregate
     skip_variables: []
     channel_transformations:
-      # channel_transformations provides an ordered recipe for rewriting the raw
-      # channel labels that come out of the histogram before any matching is
-      # performed.  The resolved instruction list is the concatenation of:
-      #   * default: unconditional transforms applied to every variable.
-      #   * variables: overrides keyed by the histogram name; the list given for
-      #     "njets" below strips jet-multiplicity suffixes only when we are
-      #     plotting the njets histogram.
-      #   * conditional: rules guarded by a boolean named condition.  Each entry
-      #     specifies a metadata flag (e.g. "not_split_by_lepflav") that maps to
-      #     an evaluator inside YieldTools.  When the condition returns true for
-      #     the histogram currently being processed, its "apply" list is appended
-      #     to the transformation sequence.  In the example we drop lepton-flavour
-      #     suffixes whenever the dataset is not split by flavour, ensuring that
-      #     the CR channel patterns still match the provided CR_CHAN_DICT keys.
       default: []
       variables:
         njets:
-          - njets
+        - njets
       conditional:
-        - when: not_split_by_lepflav
-          apply:
-            - lepflav
+      - when: not_split_by_lepflav
+        apply:
+        - lepflav
     sample_removals:
-      - categories:
-          prefixes:
-            - cr_2los_tt
-            - cr_2los_Z
-        groups:
-          - Nonprompt
+    - categories:
+        prefixes:
+        - cr_2los_tt
+        - cr_2los_Z
+      groups:
+      - Nonprompt
     category_skips:
-      - categories:
-          equals:
-            - cr_2los_Z
-        variable_includes:
-          - j0
-        variable_excludes:
-          - lj0pt
-      - categories:
-          equals:
-            - cr_2lss_flip
-        variable_includes:
-          - j0
-        variable_excludes:
-          - lj0pt
+    - categories:
+        equals:
+        - cr_2los_Z
+      variable_includes:
+      - j0
+      variable_excludes:
+      - lj0pt
+    - categories:
+        equals:
+        - cr_2lss_flip
+      variable_includes:
+      - j0
+      variable_excludes:
+      - lj0pt
     sumw2_remove_signal: true
     sumw2_remove_signal_when_blinded: false
     debug_channel_lists: false
     use_mc_as_data_when_blinded: false
   SR:
-    variable_label: "Variable"
+    variable_label: Variable
     skip_sparse_2d: true
-    # See the CR block above for the semantics of channel_mode.  SR keeps the
-    # channel axis explicit so every channel listed in SR_CHAN_DICT is rendered
-    # individually.
     channel_mode: per-channel
     skip_variables:
-      - ptz
-      - njets
+    - ptz
+    - njets
     channel_transformations:
-      # No SR-specific rewrites are required today, but the same rules described
-      # in the CR section above can be enabled here if future SR plots need to
-      # rename, strip, or otherwise rewrite channel labels before matching them
-      # to SR_CHAN_DICT.
       default: []
-      variables: {}
+      variables:
+        njets:
+        - njets
       conditional: []
     sample_removals: []
     category_skips: []

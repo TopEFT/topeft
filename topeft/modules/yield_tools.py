@@ -34,12 +34,12 @@ class YieldTools():
         # A dictionary mapping names of processes in the processes axis to a short version of the name
         self.PROC_MAP = {
 
-            "ttlnu" : ["ttW_centralUL16APV"    ,"ttW_centralUL16"    ,"ttW_centralUL17" ,"ttW_centralUL18" , "ttlnuJet_privateUL18" , "ttlnuJet_privateUL17" , "ttlnuJet_privateUL16" , "ttlnuJet_privateUL16APV", "ttW_central2022",  "ttlnuJet_private2022"],
-            "ttll"  : ["ttZ_centralUL16APV"    ,"ttZ_centralUL16"    ,"ttZ_centralUL17" ,"ttZ_centralUL18" , "ttllJet_privateUL18"  , "ttllJet_privateUL17"  , "ttllJet_privateUL16"  , "ttllJet_privateUL16APV",  "TTLL_MLL-50_central2022", "TTLL_MLL-4to50_central2022" ,"TTLL_MLL-50_central2022EE", "TTLL_MLL-4to50_central2022EE"],
-            "ttH"   : ["ttHJet_centralUL16APV" ,"ttHJet_centralUL16" ,"ttH_centralUL17" ,"ttH_centralUL18" , "ttHJet_privateUL18"   , "ttHJet_privateUL17"   , "ttHJet_privateUL16"   , "ttHJet_privateUL16APV", "ttHnobb-1Jets_central2022",  "ttHnobb-1Jets_central2022EE"],
-            "tllq"  : ["tZq_centralUL16APV"    ,"tZq_centralUL16"    ,"tZq_centralUL17" ,"tZq_centralUL18" , "tllq_privateUL18"     , "tllq_privateUL17"     , "tllq_privateUL16"     , "tllq_privateUL16APV", "tZq_central2022", "tllq_private2022"],
-            "tHq"   : ["tHq_centralUL16APV"    ,"tHq_centralUL16"    ,"tHq_centralUL17" ,"tHq_centralUL18" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV", "tHq_central2022", "tHq_private2022"],
-            "tttt"  : ["tttt_centralUL16APV"   ,"tttt_centralUL16"   ,"tttt_centralUL17","tttt_centralUL18", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV", "TTTT_central2022", "TTTT_central2022EE"],
+            "ttlnu" : ["ttW_centralUL16APV"    ,"ttW_centralUL16"    ,"ttW_centralUL17" ,"ttW_centralUL18" , "ttlnuJet_privateUL18" , "ttlnuJet_privateUL17" , "ttlnuJet_privateUL16" , "ttlnuJet_privateUL16APV", "ttW_central2022", "ttW_central2022EE", "ttW_central2023", "ttW_central2023BPix", "ttlnu_private2022", "ttlnu_private2022EE", "ttlnu_private2023", "ttlnu_private2023BPix"],
+            "ttll"  : ["ttZ_centralUL16APV"    ,"ttZ_centralUL16"    ,"ttZ_centralUL17" ,"ttZ_centralUL18" , "ttllJet_privateUL18"  , "ttllJet_privateUL17"  , "ttllJet_privateUL16"  , "ttllJet_privateUL16APV",  "TTLL_MLL-50_central2022", "TTLL_MLL-4to50_central2022" ,"TTLL_MLL-50_central2022EE", "TTLL_MLL-4to50_central2022EE", "TTLL_MLL-50_central2023", "TTLL_MLL-4to50_central2023", "TTLL_MLL-50_central2023BPix", "TTLL_MLL-4to50_central2023BPix", "ttll_private2022", "ttll_private2022EE", "ttll_private2023", "ttll_private2023BPix"],
+            "ttH"   : ["ttHJet_centralUL16APV" ,"ttHJet_centralUL16" ,"ttH_centralUL17" ,"ttH_centralUL18" , "ttHJet_privateUL18"   , "ttHJet_privateUL17"   , "ttHJet_privateUL16"   , "ttHJet_privateUL16APV", "ttHnobb-1Jets_central2022",  "ttHnobb-1Jets_central2022EE", "ttHnobb-1Jets_central2023", "ttHnobb-1Jets_central2023BPix", "ttH_private2022", "ttH_private2022EE", "ttH_private2023", "ttH_private2023BPix"],
+            "tllq"  : ["tZq_centralUL16APV"    ,"tZq_centralUL16"    ,"tZq_centralUL17" ,"tZq_centralUL18" , "tllq_privateUL18"     , "tllq_privateUL17"     , "tllq_privateUL16"     , "tllq_privateUL16APV", "tZq_central2022", "tZq_central2022EE", "tZq_central2023", "tZq_central2023BPix", "tllq_private2022", "tllq_private2022EE", "tllq_private2023", "tllq_private2023BPix"],
+            "tHq"   : ["tHq_centralUL16APV"    ,"tHq_centralUL16"    ,"tHq_centralUL17" ,"tHq_centralUL18" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV", "tHq_central2022", "tHq_central2022EE", "tHq_central2023", "tHq_central2023BPix", "tHq_private2022", "tHq_private2022EE", "tHq_private2023", "tHq_private2023BPix"],
+            "tttt"  : ["tttt_centralUL16APV"   ,"tttt_centralUL16"   ,"tttt_centralUL17","tttt_centralUL18", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV", "TTTT_central2022", "TTTT_central2022EE", "TTTT_central2023", "TTTT_central2023BPix", "tttt_private2022", "tttt_private2022EE", "tttt_private2023", "tttt_private2023BPix"],
 
             "flips" : [
                 canonicalize_process_name(proc_name)
@@ -67,7 +67,7 @@ class YieldTools():
                     "NonPrompt2023BPix",
                 )
             ],
-            "conv"  : ["TTGamma_centralUL16"  ,"TTGamma_centralUL16APV"  ,"TTGamma_centralUL17"  ,"TTGamma_centralUL18"  ,"TTGamma_central2022"],
+            "conv"  : ["TTGamma_centralUL16"  ,"TTGamma_centralUL16APV"  ,"TTGamma_centralUL17"  ,"TTGamma_centralUL18"  ,"TTGamma_central2022", "TTGamma_central2022EE", "TTGamma_central2023", "TTGamma_central2023BPix"],
             "WW"    : ["WWTo2L2Nu_centralUL16","WWTo2L2Nu_centralUL16APV","WWTo2L2Nu_centralUL17","WWTo2L2Nu_centralUL18","WWTo2L2Nu_central2022", "WWTo2L2Nu_central2022EE", "WWTo2L2Nu_central2023", "WWTo2L2Nu_central2023BPix"],
             "WZ"    : ["WZTo3LNu_centralUL16" ,"WZTo3LNu_centralUL16APV" ,"WZTo3LNu_centralUL17" ,"WZTo3LNu_centralUL18","WZTo3LNu_central2022","WZTo3LNu_central2022EE", "WZTo3LNu_central2023", "WZTo3LNu_central2023BPix"],
             "ZZ"    : ["ZZTo4L_centralUL16"   ,"ZZTo4L_centralUL16APV"   ,"ZZTo4L_centralUL17"   ,"ZZTo4L_centralUL18"   ,"ZZTo4L_central2022", "ZZTo4L_central2022EE",  "ZZTo4L_central2023",  "ZZTo4L_central2023BPix"],
@@ -77,11 +77,11 @@ class YieldTools():
             "ZZZ"   : ["ZZZ_centralUL16"      ,"ZZZ_centralUL16APV"      ,"ZZZ_centralUL17"      ,"ZZZ_centralUL18"      ,"ZZZ_central2022","ZZZ_central2022EE", "ZZZ_central2023", "ZZZ_central2023BPix"],
             "tWZ"   : ["TWZToLL_centralUL16"  ,"TWZToLL_centralUL16APV"  ,"TWZToLL_centralUL17"  ,"TWZToLL_centralUL18"  ,"TWZToLL_central2022", "TWZ_TtoLNu_Wto2Q_Zto2L_central2022","TWZ_TtoLNu_Wto2Q_Zto2L_central2022EE", "TWZ_TtoLNu_Wto2Q_Zto2L_central2023", "TWZ_TtoLNu_Wto2Q_Zto2L_central2023BPix"],
 
-            "ttZlowMll"   : ["TTZToLL_M1to10_centralUL16"  ,"TTZToLL_M1to10_centralUL16APV"  ,"TTZToLL_M1to10_centralUL17"  ,"TTZToLL_M1to10_centralUL18"  ,"TTZToLL_M1to10_central2022"],
+            "ttZlowMll"   : ["TTZToLL_M1to10_centralUL16"  ,"TTZToLL_M1to10_centralUL16APV"  ,"TTZToLL_M1to10_centralUL17"  ,"TTZToLL_M1to10_centralUL18"  ,"TTZToLL_M1to10_central2022", "TTZToLL_M1to10_central2022EE", "TTZToLL_M1to10_central2023", "TTZToLL_M1to10_central2023BPix"],
             "ttbarll" : ["TTTo2L2Nu_centralUL16", "TTTo2L2Nu_centralUL16APV", "TTTo2L2Nu_centralUL17", "TTTo2L2Nu_centralUL18", "TTTo2L2Nu_central2022", "TTto2L2Nu_central2022EE", "TTto2L2Nu_central2023", "TTto2L2Nu_central2023BPix"],
-            "ttbarsl" : ["TTToSemiLeptonic_centralUL16", "TTToSemiLeptonic_centralUL16APV", "TTToSemiLeptonic_centralUL17", "TTToSemiLeptonic_centralUL18","TTToSemiLeptonic_central2022"],
+            "ttbarsl" : ["TTToSemiLeptonic_centralUL16", "TTToSemiLeptonic_centralUL16APV", "TTToSemiLeptonic_centralUL17", "TTToSemiLeptonic_centralUL18","TTToSemiLeptonic_central2022", "TTToSemiLeptonic_central2022EE", "TTToSemiLeptonic_central2023", "TTToSemiLeptonic_central2023BPix"],
 
-            "data"   : ["dataUL16","dataUL16APV","dataUL17","dataUL18","data2022"],
+            "data"   : ["dataUL16","dataUL16APV","dataUL17","dataUL18","data2022", "data2022EE", "data2023", "data2023BPix"],
         }
 
 
