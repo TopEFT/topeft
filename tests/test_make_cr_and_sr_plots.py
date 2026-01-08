@@ -21,6 +21,13 @@ class _DummyHist:
         self.scale_factors.append(factor)
 
 
+def _find_zero_yield_entry(summary, *, label, variable):
+    for entry in summary.get("channel_entries", []):
+        if entry.get("label") == label and entry.get("variable") == variable:
+            return entry
+    return None
+
+
 def test_unit_normalization_skips_empty_histograms(monkeypatch):
     dummy_mc = _DummyHist()
     dummy_data = _DummyHist()
@@ -56,7 +63,7 @@ def test_unit_normalization_skips_empty_histograms(monkeypatch):
     assert any("Skipping data unit normalization" in msg for msg in logged_messages)
 
 
-def test_unmatched_sample_gets_fallback_group(monkeypatch):
+def test_unmatched_sample_is_skipped_from_group_map(monkeypatch):
     process_axis = hist.axis.StrCategory([], name="process", growth=True)
     value_axis = hist.axis.Regular(2, 0.0, 2.0, name="lj0pt")
     h_mc = hist.Hist(process_axis, value_axis, storage=hist.storage.Double())
@@ -90,9 +97,10 @@ def test_unmatched_sample_gets_fallback_group(monkeypatch):
         group_map = make_cr_and_sr_plots.populate_group_map(samples, pattern_map)
 
     assert "Top" in group_map
-    assert "mysteryProcess" in group_map
-    assert group_map["mysteryProcess"] == ["mysteryProcess"]
-    assert any("mysteryProcess" in msg for msg in captured)
+    assert "mysteryProcess" not in group_map
+    assert any(
+        "mysteryProcess" in msg and "skipping" in msg.lower() for msg in captured
+    )
 
     plotted_calls = []
 
@@ -122,7 +130,9 @@ def test_unmatched_sample_gets_fallback_group(monkeypatch):
         mc_call = plotted_calls[0]
         mc_stack_inputs = mc_call["args"][0]
         stacked_total = np.sum(np.stack(mc_stack_inputs), axis=0)
-        mc_totals = h_mc[{"process": sum}].as_hist({}).values(flow=True)[1:]
+        mc_totals = (
+            h_mc[{"process": "ttbarSL"}].as_hist({}).values(flow=True)[1:]
+        )
         np.testing.assert_allclose(stacked_total, mc_totals)
 
         colors = mc_call["kwargs"].get("color", [])
@@ -198,6 +208,447 @@ def test_both_njets_preserves_variables_for_merged_output(tmp_path):
         "cr_2lss_1j_met.png",
         "cr_2lss_1j_njets.png",
     }.issubset(set(plot_names)), plot_names
+
+
+def test_sr_njets_channel_transform_matches_cr_behavior():
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    njets_axis = hist.axis.Regular(1, 0.0, 1.0, name="njets")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, njets_axis
+    )
+
+    for channel in ("3l_m_offZ_1b", "3l_p_offZ_2b"):
+        hist_obj.fill(
+            process="ttH_central2022",
+            channel=channel,
+            systematic="nominal",
+            njets=0.5,
+            weight=1.0,
+        )
+
+    hist_inputs = {"njets": hist_obj}
+
+    region_ctx = make_cr_and_sr_plots.build_region_context(
+        "SR", hist_inputs, years=["2022"], unblind=True
+    )
+    payload = make_cr_and_sr_plots._prepare_variable_payload(
+        "njets", region_ctx, metadata_only=True
+    )
+
+    assert "njets" in payload["channel_transformations"]
+
+    channel_bins = payload["channel_dict"].get("3l_offZ_SR")
+    assert channel_bins, "Expected SR channel bins for 3l_offZ_SR"
+
+    make_cr_and_sr_plots.validate_channel_group(
+        [hist_obj],
+        channel_bins,
+        payload["channel_transformations"],
+        region=region_ctx.name,
+        subgroup="3l_offZ_SR",
+        variable="njets",
+    )
+
+
+def test_sr_zero_yield_summary_respects_njets_aggregation(monkeypatch):
+    process_axis = hist.axis.StrCategory(
+        ["ttH_central2022", "data2022"], name="process"
+    )
+    channel_axis = hist.axis.StrCategory(
+        ["2lss_4t_m", "2lss_4t_p", "2lss_m", "2lss_p"], name="channel"
+    )
+    syst_axis = hist.axis.StrCategory(["nominal"], name="systematic")
+    njets_axis = hist.axis.Regular(1, 0.0, 1.0, name="njets")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, njets_axis
+    )
+
+    hist_obj.fill(
+        process="ttH_central2022",
+        channel="2lss_4t_m",
+        systematic="nominal",
+        njets=0.5,
+        weight=1.0,
+    )
+    hist_obj.fill(
+        process="data2022",
+        channel="2lss_4t_m",
+        systematic="nominal",
+        njets=0.5,
+        weight=0.0,
+    )
+    for channel in ("2lss_4t_p", "2lss_m", "2lss_p"):
+        hist_obj.fill(
+            process="data2022",
+            channel=channel,
+            systematic="nominal",
+            njets=0.5,
+            weight=0.0,
+        )
+
+    hist_inputs = {"njets": hist_obj}
+
+    patched_cfg = copy.deepcopy(
+        make_cr_and_sr_plots.REGION_PLOTTING.get("SR", {})
+    )
+    patched_cfg.update({"skip_variables": ["ptz"]})
+
+    with monkeypatch.context() as m:
+        m.setitem(make_cr_and_sr_plots.REGION_PLOTTING, "SR", patched_cfg)
+        region_ctx = make_cr_and_sr_plots.build_region_context(
+            "SR", hist_inputs, years=["2022"], unblind=True
+        )
+        summary = make_cr_and_sr_plots._summarize_zero_yield_processes(
+            hist_inputs,
+            region_name="SR",
+            region_ctx=region_ctx,
+            variables=["njets"],
+        )
+
+    entry = _find_zero_yield_entry(summary, label="2lss_SR", variable="njets")
+    assert entry is not None
+    assert not entry["missing_bins"]
+
+
+def test_sr_zero_yield_summary_flags_missing_channels_for_lj0pt():
+    process_axis = hist.axis.StrCategory(
+        ["ttH_central2022", "data2022"], name="process"
+    )
+    channel_axis = hist.axis.StrCategory(
+        ["2lss_4t_m_4j", "2lss_4t_m_5j"], name="channel"
+    )
+    syst_axis = hist.axis.StrCategory(["nominal"], name="systematic")
+    lj0pt_axis = hist.axis.Regular(1, 0.0, 1.0, name="lj0pt")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, lj0pt_axis
+    )
+
+    hist_obj.fill(
+        process="ttH_central2022",
+        channel="2lss_4t_m_4j",
+        systematic="nominal",
+        lj0pt=0.5,
+        weight=1.0,
+    )
+    hist_obj.fill(
+        process="data2022",
+        channel="2lss_4t_m_4j",
+        systematic="nominal",
+        lj0pt=0.5,
+        weight=0.0,
+    )
+    hist_obj.fill(
+        process="data2022",
+        channel="2lss_4t_m_5j",
+        systematic="nominal",
+        lj0pt=0.5,
+        weight=0.0,
+    )
+
+    hist_inputs = {"lj0pt": hist_obj}
+    region_ctx = make_cr_and_sr_plots.build_region_context(
+        "SR", hist_inputs, years=["2022"], unblind=True
+    )
+
+    summary = make_cr_and_sr_plots._summarize_zero_yield_processes(
+        hist_inputs,
+        region_name="SR",
+        region_ctx=region_ctx,
+        variables=["lj0pt"],
+    )
+
+    entry = _find_zero_yield_entry(summary, label="2lss_SR", variable="lj0pt")
+    assert entry is not None
+    assert "2lss_4t_m_6j" in entry["missing_bins"]
+    assert "2lss_4t_m_5j" not in entry["missing_bins"]
+
+    zero_processes = {proc for proc, _ in entry["zero_processes"]}
+    assert "data2022" in zero_processes
+
+
+def test_sr_zero_yield_summary_respects_skip_variables():
+    process_axis = hist.axis.StrCategory(["ttH_central2022"], name="process")
+    channel_axis = hist.axis.StrCategory(["3l_onZ_1b_2j"], name="channel")
+    syst_axis = hist.axis.StrCategory(["nominal"], name="systematic")
+    ptz_axis = hist.axis.Regular(1, 0.0, 1.0, name="ptz")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, ptz_axis
+    )
+
+    hist_obj.fill(
+        process="ttH_central2022",
+        channel="3l_onZ_1b_2j",
+        systematic="nominal",
+        ptz=0.5,
+        weight=1.0,
+    )
+
+    hist_inputs = {"ptz": hist_obj}
+    region_ctx = make_cr_and_sr_plots.build_region_context(
+        "SR", hist_inputs, years=["2022"], unblind=True
+    )
+
+    summary = make_cr_and_sr_plots._summarize_zero_yield_processes(
+        hist_inputs,
+        region_name="SR",
+        region_ctx=region_ctx,
+        variables=["ptz"],
+    )
+
+    assert not summary["channel_entries"]
+
+
+def test_cr_zero_yield_summary_respects_skip_variables(monkeypatch):
+    process_axis = hist.axis.StrCategory(["ttH_central2022"], name="process")
+    channel_axis = hist.axis.StrCategory(["2lss_ee_CR_1j"], name="channel")
+    syst_axis = hist.axis.StrCategory(["nominal"], name="systematic")
+    ptz_axis = hist.axis.Regular(1, 0.0, 1.0, name="ptz")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, ptz_axis
+    )
+
+    hist_obj.fill(
+        process="ttH_central2022",
+        channel="2lss_ee_CR_1j",
+        systematic="nominal",
+        ptz=0.5,
+        weight=1.0,
+    )
+
+    hist_inputs = {"ptz": hist_obj}
+
+    patched_cfg = copy.deepcopy(
+        make_cr_and_sr_plots.REGION_PLOTTING.get("CR", {})
+    )
+    patched_cfg.update({"skip_variables": ["ptz"]})
+
+    with monkeypatch.context() as m:
+        m.setitem(make_cr_and_sr_plots.REGION_PLOTTING, "CR", patched_cfg)
+        region_ctx = make_cr_and_sr_plots.build_region_context(
+            "CR", hist_inputs, years=["2022"], unblind=True
+        )
+        summary = make_cr_and_sr_plots._summarize_zero_yield_processes(
+            hist_inputs,
+            region_name="CR",
+            region_ctx=region_ctx,
+            variables=["ptz"],
+        )
+
+    assert not summary["channel_entries"]
+
+
+def test_cr_zero_yield_summary_reports_variable_and_missing_bins():
+    process_axis = hist.axis.StrCategory(
+        ["ttH_central2022", "data2022"], name="process"
+    )
+    channel_axis = hist.axis.StrCategory(
+        ["2lss_ee_CR_1j", "2lss_mm_CR_1j"], name="channel"
+    )
+    syst_axis = hist.axis.StrCategory(["nominal"], name="systematic")
+    met_axis = hist.axis.Regular(1, 0.0, 1.0, name="met")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, met_axis
+    )
+
+    for channel in ("2lss_ee_CR_1j", "2lss_mm_CR_1j"):
+        hist_obj.fill(
+            process="ttH_central2022",
+            channel=channel,
+            systematic="nominal",
+            met=0.5,
+            weight=1.0,
+        )
+        hist_obj.fill(
+            process="data2022",
+            channel=channel,
+            systematic="nominal",
+            met=0.5,
+            weight=0.0,
+        )
+
+    hist_inputs = {"met": hist_obj}
+    region_ctx = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["2022"], unblind=True
+    )
+
+    summary = make_cr_and_sr_plots._summarize_zero_yield_processes(
+        hist_inputs,
+        region_name="CR",
+        region_ctx=region_ctx,
+        variables=["met"],
+    )
+
+    entry = _find_zero_yield_entry(summary, label="cr_2lss", variable="met")
+    assert entry is not None
+    assert "2lss_mm_CR_2j" in entry["missing_bins"]
+
+    zero_processes = {proc for proc, _ in entry["zero_processes"]}
+    assert "data2022" in zero_processes
+
+
+def test_sr_zero_yield_skips_unmatched_processes(monkeypatch):
+    process_axis = hist.axis.StrCategory(
+        ["ttH_central2022", "ZG_MLL-50_PTG-600_central2022"], name="process"
+    )
+    channel_axis = hist.axis.StrCategory(["2lss_4t_m_4j"], name="channel")
+    syst_axis = hist.axis.StrCategory(["nominal"], name="systematic")
+    lj0pt_axis = hist.axis.Regular(1, 0.0, 1.0, name="lj0pt")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, lj0pt_axis
+    )
+
+    hist_obj.fill(
+        process="ttH_central2022",
+        channel="2lss_4t_m_4j",
+        systematic="nominal",
+        lj0pt=0.5,
+        weight=1.0,
+    )
+    hist_obj.fill(
+        process="ZG_MLL-50_PTG-600_central2022",
+        channel="2lss_4t_m_4j",
+        systematic="nominal",
+        lj0pt=0.5,
+        weight=1.0,
+    )
+
+    hist_inputs = {"lj0pt": hist_obj}
+
+    with monkeypatch.context() as m:
+        warnings = []
+
+        def _capture_warning(msg, *args, **kwargs):
+            if args:
+                msg = msg % args
+            warnings.append(msg)
+
+        m.setattr(make_cr_and_sr_plots.logger, "warning", _capture_warning)
+        region_ctx = make_cr_and_sr_plots.build_region_context(
+            "SR", hist_inputs, years=["2022"], unblind=True
+        )
+        summary = make_cr_and_sr_plots._summarize_zero_yield_processes(
+            hist_inputs,
+            region_name="SR",
+            region_ctx=region_ctx,
+            variables=["lj0pt"],
+        )
+
+    assert any("ZG_MLL-50_PTG-600_central2022" in msg for msg in warnings)
+    unmatched_present = any(
+        proc == "ZG_MLL-50_PTG-600_central2022"
+        for entry in summary["channel_entries"]
+        for proc, _ in entry["zero_processes"]
+    )
+    assert not unmatched_present
+
+
+def test_cr_zero_yield_skips_unmatched_processes(monkeypatch):
+    process_axis = hist.axis.StrCategory(
+        ["TTTo2L2Nu_central2022", "mysteryProc2022"], name="process"
+    )
+    channel_axis = hist.axis.StrCategory(["2lss_ee_CR_1j"], name="channel")
+    syst_axis = hist.axis.StrCategory(["nominal"], name="systematic")
+    met_axis = hist.axis.Regular(1, 0.0, 1.0, name="met")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, met_axis
+    )
+
+    hist_obj.fill(
+        process="TTTo2L2Nu_central2022",
+        channel="2lss_ee_CR_1j",
+        systematic="nominal",
+        met=0.5,
+        weight=1.0,
+    )
+    hist_obj.fill(
+        process="mysteryProc2022",
+        channel="2lss_ee_CR_1j",
+        systematic="nominal",
+        met=0.5,
+        weight=1.0,
+    )
+
+    hist_inputs = {"met": hist_obj}
+
+    with monkeypatch.context() as m:
+        warnings = []
+
+        def _capture_warning(msg, *args, **kwargs):
+            if args:
+                msg = msg % args
+            warnings.append(msg)
+
+        m.setattr(make_cr_and_sr_plots.logger, "warning", _capture_warning)
+        region_ctx = make_cr_and_sr_plots.build_region_context(
+            "CR", hist_inputs, years=["2022"], unblind=True
+        )
+        summary = make_cr_and_sr_plots._summarize_zero_yield_processes(
+            hist_inputs,
+            region_name="CR",
+            region_ctx=region_ctx,
+            variables=["met"],
+        )
+
+    assert any("mysteryProc2022" in msg for msg in warnings)
+    unmatched_present = any(
+        proc == "mysteryProc2022"
+        for entry in summary["channel_entries"]
+        for proc, _ in entry["zero_processes"]
+    )
+    assert not unmatched_present
+
+
+def test_sr_aggregate_blinded_uses_mc_when_data_empty(tmp_path):
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    njets_axis = hist.axis.Regular(1, 0.0, 1.0, name="njets")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, njets_axis
+    )
+
+    hist_obj.fill(
+        process="ttH_central2022",
+        channel="2lss_p",
+        systematic="nominal",
+        njets=0.5,
+        weight=5.0,
+    )
+    hist_obj.fill(
+        process="data2022",
+        channel="2lss_p",
+        systematic="nominal",
+        njets=0.5,
+        weight=0.0,
+    )
+
+    make_cr_and_sr_plots.run_plots_for_region(
+        "SR",
+        {"njets": hist_obj},
+        years=["2022"],
+        save_dir_path=str(tmp_path),
+        channel_output="merged",
+        skip_syst_errs=True,
+        workers=1,
+        verbose=False,
+        unblind=False,
+    )
+
+    plot_dir = tmp_path / "2lss_SR"
+    assert plot_dir.exists()
+    plot_paths = list(plot_dir.glob("*_njets.png"))
+    assert plot_paths, "Expected SR aggregate plot when MC is non-zero and data is empty"
 
 
 def test_data_driven_samples_preserved_for_1tau_cr():
