@@ -122,22 +122,37 @@ CR_CHAN_DICT:
   - 1l_m_dy_tautau_CR_3j
   - 1l_m_dy_tautau_CR_4j
 SR_CHAN_DICT:
-  2lss_SR:
+  2lss_4t_m_4j:
   - 2lss_4t_m_4j
+  2lss_4t_m_5j:
   - 2lss_4t_m_5j
+  2lss_4t_m_6j:
   - 2lss_4t_m_6j
+  2lss_4t_m_7j:
   - 2lss_4t_m_7j
+  2lss_4t_p_4j:
   - 2lss_4t_p_4j
+  2lss_4t_p_5j:
   - 2lss_4t_p_5j
+  2lss_4t_p_6j:
   - 2lss_4t_p_6j
+  2lss_4t_p_7j:
   - 2lss_4t_p_7j
+  2lss_m_4j:
   - 2lss_m_4j
+  2lss_m_5j:
   - 2lss_m_5j
+  2lss_m_6j:
   - 2lss_m_6j
+  2lss_m_7j:
   - 2lss_m_7j
+  2lss_p_4j:
   - 2lss_p_4j
+  2lss_p_5j:
   - 2lss_p_5j
+  2lss_p_6j:
   - 2lss_p_6j
+  2lss_p_7j:
   - 2lss_p_7j
   3l_offZ_SR:
   - 3l_m_offZ_1b_2j
@@ -437,10 +452,13 @@ SR_GRP_MAP:
     - TTZToLL_M1to10
     - TTToSemiLeptonic
     - TTTo2L2Nu
-  tXq:
+  tllq:
     color: tab:pink
     patterns:
     - tllq
+  tHq:
+    color: coral
+    patterns:
     - tHq
   tttt:
     color: tan
@@ -451,7 +469,7 @@ SR_GRP_MAP:
     patterns:
     - TTG
   Triboson:
-    color: tab:purple
+    color: tab:blue
     patterns:
     - WWW
     - WWZ
@@ -462,7 +480,7 @@ SR_GRP_MAP:
     patterns:
     - TWZ
   Diboson:
-    color: tab:cyan
+    color: plum
     patterns:
     - WWTo2L2Nu
     - ZZTo4L

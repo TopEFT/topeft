@@ -296,7 +296,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--wq-filepath",
-        default="/tmp/${USER}-workers",
+        #default="/tmp/${USER}-workers",
+        default=None,
         help=(
             "Override the Work Queue staging directory (default: /tmp/${USER}-workers). The path will be "
             "created if missing; if creation fails a system temporary directory will be used instead."

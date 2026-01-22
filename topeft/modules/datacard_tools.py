@@ -837,12 +837,14 @@ class DatacardMaker():
         with uproot.recreate(outf_root_name) as f:
             for p,wcs in selected_wcs.items():
                 # TODO This is a hack for now, track this upstream
-                if 'charge_flip' in p and '2l' not in ch:
+                if 'flip' in p and '2l' not in ch:
                     continue
                 # TODO This is a hack for now, track this upstream
                 if 'fakes' in p and '4l' in ch:
                     continue
-                if 'charge_flip' in p and '2los' in ch:
+                if 'nonprompt' in p and '4l' in ch:
+                    continue
+                if 'flip' in p and '2los' in ch:
                     continue
                 print("DEBUG LINE\tch_hist", ch_hist, f"\tprocess: {p}") 
                 proc_hist = ch_hist.integrate("process",[p])
