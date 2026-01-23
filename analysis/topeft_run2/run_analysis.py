@@ -170,7 +170,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--chunksize",
         "-s",
-        default=50000,
+        default=20000,
         help="Number of events per chunk",
     )
     parser.add_argument(
