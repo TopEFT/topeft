@@ -244,7 +244,7 @@ main() {
       --skip-sr
     )
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
-      OPTIONS+=(-s 50000)
+      OPTIONS+=(-s 20000)
     fi
     OPTIONS+=(
       #--split-lep-flavor
@@ -260,7 +260,7 @@ main() {
       --do-systs
     )
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
-      OPTIONS+=(-s 50000)
+      OPTIONS+=(-s 20000)
     fi
     OPTIONS+=(-o "$OUT_NAME")
   fi
