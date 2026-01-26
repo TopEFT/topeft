@@ -1505,21 +1505,25 @@ central_UL16APV_bkg_dict = {
 add_tau_bug_fix_dict_2022 = {
  "ggToZZTo2e2nu":{
             "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4",
             "histAxisName" : "ggToZZTo2e2nu_central2022",
             "xsecName" : "ggToZZTo2e2nu_13p6TeV",
         },
  "ggToZZTo2mu2nu":{
             "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2",
             "histAxisName" : "ggToZZTo2mu2nu_central2022",
             "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
         },
  "DYJetsToLL_MLL-10to50":{
             "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer22NanoAODv12/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4",
             "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
             "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
         },
  "DYJetsToLL_MLL-50":{
             "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v5/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer22NanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v5",
             "histAxisName" : "DYJetsToLL_MLL-50_central2022",
             "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV"
         },
@@ -1527,16 +1531,25 @@ add_tau_bug_fix_dict_2022 = {
 add_tau_bug_fix_dict_2022EE = {
  "ggToZZTo2e2nu":{
             "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v4/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v4",
             "histAxisName" : "ggToZZTo2e2nu_central2022EE",
             "xsecName" : "ggToZZTo2e2nu_13p6TeV",
         },
  "ggToZZTo2mu2nu":{
             "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2",
             "histAxisName" : "ggToZZTo2mu2nu_central2022EE",
             "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
         },
+#  "DYJetsToLL_MLL-10to50":{
+#             "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6_ext1-v4/NANOAODSIM",
+#             "path_local" : ""
+#             "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
+#             "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
+#         },
  "DYJetsToLL_MLL-50":{
             "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v5/NANOAODSIM", 
+            "path_local" : "/store/mc/Run3Summer22EENanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v5",
             "histAxisName" : "DYJetsToLL_MLL-50_central2022EE",
             "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV",
         },
@@ -1544,34 +1557,51 @@ add_tau_bug_fix_dict_2022EE = {
 add_tau_bug_fix_dict_2023 = {
  "ggToZZTo2e2nu":{
             "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM", 
+            "path_local" : "/store/mc/Run3Summer23NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v2",
             "histAxisName" : "ggToZZTo2e2nu_central2023",
             "xsecName" : "ggToZZTo2e2nu_13p6TeV",
         },
  "ggToZZTo2mu2nu":{
             "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM", 
+            "path_local" : "/store/mc/Run3Summer23NanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v2",
             "histAxisName" : "ggToZZTo2mu2nu_central2023",
             "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
         },
+#  "DYJetsToLL_MLL-10to50":{
+#             "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14_ext1-v4/NANOAODSIM",
+#             "path_local" : ""
+#             "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
+#             "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
+#         },
  "DYJetsToLL_MLL-50":{
-            "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14-v2/NANOAODSIM", 
+            "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14-v2/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer23NanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v14-v2",
             "histAxisName" : "DYJetsToLL_MLL-50_central2023",
             "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV",
         },
 }
 add_tau_bug_fix_dict_2023BPix = {
-
  "ggToZZTo2e2nu":{
             "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
             "histAxisName" : "ggToZZTo2e2nu_central2023BPix",
             "xsecName" : "ggToZZTo2e2nu_13p6TeV",
         },
  "ggToZZTo2mu2nu":{
             "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
             "histAxisName" : "ggToZZTo2mu2nu_central2023BPix",
             "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
         },
+#  "DYJetsToLL_MLL-10to50":{
+#             "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v2_ext1-v4/NANOAODSIM",
+#             "path_local" : ""
+#             "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
+#             "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
+#         },
  "DYJetsToLL_MLL-50":{
             "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v2-v4/NANOAODSIM", 
+            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v4",
             "histAxisName" : "DYJetsToLL_MLL-50_central2023BPix",
             "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV",
         },
@@ -2275,10 +2305,10 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
     #NEW
     #make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2022",out_dir_central_bkg_2022,on_das=True)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "root://cms-xrd-global.cern.ch/","2022", out_dir_central_bkg_2022, on_das=True)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "root://cms-xrd-global.cern.ch/","2022EE", out_dir_central_bkg_2022EE, on_das=True)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023, "root://cms-xrd-global.cern.ch/","2023", out_dir_central_bkg_2023, on_das=True)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023BPix, "root://cms-xrd-global.cern.ch/","2023BPix", out_dir_central_bkg_2023BPix, on_das=True)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "/cms/cephfs/data","2022", out_dir_central_bkg_2022, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "/cms/cephfs/data","2022EE", out_dir_central_bkg_2022EE, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023, "/cms/cephfs/data","2023", out_dir_central_bkg_2023, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023BPix, "/cms/cephfs/data","2023BPix", out_dir_central_bkg_2023BPix, on_das=False)
     # Data samples
     #make_jsons_for_dict_of_samples(data_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_data_2016,on_das=True)
     #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
