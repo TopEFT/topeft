@@ -1,0 +1,20 @@
+{
+    "xsec": 0.006115,
+    "year": "2022EE",
+    "treeName": "Events",
+    "histAxisName": "ggToZZTo2mu2nu_central2022EE",
+    "options": "",
+    "WCnames": [],
+    "files": [
+        "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/120000/d891542a-472f-46b4-a745-2b401032e227.root",
+        "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/120000/b74f87c4-4519-4237-865d-f712be36c691.root",
+        "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/120000/9efff765-4f93-4f2f-b78b-258e8392e51c.root",
+        "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/120000/f8382df3-6b13-42cf-8648-00b88bd5b753.root",
+        "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/120000/ad4caa4f-9621-4745-8404-ce67c7c033ff.root"
+    ],
+    "nEvents": 499670,
+    "nGenEvents": 499670,
+    "nSumOfWeights": 499670.0,
+    "isData": false,
+    "path": "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2"
+}

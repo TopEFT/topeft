@@ -1,0 +1,25 @@
+{
+    "xsec": 0.006115,
+    "year": "2022",
+    "treeName": "Events",
+    "histAxisName": "ggToZZTo2e2nu_central2022",
+    "options": "",
+    "WCnames": [],
+    "files": [
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/7136a475-af73-4e98-aa53-ad88eacd438d.root",
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/2e2e2248-17c1-4a6b-aa4b-85de7e9a1cb3.root",
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/c9893641-6b4f-46b6-a0a7-4d0dc1b9f6da.root",
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/ae8d6260-3e81-40a0-943f-b039dd5dacd9.root",
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/056a228e-f23f-4214-9ed6-197d6a84a24f.root",
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/566ae974-7bac-4bdb-9b07-e5717df0ecda.root",
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/2a035ea2-3919-432f-ad23-4cfd7af155b6.root",
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/e7409aa3-1c8b-4ece-af45-87ba20eca4be.root",
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/d239580e-9c06-4d80-afc1-7263e441864b.root",
+        "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4/140000/8ff0accb-ba24-4772-92f3-cf493c690b38.root"
+    ],
+    "nEvents": 150000,
+    "nGenEvents": 150000,
+    "nSumOfWeights": 150000.0,
+    "isData": false,
+    "path": "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4"
+}
