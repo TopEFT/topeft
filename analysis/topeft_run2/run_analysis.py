@@ -95,7 +95,7 @@ def _resolve_environment_file(env_override, use_remote_env, extra_pip_local=None
 
 
 def _prepare_work_queue_staging_directory(filepath_override=None):
-    requested_path = filepath_override or f"/tmp/{os.environ.get('USER', 'user')}-workers"
+    requested_path = filepath_override or f"/scratch365/{os.environ.get('USER', 'user')}/workers"
     path_preexisted = os.path.exists(requested_path)
 
     try:
@@ -123,6 +123,7 @@ def _cleanup_work_queue_staging_directory(path, eligible_for_cleanup):
             "Warning: Failed to clean up Work Queue staging directory {} ({}). You may want to "
             "remove it manually.".format(path, exc)
         )
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
     parser.add_argument(
@@ -885,7 +886,7 @@ if __name__ == "__main__":
             # use mid-range compression for chunks results.
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            "compression": 9,
+            "compression": 7,
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
             # tasks. on resource exhaustion, they are retried with the maximum resource
@@ -912,8 +913,8 @@ if __name__ == "__main__":
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
             # "treereduction": 10,
-            'chunks_per_accum': 15,
-            'chunks_accum_in_mem': 1,
+            'chunks_per_accum': 5,
+            'chunks_accum_in_mem': 2,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.
