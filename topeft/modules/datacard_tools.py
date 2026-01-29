@@ -136,11 +136,17 @@ class DatacardMaker():
     #   separate into two distinct actions to make things easier to follow for the reader
     # Note:
     #   Care must be taken with regards to the underscores, due to 'nonprompt', 'data', and 'flips'
-    GROUP = {
+    GROUP= {
         "Diboson_": [
             "WZTo3LNu_",
             "WWTo2L2Nu_",
             "ZZTo4L_",
+            "ggToZZTo2e2mu_",
+            "ggToZZTo4e_",
+            "ggToZZTo2e2tau_",
+            "ggToZZTo4tau_",
+            "ggToZZTo4mu_",
+            "ggToZZTo2mu2tau_",
         ],
         "Triboson_": [
             "WWW_",
@@ -148,20 +154,42 @@ class DatacardMaker():
             "WZZ_",
             "ZZZ_",
         ],
-        "tWZ": ["TWZToLL_"],
-        "convs": ["TTGamma_"],
+        "tWZ": [
+            "TWZToLL_",
+            "TWZ_Tto2Q_WtoLNu_",
+            "TWZ_TtoLNu_WtoLNu_",
+            "TWZ_TtoLNu_Wto2Q_",
+            "TWZ_TtoLNu_Wto2Q_Zto2L_",
+            "TWZ_Tto2Q_WtoLNu_Zto2L_",
+            "TWZ_TtoLNu_WtoLNu_Zto2L_",
+
+
+        ],
+        "convs": [
+            "TTGamma_",
+            "TTG-1Jets_",
+            "TTG-1Jets_PTG-100to200_",
+            "TTG-1Jets_PTG-10to100_",
+            "TTG-1Jets_PTG-200_",
+        ],
         "fakes": ["nonprompt"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
 
-        "ttH_": ["ttHJet_"],
+        "ttH_": [
+            "ttHJet_",
+            "ttH_",
+        ],
         "ttll_": [
             "ttllJet_",
             "TTZToLL_M1to10_",
             "TTToSemiLeptonic_",
             "TTTo2L2Nu_",
         ],
-        "ttlnu_": ["ttlnuJet_"],
+        "ttlnu_": [
+            "ttlnuJet_",
+            "ttlnu_",
+        ],
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
@@ -170,9 +198,9 @@ class DatacardMaker():
         if "variable" in value:
             BINNING[name] = value["variable"]
 
-    YEARS = ["UL16","UL16APV","UL17","UL18"]
+    YEARS = ["UL16","UL16APV","UL17","UL18","2022","2022EE","2023","2023BPix"]
 
-    SYST_YEARS = ["2016","2016APV","2017","2018"]
+    SYST_YEARS = ["2016","2016APV","2017","2018","2022","2022EE","2023","2023BPix"]
 
     FNAME_TEMPLATE = "ttx_multileptons-{cat}_{kmvar}.{ext}"
     # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
@@ -212,7 +240,7 @@ class DatacardMaker():
     def is_per_year_systematic(cls,s):
         end_chks = [
             "_2016APVUp","_2016Up","_2017Up","_2018Up",
-            "_2016APVDown","_2016Down","_2017Down","_2018Down",
+            "_2016APVDown","_2016Down","_2017Down","_2018Down","_2022Up", "_2022Down", "_2022EEUp", "_2022EEDown", "_2023Up", "_2023Down", "_2023BPixUp", "_2023BPixDown"
         ]
         return any([s.endswith(x) for x in end_chks])
 
@@ -325,7 +353,20 @@ class DatacardMaker():
             "TTJets",
             "WJetsToLNu",
             "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
-
+            # from run3
+            "ST_tbarW_Leptonic",
+            "ST_tbarW_Semileptonic",
+            "TTtoLNu2Q",
+            "TTto2L2Nu",
+            "ST_tW_Leptonic",
+            "ST_tW_Semileptonic",
+            "ZG_MLL-50_PTG-200to400", # -->check to see if should put in GROUP
+            "ZG_MLL-50_PTG-100to200",
+            "ZG_MLL-50_PTG-600",
+            "ZG_MLL-4to50_PTG-10to100",
+            "ZG_MLL-50_PTG-10to100",
+            "ZG_MLL-4to50_PTG-200", # --> up to here
+            "TTG-1Jets_PTG-200",
             # "TTGamma",
             # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
             # "WWW","WWW_4F","WWZ_4F","WWZ","WZZ","ZZZ",
