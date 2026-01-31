@@ -1076,7 +1076,6 @@
                 "isAR_3l"
             ],
             "jet_lst": [
-                "=1",
                 "=2",
                 "=3",
                 "=4",
@@ -1100,27 +1099,7 @@
                     "bmask_atleast2m",
                     "fwdjet_mask",
                     "0tau"
-                ]
-            ],
-            "lep_flav_lst": [
-                "eee",
-                "eem",
-                "emm",
-        "mmm"
-            ],
-            "appl_lst": [
-                "isSR_3l",
-                "isAR_3l"
-            ],
-            "jet_lst": [
-		"=1",
-                "=2",
-                "=3",
-                ">4"
-            ]
-        },
-        "3l_offZ_fwd": {
-            "lep_chan_lst": [
+                ],
                 [
                     "3l_m_offZ_1b_fwd",
                     "3l_m",
