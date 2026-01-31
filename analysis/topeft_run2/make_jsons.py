@@ -2264,6 +2264,11 @@ def main():
     out_dir_central_bkgZG = os.path.join(jsons_path,f"background_samples/central_{year}/ZG")
     out_dir_central_2022 = os.path.join(jsons_path,"signal_samples/central_2022/")
 
+    out_dir_ND_bkg_2022 = os.path.join(jsons_path,"background_samples/ND_2022/")
+    out_dir_ND_bkg_2022EE = os.path.join(jsons_path,"background_samples/ND_2022EE/")
+    out_dir_ND_bkg_2023 = os.path.join(jsons_path,"background_samples/ND_2023/")
+    out_dir_ND_bkg_2023BPix = os.path.join(jsons_path,"background_samples/ND_2023BPix/")
+
     out_dir_data_2016 = os.path.join(jsons_path,"data_samples/2016/")
     out_dir_data_2017 = os.path.join(jsons_path,"data_samples/2017/")
     out_dir_data_2018 = os.path.join(jsons_path,"data_samples/2018/")
@@ -2305,10 +2310,10 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
     #NEW
     #make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2022",out_dir_central_bkg_2022,on_das=True)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "/cms/cephfs/data","2022", out_dir_central_bkg_2022, on_das=False)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "/cms/cephfs/data","2022EE", out_dir_central_bkg_2022EE, on_das=False)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023, "/cms/cephfs/data","2023", out_dir_central_bkg_2023, on_das=False)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023BPix, "/cms/cephfs/data","2023BPix", out_dir_central_bkg_2023BPix, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "/cms/cephfs/data","2022", out_dir_ND_bkg_2022, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "/cms/cephfs/data","2022EE", out_dir_ND_bkg_2022EE, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023, "/cms/cephfs/data","2023", out_dir_ND_bkg_2023, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023BPix, "/cms/cephfs/data","2023BPix", out_dir_ND_bkg_2023BPix, on_das=False)
     # Data samples
     #make_jsons_for_dict_of_samples(data_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_data_2016,on_das=True)
     #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)

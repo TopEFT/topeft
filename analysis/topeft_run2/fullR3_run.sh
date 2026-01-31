@@ -222,7 +222,7 @@ main() {
         #"${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
         "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
         "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-	"${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
+	      "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
       )
 
       for CFG in "${YEAR_CFGS[@]}"; do
