@@ -102,7 +102,7 @@ def main():
             continue
         template_json_dir = os.path.split(matched_json_fp)[0]
         updates = {
-            "files": [x.replace("/hadoop","") for x in get_files(hdir,match_files=[".*\\.root"])]
+            "files": [x.replace("/hadoop","").replace("/cms/cephfs/data", "") for x in get_files(hdir,match_files=[".*\\.root"])]
         }
         outname = os.path.split(matched_json_fp)[1].replace(".json",f"{postfix}.json")
         if out_dir:
@@ -111,6 +111,7 @@ def main():
             outname = pjoin(template_json_dir,outname)
         update_json(matched_json_fp,dry_run=dry_run,outname=outname,verbose=verbose,**updates)
         template_json_fpaths.remove(matched_json_fp)
+
     # These are lobster skims for which we couldn't find a matching json template
     if missing_templates:
         print("Skims with no matching json template found:")

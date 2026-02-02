@@ -6,7 +6,7 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/cms/cephfs/data///store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2023BPix/v260131/ggToZZTo2mu2nu/output_751.root"
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2023BPix/v260131/ggToZZTo2mu2nu/output_751.root"
   ],
   "nEvents": 200000,
   "nGenEvents": 200000,
