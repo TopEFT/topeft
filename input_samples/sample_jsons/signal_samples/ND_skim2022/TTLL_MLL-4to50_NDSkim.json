@@ -1,0 +1,26 @@
+{
+  "xsec": 0.03949,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "TTLL_MLL-4to50_central2022",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250423/TTLL_MLL_4to50/output_235.root"
+  ],
+  "nEvents": 300000,
+  "nGenEvents": 300000,
+  "nSumOfWeights": 11829.048066992,
+  "isData": false,
+  "path": "/store/mc/Run3Summer22NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2",
+  "nSumOfWeights_ISRUp": 11826.024125527323,
+  "nSumOfWeights_ISRDown": 11832.458970829413,
+  "nSumOfWeights_FSRUp": 11810.757943930104,
+  "nSumOfWeights_FSRDown": 11868.457193138078,
+  "nSumOfWeights_renormUp": 10729.268886583126,
+  "nSumOfWeights_renormDown": 12955.815852132644,
+  "nSumOfWeights_factUp": 11576.441040019687,
+  "nSumOfWeights_factDown": 12143.83182124842,
+  "nSumOfWeights_renormDown_factUp": 12772.330051202607,
+  "nSumOfWeights_renormUp_factDown": 11068.894815313166
+}

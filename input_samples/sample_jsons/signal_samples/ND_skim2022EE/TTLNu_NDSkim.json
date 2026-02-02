@@ -1,0 +1,26 @@
+{
+  "xsec": 0.2505,
+  "year": "2022EE",
+  "treeName": "Events",
+  "histAxisName": "ttLNu_cental2022EE",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLNu/output_54.root"
+  ],
+  "nEvents": 335985,
+  "nGenEvents": 335985,
+  "nSumOfWeights": 151584.88953949,
+  "isData": false,
+  "path": "/store/mc/Run3Summer22EENanoAODv12/TTLNu-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v4",
+  "nSumOfWeights_ISRUp": 153060.96296065667,
+  "nSumOfWeights_ISRDown": 149702.0075802702,
+  "nSumOfWeights_FSRUp": 151692.65038777888,
+  "nSumOfWeights_FSRDown": 151065.29312164802,
+  "nSumOfWeights_renormUp": 151584.8843652606,
+  "nSumOfWeights_renormDown": 151584.8843652606,
+  "nSumOfWeights_factUp": 151584.8843652606,
+  "nSumOfWeights_factDown": 151584.8843652606,
+  "nSumOfWeights_renormDown_factUp": 151584.8843652606,
+  "nSumOfWeights_renormUp_factDown": 151584.8843652606
+}
