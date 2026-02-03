@@ -154,14 +154,21 @@ SR_CHAN_DICT:
   - 2lss_p_6j
   2lss_p_7j:
   - 2lss_p_7j
-  3l_offZ_SR:
+  3l_m_offZ_1b_2j:
   - 3l_m_offZ_1b_2j
+  3l_m_offZ_1b_3j:
   - 3l_m_offZ_1b_3j
+  3l_m_offZ_1b_4j:
   - 3l_m_offZ_1b_4j
+  3l_m_offZ_1b_5j:
   - 3l_m_offZ_1b_5j
+  3l_m_offZ_2b_2j:
   - 3l_m_offZ_2b_2j
+  3l_m_offZ_2b_3j:
   - 3l_m_offZ_2b_3j
+  3l_m_offZ_2b_4j:
   - 3l_m_offZ_2b_4j
+  3l_m_offZ_2b_5j:
   - 3l_m_offZ_2b_5j
   # - 3l_m_offZ_high_1b_1j
   # - 3l_m_offZ_high_1b_2j
@@ -193,13 +200,22 @@ SR_CHAN_DICT:
   # - 3l_m_offZ_none_2b_3j
   # - 3l_m_offZ_none_2b_4j
   # - 3l_m_offZ_none_2b_5j
+
+  3l_p_offZ_1b_2j:
   - 3l_p_offZ_1b_2j
+  3l_p_offZ_1b_3j:
   - 3l_p_offZ_1b_3j
+  3l_p_offZ_1b_4j:
   - 3l_p_offZ_1b_4j
+  3l_p_offZ_1b_5j:
   - 3l_p_offZ_1b_5j
+  3l_p_offZ_2b_2j:
   - 3l_p_offZ_2b_2j
+  3l_p_offZ_2b_3j:
   - 3l_p_offZ_2b_3j
+  3l_p_offZ_2b_4j:
   - 3l_p_offZ_2b_4j
+  3l_p_offZ_2b_5j:
   - 3l_p_offZ_2b_5j
   # - 3l_p_offZ_high_1b_1j
   # - 3l_p_offZ_high_1b_2j
@@ -231,20 +247,31 @@ SR_CHAN_DICT:
   # - 3l_p_offZ_none_2b_3j
   # - 3l_p_offZ_none_2b_4j
   # - 3l_p_offZ_none_2b_5j
-  3l_onZ_SR:
+  3l_onZ_1b_1j:
   - 3l_onZ_1b_1j
+  3l_onZ_1b_2j:
   - 3l_onZ_1b_2j
+  3l_onZ_1b_3j:
   - 3l_onZ_1b_3j
+  3l_onZ_1b_4j:
   - 3l_onZ_1b_4j
+  3l_onZ_1b_5j:
   - 3l_onZ_1b_5j
+  3l_onZ_2b_1j:
   - 3l_onZ_2b_1j
+  3l_onZ_2b_2j:
   - 3l_onZ_2b_2j
+  3l_onZ_2b_3j:
   - 3l_onZ_2b_3j
+  3l_onZ_2b_4j:
   - 3l_onZ_2b_4j
+  3l_onZ_2b_5j:
   - 3l_onZ_2b_5j
-  4l_SR:
+  4l_2j:
   - 4l_2j
+  4l_3j:
   - 4l_3j
+  4l_4j:
   - 4l_4j
   2lss_1tau_onZ:
   - 2lss_m_1tau_onZ_3j

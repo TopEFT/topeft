@@ -237,6 +237,11 @@ if __name__ == "__main__":
         help="Add fwd channels",
     )
     parser.add_argument(
+        "--all-analysis",
+        action="store_true",
+        help="Add all contributions",
+    )
+    parser.add_argument(
         "--skip-sr",
         action="store_true",
         help="Skip all signal region categories",
@@ -374,6 +379,7 @@ if __name__ == "__main__":
     offZ_split = args.offZ_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
+    all_analysis = args.all_analysis
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
@@ -416,6 +422,7 @@ if __name__ == "__main__":
         offZ_split = ops.pop("offZ_split",offZ_split)
         tau_h_analysis = ops.pop("tau_h_analysis",tau_h_analysis)
         fwd_analysis = ops.pop("fwd_analysis",fwd_analysis)
+        all_aanalysis = ops.pop("all_analysis", all_analysis)
         skip_sr = ops.pop("skip_sr",skip_sr)
         skip_cr = ops.pop("skip_cr",skip_cr)
         do_np = ops.pop("do_np",do_np)
@@ -486,11 +493,11 @@ if __name__ == "__main__":
     if hist_list == ["ana"]:
         # Here we hardcode a list of hists used for the analysis
         hist_lst = ["njets", "lj0pt", "ptz"]
-        if tau_h_analysis:
+        if tau_h_analysis or all_analysis:
             hist_lst.append("ptz_wtau")
             hist_lst.append("tau0Tpt")
             hist_lst.append("tau0Fpt")
-        if fwd_analysis:
+        if fwd_analysis or all_analysis:
             hist_lst.append("lt")
         # if "lepton_pt_vs_eta" not in hist_lst:
         #     hist_lst.append("lepton_pt_vs_eta")
@@ -562,7 +569,7 @@ if __name__ == "__main__":
             # "l1_SeedEtaOrX_vs_SeedPhiOrY",
             # "l1_eta_vs_phi",
         ]
-        if tau_h_analysis:
+        if tau_h_analysis or all_analysis:
             hist_lst.append("tau0Tpt")
             hist_lst.append("tau0Fpt")
     else:
@@ -786,6 +793,7 @@ if __name__ == "__main__":
                 "offZ_split": offZ_split,
                 "tau_h_analysis": tau_h_analysis,
                 "fwd_analysis": fwd_analysis,
+                "all_analysis": all_analysis,
                 "skip_sr": skip_sr,
                 "skip_cr": skip_cr,
                 "do_systs": do_systs,
@@ -867,6 +875,7 @@ if __name__ == "__main__":
         offZ_split=offZ_split,
         tau_h_analysis=tau_h_analysis,
         fwd_analysis=fwd_analysis,
+        all_analysis=all_analysis,
         useRun3MVA=useRun3MVA,
         tau_run_mode=analysis_mode
     )
