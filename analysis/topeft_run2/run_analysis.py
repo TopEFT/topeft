@@ -895,15 +895,14 @@ if __name__ == "__main__":
             # use mid-range compression for chunks results.
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            "compression": 7,
+            "compression": 1,
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
             # tasks. on resource exhaustion, they are retried with the maximum resource
             # values, if specified below. if a maximum is not specified, the task waits
             # forever until a larger worker connects.
-            # 'resource_monitor': True,
-            "resource_monitor": "measure",
             "resources_mode": "auto",
+            "split_on_exhaustion": True,
             'filepath': wq_staging_dir,
             #"filepath": '/tmp',
             # this resource values may be omitted when using
@@ -921,9 +920,9 @@ if __name__ == "__main__":
             # 'disk': 8000,   #MB
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
-            # "treereduction": 10,
-            'chunks_per_accum': 5,
-            'chunks_accum_in_mem': 2,
+            "treereduction": 10,
+            # 'chunks_per_accum': 5,
+            # 'chunks_accum_in_mem': 2,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.
