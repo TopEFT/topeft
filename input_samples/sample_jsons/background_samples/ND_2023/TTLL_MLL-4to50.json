@@ -1,0 +1,33 @@
+{
+    "xsec": 0.03949,
+    "year": "2023",
+    "treeName": "Events",
+    "histAxisName": "TTLL_MLL-4to50_central2023",
+    "options": "",
+    "WCnames": [],
+    "files": [
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/008fe660-d417-448c-90d5-c48b38589ecf.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/dcaf3d96-7dcc-4c15-8847-df5b06e0a4b9.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/c3b1378e-cf5f-4659-9bc4-9f05e2d36157.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/d4f46637-5975-4056-8500-53598ce08abf.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/d650498b-40b8-48e8-9b54-1d0d08c8b152.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/91521880-30b8-4e09-a2c9-1de7fdc61fda.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/945883b8-3922-4015-b9fa-e38bb7a9cda8.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/d9511b06-b2cd-4851-a6a3-4b52487eae5d.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/cf791b28-4232-4412-99e3-67f44d442517.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/9d83ae4f-2cbf-4c85-bb1a-3bfe5e31b33c.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/6db99a8f-ab36-4967-8fa0-c6b4f69af1f0.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/a15c1abe-b924-4f2a-bb24-d2de9031f20f.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/3eff38e9-cb51-4d67-af4b-5179635d9262.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/2f72414c-451f-4c89-8665-2a0be65994ba.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/d5b95ebf-3ea3-4129-b0ea-7bed8163818b.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/a92db3df-b793-4af3-9e36-0c4c92668c2f.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/dad503e2-134f-4ce1-a42e-f8eda01454fd.root",
+        "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/2810000/c4fb6e61-851d-4128-8275-6c79633d384c.root"
+    ],
+    "nEvents": 590000,
+    "nGenEvents": 590000,
+    "nSumOfWeights": 23194.025169614004,
+    "isData": false,
+    "path": "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4"
+}

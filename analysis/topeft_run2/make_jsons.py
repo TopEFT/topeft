@@ -1503,107 +1503,155 @@ central_UL16APV_bkg_dict = {
     },
 }
 add_tau_bug_fix_dict_2022 = {
- "ggToZZTo2e2nu":{
-            "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4",
-            "histAxisName" : "ggToZZTo2e2nu_central2022",
-            "xsecName" : "ggToZZTo2e2nu_13p6TeV",
-        },
- "ggToZZTo2mu2nu":{
-            "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2",
-            "histAxisName" : "ggToZZTo2mu2nu_central2022",
-            "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
-        },
- "DYJetsToLL_MLL-10to50_fixed":{
-            "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer22NanoAODv12/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4",
-            "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
-            "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
-        },
- "DYJetsToLL_MLL-50_fixed":{
-            "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v5/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer22NanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v5",
-            "histAxisName" : "DYJetsToLL_MLL-50_central2022",
-            "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV"
-        },
+#  "ggToZZTo2e2nu":{
+#             "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4",
+#             "histAxisName" : "ggToZZTo2e2nu_central2022",
+#             "xsecName" : "ggToZZTo2e2nu_13p6TeV",
+#         },
+#  "ggToZZTo2mu2nu":{
+#             "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22NanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2",
+#             "histAxisName" : "ggToZZTo2mu2nu_central2022",
+#             "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
+#         },
+#  "DYJetsToLL_MLL-10to50_fixed":{
+#             "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22NanoAODv12/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v4",
+#             "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
+#             "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
+#         },
+#  "DYJetsToLL_MLL-50_fixed":{
+#             "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v5/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22NanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v5",
+#             "histAxisName" : "DYJetsToLL_MLL-50_central2022",
+#             "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV"
+#         },
+#  "TTLL_MLL-4to50":{
+#             "path" : "/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v3/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3",
+#             "histAxisName" : "TTLL_MLL-4to50_central2022",
+#             "xsecName" : "TTLL_MLL-4to50_13p6TeV"
+#         },
+#  "TTLL_MLL-50":{
+#             "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v3/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22NanoAODv12/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3",
+#             "histAxisName" : "TTLL_MLL-50_central2022",
+#             "xsecName" : "TTLL_MLL-50_13p6TeV"
+#         },
 }
 add_tau_bug_fix_dict_2022EE = {
- "ggToZZTo2e2nu":{
-            "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v4/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v4",
-            "histAxisName" : "ggToZZTo2e2nu_central2022EE",
-            "xsecName" : "ggToZZTo2e2nu_13p6TeV",
-        },
- "ggToZZTo2mu2nu":{
-            "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2",
-            "histAxisName" : "ggToZZTo2mu2nu_central2022EE",
-            "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
-        },
-#  "DYJetsToLL_MLL-10to50_fixed":{
-#             "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6_ext1-v4/NANOAODSIM",
-#             "path_local" : ""
-#             "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
-#             "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
+#  "ggToZZTo2e2nu":{
+#             "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v4/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v4",
+#             "histAxisName" : "ggToZZTo2e2nu_central2022EE",
+#             "xsecName" : "ggToZZTo2e2nu_13p6TeV",
 #         },
- "DYJetsToLL_MLL-50_fixed":{
-            "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v5/NANOAODSIM", 
-            "path_local" : "/store/mc/Run3Summer22EENanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v5",
-            "histAxisName" : "DYJetsToLL_MLL-50_central2022EE",
-            "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV",
-        },
+#  "ggToZZTo2mu2nu":{
+#             "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22EENanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2",
+#             "histAxisName" : "ggToZZTo2mu2nu_central2022EE",
+#             "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
+#         },
+# #  "DYJetsToLL_MLL-10to50_fixed":{
+# #             "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6_ext1-v4/NANOAODSIM",
+# #             "path_local" : ""
+# #             "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
+# #             "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
+# #         },
+#  "DYJetsToLL_MLL-50_fixed":{
+#             "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v5/NANOAODSIM", 
+#             "path_local" : "/store/mc/Run3Summer22EENanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v5",
+#             "histAxisName" : "DYJetsToLL_MLL-50_central2022EE",
+#             "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV",
+#         },
+#  "TTLL_MLL-4to50":{
+#             "path" : "/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v3/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22EENanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v3",
+#             "histAxisName" : "TTLL_MLL-4to50_central2022EE",
+#             "xsecName" : "TTLL_MLL-4to50_13p6TeV"
+#         },
+#  "TTLL_MLL-50":{
+#             "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v3/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer22EENanoAODv12/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v3",
+#             "histAxisName" : "TTLL_MLL-50_central2022EE",
+#             "xsecName" : "TTLL_MLL-50_13p6TeV"
+        # },
 }
 add_tau_bug_fix_dict_2023 = {
- "ggToZZTo2e2nu":{
-            "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM", 
-            "path_local" : "/store/mc/Run3Summer23NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v2",
-            "histAxisName" : "ggToZZTo2e2nu_13p6TeV",
-            "xsecName" : "ggToZZTo2e2nu_13p6TeV",
-        },
- "ggToZZTo2mu2nu":{
-            "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM", 
-            "path_local" : "/store/mc/Run3Summer23NanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v2",
-            "histAxisName" : "ggToZZTo2mu2nu_13p6TeV",
-            "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
-        },
+#  "ggToZZTo2e2nu":{
+#             "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM", 
+#             "path_local" : "/store/mc/Run3Summer23NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v2",
+#             "histAxisName" : "ggToZZTo2e2nu_central2023",
+#             "xsecName" : "ggToZZTo2e2nu_13p6TeV",
+#         },
+#  "ggToZZTo2mu2nu":{
+#             "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM", 
+#             "path_local" : "/store/mc/Run3Summer23NanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v2",
+#             "histAxisName" : "ggToZZTo2mu2nu_central2023",
+#             "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
+#         },
 #  "DYJetsToLL_MLL-10to50_fixed":{
 #             "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14_ext1-v4/NANOAODSIM",
-#             "path_local" : ""
-#             "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
+#             "path_local" : "/store/mc/Run3Summer23NanoAODv12/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v14_ext1-v4/",
+#             "histAxisName" : "DYJetsToLL_MLL-10to50_central2023",
 #             "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
 #         },
- "DYJetsToLL_MLL-50_fixed":{
-            "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14-v2/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer23NanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v14-v2",
-            "histAxisName" : "DYJetsToLL_MLL-50_central2023",
-            "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV",
+#  "DYJetsToLL_MLL-50_fixed":{
+#             "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14-v2/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer23NanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v14-v2",
+#             "histAxisName" : "DYJetsToLL_MLL-50_central2023",
+#             "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV",
+#         },
+#  "TTLL_MLL-4to50":{
+#             "path" : "/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4",
+#             "histAxisName" : "TTLL_MLL-4to50_central2023",
+#             "xsecName" : "TTLL_MLL-4to50_13p6TeV"
+#         },
+ "TTLL_MLL-50":{
+            "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v3/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v3",
+            "histAxisName" : "TTLL_MLL-50_central2023",
+            "xsecName" : "TTLL_MLL-50_13p6TeV"
         },
 }
 add_tau_bug_fix_dict_2023BPix = {
- "ggToZZTo2e2nu":{
-            "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
-            "histAxisName" : "ggToZZTo2e2nu_13p6TeV",
-            "xsecName" : "ggToZZTo2e2nu_13p6TeV",
-        },
- "ggToZZTo2mu2nu":{
-            "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
-            "histAxisName" : "ggToZZTo2mu2nu_13p6TeV",
-            "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
-        },
- "DYJetsToLL_MLL-10to50_fixed":{
-            "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v2_ext1-v4/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2_ext1-v4/",
-            "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
-            "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
-        },
- "DYJetsToLL_MLL-50_fixed":{
-            "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v2-v4/NANOAODSIM", 
-            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v4",
-            "histAxisName" : "DYJetsToLL_MLL-50_central2023BPix",
-            "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV",
+#  "ggToZZTo2e2nu":{
+#             "path" : "/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
+#             "histAxisName" : "ggToZZTo2e2nu_central2023BPix",
+#             "xsecName" : "ggToZZTo2e2nu_13p6TeV",
+#         },
+#  "ggToZZTo2mu2nu":{
+#             "path" : "/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/GluGluToContinto2Zto2Mu2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
+#             "histAxisName" : "ggToZZTo2mu2nu_central2023BPix",
+#             "xsecName" : "ggToZZTo2mu2nu_13p6TeV",
+#         },
+#  "DYJetsToLL_MLL-10to50_fixed":{
+#             "path" : "/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v2_ext1-v4/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2_ext1-v4/",
+#             "histAxisName" : "DYJetsToLL_MLL-10to50_central2022",
+#             "xsecName" : "DYto2L-2Jets_MLL-10to50_13p6TeV",
+#         },
+#  "DYJetsToLL_MLL-50_fixed":{
+#             "path" : "/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v2-v4/NANOAODSIM", 
+#             "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v4",
+#             "histAxisName" : "DYJetsToLL_MLL-50_central2023BPix",
+#             "xsecName" : "DYto2L-2Jets_MLL-50_13p6TeV",
+#         },
+#  "TTLL_MLL-4to50":{
+#             "path" : "/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v3/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v3",
+#             "histAxisName" : "TTLL_MLL-4to50_central2023BPix",
+#             "xsecName" : "TTLL_MLL-4to50_13p6TeV"
+#         },
+ "TTLL_MLL-50":{
+            "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v3/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v3",
+            "histAxisName" : "TTLL_MLL-50_central2023BPix",
+            "xsecName" : "TTLL_MLL-50_13p6TeV"
         },
 }
 central_2022_bkg_dict = {
@@ -1947,46 +1995,48 @@ central_2022_bkg_dict = {
     #     "xsecName":     "ZG_MLL-50_PTG-600_13p6TeV",
     # },
 
-    "ZG_MLL-4to50_PTG-10to100": {
-        "path": "/DYGto2LG-1Jets_MLL-4to50_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
-        "histAxisName": "ZG_MLL-4to50_PTG-10to100_central2023BPix",
-        "xsecName":     "ZG_MLL-4to50_PTG-10to100_13p6TeV",
-    },
-    "ZG_MLL-4to50_PTG-100to200": {
-        "path": "/DYGto2LG-1Jets_MLL-4to50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
-        "histAxisName": "ZG_MLL-4to50_PTG-100to200_central2023BPix",
-        "xsecName":     "ZG_MLL-4to50_PTG-100to200_13p6TeV",
-    },
-    "ZG_MLL-4to50_PTG-200": {
-        "path": "/DYGto2LG-1Jets_MLL-4to50_PTG-200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
-        "histAxisName": "ZG_MLL-4to50_PTG-200_central2023BPix",
-        "xsecName":     "ZG_MLL-4to50_PTG-200_13p6TeV",
-    },
-    "ZG_MLL-50_PTG-10to100": {
-        "path": "/DYGto2LG-1Jets_MLL-50_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
-        "histAxisName": "ZG_MLL-50_PTG-10to100_central2023BPix",
-        "xsecName":     "ZG_MLL-50_PTG-10to100_13p6TeV",
-    },
-    "ZG_MLL-50_PTG-100to200": {
-        "path": "/DYGto2LG-1Jets_MLL-50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v3/NANOAODSIM",
-        "histAxisName": "ZG_MLL-50_PTG-100to200_central2023BPix",
-        "xsecName":     "ZG_MLL-50_PTG-100to200_13p6TeV",
-    },
-    "ZG_MLL-50_PTG-200to400": {
-        "path": "/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
-        "histAxisName": "ZG_MLL-50_PTG-200to400_central2023BPix",
-        "xsecName":     "ZG_MLL-50_PTG-200to400_13p6TeV",
-    },
-    "ZG_MLL-50_PTG-400to600": {
-        "path": "/DYGto2LG-1Jets_MLL-50_PTG-400to600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
-        "histAxisName": "ZG_MLL-50_PTG-400to600_central2023BPix",
-        "xsecName":     "ZG_MLL-50_PTG-400to600_13p6TeV",
-    },
-    "ZG_MLL-50_PTG-600": {
-        "path": "/DYGto2LG-1Jets_MLL-50_PTG-600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
-        "histAxisName": "ZG_MLL-50_PTG-600_central2023BPix",
-        "xsecName":     "ZG_MLL-50_PTG-600_13p6TeV",
-    },
+    # "ZG_MLL-4to50_PTG-10to100": {
+    #     "path": "/DYGto2LG-1Jets_MLL-4to50_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+    #     "histAxisName": "ZG_MLL-4to50_PTG-10to100_central2023BPix",
+    #     "xsecName":     "ZG_MLL-4to50_PTG-10to100_13p6TeV",
+    # },
+    # "ZG_MLL-4to50_PTG-100to200": {
+    #     "path": "/DYGto2LG-1Jets_MLL-4to50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+    #     "histAxisName": "ZG_MLL-4to50_PTG-100to200_central2023BPix",
+    #     "xsecName":     "ZG_MLL-4to50_PTG-100to200_13p6TeV",
+    # },
+    # "ZG_MLL-4to50_PTG-200": {
+    #     "path": "/DYGto2LG-1Jets_MLL-4to50_PTG-200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+    #     "histAxisName": "ZG_MLL-4to50_PTG-200_central2023BPix",
+    #     "xsecName":     "ZG_MLL-4to50_PTG-200_13p6TeV",
+    # },
+    # "ZG_MLL-50_PTG-10to100": {
+    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
+    #     "histAxisName": "ZG_MLL-50_PTG-10to100_central2023BPix",
+    #     "xsecName":     "ZG_MLL-50_PTG-10to100_13p6TeV",
+    # },
+    # "ZG_MLL-50_PTG-100to200": {
+    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v3/NANOAODSIM",
+    #     "histAxisName": "ZG_MLL-50_PTG-100to200_central2023BPix",
+    #     "xsecName":     "ZG_MLL-50_PTG-100to200_13p6TeV",
+    # },
+    # "ZG_MLL-50_PTG-200to400": {
+    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
+    #     "histAxisName": "ZG_MLL-50_PTG-200to400_central2023BPix",
+    #     "xsecName":     "ZG_MLL-50_PTG-200to400_13p6TeV",
+    # },
+    # "ZG_MLL-50_PTG-400to600": {
+    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-400to600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
+    #     "histAxisName": "ZG_MLL-50_PTG-400to600_central2023BPix",
+    #     "xsecName":     "ZG_MLL-50_PTG-400to600_13p6TeV",
+    # },
+    # "ZG_MLL-50_PTG-600": {
+    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
+    #     "histAxisName": "ZG_MLL-50_PTG-600_central2023BPix",
+    #     "xsecName":     "ZG_MLL-50_PTG-600_13p6TeV",
+    # },
+
+
 }
 
 ########### Data ##############
