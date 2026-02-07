@@ -6,10 +6,10 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_4to50/output_18.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_4to50/output_132.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_4to50/output_72.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_4to50/output_109.root"
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_4to50/output_98.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_4to50/output_95.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_4to50/output_97.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_4to50/output_91.root"
   ],
   "nEvents": 1049999,
   "nGenEvents": 1049999,

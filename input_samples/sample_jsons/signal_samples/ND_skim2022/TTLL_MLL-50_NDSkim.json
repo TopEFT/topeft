@@ -6,8 +6,8 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250423/TTLL_MLL_50/output_259.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250423/TTLL_MLL_50/output_166.root"
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022/v260131/TTLL_MLL_50/output_30.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022/v260131/TTLL_MLL_50/output_31.root"
   ],
   "nEvents": 400000,
   "nGenEvents": 400000,
