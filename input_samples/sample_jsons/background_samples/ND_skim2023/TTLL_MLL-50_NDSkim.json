@@ -1,0 +1,29 @@
+{
+  "xsec": 0.08646,
+  "year": "2023",
+  "treeName": "Events",
+  "histAxisName": "TTLL_MLL-50_central2023",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2023/v260131/TTLL_MLL_50/output_6.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2023/v260131/TTLL_MLL_50/output_5.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2023/v260131/TTLL_MLL_50/output_4.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2023/v260131/TTLL_MLL_50/output_3.root"
+  ],
+  "nEvents": 800000,
+  "nGenEvents": 800000,
+  "nSumOfWeights": 69016.22431266,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v3",
+  "nSumOfWeights_ISRUp": 69026.99007754997,
+  "nSumOfWeights_ISRDown": 68996.31592739196,
+  "nSumOfWeights_FSRUp": 69078.9254519241,
+  "nSumOfWeights_FSRDown": 69096.85626728577,
+  "nSumOfWeights_renormUp": 63402.75350595036,
+  "nSumOfWeights_renormDown": 74341.75745274674,
+  "nSumOfWeights_factUp": 67538.71152493393,
+  "nSumOfWeights_factDown": 70837.69381500207,
+  "nSumOfWeights_renormDown_factUp": 73565.1850862898,
+  "nSumOfWeights_renormUp_factDown": 65602.75688503533
+}

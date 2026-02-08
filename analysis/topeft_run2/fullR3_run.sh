@@ -222,7 +222,7 @@ main() {
         #"${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
         "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
         "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-	"${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
+	      "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
       )
 
       for CFG in "${YEAR_CFGS[@]}"; do
@@ -244,7 +244,7 @@ main() {
       --skip-sr
     )
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
-      OPTIONS+=(-s 50000)
+      OPTIONS+=(-s 100000)
     fi
     OPTIONS+=(
       #--split-lep-flavor
@@ -254,12 +254,13 @@ main() {
     )
   else
     OPTIONS=(
+      -p "/scratch365/$USER/"
       --hist-list ana
       --skip-cr
       --do-systs
     )
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
-      OPTIONS+=(-s 50000)
+      OPTIONS+=(-s 20000)
     fi
     OPTIONS+=(-o "$OUT_NAME")
   fi

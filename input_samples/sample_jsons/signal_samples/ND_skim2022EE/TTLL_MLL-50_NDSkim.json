@@ -6,13 +6,14 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_50/output_60.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_50/output_134.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_50/output_88.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_50/output_73.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_50/output_113.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_50/output_28.root",
-    "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250423/TTLL_MLL_50/output_56.root"
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_50/output_93.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_50/output_75.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_50/output_96.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_50/output_72.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_50/output_82.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_50/output_92.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_50/output_94.root",
+    "/store/user/apiccine/skims/data/NAOD_ULv12_lepMVA-run3/2022EE/v260131/TTLL_MLL_50/output_56.root"
   ],
   "nEvents": 1343867,
   "nGenEvents": 1343867,
