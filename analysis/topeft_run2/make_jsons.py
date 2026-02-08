@@ -1539,6 +1539,12 @@ add_tau_bug_fix_dict_2022 = {
 #             "histAxisName" : "TTLL_MLL-50_central2022",
 #             "xsecName" : "TTLL_MLL-50_13p6TeV"
 #         },
+ "WZto3LNu-2Jets_EW":{
+            "path" : "/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer22NanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2",
+            "histAxisName" : "WZto3LNu-2Jets_EW_central2022",
+            "xsecName" : "WZto3LNu-2Jets_EW_13p6TeV"
+        },
 }
 add_tau_bug_fix_dict_2022EE = {
 #  "ggToZZTo2e2nu":{
@@ -1577,6 +1583,12 @@ add_tau_bug_fix_dict_2022EE = {
 #             "histAxisName" : "TTLL_MLL-50_central2022EE",
 #             "xsecName" : "TTLL_MLL-50_13p6TeV"
         # },
+ "WZto3LNu-2Jets_EW":{
+            "path" : "/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer22EENanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2",
+            "histAxisName" : "WZto3LNu-2Jets_EW_central2022EE",
+            "xsecName" : "WZto3LNu-2Jets_EW_13p6TeV"
+        },
 }
 add_tau_bug_fix_dict_2023 = {
 #  "ggToZZTo2e2nu":{
@@ -1609,11 +1621,17 @@ add_tau_bug_fix_dict_2023 = {
 #             "histAxisName" : "TTLL_MLL-4to50_central2023",
 #             "xsecName" : "TTLL_MLL-4to50_13p6TeV"
 #         },
- "TTLL_MLL-50":{
-            "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v3/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v3",
-            "histAxisName" : "TTLL_MLL-50_central2023",
-            "xsecName" : "TTLL_MLL-50_13p6TeV"
+#  "TTLL_MLL-50":{
+#             "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v3/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer23NanoAODv12/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v3",
+#             "histAxisName" : "TTLL_MLL-50_central2023",
+#             "xsecName" : "TTLL_MLL-50_13p6TeV"
+#         },
+ "WZto3LNu-2Jets_EW":{
+            "path" : "/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer23NanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v2",
+            "histAxisName" : "WZto3LNu-2Jets_EW_central2023",
+            "xsecName" : "WZto3LNu-2Jets_EW_13p6TeV"
         },
 }
 add_tau_bug_fix_dict_2023BPix = {
@@ -1647,11 +1665,17 @@ add_tau_bug_fix_dict_2023BPix = {
 #             "histAxisName" : "TTLL_MLL-4to50_central2023BPix",
 #             "xsecName" : "TTLL_MLL-4to50_13p6TeV"
 #         },
- "TTLL_MLL-50":{
-            "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v3/NANOAODSIM",
-            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v3",
-            "histAxisName" : "TTLL_MLL-50_central2023BPix",
-            "xsecName" : "TTLL_MLL-50_13p6TeV"
+#  "TTLL_MLL-50":{
+#             "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v3/NANOAODSIM",
+#             "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v3",
+#             "histAxisName" : "TTLL_MLL-50_central2023BPix",
+#             "xsecName" : "TTLL_MLL-50_13p6TeV"
+#         },
+ "WZto3LNu-2Jets_EW":{
+            "path" : "/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+            "path_local" : "/store/mc/Run3Summer23BPixNanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
+            "histAxisName" : "WZto3LNu-2Jets_EW_central2023BPix",
+            "xsecName" : "WZto3LNu-2Jets_EW_13p6TeV"
         },
 }
 central_2022_bkg_dict = {
@@ -2360,10 +2384,10 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
     #NEW
     #make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2022",out_dir_central_bkg_2022,on_das=True)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "/cms/cephfs/data","2022", out_dir_ND_bkg_2022, on_das=False)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "/cms/cephfs/data","2022EE", out_dir_ND_bkg_2022EE, on_das=False)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023, "/cms/cephfs/data","2023", out_dir_ND_bkg_2023, on_das=False)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023BPix, "/cms/cephfs/data","2023BPix", out_dir_ND_bkg_2023BPix, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "/cms/cephfs/background","2022", out_dir_ND_bkg_2022, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "/cms/cephfs/background","2022EE", out_dir_ND_bkg_2022EE, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023, "/cms/cephfs/background","2023", out_dir_ND_bkg_2023, on_das=False)
+    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023BPix, "/cms/cephfs/background","2023BPix", out_dir_ND_bkg_2023BPix, on_das=False)
     # Data samples
     #make_jsons_for_dict_of_samples(data_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_data_2016,on_das=True)
     #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
