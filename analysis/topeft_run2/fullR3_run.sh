@@ -260,7 +260,7 @@ main() {
       --do-systs
     )
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
-      OPTIONS+=(-s 20000)
+      OPTIONS+=(-s 100000)
     fi
     OPTIONS+=(-o "$OUT_NAME")
   fi
