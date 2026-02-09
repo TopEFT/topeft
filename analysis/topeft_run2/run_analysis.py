@@ -313,7 +313,7 @@ if __name__ == "__main__":
         "--noRun3MVA",
         action='store_false',
         default=True,
-        help = 'Do not use the Run3 MVA for lepton selection. Default is to use it.',
+        help='Do not use the Run3 MVA for lepton selection. Default is to use it.',
     )
     parser.add_argument(
         "--options",
@@ -384,7 +384,7 @@ if __name__ == "__main__":
     skip_cr    = args.skip_cr
     do_np      = args.do_np
     np_postprocess_mode = args.np_postprocess
-    useRun3MVA = args.noRun3MVA #NB: default value is True, the arg starts with no because its usage prevents making selections with the run3 MVA
+    useRun3MVA = args.noRun3MVA  # NB: default value is True, the arg starts with no because its usage prevents making selections with the run3 MVA
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
     ecut = args.ecut
@@ -397,19 +397,19 @@ if __name__ == "__main__":
 
     if args.options:
         import yaml
-        with open(args.options,'r') as f:
-            ops = yaml.load(f,Loader=yaml.Loader)
-        jsonFiles = ops.pop("jsonFiles",jsonFiles)
-        prefix = ops.pop("prefix",prefix)
-        executor_name = ops.pop("executor",executor_name)
-        dotest = ops.pop("test",dotest)
-        nworkers = ops.pop("nworkers",nworkers)
-        chunksize = ops.pop("chunksize",chunksize)
-        nchunks = ops.pop("nchunks",nchunks)
-        outname = ops.pop("outname",outname)
-        outpath = ops.pop("outpath",outpath)
-        pretend = ops.pop("pretend",pretend)
-        treename = ops.pop("treename",treename)
+        with open(args.options, 'r') as f:
+            ops = yaml.load(f, Loader=yaml.Loader)
+        jsonFiles = ops.pop("jsonFiles", jsonFiles)
+        prefix = ops.pop("prefix", prefix)
+        executor_name = ops.pop("executor", executor_name)
+        dotest = ops.pop("test", dotest)
+        nworkers = ops.pop("nworkers", nworkers)
+        chunksize = ops.pop("chunksize", chunksize)
+        nchunks = ops.pop("nchunks", nchunks)
+        outname = ops.pop("outname", outname)
+        outpath = ops.pop("outpath", outpath)
+        pretend = ops.pop("pretend", pretend)
+        treename = ops.pop("treename", treename)
         no_sumw2_opt = ops.pop("no_sumw2", None)
         if no_sumw2_opt is not None:
             fill_sumw2 = not no_sumw2_opt
@@ -417,22 +417,22 @@ if __name__ == "__main__":
             legacy_do_errors = ops.pop("do_errors", None)
             if legacy_do_errors is not None:
                 fill_sumw2 = bool(legacy_do_errors)
-        do_systs = ops.pop("do_systs",do_systs)
-        split_lep_flavor = ops.pop("split_lep_flavor",split_lep_flavor)
-        offZ_split = ops.pop("offZ_split",offZ_split)
-        tau_h_analysis = ops.pop("tau_h_analysis",tau_h_analysis)
-        fwd_analysis = ops.pop("fwd_analysis",fwd_analysis)
+        do_systs = ops.pop("do_systs", do_systs)
+        split_lep_flavor = ops.pop("split_lep_flavor", split_lep_flavor)
+        offZ_split = ops.pop("offZ_split", offZ_split)
+        tau_h_analysis = ops.pop("tau_h_analysis", tau_h_analysis)
+        fwd_analysis = ops.pop("fwd_analysis", fwd_analysis)
         all_aanalysis = ops.pop("all_analysis", all_analysis)
-        skip_sr = ops.pop("skip_sr",skip_sr)
-        skip_cr = ops.pop("skip_cr",skip_cr)
-        do_np = ops.pop("do_np",do_np)
+        skip_sr = ops.pop("skip_sr", skip_sr)
+        skip_cr = ops.pop("skip_cr", skip_cr)
+        do_np = ops.pop("do_np", do_np)
         np_postprocess_mode = ops.pop("np_postprocess", np_postprocess_mode)
-        do_renormfact_envelope = ops.pop("do_renormfact_envelope",do_renormfact_envelope)
-        wc_lst = ops.pop("wc_list",wc_lst)
-        hist_list = ops.pop("hist_list",hist_list)
-        port = ops.pop("port",port)
+        do_renormfact_envelope = ops.pop("do_renormfact_envelope", do_renormfact_envelope)
+        wc_lst = ops.pop("wc_list", wc_lst)
+        hist_list = ops.pop("hist_list", hist_list)
+        port = ops.pop("port", port)
         wq_filepath = ops.pop("wq_filepath", wq_filepath)
-        ecut = ops.pop("ecut",ecut)
+        ecut = ops.pop("ecut", ecut)
         analysis_mode = ops.pop("analysis_mode", analysis_mode)
         env_file_override = ops.pop("env_file", env_file_override)
         use_remote_env = ops.pop("use_remote_env", use_remote_env)
@@ -581,6 +581,28 @@ if __name__ == "__main__":
     samplesdict = {}
     allInputFiles = []
 
+    # NEW: keep track of missing JSONs referenced inside cfg files
+    missing_referenced_jsons = []
+
+    def _resolve_cfg_token_as_file(cfg_file, token):
+        """
+        Resolve token as a file path:
+          1) as given (with ~ and env expansion)
+          2) if relative, also try relative to cfg_file's directory
+        Return the existing file path, or None if not found.
+        """
+        expanded = os.path.expandvars(os.path.expanduser(token))
+        candidates = [expanded]
+        if not os.path.isabs(expanded):
+            candidates.append(os.path.join(os.path.dirname(cfg_file), expanded))
+        for path in candidates:
+            if os.path.isfile(path):
+                return path
+        return None
+
+    def _record_missing_json(cfg_file, json_token):
+        missing_referenced_jsons.append((cfg_file, json_token))
+
     def LoadJsonToSampleName(jsonFile, prefix):
         sampleName = (
             jsonFile if not "/" in jsonFile else jsonFile[jsonFile.rfind("/") + 1 :]
@@ -599,7 +621,8 @@ if __name__ == "__main__":
         if os.path.isdir(jsonFile):
             if not jsonFile.endswith("/"):
                 jsonFile += "/"
-            for f in os.path.listdir(jsonFile):
+            # FIX: os.path.listdir -> os.listdir
+            for f in os.listdir(jsonFile):
                 if f.endswith(".json"):
                     allInputFiles.append(jsonFile + f)
         else:
@@ -625,18 +648,38 @@ if __name__ == "__main__":
                     l = l.replace(" ", "").replace("\n", "")
                     if l == "":
                         continue
-                    if "," in l:
-                        l = l.split(",")
-                        for nl in l:
-                            if not os.path.isfile(l):
-                                prefix = nl
+
+                    tokens = l.split(",") if "," in l else [l]
+                    for token in tokens:
+                        if token == "":
+                            continue
+
+                        resolved = _resolve_cfg_token_as_file(f, token)
+                        if resolved is None:
+                            # If it looks like a json, it must exist; do not silently treat it as a prefix.
+                            if token.endswith(".json"):
+                                _record_missing_json(f, token)
                             else:
-                                LoadJsonToSampleName(nl, prefix)
-                    else:
-                        if not os.path.isfile(l):
-                            prefix = l
-                        else:
-                            LoadJsonToSampleName(l, prefix)
+                                prefix = token
+                            continue
+
+                        LoadJsonToSampleName(resolved, prefix)
+
+    # NEW: after parsing all cfgs, abort if any referenced json was missing
+    if missing_referenced_jsons:
+        seen = set()
+        unique = []
+        for cfg_file, missing in missing_referenced_jsons:
+            key = (cfg_file, missing)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append((cfg_file, missing))
+
+        msg_lines = ["[ERROR] Missing referenced JSON file(s) while parsing cfg inputs:"]
+        for cfg_file, missing in unique:
+            msg_lines.append(f"  - {missing} (referenced from cfg: {cfg_file})")
+        raise SystemExit("\n".join(msg_lines))
 
     requested_years = None
     if args.years:
@@ -704,7 +747,6 @@ if __name__ == "__main__":
                 "No samples remaining after applying the requested year filter."
             )
 
-        
     flist = {}
     nevts_total = 0
     for sname in samplesdict.keys():
@@ -821,7 +863,7 @@ if __name__ == "__main__":
                 metadata_payload.get("metadata_path", np_metadata_file), followup_command
             )
         )
-            
+
     if pretend:
         print("pretending...")
         if do_np and np_postprocess_mode == "defer":
@@ -1033,10 +1075,6 @@ if __name__ == "__main__":
                     nevts_total, dt, nevts_total / dt
                 )
             )
-
-        # nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-        # nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-        # print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
         if executor_name == "futures":
             print(
