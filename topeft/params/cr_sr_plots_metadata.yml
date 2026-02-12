@@ -200,7 +200,6 @@ SR_CHAN_DICT:
   # - 3l_m_offZ_none_2b_3j
   # - 3l_m_offZ_none_2b_4j
   # - 3l_m_offZ_none_2b_5j
-
   3l_p_offZ_1b_2j:
   - 3l_p_offZ_1b_2j
   3l_p_offZ_1b_3j:
@@ -479,6 +478,8 @@ SR_GRP_MAP:
     - TTZToLL_M1to10
     - TTToSemiLeptonic
     - TTTo2L2Nu
+    - TTto2L2Nu
+    - TTtoLNu2Q
   tllq:
     color: tab:pink
     patterns:
@@ -548,7 +549,7 @@ WCPT_EXAMPLE:
   cQt1: -1.24
 LUMI_COM_PAIRS:
   '2016':
-  - '35.9'
+  - '16.8'
   - '13'
   2016APV:
   - '19.5'
