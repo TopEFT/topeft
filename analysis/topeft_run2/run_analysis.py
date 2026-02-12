@@ -1374,6 +1374,7 @@ if __name__ == "__main__":
             # values, if specified below. if a maximum is not specified, the task waits
             # forever until a larger worker connects.
             "resources_mode": "auto",
+            "resource_monitor": "measure",
             "split_on_exhaustion": True,
             'filepath': wq_staging_dir,
             #"filepath": '/tmp',
@@ -1392,9 +1393,7 @@ if __name__ == "__main__":
             # 'disk': 8000,   #MB
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
-            "treereduction": 10,
-            # 'chunks_per_accum': 5,
-            # 'chunks_accum_in_mem': 2,
+            "treereduction": 5,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.
