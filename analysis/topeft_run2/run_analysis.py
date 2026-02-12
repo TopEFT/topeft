@@ -6,6 +6,7 @@ import time
 import cloudpickle
 import gzip
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -123,6 +124,341 @@ def _cleanup_work_queue_staging_directory(path, eligible_for_cleanup):
             "Warning: Failed to clean up Work Queue staging directory {} ({}). You may want to "
             "remove it manually.".format(path, exc)
         )
+
+
+_REQUIRED_JSON_KEYS = (
+    "files",
+    "year",
+    "xsec",
+    "nEvents",
+    "nGenEvents",
+    "nSumOfWeights",
+    "isData",
+    "histAxisName",
+    "treeName",
+    "options",
+)
+_YEAR_CANONICAL_MAP = {
+    "2016": "2016",
+    "UL16": "2016",
+    "UL2016": "2016",
+    "2016APV": "2016APV",
+    "UL16APV": "2016APV",
+    "UL2016APV": "2016APV",
+    "2017": "2017",
+    "UL17": "2017",
+    "UL2017": "2017",
+    "2018": "2018",
+    "UL18": "2018",
+    "UL2018": "2018",
+    "2022": "2022",
+    "2022EE": "2022EE",
+    "2023": "2023",
+    "2023BPix": "2023BPix",
+}
+_TRUSTED_YEAR_HINT_KEYS = {"files", "path", "histAxisName"}
+_DATE_TAG_PATTERN = re.compile(
+    r"\b\d{1,2}(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)20\d{2}\b",
+    re.IGNORECASE,
+)
+_YEAR_STRONG_UL_PATTERN = re.compile(r"(UL(?:2016APV|16APV|2016|16|2017|17|2018|18))")
+_YEAR_STRONG_RUN_ERA_PATTERN = re.compile(r"(Run(2016|2017|2018|2022|2023)[A-H])")
+_YEAR_STRONG_DELIMITED_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9])(2023BPix|2022EE|2016APV|UL2016APV|UL16APV|2016|2017|2018|2022|2023)(?![A-Za-z0-9])"
+)
+_YEAR_WEAK_PATTERN = re.compile(r"(?<![A-Za-z0-9])(20(?:16|17|18|22|23))(?![A-Za-z0-9])")
+
+
+def _canonicalize_year_label(year_label):
+    return _YEAR_CANONICAL_MAP.get(str(year_label), str(year_label))
+
+
+def _strip_year_keys(payload):
+    if isinstance(payload, dict):
+        return {k: _strip_year_keys(v) for k, v in payload.items() if k != "year"}
+    if isinstance(payload, list):
+        return [_strip_year_keys(item) for item in payload]
+    return payload
+
+
+def _collect_trusted_year_scan_strings(payload):
+    values = []
+
+    def _walk(node):
+        if isinstance(node, dict):
+            files = node.get("files")
+            if "files" in _TRUSTED_YEAR_HINT_KEYS and isinstance(files, list):
+                for item in files:
+                    if isinstance(item, str):
+                        values.append(("files", item))
+            for key in ("path", "histAxisName"):
+                value = node.get(key)
+                if key in _TRUSTED_YEAR_HINT_KEYS and isinstance(value, str):
+                    values.append((key, value))
+            for nested in node.values():
+                _walk(nested)
+            return
+        if isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(payload)
+    return values
+
+
+def _collapse_year_families(canonical_hits):
+    collapsed = set(canonical_hits)
+    if "2016APV" in collapsed:
+        collapsed.discard("2016")
+    if "2022EE" in collapsed:
+        collapsed.discard("2022")
+    if "2023BPix" in collapsed:
+        collapsed.discard("2023")
+    return collapsed
+
+
+def _snippet_around(text, start, end, radius=24):
+    left = max(0, start - radius)
+    right = min(len(text), end + radius)
+    snippet = text[left:right]
+    return snippet.replace("\n", " ")
+
+
+def _record_year_hit(hit_map, token, canonical, source_key, source_value, start, end):
+    hit_map.setdefault(canonical, [])
+    if len(hit_map[canonical]) < 3:
+        hit_map[canonical].append(
+            {
+                "token": token,
+                "key": source_key,
+                "snippet": _snippet_around(source_value, start, end),
+            }
+        )
+
+
+def _normalize_scan_value(source_key, source_value):
+    if source_key not in {"files", "path"}:
+        return source_value
+
+    normalized = source_value.replace("\\", "/")
+    return normalized.rsplit("/", 1)[0] if "/" in normalized else ""
+
+
+def _extract_year_hits_from_trusted_content(payload):
+    strong_hits = {}
+    weak_hits = {}
+
+    for source_key, source_value in _collect_trusted_year_scan_strings(payload):
+        scan_source_value = _normalize_scan_value(source_key, source_value)
+        scan_value = _DATE_TAG_PATTERN.sub(" ", scan_source_value)
+
+        for match in _YEAR_STRONG_UL_PATTERN.finditer(scan_value):
+            token = match.group(1)
+            canonical = _canonicalize_year_label(token)
+            _record_year_hit(
+                strong_hits, token, canonical, source_key, scan_source_value, match.start(1), match.end(1)
+            )
+
+        for match in _YEAR_STRONG_RUN_ERA_PATTERN.finditer(scan_value):
+            canonical = _canonicalize_year_label(match.group(2))
+            _record_year_hit(
+                strong_hits,
+                match.group(1),
+                canonical,
+                source_key,
+                scan_source_value,
+                match.start(1),
+                match.end(1),
+            )
+
+        for match in _YEAR_STRONG_DELIMITED_PATTERN.finditer(scan_value):
+            token = match.group(1)
+            canonical = _canonicalize_year_label(token)
+            _record_year_hit(
+                strong_hits, token, canonical, source_key, scan_source_value, match.start(1), match.end(1)
+            )
+
+        for match in _YEAR_WEAK_PATTERN.finditer(scan_value):
+            token = match.group(1)
+            canonical = _canonicalize_year_label(token)
+            _record_year_hit(
+                weak_hits, token, canonical, source_key, scan_source_value, match.start(1), match.end(1)
+            )
+
+    return strong_hits, weak_hits
+
+
+def _format_year_hit_examples(hit_map, canonical_hits):
+    examples = []
+    for canonical in canonical_hits:
+        for hit in hit_map.get(canonical, []):
+            examples.append(
+                "{token} [{key}] \"{snippet}\"".format(
+                    token=hit["token"], key=hit["key"], snippet=hit["snippet"]
+                )
+            )
+            if len(examples) >= 6:
+                return examples
+    return examples
+
+
+def _debug_year_scan_selfcheck():
+    cases = [
+        ("basename_ignored", "/NAOD/sample/2022/subset/output_2023.root"),
+        ("valid_2023_path", "/NAOD/sample/2023/subset/something.root"),
+    ]
+
+    for case_name, file_path in cases:
+        payload = {"files": [file_path]}
+        strong_hits, weak_hits = _extract_year_hits_from_trusted_content(payload)
+        strong_keys = sorted(_collapse_year_families(set(strong_hits.keys())))
+        weak_keys = sorted(_collapse_year_families(set(weak_hits.keys())))
+        print(f"[DEBUG_YEAR_SCAN] {case_name}")
+        print(f"  files[0]: {file_path}")
+        print(f"  strong keys: {strong_keys}")
+        print(f"  weak keys: {weak_keys}")
+
+    case_a_strong, case_a_weak = _extract_year_hits_from_trusted_content(
+        {"files": [cases[0][1]]}
+    )
+    case_a_collapsed_strong = _collapse_year_families(set(case_a_strong.keys()))
+    if "2022" not in case_a_collapsed_strong:
+        raise RuntimeError("debug year scan failed: 2022 directory did not produce a 2022 strong hit")
+    if "2023" in case_a_strong or "2023" in case_a_weak:
+        raise RuntimeError("debug year scan failed: basename contributed an unexpected 2023 hit")
+
+    valid_strong, _ = _extract_year_hits_from_trusted_content({"files": [cases[1][1]]})
+    if "2023" not in valid_strong:
+        raise RuntimeError("debug year scan failed: 2023 path did not produce a 2023 strong hit")
+
+
+def _validate_payload_schema(payload, json_path):
+    if not isinstance(payload, dict):
+        raise RuntimeError(
+            f"[ERROR] Invalid JSON payload in {json_path}: expected object, got {type(payload).__name__}."
+        )
+
+    for key in _REQUIRED_JSON_KEYS:
+        if key not in payload:
+            raise RuntimeError(
+                f"[ERROR] Invalid JSON payload in {json_path}: missing required key '{key}'."
+            )
+
+    if not isinstance(payload["files"], list):
+        raise RuntimeError(
+            f"[ERROR] Invalid JSON payload in {json_path}: key 'files' must be list, got {type(payload['files']).__name__}."
+        )
+
+    if not isinstance(payload["year"], str):
+        raise RuntimeError(
+            f"[ERROR] Invalid JSON payload in {json_path}: key 'year' must be str, got {type(payload['year']).__name__}."
+        )
+
+    if not isinstance(payload["isData"], bool):
+        raise RuntimeError(
+            f"[ERROR] Invalid JSON payload in {json_path}: key 'isData' must be bool, got {type(payload['isData']).__name__}."
+        )
+
+
+def _validate_payload_year_tokens(payload, json_path):
+    payload_year = str(payload["year"])
+    canonical_payload_year = _canonicalize_year_label(payload_year)
+
+    payload_without_year = _strip_year_keys(payload)
+    strong_hits, weak_hits = _extract_year_hits_from_trusted_content(payload_without_year)
+    collapsed_strong_hits = sorted(_collapse_year_families(set(strong_hits.keys())))
+
+    if not collapsed_strong_hits:
+        return None
+
+    matching_tokens = sorted(
+        {
+            hit["token"]
+            for canonical in collapsed_strong_hits
+            for hit in strong_hits.get(canonical, [])
+        }
+    )
+    examples = _format_year_hit_examples(strong_hits, collapsed_strong_hits)
+
+    if len(collapsed_strong_hits) == 1 and collapsed_strong_hits[0] != canonical_payload_year:
+        raise RuntimeError(
+            (
+                f"[ERROR] Year mismatch detected in {json_path}.\n"
+                f"  payload year: {payload_year}\n"
+                f"  canonical payload year: {canonical_payload_year}\n"
+                f"  inferred canonical year set (strong): {collapsed_strong_hits[0]}\n"
+                f"  detected year from internal JSON content: {collapsed_strong_hits[0]}\n"
+                f"  matching tokens (strong): {', '.join(matching_tokens)}\n"
+                f"  examples: {' | '.join(examples) if examples else 'n/a'}\n"
+                "How to fix: ensure payload['year'] matches the year implied by internal metadata content."
+            )
+        )
+
+    if len(collapsed_strong_hits) > 1:
+        return {
+            "path": os.path.abspath(json_path),
+            "payload_year": payload_year,
+            "canonical_payload_year": canonical_payload_year,
+            "canonical_hits": collapsed_strong_hits,
+            "tokens": matching_tokens,
+            "examples": examples,
+            "weak_canonical_hits": sorted(_collapse_year_families(set(weak_hits.keys()))),
+        }
+
+    return None
+
+
+def _raise_if_missing_referenced_jsons(missing_referenced_jsons):
+    if not missing_referenced_jsons:
+        return
+
+    seen = set()
+    unique = []
+    for cfg_file, missing in missing_referenced_jsons:
+        key = (cfg_file, missing)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append((cfg_file, missing))
+
+    msg_lines = ["[ERROR] Missing referenced JSON file(s) while parsing cfg inputs:"]
+    for cfg_file, missing in unique:
+        msg_lines.append(f"  - {missing} (referenced from cfg: {cfg_file})")
+    raise SystemExit("\n".join(msg_lines))
+
+
+def _find_duplicate_input_files(samplesdict):
+    file_to_samples = {}
+    for sample_name, sample in samplesdict.items():
+        redirector = sample.get("redirector", "")
+        for file_path in sample.get("files", []):
+            key = f"{redirector}{file_path}"
+            file_to_samples.setdefault(key, set()).add(sample_name)
+
+    return {
+        file_path: sorted(sample_names)
+        for file_path, sample_names in file_to_samples.items()
+        if len(sample_names) > 1
+    }
+
+
+def _warn_duplicate_input_files(samplesdict, max_examples=10):
+    duplicates = _find_duplicate_input_files(samplesdict)
+    if not duplicates:
+        return
+
+    duplicate_items = sorted(duplicates.items())
+    print(
+        "[WARNING] Found {} input file path(s) reused across multiple samples "
+        "(comparison uses redirector+file).".format(len(duplicate_items))
+    )
+    for file_path, sample_names in duplicate_items[:max_examples]:
+        print(f"  - {file_path}")
+        print(f"    samples: {', '.join(sample_names)}")
+
+    if len(duplicate_items) > max_examples:
+        print(f"  ... and {len(duplicate_items) - max_examples} more duplicated file path(s).")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
@@ -356,9 +692,17 @@ if __name__ == "__main__":
             "environment.yml) when remote packaging fails."
         ),
     )
+    parser.add_argument(
+        "--debug-year-scan",
+        action="store_true",
+        help="Run a lightweight self-check for year token extraction and exit.",
+    )
     parser.set_defaults(use_remote_env=True)
 
     args = parser.parse_args()
+    if args.debug_year_scan:
+        _debug_year_scan_selfcheck()
+        raise SystemExit(0)
     if args.workers is not None:
         args.nworkers = args.workers
     _ensure_topcoffea_data_available(args.skip_topcoffea_data_check)
@@ -579,10 +923,13 @@ if __name__ == "__main__":
 
     ### Load samples from json
     samplesdict = {}
+    sample_sources = {}
+    sample_payload_signatures = {}
     allInputFiles = []
 
     # NEW: keep track of missing JSONs referenced inside cfg files
     missing_referenced_jsons = []
+    year_scan_warnings = []
 
     def _resolve_cfg_token_as_file(cfg_file, token):
         """
@@ -609,9 +956,55 @@ if __name__ == "__main__":
         )
         if sampleName.endswith(".json"):
             sampleName = sampleName[:-5]
-        with open(jsonFile) as jf:
-            samplesdict[sampleName] = json.load(jf)
-            samplesdict[sampleName]["redirector"] = prefix
+
+        source_json_path = os.path.abspath(jsonFile)
+        with open(jsonFile, encoding="utf-8") as jf:
+            payload = json.load(jf)
+        _validate_payload_schema(payload, source_json_path)
+        year_scan_warning = _validate_payload_year_tokens(payload, source_json_path)
+        if year_scan_warning is not None:
+            year_scan_warnings.append(year_scan_warning)
+        payload_signature = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        hist_axis_name = payload.get("histAxisName")
+
+        if sampleName in samplesdict:
+            prev_payload = samplesdict[sampleName]
+            prev_signature = sample_payload_signatures[sampleName]
+            prev_source = sample_sources[sampleName]
+            prev_hist_axis_name = prev_payload.get("histAxisName")
+            prev_redirector = prev_payload.get("redirector", "")
+
+            if prev_signature != payload_signature or prev_hist_axis_name != hist_axis_name:
+                raise RuntimeError(
+                    (
+                        f'Colliding sample basename key "{sampleName}" while loading JSONs.\n'
+                        f"  Existing json path: {prev_source}\n"
+                        f"  New json path:      {source_json_path}\n"
+                        f"  Existing histAxisName: {prev_hist_axis_name}\n"
+                        f"  New histAxisName:      {hist_axis_name}\n"
+                        "Refusing to continue because payloads are not identical."
+                    )
+                )
+
+            if prev_redirector != prefix:
+                raise RuntimeError(
+                    (
+                        f'Colliding sample basename key "{sampleName}" with conflicting redirector.\n'
+                        f"  Existing json path: {prev_source}\n"
+                        f"  New json path:      {source_json_path}\n"
+                        f'  Existing redirector: "{prev_redirector}"\n'
+                        f'  New redirector:      "{prefix}"\n'
+                        "Refusing to continue because duplicate entries disagree."
+                    )
+                )
+
+            # Duplicate identical entry: keep the first deterministic instance.
+            return
+
+        samplesdict[sampleName] = payload
+        samplesdict[sampleName]["redirector"] = prefix
+        sample_sources[sampleName] = source_json_path
+        sample_payload_signatures[sampleName] = payload_signature
 
     if isinstance(jsonFiles, str) and "," in jsonFiles:
         jsonFiles = jsonFiles.replace(" ", "").split(",")
@@ -665,21 +1058,40 @@ if __name__ == "__main__":
 
                         LoadJsonToSampleName(resolved, prefix)
 
-    # NEW: after parsing all cfgs, abort if any referenced json was missing
-    if missing_referenced_jsons:
-        seen = set()
-        unique = []
-        for cfg_file, missing in missing_referenced_jsons:
-            key = (cfg_file, missing)
-            if key in seen:
-                continue
-            seen.add(key)
-            unique.append((cfg_file, missing))
+    _raise_if_missing_referenced_jsons(missing_referenced_jsons)
 
-        msg_lines = ["[ERROR] Missing referenced JSON file(s) while parsing cfg inputs:"]
-        for cfg_file, missing in unique:
-            msg_lines.append(f"  - {missing} (referenced from cfg: {cfg_file})")
-        raise SystemExit("\n".join(msg_lines))
+    if year_scan_warnings:
+        print(
+            "[WARNING] Found ambiguous year-token matches in {} JSON payload(s); "
+            "continuing because detected year is not unique.".format(
+                len(year_scan_warnings)
+            )
+        )
+        for warning in year_scan_warnings[:10]:
+            print(f"  - path: {warning['path']}")
+            print(
+                "    payload year: {} (canonical: {})".format(
+                    warning["payload_year"], warning["canonical_payload_year"]
+                )
+            )
+            print(
+                "    canonical hits: {} | matching tokens: {}".format(
+                    ", ".join(warning["canonical_hits"]),
+                    ", ".join(warning["tokens"]),
+                )
+            )
+            if warning.get("examples"):
+                print("    examples: {}".format(" | ".join(warning["examples"])))
+            if warning.get("weak_canonical_hits"):
+                print(
+                    "    weak canonical hits (diagnostic only): {}".format(
+                        ", ".join(warning["weak_canonical_hits"])
+                    )
+                )
+        if len(year_scan_warnings) > 10:
+            print(
+                f"  ... and {len(year_scan_warnings) - 10} more ambiguous year-token match(es)."
+            )
 
     requested_years = None
     if args.years:
@@ -747,6 +1159,8 @@ if __name__ == "__main__":
                 "No samples remaining after applying the requested year filter."
             )
 
+    _warn_duplicate_input_files(samplesdict)
+
     flist = {}
     nevts_total = 0
     for sname in samplesdict.keys():
@@ -775,24 +1189,24 @@ if __name__ == "__main__":
             "   - isData?      : %s" % ("YES" if samplesdict[sname]["isData"] else "NO")
         )
         print("   - year         : %s" % samplesdict[sname]["year"])
-        print("   - xsec         : %f" % samplesdict[sname]["xsec"])
+        # print("   - xsec         : %f" % samplesdict[sname]["xsec"])
         print("   - histAxisName : %s" % samplesdict[sname]["histAxisName"])
-        print("   - options      : %s" % samplesdict[sname]["options"])
+        # print("   - options      : %s" % samplesdict[sname]["options"])
         print("   - tree         : %s" % samplesdict[sname]["treeName"])
         print("   - nEvents      : %i" % samplesdict[sname]["nEvents"])
         print("   - nGenEvents   : %i" % samplesdict[sname]["nGenEvents"])
-        print("   - SumWeights   : %i" % samplesdict[sname]["nSumOfWeights"])
-        if not samplesdict[sname]["isData"]:
-            for wgt_var in WGT_VAR_LST:
-                if wgt_var in samplesdict[sname]:
-                    print(f"   - {wgt_var}: {samplesdict[sname][wgt_var]}")
-        print("   - Prefix       : %s" % samplesdict[sname]["redirector"])
-        print("   - nFiles       : %i" % len(samplesdict[sname]["files"]))
-        for fname in samplesdict[sname]["files"]:
-            print("     %s" % fname)
+        # print("   - SumWeights   : %i" % samplesdict[sname]["nSumOfWeights"])
+        # if not samplesdict[sname]["isData"]:
+        #     for wgt_var in WGT_VAR_LST:
+        #         if wgt_var in samplesdict[sname]:
+        #             print(f"   - {wgt_var}: {samplesdict[sname][wgt_var]}")
+        # print("   - Prefix       : %s" % samplesdict[sname]["redirector"])
+        # print("   - nFiles       : %i" % len(samplesdict[sname]["files"]))
+        # for fname in samplesdict[sname]["files"]:
+        #     print("     %s" % fname)
 
-        if executor_name == "futures":
-            break
+        # if executor_name == "futures":
+        #     break
 
     sample_years_from_inputs = sorted(
         {
@@ -988,139 +1402,139 @@ if __name__ == "__main__":
         if environment_file:
             executor_args["environment_file"] = environment_file
 
-    # Run the processor and get the output
-    tstart = time.time()
+    # # Run the processor and get the output
+    # tstart = time.time()
 
-    def _ensure_nonempty_chunks():
-        total_files = sum(len(files) for files in flist.values())
-        if total_files == 0:
-            raise SystemExit(
-                "No input files were available to process; verify the sample JSON and prefix "
-                "and retry with at least one file."
-            )
+    # def _ensure_nonempty_chunks():
+    #     total_files = sum(len(files) for files in flist.values())
+    #     if total_files == 0:
+    #         raise SystemExit(
+    #             "No input files were available to process; verify the sample JSON and prefix "
+    #             "and retry with at least one file."
+    #         )
 
-        if nchunks == 0:
-            raise SystemExit(
-                "Requested zero chunks; increase --nchunks or drop the flag to process the full dataset."
-            )
+    #     if nchunks == 0:
+    #         raise SystemExit(
+    #             "Requested zero chunks; increase --nchunks or drop the flag to process the full dataset."
+    #         )
 
-    if executor_name == "futures":
-        futures_factory = getattr(processor, "futures_executor", None)
-        if callable(futures_factory):
-            exec_instance = futures_factory(workers=nworkers)
-        else:
-            exec_instance = processor.FuturesExecutor(workers=nworkers)
-        _ensure_nonempty_chunks()
-        runner = processor.Runner(
-            exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
-        )
-    elif executor_name == "work_queue":
-        executor_instance = processor.WorkQueueExecutor(**executor_args)
-        _ensure_nonempty_chunks()
-        runner = processor.Runner(
-            executor_instance,
-            schema=NanoAODSchema,
-            chunksize=chunksize,
-            maxchunks=nchunks,
-            skipbadfiles=False,
-            xrootdtimeout=180,
-        )
-    elif executor_name == "taskvine":
-        try:
-            executor_instance = processor.TaskVineExecutor(**executor_args)
-        except AttributeError:
-            raise RuntimeError("TaskVineExecutor not available.")
-        runner = processor.Runner(
-            executor_instance,
-            schema=NanoAODSchema,
-            chunksize=chunksize,
-            maxchunks=nchunks,
-            skipbadfiles=True,
-            xrootdtimeout=300,
-        )
+    # if executor_name == "futures":
+    #     futures_factory = getattr(processor, "futures_executor", None)
+    #     if callable(futures_factory):
+    #         exec_instance = futures_factory(workers=nworkers)
+    #     else:
+    #         exec_instance = processor.FuturesExecutor(workers=nworkers)
+    #     _ensure_nonempty_chunks()
+    #     runner = processor.Runner(
+    #         exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
+    #     )
+    # elif executor_name == "work_queue":
+    #     executor_instance = processor.WorkQueueExecutor(**executor_args)
+    #     _ensure_nonempty_chunks()
+    #     runner = processor.Runner(
+    #         executor_instance,
+    #         schema=NanoAODSchema,
+    #         chunksize=chunksize,
+    #         maxchunks=nchunks,
+    #         skipbadfiles=False,
+    #         xrootdtimeout=180,
+    #     )
+    # elif executor_name == "taskvine":
+    #     try:
+    #         executor_instance = processor.TaskVineExecutor(**executor_args)
+    #     except AttributeError:
+    #         raise RuntimeError("TaskVineExecutor not available.")
+    #     runner = processor.Runner(
+    #         executor_instance,
+    #         schema=NanoAODSchema,
+    #         chunksize=chunksize,
+    #         maxchunks=nchunks,
+    #         skipbadfiles=True,
+    #         xrootdtimeout=300,
+    #     )
 
-    run_succeeded = False
-    try:
-        try:
-            output = runner(flist, treename, processor_instance)
-        except TypeError as exc:
-            raise RuntimeError(
-                "The executor returned no chunk results. Ensure that the input files produced at least "
-                "one chunk and that the executor handled submissions correctly."
-            ) from exc
+    # run_succeeded = False
+    # try:
+    #     try:
+    #         output = runner(flist, treename, processor_instance)
+    #     except TypeError as exc:
+    #         raise RuntimeError(
+    #             "The executor returned no chunk results. Ensure that the input files produced at least "
+    #             "one chunk and that the executor handled submissions correctly."
+    #         ) from exc
 
-        worker_exception = None
-        if isinstance(output, dict):
-            worker_exception = _format_worker_exception(output.get("exception"))
+    #     worker_exception = None
+    #     if isinstance(output, dict):
+    #         worker_exception = _format_worker_exception(output.get("exception"))
 
-        if output is None:
-            if worker_exception is not None:
-                print(f"Executor reported a worker-side exception: {worker_exception}")
-            else:
-                print("Runner returned no output; no chunks appear to have been processed.")
-            raise RuntimeError("Processing failed because no results were returned from the executor.")
+    #     if output is None:
+    #         if worker_exception is not None:
+    #             print(f"Executor reported a worker-side exception: {worker_exception}")
+    #         else:
+    #             print("Runner returned no output; no chunks appear to have been processed.")
+    #         raise RuntimeError("Processing failed because no results were returned from the executor.")
 
-        if worker_exception is not None:
-            raise RuntimeError(
-                f"Processing failed because a worker raised an exception: {worker_exception}"
-            )
+    #     if worker_exception is not None:
+    #         raise RuntimeError(
+    #             f"Processing failed because a worker raised an exception: {worker_exception}"
+    #         )
 
-        print("Finished running the processor...")
+    #     print("Finished running the processor...")
 
-        dt = time.time() - tstart
+    #     dt = time.time() - tstart
 
-        if executor_name in ["work_queue", "taskvine"]:
-            print(
-                "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
-                    nevts_total, dt, nevts_total / dt
-                )
-            )
+    #     if executor_name in ["work_queue", "taskvine"]:
+    #         print(
+    #             "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
+    #                 nevts_total, dt, nevts_total / dt
+    #             )
+    #         )
 
-        if executor_name == "futures":
-            print(
-                "Processing time: %1.2f s with %i workers (%.2f s cpu overall)"
-                % (
-                    dt,
-                    nworkers,
-                    dt * nworkers,
-                )
-            )
+    #     if executor_name == "futures":
+    #         print(
+    #             "Processing time: %1.2f s with %i workers (%.2f s cpu overall)"
+    #             % (
+    #                 dt,
+    #                 nworkers,
+    #                 dt * nworkers,
+    #             )
+    #         )
 
-        # Save the output
-        os.makedirs(outpath, exist_ok=True)
-        print(f"\nSaving output in {out_pkl_file}...")
-        with gzip.open(out_pkl_file, "wb") as fout:
-            cloudpickle.dump(output, fout)
-        print("Done!")
+    #     # Save the output
+    #     os.makedirs(outpath, exist_ok=True)
+    #     print(f"\nSaving output in {out_pkl_file}...")
+    #     with gzip.open(out_pkl_file, "wb") as fout:
+    #         cloudpickle.dump(output, fout)
+    #     print("Done!")
 
-        # Run the data driven estimation, save the output
-        if do_np:
-            if np_postprocess_mode == "inline":
-                print("\nDoing the nonprompt estimation...")
-                ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
-                print(f"Saving output in {out_pkl_file_name_np}...")
-                ddp.dumpToPickle()
-                print("Done!")
-                if do_renormfact_envelope:
-                    print("\nDoing the renorm. fact. envelope calculation...")
-                    dict_of_histos = utils.get_hist_from_pkl(
-                        out_pkl_file_name_np, allow_empty=False
-                    )
-                    dict_of_histos_after_applying_envelope = get_renormfact_envelope(
-                        dict_of_histos
-                    )
-                    utils.dump_to_pkl(
-                        out_pkl_file_name_np, dict_of_histos_after_applying_envelope
-                    )
-            elif np_postprocess_mode == "defer":
-                print("\nDeferring the nonprompt estimation and writing metadata...")
-                metadata_payload = _write_np_metadata_sidecar()
-                _print_np_defer_instructions(metadata_payload)
-            else:
-                print("\nSkipping the nonprompt estimation as requested (--np-postprocess=skip).")
-            run_succeeded = True
-        else:
-            run_succeeded = True
-    finally:
-        if run_succeeded and wq_cleanup_after:
-            _cleanup_work_queue_staging_directory(wq_staging_dir, wq_cleanup_after)
+    #     # Run the data driven estimation, save the output
+    #     if do_np:
+    #         if np_postprocess_mode == "inline":
+    #             print("\nDoing the nonprompt estimation...")
+    #             ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
+    #             print(f"Saving output in {out_pkl_file_name_np}...")
+    #             ddp.dumpToPickle()
+    #             print("Done!")
+    #             if do_renormfact_envelope:
+    #                 print("\nDoing the renorm. fact. envelope calculation...")
+    #                 dict_of_histos = utils.get_hist_from_pkl(
+    #                     out_pkl_file_name_np, allow_empty=False
+    #                 )
+    #                 dict_of_histos_after_applying_envelope = get_renormfact_envelope(
+    #                     dict_of_histos
+    #                 )
+    #                 utils.dump_to_pkl(
+    #                     out_pkl_file_name_np, dict_of_histos_after_applying_envelope
+    #                 )
+    #         elif np_postprocess_mode == "defer":
+    #             print("\nDeferring the nonprompt estimation and writing metadata...")
+    #             metadata_payload = _write_np_metadata_sidecar()
+    #             _print_np_defer_instructions(metadata_payload)
+    #         else:
+    #             print("\nSkipping the nonprompt estimation as requested (--np-postprocess=skip).")
+    #         run_succeeded = True
+    #     else:
+    #         run_succeeded = True
+    # finally:
+    #     if run_succeeded and wq_cleanup_after:
+    #         _cleanup_work_queue_staging_directory(wq_staging_dir, wq_cleanup_after)
