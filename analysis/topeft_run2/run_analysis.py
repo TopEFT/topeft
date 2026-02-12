@@ -739,6 +739,22 @@ if __name__ == "__main__":
     env_file_override = args.env_file
     use_remote_env = args.use_remote_env
 
+    # Enforce mutually exclusive SR-mode flags
+    sr_mode_flags = {
+        "offZ_split": bool(offZ_split),
+        "tau_h_analysis": bool(tau_h_analysis),
+        "fwd_analysis": bool(fwd_analysis),
+        "all_analysis": bool(all_analysis),
+    }
+
+    enabled = [name for name, val in sr_mode_flags.items() if val]
+    if len(enabled) > 1:
+        raise SystemExit(
+            "Incompatible analysis mode flags: {}. "
+            "Choose only one of --offZ-split, --tau_h_analysis, --fwd-analysis, --all-analysis."
+            .format(", ".join(enabled))
+        )
+
     if args.options:
         import yaml
         with open(args.options, 'r') as f:
@@ -766,7 +782,7 @@ if __name__ == "__main__":
         offZ_split = ops.pop("offZ_split", offZ_split)
         tau_h_analysis = ops.pop("tau_h_analysis", tau_h_analysis)
         fwd_analysis = ops.pop("fwd_analysis", fwd_analysis)
-        all_aanalysis = ops.pop("all_analysis", all_analysis)
+        all_analysis = ops.pop("all_analysis", all_analysis)
         skip_sr = ops.pop("skip_sr", skip_sr)
         skip_cr = ops.pop("skip_cr", skip_cr)
         do_np = ops.pop("do_np", do_np)

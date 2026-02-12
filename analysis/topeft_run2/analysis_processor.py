@@ -115,6 +115,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._hist_sumw2_axis_mapping = {}
         self._hist_requires_eft = {}
 
+        enabled = [k for k, v in {
+                "offZ_3l_split": self.offZ_3l_split,
+                "tau_h_analysis": self.tau_h_analysis,
+                "fwd_analysis": self.fwd_analysis,
+                "all_analysis": self.all_analysis,
+            }.items() if v]
+
+        if len(enabled) > 1:
+            raise ValueError(f"Conflicting analysis mode flags enabled: {enabled}")
+
         ordered_base_hist_names = list(axes_info.keys()) + list(axes_info_2d.keys())
         (
             base_hist_names_ordered,
@@ -962,7 +972,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not self._skip_control_regions:
                 # If we are not skipping the control regions, we will import the CR categories
                 # This dictionary keeps track of which selections go with which CR categories
-                if self.tau_h_analysis:
+                if self.tau_h_analysis or self.all_analysis:
                     import_cr_cat_dict = select_cat_dict["TAU_CH_LST_CR"]
                 else:
                     import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
