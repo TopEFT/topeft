@@ -1418,139 +1418,139 @@ if __name__ == "__main__":
         if environment_file:
             executor_args["environment_file"] = environment_file
 
-    # # Run the processor and get the output
-    # tstart = time.time()
+    # Run the processor and get the output
+    tstart = time.time()
 
-    # def _ensure_nonempty_chunks():
-    #     total_files = sum(len(files) for files in flist.values())
-    #     if total_files == 0:
-    #         raise SystemExit(
-    #             "No input files were available to process; verify the sample JSON and prefix "
-    #             "and retry with at least one file."
-    #         )
+    def _ensure_nonempty_chunks():
+        total_files = sum(len(files) for files in flist.values())
+        if total_files == 0:
+            raise SystemExit(
+                "No input files were available to process; verify the sample JSON and prefix "
+                "and retry with at least one file."
+            )
 
-    #     if nchunks == 0:
-    #         raise SystemExit(
-    #             "Requested zero chunks; increase --nchunks or drop the flag to process the full dataset."
-    #         )
+        if nchunks == 0:
+            raise SystemExit(
+                "Requested zero chunks; increase --nchunks or drop the flag to process the full dataset."
+            )
 
-    # if executor_name == "futures":
-    #     futures_factory = getattr(processor, "futures_executor", None)
-    #     if callable(futures_factory):
-    #         exec_instance = futures_factory(workers=nworkers)
-    #     else:
-    #         exec_instance = processor.FuturesExecutor(workers=nworkers)
-    #     _ensure_nonempty_chunks()
-    #     runner = processor.Runner(
-    #         exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
-    #     )
-    # elif executor_name == "work_queue":
-    #     executor_instance = processor.WorkQueueExecutor(**executor_args)
-    #     _ensure_nonempty_chunks()
-    #     runner = processor.Runner(
-    #         executor_instance,
-    #         schema=NanoAODSchema,
-    #         chunksize=chunksize,
-    #         maxchunks=nchunks,
-    #         skipbadfiles=False,
-    #         xrootdtimeout=180,
-    #     )
-    # elif executor_name == "taskvine":
-    #     try:
-    #         executor_instance = processor.TaskVineExecutor(**executor_args)
-    #     except AttributeError:
-    #         raise RuntimeError("TaskVineExecutor not available.")
-    #     runner = processor.Runner(
-    #         executor_instance,
-    #         schema=NanoAODSchema,
-    #         chunksize=chunksize,
-    #         maxchunks=nchunks,
-    #         skipbadfiles=True,
-    #         xrootdtimeout=300,
-    #     )
+    if executor_name == "futures":
+        futures_factory = getattr(processor, "futures_executor", None)
+        if callable(futures_factory):
+            exec_instance = futures_factory(workers=nworkers)
+        else:
+            exec_instance = processor.FuturesExecutor(workers=nworkers)
+        _ensure_nonempty_chunks()
+        runner = processor.Runner(
+            exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
+        )
+    elif executor_name == "work_queue":
+        executor_instance = processor.WorkQueueExecutor(**executor_args)
+        _ensure_nonempty_chunks()
+        runner = processor.Runner(
+            executor_instance,
+            schema=NanoAODSchema,
+            chunksize=chunksize,
+            maxchunks=nchunks,
+            skipbadfiles=False,
+            xrootdtimeout=180,
+        )
+    elif executor_name == "taskvine":
+        try:
+            executor_instance = processor.TaskVineExecutor(**executor_args)
+        except AttributeError:
+            raise RuntimeError("TaskVineExecutor not available.")
+        runner = processor.Runner(
+            executor_instance,
+            schema=NanoAODSchema,
+            chunksize=chunksize,
+            maxchunks=nchunks,
+            skipbadfiles=True,
+            xrootdtimeout=300,
+        )
 
-    # run_succeeded = False
-    # try:
-    #     try:
-    #         output = runner(flist, treename, processor_instance)
-    #     except TypeError as exc:
-    #         raise RuntimeError(
-    #             "The executor returned no chunk results. Ensure that the input files produced at least "
-    #             "one chunk and that the executor handled submissions correctly."
-    #         ) from exc
+    run_succeeded = False
+    try:
+        try:
+            output = runner(flist, treename, processor_instance)
+        except TypeError as exc:
+            raise RuntimeError(
+                "The executor returned no chunk results. Ensure that the input files produced at least "
+                "one chunk and that the executor handled submissions correctly."
+            ) from exc
 
-    #     worker_exception = None
-    #     if isinstance(output, dict):
-    #         worker_exception = _format_worker_exception(output.get("exception"))
+        worker_exception = None
+        if isinstance(output, dict):
+            worker_exception = _format_worker_exception(output.get("exception"))
 
-    #     if output is None:
-    #         if worker_exception is not None:
-    #             print(f"Executor reported a worker-side exception: {worker_exception}")
-    #         else:
-    #             print("Runner returned no output; no chunks appear to have been processed.")
-    #         raise RuntimeError("Processing failed because no results were returned from the executor.")
+        if output is None:
+            if worker_exception is not None:
+                print(f"Executor reported a worker-side exception: {worker_exception}")
+            else:
+                print("Runner returned no output; no chunks appear to have been processed.")
+            raise RuntimeError("Processing failed because no results were returned from the executor.")
 
-    #     if worker_exception is not None:
-    #         raise RuntimeError(
-    #             f"Processing failed because a worker raised an exception: {worker_exception}"
-    #         )
+        if worker_exception is not None:
+            raise RuntimeError(
+                f"Processing failed because a worker raised an exception: {worker_exception}"
+            )
 
-    #     print("Finished running the processor...")
+        print("Finished running the processor...")
 
-    #     dt = time.time() - tstart
+        dt = time.time() - tstart
 
-    #     if executor_name in ["work_queue", "taskvine"]:
-    #         print(
-    #             "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
-    #                 nevts_total, dt, nevts_total / dt
-    #             )
-    #         )
+        if executor_name in ["work_queue", "taskvine"]:
+            print(
+                "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
+                    nevts_total, dt, nevts_total / dt
+                )
+            )
 
-    #     if executor_name == "futures":
-    #         print(
-    #             "Processing time: %1.2f s with %i workers (%.2f s cpu overall)"
-    #             % (
-    #                 dt,
-    #                 nworkers,
-    #                 dt * nworkers,
-    #             )
-    #         )
+        if executor_name == "futures":
+            print(
+                "Processing time: %1.2f s with %i workers (%.2f s cpu overall)"
+                % (
+                    dt,
+                    nworkers,
+                    dt * nworkers,
+                )
+            )
 
-    #     # Save the output
-    #     os.makedirs(outpath, exist_ok=True)
-    #     print(f"\nSaving output in {out_pkl_file}...")
-    #     with gzip.open(out_pkl_file, "wb") as fout:
-    #         cloudpickle.dump(output, fout)
-    #     print("Done!")
+        # Save the output
+        os.makedirs(outpath, exist_ok=True)
+        print(f"\nSaving output in {out_pkl_file}...")
+        with gzip.open(out_pkl_file, "wb") as fout:
+            cloudpickle.dump(output, fout)
+        print("Done!")
 
-    #     # Run the data driven estimation, save the output
-    #     if do_np:
-    #         if np_postprocess_mode == "inline":
-    #             print("\nDoing the nonprompt estimation...")
-    #             ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
-    #             print(f"Saving output in {out_pkl_file_name_np}...")
-    #             ddp.dumpToPickle()
-    #             print("Done!")
-    #             if do_renormfact_envelope:
-    #                 print("\nDoing the renorm. fact. envelope calculation...")
-    #                 dict_of_histos = utils.get_hist_from_pkl(
-    #                     out_pkl_file_name_np, allow_empty=False
-    #                 )
-    #                 dict_of_histos_after_applying_envelope = get_renormfact_envelope(
-    #                     dict_of_histos
-    #                 )
-    #                 utils.dump_to_pkl(
-    #                     out_pkl_file_name_np, dict_of_histos_after_applying_envelope
-    #                 )
-    #         elif np_postprocess_mode == "defer":
-    #             print("\nDeferring the nonprompt estimation and writing metadata...")
-    #             metadata_payload = _write_np_metadata_sidecar()
-    #             _print_np_defer_instructions(metadata_payload)
-    #         else:
-    #             print("\nSkipping the nonprompt estimation as requested (--np-postprocess=skip).")
-    #         run_succeeded = True
-    #     else:
-    #         run_succeeded = True
-    # finally:
-    #     if run_succeeded and wq_cleanup_after:
-    #         _cleanup_work_queue_staging_directory(wq_staging_dir, wq_cleanup_after)
+        # Run the data driven estimation, save the output
+        if do_np:
+            if np_postprocess_mode == "inline":
+                print("\nDoing the nonprompt estimation...")
+                ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
+                print(f"Saving output in {out_pkl_file_name_np}...")
+                ddp.dumpToPickle()
+                print("Done!")
+                if do_renormfact_envelope:
+                    print("\nDoing the renorm. fact. envelope calculation...")
+                    dict_of_histos = utils.get_hist_from_pkl(
+                        out_pkl_file_name_np, allow_empty=False
+                    )
+                    dict_of_histos_after_applying_envelope = get_renormfact_envelope(
+                        dict_of_histos
+                    )
+                    utils.dump_to_pkl(
+                        out_pkl_file_name_np, dict_of_histos_after_applying_envelope
+                    )
+            elif np_postprocess_mode == "defer":
+                print("\nDeferring the nonprompt estimation and writing metadata...")
+                metadata_payload = _write_np_metadata_sidecar()
+                _print_np_defer_instructions(metadata_payload)
+            else:
+                print("\nSkipping the nonprompt estimation as requested (--np-postprocess=skip).")
+            run_succeeded = True
+        else:
+            run_succeeded = True
+    finally:
+        if run_succeeded and wq_cleanup_after:
+            _cleanup_work_queue_staging_directory(wq_staging_dir, wq_cleanup_after)
