@@ -3096,16 +3096,16 @@ def _draw_stacked_panel(
 
     # uncomment below once unblinded
 
-    #hep.histplot(
-    #    summed_data_values,
-    #    ax=ax,
-    #    bins=bins,
-    #    stack=False,
-    #    density=unit_norm_bool,
-    #    label="Data",
-    #    histtype="errorbar",
-    #    **DATA_ERR_OPS,
-    #)
+    hep.histplot(
+       summed_data_values,
+       ax=ax,
+       bins=bins,
+       stack=False,
+       density=unit_norm_bool,
+       label="Data",
+       histtype="errorbar",
+       **DATA_ERR_OPS,
+    )
 
     data_vals = summed_data_values
     mc_vals_total = summed_mc_values
@@ -3134,16 +3134,16 @@ def _draw_stacked_panel(
 
     # uncomment below once unblinded
     
-    #hep.histplot(
-    #    ratio_vals,
-    #    yerr=ratio_yerr,
-    #    ax=rax,
-    #    bins=bins,
-    #    stack=False,
-    #    density=unit_norm_bool,
-    #    histtype="errorbar",
-    #    **DATA_ERR_OPS,
-    #)
+    hep.histplot(
+       ratio_vals,
+       yerr=ratio_yerr,
+       ax=rax,
+       bins=bins,
+       stack=False,
+       density=unit_norm_bool,
+       histtype="errorbar",
+       **DATA_ERR_OPS,
+    )
 
     mc_totals = mc_vals_total
 
