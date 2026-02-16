@@ -22,6 +22,9 @@ from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 import analysis_processor
+from analysis.topeft_run2.analysis_processor import (
+    ANALYSIS_MODE_EXCLUSIVE_ERROR,
+)
 
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
 
@@ -37,7 +40,6 @@ WGT_VAR_LST = [
     #"nSumOfWeights_renormfactUp",
     #"nSumOfWeights_renormfactDown",
 ]
-
 
 def _ensure_topcoffea_data_available(skip_check=False):
     if skip_check:
@@ -555,12 +557,14 @@ if __name__ == "__main__":
         help="Split up categories by lepton flavor",
     )
     parser.add_argument(
-        "--offZ-split",
+        "--offZ-3l-split",
+        dest="offZ_3l_split",
         action="store_true",
         help="Split up 3l offZ categories",
     )
     parser.add_argument(
-        "--tau_h_analysis",
+        "--tau-h-analysis",
+        dest="tau_h_analysis",
         action="store_true",
         help=(
             "Add hadronic tau channels, including the DY-like 1l+tau_h control region "
@@ -705,7 +709,6 @@ if __name__ == "__main__":
         raise SystemExit(0)
     if args.workers is not None:
         args.nworkers = args.workers
-    _ensure_topcoffea_data_available(args.skip_topcoffea_data_check)
     jsonFiles = args.jsonFiles
     prefix = args.prefix
     executor_name = args.executor
@@ -720,7 +723,7 @@ if __name__ == "__main__":
     fill_sumw2 = not args.no_sumw2
     do_systs = args.do_systs
     split_lep_flavor = args.split_lep_flavor
-    offZ_split = args.offZ_split
+    offZ_split = args.offZ_3l_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
     all_analysis = args.all_analysis
@@ -738,22 +741,7 @@ if __name__ == "__main__":
     analysis_mode = args.analysis_mode
     env_file_override = args.env_file
     use_remote_env = args.use_remote_env
-
-    # Enforce mutually exclusive SR-mode flags
-    sr_mode_flags = {
-        "offZ_split": bool(offZ_split),
-        "tau_h_analysis": bool(tau_h_analysis),
-        "fwd_analysis": bool(fwd_analysis),
-        "all_analysis": bool(all_analysis),
-    }
-
-    enabled = [name for name, val in sr_mode_flags.items() if val]
-    if len(enabled) > 1:
-        raise SystemExit(
-            "Incompatible analysis mode flags: {}. "
-            "Choose only one of --offZ-split, --tau_h_analysis, --fwd-analysis, --all-analysis."
-            .format(", ".join(enabled))
-        )
+    skip_topcoffea_data_check = args.skip_topcoffea_data_check
 
     if args.options:
         import yaml
@@ -796,6 +784,23 @@ if __name__ == "__main__":
         analysis_mode = ops.pop("analysis_mode", analysis_mode)
         env_file_override = ops.pop("env_file", env_file_override)
         use_remote_env = ops.pop("use_remote_env", use_remote_env)
+        skip_topcoffea_data_check = ops.pop("skip_topcoffea_data_check", skip_topcoffea_data_check)
+
+    try:
+        validated_mode_flags = analysis_processor.validate_analysis_mode_flags(
+            offZ_split,
+            tau_h_analysis,
+            fwd_analysis,
+            all_analysis,
+        )
+    except ValueError as exc:
+        raise SystemExit(ANALYSIS_MODE_EXCLUSIVE_ERROR) from exc
+
+    offZ_split = validated_mode_flags["offz_3l_split"]
+    tau_h_analysis = validated_mode_flags["tau_h_analysis"]
+    fwd_analysis = validated_mode_flags["fwd_analysis"]
+    all_analysis = validated_mode_flags["all_analysis"]
+    _ensure_topcoffea_data_available(skip_topcoffea_data_check)
 
     out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
     out_pkl_file_name_np = os.path.join(outpath, outname + "_np.pkl.gz")
@@ -879,7 +884,7 @@ if __name__ == "__main__":
         #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
         # if fill_sumw2 and "l1_eta_vs_phi_sumw2" not in hist_lst:
         #     hist_lst.append("l1_eta_vs_phi_sumw2")
-    elif args.hist_list == ["cr"]:
+    elif hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
             "lj0pt",
@@ -935,7 +940,7 @@ if __name__ == "__main__":
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
-        hist_lst = args.hist_list
+        hist_lst = hist_list
 
     ### Load samples from json
     samplesdict = {}
@@ -1320,7 +1325,10 @@ if __name__ == "__main__":
     else:
         print("No Wilson coefficients specified")
 
-    print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
+    if hist_lst is None:
+        print("Variables to be histogrammed: all (processor defaults)")
+    else:
+        print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
 
     env_extra_pip_local = {"topeft": ["topeft", "setup.py"]}
     wq_staging_dir = None
