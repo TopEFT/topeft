@@ -468,11 +468,11 @@ SR_GRP_MAP:
     patterns:
     - ttH
   ttlnu:
-    color: tab:cyan
+    color: plum
     patterns:
     - ttlnu
   ttll:
-    color: tab:purple
+    color: tab:blue
     patterns:
     - ttll
     - TTZToLL_M1to10
@@ -497,7 +497,7 @@ SR_GRP_MAP:
     patterns:
     - TTG
   Triboson:
-    color: tab:blue
+    color: tab:purple
     patterns:
     - WWW
     - WWZ
@@ -508,7 +508,7 @@ SR_GRP_MAP:
     patterns:
     - TWZ
   Diboson:
-    color: plum
+    color: tab:cyan
     patterns:
     - WWTo2L2Nu
     - ZZTo4L
