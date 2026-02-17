@@ -842,6 +842,20 @@ def _hist_has_content(histogram):
     return False
 
 
+def _hist_is_empty(histogram):
+    """Return True when *histogram* is None or explicitly empty."""
+
+    if histogram is None:
+        return True
+    empty_fn = getattr(histogram, "empty", None)
+    if not callable(empty_fn):
+        return False
+    try:
+        return bool(empty_fn())
+    except Exception:
+        return True
+
+
 def _integrate_nominal_axis(histogram):
     """Project *histogram* onto the nominal systematic slice, if present."""
 
@@ -2121,6 +2135,28 @@ def _render_variable_category(
     stat_and_syst_plots = 0
     html_dirs = set()
 
+    def _warn_undrawable_plot(
+        *,
+        reason,
+        mode,
+        has_mc,
+        has_data_like,
+        mc_empty,
+        data_empty,
+    ):
+        logger.warning(
+            "Skipping undrawable plot (%s): region=%s hist_cat=%s var_name=%s mode=%s has_mc=%s has_data_like=%s mc_empty=%s data_empty=%s",
+            reason,
+            region_ctx.name,
+            hist_cat,
+            var_name,
+            mode,
+            has_mc,
+            has_data_like,
+            mc_empty,
+            data_empty,
+        )
+
     if region_ctx.channel_mode == "aggregate":
         if verbose:
             # Category headings are mainly useful when debugging channel regrouping.
@@ -2258,11 +2294,26 @@ def _render_variable_category(
             )
             has_mc = _hist_has_content(hist_mc_integrated)
             has_data_like = _hist_has_content(hist_data_like)
+            mc_empty = _hist_is_empty(hist_mc_integrated)
+            data_empty = _hist_is_empty(hist_data_like)
             if not has_mc and not has_data_like:
-                logger.warning(
-                    "Empty data-like and MC histogram for hist_cat=%s var_name=%s, skipping plot.",
-                    hist_cat,
-                    var_name,
+                _warn_undrawable_plot(
+                    reason="empty-data-like-and-mc",
+                    mode="aggregate",
+                    has_mc=has_mc,
+                    has_data_like=has_data_like,
+                    mc_empty=mc_empty,
+                    data_empty=data_empty,
+                )
+                return 0, 0, html_dirs
+            if mc_empty or data_empty:
+                _warn_undrawable_plot(
+                    reason="empty-or-missing-input",
+                    mode="aggregate",
+                    has_mc=has_mc,
+                    has_data_like=has_data_like,
+                    mc_empty=mc_empty,
+                    data_empty=data_empty,
                 )
                 return 0, 0, html_dirs
             x_range = (0, 250) if var_name == "ht" else None
@@ -2292,6 +2343,16 @@ def _render_variable_category(
                 comtag=region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
                 **stacked_kwargs,
             )
+            if fig is None:
+                _warn_undrawable_plot(
+                    reason="make_region_stacked_ratio_fig-returned-none",
+                    mode="aggregate",
+                    has_mc=has_mc,
+                    has_data_like=has_data_like,
+                    mc_empty=mc_empty,
+                    data_empty=data_empty,
+                )
+                return 0, 0, html_dirs
         title = hist_cat + "_" + var_name
         if unit_norm_bool:
             title = title + "_unitnorm"
@@ -2418,18 +2479,46 @@ def _render_variable_category(
                     )
                 syst_err = True
 
-        if not _hist_has_content(hist_mc_integrated):
-            print("Warning: empty mc histo, continuing")
-            return 0, 0, html_dirs
-        if unblind_flag and not _hist_has_content(hist_data_integrated):
-            print("Warning: empty data histo, continuing")
-            return 0, 0, html_dirs
-
         hist_data_to_plot = (
             hist_data_integrated
             if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
             else hist_mc_integrated
         )
+        has_mc = _hist_has_content(hist_mc_integrated)
+        has_data = _hist_has_content(hist_data_integrated)
+        has_data_like = _hist_has_content(hist_data_to_plot)
+        if not has_mc:
+            _warn_undrawable_plot(
+                reason="empty-mc-content",
+                mode="per-channel",
+                has_mc=has_mc,
+                has_data_like=has_data_like,
+                mc_empty=_hist_is_empty(hist_mc_integrated),
+                data_empty=_hist_is_empty(hist_data_to_plot),
+            )
+            return 0, 0, html_dirs
+        if unblind_flag and not has_data:
+            _warn_undrawable_plot(
+                reason="empty-data-content",
+                mode="per-channel",
+                has_mc=has_mc,
+                has_data_like=has_data_like,
+                mc_empty=_hist_is_empty(hist_mc_integrated),
+                data_empty=_hist_is_empty(hist_data_to_plot),
+            )
+            return 0, 0, html_dirs
+        mc_empty = _hist_is_empty(hist_mc_integrated)
+        data_empty = _hist_is_empty(hist_data_to_plot)
+        if mc_empty or data_empty:
+            _warn_undrawable_plot(
+                reason="empty-or-missing-input",
+                mode="per-channel",
+                has_mc=has_mc,
+                has_data_like=has_data_like,
+                mc_empty=mc_empty,
+                data_empty=data_empty,
+            )
+            return 0, 0, html_dirs
         title = f"{display_label}_{var_name}"
         if not region_ctx.preserve_njets_bins:
             title = re.sub(r"_(\d+)j(?=_)", "", title, flags=re.IGNORECASE)
@@ -2462,6 +2551,16 @@ def _render_variable_category(
             unit_norm_bool=unit_norm_bool,
             **stacked_kwargs,
         )
+        if fig is None:
+            _warn_undrawable_plot(
+                reason="make_region_stacked_ratio_fig-returned-none",
+                mode="per-channel",
+                has_mc=has_mc,
+                has_data_like=has_data_like,
+                mc_empty=mc_empty,
+                data_empty=data_empty,
+            )
+            return 0, 0, html_dirs
         save_path = os.path.join(save_dir_path_tmp, f"{title}.png")
         fig.savefig(save_path, bbox_inches="tight", pad_inches=0.05)
         if not region_ctx.preserve_njets_bins:

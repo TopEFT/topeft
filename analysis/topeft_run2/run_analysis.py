@@ -1401,7 +1401,7 @@ if __name__ == "__main__":
             # 'disk': 8000,   #MB
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
-            # "treereduction": 5,
+            "treereduction": 10,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.
