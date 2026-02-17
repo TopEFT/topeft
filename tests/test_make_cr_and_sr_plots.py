@@ -142,6 +142,24 @@ def test_unmatched_sample_is_skipped_from_group_map(monkeypatch):
         plt.close(fig)
 
 
+def test_hist_is_empty_handles_missing_and_raising_empty():
+    class _RaisingEmpty:
+        def empty(self):
+            raise RuntimeError("empty failed")
+
+    class _EmptyReturnsFalse:
+        def empty(self):
+            return False
+
+    class _NoEmpty:
+        pass
+
+    assert make_cr_and_sr_plots._hist_is_empty(None) is True
+    assert make_cr_and_sr_plots._hist_is_empty(_RaisingEmpty()) is True
+    assert make_cr_and_sr_plots._hist_is_empty(_EmptyReturnsFalse()) is False
+    assert make_cr_and_sr_plots._hist_is_empty(_NoEmpty()) is False
+
+
 def test_both_njets_preserves_variables_for_merged_output(tmp_path):
     process_axis = hist.axis.StrCategory([], name="process", growth=True)
     channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
