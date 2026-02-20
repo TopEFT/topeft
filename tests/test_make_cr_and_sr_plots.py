@@ -29,6 +29,36 @@ def _find_zero_yield_entry(summary, *, label, variable):
     return None
 
 
+def _make_met_histogram_for_channels(channel_names):
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    met_axis = hist.axis.Regular(1, 0.0, 1.0, name="met")
+
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, met_axis
+    )
+    setattr(hist_obj, "_sumw2", defaultdict(lambda: None))
+
+    for channel_name in channel_names:
+        hist_obj.fill(
+            process="ttH_central2022",
+            channel=channel_name,
+            systematic="nominal",
+            met=0.5,
+            weight=1.0,
+        )
+        hist_obj.fill(
+            process="data2022",
+            channel=channel_name,
+            systematic="nominal",
+            met=0.5,
+            weight=1.0,
+        )
+
+    return hist_obj
+
+
 def test_unit_normalization_skips_empty_histograms(monkeypatch):
     dummy_mc = _DummyHist()
     dummy_data = _DummyHist()
@@ -838,6 +868,124 @@ def test_split_warning_uses_cr_reference_bins_for_cr_region(monkeypatch, tmp_pat
     assert "Expected flavour-split bins (from configuration): 1 total; showing first 1:" in warning_text
     assert "cr_only_mm_2j" in warning_text
     assert "sr_only_ee_2j" not in warning_text
+
+
+@pytest.mark.parametrize(
+    "region_name,channel_dict_attr,base_key,channel_bins",
+    [
+        (
+            "CR",
+            "CR_CHAN_DICT",
+            "cr_dy_tautau_m",
+            (
+                "1l_m_dy_tautau_CR_2j",
+                "1l_m_dy_tautau_CR_3j",
+                "1l_m_dy_tautau_CR_4j",
+            ),
+        ),
+        (
+            "SR",
+            "SR_CHAN_DICT",
+            "2lss_m",
+            (
+                "2lss_m_4j",
+                "2lss_m_5j",
+                "2lss_m_6j",
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "channel_output,expected_modes",
+    [
+        ("merged-njets", ("aggregate",)),
+        ("split-njets", ("per-channel",)),
+        ("both-njets", ("aggregate", "per-channel")),
+    ],
+)
+def test_njets_channel_output_modes_accept_base_channel_keys(
+    tmp_path,
+    monkeypatch,
+    region_name,
+    channel_dict_attr,
+    base_key,
+    channel_bins,
+    channel_output,
+    expected_modes,
+):
+    hist_inputs = {"met": _make_met_histogram_for_channels(channel_bins)}
+    captured_channel_maps = {}
+    base_channel_map = {base_key: list(channel_bins)}
+
+    assert list(base_channel_map.keys()) == [base_key]
+
+    def _capture_payload(region_ctx, *args, **kwargs):
+        payload = make_cr_and_sr_plots._prepare_variable_payload(
+            "met", region_ctx, metadata_only=True
+        )
+        captured_channel_maps[region_ctx.channel_mode] = payload["channel_dict"]
+
+    minimal_summary = {
+        "region": region_name,
+        "channels_scanned": 0,
+        "channel_entries": [],
+        "zero_process_total": 0,
+        "data_driven_zero_total": 0,
+        "missing_data_driven_prefixes": set(),
+        "errors": [],
+    }
+
+    with monkeypatch.context() as m:
+        if channel_dict_attr == "CR_CHAN_DICT":
+            m.setattr(make_cr_and_sr_plots, "CR_CHAN_DICT", base_channel_map)
+            m.setattr(
+                make_cr_and_sr_plots,
+                "CHANNEL_REFERENCE_MAP",
+                {**base_channel_map, **make_cr_and_sr_plots.SR_CHAN_DICT},
+            )
+        else:
+            m.setattr(make_cr_and_sr_plots, "SR_CHAN_DICT", base_channel_map)
+            m.setattr(
+                make_cr_and_sr_plots,
+                "CHANNEL_REFERENCE_MAP",
+                {**make_cr_and_sr_plots.CR_CHAN_DICT, **base_channel_map},
+            )
+
+        m.setattr(make_cr_and_sr_plots, "produce_region_plots", _capture_payload)
+        m.setattr(
+            make_cr_and_sr_plots,
+            "_summarize_zero_yield_processes",
+            lambda *args, **kwargs: minimal_summary,
+        )
+        m.setattr(
+            make_cr_and_sr_plots, "_emit_zero_yield_summary", lambda *args, **kwargs: None
+        )
+
+        make_cr_and_sr_plots.run_plots_for_region(
+            region_name,
+            hist_inputs,
+            years=["2022"],
+            save_dir_path=str(tmp_path),
+            channel_output=channel_output,
+            skip_syst_errs=True,
+            workers=1,
+            verbose=False,
+        )
+
+    assert set(captured_channel_maps.keys()) == set(expected_modes)
+
+    expected_keys = {}
+    for bin_name in channel_bins:
+        suffix = make_cr_and_sr_plots._extract_njet_suffix(bin_name)
+        assert suffix is not None
+        expected_keys[f"{base_key}_{suffix}"] = [bin_name]
+
+    for mode_name in expected_modes:
+        transformed_map = captured_channel_maps[mode_name]
+        assert base_key not in transformed_map
+        for expected_key, expected_bins in expected_keys.items():
+            assert expected_key in transformed_map
+            assert transformed_map[expected_key] == expected_bins
 
 
 @pytest.mark.parametrize("channel_output", ["both", "both-njets"])
