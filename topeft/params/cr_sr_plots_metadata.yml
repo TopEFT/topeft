@@ -403,6 +403,7 @@ CR_GRP_MAP:
     - ZZTo2mu2tau
     - ZZTo2e2tau
     - ZZTo2e2mu
+    - ggToZZ
   Triboson:
     color: tab:purple
     patterns:
@@ -520,6 +521,7 @@ SR_GRP_MAP:
     - ZZTo2mu2tau
     - ZZTo2e2tau
     - ZZTo2e2mu
+    - ggToZZ
 WCPT_EXAMPLE:
   ctW: -0.74
   ctZ: -0.86
