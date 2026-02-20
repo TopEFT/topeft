@@ -14,6 +14,7 @@ import gzip
 import pickle
 import correctionlib
 import json
+import yaml
 #from coffea.jetmet_tools import CorrectedMETFactory
 ### workaround while waiting the correcion-lib integration will be provided in the coffea package
 from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
@@ -100,169 +101,6 @@ jerc_tag_map = {
     "2023BPix": [],
 }
 
-#JERC dictionary for various keys
-jerc_dict = {
-    "2016": {
-        "jec_mc"  : "Summer19UL16_V7_MC",
-        "jec_data": "Summer19UL16_RunFGH_V7_DATA",
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-        ],
-        "jer"     : "Summer20UL16_JRV3_MC",
-        "junc"    : [
-            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-            'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
-        ]
-    },
-    "2016APV": {
-        "jec_mc": "Summer19UL16APV_V7_MC",
-        "jec_data": {
-            "B": "Summer19UL16APV_RunBCD_V7_DATA",
-            "C": "Summer19UL16APV_RunBCD_V7_DATA",
-            "D": "Summer19UL16APV_RunBCD_V7_DATA",
-            "E": "Summer19UL16APV_RunEF_V7_DATA",
-            "F": "Summer19UL16APV_RunEF_V7_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-        ],
-        "jer": "Summer20UL16APV_JRV3_MC",
-        "junc"    : [
-            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-            'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
-        ]
-    },
-    "2017": {
-        "jec_mc": "Summer19UL17_V5_MC",
-        "jec_data": {
-            "B": "Summer19UL17_RunB_V5_DATA",
-            "C": "Summer19UL17_RunC_V5_DATA",
-            "D": "Summer19UL17_RunD_V5_DATA",
-            "E": "Summer19UL17_RunE_V5_DATA",
-            "F": "Summer19UL17_RunF_V5_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-        ],
-        "jer": "Summer19UL17_JRV2_MC",
-        "junc"    : [
-            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-            'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
-        ]
-    },
-    "2018": {
-        "jec_mc": "Summer19UL18_V5_MC",
-        "jec_data": {
-            "A": "Summer19UL18_RunA_V5_DATA",
-            "B": "Summer19UL18_RunB_V5_DATA",
-            "C": "Summer19UL18_RunC_V5_DATA",
-            "D": "Summer19UL18_RunD_V5_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-        ],
-        "jer": "Summer19UL18_JRV2_MC",
-        "junc"    : [
-            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-            'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
-        ]
-
-    },
-    "2022": {
-        "jec_mc"  : "Summer22_22Sep2023_V2_MC",
-        "jec_data": "Summer22_22Sep2023_RunCD_V2_DATA",
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-            "L3Absolute",
-            "L2L3Residual",
-        ],
-        "jer"     : "Summer22_22Sep2023_JRV1_MC",
-        "junc"    : [
-            "AbsoluteMPFBias","AbsoluteScale","FlavorQCD","Fragmentation","PileUpDataMC",
-            "PileUpPtBB","PileUpPtEC1","PileUpPtEC2","PileUpPtHF","PileUpPtRef",
-            "RelativeFSR","RelativeJERHF","RelativePtBB","RelativePtHF","RelativeBal",
-            "SinglePionECAL","SinglePionHCAL",
-            "AbsoluteStat","RelativeJEREC1","RelativeJEREC2","RelativePtEC1","RelativePtEC2",
-            "TimePtEta","RelativeSample","RelativeStatEC","RelativeStatFSR","RelativeStatHF",
-            "Total",
-        ]
-    },
-    "2022EE": {
-        "jec_mc": "Summer22EE_22Sep2023_V2_MC",
-        "jec_data": {
-            "E": "Summer22EE_22Sep2023_RunE_V2_DATA",
-            "F": "Summer22EE_22Sep2023_RunF_V2_DATA",
-            "G": "Summer22EE_22Sep2023_RunG_V2_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-            "L3Absolute",
-            "L2L3Residual",
-        ],
-        "jer": "Summer22EE_22Sep2023_JRV1_MC",
-        "junc"    : [
-            "AbsoluteMPFBias","AbsoluteScale","FlavorQCD","Fragmentation","PileUpDataMC",
-            "PileUpPtBB","PileUpPtEC1","PileUpPtEC2","PileUpPtHF","PileUpPtRef",
-            "RelativeFSR","RelativeJERHF","RelativePtBB","RelativePtHF","RelativeBal",
-            "SinglePionECAL","SinglePionHCAL",
-            "AbsoluteStat","RelativeJEREC1","RelativeJEREC2","RelativePtEC1","RelativePtEC2",
-            "TimePtEta","RelativeSample","RelativeStatEC","RelativeStatFSR","RelativeStatHF",
-            "Total",
-        ]
-    },
-    "2023": {
-        "jec_mc": "Summer23Prompt23_V1_MC",
-        "jec_data": {
-            "C1": "Summer23Prompt23_RunCv123_V1_DATA",
-            "C2": "Summer23Prompt23_RunCv123_V1_DATA",
-            "C3": "Summer23Prompt23_RunCv123_V1_DATA",
-            "C4": "Summer23Prompt23_RunCv4_V1_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-            "L3Absolute",
-            "L2L3Residual",
-        ],
-        "jer": "Summer23Prompt23_RunCv1234_JRV1_MC",
-        "junc"    : [
-            "AbsoluteMPFBias","AbsoluteScale","FlavorQCD","Fragmentation","PileUpDataMC",
-            "PileUpPtBB","PileUpPtEC1","PileUpPtEC2","PileUpPtHF","PileUpPtRef",
-            "RelativeFSR","RelativeJERHF","RelativePtBB","RelativePtHF","RelativeBal",
-            "SinglePionECAL","SinglePionHCAL",
-            "AbsoluteStat","RelativeJEREC1","RelativeJEREC2","RelativePtEC1","RelativePtEC2",
-            "TimePtEta","RelativeSample","RelativeStatEC","RelativeStatFSR","RelativeStatHF",
-            "Total",
-        ]
-    },
-    "2023BPix": {
-        "jec_mc"  : "Summer23BPixPrompt23_V1_MC",
-        "jec_data": "Summer23BPixPrompt23_RunD_V1_DATA",
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-            "L3Absolute",
-            "L2L3Residual",
-        ],
-        "jer"     : "Summer23BPixPrompt23_RunD_JRV1_MC",
-        "junc"    : [
-            "AbsoluteMPFBias","AbsoluteScale","FlavorQCD","Fragmentation","PileUpDataMC",
-            "PileUpPtBB","PileUpPtEC1","PileUpPtEC2","PileUpPtHF","PileUpPtRef",
-            "RelativeFSR","RelativeJERHF","RelativePtBB","RelativePtHF","RelativeBal",
-            "SinglePionECAL","SinglePionHCAL",
-            "AbsoluteStat","RelativeJEREC1","RelativeJEREC2","RelativePtEC1","RelativePtEC2",
-            "TimePtEta","RelativeSample","RelativeStatEC","RelativeStatFSR","RelativeStatHF",
-            "Total",
-        ]
-    }
-}
-
 jet_veto_dict = {
     "2016APV": "Summer19UL16_V1",
     "2016": "Summer19UL16_V1",
@@ -274,8 +112,9 @@ jet_veto_dict = {
     "2023BPix": "Summer23BPixPrompt23_RunD_V1"
 }
 
-with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
-    jerc_dict = json.load(f)
+#JERC dictionary for various keys
+with open(topeft_path("modules/jerc_dict.yml"), "r") as f:
+    jerc_dict = yaml.safe_load(f)
 
 def get_jerc_keys(year, isdata, era=None):
     # Jet Algorithm
@@ -299,6 +138,8 @@ def get_jerc_keys(year, isdata, era=None):
         jec_key = jerc_dict[year]['jec_data'][era]
         jer_key     = None
         junc_types  = None
+
+    print(f"\n\n\n\n\n\n\n\nget_jerc_keys: year={year}, isdata={isdata}, era={era} => jet_algo={jet_algo}, jec_key={jec_key}, jec_levels={jec_levels}, jer_key={jer_key}, junc_types={junc_types}\n\n\n\n\n\n\n\n")
 
     return jet_algo, jec_key, jec_levels, jer_key, junc_types
 
@@ -1108,7 +949,7 @@ def AttachPerLeptonFR(leps, flavor, year):
 
         # Apply scaling factor for electrons
         if flavor == "Elec":
-            leps['fliprate'] = (get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
+            leps['fliprate'] = ak.ones_like(leps.pdgId, dtype=np.float64) #(get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
         else:
             leps['fliprate'] = np.zeros_like(leps.pt)
 
@@ -1130,8 +971,6 @@ def AttachPerLeptonFR(leps, flavor, year):
         pt_mask_hi = (pt < maxpt)
         pt_masked = ak.where(~pt_mask_low, minpt, pt)
         pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
-
-        chargeflip_sf = ak.ones_like(leps.pdgId, dtype=np.float64) #get_te_param("chargeflip_sf_dict")[flip_year_name]
 
         fr_year_tag = "fakeRate_2023_2023BPix" if year.startswith("2023") else "fakeRate_2022_2022EE"
 
@@ -1927,6 +1766,9 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=F
         # Handle clib case
         jet_algo, jec_tag, jec_levels, jer_tag, junc_types = get_jerc_keys(year, isData, era)
         json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
+
+        print("\n\n\n\n\n")
+        print("junc_types:", junc_types)
 
         # Create JECStack for clib scenario
         jec_stack = JECStack(
