@@ -122,155 +122,87 @@ CR_CHAN_DICT:
   - 1l_m_dy_tautau_CR_3j
   - 1l_m_dy_tautau_CR_4j
 SR_CHAN_DICT:
-  2lss_4t_m_4j:
+  2lss_4t_m:
   - 2lss_4t_m_4j
-  2lss_4t_m_5j:
   - 2lss_4t_m_5j
-  2lss_4t_m_6j:
   - 2lss_4t_m_6j
-  2lss_4t_m_7j:
   - 2lss_4t_m_7j
-  2lss_4t_p_4j:
+  2lss_4t_p:
   - 2lss_4t_p_4j
-  2lss_4t_p_5j:
   - 2lss_4t_p_5j
-  2lss_4t_p_6j:
   - 2lss_4t_p_6j
-  2lss_4t_p_7j:
   - 2lss_4t_p_7j
-  2lss_m_4j:
+  2lss_m:
   - 2lss_m_4j
-  2lss_m_5j:
   - 2lss_m_5j
-  2lss_m_6j:
   - 2lss_m_6j
-  2lss_m_7j:
   - 2lss_m_7j
-  2lss_p_4j:
+  2lss_p:
   - 2lss_p_4j
-  2lss_p_5j:
   - 2lss_p_5j
-  2lss_p_6j:
   - 2lss_p_6j
-  2lss_p_7j:
   - 2lss_p_7j
-  3l_m_offZ_1b_2j:
+  3l_m_offZ_1b:
   - 3l_m_offZ_1b_2j
-  3l_m_offZ_1b_3j:
   - 3l_m_offZ_1b_3j
-  3l_m_offZ_1b_4j:
   - 3l_m_offZ_1b_4j
-  3l_m_offZ_1b_5j:
   - 3l_m_offZ_1b_5j
-  3l_m_offZ_2b_2j:
+  3l_m_offZ_2b:
   - 3l_m_offZ_2b_2j
-  3l_m_offZ_2b_3j:
   - 3l_m_offZ_2b_3j
-  3l_m_offZ_2b_4j:
   - 3l_m_offZ_2b_4j
-  3l_m_offZ_2b_5j:
   - 3l_m_offZ_2b_5j
-  # - 3l_m_offZ_high_1b_1j
-  # - 3l_m_offZ_high_1b_2j
-  # - 3l_m_offZ_high_1b_3j
-  # - 3l_m_offZ_high_1b_4j
-  # - 3l_m_offZ_high_1b_5j
-  # - 3l_m_offZ_high_2b_1j
-  # - 3l_m_offZ_high_2b_2j
-  # - 3l_m_offZ_high_2b_3j
-  # - 3l_m_offZ_high_2b_4j
-  # - 3l_m_offZ_high_2b_5j
-  # - 3l_m_offZ_low_1b_1j
-  # - 3l_m_offZ_low_1b_2j
-  # - 3l_m_offZ_low_1b_3j
-  # - 3l_m_offZ_low_1b_4j
-  # - 3l_m_offZ_low_1b_5j
-  # - 3l_m_offZ_low_2b_1j
-  # - 3l_m_offZ_low_2b_2j
-  # - 3l_m_offZ_low_2b_3j
-  # - 3l_m_offZ_low_2b_4j
-  # - 3l_m_offZ_low_2b_5j
-  # - 3l_m_offZ_none_1b_1j
-  # - 3l_m_offZ_none_1b_2j
-  # - 3l_m_offZ_none_1b_3j
-  # - 3l_m_offZ_none_1b_4j
-  # - 3l_m_offZ_none_1b_5j
-  # - 3l_m_offZ_none_2b_1j
-  # - 3l_m_offZ_none_2b_2j
-  # - 3l_m_offZ_none_2b_3j
-  # - 3l_m_offZ_none_2b_4j
-  # - 3l_m_offZ_none_2b_5j
-  3l_p_offZ_1b_2j:
-  - 3l_p_offZ_1b_2j
-  3l_p_offZ_1b_3j:
-  - 3l_p_offZ_1b_3j
-  3l_p_offZ_1b_4j:
-  - 3l_p_offZ_1b_4j
-  3l_p_offZ_1b_5j:
-  - 3l_p_offZ_1b_5j
-  3l_p_offZ_2b_2j:
-  - 3l_p_offZ_2b_2j
-  3l_p_offZ_2b_3j:
-  - 3l_p_offZ_2b_3j
-  3l_p_offZ_2b_4j:
-  - 3l_p_offZ_2b_4j
-  3l_p_offZ_2b_5j:
-  - 3l_p_offZ_2b_5j
-  # - 3l_p_offZ_high_1b_1j
-  # - 3l_p_offZ_high_1b_2j
-  # - 3l_p_offZ_high_1b_3j
-  # - 3l_p_offZ_high_1b_4j
-  # - 3l_p_offZ_high_1b_5j
-  # - 3l_p_offZ_high_2b_1j
-  # - 3l_p_offZ_high_2b_2j
-  # - 3l_p_offZ_high_2b_3j
-  # - 3l_p_offZ_high_2b_4j
-  # - 3l_p_offZ_high_2b_5j
-  # - 3l_p_offZ_low_1b_1j
-  # - 3l_p_offZ_low_1b_2j
-  # - 3l_p_offZ_low_1b_3j
-  # - 3l_p_offZ_low_1b_4j
-  # - 3l_p_offZ_low_1b_5j
-  # - 3l_p_offZ_low_2b_1j
-  # - 3l_p_offZ_low_2b_2j
-  # - 3l_p_offZ_low_2b_3j
-  # - 3l_p_offZ_low_2b_4j
-  # - 3l_p_offZ_low_2b_5j
-  # - 3l_p_offZ_none_1b_1j
-  # - 3l_p_offZ_none_1b_2j
-  # - 3l_p_offZ_none_1b_3j
-  # - 3l_p_offZ_none_1b_4j
-  # - 3l_p_offZ_none_1b_5j
-  # - 3l_p_offZ_none_2b_1j
-  # - 3l_p_offZ_none_2b_2j
-  # - 3l_p_offZ_none_2b_3j
-  # - 3l_p_offZ_none_2b_4j
-  # - 3l_p_offZ_none_2b_5j
-  3l_onZ_1b_1j:
+  3l_m_offZ_high_1b:
+  - 3l_m_offZ_high_1b_1j
+  - 3l_m_offZ_high_1b_2j
+  - 3l_m_offZ_high_1b_3j
+  - 3l_m_offZ_high_1b_4j
+  - 3l_m_offZ_high_1b_5j
+  3l_m_offZ_high_2b:
+  - 3l_m_offZ_high_2b_1j
+  - 3l_m_offZ_high_2b_2j
+  - 3l_m_offZ_high_2b_3j
+  - 3l_m_offZ_high_2b_4j
+  - 3l_m_offZ_high_2b_5j
+  3l_m_offZ_low_1b:
+  - 3l_m_offZ_low_1b_1j
+  - 3l_m_offZ_low_1b_2j
+  - 3l_m_offZ_low_1b_3j
+  - 3l_m_offZ_low_1b_4j
+  - 3l_m_offZ_low_1b_5j
+  3l_m_offZ_low_2b:
+  - 3l_m_offZ_low_2b_1j
+  - 3l_m_offZ_low_2b_2j
+  - 3l_m_offZ_low_2b_3j
+  - 3l_m_offZ_low_2b_4j
+  - 3l_m_offZ_low_2b_5j
+  3l_m_offZ_none_1b:
+  - 3l_m_offZ_none_1b_1j
+  - 3l_m_offZ_none_1b_2j
+  - 3l_m_offZ_none_1b_3j
+  - 3l_m_offZ_none_1b_4j
+  - 3l_m_offZ_none_1b_5j
+  3l_m_offZ_none_2b:
+  - 3l_m_offZ_none_2b_1j
+  - 3l_m_offZ_none_2b_2j
+  - 3l_m_offZ_none_2b_3j
+  - 3l_m_offZ_none_2b_4j
+  - 3l_m_offZ_none_2b_5j
+  3l_onZ_1b:
   - 3l_onZ_1b_1j
-  3l_onZ_1b_2j:
   - 3l_onZ_1b_2j
-  3l_onZ_1b_3j:
   - 3l_onZ_1b_3j
-  3l_onZ_1b_4j:
   - 3l_onZ_1b_4j
-  3l_onZ_1b_5j:
   - 3l_onZ_1b_5j
-  3l_onZ_2b_1j:
+  3l_onZ_2b:
   - 3l_onZ_2b_1j
-  3l_onZ_2b_2j:
   - 3l_onZ_2b_2j
-  3l_onZ_2b_3j:
   - 3l_onZ_2b_3j
-  3l_onZ_2b_4j:
   - 3l_onZ_2b_4j
-  3l_onZ_2b_5j:
   - 3l_onZ_2b_5j
-  4l_2j:
+  4l:
   - 4l_2j
-  4l_3j:
   - 4l_3j
-  4l_4j:
   - 4l_4j
   2lss_1tau_onZ:
   - 2lss_m_1tau_onZ_3j
@@ -292,85 +224,77 @@ SR_CHAN_DICT:
   - 2lss_p_1tau_offZ_6j
   2los_onZ_1tau:
   - 2los_onZ_1tau_5j
-  2lss_1tau:
+  2lss_m_1tau_onZ:
   - 2lss_m_1tau_onZ_3j
-  - 2lss_p_1tau_offZ_3j
-  - 2lss_m_1tau_offZ_3j
-  - 2lss_p_1tau_onZ_3j
   - 2lss_m_1tau_onZ_4j
-  - 2lss_p_1tau_offZ_4j
-  - 2lss_m_1tau_offZ_4j
-  - 2lss_p_1tau_onZ_4j
   - 2lss_m_1tau_onZ_5j
-  - 2lss_p_1tau_offZ_5j
-  - 2lss_m_1tau_offZ_5j
-  - 2lss_p_1tau_onZ_5j
   - 2lss_m_1tau_onZ_6j
-  - 2lss_p_1tau_offZ_6j
-  - 2lss_m_1tau_offZ_6j
+  2lss_p_1tau_onZ:
+  - 2lss_p_1tau_onZ_3j
+  - 2lss_p_1tau_onZ_4j
+  - 2lss_p_1tau_onZ_5j
   - 2lss_p_1tau_onZ_6j
-  3l_offZ_fwd:
+  2lss_m_1tau_offZ:
+  - 2lss_m_1tau_offZ_3j
+  - 2lss_m_1tau_offZ_4j
+  - 2lss_m_1tau_offZ_5j
+  - 2lss_m_1tau_offZ_6j
+  2lss_p_1tau_offZ:
+  - 2lss_p_1tau_offZ_3j
+  - 2lss_p_1tau_offZ_4j
+  - 2lss_p_1tau_offZ_5j
+  - 2lss_p_1tau_offZ_6j
+  3l_m_offZ_1b_fwd:
   - 3l_m_offZ_1b_fwd_1j
-  - 3l_p_offZ_1b_fwd_1j
-  - 3l_m_offZ_2b_fwd_1j
-  - 3l_p_offZ_2b_fwd_1j
   - 3l_m_offZ_1b_fwd_2j
-  - 3l_p_offZ_1b_fwd_2j
-  - 3l_m_offZ_2b_fwd_2j
-  - 3l_p_offZ_2b_fwd_2j
   - 3l_m_offZ_1b_fwd_3j
-  - 3l_p_offZ_1b_fwd_3j
-  - 3l_m_offZ_2b_fwd_3j
-  - 3l_p_offZ_2b_fwd_3j
   - 3l_m_offZ_1b_fwd_4j
+  3l_p_offZ_1b_fwd:
+  - 3l_p_offZ_1b_fwd_1j
+  - 3l_p_offZ_1b_fwd_2j
+  - 3l_p_offZ_1b_fwd_3j
   - 3l_p_offZ_1b_fwd_4j
+  3l_m_offZ_2b_fwd:
+  - 3l_m_offZ_2b_fwd_1j
+  - 3l_m_offZ_2b_fwd_2j
+  - 3l_m_offZ_2b_fwd_3j
   - 3l_m_offZ_2b_fwd_4j
+  3l_p_offZ_2b_fwd:
+  - 3l_p_offZ_2b_fwd_1j
+  - 3l_p_offZ_2b_fwd_2j
+  - 3l_p_offZ_2b_fwd_3j
   - 3l_p_offZ_2b_fwd_4j
-  2lss:
-  - 2lss_p_4j
-  - 2lss_m_4j
-  - 2lss_4t_p_4j
-  - 2lss_4t_m_4j
-  - 2lss_p_5j
-  - 2lss_m_5j
-  - 2lss_4t_p_5j
-  - 2lss_4t_m_5j
-  - 2lss_p_6j
-  - 2lss_m_6j
-  - 2lss_4t_p_6j
-  - 2lss_4t_m_6j
-  - 2lss_p_7j
-  - 2lss_m_7j
-  - 2lss_4t_p_7j
-  - 2lss_4t_m_7j
-  2lss_fwd:
+  2lss_fwd_m:
   - 2lss_fwd_m_4j
   - 2lss_fwd_m_5j
   - 2lss_fwd_m_6j
   - 2lss_fwd_m_7j
+  2lss_fwd_p:
   - 2lss_fwd_p_4j
   - 2lss_fwd_p_5j
   - 2lss_fwd_p_6j
   - 2lss_fwd_p_7j
-  3l_1tau:
+  3l_1tau_1b:
   - 3l_1tau_1b_1j
   - 3l_1tau_1b_2j
   - 3l_1tau_1b_3j
   - 3l_1tau_1b_4j
   - 3l_1tau_1b_5j
+  3l_1tau_2b:
   - 3l_1tau_2b_1j
   - 3l_1tau_2b_2j
   - 3l_1tau_2b_3j
   - 3l_1tau_2b_4j
   - 3l_1tau_2b_5j
-  3l_onZ_fwd:
+  3l_onZ_1b_fwd:
   - 3l_onZ_1b_fwd_1j
-  - 3l_onZ_2b_fwd_1j
   - 3l_onZ_1b_fwd_2j
-  - 3l_onZ_2b_fwd_2j
   - 3l_onZ_1b_fwd_3j
-  - 3l_onZ_2b_fwd_3j
   - 3l_onZ_1b_fwd_4j
+  3l_onZ_2b_fwd:
+  - 3l_onZ_2b_fwd_1j
+  - 3l_onZ_2b_fwd_2j
+  - 3l_onZ_2b_fwd_3j
   - 3l_onZ_2b_fwd_4j
 CR_GRP_MAP:
   Data:
