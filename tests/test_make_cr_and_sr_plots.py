@@ -1,6 +1,7 @@
 import copy
 import re
 import warnings
+from types import SimpleNamespace
 
 import hist
 import numpy as np
@@ -754,6 +755,89 @@ def test_both_includes_split_channels_when_available(tmp_path):
     ]
     for split_dir in split_dirs:
         assert split_dir.exists()
+
+
+def test_split_warning_uses_cr_reference_bins_for_cr_region(monkeypatch, tmp_path):
+    class _AxisOnlyHist:
+        def __init__(self, channel_labels):
+            self.axes = {"channel": channel_labels}
+
+    warning_messages = []
+
+    def _capture_warning(msg, *args, **kwargs):
+        if args:
+            msg = msg % args
+        warning_messages.append(msg)
+
+    hist_inputs = {"met": _AxisOnlyHist(["2lss_mm_CR_1j"])}
+
+    with monkeypatch.context() as m:
+        m.setattr(make_cr_and_sr_plots._logger, "warning", _capture_warning)
+        m.setattr(
+            make_cr_and_sr_plots,
+            "CR_CHAN_DICT",
+            {"cr_ref": ["cr_only_mm_2j"]},
+        )
+        m.setattr(
+            make_cr_and_sr_plots,
+            "SR_CHAN_DICT",
+            {"sr_ref": ["sr_only_ee_2j"]},
+        )
+        m.setattr(
+            make_cr_and_sr_plots.yt,
+            "is_split_by_lepflav",
+            lambda *args, **kwargs: False,
+        )
+        m.setattr(
+            make_cr_and_sr_plots.yt,
+            "restore_split_channel_labels",
+            lambda *args, **kwargs: False,
+        )
+        m.setattr(
+            make_cr_and_sr_plots,
+            "build_region_context",
+            lambda *args, **kwargs: SimpleNamespace(
+                name="CR", channel_mode="per-channel"
+            ),
+        )
+        m.setattr(
+            make_cr_and_sr_plots,
+            "_summarize_zero_yield_processes",
+            lambda *args, **kwargs: {
+                "region": "CR",
+                "channels_scanned": 0,
+                "channel_entries": [],
+                "zero_process_total": 0,
+                "data_driven_zero_total": 0,
+                "missing_data_driven_prefixes": set(),
+                "errors": [],
+            },
+        )
+        m.setattr(
+            make_cr_and_sr_plots,
+            "_emit_zero_yield_summary",
+            lambda *args, **kwargs: None,
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            make_cr_and_sr_plots.run_plots_for_region(
+                "CR",
+                hist_inputs,
+                years=["2022"],
+                save_dir_path=str(tmp_path),
+                channel_output="split-njets",
+                skip_syst_errs=True,
+                workers=1,
+                verbose=False,
+            )
+
+    assert warning_messages
+    warning_text = warning_messages[-1]
+    assert "region=CR" in warning_text
+    assert "Expected flavour-split bins (from configuration): 1 total; showing first 1:" in warning_text
+    assert "cr_only_mm_2j" in warning_text
+    assert "sr_only_ee_2j" not in warning_text
 
 
 @pytest.mark.parametrize("channel_output", ["both", "both-njets"])

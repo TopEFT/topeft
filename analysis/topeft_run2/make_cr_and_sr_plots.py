@@ -489,11 +489,57 @@ def _preview_channel_axis_labels(histogram_mapping):
     return ()
 
 
-def _warn_missing_split_channels(histogram_mapping, reference_channel_map=None):
+_SPLIT_WARNING_EXPECTED_PREVIEW_LIMIT = 30
+
+
+def _resolve_split_warning_reference_map(region_name):
+    """Return the region-specific channel map used for split-warning diagnostics."""
+
+    region_key = str(region_name or "").upper()
+    if region_key == "CR":
+        return CR_CHAN_DICT
+    if region_key == "SR":
+        return SR_CHAN_DICT
+    return CHANNEL_REFERENCE_MAP
+
+
+def _summarize_expected_split_bins(
+    expected_split_channels,
+    *,
+    preview_limit=_SPLIT_WARNING_EXPECTED_PREVIEW_LIMIT,
+):
+    """Return a compact summary string for expected split-channel labels."""
+
+    count = len(expected_split_channels or ())
+    if count == 0:
+        return "0 total (<unspecified>)"
+
+    if preview_limit is None:
+        preview_limit = _SPLIT_WARNING_EXPECTED_PREVIEW_LIMIT
+
+    limit = max(int(preview_limit), 0)
+    if limit == 0:
+        return f"{count} total"
+
+    preview = list(expected_split_channels[:limit])
+    summary = f"{count} total; showing first {len(preview)}: {', '.join(preview)}"
+    if count > limit:
+        summary = f"{summary}, ..."
+    return summary
+
+
+def _warn_missing_split_channels(
+    histogram_mapping,
+    reference_channel_map=None,
+    *,
+    region_name=None,
+    expected_preview_limit=_SPLIT_WARNING_EXPECTED_PREVIEW_LIMIT,
+):
     """Emit a diagnostic when lepton-flavour split channels are unavailable."""
 
     reference_channel_map = reference_channel_map or {}
     available_channels = _preview_channel_axis_labels(histogram_mapping)
+    region_label = str(region_name or "<unknown>").upper()
 
     expected_split = sorted(
         {
@@ -507,11 +553,14 @@ def _warn_missing_split_channels(histogram_mapping, reference_channel_map=None):
     available_summary = (
         ", ".join(sorted(map(str, available_channels))) if available_channels else "<none>"
     )
-    expected_summary = ", ".join(expected_split) if expected_split else "<unspecified>"
+    expected_summary = _summarize_expected_split_bins(
+        expected_split, preview_limit=expected_preview_limit
+    )
 
     _logger.warning(
-        "Split channel output was requested but lep-flavour labels were not found on the channel axis. "
+        "Split channel output was requested for region=%s but lep-flavour labels were not found on the channel axis. "
         "Available channel bins: %s. Expected flavour-split bins (from configuration): %s.",
+        region_label,
         available_summary,
         expected_summary,
     )
@@ -6339,6 +6388,7 @@ def run_plots_for_region(
 
     requested_channel_modes = channel_output_cfg["modes"]
     preserve_njets_bins = channel_output_cfg.get("preserve_njets", False)
+    warning_reference_channel_map = _resolve_split_warning_reference_map(region_name)
 
     multi_mode = len(requested_channel_modes) > 1
     split_channels_available = yt.is_split_by_lepflav(
@@ -6358,7 +6408,9 @@ def run_plots_for_region(
 
         if not split_channels_available:
             _warn_missing_split_channels(
-                dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+                dict_of_hists,
+                reference_channel_map=warning_reference_channel_map,
+                region_name=region_name,
             )
 
     for channel_mode in requested_channel_modes:
