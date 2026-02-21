@@ -579,7 +579,6 @@ REGION_PLOTTING:
     sumw2_remove_signal: true
     sumw2_remove_signal_when_blinded: false
     debug_channel_lists: false
-    use_mc_as_data_when_blinded: false
   SR:
     variable_label: Variable
     skip_sparse_2d: true
@@ -598,7 +597,6 @@ REGION_PLOTTING:
     sumw2_remove_signal: false
     sumw2_remove_signal_when_blinded: true
     debug_channel_lists: true
-    use_mc_as_data_when_blinded: true
     analysis_bins:
       ptz: ptz
       lj0pt: lj0pt
