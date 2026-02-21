@@ -949,7 +949,8 @@ def AttachPerLeptonFR(leps, flavor, year):
 
         # Apply scaling factor for electrons
         if flavor == "Elec":
-            leps['fliprate'] = ak.ones_like(leps.pdgId, dtype=np.float64) #(get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
+            #leps['fliprate'] = (get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
+            leps['fliprate'] = flip_lookup(leps.pt,abs(leps.eta))
         else:
             leps['fliprate'] = np.zeros_like(leps.pt)
 
