@@ -397,17 +397,17 @@ extLepSF.add_weight_sets(["TauFakeSF TauSF/pt_value %s"%topcoffea_path('data/Tau
 extLepSF.add_weight_sets(["TauFakeSF_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 extLepSF.add_weight_sets(["TauFakeSF_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 
-extLepSF.add_weight_sets(["TauFakeSF_Run3 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
-extLepSF.add_weight_sets(["TauFakeSF_Run3_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
-extLepSF.add_weight_sets(["TauFakeSF_Run3_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+extLepSF.add_weight_sets(["TauFakeSF_Run3 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+extLepSF.add_weight_sets(["TauFakeSF_Run3_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+extLepSF.add_weight_sets(["TauFakeSF_Run3_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
 
-extLepSF.add_weight_sets(["TauFakeSF_2022 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
-extLepSF.add_weight_sets(["TauFakeSF_2022_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
-extLepSF.add_weight_sets(["TauFakeSF_2022_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2022 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2022_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2022_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
 
-extLepSF.add_weight_sets(["TauFakeSF_2023 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
-extLepSF.add_weight_sets(["TauFakeSF_2023_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
-extLepSF.add_weight_sets(["TauFakeSF_2023_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2023 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2023_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2023_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
 
 # Jet Veto Maps
 def ApplyJetVetoMaps(jets, year):
