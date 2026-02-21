@@ -401,6 +401,14 @@ extLepSF.add_weight_sets(["TauFakeSF_Run3 TauFake/pt_value %s"%topcoffea_path('d
 extLepSF.add_weight_sets(["TauFakeSF_Run3_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
 extLepSF.add_weight_sets(["TauFakeSF_Run3_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
 
+extLepSF.add_weight_sets(["TauFakeSF_2022 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2022_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2022_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
+
+extLepSF.add_weight_sets(["TauFakeSF_2023 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2023_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2023_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
+
 # Jet Veto Maps
 def ApplyJetVetoMaps(jets, year):
     jme_year = clib_year_map[year]
@@ -670,7 +678,7 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
 
     return (taus.pt*fes_syst, taus.mass*fes_syst)
 
-def AttachTauSF(events, taus, year, vsJetWP="Loose"):
+def AttachTauSF(events, taus, year, vsJetWP="Loose", run3_fake_split=False):
     pt   = taus.pt
     dm   = taus.decayMode
     eta  = taus.eta
@@ -852,13 +860,13 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 fake_elec_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
                 fake_elec_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
 
-        # whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
-        # new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF_Run3'](pt), 1)
-        # new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_up'](pt), 1)
-        # new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_down'](pt), 1)
-        new_fake_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        new_fake_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        new_fake_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        whereFlag = ((pt>20) & (pt<200) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
+
+        fake_sf_eval = "TauFakeSF_Run3" if not run3_fake_split else f'TauFakeSF_{year[:4]}'
+
+        new_fake_sf = np.where(whereFlag, SFevaluator[fake_sf_eval](pt), 1.0)
+        new_fake_sf_up = np.where(whereFlag, SFevaluator[f'{fake_sf_eval}_up'](pt), 1.0)
+        new_fake_sf_down = np.where(whereFlag, SFevaluator[f'{fake_sf_eval}_down'](pt), 1.0)
 
         # Run3 tau muon SF may be needed in the future
         fake_muon_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
@@ -938,8 +946,7 @@ def AttachPerLeptonFR(leps, flavor, year):
 
         # Apply scaling factor for electrons
         if flavor == "Elec":
-            #leps['fliprate'] = (get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
-            leps['fliprate'] = flip_lookup(leps.pt,abs(leps.eta))
+            leps['fliprate'] = (get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
         else:
             leps['fliprate'] = np.zeros_like(leps.pt)
 
