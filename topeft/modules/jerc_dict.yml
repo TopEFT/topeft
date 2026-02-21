@@ -197,10 +197,10 @@
 "2023":
   jec_mc: Summer23Prompt23_V2_MC
   jec_data:
-    C1: Summer23Prompt23_RunCv123_V2_DATA
-    C2: Summer23Prompt23_RunCv123_V2_DATA
-    C3: Summer23Prompt23_RunCv123_V2_DATA
-    C4: Summer23Prompt23_RunCv4_V2_DATA
+    C1: Summer23Prompt23_V2_DATA
+    C2: Summer23Prompt23_V2_DATA
+    C3: Summer23Prompt23_V2_DATA
+    C4: Summer23Prompt23_V2_DATA
   jec_levels:
     - L1FastJet
     - L2Relative
@@ -252,8 +252,8 @@
 "2023BPix":
   jec_mc: Summer23BPixPrompt23_V3_MC
   jec_data:
-    D1: Summer23BPixPrompt23_RunD_V3_DATA
-    D2: Summer23BPixPrompt23_RunD_V3_DATA
+    D1: Summer23BPixPrompt23_V3_DATA
+    D2: Summer23BPixPrompt23_V3_DATA
   jec_levels:
     - L1FastJet
     - L2Relative

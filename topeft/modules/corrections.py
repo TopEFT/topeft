@@ -139,8 +139,6 @@ def get_jerc_keys(year, isdata, era=None):
         jer_key     = None
         junc_types  = None
 
-    print(f"\n\n\n\n\n\n\n\nget_jerc_keys: year={year}, isdata={isdata}, era={era} => jet_algo={jet_algo}, jec_key={jec_key}, jec_levels={jec_levels}, jer_key={jer_key}, junc_types={junc_types}\n\n\n\n\n\n\n\n")
-
     return jet_algo, jec_key, jec_levels, jer_key, junc_types
 
 def get_corr_inputs(objs, corr_obj, name_map):
@@ -812,15 +810,6 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                     ceval[discr].evaluate(*arg_sf)
                 )
             )
-
-            # print("\n\n\n\n\n")
-            # print("vsjet_flat_mask:", ak.to_list(vsjet_flat_mask))
-            # print("vse_flat_mask:", ak.to_list(vse_flat_mask))
-            # print("flat_pt:", ak.to_list(flat_pt))
-            # print("flat_dm:", ak.to_list(flat_dm))
-            # print("flat_gen:", ak.to_list(flat_gen))
-            # print("ceval[discr].evaluate(*arg_sf):", ak.to_list(ceval[discr].evaluate(*arg_sf)))
-            # print("\n\n\n\n\n")
 
             if "VSjet" in discr:
                 arg_up = arg_list + ("up", "dm")
@@ -1713,7 +1702,7 @@ def AttachPdfWeights(events):
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
 
-def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=False):
+def ApplyJetCorrections(year, corr_type, isData, era, run, useclib=True, savelevels=False):
     usejecstack = not useclib
 
     if year not in clib_year_map.keys():
@@ -1768,9 +1757,6 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=F
         jet_algo, jec_tag, jec_levels, jer_tag, junc_types = get_jerc_keys(year, isData, era)
         json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
 
-        print("\n\n\n\n\n")
-        print("junc_types:", junc_types)
-
         # Create JECStack for clib scenario
         jec_stack = JECStack(
             jec_tag=jec_tag,
@@ -1803,7 +1789,7 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=F
     # Return appropriate factory based on correction type
     if corr_type == 'met':
         return CorrectedMETFactory(name_map)
-    return CorrectedJetsFactory(name_map, jec_stack)
+    return CorrectedJetsFactory(name_map, jec_stack, run)
 
 def ApplyJetSystematics(year,cleanedJets,syst_var):
     if (syst_var == f'JER_{year}Up'):

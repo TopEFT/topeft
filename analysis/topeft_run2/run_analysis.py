@@ -1223,11 +1223,11 @@ if __name__ == "__main__":
         #             print(f"   - {wgt_var}: {samplesdict[sname][wgt_var]}")
         # print("   - Prefix       : %s" % samplesdict[sname]["redirector"])
         # print("   - nFiles       : %i" % len(samplesdict[sname]["files"]))
-        # for fname in samplesdict[sname]["files"]:
-        #     print("     %s" % fname)
+        for fname in samplesdict[sname]["files"]:
+            print("     %s" % fname)
 
-        # if executor_name == "futures":
-        #     break
+        if executor_name == "futures":
+            break
 
     sample_years_from_inputs = sorted(
         {

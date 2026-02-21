@@ -4,6 +4,7 @@ import coffea
 import numpy as np
 import awkward as ak
 import json
+import yaml
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -163,6 +164,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.enable_offz_blocks = mode_toggles["enable_offz_blocks"]
         self.enable_tau_blocks = mode_toggles["enable_tau_blocks"]
         self.enable_fwd_blocks = mode_toggles["enable_fwd_blocks"]
+
         if self.all_analysis:
             self._analysis_mode = "all"
         elif self.offZ_3l_split:
@@ -179,6 +181,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             self.fwd_analysis,
             self.all_analysis,
         )
+
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
         self.tau_run_mode = tau_run_mode
         # self._tau_wp_checked = False
@@ -728,65 +731,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if not isData:
                 AttachTauSF(events, tau_T, year=year, vsJetWP=tau_T_tag)
-                # print("\n\n\n\n\n\n")
-                # print("taus[pt]", ak.to_list(tau_T.pt))
-                # print("taus[isLoose]", ak.to_list(tau_T.isLoose))
-                # print("taus[isMedium]", ak.to_list(tau_T.isMedium))
-                # print("taus[sf_tau_real]", ak.to_list(tau_T.sf_tau_real))
-                # print("taus[sf_tau_fake]", ak.to_list(tau_T.sf_tau_fake))
-                # print("events[sf_2l_taus_real]", ak.to_list(events["sf_2l_taus_real"]))
-                # print("events[sf_2l_taus_fake]", ak.to_list(events["sf_2l_taus_fake"]))
-                # print("\n\n\n\n\n\n")
-
-        else:
-            if is_run2:
-                vs_jet = tau.idDeepTau2017v2p1VSjet
-                vs_e = tau.idDeepTau2017v2p1VSe
-                vs_mu = tau.idDeepTau2017v2p1VSmu
-            else:
-                vs_jet = tau.idDeepTau2018v2p5VSjet
-                vs_e = tau.idDeepTau2018v2p5VSe
-                vs_mu = tau.idDeepTau2018v2p5VSmu
-
-            tau["isPres"] = tauSelection.isPresTau(
-                tau.pt,
-                tau.eta,
-                tau.dxy,
-                tau.dz,
-                vs_jet,
-                vs_e,
-                vs_mu,
-                minpt=20,
-            )
-            tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
-            tau["isGood"]  =  tau["isClean"] & tau["isPres"]
-            # _log_tau_flag_counts(
-            #     "tau_standard_presel",
-            #     {
-            #         "isPres": tau["isPres"],
-            #         "isClean": tau["isClean"],
-            #         "isGood": tau["isGood"],
-            #     },
-            # )
-            tau = tau[tau.isGood] # use these to clean jets
-            if is_run2:
-                vs_jet_tight = tau.idDeepTau2017v2p1VSjet
-            else:
-                vs_jet_tight = tau.idDeepTau2018v2p5VSjet
-            tau["isTight"] = tauSelection.isVLooseTau(vs_jet_tight) # use these to veto
-            # _log_tau_flag_counts(
-            #     "tau_standard_posttight",
-            #     {
-            #         "isTight": tau["isTight"],
-            #     },
-            # )
-
-        ######### Systematics ###########
 
         # Define the lists of systematics we include
         obj_jes_entries = []
-        with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
-            jerc_dict = json.load(f)
+        with open(topeft_path("modules/jerc_dict.yml"), "r") as f:
+            jerc_dict = yaml.safe_load(f)
             for junc in jerc_dict[year]['junc']:
                 junc = junc.replace("Regrouped_", "")
                 obj_jes_entries.append(f'JES_{junc}Up')
@@ -898,9 +847,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var, tau_T_tag)
 
             events_cache = events.caches[0]
-            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
+            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era, run=run).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
-            met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
+            met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, cleanedJets, lazy_cache=events_cache)
 
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
