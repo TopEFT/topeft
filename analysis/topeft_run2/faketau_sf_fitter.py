@@ -39,7 +39,8 @@ yt = YieldTools()
 
 LOGGER = logging.getLogger(__name__)
 
-_TAU_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0pt")
+_TAU_FAKE_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0Fpt")
+_TAU_TIGHT_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0Tpt")
 
 
 YEAR_TOKEN_RULES = {
@@ -761,10 +762,10 @@ def _print_year_filter_summary(summary):
     removed_mc = summary.get("mc_removed") or []
     removed_data = summary.get("data_removed") or []
 
-    print("Retained MC processes   : " + (", ".join(retained_mc) if retained_mc else "<none>"))
-    print("Retained data processes : " + (", ".join(retained_data) if retained_data else "<none>"))
-    print("Removed MC processes    : " + (", ".join(removed_mc) if removed_mc else "<none>"))
-    print("Removed data processes  : " + (", ".join(removed_data) if removed_data else "<none>"))
+    # print("Retained MC processes   : " + (", ".join(retained_mc) if retained_mc else "<none>"))
+    # print("Retained data processes : " + (", ".join(retained_data) if retained_data else "<none>"))
+    # print("Removed MC processes    : " + (", ".join(removed_mc) if removed_mc else "<none>"))
+    # print("Removed data processes  : " + (", ".join(removed_data) if removed_data else "<none>"))
 
 
 def _print_yield_table(title, bin_labels, yields, errors):
@@ -986,15 +987,16 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 
     return histo.group(axis_name, normalized_map)
 
-TAU_PT_BIN_EDGES = [20, 30, 40, 50, 60, 80, 100, 200]
+TAU_PT_BIN_EDGES = [20, 30, 40, 50, 60, 200]
 
 
 def _extract_tau_pt_edges(axis):
     """Return the raw tau-pt bin edges, parsing categorical axes when needed."""
 
-    if axis.name != "tau0pt":
+    if axis.name not in {"tau0Fpt", "tau0Tpt"}:
         raise RuntimeError(
-            f"Tau pt regrouping requested for unexpected axis '{axis.name}'."
+            "Tau pt regrouping requested for unexpected axis "
+            f"'{axis.name}'. Expected one of: tau0Fpt, tau0Tpt."
         )
 
     try:
@@ -1346,99 +1348,170 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         sample_name for sample_name in all_samples if sample_name not in data_keep
     ]
 
-    var_name = "tau0pt"
-    try:
-        tau_hist = dict_of_hists[var_name]
-    except KeyError as exc:
-        available_keys = sorted(dict_of_hists)
-        available_desc = ", ".join(available_keys) if available_keys else "<none>"
-        raise RuntimeError(
-            "The histogram pickle is missing the required 'tau0pt' histogram. "
-            f"Available histograms: {available_desc}."
-        ) from exc
-    tau_sumw2_hist = dict_of_hists.get(f"{var_name}_sumw2")
+    fake_key = "tau0Fpt"
+    tight_key = "tau0Tpt"
 
-    if tau_sumw2_hist is None:
+    available_keys = sorted(dict_of_hists)
+    available_desc = ", ".join(available_keys) if available_keys else "<none>"
+    for required_key in (fake_key, tight_key):
+        if required_key not in dict_of_hists:
+            raise RuntimeError(
+                f"The histogram pickle is missing the required '{required_key}' histogram. "
+                f"Available histograms: {available_desc}."
+            )
+
+    tau_fake_hist = dict_of_hists[fake_key]
+    tau_tight_hist = dict_of_hists[tight_key]
+    tau_fake_sumw2_hist = dict_of_hists.get(f"{fake_key}_sumw2")
+    tau_tight_sumw2_hist = dict_of_hists.get(f"{tight_key}_sumw2")
+
+    if tau_fake_sumw2_hist is None:
         LOGGER.warning(
             "Histogram '%s_sumw2' is missing; falling back to Poisson statistical uncertainties.",
-            var_name,
+            fake_key,
+        )
+    if tau_tight_sumw2_hist is None:
+        LOGGER.warning(
+            "Histogram '%s_sumw2' is missing; falling back to Poisson statistical uncertainties.",
+            tight_key,
         )
 
-    tau_canonical_axes = _validate_histogram_axes(
-        tau_hist,
-        _TAU_HISTOGRAM_REQUIRED_AXES,
-        var_name,
+    tau_fake_canonical_axes = _validate_histogram_axes(
+        tau_fake_hist,
+        _TAU_FAKE_HISTOGRAM_REQUIRED_AXES,
+        fake_key,
     )
     _validate_tau_channel_coverage(
-        tau_hist,
+        tau_fake_hist,
         "channel",
         ftau_channels,
-        ttau_channels,
-        var_name,
+        (),
+        fake_key,
     )
 
-    if tau_sumw2_hist is not None:
+    tau_tight_canonical_axes = _validate_histogram_axes(
+        tau_tight_hist,
+        _TAU_TIGHT_HISTOGRAM_REQUIRED_AXES,
+        tight_key,
+    )
+    _validate_tau_channel_coverage(
+        tau_tight_hist,
+        "channel",
+        (),
+        ttau_channels,
+        tight_key,
+    )
+
+    if tau_fake_sumw2_hist is not None:
         try:
             _validate_histogram_axes(
-                tau_sumw2_hist,
-                tau_canonical_axes,
-                f"{var_name}_sumw2",
+                tau_fake_sumw2_hist,
+                tau_fake_canonical_axes,
+                f"{fake_key}_sumw2",
             )
         except HistogramAxisError as exc:
-            if set(exc.missing_axes) == {"tau0pt"}:
+            if set(exc.missing_axes) == {fake_key}:
                 LOGGER.warning(
                     "The '%s' histogram is missing the '%s' axis; "
                     "falling back to Poisson counting uncertainties.",
-                    f"{var_name}_sumw2",
-                    "tau0pt",
+                    f"{fake_key}_sumw2",
+                    fake_key,
                 )
-                tau_sumw2_hist = None
+                tau_fake_sumw2_hist = None
             else:
                 raise
         else:
             _validate_tau_channel_coverage(
-                tau_sumw2_hist,
+                tau_fake_sumw2_hist,
                 "channel",
                 ftau_channels,
+                (),
+                f"{fake_key}_sumw2",
+            )
+
+    if tau_tight_sumw2_hist is not None:
+        try:
+            _validate_histogram_axes(
+                tau_tight_sumw2_hist,
+                tau_tight_canonical_axes,
+                f"{tight_key}_sumw2",
+            )
+        except HistogramAxisError as exc:
+            if set(exc.missing_axes) == {tight_key}:
+                LOGGER.warning(
+                    "The '%s' histogram is missing the '%s' axis; "
+                    "falling back to Poisson counting uncertainties.",
+                    f"{tight_key}_sumw2",
+                    tight_key,
+                )
+                tau_tight_sumw2_hist = None
+            else:
+                raise
+        else:
+            _validate_tau_channel_coverage(
+                tau_tight_sumw2_hist,
+                "channel",
+                (),
                 ttau_channels,
-                f"{var_name}_sumw2",
+                f"{tight_key}_sumw2",
             )
 
     # Remove any processes that should not contribute to the MC or data histograms.
     # When no removals are needed, reuse the existing histogram instead of cloning it.
-    hist_mc = _maybe_remove_processes(
-        tau_hist, "process", samples_to_rm_from_mc_hist
+    hist_mc_fake = _maybe_remove_processes(
+        tau_fake_hist, "process", samples_to_rm_from_mc_hist
     )
-    hist_data = _maybe_remove_processes(
-        tau_hist, "process", samples_to_rm_from_data_hist
+    hist_data_fake = _maybe_remove_processes(
+        tau_fake_hist, "process", samples_to_rm_from_data_hist
+    )
+    hist_mc_tight = _maybe_remove_processes(
+        tau_tight_hist, "process", samples_to_rm_from_mc_hist
+    )
+    hist_data_tight = _maybe_remove_processes(
+        tau_tight_hist, "process", samples_to_rm_from_data_hist
     )
 
-    if tau_sumw2_hist is not None:
-        hist_mc_sumw2 = _maybe_remove_processes(
-            tau_sumw2_hist,
+    if tau_fake_sumw2_hist is not None:
+        hist_mc_fake_sumw2 = _maybe_remove_processes(
+            tau_fake_sumw2_hist,
             "process",
             samples_to_rm_from_mc_hist,
         )
-        hist_data_sumw2 = _maybe_remove_processes(
-            tau_sumw2_hist,
+        hist_data_fake_sumw2 = _maybe_remove_processes(
+            tau_fake_sumw2_hist,
             "process",
             samples_to_rm_from_data_hist,
         )
     else:
-        hist_mc_sumw2 = None
-        hist_data_sumw2 = None
+        hist_mc_fake_sumw2 = None
+        hist_data_fake_sumw2 = None
+
+    if tau_tight_sumw2_hist is not None:
+        hist_mc_tight_sumw2 = _maybe_remove_processes(
+            tau_tight_sumw2_hist,
+            "process",
+            samples_to_rm_from_mc_hist,
+        )
+        hist_data_tight_sumw2 = _maybe_remove_processes(
+            tau_tight_sumw2_hist,
+            "process",
+            samples_to_rm_from_data_hist,
+        )
+    else:
+        hist_mc_tight_sumw2 = None
+        hist_data_tight_sumw2 = None
 
     # Integrate to get the categories we want
-    mc_fake = _integrate_tau_channels(hist_mc, ftau_channels)
-    mc_tight = _integrate_tau_channels(hist_mc, ttau_channels)
-    data_fake = _integrate_tau_channels(hist_data, ftau_channels)
-    data_tight = _integrate_tau_channels(hist_data, ttau_channels)
+    mc_fake = _integrate_tau_channels(hist_mc_fake, ftau_channels)
+    mc_tight = _integrate_tau_channels(hist_mc_tight, ttau_channels)
+    data_fake = _integrate_tau_channels(hist_data_fake, ftau_channels)
+    data_tight = _integrate_tau_channels(hist_data_tight, ttau_channels)
 
-    mc_fake_sumw2 = _integrate_tau_channels(hist_mc_sumw2, ftau_channels)
-    mc_tight_sumw2 = _integrate_tau_channels(hist_mc_sumw2, ttau_channels)
+    mc_fake_sumw2 = _integrate_tau_channels(hist_mc_fake_sumw2, ftau_channels)
+    mc_tight_sumw2 = _integrate_tau_channels(hist_mc_tight_sumw2, ttau_channels)
 
-    data_fake_sumw2 = _integrate_tau_channels(hist_data_sumw2, ftau_channels)
-    data_tight_sumw2 = _integrate_tau_channels(hist_data_sumw2, ttau_channels)
+    data_fake_sumw2 = _integrate_tau_channels(hist_data_fake_sumw2, ftau_channels)
+    data_tight_sumw2 = _integrate_tau_channels(hist_data_tight_sumw2, ttau_channels)
 
     # Build fresh grouping maps derived from the current histogram contents so we only
     # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
@@ -1506,7 +1579,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
     )
 
     tau_pt_edges, regroup_slices = _resolve_tau_pt_bins(
-        mc_fake.axes["tau0pt"],
+        mc_fake.axes["tau0Fpt"],
         TAU_PT_BIN_EDGES,
     )
     start_indices = np.fromiter(
@@ -1515,10 +1588,22 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
     pt_bin_starts = tau_pt_edges[start_indices].astype(float, copy=False)
     expected_bins = len(tau_pt_edges) - 1
 
-    data_tau_pt_edges = _extract_tau_pt_edges(data_fake.axes["tau0pt"])
-    if not np.allclose(tau_pt_edges, data_tau_pt_edges):
+    mc_tight_tau_pt_edges = _extract_tau_pt_edges(mc_tight.axes["tau0Tpt"])
+    if not np.allclose(tau_pt_edges, mc_tight_tau_pt_edges):
         raise RuntimeError(
-            "MC and data tau pt axes define different native edges."
+            "MC fake and MC tight tau pt axes define different native edges."
+        )
+
+    data_fake_tau_pt_edges = _extract_tau_pt_edges(data_fake.axes["tau0Fpt"])
+    if not np.allclose(tau_pt_edges, data_fake_tau_pt_edges):
+        raise RuntimeError(
+            "MC fake and data fake tau pt axes define different native edges."
+        )
+
+    data_tight_tau_pt_edges = _extract_tau_pt_edges(data_tight.axes["tau0Tpt"])
+    if not np.allclose(tau_pt_edges, data_tight_tau_pt_edges):
+        raise RuntimeError(
+            "MC fake and data tight tau pt axes define different native edges."
         )
 
     mc_fake_vals, mc_fake_e, mc_tight_vals, mc_tight_e = _extract_grouped_tau_yields(

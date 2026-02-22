@@ -285,6 +285,11 @@ DD_ALIAS_MAP = {
     "2017": ("UL17",),
     "2018": ("UL18",),
 }
+_DD_YEAR_TOKENS_BY_LENGTH = tuple(sorted(DD_YEAR_TOKENS, key=len, reverse=True))
+_DD_YEAR_TOKEN_PATTERNS = {
+    token: re.compile(rf"{re.escape(token)}(?=$|[_-])", re.IGNORECASE)
+    for token in _DD_YEAR_TOKENS_BY_LENGTH
+}
 
 _YEAR_SUFFIX_TOKENS = tuple(sorted(YEAR_TOKEN_RULES, key=len, reverse=True))
 _LEPFLAV_TOKENS = (
@@ -489,11 +494,57 @@ def _preview_channel_axis_labels(histogram_mapping):
     return ()
 
 
-def _warn_missing_split_channels(histogram_mapping, reference_channel_map=None):
+_SPLIT_WARNING_EXPECTED_PREVIEW_LIMIT = 30
+
+
+def _resolve_split_warning_reference_map(region_name):
+    """Return the region-specific channel map used for split-warning diagnostics."""
+
+    region_key = str(region_name or "").upper()
+    if region_key == "CR":
+        return CR_CHAN_DICT
+    if region_key == "SR":
+        return SR_CHAN_DICT
+    return CHANNEL_REFERENCE_MAP
+
+
+def _summarize_expected_split_bins(
+    expected_split_channels,
+    *,
+    preview_limit=_SPLIT_WARNING_EXPECTED_PREVIEW_LIMIT,
+):
+    """Return a compact summary string for expected split-channel labels."""
+
+    count = len(expected_split_channels or ())
+    if count == 0:
+        return "0 total (<unspecified>)"
+
+    if preview_limit is None:
+        preview_limit = _SPLIT_WARNING_EXPECTED_PREVIEW_LIMIT
+
+    limit = max(int(preview_limit), 0)
+    if limit == 0:
+        return f"{count} total"
+
+    preview = list(expected_split_channels[:limit])
+    summary = f"{count} total; showing first {len(preview)}: {', '.join(preview)}"
+    if count > limit:
+        summary = f"{summary}, ..."
+    return summary
+
+
+def _warn_missing_split_channels(
+    histogram_mapping,
+    reference_channel_map=None,
+    *,
+    region_name=None,
+    expected_preview_limit=_SPLIT_WARNING_EXPECTED_PREVIEW_LIMIT,
+):
     """Emit a diagnostic when lepton-flavour split channels are unavailable."""
 
     reference_channel_map = reference_channel_map or {}
     available_channels = _preview_channel_axis_labels(histogram_mapping)
+    region_label = str(region_name or "<unknown>").upper()
 
     expected_split = sorted(
         {
@@ -507,11 +558,14 @@ def _warn_missing_split_channels(histogram_mapping, reference_channel_map=None):
     available_summary = (
         ", ".join(sorted(map(str, available_channels))) if available_channels else "<none>"
     )
-    expected_summary = ", ".join(expected_split) if expected_split else "<unspecified>"
+    expected_summary = _summarize_expected_split_bins(
+        expected_split, preview_limit=expected_preview_limit
+    )
 
     _logger.warning(
-        "Split channel output was requested but lep-flavour labels were not found on the channel axis. "
+        "Split channel output was requested for region=%s but lep-flavour labels were not found on the channel axis. "
         "Available channel bins: %s. Expected flavour-split bins (from configuration): %s.",
+        region_label,
         available_summary,
         expected_summary,
     )
@@ -809,6 +863,37 @@ def _extract_dd_year_tokens_from_cli_years(year_tokens):
     return tuple(collected) if collected else None
 
 
+def _is_data_driven_process_label(label):
+    """Return ``True`` when *label* belongs to a data-driven process family."""
+
+    if not isinstance(label, str):
+        return False
+    return any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS)
+
+
+def _detect_dd_year_token(label: str) -> "str | None":
+    """Return the canonical DD year token detected in *label*, if any."""
+
+    if not isinstance(label, str):
+        return None
+
+    for token in _DD_YEAR_TOKENS_BY_LENGTH:
+        if _DD_YEAR_TOKEN_PATTERNS[token].search(label):
+            return token
+    return None
+
+
+def _dd_label_matches_selected_years(label, dd_year_tokens):
+    """Return ``True`` when DD *label* matches the requested DD year tokens."""
+
+    if dd_year_tokens is None:
+        return True
+    detected_token = _detect_dd_year_token(label)
+    if detected_token is None:
+        return False
+    return detected_token in dd_year_tokens
+
+
 def _hist_has_content(histogram):
     """Return True if *histogram* contains any finite, non-zero entries."""
 
@@ -840,6 +925,20 @@ def _hist_has_content(histogram):
         if np.any(~np.isclose(values[finite_mask], 0.0, atol=1e-12)):
             return True
     return False
+
+
+def _hist_is_empty(histogram):
+    """Return True when *histogram* is None or explicitly empty."""
+
+    if histogram is None:
+        return True
+    empty_fn = getattr(histogram, "empty", None)
+    if not callable(empty_fn):
+        return False
+    try:
+        return bool(empty_fn())
+    except Exception:
+        return True
 
 
 def _integrate_nominal_axis(histogram):
@@ -2121,6 +2220,28 @@ def _render_variable_category(
     stat_and_syst_plots = 0
     html_dirs = set()
 
+    def _warn_undrawable_plot(
+        *,
+        reason,
+        mode,
+        has_mc,
+        has_data_like,
+        mc_empty,
+        data_empty,
+    ):
+        logger.warning(
+            "Skipping undrawable plot (%s): region=%s hist_cat=%s var_name=%s mode=%s has_mc=%s has_data_like=%s mc_empty=%s data_empty=%s",
+            reason,
+            region_ctx.name,
+            hist_cat,
+            var_name,
+            mode,
+            has_mc,
+            has_data_like,
+            mc_empty,
+            data_empty,
+        )
+
     if region_ctx.channel_mode == "aggregate":
         if verbose:
             # Category headings are mainly useful when debugging channel regrouping.
@@ -2211,29 +2332,32 @@ def _render_variable_category(
                 )
 
         if is_sparse2d:
+            if not unblind_flag:
+                logger.warning(
+                    "Skipping 2D plot for hist_cat=%s var_name=%s in blinded mode "
+                    "(MC-only rendering is only implemented for 1D stacked panels).",
+                    hist_cat,
+                    var_name,
+                )
+                return 0, 0, html_dirs
             hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate(
                 "systematic", "nominal"
             )
             hist_data_nominal = hist_data_integrated[{"process": sum}].integrate(
                 "systematic", "nominal"
             )
-            hist_data_like = (
-                hist_data_nominal
-                if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
-                else hist_mc_nominal
-            )
             has_mc = _hist_has_content(hist_mc_nominal)
-            has_data_like = _hist_has_content(hist_data_like)
-            if not has_mc and not has_data_like:
+            has_data = _hist_has_content(hist_data_nominal)
+            if not has_mc and not has_data:
                 logger.warning(
-                    "Empty data-like and MC histogram for hist_cat=%s var_name=%s, skipping 2D plot.",
+                    "Empty data and MC histogram for hist_cat=%s var_name=%s, skipping 2D plot.",
                     hist_cat,
                     var_name,
                 )
                 return 0, 0, html_dirs
             fig = make_sparse2d_fig(
                 hist_mc_nominal,
-                hist_data_like,
+                hist_data_nominal,
                 var_name,
                 channel_name=hist_cat,
                 lumitag=region_ctx.lumi_pair[0],
@@ -2251,18 +2375,39 @@ def _render_variable_category(
             hist_data_integrated = hist_data_integrated.integrate(
                 "systematic", "nominal"
             )
-            hist_data_like = (
-                hist_data_integrated
-                if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
-                else hist_mc_integrated
-            )
             has_mc = _hist_has_content(hist_mc_integrated)
-            has_data_like = _hist_has_content(hist_data_like)
-            if not has_mc and not has_data_like:
-                logger.warning(
-                    "Empty data-like and MC histogram for hist_cat=%s var_name=%s, skipping plot.",
-                    hist_cat,
-                    var_name,
+            has_data = _hist_has_content(hist_data_integrated)
+            has_data_like = has_data
+            mc_empty = _hist_is_empty(hist_mc_integrated)
+            data_empty = _hist_is_empty(hist_data_integrated)
+            if not has_mc:
+                _warn_undrawable_plot(
+                    reason="empty-mc-content",
+                    mode="aggregate",
+                    has_mc=has_mc,
+                    has_data_like=has_data_like,
+                    mc_empty=mc_empty,
+                    data_empty=data_empty,
+                )
+                return 0, 0, html_dirs
+            if unblind_flag and not has_data:
+                _warn_undrawable_plot(
+                    reason="empty-data-content",
+                    mode="aggregate",
+                    has_mc=has_mc,
+                    has_data_like=has_data_like,
+                    mc_empty=mc_empty,
+                    data_empty=data_empty,
+                )
+                return 0, 0, html_dirs
+            if mc_empty or (unblind_flag and data_empty):
+                _warn_undrawable_plot(
+                    reason="empty-or-missing-input",
+                    mode="aggregate",
+                    has_mc=has_mc,
+                    has_data_like=has_data_like,
+                    mc_empty=mc_empty,
+                    data_empty=data_empty,
                 )
                 return 0, 0, html_dirs
             x_range = (0, 250) if var_name == "ht" else None
@@ -2284,7 +2429,7 @@ def _render_variable_category(
                 stacked_kwargs["bins"] = bins_override
             fig = make_region_stacked_ratio_fig(
                 hist_mc_integrated,
-                hist_data_like,
+                hist_data_integrated,
                 unit_norm_bool,
                 var=var_name,
                 group=group,
@@ -2292,6 +2437,16 @@ def _render_variable_category(
                 comtag=region_ctx.lumi_pair[1] if region_ctx.lumi_pair else None,
                 **stacked_kwargs,
             )
+            if fig is None:
+                _warn_undrawable_plot(
+                    reason="make_region_stacked_ratio_fig-returned-none",
+                    mode="aggregate",
+                    has_mc=has_mc,
+                    has_data_like=has_data_like,
+                    mc_empty=mc_empty,
+                    data_empty=data_empty,
+                )
+                return 0, 0, html_dirs
         title = hist_cat + "_" + var_name
         if unit_norm_bool:
             title = title + "_unitnorm"
@@ -2418,18 +2573,41 @@ def _render_variable_category(
                     )
                 syst_err = True
 
-        if not _hist_has_content(hist_mc_integrated):
-            print("Warning: empty mc histo, continuing")
+        has_mc = _hist_has_content(hist_mc_integrated)
+        has_data = _hist_has_content(hist_data_integrated)
+        has_data_like = has_data
+        if not has_mc:
+            _warn_undrawable_plot(
+                reason="empty-mc-content",
+                mode="per-channel",
+                has_mc=has_mc,
+                has_data_like=has_data_like,
+                mc_empty=_hist_is_empty(hist_mc_integrated),
+                data_empty=_hist_is_empty(hist_data_integrated),
+            )
             return 0, 0, html_dirs
-        if unblind_flag and not _hist_has_content(hist_data_integrated):
-            print("Warning: empty data histo, continuing")
+        if unblind_flag and not has_data:
+            _warn_undrawable_plot(
+                reason="empty-data-content",
+                mode="per-channel",
+                has_mc=has_mc,
+                has_data_like=has_data_like,
+                mc_empty=_hist_is_empty(hist_mc_integrated),
+                data_empty=_hist_is_empty(hist_data_integrated),
+            )
             return 0, 0, html_dirs
-
-        hist_data_to_plot = (
-            hist_data_integrated
-            if (unblind_flag or not region_ctx.use_mc_as_data_when_blinded)
-            else hist_mc_integrated
-        )
+        mc_empty = _hist_is_empty(hist_mc_integrated)
+        data_empty = _hist_is_empty(hist_data_integrated)
+        if mc_empty or (unblind_flag and data_empty):
+            _warn_undrawable_plot(
+                reason="empty-or-missing-input",
+                mode="per-channel",
+                has_mc=has_mc,
+                has_data_like=has_data_like,
+                mc_empty=mc_empty,
+                data_empty=data_empty,
+            )
+            return 0, 0, html_dirs
         title = f"{display_label}_{var_name}"
         if not region_ctx.preserve_njets_bins:
             title = re.sub(r"_(\d+)j(?=_)", "", title, flags=re.IGNORECASE)
@@ -2457,11 +2635,21 @@ def _render_variable_category(
             stacked_kwargs["bins"] = bins_to_use
         fig = make_region_stacked_ratio_fig(
             hist_mc_integrated,
-            hist_data_to_plot,
+            hist_data_integrated,
             var=var_name,
             unit_norm_bool=unit_norm_bool,
             **stacked_kwargs,
         )
+        if fig is None:
+            _warn_undrawable_plot(
+                reason="make_region_stacked_ratio_fig-returned-none",
+                mode="per-channel",
+                has_mc=has_mc,
+                has_data_like=has_data_like,
+                mc_empty=mc_empty,
+                data_empty=data_empty,
+            )
+            return 0, 0, html_dirs
         save_path = os.path.join(save_dir_path_tmp, f"{title}.png")
         fig.savefig(save_path, bbox_inches="tight", pad_inches=0.05)
         if not region_ctx.preserve_njets_bins:
@@ -2831,32 +3019,41 @@ def _draw_stacked_panel(
     *,
     log_scale=False,
     style=None,
+    include_ratio_panel=True,
 ):
-    """Render the stacked MC panel and ratio subplot, returning figure objects and MC summaries."""
+    """Render stacked MC content, optionally with data and ratio subpanels."""
 
     style = {} if style is None else style
+    axes_style = _style_get(style, ("axes",), {})
+    axis_label_fontsize = axes_style.get("label_fontsize", 18)
     figure_style = _style_get(style, ("figure",), {})
     figsize = tuple(figure_style.get("figsize", (10, 8)))
     height_ratios = tuple(figure_style.get("height_ratios", (4, 1)))
     if len(height_ratios) != 2:
         height_ratios = (4, 1)
     hep.style.use("CMS")
-    fig, (ax, rax) = plt.subplots(
-        nrows=2,
-        ncols=1,
-        figsize=figsize,
-        gridspec_kw={"height_ratios": height_ratios},
-        sharex=True,
-    )
-    fig.subplots_adjust(hspace=figure_style.get("hspace", 0.07))
+    if include_ratio_panel:
+        fig, (ax, rax) = plt.subplots(
+            nrows=2,
+            ncols=1,
+            figsize=figsize,
+            gridspec_kw={"height_ratios": height_ratios},
+            sharex=True,
+        )
+        fig.subplots_adjust(hspace=figure_style.get("hspace", 0.07))
+    else:
+        single_panel_figsize = tuple(figure_style.get("single_panel_figsize", figsize))
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=single_panel_figsize)
+        rax = None
 
     plt.sca(ax)
     cms_style = _style_get(style, ("cms",), {})
     cms_fontsize = cms_style.get("fontsize", 18.0)
     cms_label = hep.cms.label(lumi=lumitag, com=comtag, fontsize=cms_fontsize)
+    ax.set_ylabel("Events", fontsize=axis_label_fontsize)
 
     summed_mc = h_mc[{"process": sum}]
-    summed_data = h_data[{"process": sum}]
+    summed_data = h_data[{"process": sum}] if h_data is not None else None
 
     summed_mc_edges = None
     if hasattr(summed_mc, "axes"):
@@ -2866,7 +3063,7 @@ def _draw_stacked_panel(
             summed_mc_edges = None
 
     summed_data_edges = None
-    if hasattr(summed_data, "axes"):
+    if summed_data is not None and hasattr(summed_data, "axes"):
         try:
             summed_data_edges = summed_data.axes[var].edges
         except KeyError:
@@ -2877,7 +3074,9 @@ def _draw_stacked_panel(
     if summed_data_edges is None:
         summed_data_edges = summed_mc_edges
 
-    default_bins = summed_data_edges if bins is None else bins
+    default_bins = (summed_mc_edges if summed_mc_edges is not None else summed_data_edges)
+    if bins is not None:
+        default_bins = bins
     if default_bins is None:
         raise ValueError("Histogram axis has fewer than two edges; cannot determine binning.")
     bins = np.asarray(default_bins, dtype=float)
@@ -2886,6 +3085,8 @@ def _draw_stacked_panel(
     axis_traits = None
     axis_obj = None
     for candidate in (summed_mc, summed_data, h_mc, h_data):
+        if candidate is None:
+            continue
         axes = getattr(candidate, "axes", None)
         if axes is None:
             continue
@@ -2975,7 +3176,11 @@ def _draw_stacked_panel(
         return visible
 
     summed_mc_values_flow = _values_with_flow_or_overflow(summed_mc)
-    summed_data_values_flow = _values_with_flow_or_overflow(summed_data)
+    summed_data_values_flow = (
+        _values_with_flow_or_overflow(summed_data)
+        if summed_data is not None
+        else np.zeros_like(summed_mc_values_flow)
+    )
     summed_mc_values = _visible_from_flow(
         summed_mc_values_flow,
         n_bins,
@@ -3094,58 +3299,58 @@ def _draw_stacked_panel(
     if log_y_baseline is not None:
         ax.set_ylim(bottom=log_y_baseline)
 
-    # uncomment below once unblinded
+    ratio_vals = None
+    ratio_yerr = None
+    mc_totals = summed_mc_values
+    if include_ratio_panel:
+        hep.histplot(
+           summed_data_values,
+           ax=ax,
+           bins=bins,
+           stack=False,
+           density=unit_norm_bool,
+           label="Data",
+           histtype="errorbar",
+           **DATA_ERR_OPS,
+        )
 
-    #hep.histplot(
-    #    summed_data_values,
-    #    ax=ax,
-    #    bins=bins,
-    #    stack=False,
-    #    density=unit_norm_bool,
-    #    label="Data",
-    #    histtype="errorbar",
-    #    **DATA_ERR_OPS,
-    #)
+        data_vals = summed_data_values
+        mc_vals_total = summed_mc_values
 
-    data_vals = summed_data_values
-    mc_vals_total = summed_mc_values
+        ratio_vals = _safe_divide(
+            data_vals,
+            mc_vals_total,
+            default=np.nan,
+            zero_over_zero=1.0,
+        )
+        ratio_yerr = _safe_divide(
+            np.sqrt(data_vals),
+            mc_vals_total,
+            default=0.0,
+        )
+        ratio_yerr[mc_vals_total == 0] = np.nan
 
-    ratio_vals = _safe_divide(
-        data_vals,
-        mc_vals_total,
-        default=np.nan,
-        zero_over_zero=1.0,
-    )
-    ratio_yerr = _safe_divide(
-        np.sqrt(data_vals),
-        mc_vals_total,
-        default=0.0,
-    )
-    ratio_yerr[mc_vals_total == 0] = np.nan
+        mc_nonpositive_mask = mc_vals_total <= 0
+        zero_over_zero_mask = (mc_vals_total == 0) & (data_vals == 0)
+        mask_for_nan = mc_nonpositive_mask & ~zero_over_zero_mask
+        if np.any(mask_for_nan):
+            ratio_vals = ratio_vals.astype(float, copy=True)
+            ratio_yerr = ratio_yerr.astype(float, copy=True)
+            ratio_vals[mask_for_nan] = np.nan
+            ratio_yerr[mask_for_nan] = np.nan
 
-    mc_nonpositive_mask = mc_vals_total <= 0
-    zero_over_zero_mask = (mc_vals_total == 0) & (data_vals == 0)
-    mask_for_nan = mc_nonpositive_mask & ~zero_over_zero_mask
-    if np.any(mask_for_nan):
-        ratio_vals = ratio_vals.astype(float, copy=True)
-        ratio_yerr = ratio_yerr.astype(float, copy=True)
-        ratio_vals[mask_for_nan] = np.nan
-        ratio_yerr[mask_for_nan] = np.nan
+        hep.histplot(
+           ratio_vals,
+           yerr=ratio_yerr,
+           ax=rax,
+           bins=bins,
+           stack=False,
+           density=unit_norm_bool,
+           histtype="errorbar",
+           **DATA_ERR_OPS,
+        )
 
-    # uncomment below once unblinded
-    
-    #hep.histplot(
-    #    ratio_vals,
-    #    yerr=ratio_yerr,
-    #    ax=rax,
-    #    bins=bins,
-    #    stack=False,
-    #    density=unit_norm_bool,
-    #    histtype="errorbar",
-    #    **DATA_ERR_OPS,
-    #)
-
-    mc_totals = mc_vals_total
+        mc_totals = mc_vals_total
 
     return {
         "fig": fig,
@@ -3161,6 +3366,44 @@ def _draw_stacked_panel(
         "ratio_values": ratio_vals,
         "ratio_errors": ratio_yerr,
     }
+
+
+def _draw_stacked_panel_only(
+    h_mc,
+    h_data,
+    grouping,
+    colors,
+    axis,
+    var,
+    bins,
+    unit_norm_bool,
+    lumitag,
+    comtag,
+    h_mc_sumw2,
+    mc_scaled,
+    mc_norm_factor,
+    *,
+    log_scale=False,
+    style=None,
+):
+    return _draw_stacked_panel(
+        h_mc,
+        h_data,
+        grouping,
+        colors,
+        axis,
+        var,
+        bins,
+        unit_norm_bool,
+        lumitag,
+        comtag,
+        h_mc_sumw2,
+        mc_scaled,
+        mc_norm_factor,
+        log_scale=log_scale,
+        style=style,
+        include_ratio_panel=False,
+    )
 
 
 def _compute_uncertainty_bands(
@@ -3187,6 +3430,7 @@ def _compute_uncertainty_bands(
     """Compute and draw statistical/systematic uncertainty bands for the stacked plot."""
 
     style = {} if style is None else style
+    has_ratio_axis = rax is not None
 
     if mc_totals.size == 0:
         return {"main_band_handles": []}
@@ -3215,9 +3459,12 @@ def _compute_uncertainty_bands(
 
     mc_stat_unc = np.sqrt(np.clip(summed_mc_sumw2, a_min=0, a_max=None))
 
-    has_syst_arrays = all(
-        arr is not None
-        for arr in (err_p_syst, err_m_syst, err_ratio_p_syst, err_ratio_m_syst)
+    has_main_syst_arrays = all(arr is not None for arr in (err_p_syst, err_m_syst))
+    has_ratio_syst_arrays = all(
+        arr is not None for arr in (err_ratio_p_syst, err_ratio_m_syst)
+    )
+    has_syst_arrays = has_main_syst_arrays and (
+        has_ratio_syst_arrays or not has_ratio_axis
     )
 
     valid_modes = {"stat", "syst", "total"}
@@ -3250,11 +3497,15 @@ def _compute_uncertainty_bands(
     syst_up = syst_down = ratio_syst_up = ratio_syst_down = None
     mc_total_band_up = mc_total_band_down = None
     ratio_total_band_up = ratio_total_band_down = None
-    if has_syst_arrays:
+    if has_main_syst_arrays:
         syst_up = np.asarray(err_p_syst)
         syst_down = np.asarray(err_m_syst)
-        ratio_syst_up = np.asarray(err_ratio_p_syst)
-        ratio_syst_down = np.asarray(err_ratio_m_syst)
+        ratio_syst_up = (
+            np.asarray(err_ratio_p_syst) if has_ratio_syst_arrays else None
+        )
+        ratio_syst_down = (
+            np.asarray(err_ratio_m_syst) if has_ratio_syst_arrays else None
+        )
 
         def _trim_overflow(arr):
             if arr is None:
@@ -3336,7 +3587,11 @@ def _compute_uncertainty_bands(
                 label=syst_label,
                 hatch="////",
             )
-        if ratio_syst_band_up is not None and ratio_syst_band_down is not None:
+        if (
+            has_ratio_axis
+            and ratio_syst_band_up is not None
+            and ratio_syst_band_down is not None
+        ):
             ratio_syst_handle = rax.fill_between(
                 bins,
                 ratio_syst_band_down,
@@ -3361,7 +3616,11 @@ def _compute_uncertainty_bands(
                 label="_nolegend_",
             )
             main_band_handles.append((stat_handle_main, stat_label))
-        if ratio_stat_band_up is not None and ratio_stat_band_down is not None:
+        if (
+            has_ratio_axis
+            and ratio_stat_band_up is not None
+            and ratio_stat_band_down is not None
+        ):
             ratio_stat_handle = rax.fill_between(
                 bins,
                 ratio_stat_band_down,
@@ -3388,7 +3647,11 @@ def _compute_uncertainty_bands(
                     hatch="////",
                 )
                 main_band_handles.append((total_handle_main, total_label))
-            if ratio_total_band_up is not None and ratio_total_band_down is not None:
+            if (
+                has_ratio_axis
+                and ratio_total_band_up is not None
+                and ratio_total_band_down is not None
+            ):
                 ratio_total_handle = rax.fill_between(
                     bins,
                     ratio_total_band_down,
@@ -3401,7 +3664,7 @@ def _compute_uncertainty_bands(
                 )
                 ratio_band_handles.append(ratio_total_handle)
 
-    if ratio_band_handles:
+    if has_ratio_axis and ratio_band_handles:
         ratio_legend_style = _style_get(style, ("ratio_band_legend",), {})
         legend_kwargs = {
             "loc": ratio_legend_style.get("loc", "upper left"),
@@ -3429,6 +3692,61 @@ def _compute_uncertainty_bands(
     }
 
 
+def _anchor_figure_legend_above_axes(
+    fig,
+    legend,
+    *,
+    legend_top_margin_min,
+    legend_top_margin_scale,
+):
+    if legend is None:
+        return {
+            "legend_box": None,
+            "legend_anchor": None,
+            "required_headroom": None,
+            "top_adjusted": False,
+            "legend_is_figure_anchored": False,
+        }
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    legend_bbox = legend.get_window_extent(renderer=renderer)
+    legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+    measured_height = legend_box.height
+    buffer = max(legend_top_margin_min, legend_top_margin_scale * measured_height)
+    anchor_y = max(0.0, 1.0 - buffer)
+    legend_anchor = [0.5, anchor_y]
+    legend.set_bbox_to_anchor(tuple(legend_anchor), fig.transFigure)
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    legend_bbox = legend.get_window_extent(renderer=renderer)
+    legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+    legend_height = legend_box.height
+    buffer = max(buffer, legend_top_margin_min)
+    required_headroom = legend_height + buffer
+
+    subplot_params = fig.subplotpars
+    available_top = np.clip(1.0 - required_headroom, 0.0, 1.0)
+    available_top = np.clip(min(available_top, legend_box.y0), 0.0, 1.0)
+    top_adjusted = False
+    if subplot_params.top > available_top:
+        plt.subplots_adjust(top=available_top)
+        top_adjusted = True
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        legend_bbox = legend.get_window_extent(renderer=renderer)
+        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+
+    return {
+        "legend_box": legend_box,
+        "legend_anchor": legend_anchor,
+        "required_headroom": required_headroom,
+        "top_adjusted": top_adjusted,
+        "legend_is_figure_anchored": True,
+    }
+
+
 
 def _finalize_layout(
     fig,
@@ -3439,15 +3757,15 @@ def _finalize_layout(
     display_label,
     *,
     label_artist=None,
-    events_artist=None,
-    ratio_anchor=None,
-    events_anchor=None,
     legend_anchor=None,
     legend_is_figure=False,
     style=None,
 ):
     """Align legends and axis annotations after all plotting calls."""
 
+    axis_objects = [ax]
+    if rax is not None:
+        axis_objects.append(rax)
     legend_anchor_local = list(legend_anchor) if legend_anchor is not None else None
     style = {} if style is None else style
     legend_style = _style_get(style, ("legend",), {})
@@ -3548,16 +3866,22 @@ def _finalize_layout(
             if vertical_overlap:
                 shift = cms_box.y1 - legend_box.y0 + legend_overlap_margin
                 if shift > 0:
-                    ax_box = ax.get_position()
-                    rax_box = rax.get_position()
-                    ax.set_position([ax_box.x0, ax_box.y0 - shift, ax_box.width, ax_box.height])
-                    rax.set_position([rax_box.x0, rax_box.y0 - shift, rax_box.width, rax_box.height])
+                    for axis_obj in axis_objects:
+                        axis_box = axis_obj.get_position()
+                        axis_obj.set_position(
+                            [
+                                axis_box.x0,
+                                axis_box.y0 - shift,
+                                axis_box.width,
+                                axis_box.height,
+                            ]
+                        )
                     renderer = _draw_and_get_renderer()
                     legend_bbox = legend.get_window_extent(renderer=renderer)
                     legend_box = legend_bbox.transformed(fig.transFigure.inverted())
 
     axis_bboxes = []
-    for axis_obj in (ax, rax):
+    for axis_obj in axis_objects:
         try:
             bbox = axis_obj.get_tightbbox(renderer)
         except Exception:
@@ -3568,12 +3892,12 @@ def _finalize_layout(
     if axis_bboxes:
         rightmost_extent = max(bbox.x1 for bbox in axis_bboxes)
     else:
-        rightmost_extent = max(ax.get_position().x1, rax.get_position().x1)
+        rightmost_extent = max(axis_obj.get_position().x1 for axis_obj in axis_objects)
 
     subplot_params = fig.subplotpars
     effective_right = min(np.nextafter(1.0, 0.0), rightmost_extent + 0.003)
     if not np.isclose(effective_right, subplot_params.right):
-        stored_positions = [ax.get_position().frozen(), rax.get_position().frozen()]
+        stored_positions = [axis_obj.get_position().frozen() for axis_obj in axis_objects]
         plt.subplots_adjust(
             bottom=subplot_params.bottom,
             top=subplot_params.top,
@@ -3583,7 +3907,7 @@ def _finalize_layout(
             wspace=subplot_params.wspace,
         )
         renderer = _draw_and_get_renderer()
-        for axis_obj, original in zip((ax, rax), stored_positions):
+        for axis_obj, original in zip(axis_objects, stored_positions):
             updated = axis_obj.get_position()
             delta_y = original.y0 - updated.y0
             if not np.isclose(delta_y, 0.0):
@@ -3592,9 +3916,11 @@ def _finalize_layout(
                 )
         renderer = _draw_and_get_renderer()
 
-    def _ratio_axis_min_y(current_renderer):
+    axis_for_bottom = rax if rax is not None else ax
+
+    def _label_axis_min_y(current_renderer):
         bboxes = []
-        for tick_label in rax.get_xticklabels():
+        for tick_label in axis_for_bottom.get_xticklabels():
             if not tick_label.get_visible():
                 continue
             text = tick_label.get_text()
@@ -3602,17 +3928,18 @@ def _finalize_layout(
                 continue
             bbox = tick_label.get_window_extent(renderer=current_renderer)
             bboxes.append(bbox.transformed(fig.transFigure.inverted()))
-        axis_label = rax.xaxis.label
+        axis_label = axis_for_bottom.xaxis.label
         if axis_label and axis_label.get_visible():
             axis_bbox = axis_label.get_window_extent(renderer=current_renderer)
             bboxes.append(axis_bbox.transformed(fig.transFigure.inverted()))
         if bboxes:
             return min(b.y0 for b in bboxes)
-        return rax.get_position().y0
+        return axis_for_bottom.get_position().y0
 
+    reference_label = axis_for_bottom.yaxis.label
     default_label_size = (
-        rax.yaxis.label.get_size()
-        if rax.yaxis.label
+        reference_label.get_size()
+        if reference_label
         else plt.rcParams.get("axes.labelsize", 18)
     )
     label_fontsize = axes_style.get("label_fontsize", default_label_size)
@@ -3621,7 +3948,7 @@ def _finalize_layout(
     temp_bbox = temp.get_window_extent(renderer=renderer)
     temp.remove()
     measured_height = temp_bbox.transformed(fig.transFigure.inverted()).height
-    label_y = _ratio_axis_min_y(renderer) - measured_height - ratio_label_margin
+    label_y = _label_axis_min_y(renderer) - measured_height - ratio_label_margin
 
     subplot_params = fig.subplotpars
     new_bottom = np.clip(max(0.0, label_y - ratio_label_margin), 0.0, 1.0)
@@ -3635,58 +3962,13 @@ def _finalize_layout(
             wspace=subplot_params.wspace,
         )
         renderer = _draw_and_get_renderer()
-        label_y = _ratio_axis_min_y(renderer) - measured_height - ratio_label_margin
+        label_y = _label_axis_min_y(renderer) - measured_height - ratio_label_margin
 
-    renderer = _draw_and_get_renderer()
-    ax_box = ax.get_position()
-    rax_box = rax.get_position()
-
-    ratio_label_fig = None
-    ratio_label = rax.yaxis.label
-    if ratio_label is not None:
-        try:
-            ratio_pos = np.asarray(ratio_label.get_position(), dtype=float)
-            ratio_transform = ratio_label.get_transform()
-            if ratio_transform is not None:
-                ratio_display = ratio_transform.transform([ratio_pos])[0]
-                ratio_label_fig = fig.transFigure.inverted().transform(ratio_display)
-        except Exception:
-            ratio_label_fig = None
-    if ratio_label_fig is None and ratio_anchor is not None:
-        ratio_label_fig = ratio_anchor
-
-    events_x, events_y = events_anchor if events_anchor is not None else (None, None)
-    if ratio_label_fig is not None:
-        events_x = ratio_label_fig[0]
-    if events_x is None:
-        events_x = rax_box.x0 + rax_box.width
-    current_events_y = ax_box.y0 + ax_box.height
-    if current_events_y is not None:
-        events_y = current_events_y
-    elif events_y is None:
-        events_y = rax_box.y0 + rax_box.height
-
-    if events_artist is None or not isinstance(events_artist, mpl.text.Text):
-        events_artist = fig.text(
-            events_x,
-            events_y,
-            "Events",
-            ha="right",
-            va="bottom",
-            fontsize=label_fontsize,
-            rotation=90,
-        )
-    else:
-        events_artist.set_position((events_x, events_y))
-        events_artist.set_text("Events")
-        events_artist.set_fontsize(label_fontsize)
-        events_artist.set_rotation(90)
-        events_artist.set_ha("right")
-        events_artist.set_va("bottom")
+    _axes_bbox_for_labeling = rax.get_position() if rax is not None else ax.get_position()
 
     if label_artist is None or not isinstance(label_artist, mpl.text.Text):
         label_artist = fig.text(
-            rax_box.x0 + rax_box.width,
+            _axes_bbox_for_labeling.x0 + _axes_bbox_for_labeling.width,
             label_y,
             display_label,
             ha="right",
@@ -3694,13 +3976,15 @@ def _finalize_layout(
             fontsize=label_fontsize,
         )
     else:
-        label_artist.set_position((rax_box.x0 + rax_box.width, label_y))
+        label_artist.set_position(
+            (_axes_bbox_for_labeling.x0 + _axes_bbox_for_labeling.width, label_y)
+        )
         label_artist.set_text(display_label)
         label_artist.set_fontsize(label_fontsize)
         label_artist.set_ha("right")
         label_artist.set_va("bottom")
 
-    return label_artist, events_artist, legend_anchor_local
+    return label_artist, legend_anchor_local
 
 
 def _sample_in_group(sample_name, candidates, canonical_sample=None):
@@ -4015,7 +4299,6 @@ class RegionContext(object):
         debug_channel_lists=False,
         sumw2_remove_signal=False,
         sumw2_remove_signal_when_blinded=False,
-        use_mc_as_data_when_blinded=False,
         rate_syst_by_sample=None,
         preserve_njets_bins=False,
     ):
@@ -4076,7 +4359,6 @@ class RegionContext(object):
         self.sumw2_remove_signal_when_blinded = bool(
             sumw2_remove_signal_when_blinded
         )
-        self.use_mc_as_data_when_blinded = bool(use_mc_as_data_when_blinded)
         self.rate_syst_by_sample = rate_syst_by_sample
         self.preserve_njets_bins = bool(preserve_njets_bins)
 
@@ -4244,6 +4526,9 @@ def build_region_context(
         must_have_tokens = list(dict.fromkeys(must_have_tokens))
         optional_tokens = list(dict.fromkeys(optional_tokens))
         optional_token_set = set(optional_tokens)
+        dd_year_token_set = (
+            frozenset(dd_year_tokens) if dd_year_tokens is not None else None
+        )
 
         year_token_cache = {}
 
@@ -4291,6 +4576,12 @@ def build_region_context(
             if require_optional_tokens and optional_tokens:
                 if not present_tokens.intersection(optional_token_set):
                     return False
+            if (
+                dd_year_token_set is not None
+                and _is_data_driven_process_label(label)
+                and not _dd_label_matches_selected_years(label, dd_year_token_set)
+            ):
+                return False
             return True
 
         filtered = [
@@ -4304,15 +4595,13 @@ def build_region_context(
             for label in all_labels:
                 if label in filtered_set:
                     continue
-                if not any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
+                if not _is_data_driven_process_label(label):
                     continue
                 if any(token in label for token in blacklist):
                     continue
                 if must_have_tokens and any(token not in label for token in must_have_tokens):
                     continue
-                if dd_year_tokens is not None and not any(
-                    token in label for token in dd_year_tokens
-                ):
+                if not _dd_label_matches_selected_years(label, dd_year_token_set):
                     continue
                 filtered.append(label)
                 filtered_set.add(label)
@@ -4404,9 +4693,6 @@ def build_region_context(
     sumw2_remove_signal_when_blinded = region_plot_cfg.get(
         "sumw2_remove_signal_when_blinded", False
     )
-    use_mc_as_data_when_blinded = region_plot_cfg.get(
-        "use_mc_as_data_when_blinded", False
-    )
 
     removed_mc_samples = set(samples_to_remove.get("mc", ()))
     removed_data_samples = set(samples_to_remove.get("data", ()))
@@ -4480,7 +4766,6 @@ def build_region_context(
         debug_channel_lists=debug_channel_lists,
         sumw2_remove_signal=sumw2_remove_signal,
         sumw2_remove_signal_when_blinded=sumw2_remove_signal_when_blinded,
-        use_mc_as_data_when_blinded=use_mc_as_data_when_blinded,
         rate_syst_by_sample=rate_syst_by_sample,
         preserve_njets_bins=preserve_njets_bins,
     )
@@ -5581,8 +5866,8 @@ def make_sparse2d_fig(
     return single_panel_figs
 
 
-# Takes two histograms and makes a region-level stacked ratio plot (with only one sparse axis, which should be "process").
-# One histogram should encode the MC prediction while the other carries the data yields (or MC-substituted data when blinded).
+# Takes two histograms and makes a region-level stacked plot.
+# In unblinded mode it includes a data/MC ratio panel; in blinded mode it renders MC only.
 def make_region_stacked_ratio_fig(
     h_mc,
     h_data,
@@ -5763,11 +6048,13 @@ def make_region_stacked_ratio_fig(
     ticklabel_format_cfg = axes_style.get("ticklabel_format")
     secondary_ticks_cfg = axes_style.get("apply_secondary_ticks", {})
 
-    if h_mc is None or h_data is None:
+    if h_mc is None:
+        return None
+    if unblind and h_data is None:
         return None
     if getattr(h_mc, "empty", False) and h_mc.empty():
         return None
-    if getattr(h_data, "empty", False) and h_data.empty():
+    if unblind and getattr(h_data, "empty", False) and h_data.empty():
         return None
 
     default_colors = DEFAULT_STACK_COLORS
@@ -5848,23 +6135,42 @@ def make_region_stacked_ratio_fig(
     mc_norm_factor = norm_info["mc_norm_factor"]
     mc_scaled = norm_info["mc_scaled"]
 
-    panel_info = _draw_stacked_panel(
-        h_mc,
-        h_data,
-        grouping,
-        colors,
-        axis,
-        var,
-        plot_bins,
-        unit_norm_bool,
-        lumitag,
-        comtag,
-        h_mc_sumw2,
-        mc_scaled,
-        mc_norm_factor,
-        log_scale=log_scale,
-        style=style,
-    )
+    if unblind:
+        panel_info = _draw_stacked_panel(
+            h_mc,
+            h_data,
+            grouping,
+            colors,
+            axis,
+            var,
+            plot_bins,
+            unit_norm_bool,
+            lumitag,
+            comtag,
+            h_mc_sumw2,
+            mc_scaled,
+            mc_norm_factor,
+            log_scale=log_scale,
+            style=style,
+        )
+    else:
+        panel_info = _draw_stacked_panel_only(
+            h_mc,
+            h_data,
+            grouping,
+            colors,
+            axis,
+            var,
+            plot_bins,
+            unit_norm_bool,
+            lumitag,
+            comtag,
+            h_mc_sumw2,
+            mc_scaled,
+            mc_norm_factor,
+            log_scale=log_scale,
+            style=style,
+        )
 
     fig = panel_info["fig"]
     ax = panel_info["ax"]
@@ -5875,6 +6181,7 @@ def make_region_stacked_ratio_fig(
     mc_totals = panel_info["mc_totals"]
     adjusted_mc_totals = panel_info.get("adjusted_mc_totals")
     log_axis_enabled = panel_info.get("log_axis_enabled", False)
+    has_ratio_axis = rax is not None
     use_log_y = log_axis_enabled
     log_y_baseline = panel_info.get("log_y_baseline")
 
@@ -5933,50 +6240,7 @@ def make_region_stacked_ratio_fig(
 
     main_band_handles = band_info.get("main_band_handles", [])
 
-    ratio_arrays = []
-    data_ratio_arrays = []
-
-    ratio_values = panel_info.get("ratio_values")
-    ratio_errors = panel_info.get("ratio_errors")
-    if ratio_values is not None:
-        ratio_arrays.append(np.asarray(ratio_values, dtype=float))
-        data_ratio_arrays.append(np.asarray(ratio_values, dtype=float))
-        if ratio_errors is not None:
-            ratio_lower = np.asarray(ratio_values, dtype=float) - np.asarray(
-                ratio_errors, dtype=float
-            )
-            ratio_upper = np.asarray(ratio_values, dtype=float) + np.asarray(
-                ratio_errors, dtype=float
-            )
-            ratio_arrays.extend([ratio_lower, ratio_upper])
-            data_ratio_arrays.extend([ratio_lower, ratio_upper])
-
-    for key in (
-        "ratio_stat_band_down",
-        "ratio_stat_band_up",
-        "ratio_syst_band_down",
-        "ratio_syst_band_up",
-        "ratio_total_band_down",
-        "ratio_total_band_up",
-    ):
-        arr = band_info.get(key)
-        if arr is not None:
-            ratio_arrays.append(np.asarray(arr, dtype=float))
-
-    (
-        ratio_limits,
-        exceeds_largest_window,
-        data_exceeds_largest_window,
-    ) = _determine_ratio_window(ratio_arrays, data_ratio_arrays)
-
-    if exceeds_largest_window or data_exceeds_largest_window:
-        warnings.warn(
-            "Ratio data exceed the [-1.0, 3.0] limits; values outside the plotted range will be clipped.",
-            RuntimeWarning,
-        )
-
     ax.autoscale(axis="y")
-    ax.set_xlabel(None)
     ax.tick_params(axis="both", labelsize=tick_labelsize, width=tick_width, length=tick_length)
     ax.tick_params(axis="both", which="minor", width=tick_width, length=minor_tick_length)
     for spine in ax.spines.values():
@@ -6000,94 +6264,144 @@ def make_region_stacked_ratio_fig(
         ax.yaxis.offsetText.set_x(y_offset)
     ax.yaxis.offsetText.set_fontsize(offset_fontsize)
 
-    rax.set_ylabel(ratio_label_text, loc="center", fontsize=ratio_label_fontsize)
-    rax.set_ylim(*ratio_limits)
-    rax.tick_params(
-        axis="both", labelsize=ratio_tick_labelsize, width=tick_width, length=tick_length
-    )
-    rax.tick_params(axis="both", which="minor", width=tick_width, length=minor_tick_length)
-    for spine in rax.spines.values():
-        spine.set_linewidth(spine_width)
-
-    # Ensure the ratio axis always includes a unity tick while preserving the
-    # spacing chosen by the existing locator and enforcing ticks at the bounds.
-    ratio_major_locator = rax.yaxis.get_major_locator()
-    ratio_major_formatter = rax.yaxis.get_major_formatter()
-    ratio_low, ratio_high = rax.get_ylim()
-    include_unity = ratio_low <= 1.0 <= ratio_high
-
-    major_ticks = None
-    if ratio_major_locator is not None:
-        try:
-            major_ticks = np.asarray(
-                ratio_major_locator.tick_values(ratio_low, ratio_high), dtype=float
-            )
-        except Exception:
-            major_ticks = None
-    if major_ticks is None or not np.size(major_ticks):
-        major_ticks = np.asarray(rax.get_yticks(), dtype=float)
-
-    ticks = np.asarray(major_ticks, dtype=float)
-    finite_mask = np.isfinite(ticks)
-    ticks = ticks[finite_mask]
-    # Filter to ticks that are compatible with the current display range.
-    in_range_mask = (ticks >= ratio_low) & (ticks <= ratio_high)
-    ticks = ticks[in_range_mask]
-
-    for bound in (ratio_low, ratio_high):
-        if not np.any(np.isclose(ticks, bound, rtol=1e-9, atol=1e-12)):
-            ticks = np.append(ticks, bound)
-
-    if include_unity and not np.any(np.isclose(ticks, 1.0, rtol=1e-9, atol=1e-12)):
-        ticks = np.append(ticks, 1.0)
-
-    if ticks.size:
-        ticks = np.unique(ticks)
-        ticks.sort()
-        rax.yaxis.set_major_locator(FixedLocator(ticks.tolist()))
-        # Reapply the formatter to preserve styling (e.g., mathtext/scientific).
-        if ratio_major_formatter is not None:
-            rax.yaxis.set_major_formatter(ratio_major_formatter)
-
-    fig.canvas.draw()
-    xticks = rax.get_xticks()
-    xtick_labels = [tick.get_text() for tick in rax.get_xticklabels()]
-    if (
-        overflow_label is not None
-        and xtick_labels
-        and len(xtick_labels) == len(xticks)
-    ):
-        xtick_labels[-1] = overflow_label
-        rax.xaxis.set_major_locator(FixedLocator(xticks))
-        rax.xaxis.set_major_formatter(FixedFormatter(xtick_labels))
-
     apply_minor_x = bool(secondary_ticks_cfg.get("x", True))
     apply_minor_y = bool(secondary_ticks_cfg.get("y", True))
-    if apply_minor_x:
-        _apply_secondary_ticks(ax, axis="x")
-        _apply_secondary_ticks(rax, axis="x")
-    if apply_minor_y:
-        _apply_secondary_ticks(ax, axis="y")
-        _apply_secondary_ticks(rax, axis="y")
 
-    ax_box = ax.get_position()
-    rax_box = rax.get_position()
-    ratio_label_fig = None
-    ratio_label = rax.yaxis.label
-    if ratio_label is not None:
-        try:
-            ratio_label_pos = np.asarray(ratio_label.get_position(), dtype=float)
-            ratio_label_transform = ratio_label.get_transform()
-            if ratio_label_transform is not None:
-                ratio_label_display = ratio_label_transform.transform([ratio_label_pos])[0]
-                ratio_label_fig = fig.transFigure.inverted().transform(ratio_label_display)
-        except Exception:
-            ratio_label_fig = None
+    if has_ratio_axis:
+        ratio_arrays = []
+        data_ratio_arrays = []
 
-    initial_events_anchor = (rax_box.x0 + rax_box.width, ax_box.y0 + ax_box.height)
+        ratio_values = panel_info.get("ratio_values")
+        ratio_errors = panel_info.get("ratio_errors")
+        if ratio_values is not None:
+            ratio_arrays.append(np.asarray(ratio_values, dtype=float))
+            data_ratio_arrays.append(np.asarray(ratio_values, dtype=float))
+            if ratio_errors is not None:
+                ratio_lower = np.asarray(ratio_values, dtype=float) - np.asarray(
+                    ratio_errors, dtype=float
+                )
+                ratio_upper = np.asarray(ratio_values, dtype=float) + np.asarray(
+                    ratio_errors, dtype=float
+                )
+                ratio_arrays.extend([ratio_lower, ratio_upper])
+                data_ratio_arrays.extend([ratio_lower, ratio_upper])
 
-    # Set the x axis lims
-    if set_x_lim: plt.xlim(set_x_lim)
+        for key in (
+            "ratio_stat_band_down",
+            "ratio_stat_band_up",
+            "ratio_syst_band_down",
+            "ratio_syst_band_up",
+            "ratio_total_band_down",
+            "ratio_total_band_up",
+        ):
+            arr = band_info.get(key)
+            if arr is not None:
+                ratio_arrays.append(np.asarray(arr, dtype=float))
+
+        (
+            ratio_limits,
+            exceeds_largest_window,
+            data_exceeds_largest_window,
+        ) = _determine_ratio_window(ratio_arrays, data_ratio_arrays)
+
+        if exceeds_largest_window or data_exceeds_largest_window:
+            warnings.warn(
+                "Ratio data exceed the [-1.0, 3.0] limits; values outside the plotted range will be clipped.",
+                RuntimeWarning,
+            )
+
+        ax.set_xlabel(None)
+
+        rax.set_ylabel(ratio_label_text, loc="center", fontsize=ratio_label_fontsize)
+        rax.set_ylim(*ratio_limits)
+        rax.tick_params(
+            axis="both", labelsize=ratio_tick_labelsize, width=tick_width, length=tick_length
+        )
+        rax.tick_params(
+            axis="both", which="minor", width=tick_width, length=minor_tick_length
+        )
+        for spine in rax.spines.values():
+            spine.set_linewidth(spine_width)
+
+        # Ensure the ratio axis always includes a unity tick while preserving the
+        # spacing chosen by the existing locator and enforcing ticks at the bounds.
+        ratio_major_locator = rax.yaxis.get_major_locator()
+        ratio_major_formatter = rax.yaxis.get_major_formatter()
+        ratio_low, ratio_high = rax.get_ylim()
+        include_unity = ratio_low <= 1.0 <= ratio_high
+
+        major_ticks = None
+        if ratio_major_locator is not None:
+            try:
+                major_ticks = np.asarray(
+                    ratio_major_locator.tick_values(ratio_low, ratio_high), dtype=float
+                )
+            except Exception:
+                major_ticks = None
+        if major_ticks is None or not np.size(major_ticks):
+            major_ticks = np.asarray(rax.get_yticks(), dtype=float)
+
+        ticks = np.asarray(major_ticks, dtype=float)
+        finite_mask = np.isfinite(ticks)
+        ticks = ticks[finite_mask]
+        in_range_mask = (ticks >= ratio_low) & (ticks <= ratio_high)
+        ticks = ticks[in_range_mask]
+
+        for bound in (ratio_low, ratio_high):
+            if not np.any(np.isclose(ticks, bound, rtol=1e-9, atol=1e-12)):
+                ticks = np.append(ticks, bound)
+
+        if include_unity and not np.any(np.isclose(ticks, 1.0, rtol=1e-9, atol=1e-12)):
+            ticks = np.append(ticks, 1.0)
+
+        if ticks.size:
+            ticks = np.unique(ticks)
+            ticks.sort()
+            rax.yaxis.set_major_locator(FixedLocator(ticks.tolist()))
+            if ratio_major_formatter is not None:
+                rax.yaxis.set_major_formatter(ratio_major_formatter)
+
+        fig.canvas.draw()
+        xticks = rax.get_xticks()
+        xtick_labels = [tick.get_text() for tick in rax.get_xticklabels()]
+        if (
+            overflow_label is not None
+            and xtick_labels
+            and len(xtick_labels) == len(xticks)
+        ):
+            xtick_labels[-1] = overflow_label
+            rax.xaxis.set_major_locator(FixedLocator(xticks))
+            rax.xaxis.set_major_formatter(FixedFormatter(xtick_labels))
+
+        if apply_minor_x:
+            _apply_secondary_ticks(ax, axis="x")
+            _apply_secondary_ticks(rax, axis="x")
+        if apply_minor_y:
+            _apply_secondary_ticks(ax, axis="y")
+            _apply_secondary_ticks(rax, axis="y")
+
+    else:
+        fig.canvas.draw()
+        xticks = ax.get_xticks()
+        xtick_labels = [tick.get_text() for tick in ax.get_xticklabels()]
+        if (
+            overflow_label is not None
+            and xtick_labels
+            and len(xtick_labels) == len(xticks)
+        ):
+            xtick_labels[-1] = overflow_label
+            ax.xaxis.set_major_locator(FixedLocator(xticks))
+            ax.xaxis.set_major_formatter(FixedFormatter(xtick_labels))
+        if apply_minor_x:
+            _apply_secondary_ticks(ax, axis="x")
+        if apply_minor_y:
+            _apply_secondary_ticks(ax, axis="y")
+
+    # Set the x axis limits.
+    if set_x_lim:
+        ax.set_xlim(set_x_lim)
+        if has_ratio_axis:
+            rax.set_xlim(set_x_lim)
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Build a figure-anchored legend with a measured inset from the top edge
@@ -6155,44 +6469,21 @@ def make_region_stacked_ratio_fig(
             columnspacing=uncertainty_legend_style.get("columnspacing", 1.0),
         )
 
-    fig.canvas.draw()
-    required_headroom = None
-    legend_is_figure_anchored = False
-    top_adjusted = False
-    legend_anchor = None
-    if legend is not None:
-        renderer = fig.canvas.get_renderer()
-        legend_bbox = legend.get_window_extent(renderer=renderer)
-        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-        measured_height = legend_box.height
-        buffer = max(legend_top_margin_min, legend_top_margin_scale * measured_height)
-        anchor_y = max(0.0, 1.0 - buffer)
-        legend_anchor = [0.5, anchor_y]
-        legend.set_bbox_to_anchor(tuple(legend_anchor), fig.transFigure)
-        fig.canvas.draw()
-        renderer = fig.canvas.get_renderer()
-        legend_bbox = legend.get_window_extent(renderer=renderer)
-        legend_box = legend_bbox.transformed(fig.transFigure.inverted())
-        legend_height = legend_box.height
-        buffer = max(buffer, legend_top_margin_min)
-        required_headroom = legend_height + buffer
-        legend_is_figure_anchored = True
-        subplot_params = fig.subplotpars
-        available_top = 1.0 - required_headroom
-        available_top = np.clip(available_top, 0.0, 1.0)
-        if subplot_params.top > available_top:
-            plt.subplots_adjust(top=available_top)
-            top_adjusted = True
-            fig.canvas.draw()
-            renderer = fig.canvas.get_renderer()
-            legend_bbox = legend.get_window_extent(renderer=renderer)
-            legend_box = legend_bbox.transformed(fig.transFigure.inverted())
+    legend_layout = _anchor_figure_legend_above_axes(
+        fig,
+        legend,
+        legend_top_margin_min=legend_top_margin_min,
+        legend_top_margin_scale=legend_top_margin_scale,
+    )
+    required_headroom = legend_layout["required_headroom"]
+    legend_is_figure_anchored = legend_layout["legend_is_figure_anchored"]
+    top_adjusted = legend_layout["top_adjusted"]
+    legend_anchor = legend_layout["legend_anchor"]
 
     label_artist = None
-    events_artist = None
     iterations = 3 if top_adjusted else 2
     for _ in range(iterations):
-        label_artist, events_artist, legend_anchor = _finalize_layout(
+        label_artist, legend_anchor = _finalize_layout(
             fig,
             ax,
             rax,
@@ -6200,9 +6491,6 @@ def make_region_stacked_ratio_fig(
             cms_label,
             display_label,
             label_artist=label_artist,
-            events_artist=events_artist,
-            ratio_anchor=ratio_label_fig,
-            events_anchor=initial_events_anchor,
             legend_anchor=legend_anchor,
             legend_is_figure=legend_is_figure_anchored,
             style=style,
@@ -6240,6 +6528,7 @@ def run_plots_for_region(
 
     requested_channel_modes = channel_output_cfg["modes"]
     preserve_njets_bins = channel_output_cfg.get("preserve_njets", False)
+    warning_reference_channel_map = _resolve_split_warning_reference_map(region_name)
 
     multi_mode = len(requested_channel_modes) > 1
     split_channels_available = yt.is_split_by_lepflav(
@@ -6259,7 +6548,9 @@ def run_plots_for_region(
 
         if not split_channels_available:
             _warn_missing_split_channels(
-                dict_of_hists, reference_channel_map=CHANNEL_REFERENCE_MAP
+                dict_of_hists,
+                reference_channel_map=warning_reference_channel_map,
+                region_name=region_name,
             )
 
     for channel_mode in requested_channel_modes:

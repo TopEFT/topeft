@@ -28,30 +28,58 @@ def _build_tau_histograms(process_weights=None):
     channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
     syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
     appl_axis = hist.axis.StrCategory([], name="appl", growth=True)
-    tau_axis = hist.axis.Variable(tau_edges, name="tau0pt")
-    tau_sumw2_axis = hist.axis.Variable(tau_edges, name="tau0pt_sumw2")
+    tau_fake_axis = hist.axis.Variable(tau_edges, name="tau0Fpt")
+    tau_fake_sumw2_axis = hist.axis.Variable(tau_edges, name="tau0Fpt_sumw2")
+    tau_tight_axis = hist.axis.Variable(tau_edges, name="tau0Tpt")
+    tau_tight_sumw2_axis = hist.axis.Variable(tau_edges, name="tau0Tpt_sumw2")
 
-    tau_hist = HistEFT(
+    tau_fake_hist = HistEFT(
         proc_axis,
         channel_axis,
         syst_axis,
         appl_axis,
-        tau_axis,
+        tau_fake_axis,
         wc_names=[],
         label="Events",
     )
-    tau_hist.metadata = {}
+    tau_fake_hist.metadata = {}
 
-    tau_sumw2_hist = HistEFT(
+    tau_fake_sumw2_hist = HistEFT(
         proc_axis,
         channel_axis,
         syst_axis,
         appl_axis,
-        tau_sumw2_axis,
+        tau_fake_sumw2_axis,
         wc_names=[],
         label="Events",
     )
-    tau_sumw2_hist.metadata = {"_hist_sumw2_axis_mapping": {"tau0pt_sumw2": "tau0pt"}}
+    tau_fake_sumw2_hist.metadata = {
+        "_hist_sumw2_axis_mapping": {"tau0Fpt_sumw2": "tau0Fpt"}
+    }
+
+    tau_tight_hist = HistEFT(
+        proc_axis,
+        channel_axis,
+        syst_axis,
+        appl_axis,
+        tau_tight_axis,
+        wc_names=[],
+        label="Events",
+    )
+    tau_tight_hist.metadata = {}
+
+    tau_tight_sumw2_hist = HistEFT(
+        proc_axis,
+        channel_axis,
+        syst_axis,
+        appl_axis,
+        tau_tight_sumw2_axis,
+        wc_names=[],
+        label="Events",
+    )
+    tau_tight_sumw2_hist.metadata = {
+        "_hist_sumw2_axis_mapping": {"tau0Tpt_sumw2": "tau0Tpt"}
+    }
 
     values = [25.0, 35.0, 45.0, 55.0, 70.0, 90.0, 150.0]
     channel_scales = {
@@ -91,13 +119,35 @@ def _build_tau_histograms(process_weights=None):
             scaled = [weight * scale for weight in weights]
             entries = list(zip(values, scaled))
             sumw2_entries = [(val, w ** 2) for val, w in zip(values, scaled)]
-            _fill(tau_hist, "tau0pt", process, channel, entries)
-            _fill(tau_sumw2_hist, "tau0pt_sumw2", process, channel, sumw2_entries)
+            is_fake_channel = "Ftau" in channel
+            if is_fake_channel:
+                _fill(tau_fake_hist, "tau0Fpt", process, channel, entries)
+                _fill(
+                    tau_fake_sumw2_hist,
+                    "tau0Fpt_sumw2",
+                    process,
+                    channel,
+                    sumw2_entries,
+                )
+            else:
+                _fill(tau_tight_hist, "tau0Tpt", process, channel, entries)
+                _fill(
+                    tau_tight_sumw2_hist,
+                    "tau0Tpt_sumw2",
+                    process,
+                    channel,
+                    sumw2_entries,
+                )
 
             key = (label_prefix, "fake" if "Ftau" in channel else "tight")
             expected_errors[key] = scaled
 
-    return {"tau0pt": tau_hist, "tau0pt_sumw2": tau_sumw2_hist}, expected_errors
+    return {
+        "tau0Fpt": tau_fake_hist,
+        "tau0Fpt_sumw2": tau_fake_sumw2_hist,
+        "tau0Tpt": tau_tight_hist,
+        "tau0Tpt_sumw2": tau_tight_sumw2_hist,
+    }, expected_errors
 
 
 def _compute_expected_tau_sf_payload(histograms, channels_json_path=None):
@@ -327,7 +377,7 @@ def test_get_points_raises_when_filters_remove_all_processes(
 def test_get_points_raises_when_tau_histogram_missing():
     histograms, _ = _build_tau_histograms()
     histograms = dict(histograms)
-    histograms.pop("tau0pt")
+    histograms.pop("tau0Tpt")
     ftau_channels = ["2los_ee_1tau_Ftau_2j"]
     ttau_channels = ["2los_ee_1tau_Ttau_2j"]
 
@@ -339,8 +389,10 @@ def test_get_points_raises_when_tau_histogram_missing():
         )
 
     message = str(excinfo.value)
-    assert "missing the required 'tau0pt' histogram" in message
-    assert "Available histograms: tau0pt_sumw2" in message
+    assert "missing the required 'tau0Tpt' histogram" in message
+    assert "Available histograms:" in message
+    assert "tau0Fpt" in message
+    assert "tau0Tpt_sumw2" in message
 
 
 def test_cli_outputs_tau_fake_sf_json(tmp_path):
@@ -352,20 +404,20 @@ def test_cli_outputs_tau_fake_sf_json(tmp_path):
 
     tau_bin_centers = np.asarray([25.0, 35.0, 45.0, 55.0, 70.0, 90.0, 150.0])
     ttau_adjustments = np.asarray([0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02])
-    histograms["tau0pt"].fill(
+    histograms["tau0Tpt"].fill(
         process="data2018",
         channel="2los_ee_1tau_Ttau_2j",
         systematic="nominal",
         appl="isSR_2lOS",
-        tau0pt=tau_bin_centers,
+        tau0Tpt=tau_bin_centers,
         weight=ttau_adjustments,
     )
-    histograms["tau0pt_sumw2"].fill(
+    histograms["tau0Tpt_sumw2"].fill(
         process="data2018",
         channel="2los_ee_1tau_Ttau_2j",
         systematic="nominal",
         appl="isSR_2lOS",
-        tau0pt_sumw2=tau_bin_centers,
+        tau0Tpt_sumw2=tau_bin_centers,
         weight=ttau_adjustments ** 2,
     )
     pkl_path = tmp_path / "toy.pkl.gz"

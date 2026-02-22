@@ -218,13 +218,20 @@ main() {
         RUN2_BUNDLE_ADDED=true
       fi
     else
-      YEAR_CFGS=(
-        #"${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
-        "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
-        "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-	      "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
-      )
-
+      if [[ "$FLAG_CR" == "true" ]]; then
+        YEAR_CFGS=(
+          "${CFGS_PATH}/NDSkim_${YEAR}_background_samples_cr.cfg"
+          "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
+          "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
+        )
+      else
+        YEAR_CFGS=(
+          #"${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
+          "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
+          "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
+          "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
+        )
+      fi
       for CFG in "${YEAR_CFGS[@]}"; do
         add_cfg "$CFG" || return 1
       done
@@ -260,7 +267,7 @@ main() {
       --do-systs
     )
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
-      OPTIONS+=(-s 20000)
+      OPTIONS+=(-s 100000)
     fi
     OPTIONS+=(-o "$OUT_NAME")
   fi

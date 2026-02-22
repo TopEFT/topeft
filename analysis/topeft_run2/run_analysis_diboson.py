@@ -49,8 +49,8 @@ if __name__ == '__main__':
     parser.add_argument('--do-errors'      , action='store_true', help = 'Save the w**2 coefficients')
     parser.add_argument('--do-systs', action='store_true', help = 'Compute systematic variations')
     parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
-    parser.add_argument('--offZ-split'      , action='store_true', help = 'Split up 3l offZ categories')
-    parser.add_argument('--tau_h_analysis'  , action='store_true', help = 'Add tau channels')
+    parser.add_argument('--offZ-3l-split', dest='offZ_3l_split', action='store_true', help = 'Split up 3l offZ categories')
+    parser.add_argument('--tau-h-analysis', dest='tau_h_analysis', action='store_true', help = 'Add tau channels')
     parser.add_argument('--fwd-analysis'    , action='store_true', help = 'Add fwd channels')
     parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
     parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     do_errors  = args.do_errors
     do_systs   = args.do_systs
     split_lep_flavor = args.split_lep_flavor
-    offZ_split = args.offZ_split
+    offZ_split = args.offZ_3l_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
     skip_sr    = args.skip_sr

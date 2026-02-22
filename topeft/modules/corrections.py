@@ -14,6 +14,7 @@ import gzip
 import pickle
 import correctionlib
 import json
+import yaml
 #from coffea.jetmet_tools import CorrectedMETFactory
 ### workaround while waiting the correcion-lib integration will be provided in the coffea package
 from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
@@ -100,169 +101,6 @@ jerc_tag_map = {
     "2023BPix": [],
 }
 
-#JERC dictionary for various keys
-jerc_dict = {
-    "2016": {
-        "jec_mc"  : "Summer19UL16_V7_MC",
-        "jec_data": "Summer19UL16_RunFGH_V7_DATA",
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-        ],
-        "jer"     : "Summer20UL16_JRV3_MC",
-        "junc"    : [
-            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-            'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
-        ]
-    },
-    "2016APV": {
-        "jec_mc": "Summer19UL16APV_V7_MC",
-        "jec_data": {
-            "B": "Summer19UL16APV_RunBCD_V7_DATA",
-            "C": "Summer19UL16APV_RunBCD_V7_DATA",
-            "D": "Summer19UL16APV_RunBCD_V7_DATA",
-            "E": "Summer19UL16APV_RunEF_V7_DATA",
-            "F": "Summer19UL16APV_RunEF_V7_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-        ],
-        "jer": "Summer20UL16APV_JRV3_MC",
-        "junc"    : [
-            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-            'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
-        ]
-    },
-    "2017": {
-        "jec_mc": "Summer19UL17_V5_MC",
-        "jec_data": {
-            "B": "Summer19UL17_RunB_V5_DATA",
-            "C": "Summer19UL17_RunC_V5_DATA",
-            "D": "Summer19UL17_RunD_V5_DATA",
-            "E": "Summer19UL17_RunE_V5_DATA",
-            "F": "Summer19UL17_RunF_V5_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-        ],
-        "jer": "Summer19UL17_JRV2_MC",
-        "junc"    : [
-            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-            'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
-        ]
-    },
-    "2018": {
-        "jec_mc": "Summer19UL18_V5_MC",
-        "jec_data": {
-            "A": "Summer19UL18_RunA_V5_DATA",
-            "B": "Summer19UL18_RunB_V5_DATA",
-            "C": "Summer19UL18_RunC_V5_DATA",
-            "D": "Summer19UL18_RunD_V5_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-        ],
-        "jer": "Summer19UL18_JRV2_MC",
-        "junc"    : [
-            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-            'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
-        ]
-
-    },
-    "2022": {
-        "jec_mc"  : "Summer22_22Sep2023_V2_MC",
-        "jec_data": "Summer22_22Sep2023_RunCD_V2_DATA",
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-            "L3Absolute",
-            "L2L3Residual",
-        ],
-        "jer"     : "Summer22_22Sep2023_JRV1_MC",
-        "junc"    : [
-            "AbsoluteMPFBias","AbsoluteScale","FlavorQCD","Fragmentation","PileUpDataMC",
-            "PileUpPtBB","PileUpPtEC1","PileUpPtEC2","PileUpPtHF","PileUpPtRef",
-            "RelativeFSR","RelativeJERHF","RelativePtBB","RelativePtHF","RelativeBal",
-            "SinglePionECAL","SinglePionHCAL",
-            "AbsoluteStat","RelativeJEREC1","RelativeJEREC2","RelativePtEC1","RelativePtEC2",
-            "TimePtEta","RelativeSample","RelativeStatEC","RelativeStatFSR","RelativeStatHF",
-            "Total",
-        ]
-    },
-    "2022EE": {
-        "jec_mc": "Summer22EE_22Sep2023_V2_MC",
-        "jec_data": {
-            "E": "Summer22EE_22Sep2023_RunE_V2_DATA",
-            "F": "Summer22EE_22Sep2023_RunF_V2_DATA",
-            "G": "Summer22EE_22Sep2023_RunG_V2_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-            "L3Absolute",
-            "L2L3Residual",
-        ],
-        "jer": "Summer22EE_22Sep2023_JRV1_MC",
-        "junc"    : [
-            "AbsoluteMPFBias","AbsoluteScale","FlavorQCD","Fragmentation","PileUpDataMC",
-            "PileUpPtBB","PileUpPtEC1","PileUpPtEC2","PileUpPtHF","PileUpPtRef",
-            "RelativeFSR","RelativeJERHF","RelativePtBB","RelativePtHF","RelativeBal",
-            "SinglePionECAL","SinglePionHCAL",
-            "AbsoluteStat","RelativeJEREC1","RelativeJEREC2","RelativePtEC1","RelativePtEC2",
-            "TimePtEta","RelativeSample","RelativeStatEC","RelativeStatFSR","RelativeStatHF",
-            "Total",
-        ]
-    },
-    "2023": {
-        "jec_mc": "Summer23Prompt23_V1_MC",
-        "jec_data": {
-            "C1": "Summer23Prompt23_RunCv123_V1_DATA",
-            "C2": "Summer23Prompt23_RunCv123_V1_DATA",
-            "C3": "Summer23Prompt23_RunCv123_V1_DATA",
-            "C4": "Summer23Prompt23_RunCv4_V1_DATA",
-        },
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-            "L3Absolute",
-            "L2L3Residual",
-        ],
-        "jer": "Summer23Prompt23_RunCv1234_JRV1_MC",
-        "junc"    : [
-            "AbsoluteMPFBias","AbsoluteScale","FlavorQCD","Fragmentation","PileUpDataMC",
-            "PileUpPtBB","PileUpPtEC1","PileUpPtEC2","PileUpPtHF","PileUpPtRef",
-            "RelativeFSR","RelativeJERHF","RelativePtBB","RelativePtHF","RelativeBal",
-            "SinglePionECAL","SinglePionHCAL",
-            "AbsoluteStat","RelativeJEREC1","RelativeJEREC2","RelativePtEC1","RelativePtEC2",
-            "TimePtEta","RelativeSample","RelativeStatEC","RelativeStatFSR","RelativeStatHF",
-            "Total",
-        ]
-    },
-    "2023BPix": {
-        "jec_mc"  : "Summer23BPixPrompt23_V1_MC",
-        "jec_data": "Summer23BPixPrompt23_RunD_V1_DATA",
-        "jec_levels": [
-            "L1FastJet",
-            "L2Relative",
-            "L3Absolute",
-            "L2L3Residual",
-        ],
-        "jer"     : "Summer23BPixPrompt23_RunD_JRV1_MC",
-        "junc"    : [
-            "AbsoluteMPFBias","AbsoluteScale","FlavorQCD","Fragmentation","PileUpDataMC",
-            "PileUpPtBB","PileUpPtEC1","PileUpPtEC2","PileUpPtHF","PileUpPtRef",
-            "RelativeFSR","RelativeJERHF","RelativePtBB","RelativePtHF","RelativeBal",
-            "SinglePionECAL","SinglePionHCAL",
-            "AbsoluteStat","RelativeJEREC1","RelativeJEREC2","RelativePtEC1","RelativePtEC2",
-            "TimePtEta","RelativeSample","RelativeStatEC","RelativeStatFSR","RelativeStatHF",
-            "Total",
-        ]
-    }
-}
-
 jet_veto_dict = {
     "2016APV": "Summer19UL16_V1",
     "2016": "Summer19UL16_V1",
@@ -274,8 +112,9 @@ jet_veto_dict = {
     "2023BPix": "Summer23BPixPrompt23_RunD_V1"
 }
 
-with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
-    jerc_dict = json.load(f)
+#JERC dictionary for various keys
+with open(topeft_path("modules/jerc_dict.yml"), "r") as f:
+    jerc_dict = yaml.safe_load(f)
 
 def get_jerc_keys(year, isdata, era=None):
     # Jet Algorithm
@@ -558,9 +397,17 @@ extLepSF.add_weight_sets(["TauFakeSF TauSF/pt_value %s"%topcoffea_path('data/Tau
 extLepSF.add_weight_sets(["TauFakeSF_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 extLepSF.add_weight_sets(["TauFakeSF_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 
-extLepSF.add_weight_sets(["TauFakeSF_Run3 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
-extLepSF.add_weight_sets(["TauFakeSF_Run3_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
-extLepSF.add_weight_sets(["TauFakeSF_Run3_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+extLepSF.add_weight_sets(["TauFakeSF_Run3 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+extLepSF.add_weight_sets(["TauFakeSF_Run3_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+extLepSF.add_weight_sets(["TauFakeSF_Run3_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
+
+extLepSF.add_weight_sets(["TauFakeSF_2022 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2022_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2022_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2022.json')])
+
+extLepSF.add_weight_sets(["TauFakeSF_2023 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2023_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2023_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
 
 # Jet Veto Maps
 def ApplyJetVetoMaps(jets, year):
@@ -831,7 +678,7 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
 
     return (taus.pt*fes_syst, taus.mass*fes_syst)
 
-def AttachTauSF(events, taus, year, vsJetWP="Loose"):
+def AttachTauSF(events, taus, year, vsJetWP="Loose", run3_fake_split=False):
     pt   = taus.pt
     dm   = taus.decayMode
     eta  = taus.eta
@@ -972,15 +819,6 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 )
             )
 
-            # print("\n\n\n\n\n")
-            # print("vsjet_flat_mask:", ak.to_list(vsjet_flat_mask))
-            # print("vse_flat_mask:", ak.to_list(vse_flat_mask))
-            # print("flat_pt:", ak.to_list(flat_pt))
-            # print("flat_dm:", ak.to_list(flat_dm))
-            # print("flat_gen:", ak.to_list(flat_gen))
-            # print("ceval[discr].evaluate(*arg_sf):", ak.to_list(ceval[discr].evaluate(*arg_sf)))
-            # print("\n\n\n\n\n")
-
             if "VSjet" in discr:
                 arg_up = arg_list + ("up", "dm")
             else:
@@ -1022,13 +860,13 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 fake_elec_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
                 fake_elec_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
 
-        # whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
-        # new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF_Run3'](pt), 1)
-        # new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_up'](pt), 1)
-        # new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_Run3_down'](pt), 1)
-        new_fake_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        new_fake_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        new_fake_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        whereFlag = ((pt>20) & (pt<200) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
+
+        fake_sf_eval = "TauFakeSF_Run3" if not run3_fake_split else f'TauFakeSF_{year[:4]}'
+
+        new_fake_sf = np.where(whereFlag, SFevaluator[fake_sf_eval](pt), 1.0)
+        new_fake_sf_up = np.where(whereFlag, SFevaluator[f'{fake_sf_eval}_up'](pt), 1.0)
+        new_fake_sf_down = np.where(whereFlag, SFevaluator[f'{fake_sf_eval}_down'](pt), 1.0)
 
         # Run3 tau muon SF may be needed in the future
         fake_muon_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
@@ -1131,10 +969,10 @@ def AttachPerLeptonFR(leps, flavor, year):
         pt_masked = ak.where(~pt_mask_low, minpt, pt)
         pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
 
-        chargeflip_sf = ak.ones_like(leps.pdgId, dtype=np.float64) #get_te_param("chargeflip_sf_dict")[flip_year_name]
+        fr_year_tag = "fakeRate_2023_2023BPix" if year.startswith("2023") else "fakeRate_2022_2022EE"
 
         for syst in ffSysts:
-            fr = ak.unflatten(ceval["fakeRate_2022_2022EE"].evaluate(pt_masked, abseta, syst, abspdgid), ak.num(leps.conept))
+            fr = ak.unflatten(ceval[fr_year_tag].evaluate(pt_masked, abseta, syst, abspdgid), ak.num(leps.conept))
             leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0)
             leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.0 + 1.0
             leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0
@@ -1871,7 +1709,7 @@ def AttachPdfWeights(events):
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
 
-def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=False):
+def ApplyJetCorrections(year, corr_type, isData, era, run, useclib=True, savelevels=False):
     usejecstack = not useclib
 
     if year not in clib_year_map.keys():
@@ -1958,7 +1796,7 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=F
     # Return appropriate factory based on correction type
     if corr_type == 'met':
         return CorrectedMETFactory(name_map)
-    return CorrectedJetsFactory(name_map, jec_stack)
+    return CorrectedJetsFactory(name_map, jec_stack, run)
 
 def ApplyJetSystematics(year,cleanedJets,syst_var):
     if (syst_var == f'JER_{year}Up'):

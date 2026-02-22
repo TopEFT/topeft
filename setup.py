@@ -19,7 +19,8 @@ setuptools.setup(
             "data/btagSF/*/*.pkl.gz",
             "data/btagSF/UL/*.csv",
             "data/lepMVASF/*.json.gz",
-            "modules/*.json"
+            "modules/*.json",
+            "modules/*.yml",
         ],
     }
 )

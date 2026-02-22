@@ -120,7 +120,10 @@ def main():
         h_sow_nom = h[wgt_name_dict['nom']['hist_name']] # Note, just using nom here (so we assume all histos include the same samples)
         idents = h_sow_nom.axes['process'] # This is the list of identifiers for the sample axis
         for sname in idents:
+            print(f"\nWorking on sample {sname} from hist {fpath}")
+            print(f"Looking for jsons matching {sname} in {json_dir}")
             match = regex_match(json_fpaths,regex_lst=[f"{sname}\\.json$"])
+            print(f"Found {len(match)} matches for {sname}: {match}")
             if len(match) != 1:
                 print(f"ERROR: Found {len(match)} matches for {sname}! Don't know which json should be modified, so skipping")
                 for x in match:
@@ -128,6 +131,8 @@ def main():
                 continue
             match = match[0]
             jsn = load_sample_json_file(match)
+
+            print(f"Current value for nSumOfWeights in {match}: {jsn['nSumOfWeights']}")
 
             # Loop over each wgt variation and update JSON
             for wgt_var in wgt_name_dict.keys():
@@ -145,6 +150,7 @@ def main():
                     if abs(pdiff) < MAX_PDIFF:
                         continue
 
+                print(f"Updating {jsn_key_name} for {sname} in {match}:")
                 # Update the JSON
                 updates = {
                     jsn_key_name: float(new_sow)

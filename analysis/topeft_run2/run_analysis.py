@@ -6,6 +6,7 @@ import time
 import cloudpickle
 import gzip
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -21,6 +22,9 @@ from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 import analysis_processor
+from analysis.topeft_run2.analysis_processor import (
+    ANALYSIS_MODE_EXCLUSIVE_ERROR,
+)
 
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
 
@@ -36,7 +40,6 @@ WGT_VAR_LST = [
     #"nSumOfWeights_renormfactUp",
     #"nSumOfWeights_renormfactDown",
 ]
-
 
 def _ensure_topcoffea_data_available(skip_check=False):
     if skip_check:
@@ -123,6 +126,341 @@ def _cleanup_work_queue_staging_directory(path, eligible_for_cleanup):
             "Warning: Failed to clean up Work Queue staging directory {} ({}). You may want to "
             "remove it manually.".format(path, exc)
         )
+
+
+_REQUIRED_JSON_KEYS = (
+    "files",
+    "year",
+    "xsec",
+    "nEvents",
+    "nGenEvents",
+    "nSumOfWeights",
+    "isData",
+    "histAxisName",
+    "treeName",
+    "options",
+)
+_YEAR_CANONICAL_MAP = {
+    "2016": "2016",
+    "UL16": "2016",
+    "UL2016": "2016",
+    "2016APV": "2016APV",
+    "UL16APV": "2016APV",
+    "UL2016APV": "2016APV",
+    "2017": "2017",
+    "UL17": "2017",
+    "UL2017": "2017",
+    "2018": "2018",
+    "UL18": "2018",
+    "UL2018": "2018",
+    "2022": "2022",
+    "2022EE": "2022EE",
+    "2023": "2023",
+    "2023BPix": "2023BPix",
+}
+_TRUSTED_YEAR_HINT_KEYS = {"files", "path", "histAxisName"}
+_DATE_TAG_PATTERN = re.compile(
+    r"\b\d{1,2}(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)20\d{2}\b",
+    re.IGNORECASE,
+)
+_YEAR_STRONG_UL_PATTERN = re.compile(r"(UL(?:2016APV|16APV|2016|16|2017|17|2018|18))")
+_YEAR_STRONG_RUN_ERA_PATTERN = re.compile(r"(Run(2016|2017|2018|2022|2023)[A-H])")
+_YEAR_STRONG_DELIMITED_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9])(2023BPix|2022EE|2016APV|UL2016APV|UL16APV|2016|2017|2018|2022|2023)(?![A-Za-z0-9])"
+)
+_YEAR_WEAK_PATTERN = re.compile(r"(?<![A-Za-z0-9])(20(?:16|17|18|22|23))(?![A-Za-z0-9])")
+
+
+def _canonicalize_year_label(year_label):
+    return _YEAR_CANONICAL_MAP.get(str(year_label), str(year_label))
+
+
+def _strip_year_keys(payload):
+    if isinstance(payload, dict):
+        return {k: _strip_year_keys(v) for k, v in payload.items() if k != "year"}
+    if isinstance(payload, list):
+        return [_strip_year_keys(item) for item in payload]
+    return payload
+
+
+def _collect_trusted_year_scan_strings(payload):
+    values = []
+
+    def _walk(node):
+        if isinstance(node, dict):
+            files = node.get("files")
+            if "files" in _TRUSTED_YEAR_HINT_KEYS and isinstance(files, list):
+                for item in files:
+                    if isinstance(item, str):
+                        values.append(("files", item))
+            for key in ("path", "histAxisName"):
+                value = node.get(key)
+                if key in _TRUSTED_YEAR_HINT_KEYS and isinstance(value, str):
+                    values.append((key, value))
+            for nested in node.values():
+                _walk(nested)
+            return
+        if isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(payload)
+    return values
+
+
+def _collapse_year_families(canonical_hits):
+    collapsed = set(canonical_hits)
+    if "2016APV" in collapsed:
+        collapsed.discard("2016")
+    if "2022EE" in collapsed:
+        collapsed.discard("2022")
+    if "2023BPix" in collapsed:
+        collapsed.discard("2023")
+    return collapsed
+
+
+def _snippet_around(text, start, end, radius=24):
+    left = max(0, start - radius)
+    right = min(len(text), end + radius)
+    snippet = text[left:right]
+    return snippet.replace("\n", " ")
+
+
+def _record_year_hit(hit_map, token, canonical, source_key, source_value, start, end):
+    hit_map.setdefault(canonical, [])
+    if len(hit_map[canonical]) < 3:
+        hit_map[canonical].append(
+            {
+                "token": token,
+                "key": source_key,
+                "snippet": _snippet_around(source_value, start, end),
+            }
+        )
+
+
+def _normalize_scan_value(source_key, source_value):
+    if source_key not in {"files", "path"}:
+        return source_value
+
+    normalized = source_value.replace("\\", "/")
+    return normalized.rsplit("/", 1)[0] if "/" in normalized else ""
+
+
+def _extract_year_hits_from_trusted_content(payload):
+    strong_hits = {}
+    weak_hits = {}
+
+    for source_key, source_value in _collect_trusted_year_scan_strings(payload):
+        scan_source_value = _normalize_scan_value(source_key, source_value)
+        scan_value = _DATE_TAG_PATTERN.sub(" ", scan_source_value)
+
+        for match in _YEAR_STRONG_UL_PATTERN.finditer(scan_value):
+            token = match.group(1)
+            canonical = _canonicalize_year_label(token)
+            _record_year_hit(
+                strong_hits, token, canonical, source_key, scan_source_value, match.start(1), match.end(1)
+            )
+
+        for match in _YEAR_STRONG_RUN_ERA_PATTERN.finditer(scan_value):
+            canonical = _canonicalize_year_label(match.group(2))
+            _record_year_hit(
+                strong_hits,
+                match.group(1),
+                canonical,
+                source_key,
+                scan_source_value,
+                match.start(1),
+                match.end(1),
+            )
+
+        for match in _YEAR_STRONG_DELIMITED_PATTERN.finditer(scan_value):
+            token = match.group(1)
+            canonical = _canonicalize_year_label(token)
+            _record_year_hit(
+                strong_hits, token, canonical, source_key, scan_source_value, match.start(1), match.end(1)
+            )
+
+        for match in _YEAR_WEAK_PATTERN.finditer(scan_value):
+            token = match.group(1)
+            canonical = _canonicalize_year_label(token)
+            _record_year_hit(
+                weak_hits, token, canonical, source_key, scan_source_value, match.start(1), match.end(1)
+            )
+
+    return strong_hits, weak_hits
+
+
+def _format_year_hit_examples(hit_map, canonical_hits):
+    examples = []
+    for canonical in canonical_hits:
+        for hit in hit_map.get(canonical, []):
+            examples.append(
+                "{token} [{key}] \"{snippet}\"".format(
+                    token=hit["token"], key=hit["key"], snippet=hit["snippet"]
+                )
+            )
+            if len(examples) >= 6:
+                return examples
+    return examples
+
+
+def _debug_year_scan_selfcheck():
+    cases = [
+        ("basename_ignored", "/NAOD/sample/2022/subset/output_2023.root"),
+        ("valid_2023_path", "/NAOD/sample/2023/subset/something.root"),
+    ]
+
+    for case_name, file_path in cases:
+        payload = {"files": [file_path]}
+        strong_hits, weak_hits = _extract_year_hits_from_trusted_content(payload)
+        strong_keys = sorted(_collapse_year_families(set(strong_hits.keys())))
+        weak_keys = sorted(_collapse_year_families(set(weak_hits.keys())))
+        print(f"[DEBUG_YEAR_SCAN] {case_name}")
+        print(f"  files[0]: {file_path}")
+        print(f"  strong keys: {strong_keys}")
+        print(f"  weak keys: {weak_keys}")
+
+    case_a_strong, case_a_weak = _extract_year_hits_from_trusted_content(
+        {"files": [cases[0][1]]}
+    )
+    case_a_collapsed_strong = _collapse_year_families(set(case_a_strong.keys()))
+    if "2022" not in case_a_collapsed_strong:
+        raise RuntimeError("debug year scan failed: 2022 directory did not produce a 2022 strong hit")
+    if "2023" in case_a_strong or "2023" in case_a_weak:
+        raise RuntimeError("debug year scan failed: basename contributed an unexpected 2023 hit")
+
+    valid_strong, _ = _extract_year_hits_from_trusted_content({"files": [cases[1][1]]})
+    if "2023" not in valid_strong:
+        raise RuntimeError("debug year scan failed: 2023 path did not produce a 2023 strong hit")
+
+
+def _validate_payload_schema(payload, json_path):
+    if not isinstance(payload, dict):
+        raise RuntimeError(
+            f"[ERROR] Invalid JSON payload in {json_path}: expected object, got {type(payload).__name__}."
+        )
+
+    for key in _REQUIRED_JSON_KEYS:
+        if key not in payload:
+            raise RuntimeError(
+                f"[ERROR] Invalid JSON payload in {json_path}: missing required key '{key}'."
+            )
+
+    if not isinstance(payload["files"], list):
+        raise RuntimeError(
+            f"[ERROR] Invalid JSON payload in {json_path}: key 'files' must be list, got {type(payload['files']).__name__}."
+        )
+
+    if not isinstance(payload["year"], str):
+        raise RuntimeError(
+            f"[ERROR] Invalid JSON payload in {json_path}: key 'year' must be str, got {type(payload['year']).__name__}."
+        )
+
+    if not isinstance(payload["isData"], bool):
+        raise RuntimeError(
+            f"[ERROR] Invalid JSON payload in {json_path}: key 'isData' must be bool, got {type(payload['isData']).__name__}."
+        )
+
+
+def _validate_payload_year_tokens(payload, json_path):
+    payload_year = str(payload["year"])
+    canonical_payload_year = _canonicalize_year_label(payload_year)
+
+    payload_without_year = _strip_year_keys(payload)
+    strong_hits, weak_hits = _extract_year_hits_from_trusted_content(payload_without_year)
+    collapsed_strong_hits = sorted(_collapse_year_families(set(strong_hits.keys())))
+
+    if not collapsed_strong_hits:
+        return None
+
+    matching_tokens = sorted(
+        {
+            hit["token"]
+            for canonical in collapsed_strong_hits
+            for hit in strong_hits.get(canonical, [])
+        }
+    )
+    examples = _format_year_hit_examples(strong_hits, collapsed_strong_hits)
+
+    if len(collapsed_strong_hits) == 1 and collapsed_strong_hits[0] != canonical_payload_year:
+        raise RuntimeError(
+            (
+                f"[ERROR] Year mismatch detected in {json_path}.\n"
+                f"  payload year: {payload_year}\n"
+                f"  canonical payload year: {canonical_payload_year}\n"
+                f"  inferred canonical year set (strong): {collapsed_strong_hits[0]}\n"
+                f"  detected year from internal JSON content: {collapsed_strong_hits[0]}\n"
+                f"  matching tokens (strong): {', '.join(matching_tokens)}\n"
+                f"  examples: {' | '.join(examples) if examples else 'n/a'}\n"
+                "How to fix: ensure payload['year'] matches the year implied by internal metadata content."
+            )
+        )
+
+    if len(collapsed_strong_hits) > 1:
+        return {
+            "path": os.path.abspath(json_path),
+            "payload_year": payload_year,
+            "canonical_payload_year": canonical_payload_year,
+            "canonical_hits": collapsed_strong_hits,
+            "tokens": matching_tokens,
+            "examples": examples,
+            "weak_canonical_hits": sorted(_collapse_year_families(set(weak_hits.keys()))),
+        }
+
+    return None
+
+
+def _raise_if_missing_referenced_jsons(missing_referenced_jsons):
+    if not missing_referenced_jsons:
+        return
+
+    seen = set()
+    unique = []
+    for cfg_file, missing in missing_referenced_jsons:
+        key = (cfg_file, missing)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append((cfg_file, missing))
+
+    msg_lines = ["[ERROR] Missing referenced JSON file(s) while parsing cfg inputs:"]
+    for cfg_file, missing in unique:
+        msg_lines.append(f"  - {missing} (referenced from cfg: {cfg_file})")
+    raise SystemExit("\n".join(msg_lines))
+
+
+def _find_duplicate_input_files(samplesdict):
+    file_to_samples = {}
+    for sample_name, sample in samplesdict.items():
+        redirector = sample.get("redirector", "")
+        for file_path in sample.get("files", []):
+            key = f"{redirector}{file_path}"
+            file_to_samples.setdefault(key, set()).add(sample_name)
+
+    return {
+        file_path: sorted(sample_names)
+        for file_path, sample_names in file_to_samples.items()
+        if len(sample_names) > 1
+    }
+
+
+def _warn_duplicate_input_files(samplesdict, max_examples=10):
+    duplicates = _find_duplicate_input_files(samplesdict)
+    if not duplicates:
+        return
+
+    duplicate_items = sorted(duplicates.items())
+    print(
+        "[WARNING] Found {} input file path(s) reused across multiple samples "
+        "(comparison uses redirector+file).".format(len(duplicate_items))
+    )
+    for file_path, sample_names in duplicate_items[:max_examples]:
+        print(f"  - {file_path}")
+        print(f"    samples: {', '.join(sample_names)}")
+
+    if len(duplicate_items) > max_examples:
+        print(f"  ... and {len(duplicate_items) - max_examples} more duplicated file path(s).")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
@@ -219,12 +557,14 @@ if __name__ == "__main__":
         help="Split up categories by lepton flavor",
     )
     parser.add_argument(
-        "--offZ-split",
+        "--offZ-3l-split",
+        dest="offZ_3l_split",
         action="store_true",
         help="Split up 3l offZ categories",
     )
     parser.add_argument(
-        "--tau_h_analysis",
+        "--tau-h-analysis",
+        dest="tau_h_analysis",
         action="store_true",
         help=(
             "Add hadronic tau channels, including the DY-like 1l+tau_h control region "
@@ -313,7 +653,7 @@ if __name__ == "__main__":
         "--noRun3MVA",
         action='store_false',
         default=True,
-        help = 'Do not use the Run3 MVA for lepton selection. Default is to use it.',
+        help='Do not use the Run3 MVA for lepton selection. Default is to use it.',
     )
     parser.add_argument(
         "--options",
@@ -356,12 +696,19 @@ if __name__ == "__main__":
             "environment.yml) when remote packaging fails."
         ),
     )
+    parser.add_argument(
+        "--debug-year-scan",
+        action="store_true",
+        help="Run a lightweight self-check for year token extraction and exit.",
+    )
     parser.set_defaults(use_remote_env=True)
 
     args = parser.parse_args()
+    if args.debug_year_scan:
+        _debug_year_scan_selfcheck()
+        raise SystemExit(0)
     if args.workers is not None:
         args.nworkers = args.workers
-    _ensure_topcoffea_data_available(args.skip_topcoffea_data_check)
     jsonFiles = args.jsonFiles
     prefix = args.prefix
     executor_name = args.executor
@@ -376,7 +723,7 @@ if __name__ == "__main__":
     fill_sumw2 = not args.no_sumw2
     do_systs = args.do_systs
     split_lep_flavor = args.split_lep_flavor
-    offZ_split = args.offZ_split
+    offZ_split = args.offZ_3l_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
     all_analysis = args.all_analysis
@@ -384,7 +731,7 @@ if __name__ == "__main__":
     skip_cr    = args.skip_cr
     do_np      = args.do_np
     np_postprocess_mode = args.np_postprocess
-    useRun3MVA = args.noRun3MVA #NB: default value is True, the arg starts with no because its usage prevents making selections with the run3 MVA
+    useRun3MVA = args.noRun3MVA  # NB: default value is True, the arg starts with no because its usage prevents making selections with the run3 MVA
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
     ecut = args.ecut
@@ -394,22 +741,23 @@ if __name__ == "__main__":
     analysis_mode = args.analysis_mode
     env_file_override = args.env_file
     use_remote_env = args.use_remote_env
+    skip_topcoffea_data_check = args.skip_topcoffea_data_check
 
     if args.options:
         import yaml
-        with open(args.options,'r') as f:
-            ops = yaml.load(f,Loader=yaml.Loader)
-        jsonFiles = ops.pop("jsonFiles",jsonFiles)
-        prefix = ops.pop("prefix",prefix)
-        executor_name = ops.pop("executor",executor_name)
-        dotest = ops.pop("test",dotest)
-        nworkers = ops.pop("nworkers",nworkers)
-        chunksize = ops.pop("chunksize",chunksize)
-        nchunks = ops.pop("nchunks",nchunks)
-        outname = ops.pop("outname",outname)
-        outpath = ops.pop("outpath",outpath)
-        pretend = ops.pop("pretend",pretend)
-        treename = ops.pop("treename",treename)
+        with open(args.options, 'r') as f:
+            ops = yaml.load(f, Loader=yaml.Loader)
+        jsonFiles = ops.pop("jsonFiles", jsonFiles)
+        prefix = ops.pop("prefix", prefix)
+        executor_name = ops.pop("executor", executor_name)
+        dotest = ops.pop("test", dotest)
+        nworkers = ops.pop("nworkers", nworkers)
+        chunksize = ops.pop("chunksize", chunksize)
+        nchunks = ops.pop("nchunks", nchunks)
+        outname = ops.pop("outname", outname)
+        outpath = ops.pop("outpath", outpath)
+        pretend = ops.pop("pretend", pretend)
+        treename = ops.pop("treename", treename)
         no_sumw2_opt = ops.pop("no_sumw2", None)
         if no_sumw2_opt is not None:
             fill_sumw2 = not no_sumw2_opt
@@ -417,25 +765,42 @@ if __name__ == "__main__":
             legacy_do_errors = ops.pop("do_errors", None)
             if legacy_do_errors is not None:
                 fill_sumw2 = bool(legacy_do_errors)
-        do_systs = ops.pop("do_systs",do_systs)
-        split_lep_flavor = ops.pop("split_lep_flavor",split_lep_flavor)
-        offZ_split = ops.pop("offZ_split",offZ_split)
-        tau_h_analysis = ops.pop("tau_h_analysis",tau_h_analysis)
-        fwd_analysis = ops.pop("fwd_analysis",fwd_analysis)
-        all_aanalysis = ops.pop("all_analysis", all_analysis)
-        skip_sr = ops.pop("skip_sr",skip_sr)
-        skip_cr = ops.pop("skip_cr",skip_cr)
-        do_np = ops.pop("do_np",do_np)
+        do_systs = ops.pop("do_systs", do_systs)
+        split_lep_flavor = ops.pop("split_lep_flavor", split_lep_flavor)
+        offZ_split = ops.pop("offZ_split", offZ_split)
+        tau_h_analysis = ops.pop("tau_h_analysis", tau_h_analysis)
+        fwd_analysis = ops.pop("fwd_analysis", fwd_analysis)
+        all_analysis = ops.pop("all_analysis", all_analysis)
+        skip_sr = ops.pop("skip_sr", skip_sr)
+        skip_cr = ops.pop("skip_cr", skip_cr)
+        do_np = ops.pop("do_np", do_np)
         np_postprocess_mode = ops.pop("np_postprocess", np_postprocess_mode)
-        do_renormfact_envelope = ops.pop("do_renormfact_envelope",do_renormfact_envelope)
-        wc_lst = ops.pop("wc_list",wc_lst)
-        hist_list = ops.pop("hist_list",hist_list)
-        port = ops.pop("port",port)
+        do_renormfact_envelope = ops.pop("do_renormfact_envelope", do_renormfact_envelope)
+        wc_lst = ops.pop("wc_list", wc_lst)
+        hist_list = ops.pop("hist_list", hist_list)
+        port = ops.pop("port", port)
         wq_filepath = ops.pop("wq_filepath", wq_filepath)
-        ecut = ops.pop("ecut",ecut)
+        ecut = ops.pop("ecut", ecut)
         analysis_mode = ops.pop("analysis_mode", analysis_mode)
         env_file_override = ops.pop("env_file", env_file_override)
         use_remote_env = ops.pop("use_remote_env", use_remote_env)
+        skip_topcoffea_data_check = ops.pop("skip_topcoffea_data_check", skip_topcoffea_data_check)
+
+    try:
+        validated_mode_flags = analysis_processor.validate_analysis_mode_flags(
+            offZ_split,
+            tau_h_analysis,
+            fwd_analysis,
+            all_analysis,
+        )
+    except ValueError as exc:
+        raise SystemExit(ANALYSIS_MODE_EXCLUSIVE_ERROR) from exc
+
+    offZ_split = validated_mode_flags["offz_3l_split"]
+    tau_h_analysis = validated_mode_flags["tau_h_analysis"]
+    fwd_analysis = validated_mode_flags["fwd_analysis"]
+    all_analysis = validated_mode_flags["all_analysis"]
+    _ensure_topcoffea_data_available(skip_topcoffea_data_check)
 
     out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
     out_pkl_file_name_np = os.path.join(outpath, outname + "_np.pkl.gz")
@@ -519,7 +884,7 @@ if __name__ == "__main__":
         #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
         # if fill_sumw2 and "l1_eta_vs_phi_sumw2" not in hist_lst:
         #     hist_lst.append("l1_eta_vs_phi_sumw2")
-    elif args.hist_list == ["cr"]:
+    elif hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
             "lj0pt",
@@ -575,11 +940,36 @@ if __name__ == "__main__":
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
-        hist_lst = args.hist_list
+        hist_lst = hist_list
 
     ### Load samples from json
     samplesdict = {}
+    sample_sources = {}
+    sample_payload_signatures = {}
     allInputFiles = []
+
+    # NEW: keep track of missing JSONs referenced inside cfg files
+    missing_referenced_jsons = []
+    year_scan_warnings = []
+
+    def _resolve_cfg_token_as_file(cfg_file, token):
+        """
+        Resolve token as a file path:
+          1) as given (with ~ and env expansion)
+          2) if relative, also try relative to cfg_file's directory
+        Return the existing file path, or None if not found.
+        """
+        expanded = os.path.expandvars(os.path.expanduser(token))
+        candidates = [expanded]
+        if not os.path.isabs(expanded):
+            candidates.append(os.path.join(os.path.dirname(cfg_file), expanded))
+        for path in candidates:
+            if os.path.isfile(path):
+                return path
+        return None
+
+    def _record_missing_json(cfg_file, json_token):
+        missing_referenced_jsons.append((cfg_file, json_token))
 
     def LoadJsonToSampleName(jsonFile, prefix):
         sampleName = (
@@ -587,9 +977,55 @@ if __name__ == "__main__":
         )
         if sampleName.endswith(".json"):
             sampleName = sampleName[:-5]
-        with open(jsonFile) as jf:
-            samplesdict[sampleName] = json.load(jf)
-            samplesdict[sampleName]["redirector"] = prefix
+
+        source_json_path = os.path.abspath(jsonFile)
+        with open(jsonFile, encoding="utf-8") as jf:
+            payload = json.load(jf)
+        _validate_payload_schema(payload, source_json_path)
+        year_scan_warning = _validate_payload_year_tokens(payload, source_json_path)
+        if year_scan_warning is not None:
+            year_scan_warnings.append(year_scan_warning)
+        payload_signature = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        hist_axis_name = payload.get("histAxisName")
+
+        if sampleName in samplesdict:
+            prev_payload = samplesdict[sampleName]
+            prev_signature = sample_payload_signatures[sampleName]
+            prev_source = sample_sources[sampleName]
+            prev_hist_axis_name = prev_payload.get("histAxisName")
+            prev_redirector = prev_payload.get("redirector", "")
+
+            if prev_signature != payload_signature or prev_hist_axis_name != hist_axis_name:
+                raise RuntimeError(
+                    (
+                        f'Colliding sample basename key "{sampleName}" while loading JSONs.\n'
+                        f"  Existing json path: {prev_source}\n"
+                        f"  New json path:      {source_json_path}\n"
+                        f"  Existing histAxisName: {prev_hist_axis_name}\n"
+                        f"  New histAxisName:      {hist_axis_name}\n"
+                        "Refusing to continue because payloads are not identical."
+                    )
+                )
+
+            if prev_redirector != prefix:
+                raise RuntimeError(
+                    (
+                        f'Colliding sample basename key "{sampleName}" with conflicting redirector.\n'
+                        f"  Existing json path: {prev_source}\n"
+                        f"  New json path:      {source_json_path}\n"
+                        f'  Existing redirector: "{prev_redirector}"\n'
+                        f'  New redirector:      "{prefix}"\n'
+                        "Refusing to continue because duplicate entries disagree."
+                    )
+                )
+
+            # Duplicate identical entry: keep the first deterministic instance.
+            return
+
+        samplesdict[sampleName] = payload
+        samplesdict[sampleName]["redirector"] = prefix
+        sample_sources[sampleName] = source_json_path
+        sample_payload_signatures[sampleName] = payload_signature
 
     if isinstance(jsonFiles, str) and "," in jsonFiles:
         jsonFiles = jsonFiles.replace(" ", "").split(",")
@@ -599,7 +1035,8 @@ if __name__ == "__main__":
         if os.path.isdir(jsonFile):
             if not jsonFile.endswith("/"):
                 jsonFile += "/"
-            for f in os.path.listdir(jsonFile):
+            # FIX: os.path.listdir -> os.listdir
+            for f in os.listdir(jsonFile):
                 if f.endswith(".json"):
                     allInputFiles.append(jsonFile + f)
         else:
@@ -625,18 +1062,57 @@ if __name__ == "__main__":
                     l = l.replace(" ", "").replace("\n", "")
                     if l == "":
                         continue
-                    if "," in l:
-                        l = l.split(",")
-                        for nl in l:
-                            if not os.path.isfile(l):
-                                prefix = nl
+
+                    tokens = l.split(",") if "," in l else [l]
+                    for token in tokens:
+                        if token == "":
+                            continue
+
+                        resolved = _resolve_cfg_token_as_file(f, token)
+                        if resolved is None:
+                            # If it looks like a json, it must exist; do not silently treat it as a prefix.
+                            if token.endswith(".json"):
+                                _record_missing_json(f, token)
                             else:
-                                LoadJsonToSampleName(nl, prefix)
-                    else:
-                        if not os.path.isfile(l):
-                            prefix = l
-                        else:
-                            LoadJsonToSampleName(l, prefix)
+                                prefix = token
+                            continue
+
+                        LoadJsonToSampleName(resolved, prefix)
+
+    _raise_if_missing_referenced_jsons(missing_referenced_jsons)
+
+    if year_scan_warnings:
+        print(
+            "[WARNING] Found ambiguous year-token matches in {} JSON payload(s); "
+            "continuing because detected year is not unique.".format(
+                len(year_scan_warnings)
+            )
+        )
+        for warning in year_scan_warnings[:10]:
+            print(f"  - path: {warning['path']}")
+            print(
+                "    payload year: {} (canonical: {})".format(
+                    warning["payload_year"], warning["canonical_payload_year"]
+                )
+            )
+            print(
+                "    canonical hits: {} | matching tokens: {}".format(
+                    ", ".join(warning["canonical_hits"]),
+                    ", ".join(warning["tokens"]),
+                )
+            )
+            if warning.get("examples"):
+                print("    examples: {}".format(" | ".join(warning["examples"])))
+            if warning.get("weak_canonical_hits"):
+                print(
+                    "    weak canonical hits (diagnostic only): {}".format(
+                        ", ".join(warning["weak_canonical_hits"])
+                    )
+                )
+        if len(year_scan_warnings) > 10:
+            print(
+                f"  ... and {len(year_scan_warnings) - 10} more ambiguous year-token match(es)."
+            )
 
     requested_years = None
     if args.years:
@@ -704,7 +1180,8 @@ if __name__ == "__main__":
                 "No samples remaining after applying the requested year filter."
             )
 
-        
+    _warn_duplicate_input_files(samplesdict)
+
     flist = {}
     nevts_total = 0
     for sname in samplesdict.keys():
@@ -733,19 +1210,19 @@ if __name__ == "__main__":
             "   - isData?      : %s" % ("YES" if samplesdict[sname]["isData"] else "NO")
         )
         print("   - year         : %s" % samplesdict[sname]["year"])
-        print("   - xsec         : %f" % samplesdict[sname]["xsec"])
+        # print("   - xsec         : %f" % samplesdict[sname]["xsec"])
         print("   - histAxisName : %s" % samplesdict[sname]["histAxisName"])
-        print("   - options      : %s" % samplesdict[sname]["options"])
+        # print("   - options      : %s" % samplesdict[sname]["options"])
         print("   - tree         : %s" % samplesdict[sname]["treeName"])
         print("   - nEvents      : %i" % samplesdict[sname]["nEvents"])
         print("   - nGenEvents   : %i" % samplesdict[sname]["nGenEvents"])
-        print("   - SumWeights   : %i" % samplesdict[sname]["nSumOfWeights"])
-        if not samplesdict[sname]["isData"]:
-            for wgt_var in WGT_VAR_LST:
-                if wgt_var in samplesdict[sname]:
-                    print(f"   - {wgt_var}: {samplesdict[sname][wgt_var]}")
-        print("   - Prefix       : %s" % samplesdict[sname]["redirector"])
-        print("   - nFiles       : %i" % len(samplesdict[sname]["files"]))
+        # print("   - SumWeights   : %i" % samplesdict[sname]["nSumOfWeights"])
+        # if not samplesdict[sname]["isData"]:
+        #     for wgt_var in WGT_VAR_LST:
+        #         if wgt_var in samplesdict[sname]:
+        #             print(f"   - {wgt_var}: {samplesdict[sname][wgt_var]}")
+        # print("   - Prefix       : %s" % samplesdict[sname]["redirector"])
+        # print("   - nFiles       : %i" % len(samplesdict[sname]["files"]))
         for fname in samplesdict[sname]["files"]:
             print("     %s" % fname)
 
@@ -821,7 +1298,7 @@ if __name__ == "__main__":
                 metadata_payload.get("metadata_path", np_metadata_file), followup_command
             )
         )
-            
+
     if pretend:
         print("pretending...")
         if do_np and np_postprocess_mode == "defer":
@@ -848,7 +1325,10 @@ if __name__ == "__main__":
     else:
         print("No Wilson coefficients specified")
 
-    print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
+    if hist_lst is None:
+        print("Variables to be histogrammed: all (processor defaults)")
+    else:
+        print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
 
     env_extra_pip_local = {"topeft": ["topeft", "setup.py"]}
     wq_staging_dir = None
@@ -902,6 +1382,7 @@ if __name__ == "__main__":
             # values, if specified below. if a maximum is not specified, the task waits
             # forever until a larger worker connects.
             "resources_mode": "auto",
+            "resource_monitor": "measure",
             "split_on_exhaustion": True,
             'filepath': wq_staging_dir,
             #"filepath": '/tmp',
@@ -920,9 +1401,7 @@ if __name__ == "__main__":
             # 'disk': 8000,   #MB
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
-            "treereduction": 10,
-            # 'chunks_per_accum': 5,
-            # 'chunks_accum_in_mem': 2,
+            # "treereduction": 10,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.
@@ -1033,10 +1512,6 @@ if __name__ == "__main__":
                     nevts_total, dt, nevts_total / dt
                 )
             )
-
-        # nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-        # nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-        # print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
         if executor_name == "futures":
             print(

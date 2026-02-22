@@ -104,7 +104,16 @@ def main():
         updates = {
             "files": [x.replace("/hadoop","").replace("/cms/cephfs/data", "") for x in get_files(hdir,match_files=[".*\\.root"])]
         }
-        outname = os.path.split(matched_json_fp)[1].replace(".json",f"{postfix}.json")
+
+        json_name = os.path.split(matched_json_fp)[1]          # e.g. WZto3LNu-2Jets_2022.json
+        stem, ext = os.path.splitext(json_name)                # stem=WZto3LNu-2Jets_2022, ext=.json
+        tokens = stem.split("_")    
+        last_token = tokens[-1]                                # e.g. 2022
+        base = "_".join(tokens[:-1])                           # e.g. WZto3LNu-2Jets
+        # produce: WZto3LNu-2Jets_NDSkim_2022.json  (since postfix already includes leading "_")
+        outname = f"{base}{postfix}_{last_token}{ext}"
+
+        # outname = os.path.split(matched_json_fp)[1].replace(".json",f"{postfix}.json")
         if out_dir:
             outname = pjoin(out_dir,outname)
         else:
