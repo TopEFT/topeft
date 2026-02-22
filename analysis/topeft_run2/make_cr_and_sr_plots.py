@@ -285,6 +285,11 @@ DD_ALIAS_MAP = {
     "2017": ("UL17",),
     "2018": ("UL18",),
 }
+_DD_YEAR_TOKENS_BY_LENGTH = tuple(sorted(DD_YEAR_TOKENS, key=len, reverse=True))
+_DD_YEAR_TOKEN_PATTERNS = {
+    token: re.compile(rf"{re.escape(token)}(?=$|[_-])", re.IGNORECASE)
+    for token in _DD_YEAR_TOKENS_BY_LENGTH
+}
 
 _YEAR_SUFFIX_TOKENS = tuple(sorted(YEAR_TOKEN_RULES, key=len, reverse=True))
 _LEPFLAV_TOKENS = (
@@ -856,6 +861,37 @@ def _extract_dd_year_tokens_from_cli_years(year_tokens):
                     collected.append(mapped)
 
     return tuple(collected) if collected else None
+
+
+def _is_data_driven_process_label(label):
+    """Return ``True`` when *label* belongs to a data-driven process family."""
+
+    if not isinstance(label, str):
+        return False
+    return any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS)
+
+
+def _detect_dd_year_token(label: str) -> "str | None":
+    """Return the canonical DD year token detected in *label*, if any."""
+
+    if not isinstance(label, str):
+        return None
+
+    for token in _DD_YEAR_TOKENS_BY_LENGTH:
+        if _DD_YEAR_TOKEN_PATTERNS[token].search(label):
+            return token
+    return None
+
+
+def _dd_label_matches_selected_years(label, dd_year_tokens):
+    """Return ``True`` when DD *label* matches the requested DD year tokens."""
+
+    if dd_year_tokens is None:
+        return True
+    detected_token = _detect_dd_year_token(label)
+    if detected_token is None:
+        return False
+    return detected_token in dd_year_tokens
 
 
 def _hist_has_content(histogram):
@@ -4490,6 +4526,9 @@ def build_region_context(
         must_have_tokens = list(dict.fromkeys(must_have_tokens))
         optional_tokens = list(dict.fromkeys(optional_tokens))
         optional_token_set = set(optional_tokens)
+        dd_year_token_set = (
+            frozenset(dd_year_tokens) if dd_year_tokens is not None else None
+        )
 
         year_token_cache = {}
 
@@ -4537,6 +4576,12 @@ def build_region_context(
             if require_optional_tokens and optional_tokens:
                 if not present_tokens.intersection(optional_token_set):
                     return False
+            if (
+                dd_year_token_set is not None
+                and _is_data_driven_process_label(label)
+                and not _dd_label_matches_selected_years(label, dd_year_token_set)
+            ):
+                return False
             return True
 
         filtered = [
@@ -4550,15 +4595,13 @@ def build_region_context(
             for label in all_labels:
                 if label in filtered_set:
                     continue
-                if not any(matcher.search(label) for matcher in DATA_DRIVEN_MATCHERS):
+                if not _is_data_driven_process_label(label):
                     continue
                 if any(token in label for token in blacklist):
                     continue
                 if must_have_tokens and any(token not in label for token in must_have_tokens):
                     continue
-                if dd_year_tokens is not None and not any(
-                    token in label for token in dd_year_tokens
-                ):
+                if not _dd_label_matches_selected_years(label, dd_year_token_set):
                     continue
                 filtered.append(label)
                 filtered_set.add(label)
