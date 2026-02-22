@@ -3,6 +3,9 @@ import os
 import copy
 import datetime
 import argparse
+import json
+import gzip
+import pickle
 import re
 from collections import OrderedDict
 from collections.abc import Mapping
@@ -40,6 +43,7 @@ from topeft.modules.get_rate_systs import (
     get_syst as te_get_syst,
     get_syst_lst as te_get_syst_lst,
 )
+from topeft.modules.datacard_tools import load_and_merge_histogram_pkls
 
 
 _logger = logging.getLogger(__name__)
@@ -6607,11 +6611,52 @@ def run_plots_for_region(
 
     return zero_yield_summary
 
-def main():
+def _running_in_condor():
+    condor_env_vars = (
+        "_CONDOR_SCRATCH_DIR",
+        "_CONDOR_SLOT",
+        "CONDOR_JOB_AD",
+        "CONDOR_JOBID",
+    )
+    return any(os.environ.get(var) for var in condor_env_vars)
 
-    # Set up the command line parser
+
+def _detect_region_from_path(path):
+    if not path:
+        return None, False
+    filename = os.path.basename(path)
+    uppercase = filename.upper()
+    matched_regions = []
+    for region in ("CR", "SR"):
+        # Accept filenames where the region token is directly followed by
+        # qualifiers such as a year (e.g. "SR2018") or run tag (e.g. "CRRun2").
+        # We only guard against being embedded within a longer alphanumeric
+        # token by ensuring the preceding character is not an uppercase
+        # letter or digit.
+        pattern = re.compile(rf"(?<![A-Z0-9]){region}")
+        if pattern.search(uppercase):
+            matched_regions.append(region)
+    if len(matched_regions) == 1:
+        return matched_regions[0], False
+    if len(matched_regions) > 1:
+        return None, True
+    return None, False
+
+
+def build_arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
+    parser.add_argument(
+        "-f",
+        "--pkl-file-path",
+        action="append",
+        default=[],
+        help="Path to an input pkl file. Repeat for multiple inputs.",
+    )
+    parser.add_argument(
+        "--pkl-list-file",
+        default="",
+        help="Optional text file with one pkl path per line (blank lines and # comments ignored).",
+    )
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
     parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
@@ -6708,6 +6753,31 @@ def main():
             " after plotting."
         ),
     )
+    parser.add_argument(
+        "--on-process-collision",
+        choices=["error", "warn", "allow"],
+        default="error",
+        help=(
+            "Policy for process-label overlaps when merging multiple input pkl files. "
+            "Default is strict `error`. Expert-only escape hatches: `warn`/`allow`, "
+            "to be used only when overlaps are intentional (e.g. chunked outputs)."
+        ),
+    )
+    parser.add_argument(
+        "--merge-report",
+        default="-",
+        help="Path for merge diagnostic report JSON, or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--merge-only",
+        action="store_true",
+        help="Only load+merge+validate input histograms and exit.",
+    )
+    parser.add_argument(
+        "--cache-merged-pkl",
+        default="",
+        help="Optional output path for merged histogram dictionary (.pkl.gz).",
+    )
     verbosity_group = parser.add_mutually_exclusive_group()
     verbosity_group.add_argument(
         "--verbose",
@@ -6722,7 +6792,60 @@ def main():
         help="Limit output to high-level progress messages (default).",
     )
     parser.set_defaults(unblind=None, verbose=False)
-    args = parser.parse_args()
+    return parser
+
+
+def _resolve_pkl_paths(args, parser):
+    pkl_paths = list(args.pkl_file_path or [])
+    if args.pkl_list_file:
+        if pkl_paths:
+            parser.error("Specify either repeated -f/--pkl-file-path or --pkl-list-file, not both.")
+        with open(args.pkl_list_file) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                pkl_paths.append(line)
+    if not pkl_paths:
+        parser.error("No input pkl files were provided. Use -f/--pkl-file-path or --pkl-list-file.")
+    return pkl_paths
+
+
+def _emit_merge_report(report_obj, report_path, out_dir):
+    if report_path == "-":
+        print("Merge report:")
+        print(json.dumps(report_obj, indent=2, sort_keys=True))
+        return
+
+    report_fpath = report_path
+    if not os.path.isabs(report_fpath):
+        report_fpath = os.path.join(out_dir, report_fpath)
+    report_parent = os.path.dirname(report_fpath)
+    if report_parent:
+        os.makedirs(report_parent, exist_ok=True)
+    with open(report_fpath, "w") as f:
+        json.dump(report_obj, f, indent=2, sort_keys=True)
+    print(f"Wrote merge report: {report_fpath}")
+
+
+def _cache_merged_histograms(merged_hists, cache_path, out_dir):
+    out_fpath = cache_path
+    if not os.path.isabs(out_fpath):
+        out_fpath = os.path.join(out_dir, out_fpath)
+    if not out_fpath.endswith(".pkl.gz"):
+        out_fpath += ".pkl.gz"
+    out_parent = os.path.dirname(out_fpath)
+    if out_parent:
+        os.makedirs(out_parent, exist_ok=True)
+    print(f"Caching merged histograms to {out_fpath}")
+    with gzip.open(out_fpath, "wb") as fout:
+        pickle.dump(merged_hists, fout, protocol=pickle.HIGHEST_PROTOCOL)
+    return out_fpath
+
+
+def run_with_args(args, parser):
+    pkl_paths = _resolve_pkl_paths(args, parser)
+
     normalized_years = _normalize_year_tokens(args.year)
     if args.year and not normalized_years:
         parser.error(
@@ -6732,37 +6855,7 @@ def main():
         )
     selected_years = normalized_years
 
-    def _running_in_condor():
-        condor_env_vars = (
-            "_CONDOR_SCRATCH_DIR",
-            "_CONDOR_SLOT",
-            "CONDOR_JOB_AD",
-            "CONDOR_JOBID",
-        )
-        return any(os.environ.get(var) for var in condor_env_vars)
-
-    def _detect_region_from_path(path):
-        if not path:
-            return None, False
-        filename = os.path.basename(path)
-        uppercase = filename.upper()
-        matched_regions = []
-        for region in ("CR", "SR"):
-            # Accept filenames where the region token is directly followed by
-            # qualifiers such as a year (e.g. "SR2018") or run tag (e.g. "CRRun2").
-            # We only guard against being embedded within a longer alphanumeric
-            # token by ensuring the preceding character is not an uppercase
-            # letter or digit.
-            pattern = re.compile(rf"(?<![A-Z0-9]){region}")
-            if pattern.search(uppercase):
-                matched_regions.append(region)
-        if len(matched_regions) == 1:
-            return matched_regions[0], False
-        if len(matched_regions) > 1:
-            return None, True
-        return None, False
-
-    detected_region, ambiguous_region = _detect_region_from_path(args.pkl_file_path)
+    detected_region, ambiguous_region = _detect_region_from_path(pkl_paths[0])
     resolved_region = args.region_override or detected_region or "CR"
     if ambiguous_region and not args.region_override:
         print(
@@ -6825,24 +6918,35 @@ def main():
     else:
         print(f"Created output directory: {save_dir_path}")
 
-    # Get the histograms
+    # Get and merge histograms from one or more input pkl files
     load_start_time = datetime.datetime.now()
     if args.verbose:
+        path_preview = pkl_paths[:3]
+        preview_msg = ", ".join(f"'{path}'" for path in path_preview)
+        if len(pkl_paths) > 3:
+            preview_msg += ", ..."
         print(
-            f"[{load_start_time:%H:%M:%S}] Loading histograms from '{args.pkl_file_path}'..."
+            f"[{load_start_time:%H:%M:%S}] Loading histograms from {len(pkl_paths)} input file(s): {preview_msg}"
         )
-    hin_dict = tc_utils.get_hist_from_pkl(args.pkl_file_path, allow_empty=False)
+    hin_dict, merge_report = load_and_merge_histogram_pkls(
+        pkl_paths,
+        on_process_collision=args.on_process_collision,
+        require_sumw2=True,
+    )
+    _emit_merge_report(merge_report, args.merge_report, save_dir_path)
+    if args.cache_merged_pkl:
+        _cache_merged_histograms(hin_dict, args.cache_merged_pkl, save_dir_path)
     if args.verbose:
         load_finish_time = datetime.datetime.now()
         print(
-            "[{}] Histogram load completed in {:.2f}s".format(
+            "[{}] Histogram load+merge completed in {:.2f}s".format(
                 load_finish_time.strftime("%H:%M:%S"),
                 (load_finish_time - load_start_time).total_seconds(),
             )
         )
-    # Print info about histos
-    #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
-    #exit()
+    if args.merge_only:
+        print("Merge-only mode enabled, stopping after successful merge validation.")
+        return 0
 
     print("\nMaking plots for years:", selected_years if selected_years else "All")
     print("Output dir:",save_dir_path)
@@ -6866,5 +6970,14 @@ def main():
         enable_category_skips=args.enable_category_skips,
         report_zero_yields=args.report_zero_yields,
     )
+    return 0
+
+
+def main():
+    parser = build_arg_parser()
+    args = parser.parse_args()
+    return run_with_args(args, parser)
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
