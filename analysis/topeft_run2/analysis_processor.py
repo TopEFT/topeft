@@ -737,7 +737,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         with open(topeft_path("modules/jerc_dict.yml"), "r") as f:
             jerc_dict = yaml.safe_load(f)
             for junc in jerc_dict[year]['junc']:
-                junc = junc.replace("Regrouped_", "")
+                junc = junc.replace("Regrouped_", "") if is_run2 else junc
                 obj_jes_entries.append(f'JES_{junc}Up')
                 obj_jes_entries.append(f'JES_{junc}Down')
         obj_correction_syst_lst = [
@@ -762,6 +762,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         data_syst_lst = [
             "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
         ]
+
+        # print("\n\n\n\n\n\n")
+        # print((f"Systematic variations to be applied for objects kinematics: {obj_correction_syst_lst}"))
+        # print((f"Systematic variations to be applied for event weights: {wgt_correction_syst_lst}"))
+        # print((f"Systematic variations to be applied only for data-driven estimates: {data_syst_lst}"))
+        # print("\n\n\n\n\n\n")
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData

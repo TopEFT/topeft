@@ -99,45 +99,45 @@
     - L2L3Residual
   jer: Summer22_22Sep2023_JRV1_MC
   junc:
-    - AbsoluteMPFBias
-    - AbsoluteScale
-    - FlavorQCD
-    - Fragmentation
-    - PileUpDataMC
-    - PileUpPtBB
-    - PileUpPtEC1
-    - PileUpPtEC2
-    - PileUpPtHF
-    - PileUpPtRef
-    - RelativeFSR
-    - RelativeJERHF
-    - RelativePtBB
-    - RelativePtHF
-    - RelativeBal
-    - SinglePionECAL
-    - SinglePionHCAL
-    - AbsoluteStat
-    - RelativeJEREC1
-    - RelativeJEREC2
-    - RelativePtEC1
-    - RelativePtEC2
-    - TimePtEta
-    - RelativeSample
-    - RelativeStatEC
-    - RelativeStatFSR
-    - RelativeStatHF
-    - Regrouped_Absolute_2022
-    - Regrouped_Absolute
-    - Regrouped_BBEC1_2022
-    - Regrouped_BBEC1
-    - Regrouped_EC2_2022
-    - Regrouped_EC2
-    - Regrouped_FlavorQCD
-    - Regrouped_HF_2022
-    - Regrouped_HF
-    - Regrouped_RelativeBal
-    - Regrouped_RelativeSample_2022
-    - Regrouped_Total
+    # - AbsoluteMPFBias
+    # - AbsoluteScale
+    # - FlavorQCD
+    # - Fragmentation
+    # - PileUpDataMC
+    # - PileUpPtBB
+    # - PileUpPtEC1
+    # - PileUpPtEC2
+    # - PileUpPtHF
+    # - PileUpPtRef
+    # - RelativeFSR
+    # - RelativeJERHF
+    # - RelativePtBB
+    # - RelativePtHF
+    # - RelativeBal
+    # - SinglePionECAL
+    # - SinglePionHCAL
+    # - AbsoluteStat
+    # - RelativeJEREC1
+    # - RelativeJEREC2
+    # - RelativePtEC1
+    # - RelativePtEC2
+    # - TimePtEta
+    # - RelativeSample
+    # - RelativeStatEC
+    # - RelativeStatFSR
+    # - RelativeStatHF
+    # - Regrouped_Absolute_2022
+    # - Regrouped_Absolute
+    # - Regrouped_BBEC1_2022
+    # - Regrouped_BBEC1
+    # - Regrouped_EC2_2022
+    # - Regrouped_EC2
+    # - Regrouped_FlavorQCD
+    # - Regrouped_HF_2022
+    # - Regrouped_HF
+    # - Regrouped_RelativeBal
+    # - Regrouped_RelativeSample_2022
+    # - Regrouped_Total
     - Total
 
 "2022EE":
