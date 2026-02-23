@@ -1,8 +1,8 @@
 {
     "xsec": 0.24111,
-    "year": "2022EE",
+    "year": "2023BPix",
     "treeName": "Events",
-    "histAxisName": "ttH",
+    "histAxisName": "ttH_private2023BPix",
     "options": "",
     "WCnames": [
         "cQu8",

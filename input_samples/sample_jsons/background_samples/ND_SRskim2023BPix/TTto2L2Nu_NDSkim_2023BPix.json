@@ -1,0 +1,33 @@
+{
+  "xsec": 96.8,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "TTto2L2Nu_central2023BPix",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/TTto2L2Nu_2023BPix/output_1005.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/TTto2L2Nu_2023BPix/output_3056.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/TTto2L2Nu_2023BPix/output_1895.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/TTto2L2Nu_2023BPix/output_2960.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/TTto2L2Nu_2023BPix/output_2165.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/TTto2L2Nu_2023BPix/output_1617.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/TTto2L2Nu_2023BPix/output_2492.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/TTto2L2Nu_2023BPix/output_1324.root"
+  ],
+  "nEvents": 24649000,
+  "nGenEvents": 24649000,
+  "nSumOfWeights": 1982966510.4533992,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23BPixNanoAODv12//TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v3",
+  "nSumOfWeights_ISRUp": 1982930411.4709156,
+  "nSumOfWeights_ISRDown": 1982961516.9242144,
+  "nSumOfWeights_FSRUp": 1982805910.6608288,
+  "nSumOfWeights_FSRDown": 1983168227.8292685,
+  "nSumOfWeights_renormUp": 1785739589.2344427,
+  "nSumOfWeights_renormDown": 2195099983.5123515,
+  "nSumOfWeights_factUp": 1946909906.5441093,
+  "nSumOfWeights_factDown": 2030111646.0892735,
+  "nSumOfWeights_renormDown_factUp": 2170890088.240405,
+  "nSumOfWeights_renormUp_factDown": 1836392039.0416942
+}

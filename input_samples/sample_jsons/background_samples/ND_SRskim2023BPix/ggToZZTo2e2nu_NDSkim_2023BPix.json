@@ -1,0 +1,26 @@
+{
+  "xsec": 0.006115,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "ggToZZTo2e2nu_central2023BPix",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/ggToZZTo2e2nu_2023BPix/output_1450.root"
+  ],
+  "nEvents": 198050,
+  "nGenEvents": 198050,
+  "nSumOfWeights": 198050.0,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23BPixNanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
+  "nSumOfWeights_ISRUp": 197933.6561279297,
+  "nSumOfWeights_ISRDown": 198184.08178710938,
+  "nSumOfWeights_FSRUp": 197749.35774230957,
+  "nSumOfWeights_FSRDown": 198759.2567024231,
+  "nSumOfWeights_renormUp": 198050.0,
+  "nSumOfWeights_renormDown": 198050.0,
+  "nSumOfWeights_factUp": 198050.0,
+  "nSumOfWeights_factDown": 198050.0,
+  "nSumOfWeights_renormDown_factUp": 198050.0,
+  "nSumOfWeights_renormUp_factDown": 198050.0
+}
