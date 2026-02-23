@@ -44,11 +44,24 @@ def test_run3_2022_jes_contract_matches_fields_without_collisions():
     assert "2022" not in producer_bases
 
 
-def test_run3_2023_preserves_total_and_regrouped_total():
+def test_run3_2022ee_jes_tokens_use_regrouped_names():
+    variations = cor.get_supported_jet_systematics("2022EE", isData=False, era=None)
+    producer_bases = _jes_bases_from_variations(variations)
+    field_bases = _expected_jes_bases_from_jecstack("2022EE")
+    assert producer_bases == sorted(set(field_bases))
+    assert len(field_bases) == len(set(field_bases))
+    assert "JES_Regrouped_Absolute_2022EEUp" in variations
+    assert "JES_Absolute_2022EEUp" not in variations
+    assert "Regrouped_Absolute_2022EE" in producer_bases
+    assert "Absolute_2022EE" not in producer_bases
+
+
+def test_run3_2023_uses_regrouped_sources_without_total_tokens():
     variations = cor.get_supported_jet_systematics("2023", isData=False, era=None)
     producer_bases = _jes_bases_from_variations(variations)
     field_bases = _expected_jes_bases_from_jecstack("2023")
     assert producer_bases == sorted(set(field_bases))
     assert len(field_bases) == len(set(field_bases))
-    assert "Total" in producer_bases
-    assert "Regrouped_Total" in producer_bases
+    assert "Regrouped_Absolute_2023" in producer_bases
+    assert "Total" not in producer_bases
+    assert "Regrouped_Total" not in producer_bases
