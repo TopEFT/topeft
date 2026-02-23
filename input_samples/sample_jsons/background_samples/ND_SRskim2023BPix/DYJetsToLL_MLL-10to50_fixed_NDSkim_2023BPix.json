@@ -1,0 +1,26 @@
+{
+  "xsec": 19982.5,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "DYJetsToLL_MLL-10to50_central2022",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/DYJetsToLL_MLL_10to50_fixed_2023BPix/output_3105.root"
+  ],
+  "nEvents": 100410583,
+  "nGenEvents": 100410583,
+  "nSumOfWeights": 3520825922976.449,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23BPixNanoAODv12/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2_ext1-v4/",
+  "nSumOfWeights_ISRUp": 3521543683306.418,
+  "nSumOfWeights_ISRDown": 3519862736592.858,
+  "nSumOfWeights_FSRUp": 3521245065803.5215,
+  "nSumOfWeights_FSRDown": 3520262500464.6104,
+  "nSumOfWeights_renormUp": 3434149124106.6387,
+  "nSumOfWeights_renormDown": 3635149918694.819,
+  "nSumOfWeights_factUp": 3876155189489.4526,
+  "nSumOfWeights_factDown": 2808826641390.8657,
+  "nSumOfWeights_renormDown_factUp": 3852653064242.658,
+  "nSumOfWeights_renormUp_factDown": 2688677173214.045
+}

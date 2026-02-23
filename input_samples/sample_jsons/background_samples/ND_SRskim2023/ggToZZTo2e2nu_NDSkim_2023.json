@@ -1,0 +1,26 @@
+{
+  "xsec": 0.006115,
+  "year": "2023",
+  "treeName": "Events",
+  "histAxisName": "ggToZZTo2e2nu_central2023",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023/v260222/ggToZZTo2e2nu_2023/output_2105.root"
+  ],
+  "nEvents": 350000,
+  "nGenEvents": 350000,
+  "nSumOfWeights": 350000.0,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23NanoAODv12/GluGluToContinto2Zto2E2Nu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v2",
+  "nSumOfWeights_ISRUp": 350004.37113952637,
+  "nSumOfWeights_ISRDown": 349989.6205444336,
+  "nSumOfWeights_FSRUp": 350289.8247680664,
+  "nSumOfWeights_FSRDown": 349609.4309539795,
+  "nSumOfWeights_renormUp": 350000.0,
+  "nSumOfWeights_renormDown": 350000.0,
+  "nSumOfWeights_factUp": 350000.0,
+  "nSumOfWeights_factDown": 350000.0,
+  "nSumOfWeights_renormDown_factUp": 350000.0,
+  "nSumOfWeights_renormUp_factDown": 350000.0
+}

@@ -1,0 +1,26 @@
+{
+  "xsec": 0.0592,
+  "year": "2023",
+  "treeName": "Events",
+  "histAxisName": "WZto3LNu-2Jets_central2023",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2023/v260222/WZto3LNu_2Jets_2023/output_2341.root"
+  ],
+  "nEvents": 247000,
+  "nGenEvents": 247000,
+  "nSumOfWeights": 247000.0,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23NanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v2",
+  "nSumOfWeights_ISRUp": 246936.48178962816,
+  "nSumOfWeights_ISRDown": 247039.83157365298,
+  "nSumOfWeights_FSRUp": 247111.96746444702,
+  "nSumOfWeights_FSRDown": 246768.86099243164,
+  "nSumOfWeights_renormUp": 247000.0,
+  "nSumOfWeights_renormDown": 247000.0,
+  "nSumOfWeights_factUp": 251613.96188354492,
+  "nSumOfWeights_factDown": 237536.5213985443,
+  "nSumOfWeights_renormDown_factUp": 251613.96188354492,
+  "nSumOfWeights_renormUp_factDown": 237536.5213985443
+}
