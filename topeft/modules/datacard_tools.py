@@ -11,13 +11,295 @@ import time
 
 from collections import defaultdict
 
-from topcoffea.modules.utils import regex_match
+from topcoffea.modules.utils import regex_match, get_hist_from_pkl
 from topeft.modules.paths import topeft_path
 from topeft.modules.axes import info as axes_info
 from topeft.modules.compatibility import add_sumw2_stub
 
 
 PRECISION = 6   # Decimal point precision in the text datacard output
+SUMW2_SUFFIX = "_sumw2"
+
+
+def _is_sumw2_key(key):
+    return isinstance(key, str) and key.endswith(SUMW2_SUFFIX)
+
+
+def _base_key(key):
+    return key[: -len(SUMW2_SUFFIX)]
+
+
+def _short_examples(values, max_items=8):
+    items = list(values)
+    if len(items) <= max_items:
+        return items
+    return items[:max_items] + ["..."]
+
+
+def _categorical_axis_names(h):
+    cat_axes = getattr(h, "categorical_axes", None)
+    if cat_axes is not None:
+        try:
+            return tuple(ax.name for ax in cat_axes)
+        except Exception:
+            cat_names = getattr(cat_axes, "name", None)
+            if cat_names is None:
+                raise
+            if isinstance(cat_names, str):
+                return (cat_names,)
+            return tuple(cat_names)
+
+    str_category_type = getattr(hist.axis, "StrCategory", None)
+    int_category_type = getattr(hist.axis, "IntCategory", None)
+    categorical_types = tuple(
+        ax_type
+        for ax_type in (str_category_type, int_category_type)
+        if ax_type is not None
+    )
+
+    names = []
+    for ax in h.axes:
+        if categorical_types and isinstance(ax, categorical_types):
+            names.append(ax.name)
+        elif type(ax).__name__ in {"StrCategory", "IntCategory"}:
+            names.append(ax.name)
+    return tuple(names)
+
+
+def _dense_axes(h):
+    cat_names = set(_categorical_axis_names(h))
+    return [ax for ax in h.axes if ax.name not in cat_names]
+
+
+def _axis_edges(ax):
+    if not hasattr(ax, "edges"):
+        return None
+
+    edges_obj = getattr(ax, "edges")
+    try:
+        edges = edges_obj() if callable(edges_obj) else edges_obj
+    except Exception:
+        return None
+
+    try:
+        arr = np.asarray(edges, dtype=float)
+    except Exception:
+        return None
+
+    if arr.ndim != 1:
+        return None
+    return arr
+
+
+def _validate_hist_compatibility(key, existing_hist, incoming_hist, incoming_path):
+    if type(existing_hist) is not type(incoming_hist):
+        raise TypeError(
+            f"Histogram type mismatch for key '{key}' while merging '{incoming_path}': "
+            f"{type(existing_hist)} != {type(incoming_hist)}"
+        )
+
+    if not hasattr(existing_hist, "axes") or not hasattr(incoming_hist, "axes"):
+        raise TypeError(
+            f"Object for key '{key}' from '{incoming_path}' does not look like a histogram "
+            f"(missing 'axes')."
+        )
+
+    existing_all_axis_names = tuple(ax.name for ax in existing_hist.axes)
+    incoming_all_axis_names = tuple(ax.name for ax in incoming_hist.axes)
+    if existing_all_axis_names != incoming_all_axis_names:
+        raise ValueError(
+            f"Axis-name/order mismatch for key '{key}' while merging '{incoming_path}': "
+            f"{existing_all_axis_names} != {incoming_all_axis_names}"
+        )
+
+    existing_cat_axes_obj = getattr(existing_hist, "categorical_axes", [])
+    incoming_cat_axes_obj = getattr(incoming_hist, "categorical_axes", [])
+    existing_cat_axes = tuple((ax.name, type(ax).__name__) for ax in existing_cat_axes_obj)
+    incoming_cat_axes = tuple((ax.name, type(ax).__name__) for ax in incoming_cat_axes_obj)
+    if existing_cat_axes != incoming_cat_axes:
+        raise ValueError(
+            f"Categorical axis mismatch for key '{key}' while merging '{incoming_path}': "
+            f"{existing_cat_axes} != {incoming_cat_axes}"
+        )
+
+    existing_dense_axes = _dense_axes(existing_hist)
+    incoming_dense_axes = _dense_axes(incoming_hist)
+    if len(existing_dense_axes) != len(incoming_dense_axes):
+        raise ValueError(
+            f"Dense-axis-count mismatch for key '{key}' while merging '{incoming_path}': "
+            f"{len(existing_dense_axes)} != {len(incoming_dense_axes)}"
+        )
+
+    for existing_axis, incoming_axis in zip(existing_dense_axes, incoming_dense_axes):
+        if type(existing_axis) is not type(incoming_axis):
+            raise ValueError(
+                f"Dense-axis type mismatch for key '{key}' axis '{existing_axis.name}' while merging "
+                f"'{incoming_path}': {type(existing_axis)} != {type(incoming_axis)}"
+            )
+        if existing_axis.name != incoming_axis.name:
+            raise ValueError(
+                f"Dense-axis name mismatch for key '{key}' while merging '{incoming_path}': "
+                f"{existing_axis.name} != {incoming_axis.name}"
+            )
+        if len(existing_axis) != len(incoming_axis):
+            raise ValueError(
+                f"Dense-axis bin-count mismatch for key '{key}' axis '{existing_axis.name}' while "
+                f"merging '{incoming_path}': {len(existing_axis)} != {len(incoming_axis)}"
+            )
+        existing_edges = _axis_edges(existing_axis)
+        incoming_edges = _axis_edges(incoming_axis)
+        if existing_edges is not None and incoming_edges is not None:
+            if existing_edges.shape != incoming_edges.shape or not np.array_equal(existing_edges, incoming_edges):
+                raise ValueError(
+                    f"Dense-axis edges mismatch for key '{key}' axis '{existing_axis.name}' while "
+                    f"merging '{incoming_path}'."
+                )
+
+    existing_wcs = getattr(existing_hist, "wc_names", None)
+    incoming_wcs = getattr(incoming_hist, "wc_names", None)
+    if existing_wcs is not None or incoming_wcs is not None:
+        if list(existing_wcs) != list(incoming_wcs):
+            raise ValueError(
+                f"WC-name mismatch for key '{key}' while merging '{incoming_path}': "
+                f"{existing_wcs} != {incoming_wcs}"
+            )
+
+
+def _process_labels(hist_obj):
+    try:
+        return set(hist_obj.axes["process"])
+    except Exception:
+        return None
+
+
+def load_and_merge_histogram_pkls(
+    pkl_paths,
+    *,
+    on_process_collision="error",
+    require_sumw2=True,
+):
+    """
+        Load one or more histogram pkls and merge them in memory with strict validation.
+        Returns: (merged_hist_dict, merge_report_dict)
+    """
+    if on_process_collision not in {"error", "warn", "allow"}:
+        raise ValueError(
+            f"Unknown process collision policy '{on_process_collision}'. "
+            "Valid options are: error, warn, allow."
+        )
+    if not pkl_paths:
+        raise ValueError("No input pickle files were provided for merging.")
+
+    report = {
+        "num_inputs": len(pkl_paths),
+        "inputs": list(pkl_paths),
+        "on_process_collision": on_process_collision,
+        "require_sumw2": bool(require_sumw2),
+        "files": [],
+        "process_collisions": [],
+    }
+
+    merged_hists = {}
+    for path in pkl_paths:
+        print(f"Opening: {path}")
+        tic = time.time()
+        hist_dict = get_hist_from_pkl(path, allow_empty=False)
+        dt = time.time() - tic
+        print(f"Pkl Open Time: {dt:.2f} s")
+
+        if not isinstance(hist_dict, dict):
+            raise TypeError(
+                f"Histogram input '{path}' is not a dictionary. Got: {type(hist_dict)}"
+            )
+        non_string_keys = [k for k in hist_dict if not isinstance(k, str)]
+        if non_string_keys:
+            raise TypeError(
+                f"Histogram input '{path}' contains non-string keys: "
+                f"{_short_examples(non_string_keys)}"
+            )
+
+        keys = set(hist_dict.keys())
+        base_keys = sorted(k for k in keys if not _is_sumw2_key(k))
+        sumw2_keys = sorted(k for k in keys if _is_sumw2_key(k))
+
+        orphan_sumw2 = sorted(k for k in sumw2_keys if _base_key(k) not in keys)
+        if orphan_sumw2:
+            raise RuntimeError(
+                f"Input '{path}' contains *_sumw2 keys without base histograms: "
+                f"{_short_examples(orphan_sumw2)}"
+            )
+
+        missing_sumw2 = []
+        if require_sumw2:
+            missing_sumw2 = sorted(k for k in base_keys if f"{k}{SUMW2_SUFFIX}" not in keys)
+            if missing_sumw2:
+                raise RuntimeError(
+                    f"Input '{path}' is missing required *_sumw2 companions for: "
+                    f"{_short_examples(missing_sumw2)}"
+                )
+
+        report["files"].append(
+            {
+                "path": path,
+                "num_keys": len(keys),
+                "num_base_keys": len(base_keys),
+                "num_sumw2_keys": len(sumw2_keys),
+            }
+        )
+
+        for key, incoming_hist in hist_dict.items():
+            if key not in merged_hists:
+                merged_hists[key] = incoming_hist
+                continue
+
+            existing_hist = merged_hists[key]
+            _validate_hist_compatibility(key, existing_hist, incoming_hist, path)
+
+            existing_procs = _process_labels(existing_hist)
+            incoming_procs = _process_labels(incoming_hist)
+            if existing_procs is not None and incoming_procs is not None:
+                overlap = sorted(existing_procs & incoming_procs)
+                if overlap:
+                    collision = {
+                        "key": key,
+                        "path": path,
+                        "overlap_count": len(overlap),
+                        "overlap_examples": _short_examples(overlap, max_items=15),
+                        "existing_process_count": len(existing_procs),
+                        "incoming_process_count": len(incoming_procs),
+                    }
+                    report["process_collisions"].append(collision)
+
+                    msg = (
+                        f"Process-label overlap detected while merging key '{key}' from '{path}': "
+                        f"{len(overlap)} overlapping labels (examples: {collision['overlap_examples']}). "
+                        "If this overlap is intentional (e.g. chunked outputs), rerun with "
+                        "`--on-process-collision allow`. "
+                        "If you just want diagnostics, use "
+                        "`--merge-only --on-process-collision warn`."
+                    )
+                    if on_process_collision == "error":
+                        raise RuntimeError(msg)
+                    if on_process_collision == "warn":
+                        print(f"WARNING: {msg}")
+
+            try:
+                merged_hists[key] += incoming_hist
+            except Exception as inplace_err:
+                try:
+                    merged_hists[key] = merged_hists[key] + incoming_hist
+                except Exception as add_err:
+                    raise RuntimeError(
+                        f"Failed to merge key '{key}' from '{path}'. "
+                        f"In-place add error: {inplace_err!r}. Add error: {add_err!r}."
+                    ) from add_err
+
+        del hist_dict
+
+    report["num_merged_keys"] = len(merged_hists)
+    report["num_process_collisions"] = len(report["process_collisions"])
+
+    return merged_hists, report
 
 def to_hist(arr,name,zero_wgts=False):
     """
@@ -316,7 +598,7 @@ class DatacardMaker():
             r[p].append(cls.get_process(x))
         return r
 
-    def __init__(self,pkl_path,**kwargs):
+    def __init__(self,pkl_path=None,hists=None,**kwargs):
         self.year_lst        = kwargs.pop("year_lst",[])
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
@@ -451,24 +733,41 @@ class DatacardMaker():
         self.tolerance = 1e-4
         self.hists = None
 
+        if hists is not None and pkl_path is not None:
+            raise ValueError("Specify either 'pkl_path' or 'hists', not both.")
+        if hists is None and pkl_path is None:
+            raise ValueError("Must specify either 'pkl_path' or 'hists'.")
+
         tic = time.time()
-        self.read(pkl_path)
+        self.read(fpath=pkl_path, hists=hists)
         dt = time.time() - tic
         print(f"Total Read+Prune Time: {dt:.2f} s")
 
         print (f"Saving output to {os.path.realpath(self.out_dir)}")
 
-    def read(self,fpath):
+    def read(self,fpath=None,hists=None):
         """
-            Input should be a file path to a pkl file containing histograms produced by the topeft.py
-            processor. The histograms are extracted and then pre-processed to remove / group / scale
-            various sparse axes categories.
+            Input can be either:
+              - a file path to a pkl file containing histograms produced by the topeft.py processor
+              - a pre-loaded dictionary of histograms
+            The histograms are then pre-processed to remove / group / scale various sparse axes
+            categories.
         """
-        print(f"Opening: {fpath}")
-        tic = time.time()
-        self.hists = pickle.load(gzip.open(fpath))
-        dt = time.time() - tic
-        print(f"Pkl Open Time: {dt:.2f} s")
+        if hists is not None:
+            if not isinstance(hists, dict):
+                raise TypeError(
+                    f"Expected 'hists' to be a dict, got {type(hists)}"
+                )
+            self.hists = hists
+            print(f"Using preloaded histogram dictionary ({len(self.hists)} keys)")
+        elif fpath is not None:
+            print(f"Opening: {fpath}")
+            tic = time.time()
+            self.hists = get_hist_from_pkl(fpath, allow_empty=True)
+            dt = time.time() - tic
+            print(f"Pkl Open Time: {dt:.2f} s")
+        else:
+            raise ValueError("Need either fpath or hists for read().")
 
         for km_dist, h in self.hists.items():
             if h.empty():

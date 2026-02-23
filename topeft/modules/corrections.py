@@ -17,7 +17,10 @@ import json
 import yaml
 #from coffea.jetmet_tools import CorrectedMETFactory
 ### workaround while waiting the correcion-lib integration will be provided in the coffea package
-from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
+from topcoffea.modules.CorrectedJetsFactory import (
+    CorrectedJetsFactory,
+    get_jec_uncertainty_label,
+)
 from topcoffea.modules.CorrectedMETFactory import CorrectedMETFactory
 from topcoffea.modules.JECStack import JECStack
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
@@ -140,6 +143,36 @@ def get_jerc_keys(year, isdata, era=None):
         junc_types  = None
 
     return jet_algo, jec_key, jec_levels, jer_key, junc_types
+
+
+def get_supported_jes_bases(year, isData=False, era=None):
+    if isData:
+        return []
+
+    jet_algo, jec_tag, _, _, junc_types = get_jerc_keys(year, isData, era)
+    bases = []
+    for junc_type in junc_types:
+        full_unc_name = f"{jec_tag}_{junc_type}_{jet_algo}"
+        bases.append(get_jec_uncertainty_label(full_unc_name, jec_tag, jet_algo))
+
+    if len(set(bases)) != len(bases):
+        duplicates = sorted({x for x in bases if bases.count(x) > 1})
+        raise RuntimeError(
+            f"Collision in JES base labels for year {year}: {duplicates}"
+        )
+
+    return bases
+
+
+def get_supported_jet_systematics(year, isData=False, era=None):
+    if isData:
+        return []
+
+    systs = [f"JER_{year}Up", f"JER_{year}Down"]
+    for base in get_supported_jes_bases(year, isData=isData, era=era):
+        systs.append(f"JES_{base}Up")
+        systs.append(f"JES_{base}Down")
+    return systs
 
 def get_corr_inputs(objs, corr_obj, name_map):
     """
@@ -1811,7 +1844,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         return cleanedJets
     elif (syst_var in ['nominal','MuonESUp','MuonESDown', 'TESUp', 'TESDown', 'FESUp', 'FESDown']):
         return cleanedJets
-    elif ('JES_FlavorQCD' in syst_var in syst_var):
+    elif ('JES_FlavorQCD' in syst_var):
         # Overwrite FlavorQCD with the proper jet flavor uncertainty
         bmask = np.array(ak.flatten(abs(cleanedJets.partonFlavour)==5))
         cmask = abs(cleanedJets.partonFlavour)==4

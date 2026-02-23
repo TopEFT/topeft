@@ -3,6 +3,8 @@ import time
 import json
 import shutil
 import argparse
+import gzip
+import pickle
 import numpy as np
 
 from topcoffea.modules.utils import regex_match,clean_dir,dict_comp
@@ -20,7 +22,7 @@ from topeft.modules.datacard_tools import *
 sub_fragment = """\
 universe   = vanilla
 executable = condor.sh
-arguments  = "{usr_dir} {inf} {out_dir} {var_lst} '{ch_lst}' '{other}'"
+arguments  = "{usr_dir} {pkl_list} {out_dir} {var_lst} '{ch_lst}' '{other}'"
 output = {condor_dir}/job_{idx}.out
 error  = {condor_dir}/job_{idx}.err
 log    = {condor_dir}/job_{idx}.log
@@ -29,7 +31,7 @@ request_cpus = 1
 request_memory = 20000
 request_disk = 4096
 
-transfer_input_files = make_cards.py,selectedWCs.txt
+transfer_input_files = {transfer_inputs}
 should_transfer_files = yes
 transfer_executable = true
 
@@ -39,14 +41,14 @@ queue 1
 
 sh_fragment = r"""#!/bin/sh
 USR_DIR=${1}
-INF=${2}
+PKL_LIST_FILE=${2}
 OUT_DIR=${3}
 VAR_LST=${4}
 CH_LST=${5}
 OTHER=${6}
 
 echo "USR_DIR: ${USR_DIR}"
-echo "INF: ${INF}"
+echo "PKL_LIST_FILE: ${PKL_LIST_FILE}"
 echo "OUT_DIR: ${OUT_DIR}"
 echo "VAR_LST: ${VAR_LST}"
 echo "CH_LST: ${CH_LST}"
@@ -59,100 +61,13 @@ unset PYTHONPATH
 conda activate ${CONDA_DEFAULT_ENV}
 
 ulimit -s unlimited
-python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${VAR_LST} --ch-lst ${CH_LST} --use-selected "selectedWCs.txt" ${OTHER}
+python make_cards.py --pkl-list-file "${PKL_LIST_FILE}" -d ${OUT_DIR} --var-lst ${VAR_LST} --ch-lst ${CH_LST} --use-selected "selectedWCs.txt" ${OTHER}
 """
 
-def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
-    for km_dist in km_dists:
-        all_chs = dc.channels(km_dist)
-        matched_chs = regex_match(all_chs,channels)
-        if channels:
-            print(f"Channels to process: {matched_chs}")
-        for ch in matched_chs:
-            r = dc.analyze(km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict)
-
-# VERY IMPORTANT:
-#   This setup assumes the output directory is mounted on the remote condor machines
-# Note:
-#   The condor jobs currently have to read the various .json files from the default locations, which
-#   means that they will probably be getting read from the user's AFS area (or wherever their TopEFT
-#   repo is located).
-# TODO: Currently there's no way to transparently passthrough parent arguments to the condor ones.
-#   There's also no clear way to pass customized options to different sub-sets of condor jobs
-def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
-    import subprocess
-    import stat
-
-    home = os.getcwd()
-
-    condor_dir = os.path.join(out_dir,"job_logs")
-
-    if not os.path.exists(condor_dir):
-        print(f"Making condor output directory {condor_dir}")
-        os.mkdir(condor_dir)
-
-    clean_dir(condor_dir,targets=["job_.*log","job_.*err","job_.*out","^condor.*sub$"])
-
-    condor_exe_fname = "condor.sh"
-    if not os.path.samefile(home,out_dir):
-        condor_exe_fname = os.path.join(out_dir,"condor.sh")
-
-    print("Generating condor executable script")
-    with open(condor_exe_fname,"w") as f:
-        f.write(sh_fragment)
-
-    usr_perms = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
-    grp_perms = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP
-    all_perms = stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH
-
-    os.chmod(condor_exe_fname,usr_perms | grp_perms | all_perms)    # equiv. to 777
-
-    other_opts = []
-    if dc.do_mc_stat:
-        other_opts.append("--do-mc-stat")
-    if dc.verbose:
-        other_opts.append("--verbose")
-    if dc.use_real_data:
-        other_opts.append("--unblind")
-    if dc.do_nuisance:
-        other_opts.append("--do-nuisance")
-    if dc.year_lst:
-        other_opts.extend(["--year"," ".join(dc.year_lst)])
-    if dc.drop_syst:
-        other_opts.extend(["--drop-syst"," ".join(dc.drop_syst)])
-    other_opts = " ".join(other_opts)
-
-    idx = 0
-    for km_dist in var_lst:
-        all_chs = dc.channels(km_dist)
-        matched_chs = regex_match(all_chs,ch_lst)
-        n = max(chunk_size,1)
-        chunks = np.split(matched_chs,[i for i in range(n,len(matched_chs),n)])
-        for chnk in chunks:
-            print(f"[{idx+1:0>3}] Variable: {km_dist} -- Channels: {chnk}")
-            s = sub_fragment.format(
-                idx=idx,
-                usr_dir=os.path.expanduser("~"),
-                inf=pkl_fpath,
-                out_dir=os.path.realpath(out_dir),
-                var_lst=km_dist,
-                ch_lst=" ".join(chnk),
-                condor_dir=condor_dir,
-                other=f"{other_opts}",
-            )
-            condor_submit_fname = os.path.join(condor_dir,f"condor.{idx}.sub")
-            with open(condor_submit_fname,"w") as f:
-                f.write(s)
-            cmd = ["condor_submit",condor_submit_fname]
-            print(f"{'':>5} Condor command: {' '.join(cmd)}")
-            os.chdir(out_dir)
-            p = subprocess.run(cmd)
-            os.chdir(home)
-            idx += 1
-
-def main():
+def build_arg_parser():
     parser = argparse.ArgumentParser(description="You can select which file to run over")
-    parser.add_argument("pkl_file",nargs="?",help="Pickle file with histograms to run over")
+    parser.add_argument("pkl_file",nargs="*",help="One or more pickle files with histograms to run over")
+    parser.add_argument("--pkl-list-file",default="",help="Optional text file with one pkl path per line")
     parser.add_argument("--rate-syst-json","-s",default="params/rate_systs.json",help="Rate related systematics json file, path relative to topeft_path()")
     parser.add_argument("--miss-parton-file","-m",default="data/missing_parton/missing_parton.root",help="File for missing parton systematic, path relative to topeft_path()")
     parser.add_argument("--selected-wcs-ref",default="test/selectedWCs.json",help="Reference file for selected wcs")
@@ -176,9 +91,181 @@ def main():
     parser.add_argument("--use-AAC","-A",action="store_true",help="Include all EFT templates in datacards for AAC model")
     parser.add_argument("--wc-vals", default="",action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
     parser.add_argument("--wc-scalings", default=[],action="extend",nargs="+",help="Specify a list of wc ordering for scalings.json")
+    parser.add_argument(
+        "--on-process-collision",
+        choices=["error","warn","allow"],
+        default="error",
+        help=(
+            "Policy for process-label overlaps when merging multiple input pkl files. "
+            "Default is strict `error`. Expert-only escape hatches: `warn`/`allow`, "
+            "to be used only when overlaps are intentional (e.g. chunked outputs)."
+        ),
+    )
+    parser.add_argument("--merge-report",default="-",help="Path for merge diagnostic report JSON, or '-' for stdout")
+    parser.add_argument("--merge-only",action="store_true",help="Only load+merge+validate input histograms and exit")
+    parser.add_argument("--cache-merged-pkl",default="",help="Optional output path for merged histogram dictionary (.pkl.gz)")
+    return parser
 
+
+def _resolve_pkl_paths(args, parser):
+    pkl_files = list(args.pkl_file)
+    if args.pkl_list_file:
+        if pkl_files:
+            parser.error("Specify either positional pkl files or --pkl-list-file, not both.")
+        with open(args.pkl_list_file) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                pkl_files.append(line)
+    if not pkl_files:
+        parser.error("No input pkl files were provided.")
+    return pkl_files
+
+
+def _emit_merge_report(report_obj, report_path, out_dir):
+    if report_path == "-":
+        print("Merge report:")
+        print(json.dumps(report_obj, indent=2, sort_keys=True))
+        return
+
+    report_fpath = report_path
+    if not os.path.isabs(report_fpath):
+        report_fpath = os.path.join(out_dir, report_fpath)
+    report_parent = os.path.dirname(report_fpath)
+    if report_parent:
+        os.makedirs(report_parent, exist_ok=True)
+    with open(report_fpath, "w") as f:
+        json.dump(report_obj, f, indent=2, sort_keys=True)
+    print(f"Wrote merge report: {report_fpath}")
+
+
+def _cache_merged_histograms(merged_hists, cache_path, out_dir):
+    out_fpath = cache_path
+    if not os.path.isabs(out_fpath):
+        out_fpath = os.path.join(out_dir, out_fpath)
+    if not out_fpath.endswith(".pkl.gz"):
+        out_fpath += ".pkl.gz"
+    out_parent = os.path.dirname(out_fpath)
+    if out_parent:
+        os.makedirs(out_parent, exist_ok=True)
+    print(f"Caching merged histograms to {out_fpath}")
+    with gzip.open(out_fpath, "wb") as fout:
+        pickle.dump(merged_hists, fout, protocol=pickle.HIGHEST_PROTOCOL)
+    return out_fpath
+
+def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
+    for km_dist in km_dists:
+        all_chs = dc.channels(km_dist)
+        matched_chs = regex_match(all_chs,channels)
+        if channels:
+            print(f"Channels to process: {matched_chs}")
+        for ch in matched_chs:
+            r = dc.analyze(km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict)
+
+# VERY IMPORTANT:
+#   This setup assumes the output directory is mounted on the remote condor machines
+# Note:
+#   The condor jobs currently have to read the various .json files from the default locations, which
+#   means that they will probably be getting read from the user's AFS area (or wherever their TopEFT
+#   repo is located).
+# TODO: Currently there's no way to transparently passthrough parent arguments to the condor ones.
+#   There's also no clear way to pass customized options to different sub-sets of condor jobs
+def run_condor(dc,pkl_paths,out_dir,var_lst,ch_lst,chunk_size,on_process_collision="error",merge_report="-"):
+    import subprocess
+    import stat
+
+    home = os.getcwd()
+
+    condor_dir = os.path.join(out_dir,"job_logs")
+
+    if not os.path.exists(condor_dir):
+        print(f"Making condor output directory {condor_dir}")
+        os.mkdir(condor_dir)
+
+    clean_dir(condor_dir,targets=["job_.*log","job_.*err","job_.*out","^condor.*sub$"])
+
+    condor_exe_fname = "condor.sh"
+    if not os.path.samefile(home,out_dir):
+        condor_exe_fname = os.path.join(out_dir,"condor.sh")
+
+    print("Generating condor executable script")
+    with open(condor_exe_fname,"w") as f:
+        f.write(sh_fragment)
+
+    pkl_list_basename = "pkl_inputs.txt"
+    pkl_list_fpath = os.path.join(out_dir,pkl_list_basename)
+    print(f"Writing pkl list file for condor: {pkl_list_fpath}")
+    with open(pkl_list_fpath,"w") as f:
+        for p in pkl_paths:
+            f.write(f"{p}\n")
+
+    usr_perms = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
+    grp_perms = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP
+    all_perms = stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH
+
+    os.chmod(condor_exe_fname,usr_perms | grp_perms | all_perms)    # equiv. to 777
+
+    base_other_opts = []
+    if dc.do_mc_stat:
+        base_other_opts.append("--do-mc-stat")
+    if dc.verbose:
+        base_other_opts.append("--verbose")
+    if dc.use_real_data:
+        base_other_opts.append("--unblind")
+    if dc.do_nuisance:
+        base_other_opts.append("--do-nuisance")
+    if dc.year_lst:
+        base_other_opts.extend(["--year"," ".join(dc.year_lst)])
+    if dc.drop_syst:
+        base_other_opts.extend(["--drop-syst"," ".join(dc.drop_syst)])
+    base_other_opts.extend(["--on-process-collision",on_process_collision])
+
+    idx = 0
+    for km_dist in var_lst:
+        all_chs = dc.channels(km_dist)
+        matched_chs = regex_match(all_chs,ch_lst)
+        n = max(chunk_size,1)
+        chunks = np.split(matched_chs,[i for i in range(n,len(matched_chs),n)])
+        for chnk in chunks:
+            print(f"[{idx+1:0>3}] Variable: {km_dist} -- Channels: {chnk}")
+            other_opts = list(base_other_opts)
+            if merge_report == "-":
+                other_opts.extend(["--merge-report","-"])
+            else:
+                report_path = merge_report
+                if report_path.endswith(".json"):
+                    report_path = report_path.replace(".json",f".job_{idx}.json")
+                else:
+                    report_path = f"{report_path}.job_{idx}.json"
+                other_opts.extend(["--merge-report",report_path])
+            other_opts = " ".join(other_opts)
+
+            s = sub_fragment.format(
+                idx=idx,
+                usr_dir=os.path.expanduser("~"),
+                pkl_list=pkl_list_basename,
+                out_dir=os.path.realpath(out_dir),
+                var_lst=km_dist,
+                ch_lst=" ".join(chnk),
+                condor_dir=condor_dir,
+                other=f"{other_opts}",
+                transfer_inputs=f"make_cards.py,selectedWCs.txt,{pkl_list_basename}",
+            )
+            condor_submit_fname = os.path.join(condor_dir,f"condor.{idx}.sub")
+            with open(condor_submit_fname,"w") as f:
+                f.write(s)
+            cmd = ["condor_submit",condor_submit_fname]
+            print(f"{'':>5} Condor command: {' '.join(cmd)}")
+            os.chdir(out_dir)
+            p = subprocess.run(cmd)
+            os.chdir(home)
+            idx += 1
+
+def main():
+    parser = build_arg_parser()
     args = parser.parse_args()
-    pkl_file   = args.pkl_file
+    pkl_files  = _resolve_pkl_paths(args, parser)
     rs_json    = args.rate_syst_json
     mp_file    = args.miss_parton_file
     out_dir    = args.out_dir
@@ -230,8 +317,23 @@ def main():
     if use_condor and not os.path.samefile(os.getcwd(),out_dir):
         shutil.copy("make_cards.py",out_dir)
 
+    if args.condor and args.merge_only:
+        parser.error("--merge-only and --condor cannot be used together.")
+
+    merged_hists, merge_report = load_and_merge_histogram_pkls(
+        pkl_files,
+        on_process_collision=args.on_process_collision,
+        require_sumw2=True,
+    )
+    _emit_merge_report(merge_report, args.merge_report, out_dir)
+    if args.cache_merged_pkl:
+        _cache_merged_histograms(merged_hists, args.cache_merged_pkl, out_dir)
+    if args.merge_only:
+        print("Merge-only mode enabled, stopping after successful merge validation.")
+        return
+
     tic = time.time()
-    dc = DatacardMaker(pkl_file,**kwargs)
+    dc = DatacardMaker(hists=merged_hists,**kwargs)
 
     # convert wc_vals string to a dictionary
     wc_vals = ''.join(wc_vals)
@@ -291,7 +393,16 @@ def main():
         return
 
     if use_condor:
-        run_condor(dc,pkl_file,out_dir,dists,ch_lst,chunks)
+        run_condor(
+            dc,
+            pkl_files,
+            out_dir,
+            dists,
+            ch_lst,
+            chunks,
+            on_process_collision=args.on_process_collision,
+            merge_report=args.merge_report,
+        )
     else:
         run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins, wcs_dict)
 
@@ -304,4 +415,5 @@ def main():
     print(f"Total Time: {dt:.2f} s")
     print("Finished!")
 
-main()
+if __name__ == "__main__":
+    main()
