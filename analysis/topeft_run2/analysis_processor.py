@@ -4,6 +4,7 @@ import coffea
 import numpy as np
 import awkward as ak
 import json
+import yaml
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -732,9 +733,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                 AttachTauSF(events, tau_T, year=year, vsJetWP=tau_T_tag)
 
         # Define the lists of systematics we include
-        obj_correction_syst_lst = get_supported_jet_systematics(
-            year, isData=isData, era=run_era
-        )
+        obj_jes_entries = []
+        with open(topeft_path("modules/jerc_dict.yml"), "r") as f:
+            jerc_dict = yaml.safe_load(f)
+            for junc in jerc_dict[year]['junc']:
+                junc = junc.replace("Regrouped_", "")
+                obj_jes_entries.append(f'JES_{junc}Up')
+                obj_jes_entries.append(f'JES_{junc}Down')
+        obj_correction_syst_lst = [
+            f'JER_{year}Up', f'JER_{year}Down'
+        ] + obj_jes_entries
         if self.enable_tau_blocks:
             obj_correction_syst_lst.append("TESUp")
             obj_correction_syst_lst.append("TESDown")
