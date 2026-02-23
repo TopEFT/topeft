@@ -1811,7 +1811,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         return cleanedJets
     elif (syst_var in ['nominal','MuonESUp','MuonESDown', 'TESUp', 'TESDown', 'FESUp', 'FESDown']):
         return cleanedJets
-    elif ('JES_FlavorQCD' in syst_var in syst_var):
+    elif ('JES_FlavorQCD' in syst_var):
         # Overwrite FlavorQCD with the proper jet flavor uncertainty
         bmask = np.array(ak.flatten(abs(cleanedJets.partonFlavour)==5))
         cmask = abs(cleanedJets.partonFlavour)==4
