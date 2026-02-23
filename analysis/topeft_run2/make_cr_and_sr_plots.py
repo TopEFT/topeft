@@ -1879,6 +1879,12 @@ def _render_variable_from_worker(task_id, payload):
         )
         prepared_cache[var_name] = variable_payload
 
+    _ensure_variable_channel_coverage_validated(
+        var_name,
+        ctx["region_ctx"],
+        variable_payload,
+    )
+
     if category is None:
         stat_only, stat_and_syst, html_set = _render_variable(
             var_name,
@@ -2105,6 +2111,8 @@ def _render_variable(
     if not variable_payload:
         return 0, 0, set()
 
+    _ensure_variable_channel_coverage_validated(var_name, region_ctx, variable_payload)
+
     channel_dict = variable_payload["channel_dict"]
     channel_display_labels = variable_payload.get("channel_display_labels", {})
 
@@ -2177,15 +2185,6 @@ def _render_variable_category(
 ):
     """Render a single (variable, category) pair and return bookkeeping totals."""
 
-    validate_channel_group(
-        [hist_mc, hist_data],
-        channel_bins,
-        channel_transformations,
-        region=region_ctx.name,
-        subgroup=hist_cat,
-        variable=var_name,
-    )
-
     if available_channels is None:
         available_channels = _resolve_channel_axis_labels(hist_mc)
     else:
@@ -2207,6 +2206,16 @@ def _render_variable_category(
 
     if not filtered_bins:
         return 0, 0, set()
+
+    validate_channel_group(
+        [hist_mc, hist_data],
+        filtered_bins,
+        channel_transformations,
+        region=region_ctx.name,
+        subgroup=hist_cat,
+        variable=var_name,
+        available_channels=filtered_bins,
+    )
 
     channel_bins = filtered_bins
 
@@ -2709,36 +2718,118 @@ def _resolve_requested_variables(dict_of_hists, variables, context):
     return resolved
 
 
-def validate_channel_group(histos, expected_labels, transformations, region, subgroup, variable):
+def _collect_available_channels(histos):
     if not isinstance(histos, (list, tuple)):
         histos = [histos]
 
     available_channels = set()
     for histo in histos:
-        if not isinstance(histo, (tc_histEFT.HistEFT, tc_sparseHist.SparseHist)):
+        available_channels.update(_resolve_channel_axis_labels(histo))
+    return available_channels
+
+
+def validate_variable_channel_coverage(
+    histos,
+    region_known_channels,
+    transformations,
+    *,
+    region,
+    variable,
+    region_dict_name=None,
+):
+    available_channels = _collect_available_channels(histos)
+    if not available_channels:
+        return
+
+    known_channels = {str(channel) for channel in (region_known_channels or ())}
+    transformed_known_channels = {
+        _apply_channel_transforms(channel, transformations) for channel in known_channels
+    }
+
+    unknown_raw = []
+    unknown_transformed = []
+    seen_transformed = set()
+    for channel in sorted(str(chan) for chan in available_channels):
+        transformed = _apply_channel_transforms(channel, transformations)
+        if channel in known_channels or transformed in transformed_known_channels:
             continue
-        if "channel" not in yt.get_axis_list(histo):
-            continue
-        available_channels.update(list(histo.axes["channel"]))
+        unknown_raw.append(channel)
+        if transformed not in seen_transformed:
+            unknown_transformed.append(transformed)
+            seen_transformed.add(transformed)
+
+    if not unknown_raw:
+        return
+
+    region_label = region or "plotting region"
+    dict_label = region_dict_name or f"{region_label}_CHAN_DICT"
+    msg = (
+        f"Global channel coverage mismatch for variable '{variable}' in region '{region_label}'. "
+        f"Unknown channels not present in {dict_label}: {unknown_raw}."
+    )
+    if transformations:
+        msg += (
+            " Unknown transformed channel names after applying configured channel transformations "
+            f"{transformations}: {unknown_transformed}."
+        )
+    msg += (
+        " Update the YAML channel dictionary or add a channel transformation/alias so the histogram "
+        "channel axis and metadata stay in sync."
+    )
+    raise ValueError(msg)
+
+
+def _resolve_region_known_channels(region):
+    region_upper = str(region).upper() if region is not None else None
+    if region_upper == "CR":
+        return CR_KNOWN_CHANNELS, "CR_CHAN_DICT"
+    if region_upper == "SR":
+        return SR_KNOWN_CHANNELS, "SR_CHAN_DICT"
+    return set(), "channel dictionary"
+
+
+def _ensure_variable_channel_coverage_validated(var_name, region_ctx, variable_payload):
+    if not variable_payload:
+        return
+    if variable_payload.get("_global_channel_coverage_validated"):
+        return
+
+    region_known_channels, region_dict_name = _resolve_region_known_channels(
+        region_ctx.name
+    )
+    validate_variable_channel_coverage(
+        [variable_payload.get("hist_mc"), variable_payload.get("hist_data")],
+        region_known_channels,
+        variable_payload.get("channel_transformations", []),
+        region=region_ctx.name,
+        variable=var_name,
+        region_dict_name=region_dict_name,
+    )
+    variable_payload["_global_channel_coverage_validated"] = True
+
+
+def validate_channel_group(
+    histos,
+    expected_labels,
+    transformations,
+    region,
+    subgroup,
+    variable,
+    *,
+    available_channels,
+):
+    if not isinstance(histos, (list, tuple)):
+        histos = [histos]
+
+    available_channels = {str(channel) for channel in available_channels}
 
     if not available_channels:
         return
 
-    expected_set = set(expected_labels)
+    expected_set = {str(label) for label in expected_labels}
     expected_transformed = {
         _apply_channel_transforms(label, transformations) for label in expected_set
     }
-
-    region_known_channels = {
-        "CR": CR_KNOWN_CHANNELS,
-        "SR": SR_KNOWN_CHANNELS,
-    }.get(region)
-    transformed_known_channels = None
-    if region_known_channels is not None:
-        transformed_known_channels = {
-            _apply_channel_transforms(label, transformations)
-            for label in region_known_channels
-        }
 
     stray_channels = set()
 
@@ -2746,17 +2837,13 @@ def validate_channel_group(histos, expected_labels, transformations, region, sub
         transformed = _apply_channel_transforms(channel, transformations)
         if transformed in expected_transformed:
             continue
-        if region_known_channels is not None and channel in region_known_channels:
-            continue
-        if transformed_known_channels is not None and transformed in transformed_known_channels:
-            continue
         stray_channels.add(channel)
 
     if stray_channels:
+        region_str = f" in region '{region}'" if region else ""
         var_str = f" for variable '{variable}'" if variable is not None else ""
-        region_str = f"{region} " if region else ""
         raise ValueError(
-            f"Found channel bins {sorted(stray_channels)} in {region_str}subgroup '{subgroup}'{var_str} that are not defined in the YAML configuration."
+            f"Subgroup '{subgroup}'{region_str}{var_str} references channels not found in the subgroup-local channel selection: {sorted(stray_channels)}."
         )
 
 def populate_group_map(samples, pattern_map):
@@ -5014,6 +5101,9 @@ def produce_region_plots(
                 if not variable_payload:
                     stat_only, stat_and_syst, html_set = 0, 0, set()
                 else:
+                    _ensure_variable_channel_coverage_validated(
+                        var_name, region_ctx, variable_payload
+                    )
                     channel_bins = variable_payload["channel_dict"].get(hist_cat)
                     if channel_bins is None or (
                         region_ctx.apply_category_skips

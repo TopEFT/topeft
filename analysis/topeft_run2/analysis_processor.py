@@ -4,7 +4,6 @@ import coffea
 import numpy as np
 import awkward as ak
 import json
-import yaml
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -23,7 +22,7 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_supported_jet_systematics
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -733,16 +732,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 AttachTauSF(events, tau_T, year=year, vsJetWP=tau_T_tag)
 
         # Define the lists of systematics we include
-        obj_jes_entries = []
-        with open(topeft_path("modules/jerc_dict.yml"), "r") as f:
-            jerc_dict = yaml.safe_load(f)
-            for junc in jerc_dict[year]['junc']:
-                junc = junc.replace("Regrouped_", "") if is_run2 else junc
-                obj_jes_entries.append(f'JES_{junc}Up')
-                obj_jes_entries.append(f'JES_{junc}Down')
-        obj_correction_syst_lst = [
-            f'JER_{year}Up', f'JER_{year}Down'
-        ] + obj_jes_entries
+        obj_correction_syst_lst = get_supported_jet_systematics(
+            year, isData=isData, era=run_era
+        )
         if self.enable_tau_blocks:
             obj_correction_syst_lst.append("TESUp")
             obj_correction_syst_lst.append("TESDown")

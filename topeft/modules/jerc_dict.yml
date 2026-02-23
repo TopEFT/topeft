@@ -137,8 +137,8 @@
     - Regrouped_HF
     - Regrouped_RelativeBal
     - Regrouped_RelativeSample_2022
-    - Regrouped_Total
-    # - Total
+    # - Regrouped_Total
+    # # - Total
 
 "2022EE":
   jec_mc: Summer22EE_22Sep2023_V3_MC
@@ -191,8 +191,8 @@
     - Regrouped_HF
     - Regrouped_RelativeBal
     - Regrouped_RelativeSample_2022EE
-    - Regrouped_Total
-    - Total
+    # - Regrouped_Total
+    # - Total
 
 "2023":
   jec_mc: Summer23Prompt23_V2_MC
@@ -246,8 +246,8 @@
     - Regrouped_HF
     - Regrouped_RelativeBal
     - Regrouped_RelativeSample_2023
-    - Regrouped_Total
-    - Total
+    # - Regrouped_Total
+    # - Total
 
 "2023BPix":
   jec_mc: Summer23BPixPrompt23_V3_MC
@@ -299,5 +299,5 @@
     - Regrouped_HF
     - Regrouped_RelativeBal
     - Regrouped_RelativeSample_2023BPix
-    - Regrouped_Total
-    - Total
+    # - Regrouped_Total
+    # - Total
