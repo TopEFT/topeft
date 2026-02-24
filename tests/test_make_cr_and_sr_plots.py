@@ -500,8 +500,8 @@ def test_both_njets_preserves_variables_for_merged_output(tmp_path):
 
     plot_names = sorted(path.name for path in merged_dir.glob("*.png"))
     assert {
-        "cr_2lss_1j_met.png",
-        "cr_2lss_1j_njets.png",
+        "2lss_CR_1j_met.png",
+        "2lss_CR_1j_njets.png",
     }.issubset(set(plot_names)), plot_names
 
 
@@ -535,17 +535,19 @@ def test_sr_njets_channel_transform_matches_cr_behavior():
 
     assert "njets" in payload["channel_transformations"]
 
-    channel_bins = payload["channel_dict"].get("3l_offZ_SR")
-    assert channel_bins, "Expected SR channel bins for 3l_offZ_SR"
+    for subgroup in ("3l_m_offZ_1b", "3l_p_offZ_2b"):
+        channel_bins = payload["channel_dict"].get(subgroup)
+        assert channel_bins == [subgroup]
 
-    make_cr_and_sr_plots.validate_channel_group(
-        [hist_obj],
-        channel_bins,
-        payload["channel_transformations"],
-        region=region_ctx.name,
-        subgroup="3l_offZ_SR",
-        variable="njets",
-    )
+        make_cr_and_sr_plots.validate_channel_group(
+            [hist_obj],
+            channel_bins,
+            payload["channel_transformations"],
+            region=region_ctx.name,
+            subgroup=subgroup,
+            variable="njets",
+            available_channels=channel_bins,
+        )
 
 
 def test_sr_zero_yield_summary_respects_njets_aggregation(monkeypatch):
@@ -604,7 +606,7 @@ def test_sr_zero_yield_summary_respects_njets_aggregation(monkeypatch):
             variables=["njets"],
         )
 
-    entry = _find_zero_yield_entry(summary, label="2lss_SR", variable="njets")
+    entry = _find_zero_yield_entry(summary, label="2lss_4t_m", variable="njets")
     assert entry is not None
     assert not entry["missing_bins"]
 
@@ -657,7 +659,7 @@ def test_sr_zero_yield_summary_flags_missing_channels_for_lj0pt():
         variables=["lj0pt"],
     )
 
-    entry = _find_zero_yield_entry(summary, label="2lss_SR", variable="lj0pt")
+    entry = _find_zero_yield_entry(summary, label="2lss_4t_m", variable="lj0pt")
     assert entry is not None
     assert "2lss_4t_m_6j" in entry["missing_bins"]
     assert "2lss_4t_m_5j" not in entry["missing_bins"]
@@ -781,7 +783,7 @@ def test_cr_zero_yield_summary_reports_variable_and_missing_bins():
         variables=["met"],
     )
 
-    entry = _find_zero_yield_entry(summary, label="cr_2lss", variable="met")
+    entry = _find_zero_yield_entry(summary, label="2lss_CR", variable="met")
     assert entry is not None
     assert "2lss_mm_CR_2j" in entry["missing_bins"]
 
@@ -1022,13 +1024,129 @@ def test_both_includes_split_channels_when_available(tmp_path):
 
     merged_dir = tmp_path / "cr_2los_Z"
     assert merged_dir.exists()
+    merged_plots = {path.name for path in merged_dir.glob("*.png")}
+    assert {"2los_CRZ_met.png"}.issubset(merged_plots)
+    split_ee = tmp_path / "cr_2los_Z_ee"
+    split_mm = tmp_path / "cr_2los_Z_mm"
+    assert split_ee.exists()
+    assert split_mm.exists()
+    assert {"2los_CRZ_ee_met.png"}.issubset(
+        {path.name for path in split_ee.glob("*.png")}
+    )
+    assert {"2los_CRZ_mm_met.png"}.issubset(
+        {path.name for path in split_mm.glob("*.png")}
+    )
 
-    split_dirs = [
-        tmp_path / "cr_2los_Z_ee",
-        tmp_path / "cr_2los_Z_mm",
-    ]
-    for split_dir in split_dirs:
-        assert split_dir.exists()
+
+@pytest.mark.parametrize(
+    "channel_output,required_dirs,forbidden_dirs",
+    [
+        (
+            "merged",
+            {"cr_2lss"},
+            {"cr_2lss_ee", "cr_2lss_mm"},
+        ),
+        (
+            "split",
+            {"cr_2lss_ee", "cr_2lss_mm"},
+            {"cr_2lss"},
+        ),
+        (
+            "both",
+            {"cr_2lss", "cr_2lss_ee", "cr_2lss_mm"},
+            set(),
+        ),
+        (
+            "merged-njets",
+            {"cr_2lss_1j", "cr_2lss_2j"},
+            {
+                "cr_2lss_ee_1j",
+                "cr_2lss_mm_1j",
+                "cr_2lss_ee_2j",
+                "cr_2lss_mm_2j",
+            },
+        ),
+        (
+            "both-njets",
+            {
+                "cr_2lss_1j",
+                "cr_2lss_2j",
+                "cr_2lss_ee_1j",
+                "cr_2lss_mm_1j",
+                "cr_2lss_ee_2j",
+                "cr_2lss_mm_2j",
+            },
+            set(),
+        ),
+    ],
+)
+def test_cr_channel_output_folder_routing_semantics(
+    tmp_path, channel_output, required_dirs, forbidden_dirs
+):
+    h_met = _make_met_histogram_for_channels(
+        (
+            "2lss_ee_CR_1j",
+            "2lss_mm_CR_1j",
+            "2lss_ee_CR_2j",
+            "2lss_mm_CR_2j",
+        )
+    )
+
+    make_cr_and_sr_plots.run_plots_for_region(
+        "CR",
+        {"met": h_met},
+        years=["2022"],
+        save_dir_path=str(tmp_path),
+        channel_output=channel_output,
+        skip_syst_errs=True,
+        workers=1,
+        verbose=False,
+    )
+
+    produced_dirs = {path.name for path in tmp_path.iterdir() if path.is_dir()}
+    assert required_dirs.issubset(produced_dirs)
+    assert produced_dirs.isdisjoint(forbidden_dirs)
+    assert all("_Nj" not in path for path in produced_dirs)
+
+
+@pytest.mark.parametrize(
+    "channel_output,folder_name,expected_filename",
+    [
+        ("merged", "cr_2lss", "2lss_CR_met.png"),
+        ("split", "cr_2lss_ee", "2lss_CR_ee_met.png"),
+        ("both", "cr_2lss", "2lss_CR_met.png"),
+        ("merged-njets", "cr_2lss_1j", "2lss_CR_1j_met.png"),
+        ("both-njets", "cr_2lss_ee_1j", "2lss_CR_ee_1j_met.png"),
+    ],
+)
+def test_png_stems_use_category_labels_not_folder_aliases(
+    tmp_path, channel_output, folder_name, expected_filename
+):
+    h_met = _make_met_histogram_for_channels(
+        (
+            "2lss_ee_CR_1j",
+            "2lss_mm_CR_1j",
+            "2lss_ee_CR_2j",
+            "2lss_mm_CR_2j",
+        )
+    )
+
+    make_cr_and_sr_plots.run_plots_for_region(
+        "CR",
+        {"met": h_met},
+        years=["2022"],
+        save_dir_path=str(tmp_path),
+        channel_output=channel_output,
+        skip_syst_errs=True,
+        workers=1,
+        verbose=False,
+    )
+
+    folder = tmp_path / folder_name
+    assert folder.exists()
+    plot_names = {path.name for path in folder.glob("*.png")}
+    assert expected_filename in plot_names
+    assert f"{folder_name}_met.png" not in plot_names
 
 
 def test_split_warning_uses_cr_reference_bins_for_cr_region(monkeypatch, tmp_path):
@@ -1050,7 +1168,7 @@ def test_split_warning_uses_cr_reference_bins_for_cr_region(monkeypatch, tmp_pat
         m.setattr(
             make_cr_and_sr_plots,
             "CR_CHAN_DICT",
-            {"cr_ref": ["cr_only_mm_2j"]},
+            {"cr_ref": ["cr_mm_only_2j"]},
         )
         m.setattr(
             make_cr_and_sr_plots,
@@ -1110,7 +1228,7 @@ def test_split_warning_uses_cr_reference_bins_for_cr_region(monkeypatch, tmp_pat
     warning_text = warning_messages[-1]
     assert "region=CR" in warning_text
     assert "Expected flavour-split bins (from configuration): 1 total; showing first 1:" in warning_text
-    assert "cr_only_mm_2j" in warning_text
+    assert "cr_mm_only_2j" in warning_text
     assert "sr_only_ee_2j" not in warning_text
 
 
@@ -1120,7 +1238,7 @@ def test_split_warning_uses_cr_reference_bins_for_cr_region(monkeypatch, tmp_pat
         (
             "CR",
             "CR_CHAN_DICT",
-            "cr_dy_tautau_m",
+            "1l_dy_tautau_CR",
             (
                 "1l_m_dy_tautau_CR_2j",
                 "1l_m_dy_tautau_CR_3j",
@@ -1218,15 +1336,29 @@ def test_njets_channel_output_modes_accept_base_channel_keys(
 
     assert set(captured_channel_maps.keys()) == set(expected_modes)
 
-    expected_keys = {}
-    for bin_name in channel_bins:
-        suffix = make_cr_and_sr_plots._extract_njet_suffix(bin_name)
-        assert suffix is not None
-        expected_keys[f"{base_key}_{suffix}"] = [bin_name]
+    expected_keys_by_mode = {}
+    for mode_name in expected_modes:
+        expected_keys = {}
+        for bin_name in channel_bins:
+            suffix = make_cr_and_sr_plots._extract_njet_suffix(bin_name)
+            assert suffix is not None
+            expected_key = f"{base_key}_{suffix}"
+            if region_name == "CR" and mode_name == "per-channel":
+                token = make_cr_and_sr_plots._parse_lepflav_token_for_region(
+                    bin_name,
+                    region_name="CR",
+                    is_lepton_flavor_in_pkl=True,
+                )
+                expected_key = make_cr_and_sr_plots._build_split_channel_key(
+                    expected_key, token
+                )
+            expected_keys[expected_key] = [bin_name]
+        expected_keys_by_mode[mode_name] = expected_keys
 
     for mode_name in expected_modes:
         transformed_map = captured_channel_maps[mode_name]
         assert base_key not in transformed_map
+        expected_keys = expected_keys_by_mode[mode_name]
         for expected_key, expected_bins in expected_keys.items():
             assert expected_key in transformed_map
             assert transformed_map[expected_key] == expected_bins
@@ -1311,34 +1443,57 @@ def test_all_variables_render_for_merged_and_split_categories(
             verbose=False,
         )
 
-    merged_dir_name = "cr_2los_Z_0j" if channel_output.endswith("njets") else "cr_2los_Z"
+    merged_dir_name = (
+        "cr_2los_Z_0j" if channel_output.endswith("njets") else "cr_2los_Z"
+    )
     merged_dir = tmp_path / merged_dir_name
     assert merged_dir.exists()
 
     merged_plots = {path.name for path in merged_dir.glob("*.png")}
-    expected_merged = {f"{merged_dir_name}_j0pt.png", f"{merged_dir_name}_met.png"}
+    if channel_output.endswith("njets"):
+        expected_merged = {
+            "2los_CRZ_0j_j0pt.png",
+            "2los_CRZ_0j_met.png",
+        }
+    else:
+        expected_merged = {
+            "2los_CRZ_j0pt.png",
+            "2los_CRZ_met.png",
+        }
     assert expected_merged.issubset(merged_plots)
 
     if channel_output.endswith("njets"):
-        split_dirs = [
-            tmp_path / "cr_2los_Z_ee_0j_ee",
-            tmp_path / "cr_2los_Z_mm_0j_mm",
-        ]
-    else:
-        split_dirs = [tmp_path / "cr_2los_Z_ee", tmp_path / "cr_2los_Z_mm"]
-    for split_dir in split_dirs:
-        assert split_dir.exists()
-        split_plots = {path.name for path in split_dir.glob("*.png")}
-        base_split_name = (
-            split_dir.name
-            if channel_output.endswith("njets")
-            else re.sub(r"_0j(?=_)", "", split_dir.name)
-        )
-        expected_plots = {
-            f"{base_split_name}_j0pt.png",
-            f"{base_split_name}_met.png",
+        split_expectations = {
+            "cr_2los_Z_ee_0j": {
+                "2los_CRZ_ee_0j_j0pt.png",
+                "2los_CRZ_ee_0j_met.png",
+            },
+            "cr_2los_Z_mm_0j": {
+                "2los_CRZ_mm_0j_j0pt.png",
+                "2los_CRZ_mm_0j_met.png",
+            },
         }
-        assert expected_plots.issubset(split_plots)
+        for dir_name, expected_plots in split_expectations.items():
+            split_dir = tmp_path / dir_name
+            assert split_dir.exists()
+            split_plots = {path.name for path in split_dir.glob("*.png")}
+            assert expected_plots.issubset(split_plots)
+    else:
+        split_expectations = {
+            "cr_2los_Z_ee": {
+                "2los_CRZ_ee_j0pt.png",
+                "2los_CRZ_ee_met.png",
+            },
+            "cr_2los_Z_mm": {
+                "2los_CRZ_mm_j0pt.png",
+                "2los_CRZ_mm_met.png",
+            },
+        }
+        for dir_name, expected_plots in split_expectations.items():
+            split_dir = tmp_path / dir_name
+            assert split_dir.exists()
+            split_plots = {path.name for path in split_dir.glob("*.png")}
+            assert expected_plots.issubset(split_plots)
 
 
 def test_data_driven_reinsertion_respects_year_tokens():
