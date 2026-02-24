@@ -1,0 +1,32 @@
+{
+  "xsec": 6345.99,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "DYJetsToLL_MLL-50_central2022",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2022/v260222/DYJetsToLL_MLL_50_fixed_2022/output_1351.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2022/v260222/DYJetsToLL_MLL_50_fixed_2022/output_4170.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2022/v260222/DYJetsToLL_MLL_50_fixed_2022/output_2933.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2022/v260222/DYJetsToLL_MLL_50_fixed_2022/output_1844.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2022/v260222/DYJetsToLL_MLL_50_fixed_2022/output_2388.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2022/v260222/DYJetsToLL_MLL_50_fixed_2022/output_3602.root",
+    "/store/user/apiccine/skimmed_SR/background/NAOD_ULv12_lepMVA-run3/2022/v260222/DYJetsToLL_MLL_50_fixed_2022/output_741.root"
+  ],
+  "nEvents": 93826598,
+  "nGenEvents": 93826598,
+  "nSumOfWeights": 1672452347898.1914,
+  "isData": false,
+  "path": "/store/mc/Run3Summer22NanoAODv12/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v5",
+  "nSumOfWeights_ISRUp": 1677379923448.1226,
+  "nSumOfWeights_ISRDown": 1665950188438.011,
+  "nSumOfWeights_FSRUp": 1673071104569.2598,
+  "nSumOfWeights_FSRDown": 1671500596350.4624,
+  "nSumOfWeights_renormUp": 1649189381063.0613,
+  "nSumOfWeights_renormDown": 1695302641263.4907,
+  "nSumOfWeights_factUp": 1713944378593.3806,
+  "nSumOfWeights_factDown": 1605183973869.0664,
+  "nSumOfWeights_renormDown_factUp": 1720887299811.3726,
+  "nSumOfWeights_renormUp_factDown": 1570194597816.5017
+}

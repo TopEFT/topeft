@@ -1,0 +1,33 @@
+{
+  "xsec": 1.0,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "data2022",
+  "options": "",
+  "era": "C",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_360.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_691.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_262.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_446.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_319.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_690.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_97.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_748.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_445.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_647.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_402.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_693.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_554.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_497.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_215.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_598.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/EGamma_Run2022C_22Sep2023/output_137.root"
+  ],
+  "nEvents": 263689151,
+  "nGenEvents": 263689151,
+  "nSumOfWeights": 263689151.0,
+  "isData": true,
+  "path": "/EGamma/Run2022C-22Sep2023-v1/NANOAOD"
+}

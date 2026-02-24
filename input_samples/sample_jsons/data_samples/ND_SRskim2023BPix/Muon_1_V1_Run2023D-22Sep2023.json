@@ -1,0 +1,18 @@
+{
+  "xsec": 1.0,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "data2023BPix",
+  "options": "",
+  "era": "D1",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/Muon_1_V1_Run2023D_22Sep2023/output_651.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/Muon_1_V1_Run2023D_22Sep2023/output_617.root"
+  ],
+  "nEvents": 100281976,
+  "nGenEvents": 100281976,
+  "nSumOfWeights": 100281976.0,
+  "isData": true,
+  "path": "/Muon1/Run2023D-22Sep2023_v1-v1/NANOAOD"
+}

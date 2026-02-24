@@ -1,0 +1,20 @@
+{
+  "xsec": 1.0,
+  "year": "2022EE",
+  "treeName": "Events",
+  "histAxisName": "data2022EE",
+  "options": "",
+  "era": "F",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/MuonEG_Run2022F_22Sep2023/output_1565.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/MuonEG_Run2022F_22Sep2023/output_653.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/MuonEG_Run2022F_22Sep2023/output_1282.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/MuonEG_Run2022F_22Sep2023/output_1036.root"
+  ],
+  "nEvents": 38219969,
+  "nGenEvents": 38219969,
+  "nSumOfWeights": 38219969.0,
+  "isData": true,
+  "path": "/MuonEG/Run2022F-22Sep2023-v1/NANOAOD"
+}

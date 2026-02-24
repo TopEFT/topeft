@@ -1,0 +1,17 @@
+{
+  "xsec": 1.0,
+  "year": "2022EE",
+  "treeName": "Events",
+  "histAxisName": "data2022EE",
+  "options": "",
+  "era": "G",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/MuonEG_Run2022G_22Sep2023/output_709.root"
+  ],
+  "nEvents": 6238527,
+  "nGenEvents": 6238527,
+  "nSumOfWeights": 6238527.0,
+  "isData": true,
+  "path": "/MuonEG/Run2022G-22Sep2023-v1/NANOAOD"
+}
