@@ -1,0 +1,18 @@
+{
+  "xsec": 1.0,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "data2023BPix",
+  "options": "",
+  "era": "D2",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/EGamma_1_V2_Run2023D_22Sep2023/output_615.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2023BPix/v260222/EGamma_1_V2_Run2023D_22Sep2023/output_466.root"
+  ],
+  "nEvents": 22653287,
+  "nGenEvents": 22653287,
+  "nSumOfWeights": 22653287.0,
+  "isData": true,
+  "path": "/EGamma1/Run2023D-22Sep2023_v2-v1/NANOAOD"
+}

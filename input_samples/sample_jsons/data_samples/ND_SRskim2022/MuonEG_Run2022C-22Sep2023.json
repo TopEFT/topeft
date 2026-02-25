@@ -1,0 +1,18 @@
+{
+  "xsec": 1.0,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "data2022",
+  "options": "",
+  "era": "C",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/MuonEG_Run2022C_22Sep2023/output_498.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022/v260222/MuonEG_Run2022C_22Sep2023/output_734.root"
+  ],
+  "nEvents": 15768439,
+  "nGenEvents": 15768439,
+  "nSumOfWeights": 15768439.0,
+  "isData": true,
+  "path": "/MuonEG/Run2022C-22Sep2023-v1/NANOAOD"
+}

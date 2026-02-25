@@ -1,0 +1,23 @@
+{
+  "xsec": 1.0,
+  "year": "2022EE",
+  "treeName": "Events",
+  "histAxisName": "data2022EE",
+  "options": "",
+  "era": "F",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/Muon_Run2022F_22Sep2023/output_1573.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/Muon_Run2022F_22Sep2023/output_1071.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/Muon_Run2022F_22Sep2023/output_1575.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/Muon_Run2022F_22Sep2023/output_840.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/Muon_Run2022F_22Sep2023/output_1283.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/Muon_Run2022F_22Sep2023/output_1446.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/Muon_Run2022F_22Sep2023/output_602.root"
+  ],
+  "nEvents": 449887248,
+  "nGenEvents": 449887248,
+  "nSumOfWeights": 449887248.0,
+  "isData": true,
+  "path": "/Muon/Run2022F-22Sep2023-v2/NANOAOD"
+}

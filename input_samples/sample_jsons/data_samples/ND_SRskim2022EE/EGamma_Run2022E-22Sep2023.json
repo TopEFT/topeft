@@ -1,0 +1,25 @@
+{
+  "xsec": 1.0,
+  "year": "2022EE",
+  "treeName": "Events",
+  "histAxisName": "data2022EE",
+  "options": "",
+  "era": "E",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/EGamma_Run2022E_22Sep2023/output_870.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/EGamma_Run2022E_22Sep2023/output_613.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/EGamma_Run2022E_22Sep2023/output_552.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/EGamma_Run2022E_22Sep2023/output_1563.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/EGamma_Run2022E_22Sep2023/output_329.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/EGamma_Run2022E_22Sep2023/output_450.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/EGamma_Run2022E_22Sep2023/output_678.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/EGamma_Run2022E_22Sep2023/output_996.root",
+    "/store/user/apiccine/skimmed_SR/data/NAOD_ULv12_lepMVA-run3/2022EE/v260222/EGamma_Run2022E_22Sep2023/output_1216.root"
+  ],
+  "nEvents": 148654795,
+  "nGenEvents": 148654795,
+  "nSumOfWeights": 148654795.0,
+  "isData": true,
+  "path": "/EGamma/Run2022E-22Sep2023-v1/NANOAOD"
+}

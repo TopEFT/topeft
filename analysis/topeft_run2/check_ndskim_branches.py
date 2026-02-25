@@ -293,7 +293,7 @@ def main() -> None:
     ap.add_argument(
         "--max-missing-print",
         type=int,
-        default=20,
+        default=-1,
         help="Max failing files to print per JSON when --print-missing is used. Use -1 for unlimited. (default: 20)",
     )
     ap.add_argument(
