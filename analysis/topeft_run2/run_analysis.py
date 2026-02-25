@@ -860,8 +860,8 @@ if __name__ == "__main__":
         hist_lst = ["njets", "lj0pt", "ptz"]
         if tau_h_analysis or all_analysis:
             hist_lst.append("ptz_wtau")
-            hist_lst.append("tau0Tpt")
-            hist_lst.append("tau0Fpt")
+            # hist_lst.append("tau0Tpt")
+            # hist_lst.append("tau0Fpt")
         if fwd_analysis or all_analysis:
             hist_lst.append("lt")
         # if "lepton_pt_vs_eta" not in hist_lst:

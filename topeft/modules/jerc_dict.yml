@@ -126,19 +126,19 @@
     # - RelativeStatEC
     # - RelativeStatFSR
     # - RelativeStatHF
-    - Regrouped_Absolute_2022
-    - Regrouped_Absolute
-    - Regrouped_BBEC1_2022
-    - Regrouped_BBEC1
-    - Regrouped_EC2_2022
-    - Regrouped_EC2
-    - Regrouped_FlavorQCD
-    - Regrouped_HF_2022
-    - Regrouped_HF
-    - Regrouped_RelativeBal
-    - Regrouped_RelativeSample_2022
-    # - Regrouped_Total
-    # # - Total
+    # - Regrouped_Absolute_2022
+    # - Regrouped_Absolute
+    # - Regrouped_BBEC1_2022
+    # - Regrouped_BBEC1
+    # - Regrouped_EC2_2022
+    # - Regrouped_EC2
+    # - Regrouped_FlavorQCD
+    # - Regrouped_HF_2022
+    # - Regrouped_HF
+    # - Regrouped_RelativeBal
+    # - Regrouped_RelativeSample_2022
+    # # - Regrouped_Total
+    - Total
 
 "2022EE":
   jec_mc: Summer22EE_22Sep2023_V3_MC
@@ -180,19 +180,19 @@
     # - RelativeStatEC
     # - RelativeStatFSR
     # - RelativeStatHF
-    - Regrouped_Absolute_2022EE
-    - Regrouped_Absolute
-    - Regrouped_BBEC1_2022EE
-    - Regrouped_BBEC1
-    - Regrouped_EC2_2022EE
-    - Regrouped_EC2
-    - Regrouped_FlavorQCD
-    - Regrouped_HF_2022EE
-    - Regrouped_HF
-    - Regrouped_RelativeBal
-    - Regrouped_RelativeSample_2022EE
+    # - Regrouped_Absolute_2022EE
+    # - Regrouped_Absolute
+    # - Regrouped_BBEC1_2022EE
+    # - Regrouped_BBEC1
+    # - Regrouped_EC2_2022EE
+    # - Regrouped_EC2
+    # - Regrouped_FlavorQCD
+    # - Regrouped_HF_2022EE
+    # - Regrouped_HF
+    # - Regrouped_RelativeBal
+    # - Regrouped_RelativeSample_2022EE
     # - Regrouped_Total
-    # - Total
+    - Total
 
 "2023":
   jec_mc: Summer23Prompt23_V2_MC
@@ -235,19 +235,19 @@
     # - RelativeStatEC
     # - RelativeStatFSR
     # - RelativeStatHF
-    - Regrouped_Absolute_2023
-    - Regrouped_Absolute
-    - Regrouped_BBEC1_2023
-    - Regrouped_BBEC1
-    - Regrouped_EC2_2023
-    - Regrouped_EC2
-    - Regrouped_FlavorQCD
-    - Regrouped_HF_2023
-    - Regrouped_HF
-    - Regrouped_RelativeBal
-    - Regrouped_RelativeSample_2023
+    # - Regrouped_Absolute_2023
+    # - Regrouped_Absolute
+    # - Regrouped_BBEC1_2023
+    # - Regrouped_BBEC1
+    # - Regrouped_EC2_2023
+    # - Regrouped_EC2
+    # - Regrouped_FlavorQCD
+    # - Regrouped_HF_2023
+    # - Regrouped_HF
+    # - Regrouped_RelativeBal
+    # - Regrouped_RelativeSample_2023
     # - Regrouped_Total
-    # - Total
+    - Total
 
 "2023BPix":
   jec_mc: Summer23BPixPrompt23_V3_MC
@@ -288,16 +288,16 @@
     # - RelativeStatEC
     # - RelativeStatFSR
     # - RelativeStatHF
-    - Regrouped_Absolute_2023BPix
-    - Regrouped_Absolute
-    - Regrouped_BBEC1_2023BPix
-    - Regrouped_BBEC1
-    - Regrouped_EC2_2023BPix
-    - Regrouped_EC2
-    - Regrouped_FlavorQCD
-    - Regrouped_HF_2023BPix
-    - Regrouped_HF
-    - Regrouped_RelativeBal
-    - Regrouped_RelativeSample_2023BPix
+    # - Regrouped_Absolute_2023BPix
+    # - Regrouped_Absolute
+    # - Regrouped_BBEC1_2023BPix
+    # - Regrouped_BBEC1
+    # - Regrouped_EC2_2023BPix
+    # - Regrouped_EC2
+    # - Regrouped_FlavorQCD
+    # - Regrouped_HF_2023BPix
+    # - Regrouped_HF
+    # - Regrouped_RelativeBal
+    # - Regrouped_RelativeSample_2023BPix
     # - Regrouped_Total
-    # - Total
+    - Total
