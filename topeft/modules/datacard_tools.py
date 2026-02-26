@@ -647,8 +647,11 @@ class DatacardMaker():
             "ZG_MLL-50_PTG-600",
             "ZG_MLL-4to50_PTG-10to100",
             "ZG_MLL-50_PTG-10to100",
-            "ZG_MLL-4to50_PTG-200", # --> up to here
+            "ZG_MLL-4to50_PTG-200",
+            "ZG_MLL-4to50_PTG-100to200",
+            "ZG_MLL-50_PTG-400to600", # --> up to here
             "TTG-1Jets_PTG-200",
+            "DYJetsToLL_MLL-50",
             # "TTGamma",
             # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
             # "WWW","WWW_4F","WWZ_4F","WWZ","WZZ","ZZZ",
@@ -1186,7 +1189,7 @@ class DatacardMaker():
                     continue
                 if 'flip' in p and '2los' in ch:
                     continue
-                print("DEBUG LINE\tch_hist", ch_hist, f"\tprocess: {p}") 
+
                 proc_hist = ch_hist.integrate("process",[p])
                 proc_sumw2 = ch_sumw2 if ch_sumw2 is None else ch_sumw2.integrate("process",[p])
                 if self.verbose:
