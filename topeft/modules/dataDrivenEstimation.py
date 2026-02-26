@@ -142,7 +142,8 @@ class DataDrivenProducer:
                             elif sampleName in self.promptSubtractionSamples:
                                 newNameDictNoData[nonprompt_name].append(process)
                             else:
-                                print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
+                                pass
+                                #print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
                         hFakes=hAR.group('process', newNameDictData)
                         # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
                         hPromptSub=hAR.group('process', newNameDictNoData)
