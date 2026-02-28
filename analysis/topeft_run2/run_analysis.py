@@ -637,7 +637,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--port",
-        default="9123-9130",
+        default="9160-9170",
         help="Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.",
     )
     parser.add_argument(
@@ -854,6 +854,7 @@ if __name__ == "__main__":
             # convert singale values into a range of one element
             port.append(port[0])
 
+    port = port[0]
     # Figure out which hists to include
     if hist_list == ["ana"]:
         # Here we hardcode a list of hists used for the analysis
