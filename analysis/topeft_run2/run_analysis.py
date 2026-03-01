@@ -888,7 +888,7 @@ if __name__ == "__main__":
     elif hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
-            "lj0pt",
+            # "lj0pt",
             # "ptz",
             "met",
             # "ljptsum",
@@ -899,12 +899,12 @@ if __name__ == "__main__":
             # "l1pt",
             # "l1ptcorr",
             "l1conept",
-            # "l1eta",
+            "l1eta",
             "j0pt",
             "j0eta",
             "njets",
             # "nbtagsl",
-            "invmass",
+            # "invmass",
             # "npvs",
             # "npvsGood",
             # "l0_gen_pdgId",
