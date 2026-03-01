@@ -261,7 +261,7 @@ main() {
     )
   else
     OPTIONS=(
-      -p "/scratch365/$USER/xWynona/"
+      -p "/scratch365/$USER/"
       --hist-list ana
       --skip-cr
       --do-systs
