@@ -135,9 +135,9 @@ def main():
 
     # --- Uncertainty ingredients (kept identical, even if odd)
     ediboson = np.sqrt(diboson2) / (diboson)
-    ebkg = np.sqrt(bkg2) / (bkg)
+    ebkg = np.sqrt(bkg2) / (bkg2)
     PrintArray("ediboson = sqrt(diboson2)/diboson", ediboson)
-    PrintArray("ebkg = sqrt(bkg2)/bkg", ebkg)
+    PrintArray("ebkg = sqrt(bkg2)/bkg2", ebkg)
 
     # --- Ratios
     ratio = data_minus_bkg / diboson
