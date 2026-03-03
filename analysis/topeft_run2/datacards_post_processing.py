@@ -44,6 +44,7 @@ def main():
     parser.add_argument("-z", "--set-up-offZdivision", action="store_true", help = "Copy the ptz and lj0pt cards with 3l offZ division.")
     parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
     parser.add_argument("-f", "--fwd-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
+    parser.add_argument("-a", "--all-analysis", action="store_true", help = "Copy all channels in with fwd and offZ contributions.")
     args = parser.parse_args()
     print(args)
 
@@ -55,6 +56,7 @@ def main():
         args.set_up_offZdivision,
         args.tau_flag,
         args.fwd_flag,
+        args.all_analysis,
     ]
     
     # check exactly one is True
@@ -64,16 +66,6 @@ def main():
             "--set_up_offZdivision, --tau_flag, --fwd_flag must be set."
         )
     
-    # now you can safely branch
-    if args.set_up_top22006:
-        import_sr_ch_lst = select_ch_lst["TOP22_006_CH_LST_SR"]
-    elif args.set_up_offZdivision:
-        import_sr_ch_lst = select_ch_lst["OFFZ_SPLIT_CH_LST_SR"]
-    elif args.tau_flag:
-        import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
-    elif args.fwd_flag:
-        import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
-
     ###### Print out general info ######
 
     with open(os.path.join(args.datacards_path,'scalings-preselect.json'), 'r') as file:
@@ -137,6 +129,8 @@ def main():
             import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
         elif args.fwd_flag:
             import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
+        elif args.all_analysis:
+            import_sr_ch_lst = select_ch_lst["ALL_CH_LST_SR"]
 
         CATSELECTED = []
 
@@ -150,15 +144,24 @@ def main():
                 lep_ch_name = lep_ch[0]
                 for jet in jet_list:
                     # special channels to be binned by ptz instead of lj0pt
-                    if lep_ch_name == "3l_onZ_1b" or (lep_ch_name == "3l_onZ_2b" and (int(jet) == 4 or int(jet) == 5)):
+                    if "3l" in lep_ch_name and int(jet) == 1 and 'fwd' not in lep_ch_name: # 1j for fwd only
+                        continue
+                    #elif "3l_onZ_1b" in lep_ch_name or ("3l_onZ_2b" in lep_ch_name and (int(jet) == 4 or int(jet) == 5)) and 'fwd' not in lep_ch_name:
+                    elif (("3l_onZ_1b" in lep_ch_name) or ("3l_onZ_2b" in lep_ch_name and int(jet) in [4, 5])) and 'fwd' not in lep_ch_name:
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.set_up_offZdivision and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
+                    elif args.all_analysis and (
+                        ("3l_onZ_2b" in lep_ch_name and int(jet) == 1) or
+                        ("3l_onZ_1b" in lep_ch_name and int(jet) == 1 and 'fwd' not in lep_ch_name) or
+                        ("offZ_2b_fwd" in lep_ch_name and int(jet) == 1)
+                    ):
+                        continue
+                    elif (args.set_up_offZdivision or args.all_analysis) and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.tau_flag and ("2los" in lep_ch_name):
+                    elif (args.tau_flag or args.all_analysis) and ("2los" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
+                    elif (args.tau_flag or args.all_analysis) and ("1tau_onZ" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
-                    elif args.fwd_flag and ("fwd" in lep_ch_name or "2lss_p" in lep_ch_name or "2lss_m" in lep_ch_name):
+                    elif (args.fwd_flag or args.all_analysis) and ("fwd" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_lt"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
@@ -207,7 +210,7 @@ def main():
     print(args.tau_flag)
     print((n_txt != 60) or (n_root != 60))
     print((args.tau_flag and ((n_txt != 60) or (n_root != 60))))
-    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))   or   (args.tau_flag and ((n_txt != 60) or (n_root != 60)))):
+    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))   or   (args.tau_flag and ((n_txt != 60) or (n_root != 60))) or (args.all_analysis and (n_root != 129)):
         raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
     print("Done.\n")
 
