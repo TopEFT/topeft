@@ -49,6 +49,7 @@ from topeft.modules.datacard_tools import load_and_merge_histogram_pkls
 _logger = logging.getLogger(__name__)
 _ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = tc_sparseHist.SparseHist._read_from_reduce.__func__
 _VALUES_METHOD_CAPS = {}
+_SYSTEMATICS_SUMMARY_EMITTED = set()
 
 
 def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
@@ -2651,6 +2652,20 @@ def _render_variable_category(
         m_err_arr_ratio = None
         syst_err_mode = False
         if not (is_sparse2d or skip_syst_errs):
+            rate_syst_keys = _cached_get_syst_lst()
+            shape_syst_details = {
+                "valid_bases": tuple(),
+                "skipped_orphans": tuple(),
+                "skipped_failed": tuple(),
+                "renormfact_present": False,
+            }
+            rate_systs_summed_arr_m = 0.0
+            rate_systs_summed_arr_p = 0.0
+            shape_systs_summed_arr_m = 0.0
+            shape_systs_summed_arr_p = 0.0
+            rate_calc_ok = False
+            shape_calc_ok = False
+
             try:
                 rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
                     hist_mc_integrated,
@@ -2658,10 +2673,45 @@ def _render_variable_category(
                     group_type=region_ctx.name,
                     rate_syst_by_sample=region_ctx.rate_syst_by_sample,
                 )
-                shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
+                rate_calc_ok = True
+            except Exception as exc:
+                print(
+                    f"Warning: Failed to compute rate systematics for {region_ctx.name} {hist_cat} {var_name}: {exc}"
+                )
+
+            try:
+                shape_syst_output, shape_syst_details = get_shape_syst_arrs(
                     hist_mc_integrated,
                     group_type=region_ctx.name,
+                    return_details=True,
                 )
+                (
+                    shape_systs_summed_arr_m,
+                    shape_systs_summed_arr_p,
+                ) = shape_syst_output
+                shape_calc_ok = True
+            except Exception as exc:
+                shape_syst_details = {
+                    "valid_bases": tuple(),
+                    "skipped_orphans": tuple(),
+                    "skipped_failed": (
+                        {"base": "__global__", "error": str(exc)},
+                    ),
+                    "renormfact_present": False,
+                }
+                print(
+                    f"Warning: Failed to compute shape systematics for {region_ctx.name} {hist_cat} {var_name}: {exc}"
+                )
+
+            _emit_systematics_summary_once(
+                region_ctx.name,
+                rate_syst_keys,
+                shape_syst_details,
+                rate_calc_ok=rate_calc_ok,
+                shape_calc_ok=shape_calc_ok,
+            )
+
+            if rate_calc_ok or shape_calc_ok:
                 if var_name == "njets":
                     diboson_samples = region_ctx.group_map.get("Diboson", [])
                     if diboson_samples:
@@ -2702,10 +2752,6 @@ def _render_variable_category(
                         nom_arr_all > 0, m_err_arr / nom_arr_all, 1
                     )
                 syst_err_mode = "total" if unblind_flag else True
-            except Exception as exc:
-                print(
-                    f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
-                )
 
         if is_sparse2d:
             if not unblind_flag:
@@ -2910,6 +2956,19 @@ def _render_variable_category(
         err_ratio_p_syst = None
         err_ratio_m_syst = None
         if not skip_syst_errs:
+            rate_syst_keys = _cached_get_syst_lst()
+            shape_syst_details = {
+                "valid_bases": tuple(),
+                "skipped_orphans": tuple(),
+                "skipped_failed": tuple(),
+                "renormfact_present": False,
+            }
+            rate_systs_summed_arr_m = 0.0
+            rate_systs_summed_arr_p = 0.0
+            shape_systs_summed_arr_m = 0.0
+            shape_systs_summed_arr_p = 0.0
+            rate_calc_ok = False
+            shape_calc_ok = False
             try:
                 rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
                     hist_mc_channel,
@@ -2917,15 +2976,45 @@ def _render_variable_category(
                     group_type=region_ctx.name,
                     rate_syst_by_sample=region_ctx.rate_syst_by_sample,
                 )
-                shape_systs_summed_arr_m, shape_systs_summed_arr_p = get_shape_syst_arrs(
-                    hist_mc_channel,
-                    group_type=region_ctx.name,
-                )
+                rate_calc_ok = True
             except Exception as exc:
                 print(
-                    f"Warning: Failed to compute {region_ctx.name} systematics for {hist_cat} {var_name}: {exc}"
+                    f"Warning: Failed to compute rate systematics for {region_ctx.name} {hist_cat} {var_name}: {exc}"
                 )
-            else:
+
+            try:
+                shape_syst_output, shape_syst_details = get_shape_syst_arrs(
+                    hist_mc_channel,
+                    group_type=region_ctx.name,
+                    return_details=True,
+                )
+                (
+                    shape_systs_summed_arr_m,
+                    shape_systs_summed_arr_p,
+                ) = shape_syst_output
+                shape_calc_ok = True
+            except Exception as exc:
+                shape_syst_details = {
+                    "valid_bases": tuple(),
+                    "skipped_orphans": tuple(),
+                    "skipped_failed": (
+                        {"base": "__global__", "error": str(exc)},
+                    ),
+                    "renormfact_present": False,
+                }
+                print(
+                    f"Warning: Failed to compute shape systematics for {region_ctx.name} {hist_cat} {var_name}: {exc}"
+                )
+
+            _emit_systematics_summary_once(
+                region_ctx.name,
+                rate_syst_keys,
+                shape_syst_details,
+                rate_calc_ok=rate_calc_ok,
+                shape_calc_ok=shape_calc_ok,
+            )
+
+            if rate_calc_ok or shape_calc_ok:
                 nominal_projection = hist_mc_channel[{"process": sum}].integrate(
                     "systematic", "nominal"
                 )
@@ -5853,73 +5942,216 @@ def _match_variation_length(nominal, variation):
     return result
 
 
-# Wrapper for getting plus and minus shape arrs
-def get_shape_syst_arrs(base_histo,group_type="CR"):
+def _format_syst_preview(values, max_items=20):
+    values = [str(value) for value in values]
+    if not values:
+        return "none"
+    if len(values) <= max_items:
+        return ", ".join(values)
+    return ", ".join(values[:max_items]) + f", +{len(values) - max_items} more"
 
-    # Get the list of systematic base names (i.e. without the up and down tags)
-    # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
-    syst_var_lst = []
-    all_syst_var_lst = yt.get_cat_lables(base_histo,"systematic")
-    for syst_var_name in all_syst_var_lst:
+
+def _discover_shape_systematics(all_syst_var_lst):
+    axis_labels = [str(label) for label in all_syst_var_lst]
+    axis_label_set = set(axis_labels)
+
+    candidate_bases = []
+    seen_bases = set()
+    for syst_var_name in axis_labels:
         if syst_var_name.endswith("Up"):
-            syst_name_base = "Up".join(syst_var_name.split("Up")[:-1])
-            if syst_name_base not in syst_var_lst:
-                syst_var_lst.append(syst_name_base)
+            syst_name_base = syst_var_name[:-2]
+        elif syst_var_name.endswith("Down"):
+            syst_name_base = syst_var_name[:-4]
+        else:
+            continue
+        if syst_name_base in seen_bases:
+            continue
+        seen_bases.add(syst_name_base)
+        candidate_bases.append(syst_name_base)
+
+    valid_bases = []
+    skipped_orphans = []
+    for syst_name_base in candidate_bases:
+        expected_up = syst_name_base + "Up"
+        expected_down = syst_name_base + "Down"
+        missing_partners = []
+        if expected_up not in axis_label_set:
+            missing_partners.append(expected_up)
+        if expected_down not in axis_label_set:
+            missing_partners.append(expected_down)
+        if missing_partners:
+            skipped_orphans.append(
+                {"base": syst_name_base, "missing": tuple(missing_partners)}
+            )
+            continue
+        valid_bases.append(syst_name_base)
+
+    renormfact_present = "renormfact" in seen_bases
+    renormfact_skipped = "renormfact" in valid_bases
+    valid_bases = [base for base in valid_bases if base != "renormfact"]
+
+    return {
+        "axis_labels": tuple(axis_labels),
+        "candidate_bases": tuple(candidate_bases),
+        "valid_bases": tuple(valid_bases),
+        "skipped_orphans": tuple(skipped_orphans),
+        "skipped_failed": tuple(),
+        "renormfact_present": renormfact_present,
+        "renormfact_skipped": renormfact_skipped,
+    }
+
+
+def _emit_systematics_summary_once(
+    region_name,
+    rate_syst_keys,
+    shape_details,
+    *,
+    rate_calc_ok,
+    shape_calc_ok,
+):
+    summary_key = str(region_name or "UNKNOWN").upper()
+    if summary_key in _SYSTEMATICS_SUMMARY_EMITTED:
+        return
+    _SYSTEMATICS_SUMMARY_EMITTED.add(summary_key)
+
+    details = shape_details or {}
+    valid_shape_bases = tuple(details.get("valid_bases", ()))
+    skipped_orphans = tuple(details.get("skipped_orphans", ()))
+    skipped_failed = tuple(details.get("skipped_failed", ()))
+    renormfact_present = bool(details.get("renormfact_present", False))
+    rate_keys = tuple(str(key) for key in (rate_syst_keys or ()))
+    rate_text = _format_syst_preview(rate_keys)
+
+    if shape_calc_ok and valid_shape_bases:
+        print(
+            f"[{summary_key}] Systematics summary: discovered {len(valid_shape_bases)} "
+            f"shape systematic base(s): {_format_syst_preview(valid_shape_bases)}"
+        )
+    elif shape_calc_ok:
+        print(f"[{summary_key}] No shape systematics found on pkl axis.")
+    else:
+        print(
+            f"[{summary_key}] Shape systematic computation failed; shape uncertainties will be omitted."
+        )
+
+    if skipped_orphans:
+        for orphan in skipped_orphans[:20]:
+            missing = ", ".join(orphan.get("missing", ()))
+            print(
+                f"[{summary_key}] Warning: Skipping shape systematic '{orphan.get('base')}' "
+                f"because missing partner(s): {missing}"
+            )
+        if len(skipped_orphans) > 20:
+            print(
+                f"[{summary_key}] Warning: {len(skipped_orphans) - 20} additional orphan shape "
+                "systematics were skipped."
+            )
+
+    if skipped_failed:
+        for failure in skipped_failed[:20]:
+            print(
+                f"[{summary_key}] Warning: Skipping shape systematic '{failure.get('base')}' "
+                f"after evaluation failure: {failure.get('error')}"
+            )
+        if len(skipped_failed) > 20:
+            print(
+                f"[{summary_key}] Warning: {len(skipped_failed) - 20} additional shape systematics "
+                "were skipped after evaluation failures."
+            )
+
+    print(f"[{summary_key}] Rate systematics from rate_systs.json: {rate_text}")
+    if rate_calc_ok:
+        print(f"[{summary_key}] Rate systematic computation succeeded.")
+    else:
+        print(
+            f"[{summary_key}] Rate systematic computation failed; rate uncertainties will be omitted."
+        )
+
+    if shape_calc_ok:
+        print(f"[{summary_key}] Shape systematic computation succeeded.")
+
+    if renormfact_present:
+        print(
+            f"[{summary_key}] Note: 'renormfact' present on axis and explicitly skipped by design."
+        )
+
+
+# Wrapper for getting plus and minus shape arrs
+def get_shape_syst_arrs(base_histo,group_type="CR",return_details=False):
+
+    # Get the list of systematic base names (i.e. without the up and down tags),
+    # and keep only complete Up/Down pairs.
+    all_syst_var_lst = yt.get_cat_lables(base_histo,"systematic")
+    shape_details = _discover_shape_systematics(all_syst_var_lst)
+    syst_var_lst = list(shape_details["valid_bases"])
+    skipped_failed = []
 
     # Sum each systematic's contributions for all samples together (e.g. the ISR for all samples is summed linearly)
     p_arr_rel_lst = []
     m_arr_rel_lst = []
     for syst_name in syst_var_lst:
-        # Skip the variation of renorm and fact together, since we're treating as independent
-        if syst_name == "renormfact": continue
-
-        relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "process") # The samples relevant to this syst
-        proc_projection = base_histo.integrate("process", relevant_samples_lst)[{"process": sum}]
-        n_arr = _eval_without_underflow(
-            proc_projection.integrate("systematic", "nominal")
-        )  # Sum of all samples for nominal variation
-        u_arr_sum = _match_variation_length(
-            n_arr,
-            _eval_without_underflow(
-                proc_projection.integrate("systematic", syst_name + "Up")
-            ),
-        )
-        d_arr_sum = _match_variation_length(
-            n_arr,
-            _eval_without_underflow(
-                proc_projection.integrate("systematic", syst_name + "Down")
-            ),
-        )
-
-        # Special handling of renorm and fact
-        # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
-        if (syst_name == "renorm") or (syst_name == "fact"):
-            grp_map = CR_GRP_MAP if group_type == "CR" else SR_GRP_MAP
-            p_arr_rel,m_arr_rel = get_decorrelated_uncty(
-                syst_name,
-                grp_map,
-                relevant_samples_lst,
-                base_histo,
+        try:
+            relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "process") # The samples relevant to this syst
+            proc_projection = base_histo.integrate("process", relevant_samples_lst)[{"process": sum}]
+            n_arr = _eval_without_underflow(
+                proc_projection.integrate("systematic", "nominal")
+            )  # Sum of all samples for nominal variation
+            u_arr_sum = _match_variation_length(
                 n_arr,
-                total_up_arr=u_arr_sum,
-                total_down_arr=d_arr_sum,
+                _eval_without_underflow(
+                    proc_projection.integrate("systematic", syst_name + "Up")
+                ),
+            )
+            d_arr_sum = _match_variation_length(
+                n_arr,
+                _eval_without_underflow(
+                    proc_projection.integrate("systematic", syst_name + "Down")
+                ),
             )
 
-        # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
-        else:
-            u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
-            d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
-            p_arr_rel = np.maximum(np.maximum(u_arr_rel, d_arr_rel), 0.0)
-            m_arr_rel = np.minimum(np.minimum(u_arr_rel, d_arr_rel), 0.0)
+            # Special handling of renorm and fact
+            # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
+            if (syst_name == "renorm") or (syst_name == "fact"):
+                grp_map = CR_GRP_MAP if group_type == "CR" else SR_GRP_MAP
+                p_arr_rel,m_arr_rel = get_decorrelated_uncty(
+                    syst_name,
+                    grp_map,
+                    relevant_samples_lst,
+                    base_histo,
+                    n_arr,
+                    total_up_arr=u_arr_sum,
+                    total_down_arr=d_arr_sum,
+                )
 
-        # Square and append this syst to the return lists
-        p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
-        m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
+            # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
+            else:
+                u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
+                d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
+                p_arr_rel = np.maximum(np.maximum(u_arr_rel, d_arr_rel), 0.0)
+                m_arr_rel = np.minimum(np.minimum(u_arr_rel, d_arr_rel), 0.0)
+
+            # Square and append this syst to the return lists
+            p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
+            m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
+        except Exception as exc:
+            skipped_failed.append({"base": syst_name, "error": str(exc)})
+            continue
 
     summed_m = sum(m_arr_rel_lst) if m_arr_rel_lst else 0.0
     summed_p = sum(p_arr_rel_lst) if p_arr_rel_lst else 0.0
 
-    return [summed_m, summed_p]
+    if skipped_failed:
+        shape_details = dict(shape_details)
+        shape_details["skipped_failed"] = tuple(skipped_failed)
+        failed_bases = {entry["base"] for entry in skipped_failed}
+        shape_details["valid_bases"] = tuple(
+            base for base in shape_details["valid_bases"] if base not in failed_bases
+        )
+
+    out = [summed_m, summed_p]
+    if return_details:
+        return out, shape_details
+    return out
 
 
 # Special case for renorm and fact, as these are decorrelated across processes
@@ -7097,6 +7329,8 @@ def run_plots_for_region(
     enable_category_skips=False,
     report_zero_yields=False,
 ):
+    _SYSTEMATICS_SUMMARY_EMITTED.clear()
+
     channel_output_cfg = CHANNEL_OUTPUT_CHOICES.get(channel_output)
     if channel_output_cfg is None:
         raise ValueError(
