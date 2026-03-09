@@ -45,5 +45,15 @@
   "nGenEvents": 4404517,
   "nSumOfWeights": 4255.3484961104405,
   "isData": false,
-  "path": "/cms/cephfs/data/store/user/ywan2/run3skim_SR/data/NAOD_ttll_mll4to10_lepMVA-run3/lobster_skim_20260308_1333/ttll_mll4to10_2023/"
+  "path": "/cms/cephfs/data/store/user/ywan2/run3skim_SR/data/NAOD_ttll_mll4to10_lepMVA-run3/lobster_skim_20260308_1333/ttll_mll4to10_2023/",
+  "nSumOfWeights_ISRUp": 4402.646456485346,
+  "nSumOfWeights_ISRDown": 4079.0774074402275,
+  "nSumOfWeights_FSRUp": 4257.70294767739,
+  "nSumOfWeights_FSRDown": 4254.471528619605,
+  "nSumOfWeights_renormUp": 3584.6945884154247,
+  "nSumOfWeights_renormDown": 5145.461131264631,
+  "nSumOfWeights_factUp": 3942.639003823623,
+  "nSumOfWeights_factDown": 4622.299467016594,
+  "nSumOfWeights_renormDown_factUp": 4764.994086260099,
+  "nSumOfWeights_renormUp_factDown": 3891.7834273740964
 }
