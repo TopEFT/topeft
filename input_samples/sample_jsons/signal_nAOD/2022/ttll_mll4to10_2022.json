@@ -115,5 +115,15 @@
   "nGenEvents": 2198608,
   "nSumOfWeights": 2110.868523815988,
   "isData": false,
-  "path": "/cms/cephfs/data/store/user/ywan2/FullProduction/Run3/2022/Round1/Batch1/postLHE_step/v1/lobster_20260222_2318_ttllmll4to10/nAOD_step_ttllNuNuJetNoHiggs_mll4to10_run0/"
+  "path": "/cms/cephfs/data/store/user/ywan2/FullProduction/Run3/2022/Round1/Batch1/postLHE_step/v1/lobster_20260222_2318_ttllmll4to10/nAOD_step_ttllNuNuJetNoHiggs_mll4to10_run0/",
+  "nSumOfWeights_ISRUp": 2183.6521938147907,
+  "nSumOfWeights_ISRDown": 2023.7389657244348,
+  "nSumOfWeights_FSRUp": 2112.4424004895154,
+  "nSumOfWeights_FSRDown": 2110.393803590029,
+  "nSumOfWeights_renormUp": 1778.177127271227,
+  "nSumOfWeights_renormDown": 2552.442216556399,
+  "nSumOfWeights_factUp": 1955.864252585518,
+  "nSumOfWeights_factDown": 2292.7230402088753,
+  "nSumOfWeights_renormDown_factUp": 2363.856318444998,
+  "nSumOfWeights_renormUp_factDown": 1930.3687879376655
 }

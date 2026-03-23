@@ -39,7 +39,7 @@
     "ctd1"
   ],
   "files": [
-    "/cms/cephfs/data/store/user/ywan2/run3skim_SR/data/NAOD_ttll_mll4to10_lepMVA-run3/lobster_skim_20260308_1333/ttll_mll4to10_2022/output_516.root"
+    "/store/user/ywan2/run3skim_SR/data/NAOD_ttll_mll4to10_lepMVA-run3/lobster_skim_20260308_1333/ttll_mll4to10_2022/output_516.root"
   ],
   "nEvents": 2198608,
   "nGenEvents": 2198608,
