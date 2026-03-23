@@ -7,7 +7,6 @@ import cloudpickle
 import gzip
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import tempfile
@@ -20,6 +19,10 @@ import topcoffea.modules.remote_environment as remote_environment
 from topcoffea.modules.paths import topcoffea_path
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
+from topeft.modules.deferred_np_metadata import (
+    build_deferred_np_metadata,
+    build_np_followup_command,
+)
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 import analysis_processor
 from analysis.topeft_run2.analysis_processor import (
@@ -820,9 +823,9 @@ if __name__ == "__main__":
             raise Exception(
                 "Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step."
             )
-        if np_postprocess_mode != "inline":
+        if np_postprocess_mode == "skip":
             raise Exception(
-                "Error: Renorm/fact envelope requires inline nonprompt post-processing."
+                "Error: Renorm/fact envelope cannot be requested when --np-postprocess=skip."
             )
     if dotest:
         if executor_name == "futures":
@@ -1238,35 +1241,27 @@ if __name__ == "__main__":
         }
     )
 
-    def _build_np_followup_command():
-        followup_snippet = (
-            "from topeft.modules.dataDrivenEstimation import DataDrivenProducer; "
-            f"DataDrivenProducer({out_pkl_file!r}, {out_pkl_file_name_np!r}).dumpToPickle()"
-        )
-        return f"python -c {shlex.quote(followup_snippet)}"
-
     def _build_np_metadata_payload():
         resolved_year_list = (
             sorted(requested_years) if requested_years is not None else sample_years_from_inputs
         )
-        payload = {
-            "metadata_version": 1,
-            "timestamp": time.time(),
-            "input_histogram": out_pkl_file,
-            "output_histogram": out_pkl_file_name_np,
-            "metadata_path": np_metadata_file,
-            "np_postprocess": np_postprocess_mode,
-            "pretend_mode": pretend,
-            "do_np": do_np,
-            "resolved_years": resolved_year_list,
-            "sample_years": sample_years_from_inputs,
-            "input_jsons": resolved_input_jsons,
-            "analysis_mode": analysis_mode,
-            "hist_list": hist_lst,
-            "wc_list": wc_lst,
-            "executor": executor_name,
-            "options_file": args.options,
-            "flags": {
+        payload = build_deferred_np_metadata(
+            input_histogram=out_pkl_file,
+            output_histogram=out_pkl_file_name_np,
+            metadata_path=np_metadata_file,
+            np_postprocess=np_postprocess_mode,
+            pretend_mode=pretend,
+            do_np=do_np,
+            apply_renormfact_envelope=do_renormfact_envelope,
+            resolved_years=resolved_year_list,
+            sample_years=sample_years_from_inputs,
+            input_jsons=resolved_input_jsons,
+            analysis_mode=analysis_mode,
+            hist_list=hist_lst,
+            wc_list=wc_lst,
+            executor=executor_name,
+            options_file=args.options,
+            flags={
                 "split_lep_flavor": split_lep_flavor,
                 "offZ_split": offZ_split,
                 "tau_h_analysis": tau_h_analysis,
@@ -1278,8 +1273,8 @@ if __name__ == "__main__":
                 "fill_sumw2": fill_sumw2,
                 "useRun3MVA": useRun3MVA,
             },
-            "followup_command": _build_np_followup_command(),
-        }
+        )
+        payload["timestamp"] = time.time()
         return payload
 
     def _write_np_metadata_sidecar(*, pretend_override=None):
@@ -1292,7 +1287,9 @@ if __name__ == "__main__":
         return payload
 
     def _print_np_defer_instructions(metadata_payload):
-        followup_command = metadata_payload.get("followup_command", _build_np_followup_command())
+        followup_command = metadata_payload.get(
+            "followup_command", build_np_followup_command(np_metadata_file)
+        )
         print(
             "Nonprompt estimation deferred. Metadata saved to {}.\n"
             "Run the following command to finalize the nonprompt histograms:\n  {}".format(

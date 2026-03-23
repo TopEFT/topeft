@@ -60,8 +60,8 @@ def get_correlation_tag(syst_type,proc_name):
         else: raise Exception(f"Error: Unknown proc name \"{proc_name}\", known processes are: {list(corr_dict.keys())}")
 
 # Get the dict of jet-dependent scaling factors
-def get_jet_dependent_syst_dict(process="Diboson"):
+def get_jet_dependent_syst_dict(process="Diboson", era="run3"):
     syst_json = topeft_path("params/rate_systs.json")
     with open(syst_json) as f_systs:
-        diboson_njets_dict = json.load(f_systs)["diboson_njets"]
+        diboson_njets_dict = json.load(f_systs)[f"diboson_njets_{era}"]
         return (diboson_njets_dict[process])
