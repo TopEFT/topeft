@@ -421,6 +421,7 @@ class DatacardMaker():
     GROUP= {
         "Diboson_": [
             "WZTo3LNu_",
+            "WZto3LNu-2Jets_", #ttll 4to10
             "WWTo2L2Nu_",
             "ZZTo4L_",
             "ggToZZTo2e2mu_",
@@ -554,7 +555,7 @@ class DatacardMaker():
             For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet'
             group 3 matches '_njet'.
         """
-        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
+        rgx = re.compile(r"(_[1-7]j_[1-2]b)|(_[1-2]b_[1-7]j)|(_[1-7]j$)")
 
         m = rgx.search(s)
         if m.group(1) and m.group(2) is None and m.group(3) is None:
@@ -1446,11 +1447,18 @@ class DatacardMaker():
                             raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
                         # The bins in the missing_parton root files start indexing from 0
                         bin_idx = num_j - njet_offset
+
                         if isinstance(v,dict):
-                            unc_hi = v[ch_key][bin_idx]     # Attempt to symmeterize
-                            unc_lo = max(0.01,2 - unc_hi)   # Clip unc_lo to not go negative
-                            # v = f"{v:.{PRECISION}f}"
-                            v = f"{unc_lo:.{PRECISION}f}/{unc_hi:.{PRECISION}f}"
+                        
+                            # Skip channels that don't exist in missing_parton file
+                            if ch_key not in v:
+                                v = "-"
+                            else:
+                                unc_hi = v[ch_key][bin_idx]
+                                unc_lo = max(0.01,2 - unc_hi)
+                                v = f"{unc_lo:.{PRECISION}f}/{unc_hi:.{PRECISION}f}"
+
+
                         elif v != "-":
                             raise ValueError(f"The missing_parton systematic isn't a dictionary (ch={ch}): {v}")
                     else:
