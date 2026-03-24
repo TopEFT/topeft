@@ -625,8 +625,11 @@ class DatacardMaker():
                     self.use_run3_systs = True
                 if not yr in self.YEARS:
                     raise ValueError(f"Invalid year choice '{yr}', should be empty if running over all years or one of: {self.YEARS}")
-
-        rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs.json")
+       
+        if self.use_run3_systs:
+            rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run3.json")
+        else:
+            rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run2.json")
         miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
 
         # TODO: Need to find a better name for this variable
@@ -909,12 +912,8 @@ class DatacardMaker():
         syst_name = "diboson_njets"
         # new_syst = RateSystematic(syst_name)
         new_syst = JetScale(syst_name)
-        if self.use_run3_systs:
-            for p,per_jet_uncs in rates_json["diboson_njets_run3"].items():
-                new_syst.add_process(p,per_jet_uncs)
-        else:
-            for p,per_jet_uncs in rates_json["diboson_njets_run2"].items():
-                new_syst.add_process(p,per_jet_uncs)
+        for p,per_jet_uncs in rates_json["diboson_njets"].items():
+            new_syst.add_process(p,per_jet_uncs)
         rate_systs[syst_name] = new_syst
 
         # Finally, deal with the missing_parton systematic
