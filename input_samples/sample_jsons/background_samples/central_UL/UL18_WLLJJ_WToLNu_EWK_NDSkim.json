@@ -6,10 +6,10 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/apiccine/run3skimsT3/mc/new-lepMVA-v2/v260202/UL18_WLLJJ_WToLNu_EWK/output_147.root",
-    "/store/user/apiccine/run3skimsT3/mc/new-lepMVA-v2/v260202/UL18_WLLJJ_WToLNu_EWK/output_149.root",
-    "/store/user/apiccine/run3skimsT3/mc/new-lepMVA-v2/v260202/UL18_WLLJJ_WToLNu_EWK/output_107.root",
-    "/store/user/apiccine/run3skimsT3/mc/new-lepMVA-v2/v260202/UL18_WLLJJ_WToLNu_EWK/output_143.root"
+    "/store/user/apiccine/run2skims/mc/ULlepMVA/v260228/UL18_WLLJJ_WToLNu_EWK/output_145.root",
+    "/store/user/apiccine/run2skims/mc/ULlepMVA/v260228/UL18_WLLJJ_WToLNu_EWK/output_147.root",
+    "/store/user/apiccine/run2skims/mc/ULlepMVA/v260228/UL18_WLLJJ_WToLNu_EWK/output_150.root",
+    "/store/user/apiccine/run2skims/mc/ULlepMVA/v260228/UL18_WLLJJ_WToLNu_EWK/output_94.root"
   ],
   "nEvents": 999000,
   "nGenEvents": 999000,

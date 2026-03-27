@@ -93,6 +93,7 @@ class YieldTools():
         }
 
         self.APPL_DICT = {
+            "1l"   : "isSR_1l",
             "2lss" : "isSR_2lSS",
             "2los" : "isSR_2lOS",
             "3l"   : "isSR_3l",
@@ -490,20 +491,22 @@ class YieldTools():
         return h
 
 
+    def get_appl_sr_bin(self, lep_cat):
+        lep_cat_str = str(lep_cat or "")
+        lep_components = tuple(component for component in lep_cat_str.split("_") if component)
+
+        for region_key in ("1l", "2lss", "2los", "3l", "4l"):
+            if region_key in lep_components:
+                return self.APPL_DICT[region_key]
+
+        raise Exception(f"Error: Category \"{lep_cat}\" is not known.")
+
+
     # Integrate appl axis if present, keeping only SR
     def integrate_out_appl(self,histo,lep_cat):
         histo_integrated = copy.deepcopy(histo)
         if ("appl" in self.get_axis_list(histo)):
-            if "2lss" in lep_cat:
-                sr_bin = self.APPL_DICT["2lss"]
-            elif "2los" in lep_cat:
-                sr_bin = self.APPL_DICT["2los"]
-            elif "3l" in lep_cat:
-                sr_bin = self.APPL_DICT["3l"]
-            elif "4l" in lep_cat:
-                sr_bin = self.APPL_DICT["4l"]
-            else:
-                raise Exception(f"Error: Category \"{lep_cat}\" is not known.")
+            sr_bin = self.get_appl_sr_bin(lep_cat)
             histo_integrated = histo.integrate("appl",sr_bin)
         else:
             logger.debug("Already integrated out the appl axis. Continuing...")
@@ -853,5 +856,4 @@ class YieldTools():
 
             print_ratios(yld_sum_dict["ee"],yld_sum_dict["mm"],2)
             print_ratios(yld_sum_dict["eee"],yld_sum_dict["mmm"],3)
-
 

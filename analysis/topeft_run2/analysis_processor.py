@@ -99,6 +99,16 @@ def resolve_category_dict_names(offz_3l_split, tau_h_analysis, fwd_analysis, all
     return sr_dict_name, cr_dict_name
 
 
+def load_category_config(category_config_path=None):
+    config_path = (
+        topeft_path("channels/ch_lst.json")
+        if category_config_path is None
+        else category_config_path
+    )
+    with open(config_path, "r", encoding="utf-8") as ch_json_stream:
+        return json.load(ch_json_stream)
+
+
 class AnalysisProcessor(processor.ProcessorABC):
 
     @staticmethod
@@ -139,7 +149,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return base_hist_names_ordered, expanded_hist_names_ordered
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard"):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -179,6 +189,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             self.tau_h_analysis,
             self.fwd_analysis,
             self.all_analysis,
+        )
+        self.sr_category_dict = (
+            copy.deepcopy(sr_category_dict) if sr_category_dict is not None else None
+        )
+        self.cr_category_dict = (
+            copy.deepcopy(cr_category_dict) if cr_category_dict is not None else None
         )
 
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
@@ -491,7 +507,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Initialize objects
 
-        met  = events.MET
+        if is_run3:
+            met  = events.PuppiMET
+        else:
+            met  = events.MET
         ele  = events.Electron
         mu   = events.Muon
         tau  = events.Tau
@@ -1010,18 +1029,28 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Event weights that do depend on the lep cat ###########
             select_cat_dict = None
-            with open(topeft_path("channels/ch_lst.json"), "r") as ch_json_test:
-                select_cat_dict = json.load(ch_json_test)
+            needs_category_config = (
+                (not self._skip_signal_regions and self.sr_category_dict is None)
+                or (not self._skip_control_regions and self.cr_category_dict is None)
+            )
+            if needs_category_config:
+                select_cat_dict = load_category_config()
 
             if not self._skip_signal_regions:
                 # If we are not skipping the signal regions, we will import the SR categories
                 # This dictionary keeps track of which selections go with which SR categories
-                import_sr_cat_dict = select_cat_dict[self.sr_category_dict_name]
+                if self.sr_category_dict is not None:
+                    import_sr_cat_dict = self.sr_category_dict
+                else:
+                    import_sr_cat_dict = select_cat_dict[self.sr_category_dict_name]
 
             if not self._skip_control_regions:
                 # If we are not skipping the control regions, we will import the CR categories
                 # This dictionary keeps track of which selections go with which CR categories
-                import_cr_cat_dict = select_cat_dict[self.cr_category_dict_name]
+                if self.cr_category_dict is not None:
+                    import_cr_cat_dict = self.cr_category_dict
+                else:
+                    import_cr_cat_dict = select_cat_dict[self.cr_category_dict_name]
  
 
             #This list keeps track of the lepton categories

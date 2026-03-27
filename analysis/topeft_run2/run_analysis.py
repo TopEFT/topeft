@@ -75,6 +75,176 @@ def _format_worker_exception(exception_obj):
         return repr(exception_obj)
 
 
+def _dedupe_preserve_order(values):
+    if values is None:
+        return None
+
+    if isinstance(values, str):
+        iterable = [values]
+    else:
+        iterable = values
+
+    deduped_values = []
+    seen_values = set()
+    for raw_value in iterable:
+        value = str(raw_value).strip()
+        if not value or value in seen_values:
+            continue
+        deduped_values.append(value)
+        seen_values.add(value)
+    return deduped_values
+
+
+def _format_name_list(names):
+    return ", ".join(map(str, names)) if names else "<none>"
+
+
+def _resolve_category_group_selection(
+    *,
+    category_groups,
+    offz_3l_split,
+    tau_h_analysis,
+    fwd_analysis,
+    all_analysis,
+    skip_sr,
+    skip_cr,
+):
+    requested_category_groups = _dedupe_preserve_order(category_groups)
+    sr_block_name, cr_block_name = analysis_processor.resolve_category_dict_names(
+        offz_3l_split,
+        tau_h_analysis,
+        fwd_analysis,
+        all_analysis,
+    )
+    channel_config = analysis_processor.load_category_config()
+
+    active_blocks = []
+    for region_label, block_name, skip_region in (
+        ("SR", sr_block_name, skip_sr),
+        ("CR", cr_block_name, skip_cr),
+    ):
+        if skip_region:
+            continue
+        if block_name not in channel_config:
+            raise RuntimeError(
+                f"Resolved {region_label} ch_lst.json block '{block_name}' was not found in channels/ch_lst.json."
+            )
+        block = channel_config[block_name]
+        active_blocks.append(
+            {
+                "region": region_label,
+                "block_name": block_name,
+                "block": block,
+                "available_groups": list(block.keys()),
+            }
+        )
+
+    if requested_category_groups is not None and not active_blocks:
+        raise SystemExit(
+            "Cannot use --category-groups when both --skip-sr and --skip-cr are set."
+        )
+
+    if requested_category_groups is not None:
+        missing_groups = [
+            group_name
+            for group_name in requested_category_groups
+            if not any(group_name in block_info["block"] for block_info in active_blocks)
+        ]
+        if missing_groups:
+            active_block_summary = (
+                "; ".join(
+                    "{}={} [{}]".format(
+                        block_info["region"],
+                        block_info["block_name"],
+                        _format_name_list(block_info["available_groups"]),
+                    )
+                    for block_info in active_blocks
+                )
+                if active_blocks
+                else "<none>"
+            )
+            raise SystemExit(
+                "Unknown or incompatible category group(s): {}. Active ch_lst.json block(s): {}.".format(
+                    _format_name_list(missing_groups),
+                    active_block_summary,
+                )
+            )
+
+    selected_category_dicts = {"SR": {}, "CR": {}}
+    for block_info in active_blocks:
+        if requested_category_groups is None:
+            selected_groups = block_info["available_groups"]
+            selected_block = dict(block_info["block"])
+        else:
+            selected_groups = [
+                group_name
+                for group_name in requested_category_groups
+                if group_name in block_info["block"]
+            ]
+            selected_block = {
+                group_name: block_info["block"][group_name] for group_name in selected_groups
+            }
+
+        block_info["selected_groups"] = selected_groups
+        block_info["selected_block"] = selected_block
+        selected_category_dicts[block_info["region"]] = selected_block
+
+    return {
+        "requested_category_groups": requested_category_groups,
+        "resolved_sr_block_name": sr_block_name,
+        "resolved_cr_block_name": cr_block_name,
+        "active_blocks": active_blocks,
+        "sr_category_dict": selected_category_dicts["SR"],
+        "cr_category_dict": selected_category_dicts["CR"],
+    }
+
+
+def _log_category_group_selection(category_group_selection):
+    active_blocks = category_group_selection["active_blocks"]
+    requested_category_groups = category_group_selection["requested_category_groups"]
+
+    if not active_blocks:
+        print("Category-group selection: no active ch_lst.json blocks (both SR and CR skipped).")
+        return
+
+    if requested_category_groups is None:
+        print(
+            "Category-group selection: no --category-groups filter requested; using all groups from each active block."
+        )
+    else:
+        print(
+            "Requested category groups (deduplicated user order): {}".format(
+                _format_name_list(requested_category_groups)
+            )
+        )
+
+    for block_info in active_blocks:
+        print(
+            "Resolved {} ch_lst.json block: {}".format(
+                block_info["region"], block_info["block_name"]
+            )
+        )
+        print(
+            "Available {} category groups: {}".format(
+                block_info["region"], _format_name_list(block_info["available_groups"])
+            )
+        )
+        if requested_category_groups is None:
+            print(
+                "Selected {} category groups: all ({})".format(
+                    block_info["region"],
+                    _format_name_list(block_info["selected_groups"]),
+                )
+            )
+        else:
+            print(
+                "Selected {} category groups: {}".format(
+                    block_info["region"],
+                    _format_name_list(block_info["selected_groups"]),
+                )
+            )
+
+
 def _resolve_environment_file(env_override, use_remote_env, extra_pip_local=None):
     if env_override:
         env_path = os.path.abspath(os.path.expanduser(env_override))
@@ -634,6 +804,17 @@ if __name__ == "__main__":
         help="Specify a list of histograms to fill.",
     )
     parser.add_argument(
+        "--category-groups",
+        nargs="+",
+        help=(
+            "Filter the resolved ch_lst.json category block(s) to one or more named groups. "
+            "Names are validated in run_analysis.py against the active SR/CR block selection before downstream processing starts. "
+            "Accepts multiple group names and preserves user order after deduplication. "
+            "When both SR and CR are active, a requested group may match only one region and leave the other region empty. "
+            "When omitted, all groups in each resolved block are used."
+        ),
+    )
+    parser.add_argument(
         "--ecut",
         default=None,
         help="Energy cut threshold i.e. throw out events above this (GeV)",
@@ -741,6 +922,7 @@ if __name__ == "__main__":
     port = args.port
     wq_filepath = args.wq_filepath
     hist_list = args.hist_list
+    category_groups = args.category_groups
     analysis_mode = args.analysis_mode
     env_file_override = args.env_file
     use_remote_env = args.use_remote_env
@@ -781,6 +963,7 @@ if __name__ == "__main__":
         do_renormfact_envelope = ops.pop("do_renormfact_envelope", do_renormfact_envelope)
         wc_lst = ops.pop("wc_list", wc_lst)
         hist_list = ops.pop("hist_list", hist_list)
+        category_groups = ops.pop("category_groups", category_groups)
         port = ops.pop("port", port)
         wq_filepath = ops.pop("wq_filepath", wq_filepath)
         ecut = ops.pop("ecut", ecut)
@@ -846,6 +1029,17 @@ if __name__ == "__main__":
     if ecut_threshold is not None:
         ecut_threshold = float(ecut)
 
+    category_group_selection = _resolve_category_group_selection(
+        category_groups=category_groups,
+        offz_3l_split=offZ_split,
+        tau_h_analysis=tau_h_analysis,
+        fwd_analysis=fwd_analysis,
+        all_analysis=all_analysis,
+        skip_sr=skip_sr,
+        skip_cr=skip_cr,
+    )
+    _log_category_group_selection(category_group_selection)
+
     if executor_name in ["work_queue", "taskvine"]:
         # construct wq port range
         port = list(map(int, port.split("-")))
@@ -901,10 +1095,10 @@ if __name__ == "__main__":
             "l0eta",
             # "l1pt",
             # "l1ptcorr",
-            "l1conept",
-            "l1eta",
-            "j0pt",
-            "j0eta",
+            # "l1conept",
+            # "l1eta",
+            # "j0pt",
+            # "j0eta",
             "njets",
             # "nbtagsl",
             # "invmass",
@@ -1267,6 +1461,9 @@ if __name__ == "__main__":
                 "tau_h_analysis": tau_h_analysis,
                 "fwd_analysis": fwd_analysis,
                 "all_analysis": all_analysis,
+                "category_groups": list(
+                    category_group_selection["requested_category_groups"] or []
+                ),
                 "skip_sr": skip_sr,
                 "skip_cr": skip_cr,
                 "do_systs": do_systs,
@@ -1355,7 +1552,9 @@ if __name__ == "__main__":
         fwd_analysis=fwd_analysis,
         all_analysis=all_analysis,
         useRun3MVA=useRun3MVA,
-        tau_run_mode=analysis_mode
+        tau_run_mode=analysis_mode,
+        sr_category_dict=category_group_selection["sr_category_dict"],
+        cr_category_dict=category_group_selection["cr_category_dict"],
     )
 
     if executor_name in ["work_queue", "taskvine"]:

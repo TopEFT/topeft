@@ -746,6 +746,12 @@ def _resolve_channel_axis_labels(histogram):
         return tuple(axis)
 
 
+def _channel_axis_has_njet_suffixes(channel_labels):
+    """Return ``True`` when any channel label retains a trailing njet suffix."""
+
+    return any(_extract_njet_suffix(label) for label in channel_labels or ())
+
+
 def _resolve_process_axis_labels(histogram):
     """Return the tuple of process labels defined on *histogram*."""
 
@@ -1729,7 +1735,15 @@ def _apply_secondary_ticks(ax, axis="x"):
     axis_obj.set_minor_locator(FixedLocator(sorted(minor_ticks)))
 
 
-def _integrate_category(histogram, hist_cat, axes_to_integrate):
+def _integrate_category(
+    histogram,
+    hist_cat,
+    axes_to_integrate,
+    *,
+    region_name=None,
+    var_name=None,
+    hist_label="histogram",
+):
     """Integrate a histogram over the provided axes, returning None on failure."""
 
     if histogram is None:
@@ -1738,7 +1752,16 @@ def _integrate_category(histogram, hist_cat, axes_to_integrate):
     try:
         integrated = yt.integrate_out_appl(histogram, hist_cat)
         integrated = yt.integrate_out_cats(integrated, axes_to_integrate)[{"channel": sum}]
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Failed to integrate %s: region=%s hist_cat=%s var_name=%s axes=%s error=%s",
+            hist_label,
+            region_name,
+            hist_cat,
+            var_name,
+            sorted(axes_to_integrate.keys()),
+            exc,
+        )
         return None
 
     return integrated
@@ -2339,14 +2362,26 @@ def _prepare_variable_payload(
         )
         is_sparse2d = False
 
+    available_channels = _resolve_channel_axis_labels(histo)
     channel_transformations = _resolve_channel_transformations(region_ctx, var_name)
+    preserve_njets_for_payload = bool(region_ctx.preserve_njets_bins)
+    if (
+        var_name == "njets"
+        and preserve_njets_for_payload
+        and available_channels
+        and not _channel_axis_has_njet_suffixes(available_channels)
+    ):
+        # Some CR njets histograms are already producer-aggregated on the channel
+        # axis, so there are no per-njet channel labels left to preserve.
+        preserve_njets_for_payload = False
+        if "njets" not in channel_transformations:
+            channel_transformations = [*channel_transformations, "njets"]
+
     channel_dict = _apply_channel_dict_transformations(
         region_ctx.channel_map, channel_transformations
     )
     channel_dict = _deduplicate_channel_bins(channel_dict)
     channel_dict = _prune_unsplit_flavour_entries(channel_dict, region_ctx)
-
-    available_channels = _resolve_channel_axis_labels(histo)
 
     channel_dict = _augment_split_channel_entries(
         channel_dict,
@@ -2359,7 +2394,7 @@ def _prepare_variable_payload(
 
     channel_dict = _maybe_preserve_njet_bins(
         channel_dict,
-        preserve=region_ctx.preserve_njets_bins,
+        preserve=preserve_njets_for_payload,
         available_channels=available_channels,
     )
     channel_dict = _deduplicate_channel_bins(channel_dict)
@@ -2370,7 +2405,7 @@ def _prepare_variable_payload(
     if region_ctx.channel_mode == "per-channel":
         channel_dict, channel_display_labels = _group_channels_by_yearless_label(
             channel_dict,
-            preserve_njets=region_ctx.preserve_njets_bins,
+            preserve_njets=preserve_njets_for_payload,
             available_channels=available_channels,
             region_name=region_ctx.name,
             is_lepton_flavor_in_pkl=region_ctx.is_lepton_flavor_in_pkl,
@@ -2625,16 +2660,41 @@ def _render_variable_category(
             print(f"\n\tCategory: {hist_cat}")
 
         axes_to_integrate_dict = {"channel": channel_bins}
-        hist_mc_integrated = _integrate_category(hist_mc, hist_cat, axes_to_integrate_dict)
+        hist_mc_integrated = _integrate_category(
+            hist_mc,
+            hist_cat,
+            axes_to_integrate_dict,
+            region_name=region_ctx.name,
+            var_name=var_name,
+            hist_label="mc histogram",
+        )
         hist_data_integrated = _integrate_category(
-            hist_data, hist_cat, axes_to_integrate_dict
+            hist_data,
+            hist_cat,
+            axes_to_integrate_dict,
+            region_name=region_ctx.name,
+            var_name=var_name,
+            hist_label="data histogram",
         )
         if hist_mc_integrated is None or hist_data_integrated is None:
+            logger.warning(
+                "Skipping plot after integration failure: region=%s hist_cat=%s var_name=%s mode=aggregate mc_integrated=%s data_integrated=%s",
+                region_ctx.name,
+                hist_cat,
+                var_name,
+                hist_mc_integrated is not None,
+                hist_data_integrated is not None,
+            )
             return 0, 0, html_dirs
         hist_mc_sumw2_integrated = None
         if hist_mc_sumw2_orig is not None:
             hist_mc_sumw2_integrated = _integrate_category(
-                hist_mc_sumw2_orig, hist_cat, axes_to_integrate_dict
+                hist_mc_sumw2_orig,
+                hist_cat,
+                axes_to_integrate_dict,
+                region_name=region_ctx.name,
+                var_name=var_name,
+                hist_label="mc sumw2 histogram",
             )
 
         samples_to_rm = _collect_samples_to_remove(

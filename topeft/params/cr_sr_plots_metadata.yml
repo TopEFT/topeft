@@ -64,72 +64,54 @@ CR_CHAN_DICT:
     - 2los_ee_1tau_Ftau_0j
     - 2lod_ee_1tau_Ftau_1j
     - 2los_ee_1tau_Ftau_2j
-    - 2los_ee_1tau_Ftau_3j
-    - 2los_ee_1tau_Ftau_4j
-    - 2los_ee_1tau_Ftau_5j
     - 2los_em_1tau_Ftau_0j
     - 2los_em_1tau_Ftau_1j
     - 2los_em_1tau_Ftau_2j
-    - 2los_em_1tau_Ftau_3j
-    - 2los_em_1tau_Ftau_4j
-    - 2los_em_1tau_Ftau_5j
     - 2los_mm_1tau_Ftau_0j
     - 2los_mm_1tau_Ftau_1j
     - 2los_mm_1tau_Ftau_2j
-    - 2los_mm_1tau_Ftau_3j
-    - 2los_mm_1tau_Ftau_4j
-    - 2los_mm_1tau_Ftau_5j
     alias: cr_2los_1tau_Ftau
   2los_1tau_Ttau:
     leaves:
     - 2los_ee_1tau_Ttau_0j
     - 2los_ee_1tau_Ttau_1j
     - 2los_ee_1tau_Ttau_2j
-    - 2los_ee_1tau_Ttau_3j
-    - 2los_ee_1tau_Ttau_4j
-    - 2los_ee_1tau_Ttau_5j
     - 2los_em_1tau_Ttau_0j
     - 2los_em_1tau_Ttau_1j
     - 2los_em_1tau_Ttau_2j
-    - 2los_em_1tau_Ttau_3j
-    - 2los_em_1tau_Ttau_4j
-    - 2los_em_1tau_Ttau_5j
     - 2los_mm_1tau_Ttau_0j
     - 2los_mm_1tau_Ttau_1j
     - 2los_mm_1tau_Ttau_2j
-    - 2los_mm_1tau_Ttau_3j
-    - 2los_mm_1tau_Ttau_4j
-    - 2los_mm_1tau_Ttau_5j
     alias: cr_2los_1tau_Ttau
+  2los_1tau_0b:
+    leaves:
+    - 2los_ee_1tau_0b_0j
+    - 2los_ee_1tau_0b_1j
+    - 2los_ee_1tau_0b_2j
+    - 2los_em_1tau_0b_0j
+    - 2los_em_1tau_0b_1j
+    - 2los_em_1tau_0b_2j
+    - 2los_mm_1tau_0b_0j
+    - 2los_mm_1tau_0b_1j
+    - 2los_mm_1tau_0b_2j
+    alias: cr_2los_1tau_0b
   1l_1tau_CR:
     leaves:
     - 1l_e_1tau_CR_0j
     - 1l_e_1tau_CR_1j
     - 1l_e_1tau_CR_2j
-    - 1l_e_1tau_CR_3j
-    - 1l_e_1tau_CR_4j
-    - 1l_e_1tau_CR_5j
     - 1l_m_1tau_CR_0j
     - 1l_m_1tau_CR_1j
     - 1l_m_1tau_CR_2j
-    - 1l_m_1tau_CR_3j
-    - 1l_m_1tau_CR_4j
-    - 1l_m_1tau_CR_5j
     alias: cr_1l_1tau
   1l_dy_tautau_CR:
     leaves:
     - 1l_e_dy_tautau_CR_0j
     - 1l_e_dy_tautau_CR_1j
     - 1l_e_dy_tautau_CR_2j
-    - 1l_e_dy_tautau_CR_3j
-    - 1l_e_dy_tautau_CR_4j
-    - 1l_e_dy_tautau_CR_5j
     - 1l_m_dy_tautau_CR_0j
     - 1l_m_dy_tautau_CR_1j
     - 1l_m_dy_tautau_CR_2j
-    - 1l_m_dy_tautau_CR_3j
-    - 1l_m_dy_tautau_CR_4j
-    - 1l_m_dy_tautau_CR_5j
     alias: cr_dy_tautau
 SR_CHAN_DICT:
   2lss_4t_m:
@@ -264,6 +246,8 @@ SR_CHAN_DICT:
     alias: null
   2los_onZ_1tau:
     leaves:
+    - 2los_onZ_1tau_3j
+    - 2los_onZ_1tau_4j
     - 2los_onZ_1tau_5j
     alias: null
   2lss_m_1tau_onZ:

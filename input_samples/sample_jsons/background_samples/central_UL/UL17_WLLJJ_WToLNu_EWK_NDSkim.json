@@ -6,11 +6,10 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/apiccine/run3skimsT3/mc/new-lepMVA-v2/v260202/UL17_WLLJJ_WToLNu_EWK/output_146.root",
-    "/store/user/apiccine/run3skimsT3/mc/new-lepMVA-v2/v260202/UL17_WLLJJ_WToLNu_EWK/output_151.root",
-    "/store/user/apiccine/run3skimsT3/mc/new-lepMVA-v2/v260202/UL17_WLLJJ_WToLNu_EWK/output_150.root",
-    "/store/user/apiccine/run3skimsT3/mc/new-lepMVA-v2/v260202/UL17_WLLJJ_WToLNu_EWK/output_142.root",
-    "/store/user/apiccine/run3skimsT3/mc/new-lepMVA-v2/v260202/UL17_WLLJJ_WToLNu_EWK/output_128.root"
+    "/store/user/apiccine/run2skims/mc/ULlepMVA/v260228/UL17_WLLJJ_WToLNu_EWK/output_144.root",
+    "/store/user/apiccine/run2skims/mc/ULlepMVA/v260228/UL17_WLLJJ_WToLNu_EWK/output_146.root",
+    "/store/user/apiccine/run2skims/mc/ULlepMVA/v260228/UL17_WLLJJ_WToLNu_EWK/output_149.root",
+    "/store/user/apiccine/run2skims/mc/ULlepMVA/v260228/UL17_WLLJJ_WToLNu_EWK/output_151.root"
   ],
   "nEvents": 1000000,
   "nGenEvents": 1000000,
