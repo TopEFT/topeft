@@ -229,7 +229,7 @@ main() {
           #"${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
           "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
           "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-          "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
+          "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples_sr.cfg"
         )
       fi
       for CFG in "${YEAR_CFGS[@]}"; do
@@ -265,6 +265,7 @@ main() {
       --hist-list ana
       --skip-cr
       --do-systs
+      --do-np
     )
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
       OPTIONS+=(-s 100000)

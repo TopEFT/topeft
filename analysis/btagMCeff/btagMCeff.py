@@ -16,6 +16,8 @@ from topeft.modules.paths import topeft_path
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_te_param = GetParam(topeft_path("params/params.json"))
 
+from topeft.modules.corrections import ApplyJetCorrections, ApplyJetSystematics
+
 #coffea.deprecations_as_errors = True
 
 # In the future these names will be read from the nanoAOD files
@@ -70,11 +72,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             is_run3 = True
         is_run2 = not is_run3
 
+        run_era = None
+        if isData:
+            if is_run3:
+                run_era = self._samples[dataset]["era"]
+            else:
+                run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
+
         # Initialize objects
         met = events.MET
         e   = events.Electron
         mu  = events.Muon
         j   = events.Jet
+        run = events.run
+        met_raw=met
 
         if is_run3:
             btagAlgo = "btagDeepFlavB"
@@ -134,7 +145,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Jet selection
 
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
-        j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=0)
+
+        j["pt_raw"] = (1 - j.rawFactor)*j.pt
+        j["mass_raw"] = (1 - j.rawFactor)*j.mass
+        j["rho"] = ak.broadcast_arrays(jetsRho, j.pt)[0]
+
+        syst_var = 'nominal'
+        # Jet energy corrections
+        if not isData:
+            j["pt_gen"] = ak.values_astype(ak.fill_none(j.matched_gen.pt, 0), np.float32)
+        events_cache = events.caches[0]
+        j = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era, run=run).build(j, lazy_cache=events_cache)  #Run3 ready
+        j = ApplyJetSystematics(year,j,syst_var)
+        met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, j, lazy_cache=events_cache)
+
+        j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=20., eta_cut=get_te_param("eta_j_cut"), id_cut=0)
         j['isClean'] = te_os.isClean(j, e, drmin=0.4)& te_os.isClean(j, mu, drmin=0.4)
         goodJets = j[(j.isClean)&(j.isGood)]
         goodJets = goodJets[(goodJets.partonFlavour != 0)]

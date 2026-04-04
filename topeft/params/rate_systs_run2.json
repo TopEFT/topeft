@@ -35,11 +35,8 @@
         "Triboson": {"pdf_scale": "qq", "qcd_scale": "VVV" },
         "convs":    {"pdf_scale": "gg"}
     },
-    "diboson_njets_run2" : {
+    "diboson_njets" : {
         "Diboson": {"1": 1.00, "2": 1.20, "3": 1.48, "4": 1.77, "5": 2.05, "6": 2.34, "7": 2.62}
-    },
-    "diboson_njets_run3" :{
-        "Diboson": {"1": 1.00, "2": 0.86, "3": 1.43, "4": 1.43, "5": 1.72, "6": 2.00, "7": 2.29}
     }
 
 }

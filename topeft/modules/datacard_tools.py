@@ -421,6 +421,7 @@ class DatacardMaker():
     GROUP= {
         "Diboson_": [
             "WZTo3LNu_",
+            "WZto3LNu-2Jets_", #ttll 4to10
             "WWTo2L2Nu_",
             "ZZTo4L_",
             "ggToZZTo2e2mu_",
@@ -554,7 +555,7 @@ class DatacardMaker():
             For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet'
             group 3 matches '_njet'.
         """
-        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
+        rgx = re.compile(r"(_[1-7]j_[1-2]b)|(_[1-2]b_[1-7]j)|(_[1-7]j$)")
 
         m = rgx.search(s)
         if m.group(1) and m.group(2) is None and m.group(3) is None:
@@ -624,8 +625,11 @@ class DatacardMaker():
                     self.use_run3_systs = True
                 if not yr in self.YEARS:
                     raise ValueError(f"Invalid year choice '{yr}', should be empty if running over all years or one of: {self.YEARS}")
-
-        rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs.json")
+       
+        if self.use_run3_systs:
+            rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run3.json")
+        else:
+            rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run2.json")
         miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
 
         # TODO: Need to find a better name for this variable
@@ -908,12 +912,8 @@ class DatacardMaker():
         syst_name = "diboson_njets"
         # new_syst = RateSystematic(syst_name)
         new_syst = JetScale(syst_name)
-        if self.use_run3_systs:
-            for p,per_jet_uncs in rates_json["diboson_njets_run3"].items():
-                new_syst.add_process(p,per_jet_uncs)
-        else:
-            for p,per_jet_uncs in rates_json["diboson_njets_run2"].items():
-                new_syst.add_process(p,per_jet_uncs)
+        for p,per_jet_uncs in rates_json["diboson_njets"].items():
+            new_syst.add_process(p,per_jet_uncs)
         rate_systs[syst_name] = new_syst
 
         # Finally, deal with the missing_parton systematic
@@ -1446,11 +1446,18 @@ class DatacardMaker():
                             raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
                         # The bins in the missing_parton root files start indexing from 0
                         bin_idx = num_j - njet_offset
+
                         if isinstance(v,dict):
-                            unc_hi = v[ch_key][bin_idx]     # Attempt to symmeterize
-                            unc_lo = max(0.01,2 - unc_hi)   # Clip unc_lo to not go negative
-                            # v = f"{v:.{PRECISION}f}"
-                            v = f"{unc_lo:.{PRECISION}f}/{unc_hi:.{PRECISION}f}"
+                        
+                            # Skip channels that don't exist in missing_parton file
+                            if ch_key not in v:
+                                v = "-"
+                            else:
+                                unc_hi = v[ch_key][bin_idx]
+                                unc_lo = max(0.01,2 - unc_hi)
+                                v = f"{unc_lo:.{PRECISION}f}/{unc_hi:.{PRECISION}f}"
+
+
                         elif v != "-":
                             raise ValueError(f"The missing_parton systematic isn't a dictionary (ch={ch}): {v}")
                     else:
