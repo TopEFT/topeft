@@ -70,3 +70,25 @@ def test_filtered_hist_construction(requested_hists):
     else:
         assert not processor._hist_sumw2_axis_mapping
 
+
+@pytest.mark.parametrize(
+    "fill_sumw2_hist,wgt_fluct,expected",
+    [
+        (True, "nominal", True),
+        (True, "triggerSF_2022Up", False),
+        (True, "JERUp", False),
+        (False, "nominal", False),
+    ],
+)
+def test_sumw2_fill_gate_only_allows_nominal_path(
+    fill_sumw2_hist,
+    wgt_fluct,
+    expected,
+):
+    assert (
+        analysis_processor.AnalysisProcessor._should_fill_sumw2_histogram(
+            fill_sumw2_hist,
+            wgt_fluct=wgt_fluct,
+        )
+        is expected
+    )

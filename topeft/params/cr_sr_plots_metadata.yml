@@ -103,7 +103,7 @@ CR_CHAN_DICT:
     - 1l_m_1tau_CR_0j
     - 1l_m_1tau_CR_1j
     - 1l_m_1tau_CR_2j
-    alias: cr_1l_1tau
+    alias: cr_1l_1tau_tt
   1l_dy_tautau_CR:
     leaves:
     - 1l_e_dy_tautau_CR_0j

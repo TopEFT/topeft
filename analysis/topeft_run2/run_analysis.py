@@ -821,7 +821,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--port",
-        default="9160-9170",
+        default="9150-9170",
         help="Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.",
     )
     parser.add_argument(
@@ -1085,23 +1085,23 @@ if __name__ == "__main__":
     elif hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
-            # "lj0pt",
+            "lj0pt",
             # "ptz",
-            "met",
-            # "ljptsum",
+            # "met",
+            "ljptsum",
             # "l0pt",
             # "l0ptcorr",
             "l0conept",
             "l0eta",
             # "l1pt",
             # "l1ptcorr",
-            # "l1conept",
-            # "l1eta",
-            # "j0pt",
-            # "j0eta",
+            "l1conept",
+            "l1eta",
+            "j0pt",
+            "j0eta",
             "njets",
-            # "nbtagsl",
-            # "invmass",
+            "nbtagsl",
+            "invmass",
             # "npvs",
             # "npvsGood",
             # "l0_gen_pdgId",
@@ -1134,7 +1134,7 @@ if __name__ == "__main__":
         ]
         if tau_h_analysis or all_analysis:
             hist_lst.append("tau0Tpt")
-            hist_lst.append("tau0Fpt")
+            # hist_lst.append("tau0Fpt")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
@@ -1560,7 +1560,7 @@ if __name__ == "__main__":
     if executor_name in ["work_queue", "taskvine"]:
         wq_staging_dir, wq_cleanup_after = _prepare_work_queue_staging_directory(wq_filepath)
         executor_args = {
-            "manager_name": f"{os.environ['USER']}-workqueue-coffea",
+            "manager_name": f"{os.environ['USER']}-workqueue-{outname}",
             # find a port to run work queue in this range:
             "port": port,
             "debug_log": "debug.log",
@@ -1595,8 +1595,8 @@ if __name__ == "__main__":
             # this large. If left unspecified, tasks will use whole workers in the
             # exploratory mode.
             # 'cores': 1,
-            # 'disk': 8000,   #MB
-            # 'memory': 10000, #MB
+            # 'disk': 10000,   #MB
+            # 'memory': 4000, #MB
             # control the size of accumulation tasks.
             # "treereduction": 10,
             # terminate workers on which tasks have been running longer than average.
