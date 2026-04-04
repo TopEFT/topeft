@@ -613,7 +613,8 @@ class DatacardMaker():
         self.use_AAC          = kwargs.pop("use_AAC",False)
         self.wc_scalings     = kwargs.pop("wc_scalings",[])
         self.scalings        = []
-        self.use_run3_systs  =  False
+        self.use_run3_systs  =  True
+        self.suffix          = "_run3"
 
         # get wc ranges from json
         with open(topeft_path("params/wc_ranges.json"), "r") as wc_ranges_json:
@@ -621,12 +622,14 @@ class DatacardMaker():
 
         if self.year_lst:
             for yr in self.year_lst:
-                if yr.startswith("202"):
-                    self.use_run3_systs = True
+                if yr.startswith("201"):
+                    self.use_run3_systs = False
+                    self.suffix = "_run2"
                 if not yr in self.YEARS:
                     raise ValueError(f"Invalid year choice '{yr}', should be empty if running over all years or one of: {self.YEARS}")
        
         if self.use_run3_systs:
+            print("Run3Run3")
             rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run3.json")
         else:
             rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run2.json")
@@ -691,6 +694,8 @@ class DatacardMaker():
             # Example of correlated for only 2016 and 2016APV
             "FFcloseEl": {"2016": ["2016APV"], "2016APV": ["2016"]},
             "FFcloseMu": {"2016": ["2016APV"], "2016APV": ["2016"]},
+            "FFcloseEl": {"2022": ["2022EE"],  "2022EE":  ["2022"]},
+            "FFcloseMu": {"2022": ["2022EE"],  "2022EE":  ["2022"]},
 
             # Example of correlated over 2016, 2016APV, 2017, and 2018
             # Note: This is not correct for the analysis, but just serves as an example
@@ -736,6 +741,7 @@ class DatacardMaker():
             }]
         }
 
+        self.run_decorrelate = ["FF", "FFeta", "FFpt", "btagSFbc_corr", "btagSFlight_corr", "charge_flip", "lepSF_elect", "lepSF_muon", "lumi", ]
         if extra_ignore:
             print(f"Adding processes to ignore: {extra_ignore}")
         self.ignore.extend(extra_ignore)
@@ -1246,6 +1252,15 @@ class DatacardMaker():
                             if check_zero_arr1 and sum(arr[1]) != 0:
                                 raise Warning("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
 
+                        syst_base = syst.replace("Up","").replace("Down","")
+
+                        if syst_base in self.run_decorrelate:
+                            syst_base += self.suffix
+                            if "Up" in syst:
+                                syst = syst_base + "Up"
+                            if "Down" in syst:
+                                syst = syst_base + "Down"
+
                         sum_arr = sum(arr[0])
                         if sum_arr == 0: continue #TODO find a more elegant solution
                         if syst == "nominal" and base == "sm":
@@ -1263,7 +1278,7 @@ class DatacardMaker():
                         else:
                             hist_name = f"{proc_name}_{syst}"
                             # Systematics in the text datacard don't have the Up/Down postfix
-                            syst_base = syst.replace("Up","").replace("Down","")
+                            #syst_base = syst.replace("Up","").replace("Down","")
                             if syst_base in self.syst_shape_decorrelate:
                                 # We want to split this systematic to be uncorrelated between certain
                                 #   processes, so we modify the systematic name to make combine treat
