@@ -20,11 +20,18 @@ def _build_histogram(
     *,
     hist_type="HistEFT",
     counts_by_channel=None,
+    systematic_weights=None,
 ):
     counts_by_channel = counts_by_channel or {}
+    systematic_weights = systematic_weights or {"nominal": 1.0}
+    has_only_nominal = set(systematic_weights.keys()) == {"nominal"}
     process_axis = hist.axis.StrCategory([_PROCESS_NAME], name="process", growth=True)
     channel_axis = hist.axis.StrCategory(channel_bins, name="channel", growth=True)
-    systematic_axis = hist.axis.StrCategory(["nominal"], name="systematic", growth=True)
+    systematic_axis = hist.axis.StrCategory(
+        ["nominal"] if has_only_nominal else [],
+        name="systematic",
+        growth=True,
+    )
     dense_axis = hist.axis.Regular(1, 0.0, 1.0, name=variable_name)
     axes = (process_axis, channel_axis, systematic_axis, dense_axis)
 
@@ -36,12 +43,18 @@ def _build_histogram(
     for channel in channel_bins:
         repeats = int(counts_by_channel.get(channel, 1))
         for _ in range(max(repeats, 1)):
-            histogram.fill(
-                process=_PROCESS_NAME,
-                channel=channel,
-                systematic="nominal",
-                **{variable_name: np.array([0.5], dtype=float)},
-            )
+            for systematic, weight in systematic_weights.items():
+                fill_kwargs = {
+                    "process": _PROCESS_NAME,
+                    "channel": channel,
+                    "systematic": systematic,
+                    variable_name: np.array([0.5], dtype=float),
+                }
+                if weight != 1.0:
+                    fill_kwargs["weight"] = np.array([weight], dtype=float)
+                histogram.fill(
+                    **fill_kwargs,
+                )
 
     return histogram
 
@@ -348,6 +361,71 @@ def test_sumw2_histogram_passed_to_stacked_plot(monkeypatch, tmp_path):
     )
 
     payload = plots._prepare_variable_payload(variable, region_ctx)
+
+    captured = {}
+
+    def fake_make_region_stacked_ratio_fig(
+        hist_mc_integrated,
+        hist_data_to_plot,
+        unit_norm_bool,
+        *,
+        var,
+        **kwargs,
+    ):
+        captured["h_mc_sumw2"] = kwargs.get("h_mc_sumw2")
+
+        class _Figure:
+            def savefig(self, *args, **kwargs):
+                pass
+
+        return _Figure()
+
+    monkeypatch.setattr(plots, "make_region_stacked_ratio_fig", fake_make_region_stacked_ratio_fig)
+
+    category_name, channel_bins = next(iter(payload["channel_dict"].items()))
+
+    plots._render_variable_category(
+        variable,
+        category_name,
+        channel_bins,
+        region_ctx=region_ctx,
+        channel_transformations=payload["channel_transformations"],
+        hist_mc=payload["hist_mc"],
+        hist_data=payload["hist_data"],
+        hist_mc_sumw2_orig=payload["hist_mc_sumw2_orig"],
+        is_sparse2d=payload["is_sparse2d"],
+        save_dir_path=str(tmp_path),
+        skip_syst_errs=True,
+        unit_norm_bool=False,
+        stacked_log_y=False,
+        unblind_flag=True,
+        channel_display_labels=payload.get("channel_display_labels"),
+    )
+
+    assert captured["h_mc_sumw2"] is not None
+
+
+def test_plotter_accepts_nominal_only_sumw2_with_shape_systematics(monkeypatch, tmp_path):
+    variable = "observable"
+    histograms = {
+        variable: _build_histogram(
+            variable,
+            ["category"],
+            hist_type="HistEFT",
+            systematic_weights={"nominal": 1.0, "triggerSF_2022Up": 1.1},
+        ),
+        f"{variable}_sumw2": _build_sumw2_histogram(variable, ["category"]),
+    }
+    region_ctx = _make_region_context(
+        histograms,
+        channel_map=_test_channel_map(),
+        channel_mode="aggregate",
+    )
+
+    payload = plots._prepare_variable_payload(variable, region_ctx)
+
+    assert set(payload["hist_mc"].axes["systematic"]) == {"nominal", "triggerSF_2022Up"}
+    assert list(payload["hist_mc_sumw2_orig"].axes["systematic"]) == ["nominal"]
 
     captured = {}
 
@@ -1070,14 +1148,9 @@ def test_both_njets_channel_output_writes_pngs_and_uncertainties(monkeypatch, tm
         "cr_all_mm_3j",
     }
 
-    syst_payloads = {
-        (
-            kwargs.get("err_p_syst"),
-            kwargs.get("err_m_syst"),
-            kwargs.get("err_ratio_p_syst"),
-            kwargs.get("err_ratio_m_syst"),
-            kwargs.get("syst_err"),
-        )
-        for kwargs in (call["kwargs"] for call in render_calls)
-    }
-    assert len(syst_payloads) == 1
+    for kwargs in (call["kwargs"] for call in render_calls):
+        assert kwargs.get("err_p_syst") is not None
+        assert kwargs.get("err_m_syst") is not None
+        assert kwargs.get("err_ratio_p_syst") is not None
+        assert kwargs.get("err_ratio_m_syst") is not None
+        assert kwargs.get("syst_err") is not False

@@ -15,16 +15,11 @@ from analysis.topeft_run2.analysis_processor import ANALYSIS_MODE_EXCLUSIVE_ERRO
 
 _SAMPLE_JSON = Path("input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json")
 _SCRIPT_PATH = Path("analysis/topeft_run2/run_analysis.py")
-_EXPECTED_BASE_HISTS = {
-    "lj0pt",
+_EXPECTED_CR_BASE_HISTS = {
     "met",
     "l0conept",
     "l0eta",
-    "l1conept",
-    "j0pt",
-    "j0eta",
     "njets",
-    "invmass",
 }
 
 
@@ -119,9 +114,14 @@ def _run_run_analysis(monkeypatch, tmp_path, extra_cli_args, outname):
 def test_hist_list_cr_includes_sumw2(monkeypatch, tmp_path):
     output = _run_run_analysis(monkeypatch, tmp_path, ["--hist-list", "cr"], "with-sumw2")
 
-    for hist_name in _EXPECTED_BASE_HISTS:
+    expected_output_keys = set()
+    for hist_name in _EXPECTED_CR_BASE_HISTS:
+        expected_output_keys.add(hist_name)
+        expected_output_keys.add(f"{hist_name}_sumw2")
         assert hist_name in output
         assert f"{hist_name}_sumw2" in output
+
+    assert set(output) == expected_output_keys
 
 
 def test_hist_list_cr_respects_no_sumw2(monkeypatch, tmp_path):
@@ -132,9 +132,11 @@ def test_hist_list_cr_respects_no_sumw2(monkeypatch, tmp_path):
         "without-sumw2",
     )
 
-    for hist_name in _EXPECTED_BASE_HISTS:
+    for hist_name in _EXPECTED_CR_BASE_HISTS:
         assert hist_name in output
         assert f"{hist_name}_sumw2" not in output
+
+    assert set(output) == _EXPECTED_CR_BASE_HISTS
 
 
 def test_np_postprocess_defer_creates_metadata(tmp_path):
@@ -173,10 +175,49 @@ def test_np_postprocess_defer_creates_metadata(tmp_path):
     with open(metadata_file) as fin:
         payload = json.load(fin)
 
+    assert payload["metadata_version"] == 2
     assert payload["np_postprocess"] == "defer"
     assert payload["pretend_mode"] is True
+    assert payload["apply_renormfact_envelope"] is False
     assert payload["output_histogram"] == str(np_pickle)
-    assert "DataDrivenProducer" in payload["followup_command"]
+    assert "run_data_driven.py --metadata-json" in payload["followup_command"]
+
+
+def test_np_postprocess_defer_records_envelope_contract(tmp_path):
+    output_dir = tmp_path / "np-defer-envelope"
+    output_dir.mkdir()
+    outname = "np-defer-envelope"
+
+    argv = [
+        "run_analysis.py",
+        str(_SAMPLE_JSON),
+        "-x",
+        "futures",
+        "-o",
+        outname,
+        "-p",
+        str(output_dir),
+        "--pretend",
+        "--do-np",
+        "--np-postprocess=defer",
+        "--do-systs",
+        "--do-renormfact-envelope",
+    ]
+
+    original_sys_path = list(sys.path)
+    sys.path.insert(0, str(_SCRIPT_PATH.parent))
+    try:
+        with mock.patch.object(sys, "argv", argv):
+            with pytest.raises(SystemExit):
+                runpy.run_path(str(_SCRIPT_PATH), run_name="__main__")
+    finally:
+        sys.path = original_sys_path
+
+    metadata_file = output_dir / f"{outname}_np.pkl.gz.metadata.json"
+    with open(metadata_file) as fin:
+        payload = json.load(fin)
+
+    assert payload["apply_renormfact_envelope"] is True
 
 
 def test_missing_topcoffea_data_reports_guidance(monkeypatch):

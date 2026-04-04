@@ -7,7 +7,6 @@ import cloudpickle
 import gzip
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import tempfile
@@ -20,6 +19,10 @@ import topcoffea.modules.remote_environment as remote_environment
 from topcoffea.modules.paths import topcoffea_path
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
+from topeft.modules.deferred_np_metadata import (
+    build_deferred_np_metadata,
+    build_np_followup_command,
+)
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 import analysis_processor
 from analysis.topeft_run2.analysis_processor import (
@@ -70,6 +73,176 @@ def _format_worker_exception(exception_obj):
         return str(exception_obj)
     except Exception:
         return repr(exception_obj)
+
+
+def _dedupe_preserve_order(values):
+    if values is None:
+        return None
+
+    if isinstance(values, str):
+        iterable = [values]
+    else:
+        iterable = values
+
+    deduped_values = []
+    seen_values = set()
+    for raw_value in iterable:
+        value = str(raw_value).strip()
+        if not value or value in seen_values:
+            continue
+        deduped_values.append(value)
+        seen_values.add(value)
+    return deduped_values
+
+
+def _format_name_list(names):
+    return ", ".join(map(str, names)) if names else "<none>"
+
+
+def _resolve_category_group_selection(
+    *,
+    category_groups,
+    offz_3l_split,
+    tau_h_analysis,
+    fwd_analysis,
+    all_analysis,
+    skip_sr,
+    skip_cr,
+):
+    requested_category_groups = _dedupe_preserve_order(category_groups)
+    sr_block_name, cr_block_name = analysis_processor.resolve_category_dict_names(
+        offz_3l_split,
+        tau_h_analysis,
+        fwd_analysis,
+        all_analysis,
+    )
+    channel_config = analysis_processor.load_category_config()
+
+    active_blocks = []
+    for region_label, block_name, skip_region in (
+        ("SR", sr_block_name, skip_sr),
+        ("CR", cr_block_name, skip_cr),
+    ):
+        if skip_region:
+            continue
+        if block_name not in channel_config:
+            raise RuntimeError(
+                f"Resolved {region_label} ch_lst.json block '{block_name}' was not found in channels/ch_lst.json."
+            )
+        block = channel_config[block_name]
+        active_blocks.append(
+            {
+                "region": region_label,
+                "block_name": block_name,
+                "block": block,
+                "available_groups": list(block.keys()),
+            }
+        )
+
+    if requested_category_groups is not None and not active_blocks:
+        raise SystemExit(
+            "Cannot use --category-groups when both --skip-sr and --skip-cr are set."
+        )
+
+    if requested_category_groups is not None:
+        missing_groups = [
+            group_name
+            for group_name in requested_category_groups
+            if not any(group_name in block_info["block"] for block_info in active_blocks)
+        ]
+        if missing_groups:
+            active_block_summary = (
+                "; ".join(
+                    "{}={} [{}]".format(
+                        block_info["region"],
+                        block_info["block_name"],
+                        _format_name_list(block_info["available_groups"]),
+                    )
+                    for block_info in active_blocks
+                )
+                if active_blocks
+                else "<none>"
+            )
+            raise SystemExit(
+                "Unknown or incompatible category group(s): {}. Active ch_lst.json block(s): {}.".format(
+                    _format_name_list(missing_groups),
+                    active_block_summary,
+                )
+            )
+
+    selected_category_dicts = {"SR": {}, "CR": {}}
+    for block_info in active_blocks:
+        if requested_category_groups is None:
+            selected_groups = block_info["available_groups"]
+            selected_block = dict(block_info["block"])
+        else:
+            selected_groups = [
+                group_name
+                for group_name in requested_category_groups
+                if group_name in block_info["block"]
+            ]
+            selected_block = {
+                group_name: block_info["block"][group_name] for group_name in selected_groups
+            }
+
+        block_info["selected_groups"] = selected_groups
+        block_info["selected_block"] = selected_block
+        selected_category_dicts[block_info["region"]] = selected_block
+
+    return {
+        "requested_category_groups": requested_category_groups,
+        "resolved_sr_block_name": sr_block_name,
+        "resolved_cr_block_name": cr_block_name,
+        "active_blocks": active_blocks,
+        "sr_category_dict": selected_category_dicts["SR"],
+        "cr_category_dict": selected_category_dicts["CR"],
+    }
+
+
+def _log_category_group_selection(category_group_selection):
+    active_blocks = category_group_selection["active_blocks"]
+    requested_category_groups = category_group_selection["requested_category_groups"]
+
+    if not active_blocks:
+        print("Category-group selection: no active ch_lst.json blocks (both SR and CR skipped).")
+        return
+
+    if requested_category_groups is None:
+        print(
+            "Category-group selection: no --category-groups filter requested; using all groups from each active block."
+        )
+    else:
+        print(
+            "Requested category groups (deduplicated user order): {}".format(
+                _format_name_list(requested_category_groups)
+            )
+        )
+
+    for block_info in active_blocks:
+        print(
+            "Resolved {} ch_lst.json block: {}".format(
+                block_info["region"], block_info["block_name"]
+            )
+        )
+        print(
+            "Available {} category groups: {}".format(
+                block_info["region"], _format_name_list(block_info["available_groups"])
+            )
+        )
+        if requested_category_groups is None:
+            print(
+                "Selected {} category groups: all ({})".format(
+                    block_info["region"],
+                    _format_name_list(block_info["selected_groups"]),
+                )
+            )
+        else:
+            print(
+                "Selected {} category groups: {}".format(
+                    block_info["region"],
+                    _format_name_list(block_info["selected_groups"]),
+                )
+            )
 
 
 def _resolve_environment_file(env_override, use_remote_env, extra_pip_local=None):
@@ -631,13 +804,24 @@ if __name__ == "__main__":
         help="Specify a list of histograms to fill.",
     )
     parser.add_argument(
+        "--category-groups",
+        nargs="+",
+        help=(
+            "Filter the resolved ch_lst.json category block(s) to one or more named groups. "
+            "Names are validated in run_analysis.py against the active SR/CR block selection before downstream processing starts. "
+            "Accepts multiple group names and preserves user order after deduplication. "
+            "When both SR and CR are active, a requested group may match only one region and leave the other region empty. "
+            "When omitted, all groups in each resolved block are used."
+        ),
+    )
+    parser.add_argument(
         "--ecut",
         default=None,
         help="Energy cut threshold i.e. throw out events above this (GeV)",
     )
     parser.add_argument(
         "--port",
-        default="9160-9170",
+        default="9150-9170",
         help="Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.",
     )
     parser.add_argument(
@@ -738,6 +922,7 @@ if __name__ == "__main__":
     port = args.port
     wq_filepath = args.wq_filepath
     hist_list = args.hist_list
+    category_groups = args.category_groups
     analysis_mode = args.analysis_mode
     env_file_override = args.env_file
     use_remote_env = args.use_remote_env
@@ -778,6 +963,7 @@ if __name__ == "__main__":
         do_renormfact_envelope = ops.pop("do_renormfact_envelope", do_renormfact_envelope)
         wc_lst = ops.pop("wc_list", wc_lst)
         hist_list = ops.pop("hist_list", hist_list)
+        category_groups = ops.pop("category_groups", category_groups)
         port = ops.pop("port", port)
         wq_filepath = ops.pop("wq_filepath", wq_filepath)
         ecut = ops.pop("ecut", ecut)
@@ -820,9 +1006,9 @@ if __name__ == "__main__":
             raise Exception(
                 "Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step."
             )
-        if np_postprocess_mode != "inline":
+        if np_postprocess_mode == "skip":
             raise Exception(
-                "Error: Renorm/fact envelope requires inline nonprompt post-processing."
+                "Error: Renorm/fact envelope cannot be requested when --np-postprocess=skip."
             )
     if dotest:
         if executor_name == "futures":
@@ -842,6 +1028,17 @@ if __name__ == "__main__":
     ecut_threshold = ecut
     if ecut_threshold is not None:
         ecut_threshold = float(ecut)
+
+    category_group_selection = _resolve_category_group_selection(
+        category_groups=category_groups,
+        offz_3l_split=offZ_split,
+        tau_h_analysis=tau_h_analysis,
+        fwd_analysis=fwd_analysis,
+        all_analysis=all_analysis,
+        skip_sr=skip_sr,
+        skip_cr=skip_cr,
+    )
+    _log_category_group_selection(category_group_selection)
 
     if executor_name in ["work_queue", "taskvine"]:
         # construct wq port range
@@ -888,10 +1085,10 @@ if __name__ == "__main__":
     elif hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
-            # "lj0pt",
+            "lj0pt",
             # "ptz",
-            "met",
-            # "ljptsum",
+            # "met",
+            "ljptsum",
             # "l0pt",
             # "l0ptcorr",
             "l0conept",
@@ -903,8 +1100,8 @@ if __name__ == "__main__":
             "j0pt",
             "j0eta",
             "njets",
-            # "nbtagsl",
-            # "invmass",
+            "nbtagsl",
+            "invmass",
             # "npvs",
             # "npvsGood",
             # "l0_gen_pdgId",
@@ -937,7 +1134,7 @@ if __name__ == "__main__":
         ]
         if tau_h_analysis or all_analysis:
             hist_lst.append("tau0Tpt")
-            hist_lst.append("tau0Fpt")
+            # hist_lst.append("tau0Fpt")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
@@ -1238,48 +1435,43 @@ if __name__ == "__main__":
         }
     )
 
-    def _build_np_followup_command():
-        followup_snippet = (
-            "from topeft.modules.dataDrivenEstimation import DataDrivenProducer; "
-            f"DataDrivenProducer({out_pkl_file!r}, {out_pkl_file_name_np!r}).dumpToPickle()"
-        )
-        return f"python -c {shlex.quote(followup_snippet)}"
-
     def _build_np_metadata_payload():
         resolved_year_list = (
             sorted(requested_years) if requested_years is not None else sample_years_from_inputs
         )
-        payload = {
-            "metadata_version": 1,
-            "timestamp": time.time(),
-            "input_histogram": out_pkl_file,
-            "output_histogram": out_pkl_file_name_np,
-            "metadata_path": np_metadata_file,
-            "np_postprocess": np_postprocess_mode,
-            "pretend_mode": pretend,
-            "do_np": do_np,
-            "resolved_years": resolved_year_list,
-            "sample_years": sample_years_from_inputs,
-            "input_jsons": resolved_input_jsons,
-            "analysis_mode": analysis_mode,
-            "hist_list": hist_lst,
-            "wc_list": wc_lst,
-            "executor": executor_name,
-            "options_file": args.options,
-            "flags": {
+        payload = build_deferred_np_metadata(
+            input_histogram=out_pkl_file,
+            output_histogram=out_pkl_file_name_np,
+            metadata_path=np_metadata_file,
+            np_postprocess=np_postprocess_mode,
+            pretend_mode=pretend,
+            do_np=do_np,
+            apply_renormfact_envelope=do_renormfact_envelope,
+            resolved_years=resolved_year_list,
+            sample_years=sample_years_from_inputs,
+            input_jsons=resolved_input_jsons,
+            analysis_mode=analysis_mode,
+            hist_list=hist_lst,
+            wc_list=wc_lst,
+            executor=executor_name,
+            options_file=args.options,
+            flags={
                 "split_lep_flavor": split_lep_flavor,
                 "offZ_split": offZ_split,
                 "tau_h_analysis": tau_h_analysis,
                 "fwd_analysis": fwd_analysis,
                 "all_analysis": all_analysis,
+                "category_groups": list(
+                    category_group_selection["requested_category_groups"] or []
+                ),
                 "skip_sr": skip_sr,
                 "skip_cr": skip_cr,
                 "do_systs": do_systs,
                 "fill_sumw2": fill_sumw2,
                 "useRun3MVA": useRun3MVA,
             },
-            "followup_command": _build_np_followup_command(),
-        }
+        )
+        payload["timestamp"] = time.time()
         return payload
 
     def _write_np_metadata_sidecar(*, pretend_override=None):
@@ -1292,7 +1484,9 @@ if __name__ == "__main__":
         return payload
 
     def _print_np_defer_instructions(metadata_payload):
-        followup_command = metadata_payload.get("followup_command", _build_np_followup_command())
+        followup_command = metadata_payload.get(
+            "followup_command", build_np_followup_command(np_metadata_file)
+        )
         print(
             "Nonprompt estimation deferred. Metadata saved to {}.\n"
             "Run the following command to finalize the nonprompt histograms:\n  {}".format(
@@ -1358,13 +1552,15 @@ if __name__ == "__main__":
         fwd_analysis=fwd_analysis,
         all_analysis=all_analysis,
         useRun3MVA=useRun3MVA,
-        tau_run_mode=analysis_mode
+        tau_run_mode=analysis_mode,
+        sr_category_dict=category_group_selection["sr_category_dict"],
+        cr_category_dict=category_group_selection["cr_category_dict"],
     )
 
     if executor_name in ["work_queue", "taskvine"]:
         wq_staging_dir, wq_cleanup_after = _prepare_work_queue_staging_directory(wq_filepath)
         executor_args = {
-            "manager_name": f"{os.environ['USER']}-workqueue-coffea",
+            "manager_name": f"{os.environ['USER']}-workqueue-{outname}",
             # find a port to run work queue in this range:
             "port": port,
             "debug_log": "debug.log",
@@ -1399,8 +1595,8 @@ if __name__ == "__main__":
             # this large. If left unspecified, tasks will use whole workers in the
             # exploratory mode.
             # 'cores': 1,
-            # 'disk': 8000,   #MB
-            # 'memory': 10000, #MB
+            # 'disk': 10000,   #MB
+            # 'memory': 4000, #MB
             # control the size of accumulation tasks.
             # "treereduction": 10,
             # terminate workers on which tasks have been running longer than average.
