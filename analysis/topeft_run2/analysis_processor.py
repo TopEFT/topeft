@@ -1286,6 +1286,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("exactly_5j", (njets==5))
             selections.add("exactly_6j", (njets==6))
             selections.add("atleast_1j", (njets>=1))
+            selections.add("atleast_3j", (njets>=3))
             selections.add("atleast_4j", (njets>=4))
             selections.add("atleast_5j", (njets>=5))
             selections.add("atleast_6j", (njets>=6))
