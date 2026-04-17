@@ -307,11 +307,13 @@
                 ],
                 [
                     "3l_1tau_1b",
+		    "3l",
                     "bmask_exactly1m",
                     "1tau"
                 ],
                 [
                     "3l_1tau_2b",
+		    "3l",
                     "bmask_atleast2m",
                     "1tau"
                 ]
@@ -1291,11 +1293,13 @@
                 ],
                 [
                     "3l_1tau_1b",
+		    "3l",
                     "bmask_exactly1m",
                     "1tau"
                 ],
                 [
                     "3l_1tau_2b",
+		    "3l",
                     "bmask_atleast2m",
                     "1tau"
                 ]
