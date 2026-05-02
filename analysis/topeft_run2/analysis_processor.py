@@ -876,7 +876,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, cleanedJets, lazy_cache=events_cache)
 
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
-            cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
+            cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=50.)
             goodJets = cleanedJets[cleanedJets.isGood]
             fwdJets  = cleanedJets[cleanedJets.isFwd]
 
@@ -885,6 +885,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             nfwdj = ak.num(fwdJets)
             ht = ak.sum(goodJets.pt,axis=-1)
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+            fwd0 = fwdJets[ak.argmax(fwdJets.pt,axis=-1,keepdims=True)]
 
             if btagAlgo == "btagDeepFlavB":
                 btagRef = ""
@@ -1406,6 +1407,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["l1eta"]   = l1.eta
             varnames["j0pt"]    = ak.flatten(j0.pt)
             varnames["j0eta"]   = ak.flatten(j0.eta)
+            varnames["fwd0pt"]  = ak.flatten(fwd0.pt)
+            varnames["fwd0eta"] = ak.flatten(fwd0.eta)
             varnames["njets"]   = njets
             varnames["nbtagsl"] = nbtagsl
             varnames["nbtagsm"] = nbtagsm

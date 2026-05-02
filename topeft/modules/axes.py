@@ -72,6 +72,10 @@ info = {
         "regular": (50, 0, 500),
         "label": r"Leading jet  $p_{T}$ (GeV) "
     },
+    "fwd0pt": {
+        "regular": (50, 0, 500),
+        "label": r"Leading forward jet $p_{T}$ (GeV) "
+    },
     "b0pt": {
         "regular": (50, 0, 500),
         "label": r"Leading b jet  $p_{T}$ (GeV) "
@@ -79,6 +83,10 @@ info = {
     "j0eta": {
         "regular": (30, -3, 3),
         "label": r"Leading jet  $\eta$ "
+    },
+    "fwd0eta": {
+        "regular": (50, -5, 5),
+        "label": r"Leading forward jet $\eta$ "
     },
     "ht": {
         "regular": (100, 0, 1000),

@@ -139,6 +139,28 @@ def test_hist_list_cr_respects_no_sumw2(monkeypatch, tmp_path):
     assert set(output) == _EXPECTED_CR_BASE_HISTS
 
 
+def test_custom_hist_list_accepts_fwd0eta(monkeypatch, tmp_path):
+    output = _run_run_analysis(
+        monkeypatch,
+        tmp_path,
+        ["--hist-list", "fwd0eta"],
+        "custom-fwd0eta",
+    )
+
+    assert set(output) == {"fwd0eta", "fwd0eta_sumw2"}
+
+
+def test_custom_hist_list_accepts_fwd0pt(monkeypatch, tmp_path):
+    output = _run_run_analysis(
+        monkeypatch,
+        tmp_path,
+        ["--hist-list", "fwd0pt"],
+        "custom-fwd0pt",
+    )
+
+    assert set(output) == {"fwd0pt", "fwd0pt_sumw2"}
+
+
 def test_np_postprocess_defer_creates_metadata(tmp_path):
     output_dir = tmp_path / "np-defer"
     output_dir.mkdir()

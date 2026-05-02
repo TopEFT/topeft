@@ -26,7 +26,7 @@
 
     "fo_e_mvaiso_cut_run3" : 0.6,
 
-    "jet_id_cut" : 0,
+    "jet_id_cut" : 1,
 
     "dxy_cut" : 0.05,
     "dz_cut" : 0.1,
