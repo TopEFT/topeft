@@ -159,7 +159,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         j = ApplyJetSystematics(year,j,syst_var)
         met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, j, lazy_cache=events_cache)
 
-        j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=20., eta_cut=get_te_param("eta_j_cut"), id_cut=0)
+        if is_run3:
+            jet_id_mask = tc_os.run3_nanoV12_ak4puppi_jet_id(j, year, working_point="tight")
+            j["isGood"] = ((getattr(j, jetptname) > 20.) & (abs(j.eta) < get_te_param("eta_j_cut")) & jet_id_mask)
+        else:
+            j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=20., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
         j['isClean'] = te_os.isClean(j, e, drmin=0.4)& te_os.isClean(j, mu, drmin=0.4)
         goodJets = j[(j.isClean)&(j.isGood)]
         goodJets = goodJets[(goodJets.partonFlavour != 0)]
@@ -232,5 +236,3 @@ if __name__ == '__main__':
     outpath= './coffeaFiles/'
     samples     = load(outpath+'samples.coffea')
     topprocessor = AnalysisProcessor(samples)
-
-

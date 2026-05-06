@@ -875,8 +875,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
             met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, cleanedJets, lazy_cache=events_cache)
 
-            cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
-            cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=50.)
+            if is_run3:
+                jet_id_mask = tc_os.run3_nanoV12_ak4puppi_jet_id(cleanedJets, year, working_point="tight")
+                cleanedJets["isGood"] = ((getattr(cleanedJets, jetptname) > 30.) & (abs(cleanedJets.eta) < get_te_param("eta_j_cut")) & jet_id_mask)
+                cleanedJets["isFwd"] = ((getattr(cleanedJets, jetptname) > 50.) & (abs(cleanedJets.eta) > get_te_param("eta_j_cut")) & jet_id_mask)
+            else:
+                cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+                cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=50.)
             goodJets = cleanedJets[cleanedJets.isGood]
             fwdJets  = cleanedJets[cleanedJets.isFwd]
 

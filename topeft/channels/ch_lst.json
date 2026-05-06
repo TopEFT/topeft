@@ -683,8 +683,7 @@
                     "2lss_CR",
                     "chargedl0",
                     "2lss",
-                    "bmask_exactly1m",
-                    "fwdjet_mask"
+                    "bmask_exactly1m"
                 ]
             ],
             "lep_flav_lst": [
@@ -711,8 +710,7 @@
                     "2lss_CRflip",
                     "2l_nozeeveto",
                     "2lee",
-                    "2l_onZ_as",
-                    "fwdjet_mask"
+                    "2l_onZ_as"
                 ]
             ],
             "lep_flav_lst": [
@@ -736,8 +734,7 @@
                     "2l_nozeeveto",
                     "2los",
                     "2l_onZ",
-                    "bmask_exactly0m",
-                    "fwdjet_mask"
+                    "bmask_exactly0m"
                 ]
             ],
             "lep_flav_lst": [
@@ -778,8 +775,7 @@
                 [
                     "3l_CR",
                     "3l",
-                    "bmask_exactly0m",
-                    "fwdjet_mask"
+                    "bmask_exactly0m"
                 ]
             ],
             "lep_flav_lst": [
@@ -891,8 +887,7 @@
                     "chargedl0",
                     "2lss",
                     "bmask_exactly1m",
-                    "0tau",
-                    "fwdjet_mask"
+                    "0tau"
                 ]
             ],
             "lep_flav_lst": [
@@ -920,8 +915,7 @@
                     "2l_nozeeveto",
                     "2lee",
                     "2l_onZ_as",
-                    "0tau",
-                    "fwdjet_mask"
+                    "0tau"
                 ]
             ],
             "lep_flav_lst": [
@@ -946,8 +940,7 @@
                     "2los",
                     "2l_onZ",
                     "bmask_exactly0m",
-                    "0tau",
-                    "fwdjet_mask"
+                    "0tau"
                 ]
             ],
             "lep_flav_lst": [
@@ -970,8 +963,7 @@
                     "2los",
                     "2lem",
                     "bmask_exactly2m",
-                    "0tau",
-                    "fwdjet_mask"
+                    "0tau"
                 ]
             ],
             "lep_flav_lst": [
@@ -991,8 +983,7 @@
                     "3l_CR",
                     "3l",
                     "bmask_exactly0m",
-                    "0tau",
-                    "fwdjet_mask"
+                    "0tau"
                 ]
             ],
             "lep_flav_lst": [

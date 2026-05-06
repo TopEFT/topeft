@@ -1085,27 +1085,28 @@ if __name__ == "__main__":
     elif hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
-            # "lj0pt",
+            "lj0pt",
             # "ptz",
-            # "met",
-            # "ljptsum",
-            # "l0pt",
-            # "l0ptcorr",
+            # # "met",
+            # # "ljptsum",
+            # # "l0pt",
+            # # "l0ptcorr",
             # "l0conept",
             # "l0eta",
-            # "l1pt",
-            # "l1ptcorr",
+            # # "l1pt",
+            # # "l1ptcorr",
             # "l1conept",
             # "l1eta",
-            "j0pt",
-            "j0eta",
-            # "j1eta",
-            "fwd0eta",
-            "fwd0pt",
-            "njets",
+            # "j0pt",
+            # "j0eta",
+            # # "j1eta",
+            # "fwd0eta",
+            # "fwd0pt",
+            # "njets",
             # "nbtagsl",
+            # "nbtagsm",
             # "invmass",
-            # "npvs",
+            # # "npvs",
             # "npvsGood",
             # "l0_gen_pdgId",
             # "l1_gen_pdgId",
@@ -1137,7 +1138,7 @@ if __name__ == "__main__":
         ]
         if tau_h_analysis or all_analysis:
             hist_lst.append("tau0Tpt")
-            # hist_lst.append("tau0Fpt")
+            hist_lst.append("tau0Fpt")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
