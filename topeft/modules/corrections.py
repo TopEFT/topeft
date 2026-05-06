@@ -1742,7 +1742,16 @@ def AttachPdfWeights(events):
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
 
-def ApplyJetCorrections(year, corr_type, isData, era, run, useclib=True, savelevels=False):
+def ApplyJetCorrections(
+    year,
+    corr_type,
+    isData,
+    era,
+    run,
+    useclib=True,
+    savelevels=False,
+    suppress_forward_eta_stochastic_jer=False,
+):
     usejecstack = not useclib
 
     if year not in clib_year_map.keys():
@@ -1829,7 +1838,12 @@ def ApplyJetCorrections(year, corr_type, isData, era, run, useclib=True, savelev
     # Return appropriate factory based on correction type
     if corr_type == 'met':
         return CorrectedMETFactory(name_map)
-    return CorrectedJetsFactory(name_map, jec_stack, run)
+    return CorrectedJetsFactory(
+        name_map,
+        jec_stack,
+        run,
+        suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
+    )
 
 def ApplyJetSystematics(year,cleanedJets,syst_var):
     if (syst_var == f'JER_{year}Up'):

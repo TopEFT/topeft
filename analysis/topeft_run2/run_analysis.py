@@ -725,6 +725,16 @@ if __name__ == "__main__":
         help="Compute systematic variations",
     )
     parser.add_argument(
+        "--suppress-forward-eta-stochastic-jer",
+        action="store_true",
+        help=(
+            "Opt-in analysis-specific JER mitigation: in 2.5 < abs(eta) < 3.0, "
+            "keep scaling JER for hybrid jets but suppress stochastic smearing for "
+            "non-hybrid jets. Disabled by default and requires JME/JERC approval "
+            "before production use."
+        ),
+    )
+    parser.add_argument(
         "--split-lep-flavor",
         action="store_true",
         help="Split up categories by lepton flavor",
@@ -906,6 +916,7 @@ if __name__ == "__main__":
     treename = args.treename
     fill_sumw2 = not args.no_sumw2
     do_systs = args.do_systs
+    suppress_forward_eta_stochastic_jer = args.suppress_forward_eta_stochastic_jer
     split_lep_flavor = args.split_lep_flavor
     offZ_split = args.offZ_3l_split
     tau_h_analysis = args.tau_h_analysis
@@ -951,6 +962,10 @@ if __name__ == "__main__":
             if legacy_do_errors is not None:
                 fill_sumw2 = bool(legacy_do_errors)
         do_systs = ops.pop("do_systs", do_systs)
+        suppress_forward_eta_stochastic_jer = ops.pop(
+            "suppress_forward_eta_stochastic_jer",
+            suppress_forward_eta_stochastic_jer,
+        )
         split_lep_flavor = ops.pop("split_lep_flavor", split_lep_flavor)
         offZ_split = ops.pop("offZ_split", offZ_split)
         tau_h_analysis = ops.pop("tau_h_analysis", tau_h_analysis)
@@ -1559,6 +1574,7 @@ if __name__ == "__main__":
         tau_run_mode=analysis_mode,
         sr_category_dict=category_group_selection["sr_category_dict"],
         cr_category_dict=category_group_selection["cr_category_dict"],
+        suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
     )
 
     if executor_name in ["work_queue", "taskvine"]:

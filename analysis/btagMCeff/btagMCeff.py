@@ -23,8 +23,9 @@ from topeft.modules.corrections import ApplyJetCorrections, ApplyJetSystematics
 # In the future these names will be read from the nanoAOD files
 
 class AnalysisProcessor(processor.ProcessorABC):
-    def __init__(self, samples):
+    def __init__(self, samples, suppress_forward_eta_stochastic_jer=False):
         self._samples = samples
+        self.suppress_forward_eta_stochastic_jer = suppress_forward_eta_stochastic_jer
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
@@ -155,7 +156,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
             j["pt_gen"] = ak.values_astype(ak.fill_none(j.matched_gen.pt, 0), np.float32)
         events_cache = events.caches[0]
-        j = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era, run=run).build(j, lazy_cache=events_cache)  #Run3 ready
+        j = ApplyJetCorrections(
+            year,
+            corr_type='jets',
+            isData=isData,
+            era=run_era,
+            run=run,
+            suppress_forward_eta_stochastic_jer=self.suppress_forward_eta_stochastic_jer,
+        ).build(j, lazy_cache=events_cache)  #Run3 ready
         j = ApplyJetSystematics(year,j,syst_var)
         met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, j, lazy_cache=events_cache)
 
