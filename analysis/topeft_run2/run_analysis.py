@@ -1100,7 +1100,7 @@ if __name__ == "__main__":
     elif hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
-            "lj0pt",
+            # "lj0pt",
             # "ptz",
             # # "met",
             # # "ljptsum",
@@ -1112,11 +1112,11 @@ if __name__ == "__main__":
             # # "l1ptcorr",
             # "l1conept",
             # "l1eta",
-            # "j0pt",
-            # "j0eta",
+            "j0pt",
+            "j0eta",
             # # "j1eta",
-            # "fwd0eta",
-            # "fwd0pt",
+            "fwd0eta",
+            "fwd0pt",
             # "njets",
             # "nbtagsl",
             # "nbtagsm",
