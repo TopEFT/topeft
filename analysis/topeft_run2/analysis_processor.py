@@ -889,7 +889,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 cleanedJets["isFwd"] = ((getattr(cleanedJets, jetptname) > 50.) & (abs(cleanedJets.eta) > get_te_param("eta_j_cut")) & jet_id_mask)
             else:
                 cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
-                cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=50.)
+                cleanedJets["isFwd"] = ((getattr(cleanedJets, jetptname) > 50.) & (abs(cleanedJets.eta) > get_te_param("eta_j_cut"))) #te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=50.)
             goodJets = cleanedJets[cleanedJets.isGood]
             fwdJets  = cleanedJets[cleanedJets.isFwd]
 
