@@ -93,7 +93,7 @@ info = {
         "variable": [0, 300, 500, 800],
         "label": r"H$_{T}$ (GeV) ",
     },
-    "met": {"regular": (40, 0, 400), "label": r"MET (GeV)"},
+    "met": {"regular": (20, 0, 200), "label": r"MET (GeV)"},
     "ljptsum": {
         "regular": (11, 0, 1100),
         "variable": [0, 400, 600, 1000],

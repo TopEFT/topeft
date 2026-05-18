@@ -16,7 +16,7 @@ from topeft.modules.paths import topeft_path
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_te_param = GetParam(topeft_path("params/params.json"))
 
-from topeft.modules.corrections import ApplyJetCorrections, ApplyJetSystematics
+from topeft.modules.corrections import ApplyJetCorrections, ApplyJetSystematics, get_selected_met, resolve_forward_eta_stochastic_jer_suppression
 
 #coffea.deprecations_as_errors = True
 
@@ -72,6 +72,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         if year.startswith("202"):
             is_run3 = True
         is_run2 = not is_run3
+        effective_suppress_forward_eta_stochastic_jer = resolve_forward_eta_stochastic_jer_suppression(
+            is_run3,
+            self.suppress_forward_eta_stochastic_jer,
+        )
 
         run_era = None
         if isData:
@@ -81,7 +85,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
 
         # Initialize objects
-        met = events.MET
+        met = get_selected_met(events, year)
         e   = events.Electron
         mu  = events.Muon
         j   = events.Jet
@@ -162,7 +166,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             isData=isData,
             era=run_era,
             run=run,
-            suppress_forward_eta_stochastic_jer=self.suppress_forward_eta_stochastic_jer,
+            suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer,
         ).build(j, lazy_cache=events_cache)  #Run3 ready
         j = ApplyJetSystematics(year,j,syst_var)
         met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, j, lazy_cache=events_cache)
