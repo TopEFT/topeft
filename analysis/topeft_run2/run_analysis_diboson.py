@@ -52,6 +52,12 @@ if __name__ == '__main__':
     parser.add_argument('--offZ-3l-split', dest='offZ_3l_split', action='store_true', help = 'Split up 3l offZ categories')
     parser.add_argument('--tau-h-analysis', dest='tau_h_analysis', action='store_true', help = 'Add tau channels')
     parser.add_argument('--fwd-analysis'    , action='store_true', help = 'Add fwd channels')
+    parser.add_argument(
+        '--fwd-eta-band-pt-apply',
+        choices=('auto', 'on', 'off'),
+        default='auto',
+        help='Control forward-jet eta-band pT tightening: auto is Run 3 only, on is all years, off is disabled.',
+    )
     parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
     parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
     parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
@@ -80,6 +86,7 @@ if __name__ == '__main__':
     offZ_split = args.offZ_3l_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
+    fwd_eta_band_pt_apply = args.fwd_eta_band_pt_apply
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
@@ -253,7 +260,7 @@ if __name__ == '__main__':
     else:
         print('No Wilson coefficients specified')
 
-    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,offZ_split=offZ_split,tau_h_analysis=tau_h_analysis,fwd_analysis=fwd_analysis,useRun3MVA=useRun3MVA)
+    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,offZ_split=offZ_split,tau_h_analysis=tau_h_analysis,fwd_analysis=fwd_analysis,useRun3MVA=useRun3MVA,fwd_eta_band_pt_apply=fwd_eta_band_pt_apply)
 
     if executor == "work_queue":
         executor_args = {

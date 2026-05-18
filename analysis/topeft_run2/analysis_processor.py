@@ -22,7 +22,7 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_supported_jet_systematics
+from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -155,7 +155,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return bool(fill_sumw2_hist) and wgt_fluct == "nominal"
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto"):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -205,6 +205,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
         self.tau_run_mode = tau_run_mode
+        self.suppress_forward_eta_stochastic_jer = suppress_forward_eta_stochastic_jer
+        self.fwd_eta_band_pt_apply = fwd_eta_band_pt_apply
         # self._tau_wp_checked = False
 
         self._fill_sumw2_hist = bool(fill_sumw2_hist)  # Whether to fill the w**2 companion histograms
@@ -430,6 +432,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         if year.startswith("202"):
             is_run3 = True
         is_run2 = not is_run3
+        effective_suppress_forward_eta_stochastic_jer = resolve_forward_eta_stochastic_jer_suppression(
+            is_run3,
+            self.suppress_forward_eta_stochastic_jer,
+        )
 
         def _log_tau_flag_counts(label, flag_arrays):
             if len(events) == 0:
@@ -513,7 +519,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Initialize objects
 
-        met  = events.MET
+        met  = get_selected_met(events, year)
         ele  = events.Electron
         mu   = events.Muon
         tau  = events.Tau
@@ -541,7 +547,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
-        events.nom = ak.ones_like(events.MET.pt)
+        events.nom = ak.ones_like(met.pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
         ele["conept"] = leptonSelection.coneptElec(ele)
@@ -757,6 +763,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         obj_correction_syst_lst = get_supported_jet_systematics(
             year, isData=isData, era=run_era
         )
+        obj_correction_syst_lst.extend(
+            get_supported_met_systematics(year, isData=isData, era=run_era)
+        )
         if self.enable_tau_blocks:
             obj_correction_syst_lst.append("TESUp")
             obj_correction_syst_lst.append("TESDown")
@@ -871,12 +880,36 @@ class AnalysisProcessor(processor.ProcessorABC):
                     tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var, tau_T_tag)
 
             events_cache = events.caches[0]
-            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era, run=run).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
+            cleanedJets = ApplyJetCorrections(
+                year,
+                corr_type='jets',
+                isData=isData,
+                era=run_era,
+                run=run,
+                suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer,
+            ).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
             met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, cleanedJets, lazy_cache=events_cache)
+            if is_met_unclustered_systematic(syst_var):
+                met = ApplyMETSystematics(met, syst_var)
 
-            cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
-            cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
+            if is_run3:
+                jet_id_mask = tc_os.run3_nanoV12_ak4puppi_jet_id(cleanedJets, year, working_point="tight")
+                cleanedJets["isGood"] = ((getattr(cleanedJets, jetptname) > 30.) & (abs(cleanedJets.eta) < get_te_param("eta_j_cut")) & jet_id_mask)
+            else:
+                jet_id_mask = True
+                cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+            cleanedJets["isFwd"] = te_os.is_forward_jet_eta_banded(
+                getattr(cleanedJets, jetptname),
+                cleanedJets.eta,
+                eta_cut=get_te_param("eta_j_cut"),
+                baseline_pt_cut=get_te_param("fwd_jet_pt_cut"),
+                apply_eta_band_pt=te_os.resolve_fwd_eta_band_pt_apply(is_run3, self.fwd_eta_band_pt_apply),
+                eta_band_min=get_te_param("fwd_jet_eta_band_min"),
+                eta_band_max=get_te_param("fwd_jet_eta_band_max"),
+                eta_band_pt_cut=get_te_param("fwd_jet_eta_band_pt_cut"),
+                quality_mask=jet_id_mask,
+            )
             goodJets = cleanedJets[cleanedJets.isGood]
             fwdJets  = cleanedJets[cleanedJets.isFwd]
 
@@ -885,6 +918,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             nfwdj = ak.num(fwdJets)
             ht = ak.sum(goodJets.pt,axis=-1)
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+            fwd0 = fwdJets[ak.argmax(fwdJets.pt,axis=-1,keepdims=True)]
 
             if btagAlgo == "btagDeepFlavB":
                 btagRef = ""
@@ -1406,6 +1440,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["l1eta"]   = l1.eta
             varnames["j0pt"]    = ak.flatten(j0.pt)
             varnames["j0eta"]   = ak.flatten(j0.eta)
+            varnames["fwd0pt"]  = ak.flatten(fwd0.pt)
+            varnames["fwd0eta"] = ak.flatten(fwd0.eta)
             varnames["njets"]   = njets
             varnames["nbtagsl"] = nbtagsl
             varnames["nbtagsm"] = nbtagsm

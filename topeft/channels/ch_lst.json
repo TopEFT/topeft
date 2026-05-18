@@ -1156,7 +1156,7 @@
                 ">5"
             ]
         },
-        "3l_offZ": {
+        "3l_m_offZ": {
             "lep_chan_lst": [
 
                 [
@@ -1206,7 +1206,27 @@
                     "bmask_atleast2m",
                     "~fwdjet_mask",
                     "0tau"
-                ],
+                ]
+            ],
+            "lep_flav_lst": [
+                "eee",
+                "eem",
+                "emm",
+                "mmm"
+            ],
+            "appl_lst": [
+                "isSR_3l",
+                "isAR_3l"
+            ],
+            "jet_lst": [
+                "=2",
+                "=3",
+                "=4",
+                ">5"
+            ]
+        },
+        "3l_p_offZ": {
+            "lep_chan_lst": [
                 [
                     "3l_p_offZ_low_1b",
                     "3l_p",
@@ -1412,4 +1432,3 @@
         }
     }
 }
-

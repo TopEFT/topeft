@@ -4,6 +4,10 @@
     "eta_t_cut" : 2.3,
     "eta_t_cut_run3" : 2.5,
     "eta_j_cut" : 2.4,
+    "fwd_jet_pt_cut" : 40.0,
+    "fwd_jet_eta_band_min" : 2.5,
+    "fwd_jet_eta_band_max" : 10.0,
+    "fwd_jet_eta_band_pt_cut" : 60.0,
 
     "fo_pt_cut" : 10.0,
     "pres_e_pt_cut" : 7.0,
@@ -26,7 +30,7 @@
 
     "fo_e_mvaiso_cut_run3" : 0.6,
 
-    "jet_id_cut" : 0,
+    "jet_id_cut" : 1,
 
     "dxy_cut" : 0.05,
     "dz_cut" : 0.1,

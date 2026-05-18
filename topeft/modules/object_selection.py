@@ -136,8 +136,43 @@ def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
     return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))
 
 def isFwdJet(pt, eta, jet_id, jetPtCut=25.0):
-    mask = ((pt>jetPtCut) & (abs(eta)>get_te_param("eta_j_cut")) & (jet_id>get_te_param("jet_id_cut")))
+    mask = ((pt>jetPtCut) & (abs(eta)>get_te_param("eta_j_cut")) & (get_te_param("jet_id_cut")))
     return mask
+
+def resolve_fwd_eta_band_pt_apply(is_run3, policy):
+    if policy not in ("auto", "on", "off"):
+        raise ValueError(
+            f"Unsupported forward eta-band pT policy '{policy}'. "
+            "Expected one of: auto, on, off."
+        )
+    if policy == "on":
+        return True
+    if policy == "off":
+        return False
+    return bool(is_run3)
+
+def is_forward_jet_eta_banded(
+    pt,
+    eta,
+    eta_cut,
+    baseline_pt_cut,
+    apply_eta_band_pt,
+    eta_band_min,
+    eta_band_max,
+    eta_band_pt_cut,
+    quality_mask=True,
+):
+    abs_eta = abs(eta)
+    base_forward = abs_eta > eta_cut
+    in_eta_band = (abs_eta > eta_band_min) & (abs_eta < eta_band_max)
+    if apply_eta_band_pt:
+        pass_pt = (
+            (in_eta_band & (pt > eta_band_pt_cut))
+            | ((~in_eta_band) & (pt > baseline_pt_cut))
+        )
+    else:
+        pass_pt = pt > baseline_pt_cut
+    return base_forward & pass_pt & quality_mask
 
 def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0,btagger="btagDeepFlavB"):
 

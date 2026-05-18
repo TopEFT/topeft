@@ -271,7 +271,7 @@ def _resolve_environment_file(env_override, use_remote_env, extra_pip_local=None
 
 
 def _prepare_work_queue_staging_directory(filepath_override=None):
-    requested_path = filepath_override or f"/scratch365/{os.environ.get('USER', 'user')}/workers"
+    requested_path = filepath_override or f"/groups/klannon/{os.environ.get('USER', 'user')}/workers"
     path_preexisted = os.path.exists(requested_path)
 
     try:
@@ -682,7 +682,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--chunksize",
         "-s",
-        default=20000,
+        default=100000,
         help="Number of events per chunk",
     )
     parser.add_argument(
@@ -723,6 +723,25 @@ if __name__ == "__main__":
         "--do-systs",
         action="store_true",
         help="Compute systematic variations",
+    )
+    parser.add_argument(
+        "--suppress-forward-eta-stochastic-jer",
+        action="store_true",
+        help=(
+            "Opt-in analysis-specific JER mitigation: in 2.5 < abs(eta) < 3.0, "
+            "keep scaling JER for hybrid jets but suppress stochastic smearing for "
+            "non-hybrid jets. Disabled by default and requires JME/JERC approval "
+            "before production use."
+        ),
+    )
+    parser.add_argument(
+        "--fwd-eta-band-pt-apply",
+        choices=("auto", "on", "off"),
+        default="auto",
+        help=(
+            "Control the forward-jet eta-band pT tightening. auto applies it for "
+            "Run 3 only, on applies it for all years, and off disables it for all years."
+        ),
     )
     parser.add_argument(
         "--split-lep-flavor",
@@ -906,6 +925,8 @@ if __name__ == "__main__":
     treename = args.treename
     fill_sumw2 = not args.no_sumw2
     do_systs = args.do_systs
+    suppress_forward_eta_stochastic_jer = args.suppress_forward_eta_stochastic_jer
+    fwd_eta_band_pt_apply = args.fwd_eta_band_pt_apply
     split_lep_flavor = args.split_lep_flavor
     offZ_split = args.offZ_3l_split
     tau_h_analysis = args.tau_h_analysis
@@ -951,6 +972,11 @@ if __name__ == "__main__":
             if legacy_do_errors is not None:
                 fill_sumw2 = bool(legacy_do_errors)
         do_systs = ops.pop("do_systs", do_systs)
+        suppress_forward_eta_stochastic_jer = ops.pop(
+            "suppress_forward_eta_stochastic_jer",
+            suppress_forward_eta_stochastic_jer,
+        )
+        fwd_eta_band_pt_apply = ops.pop("fwd_eta_band_pt_apply", fwd_eta_band_pt_apply)
         split_lep_flavor = ops.pop("split_lep_flavor", split_lep_flavor)
         offZ_split = ops.pop("offZ_split", offZ_split)
         tau_h_analysis = ops.pop("tau_h_analysis", tau_h_analysis)
@@ -1085,24 +1111,29 @@ if __name__ == "__main__":
     elif hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
-            "lj0pt",
+            # "lj0pt",
             # "ptz",
             # "met",
-            "ljptsum",
-            # "l0pt",
-            # "l0ptcorr",
-            "l0conept",
-            "l0eta",
-            # "l1pt",
-            # "l1ptcorr",
-            "l1conept",
-            "l1eta",
-            "j0pt",
-            "j0eta",
-            "njets",
-            "nbtagsl",
-            "invmass",
-            # "npvs",
+            # "lt",
+            # # "ljptsum",
+            # # "l0pt",
+            # # "l0ptcorr",
+            # "l0conept",
+            # "l0eta",
+            # # "l1pt",
+            # # "l1ptcorr",
+            # "l1conept",
+            # "l1eta",
+            # "j0pt",
+            # "j0eta",
+            # # "j1eta",
+            "fwd0eta",
+            "fwd0pt",
+            # "njets",
+            # "nbtagsl",
+            # "nbtagsm",
+            # "invmass",
+            # # "npvs",
             # "npvsGood",
             # "l0_gen_pdgId",
             # "l1_gen_pdgId",
@@ -1134,7 +1165,7 @@ if __name__ == "__main__":
         ]
         if tau_h_analysis or all_analysis:
             hist_lst.append("tau0Tpt")
-            # hist_lst.append("tau0Fpt")
+            hist_lst.append("tau0Fpt")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
@@ -1467,6 +1498,7 @@ if __name__ == "__main__":
                 "skip_sr": skip_sr,
                 "skip_cr": skip_cr,
                 "do_systs": do_systs,
+                "fwd_eta_band_pt_apply": fwd_eta_band_pt_apply,
                 "fill_sumw2": fill_sumw2,
                 "useRun3MVA": useRun3MVA,
             },
@@ -1555,6 +1587,8 @@ if __name__ == "__main__":
         tau_run_mode=analysis_mode,
         sr_category_dict=category_group_selection["sr_category_dict"],
         cr_category_dict=category_group_selection["cr_category_dict"],
+        suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
+        fwd_eta_band_pt_apply=fwd_eta_band_pt_apply,
     )
 
     if executor_name in ["work_queue", "taskvine"]:

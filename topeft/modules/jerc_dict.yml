@@ -90,8 +90,8 @@
 "2022":
   jec_mc: Summer22_22Sep2023_V3_MC
   jec_data:
-    C: Summer22_22Sep2023_RunCD_V3_DATA
-    D: Summer22_22Sep2023_RunCD_V3_DATA
+    C: Summer22_22Sep2023_V3_DATA
+    D: Summer22_22Sep2023_V3_DATA
   jec_levels:
     - L1FastJet
     - L2Relative
@@ -143,9 +143,9 @@
 "2022EE":
   jec_mc: Summer22EE_22Sep2023_V3_MC
   jec_data:
-    E: Summer22EE_22Sep2023_RunE_V3_DATA
-    F: Summer22EE_22Sep2023_RunF_V3_DATA
-    G: Summer22EE_22Sep2023_RunG_V3_DATA
+    E: Summer22EE_22Sep2023_V3_DATA
+    F: Summer22EE_22Sep2023_V3_DATA
+    G: Summer22EE_22Sep2023_V3_DATA
   jec_levels:
     - L1FastJet
     - L2Relative
@@ -195,12 +195,12 @@
     #- Total
 
 "2023":
-  jec_mc: Summer23Prompt23_V2_MC
+  jec_mc: Summer23Prompt23_V3_MC
   jec_data:
-    C1: Summer23Prompt23_V2_DATA
-    C2: Summer23Prompt23_V2_DATA
-    C3: Summer23Prompt23_V2_DATA
-    C4: Summer23Prompt23_V2_DATA
+    C1: Summer23Prompt23_V3_DATA
+    C2: Summer23Prompt23_V3_DATA
+    C3: Summer23Prompt23_V3_DATA
+    C4: Summer23Prompt23_V3_DATA
   jec_levels:
     - L1FastJet
     - L2Relative

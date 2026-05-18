@@ -1,9 +1,11 @@
+import inspect
 import json
 
 import pytest
 
 from analysis.topeft_run2 import make_cr_and_sr_plots as plots
 from analysis.topeft_run2.analysis_processor import (
+    AnalysisProcessor,
     construct_cat_name,
     resolve_category_dict_names,
 )
@@ -40,6 +42,13 @@ def _load_channel_json():
         return json.load(handle)
 
 
+def _tokens_for_category(category_cfg):
+    return {
+        lep_channel_def[0]: set(lep_channel_def[1:])
+        for lep_channel_def in category_cfg.get("lep_chan_lst", [])
+    }
+
+
 def test_sr_metadata_covers_default_producer_truth():
     channel_json = _load_channel_json()
     sr_dict_name, _ = resolve_category_dict_names(False, False, False, False)
@@ -51,6 +60,44 @@ def test_sr_metadata_covers_default_producer_truth():
 
     assert producer_base <= metadata_base
     assert producer_leaves <= metadata_leaves
+
+
+def test_standard_cr_categories_use_existing_forward_gate_token():
+    channel_json = _load_channel_json()
+    standard_cr_categories = [
+        "2l_CR",
+        "2l_CRflip",
+        "2los_CRZ",
+        "2los_CRtt",
+        "3l_CR",
+    ]
+
+    for block_name in ("CH_LST_CR", "TAU_CH_LST_CR"):
+        for category_name in standard_cr_categories:
+            tokens_by_channel = _tokens_for_category(channel_json[block_name][category_name])
+            assert tokens_by_channel
+            for tokens in tokens_by_channel.values():
+                assert "fwdjet_mask" in tokens
+
+
+def test_tau_specific_cr_categories_do_not_inherit_forward_gate_token():
+    channel_json = _load_channel_json()
+    tau_specific_categories = [
+        "2los_1tau",
+        "1l_1tau_CRtt",
+        "1l_1tau_CRDY",
+    ]
+
+    for category_name in tau_specific_categories:
+        tokens_by_channel = _tokens_for_category(channel_json["TAU_CH_LST_CR"][category_name])
+        assert tokens_by_channel
+        for tokens in tokens_by_channel.values():
+            assert "fwdjet_mask" not in tokens
+
+
+def test_forward_gate_token_is_defined_in_processor_preselections():
+    source = "".join(inspect.getsource(AnalysisProcessor.process).split())
+    assert 'preselections.add("fwdjet_mask",(fwdjet_mask))' in source
 
 
 def test_cr_tau_mode_metadata_covers_producer_truth_after_declared_transforms():

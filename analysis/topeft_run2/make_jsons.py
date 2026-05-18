@@ -2034,33 +2034,31 @@ central_2022_bkg_dict = {
     #     "histAxisName": "ZG_MLL-4to50_PTG-200_central2023BPix",
     #     "xsecName":     "ZG_MLL-4to50_PTG-200_13p6TeV",
     # },
-    # "ZG_MLL-50_PTG-10to100": {
-    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
-    #     "histAxisName": "ZG_MLL-50_PTG-10to100_central2023BPix",
-    #     "xsecName":     "ZG_MLL-50_PTG-10to100_13p6TeV",
-    # },
-    # "ZG_MLL-50_PTG-100to200": {
-    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v3/NANOAODSIM",
-    #     "histAxisName": "ZG_MLL-50_PTG-100to200_central2023BPix",
-    #     "xsecName":     "ZG_MLL-50_PTG-100to200_13p6TeV",
-    # },
-    # "ZG_MLL-50_PTG-200to400": {
-    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
-    #     "histAxisName": "ZG_MLL-50_PTG-200to400_central2023BPix",
-    #     "xsecName":     "ZG_MLL-50_PTG-200to400_13p6TeV",
-    # },
-    # "ZG_MLL-50_PTG-400to600": {
-    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-400to600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
-    #     "histAxisName": "ZG_MLL-50_PTG-400to600_central2023BPix",
-    #     "xsecName":     "ZG_MLL-50_PTG-400to600_13p6TeV",
-    # },
-    # "ZG_MLL-50_PTG-600": {
-    #     "path": "/DYGto2LG-1Jets_MLL-50_PTG-600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
-    #     "histAxisName": "ZG_MLL-50_PTG-600_central2023BPix",
-    #     "xsecName":     "ZG_MLL-50_PTG-600_13p6TeV",
-    # },
-
-
+    "ZG_MLL-50_PTG-10to100": {
+        "path": "/DYGto2LG-1Jets_MLL-50_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+        "histAxisName": "ZG_MLL-50_PTG-10to100_central2023BPix",
+        "xsecName":     "ZG_MLL-50_PTG-10to100_13p6TeV",
+    },
+    "ZG_MLL-50_PTG-100to200": {
+        "path": "/DYGto2LG-1Jets_MLL-50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+        "histAxisName": "ZG_MLL-50_PTG-100to200_central2023BPix",
+        "xsecName":     "ZG_MLL-50_PTG-100to200_13p6TeV",
+    },
+    "ZG_MLL-50_PTG-200to400": {
+        "path": "/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+        "histAxisName": "ZG_MLL-50_PTG-200to400_central2023BPix",
+        "xsecName":     "ZG_MLL-50_PTG-200to400_13p6TeV",
+    },
+    "ZG_MLL-50_PTG-400to600": {
+        "path": "/DYGto2LG-1Jets_MLL-50_PTG-400to600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+        "histAxisName": "ZG_MLL-50_PTG-400to600_central2023BPix",
+        "xsecName":     "ZG_MLL-50_PTG-400to600_13p6TeV",
+    },
+    "ZG_MLL-50_PTG-600": {
+        "path": "/DYGto2LG-1Jets_MLL-50_PTG-600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v2/NANOAODSIM",
+        "histAxisName": "ZG_MLL-50_PTG-600_central2023BPix",
+        "xsecName":     "ZG_MLL-50_PTG-600_13p6TeV",
+    }
 }
 
 ########### Data ##############
@@ -2383,11 +2381,11 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL16_bkg_dict,   "/hadoop","2016",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
     #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
     #NEW
-    #make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2022",out_dir_central_bkg_2022,on_das=True)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "/cms/cephfs/data","2022", out_dir_ND_bkg_2022, on_das=False)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "/cms/cephfs/data","2022EE", out_dir_ND_bkg_2022EE, on_das=False)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023, "/cms/cephfs/data","2023", out_dir_ND_bkg_2023, on_das=False)
-    make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023BPix, "/cms/cephfs/data","2023BPix", out_dir_ND_bkg_2023BPix, on_das=False)
+    make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2023BPix",out_dir_central_bkg_2023BPix,on_das=True)
+    # make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "/cms/cephfs/data","2022", out_dir_ND_bkg_2022, on_das=False)
+    # make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "/cms/cephfs/data","2022EE", out_dir_ND_bkg_2022EE, on_das=False)
+    # make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023, "/cms/cephfs/data","2023", out_dir_ND_bkg_2023, on_das=False)
+    # make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023BPix, "/cms/cephfs/data","2023BPix", out_dir_ND_bkg_2023BPix, on_das=False)
     # Data samples
     #make_jsons_for_dict_of_samples(data_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_data_2016,on_das=True)
     #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)

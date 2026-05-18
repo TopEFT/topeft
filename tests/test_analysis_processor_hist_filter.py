@@ -35,6 +35,8 @@ def test_accumulator_keys_without_hist_filter():
     "requested_hists",
     [
         ["njets"],
+        ["fwd0eta"],
+        ["fwd0pt"],
         ["njets", "ptz_sumw2"],
         ["njets_sumw2"],
     ],
