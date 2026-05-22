@@ -117,7 +117,7 @@ info = {
     },
     "ptz_wtau": {
         "regular": (12, 0, 600),
-        "variable": [0, 150, 250, 500],
+        "variable": [0, 150, 250],
         "label": r"pt of lepton hadronic tau pair (GeV) ",
     },
     "tau0Tpt": {
