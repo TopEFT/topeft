@@ -1,13 +1,34 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from topeft.modules.corrections import (
     ApplyMETSystematics,
+    get_corr_t1_met_jets,
     get_selected_met,
+    get_selected_raw_met,
     get_supported_met_systematics,
     is_met_unclustered_systematic,
+    use_run3_type1_met,
 )
+
+
+def _processor_source():
+    return (
+        Path(__file__).parents[1]
+        / "analysis"
+        / "topeft_run2"
+        / "analysis_processor.py"
+    ).read_text()
+
+
+def _processor_type1_block():
+    source = _processor_source()
+    return source[
+        source.index("# Build the Run 3 Type-1 MET correction"):
+        source.index("# Loop over the list of systematic variations")
+    ]
 
 
 def test_run2_selected_met_uses_legacy_met():
@@ -27,6 +48,33 @@ def test_run3_selected_met_missing_puppimet_fails_clearly():
 
     with pytest.raises(RuntimeError, match="requires events.PuppiMET"):
         get_selected_met(events, "2022")
+
+
+def test_run3_type1_raw_met_policy_uses_raw_puppimet():
+    events = SimpleNamespace(MET=object(), PuppiMET=object(), RawPuppiMET=object())
+
+    assert use_run3_type1_met("2022")
+    assert get_selected_met(events, "2022") is events.PuppiMET
+    assert get_selected_raw_met(events, "2022") is events.RawPuppiMET
+
+
+def test_run2_type1_policy_is_disabled_and_legacy_met_is_unchanged():
+    events = SimpleNamespace(MET=object(), RawPuppiMET=object(), PuppiMET=object())
+
+    assert not use_run3_type1_met("2018")
+    assert get_selected_met(events, "2018") is events.MET
+    assert get_selected_raw_met(events, "2018") is events.MET
+
+
+def test_run3_type1_requires_corr_t1_met_jet_collection():
+    corr_t1 = object()
+    events = SimpleNamespace(CorrT1METJet=corr_t1)
+
+    assert get_corr_t1_met_jets(events, "2022") is corr_t1
+    assert get_corr_t1_met_jets(events, "2018") is None
+
+    with pytest.raises(RuntimeError, match="requires events.CorrT1METJet"):
+        get_corr_t1_met_jets(SimpleNamespace(), "2022")
 
 
 def test_met_unclustered_systematics_are_public_generic_labels():
@@ -52,3 +100,64 @@ def test_apply_met_systematics_selects_unclustered_shift_only():
     assert ApplyMETSystematics(met, "MET_UnclusteredEnergyUp") is up
     assert ApplyMETSystematics(met, "MET_UnclusteredEnergyDown") is down
     assert ApplyMETSystematics(nominal, "JER_2022Up") is nominal
+
+
+def test_apply_met_systematics_selects_type1_jet_variations_when_present():
+    nominal = object()
+    jer_up = object()
+    jer_down = object()
+    jes_up = object()
+    jes_down = object()
+    met = SimpleNamespace(
+        JER=SimpleNamespace(up=jer_up, down=jer_down),
+        JES_Total=SimpleNamespace(up=jes_up, down=jes_down),
+    )
+
+    assert ApplyMETSystematics(met, "nominal") is met
+    assert ApplyMETSystematics(met, "JER_2022Up") is jer_up
+    assert ApplyMETSystematics(met, "JER_2022Down") is jer_down
+    assert ApplyMETSystematics(met, "JES_TotalUp") is jes_up
+    assert ApplyMETSystematics(met, "JES_TotalDown") is jes_down
+    assert ApplyMETSystematics(nominal, "JES_TotalUp") is nominal
+
+
+def test_processor_type1_met_does_not_precorrect_temporary_jets():
+    block = _processor_type1_block()
+
+    assert "type1Jets = copy.copy" not in block
+    assert "corrT1METJets = copy.copy" not in block
+    assert "ak.with_field" in block
+    assert "corr_type='jets'" not in block
+    assert "corr_type='type1_met'" in block
+
+
+def test_processor_type1_met_passes_full_jets_corrt1_and_correction_options():
+    block = _processor_type1_block()
+
+    assert "type1Jets = jets" in block
+    assert "corrT1METJets = get_corr_t1_met_jets(events, year)" in block
+    assert "CorrT1METJet has no per-object rho branch" in block
+    assert "ak.broadcast_arrays(jetsRho, corrT1METJets.rawPt)[0]" in block
+    assert "met,\n                raw_met,\n                type1Jets,\n                corrT1METJets" in block
+    assert "suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer" in block
+    assert "del type1Jets" in block
+    assert "del corrT1METJets" in block
+
+
+def test_processor_keeps_cleaned_analysis_jets_separate():
+    source = _processor_source()
+
+    assert "cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]" in source
+    assert "cleanedJets = ApplyJetCorrections(" in source
+    assert "goodJets = cleanedJets[cleanedJets.isGood]" in source
+    assert "fwdJets  = cleanedJets[cleanedJets.isFwd]" in source
+
+
+def test_processor_keeps_public_met_and_lt_semantics():
+    processor_source = _processor_source()
+
+    assert "type1_met = ApplyJetCorrections(" in processor_source
+    assert "corr_type='type1_met'" in processor_source
+    assert "met = ApplyMETSystematics(type1_met, syst_var)" in processor_source
+    assert "lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt" in processor_source
+    assert 'varnames["met"]     = met.pt' in processor_source

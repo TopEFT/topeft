@@ -1112,7 +1112,7 @@ if __name__ == "__main__":
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
             # "lj0pt",
-            # "ptz",
+            "ptz",
             # "met",
             # "lt",
             # # "ljptsum",
@@ -1127,8 +1127,8 @@ if __name__ == "__main__":
             # "j0pt",
             # "j0eta",
             # # "j1eta",
-            "fwd0eta",
-            "fwd0pt",
+            # "fwd0eta",
+            # "fwd0pt",
             # "njets",
             # "nbtagsl",
             # "nbtagsm",
@@ -1164,8 +1164,9 @@ if __name__ == "__main__":
             # "l1_eta_vs_phi",
         ]
         if tau_h_analysis or all_analysis:
-            hist_lst.append("tau0Tpt")
-            hist_lst.append("tau0Fpt")
+            # hist_lst.append("tau0Tpt")
+            # hist_lst.append("tau0Fpt")
+            hist_lst.append("ptz_wtau")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists

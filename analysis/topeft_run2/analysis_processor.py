@@ -22,7 +22,7 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression
+from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_run3_type1_met
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -363,6 +363,36 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
 
+    @staticmethod
+    def _should_fill_ptz_wtau_channel(lep_chan):
+        return (
+            (("2lss" in lep_chan) and ("1tau" in lep_chan) and ("onZ" in lep_chan))
+            or (lep_chan == "1l_dy_tautau_CR")
+        )
+
+    @staticmethod
+    def _should_fill_plain_ptz_channel(lep_chan, allow_offz_split=False):
+        explicit_zll_cr_channels = {
+            "2los_CRZ",
+            "2lss_CRflip",
+        }
+        # Diagnostic Z-candidate observable for the SFOS on-Z subset of these
+        # selected 2lOS+tau CR events; the categories are not globally on-Z.
+        diagnostic_zll_cr_channels = {
+            "2los_1tau_Ftau",
+            "2los_1tau_Ttau",
+            "2los_1tau_0b",
+        }
+        if lep_chan in explicit_zll_cr_channels:
+            return True
+        if lep_chan in diagnostic_zll_cr_channels:
+            return True
+        if ("onZ" in lep_chan) and ("2lss" not in lep_chan):
+            return True
+        return allow_offz_split and (
+            ("offZ_high" in lep_chan) or ("offZ_low" in lep_chan)
+        )
+
     def _should_skip_histogram_fill(self, dense_axis_name, ch_name, lep_chan):
         skip_hist = False
 
@@ -374,32 +404,34 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Mode flags are mutually exclusive; mirror the historical loop-local
         # continue/skip behavior by returning a single skip decision.
         if self._analysis_mode == "all":
-            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):
-                skip_hist = True
+            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+                skip_hist = not self._should_fill_plain_ptz_channel(
+                    lep_chan,
+                    allow_offz_split=True,
+                )
             if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
                 skip_hist = True
-            if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)):
-                skip_hist = True
-            if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))):
+            if (("ptz_wtau" in dense_axis_name) and not self._should_fill_ptz_wtau_channel(lep_chan)):
                 skip_hist = True
         elif self._analysis_mode == "offz":
-            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):
-                skip_hist = True
+            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+                skip_hist = not self._should_fill_plain_ptz_channel(
+                    lep_chan,
+                    allow_offz_split=True,
+                )
         elif self._analysis_mode == "tau":
-            if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)):
-                skip_hist = True
-            if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)):
-                skip_hist = True
-            if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))):
+            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if (("ptz_wtau" in dense_axis_name) and not self._should_fill_ptz_wtau_channel(lep_chan)):
                 skip_hist = True
         elif self._analysis_mode == "fwd":
-            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
-                skip_hist = True
+            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
             if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)):
                 skip_hist = True
         else:
-            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
-                skip_hist = True
+            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
 
         if ((dense_axis_name in ["o0pt", "b0pt", "bl0pt"]) & ("CR" in ch_name)):
             skip_hist = True
@@ -520,6 +552,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Initialize objects
 
         met  = get_selected_met(events, year)
+        raw_met = get_selected_raw_met(events, year) if use_run3_type1_met(year) else met
         ele  = events.Electron
         mu   = events.Muon
         tau  = events.Tau
@@ -836,6 +869,48 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Otherwise loop juse once, for nominal
         else: syst_var_list = ['nominal']
 
+        # Build the Run 3 Type-1 MET correction from the full NanoAOD Jet
+        # collection. The analysis-cleaned jet path below remains separate.
+        events_cache = events.caches[0]
+        type1_met = None
+        if use_run3_type1_met(year):
+            type1Jets = jets
+            type1Jets = ak.with_field(type1Jets, (1 - type1Jets.rawFactor)*type1Jets.pt, "pt_raw")
+            type1Jets = ak.with_field(type1Jets, (1 - type1Jets.rawFactor)*type1Jets.mass, "mass_raw")
+            type1Jets = ak.with_field(type1Jets, ak.broadcast_arrays(jetsRho, type1Jets.pt)[0], "rho")
+            if not isData:
+                type1Jets = ak.with_field(
+                    type1Jets,
+                    ak.values_astype(ak.fill_none(type1Jets.matched_gen.pt, 0), np.float32),
+                    "pt_gen",
+                )
+
+            corrT1METJets = get_corr_t1_met_jets(events, year)
+            # CorrT1METJet has no per-object rho branch. Broadcast the event-level rho
+            # used for Jet JECs to the CorrT1METJet jagged structure because the
+            # correctionlib L1/full JEC evaluators can require Rho, e.g. L1FastJet.
+            corrT1METJets = ak.with_field(
+                corrT1METJets,
+                ak.broadcast_arrays(jetsRho, corrT1METJets.rawPt)[0],
+                "rho",
+            )
+            type1_met = ApplyJetCorrections(
+                year,
+                corr_type='type1_met',
+                isData=isData,
+                era=run_era,
+                run=run,
+                suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer,
+            ).build(
+                met,
+                raw_met,
+                type1Jets,
+                corrT1METJets,
+                lazy_cache=events_cache,
+            )
+            del type1Jets
+            del corrT1METJets
+
         # Loop over the list of systematic variations we've constructed
         met_raw=met
         
@@ -879,7 +954,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                     tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var, tau_T_tag)
                     tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var, tau_T_tag)
 
-            events_cache = events.caches[0]
             cleanedJets = ApplyJetCorrections(
                 year,
                 corr_type='jets',
@@ -889,9 +963,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                 suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer,
             ).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
-            met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, cleanedJets, lazy_cache=events_cache)
-            if is_met_unclustered_systematic(syst_var):
-                met = ApplyMETSystematics(met, syst_var)
+            if use_run3_type1_met(year):
+                met = ApplyMETSystematics(type1_met, syst_var)
+            else:
+                met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, cleanedJets, lazy_cache=events_cache)
+                if is_met_unclustered_systematic(syst_var):
+                    met = ApplyMETSystematics(met, syst_var)
 
             if is_run3:
                 jet_id_mask = tc_os.run3_nanoV12_ak4puppi_jet_id(cleanedJets, year, working_point="tight")
@@ -1168,7 +1245,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
             if self.enable_tau_blocks:
-                tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
+                tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0)
 
             # Pass trigger mask
             pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006,run_era)
