@@ -22,7 +22,7 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_run3_type1_met
+from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -552,7 +552,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Initialize objects
 
         met  = get_selected_met(events, year)
-        raw_met = get_selected_raw_met(events, year) if use_run3_type1_met(year) else met
+        raw_met = get_selected_raw_met(events, year)
         ele  = events.Electron
         mu   = events.Muon
         tau  = events.Tau
@@ -869,11 +869,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Otherwise loop juse once, for nominal
         else: syst_var_list = ['nominal']
 
-        # Build the Run 3 Type-1 MET correction from the full NanoAOD Jet
+        # Build the Type-1 MET correction from the full NanoAOD Jet
         # collection. The analysis-cleaned jet path below remains separate.
         events_cache = events.caches[0]
         type1_met = None
-        if use_run3_type1_met(year):
+        if use_type1_met(year):
             type1Jets = jets
             type1Jets = ak.with_field(type1Jets, (1 - type1Jets.rawFactor)*type1Jets.pt, "pt_raw")
             type1Jets = ak.with_field(type1Jets, (1 - type1Jets.rawFactor)*type1Jets.mass, "mass_raw")
@@ -963,7 +963,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer,
             ).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
-            if use_run3_type1_met(year):
+            if use_type1_met(year):
                 met = ApplyMETSystematics(type1_met, syst_var)
             else:
                 met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, cleanedJets, lazy_cache=events_cache)

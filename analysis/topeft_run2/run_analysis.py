@@ -1113,8 +1113,8 @@ if __name__ == "__main__":
         hist_lst = [
             # "lj0pt",
             "ptz",
-            # "met",
-            # "lt",
+            "met",
+            "lt",
             # # "ljptsum",
             # # "l0pt",
             # # "l0ptcorr",

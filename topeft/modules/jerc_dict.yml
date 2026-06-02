@@ -7,6 +7,15 @@
   jec_levels:
     - L1FastJet
     - L2Relative
+  type1_jec_levels_mc:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+  type1_jec_levels_data:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+    - L2L3Residual
   jer: Summer20UL16_JRV3_MC
   junc:
     - FlavorQCD
@@ -30,6 +39,15 @@
   jec_levels:
     - L1FastJet
     - L2Relative
+  type1_jec_levels_mc:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+  type1_jec_levels_data:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+    - L2L3Residual
   jer: Summer20UL16APV_JRV3_MC
   junc:
     - FlavorQCD
@@ -53,6 +71,15 @@
   jec_levels:
     - L1FastJet
     - L2Relative
+  type1_jec_levels_mc:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+  type1_jec_levels_data:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+    - L2L3Residual
   jer: Summer19UL17_JRV2_MC
   junc:
     - FlavorQCD
@@ -75,6 +102,15 @@
   jec_levels:
     - L1FastJet
     - L2Relative
+  type1_jec_levels_mc:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+  type1_jec_levels_data:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+    - L2L3Residual
   jer: Summer19UL18_JRV2_MC
   junc:
     - FlavorQCD

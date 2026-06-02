@@ -120,7 +120,7 @@ jet_veto_dict = {
 with open(topeft_path("modules/jerc_dict.yml"), "r") as f:
     jerc_dict = yaml.safe_load(f)
 
-def get_jerc_keys(year, isdata, era=None):
+def get_jerc_keys(year, isdata, era=None, corr_type="jets"):
     # Jet Algorithm
     if year.startswith("202"):
         jet_algo = 'AK4PFPuppi'
@@ -129,6 +129,9 @@ def get_jerc_keys(year, isdata, era=None):
 
     #jec levels
     jec_levels = jerc_dict[year]['jec_levels']
+    if corr_type == "type1_met":
+        type1_levels_key = "type1_jec_levels_data" if isdata else "type1_jec_levels_mc"
+        jec_levels = jerc_dict[year].get(type1_levels_key, jec_levels)
 
     # jerc keys and junc types
     if not isdata:
@@ -177,6 +180,16 @@ def get_supported_jet_systematics(year, isData=False, era=None):
 
 
 MET_UNCLUSTERED_ENERGY = "MET_UnclusteredEnergy"
+TYPE1_MET_YEARS = {
+    "2016APV",
+    "2016",
+    "2017",
+    "2018",
+    "2022",
+    "2022EE",
+    "2023",
+    "2023BPix",
+}
 
 
 def get_selected_met(events, year):
@@ -189,12 +202,20 @@ def get_selected_met(events, year):
     return getattr(events, met_collection_name)
 
 
+def use_type1_met(year):
+    return str(year) in TYPE1_MET_YEARS
+
+
 def use_run3_type1_met(year):
-    return str(year).startswith("202")
+    # Legacy helper kept for external callers; Type-1 policy lives in use_type1_met.
+    return use_type1_met(year) and str(year).startswith("202")
 
 
 def get_selected_raw_met(events, year):
-    raw_met_collection_name = "RawPuppiMET" if use_run3_type1_met(year) else "MET"
+    if not use_type1_met(year):
+        return get_selected_met(events, year)
+
+    raw_met_collection_name = "RawPuppiMET" if str(year).startswith("202") else "RawMET"
     if not hasattr(events, raw_met_collection_name):
         raise RuntimeError(
             f"Run {year} Type-1 MET processing requires events.{raw_met_collection_name}; "
@@ -204,7 +225,7 @@ def get_selected_raw_met(events, year):
 
 
 def get_corr_t1_met_jets(events, year):
-    if not use_run3_type1_met(year):
+    if not use_type1_met(year):
         return None
     if not hasattr(events, "CorrT1METJet"):
         raise RuntimeError(
@@ -1887,7 +1908,12 @@ def ApplyJetCorrections(
 
     elif useclib:
         # Handle clib case
-        jet_algo, jec_tag, jec_levels, jer_tag, junc_types = get_jerc_keys(year, isData, era)
+        jet_algo, jec_tag, jec_levels, jer_tag, junc_types = get_jerc_keys(
+            year,
+            isData,
+            era,
+            corr_type=corr_type,
+        )
         json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
 
         # Create JECStack for clib scenario

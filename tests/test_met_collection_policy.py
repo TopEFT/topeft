@@ -6,11 +6,12 @@ import pytest
 from topeft.modules.corrections import (
     ApplyMETSystematics,
     get_corr_t1_met_jets,
+    get_jerc_keys,
     get_selected_met,
     get_selected_raw_met,
     get_supported_met_systematics,
     is_met_unclustered_systematic,
-    use_run3_type1_met,
+    use_type1_met,
 )
 
 
@@ -26,9 +27,22 @@ def _processor_source():
 def _processor_type1_block():
     source = _processor_source()
     return source[
-        source.index("# Build the Run 3 Type-1 MET correction"):
+        source.index("# Build the Type-1 MET correction"):
         source.index("# Loop over the list of systematic variations")
     ]
+
+
+@pytest.mark.parametrize(
+    "year",
+    ["2016APV", "2016", "2017", "2018", "2022", "2022EE", "2023", "2023BPix"],
+)
+def test_type1_met_policy_covers_supported_run2_and_run3_years(year):
+    assert use_type1_met(year)
+
+
+def test_type1_met_policy_rejects_unknown_years():
+    assert not use_type1_met("2024")
+    assert not use_type1_met("unknown")
 
 
 def test_run2_selected_met_uses_legacy_met():
@@ -53,28 +67,74 @@ def test_run3_selected_met_missing_puppimet_fails_clearly():
 def test_run3_type1_raw_met_policy_uses_raw_puppimet():
     events = SimpleNamespace(MET=object(), PuppiMET=object(), RawPuppiMET=object())
 
-    assert use_run3_type1_met("2022")
+    assert use_type1_met("2022")
     assert get_selected_met(events, "2022") is events.PuppiMET
     assert get_selected_raw_met(events, "2022") is events.RawPuppiMET
 
 
-def test_run2_type1_policy_is_disabled_and_legacy_met_is_unchanged():
-    events = SimpleNamespace(MET=object(), RawPuppiMET=object(), PuppiMET=object())
+def test_run2_type1_raw_met_policy_uses_raw_met():
+    events = SimpleNamespace(MET=object(), RawMET=object(), PuppiMET=object())
 
-    assert not use_run3_type1_met("2018")
+    assert use_type1_met("2018")
     assert get_selected_met(events, "2018") is events.MET
-    assert get_selected_raw_met(events, "2018") is events.MET
+    assert get_selected_raw_met(events, "2018") is events.RawMET
 
 
-def test_run3_type1_requires_corr_t1_met_jet_collection():
+def test_run2_type1_raw_met_missing_rawmet_fails_clearly():
+    events = SimpleNamespace(MET=object(), PuppiMET=object())
+
+    with pytest.raises(RuntimeError, match="requires events.RawMET"):
+        get_selected_raw_met(events, "2018")
+
+
+def test_run3_type1_raw_met_missing_rawpuppimet_fails_clearly():
+    events = SimpleNamespace(MET=object(), PuppiMET=object())
+
+    with pytest.raises(RuntimeError, match="requires events.RawPuppiMET"):
+        get_selected_raw_met(events, "2022")
+
+
+@pytest.mark.parametrize("year", ["2018", "2022"])
+def test_type1_requires_corr_t1_met_jet_collection(year):
     corr_t1 = object()
     events = SimpleNamespace(CorrT1METJet=corr_t1)
 
-    assert get_corr_t1_met_jets(events, "2022") is corr_t1
-    assert get_corr_t1_met_jets(events, "2018") is None
+    assert get_corr_t1_met_jets(events, year) is corr_t1
 
     with pytest.raises(RuntimeError, match="requires events.CorrT1METJet"):
-        get_corr_t1_met_jets(SimpleNamespace(), "2022")
+        get_corr_t1_met_jets(SimpleNamespace(), year)
+
+
+@pytest.mark.parametrize("year", ["2016APV", "2016", "2017", "2018"])
+def test_run2_type1_mc_jec_levels_use_full_l1l2l3(year):
+    _, _, levels, _, _ = get_jerc_keys(year, isdata=False, corr_type="type1_met")
+
+    assert levels == ["L1FastJet", "L2Relative", "L3Absolute"]
+
+
+@pytest.mark.parametrize(
+    ("year", "era"),
+    [("2016APV", "B"), ("2016", "F"), ("2017", "B"), ("2018", "A")],
+)
+def test_run2_type1_data_jec_levels_include_residuals(year, era):
+    _, _, levels, _, _ = get_jerc_keys(year, isdata=True, era=era, corr_type="type1_met")
+
+    assert levels == ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"]
+
+
+@pytest.mark.parametrize("year", ["2016APV", "2016", "2017", "2018"])
+def test_regular_run2_analysis_jet_jec_levels_are_unchanged(year):
+    _, _, levels, _, _ = get_jerc_keys(year, isdata=False, corr_type="jets")
+
+    assert levels == ["L1FastJet", "L2Relative"]
+
+
+def test_run3_type1_jec_levels_are_unchanged():
+    _, _, mc_levels, _, _ = get_jerc_keys("2022", isdata=False, corr_type="type1_met")
+    _, _, data_levels, _, _ = get_jerc_keys("2022", isdata=True, era="C", corr_type="type1_met")
+
+    assert mc_levels == ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"]
+    assert data_levels == ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"]
 
 
 def test_met_unclustered_systematics_are_public_generic_labels():
@@ -142,6 +202,13 @@ def test_processor_type1_met_passes_full_jets_corrt1_and_correction_options():
     assert "suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer" in block
     assert "del type1Jets" in block
     assert "del corrT1METJets" in block
+
+
+def test_processor_type1_met_build_policy_is_not_run3_only():
+    block = _processor_type1_block()
+
+    assert "if use_type1_met(year):" in block
+    assert "use_run3_type1_met" not in block
 
 
 def test_processor_keeps_cleaned_analysis_jets_separate():
