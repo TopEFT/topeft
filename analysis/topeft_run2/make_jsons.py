@@ -2061,6 +2061,29 @@ central_2022_bkg_dict = {
     }
 }
 
+wjets_2016_bkg_dict = {
+    "WJetsToLNu_centralUL16": {
+        "path": "/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM",
+        "histAxisName": "WJetsToLNu_centralUL16",
+        "xsecName":     "WJetsToLNu"
+    },
+}
+
+wjets_2017_bkg_dict = {
+    "WJetsToLNu_centralUL17": {
+        "path": "/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM",
+        "histAxisName": "WJetsToLNu_centralUL17",
+        "xsecName":     "WJetsToLNu"
+    },
+}
+
+wjets_2018_bkg_dict = {
+    "WJetsToLNu_centralUL18": {
+        "path": "/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
+        "histAxisName": "WJetsToLNu_centralUL18",
+        "xsecName":     "WJetsToLNu"
+    },
+}
 ########### Data ##############
 from collections import defaultdict
 
@@ -2381,7 +2404,12 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL16_bkg_dict,   "/hadoop","2016",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
     #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
     #NEW
-    make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2023BPix",out_dir_central_bkg_2023BPix,on_das=True)
+    # make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2023BPix",out_dir_central_bkg_2023BPix,on_das=True)
+
+    make_jsons_for_dict_of_samples(wjets_2016_bkg_dict,"root://cms-xrd-global.cern.ch/","2016",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(wjets_2017_bkg_dict,"root://cms-xrd-global.cern.ch/","2017",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(wjets_2018_bkg_dict,"root://cms-xrd-global.cern.ch/","2018",out_dir_central_bkg_UL,on_das=True)
+
     # make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "/cms/cephfs/data","2022", out_dir_ND_bkg_2022, on_das=False)
     # make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "/cms/cephfs/data","2022EE", out_dir_ND_bkg_2022EE, on_das=False)
     # make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2023, "/cms/cephfs/data","2023", out_dir_ND_bkg_2023, on_das=False)
