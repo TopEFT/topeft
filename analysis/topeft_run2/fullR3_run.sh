@@ -255,13 +255,13 @@ main() {
     fi
     OPTIONS+=(
       #--split-lep-flavor
-      -p "/scratch365/$USER/"
+      -p "/groups/klannon/$USER/"
       -o "$OUT_NAME"
       -x work_queue
     )
   else
     OPTIONS=(
-      -p "/scratch365/$USER/"
+      -p "/groups/klannon/$USER/"
       --hist-list ana
       --skip-cr
       --do-systs

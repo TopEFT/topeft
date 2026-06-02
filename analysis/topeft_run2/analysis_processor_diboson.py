@@ -784,7 +784,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
             if self.tau_h_analysis:
-                tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
+                tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0)
 
             # Pass trigger mask
             pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006,run_era)

@@ -582,26 +582,28 @@ def get_ll_pt(lep_collection,pt_window):
 
     return ak.flatten(pt_of_sfosz)
 
-def lt_Z_mask(lep0, lep1, tau, pt_window):
-    sfosz_l0t_mask = ((lep0.pdgId/abs(lep0.pdgId)) == tau.charge)
-    zpeak_mask0 = (abs((lep0+tau).mass - 70.0)<20.0)
-    sfosz_l1t_mask = ((lep1.pdgId/abs(lep1.pdgId)) == tau.charge)
-    zpeak_mask1 = (abs((lep1+tau).mass - 70.0)<15.0)
-    sfosz_mask0 = (sfosz_l0t_mask & zpeak_mask0)
-    sfosz_mask1 = (sfosz_l1t_mask & zpeak_mask1)
-    sfosz_mask = (sfosz_mask0 | sfosz_mask1)
+VISIBLE_LTAU_MASS_CENTER = 70.0
+LEADING_LTAU_MASS_WINDOW = 20.0
+SUBLEADING_LTAU_MASS_WINDOW = 15.0
 
-    return sfosz_mask
+def _lt_z_branch_mask(lep, tau, mass_window):
+    # For charged leptons, sign(pdgId) is opposite to the physical electric charge.
+    opposite_charge_ltau_mask = ((lep.pdgId/abs(lep.pdgId)) == tau.charge)
+    zpeak_mask = (abs((lep+tau).mass - VISIBLE_LTAU_MASS_CENTER)<mass_window)
+    return ak.fill_none((opposite_charge_ltau_mask & zpeak_mask), False)
+
+def _lt_z_candidate_masks(lep0, lep1, tau):
+    leading_mask = _lt_z_branch_mask(lep0, tau, LEADING_LTAU_MASS_WINDOW)
+    subleading_mask = _lt_z_branch_mask(lep1, tau, SUBLEADING_LTAU_MASS_WINDOW)
+    return leading_mask, subleading_mask
+
+def lt_Z_mask(lep0, lep1, tau):
+    leading_mask, subleading_mask = _lt_z_candidate_masks(lep0, lep1, tau)
+    return leading_mask | subleading_mask
 
 def get_Zlt_pt(lep0, lep1, tau0):
+    leading_mask, subleading_mask = _lt_z_candidate_masks(lep0, lep1, tau0)
     lt0_pt = (lep0+tau0).pt
     lt1_pt = (lep1+tau0).pt
-    sfosz_l0t_mask = ((lep0.pdgId/abs(lep0.pdgId)) == tau0.charge)
-    zpeak_mask0 = (abs((lep0+tau0).mass - 70.0)<20.0)
-    sfosz_l1t_mask = ((lep1.pdgId/abs(lep1.pdgId)) == tau0.charge)
-    zpeak_mask1 = (abs((lep1+tau0).mass - 70.0)<15.0)
-    sfosz_mask0 = (sfosz_l0t_mask & zpeak_mask0)
-    sfosz_mask1 = (sfosz_l1t_mask & zpeak_mask1)
-    lt_pt = ak.where(sfosz_mask0, lt0_pt, lt1_pt)
-    #lt_pt = lt_pt[(sfosz_mask0 | sfosz_mask1)]
-    return lt_pt
+    subleading_pt = ak.mask(lt1_pt, subleading_mask)
+    return ak.where(leading_mask, lt0_pt, subleading_pt)

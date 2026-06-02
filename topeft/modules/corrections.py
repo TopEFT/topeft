@@ -22,6 +22,7 @@ from topcoffea.modules.CorrectedJetsFactory import (
     get_jec_uncertainty_label,
 )
 from topcoffea.modules.CorrectedMETFactory import CorrectedMETFactory
+from topcoffea.modules.Type1CorrectedMETFactory import Type1CorrectedMETFactory
 from topcoffea.modules.JECStack import JECStack
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
@@ -119,7 +120,7 @@ jet_veto_dict = {
 with open(topeft_path("modules/jerc_dict.yml"), "r") as f:
     jerc_dict = yaml.safe_load(f)
 
-def get_jerc_keys(year, isdata, era=None):
+def get_jerc_keys(year, isdata, era=None, corr_type="jets"):
     # Jet Algorithm
     if year.startswith("202"):
         jet_algo = 'AK4PFPuppi'
@@ -128,6 +129,9 @@ def get_jerc_keys(year, isdata, era=None):
 
     #jec levels
     jec_levels = jerc_dict[year]['jec_levels']
+    if corr_type == "type1_met":
+        type1_levels_key = "type1_jec_levels_data" if isdata else "type1_jec_levels_mc"
+        jec_levels = jerc_dict[year].get(type1_levels_key, jec_levels)
 
     # jerc keys and junc types
     if not isdata:
@@ -176,6 +180,16 @@ def get_supported_jet_systematics(year, isData=False, era=None):
 
 
 MET_UNCLUSTERED_ENERGY = "MET_UnclusteredEnergy"
+TYPE1_MET_YEARS = {
+    "2016APV",
+    "2016",
+    "2017",
+    "2018",
+    "2022",
+    "2022EE",
+    "2023",
+    "2023BPix",
+}
 
 
 def get_selected_met(events, year):
@@ -188,6 +202,39 @@ def get_selected_met(events, year):
     return getattr(events, met_collection_name)
 
 
+def use_type1_met(year):
+    return str(year) in TYPE1_MET_YEARS
+
+
+def use_run3_type1_met(year):
+    # Legacy helper kept for external callers; Type-1 policy lives in use_type1_met.
+    return use_type1_met(year) and str(year).startswith("202")
+
+
+def get_selected_raw_met(events, year):
+    if not use_type1_met(year):
+        return get_selected_met(events, year)
+
+    raw_met_collection_name = "RawPuppiMET" if str(year).startswith("202") else "RawMET"
+    if not hasattr(events, raw_met_collection_name):
+        raise RuntimeError(
+            f"Run {year} Type-1 MET processing requires events.{raw_met_collection_name}; "
+            "no fallback raw MET collection is used."
+        )
+    return getattr(events, raw_met_collection_name)
+
+
+def get_corr_t1_met_jets(events, year):
+    if not use_type1_met(year):
+        return None
+    if not hasattr(events, "CorrT1METJet"):
+        raise RuntimeError(
+            f"Run {year} Type-1 MET processing requires events.CorrT1METJet; "
+            "no fallback CorrT1METJet collection is used."
+        )
+    return events.CorrT1METJet
+
+
 def get_supported_met_systematics(year, isData=False, era=None):
     if isData:
         return []
@@ -198,11 +245,37 @@ def is_met_unclustered_systematic(syst_var):
     return syst_var in get_supported_met_systematics(year=None, isData=False)
 
 
+def _has_met_field(met, field):
+    try:
+        return field in ak.fields(met)
+    except TypeError:
+        return hasattr(met, field)
+
+
+def _get_met_field(met, field):
+    try:
+        return met[field]
+    except TypeError:
+        return getattr(met, field)
+
+
 def ApplyMETSystematics(met, syst_var):
     if syst_var == f"{MET_UNCLUSTERED_ENERGY}Up":
         return getattr(met, MET_UNCLUSTERED_ENERGY).up
     if syst_var == f"{MET_UNCLUSTERED_ENERGY}Down":
         return getattr(met, MET_UNCLUSTERED_ENERGY).down
+    if syst_var.startswith("JER_") and syst_var.endswith("Up") and _has_met_field(met, "JER"):
+        return met.JER.up
+    if syst_var.startswith("JER_") and syst_var.endswith("Down") and _has_met_field(met, "JER"):
+        return met.JER.down
+    if syst_var.startswith("JES_") and syst_var.endswith("Up"):
+        field = syst_var[:-2]
+        if _has_met_field(met, field):
+            return _get_met_field(met, field).up
+    if syst_var.startswith("JES_") and syst_var.endswith("Down"):
+        field = syst_var[:-4]
+        if _has_met_field(met, field):
+            return _get_met_field(met, field).down
     return met
 
 
@@ -1835,7 +1908,12 @@ def ApplyJetCorrections(
 
     elif useclib:
         # Handle clib case
-        jet_algo, jec_tag, jec_levels, jer_tag, junc_types = get_jerc_keys(year, isData, era)
+        jet_algo, jec_tag, jec_levels, jer_tag, junc_types = get_jerc_keys(
+            year,
+            isData,
+            era,
+            corr_type=corr_type,
+        )
         json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
 
         # Create JECStack for clib scenario
@@ -1863,13 +1941,34 @@ def ApplyJetCorrections(
         'Rho': 'rho',
         'METpt': 'pt',
         'METphi': 'phi',
+        'RawMETpt': 'pt',
+        'RawMETphi': 'phi',
         'UnClusteredEnergyDeltaX': 'MetUnclustEnUpDeltaX',
-        'UnClusteredEnergyDeltaY': 'MetUnclustEnUpDeltaY'
+        'UnClusteredEnergyDeltaY': 'MetUnclustEnUpDeltaY',
+        'JetRawFactor': 'rawFactor',
+        'JetMuonSubtrFactor': 'muonSubtrFactor',
+        'JetMuonSubtrDeltaPhi': 'muonSubtrDeltaPhi',
+        'JetChEmEF': 'chEmEF',
+        'JetNeEmEF': 'neEmEF',
+        'CorrT1JetPt': 'rawPt',
+        'CorrT1JetPhi': 'phi',
+        'CorrT1JetEta': 'eta',
+        'CorrT1JetArea': 'area',
+        'CorrT1JetMuonSubtrFactor': 'muonSubtrFactor',
+        'CorrT1JetMuonSubtrDeltaPhi': 'muonSubtrDeltaPhi',
+        'CorrT1JetEmEF': 'EmEF',
     }
 
     # Return appropriate factory based on correction type
     if corr_type == 'met':
         return CorrectedMETFactory(name_map)
+    if corr_type == 'type1_met':
+        return Type1CorrectedMETFactory(
+            name_map,
+            jec_stack,
+            run=run,
+            suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
+        )
     return CorrectedJetsFactory(
         name_map,
         jec_stack,
