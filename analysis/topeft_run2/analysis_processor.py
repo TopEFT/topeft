@@ -426,8 +426,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 skip_hist = True
         elif self._analysis_mode == "fwd":
             if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
-                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
-            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)):
+                skip_hist = True
+            if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
                 skip_hist = True
         else:
             if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
@@ -1075,6 +1075,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     btag_method_light = f"{btagName}_{suffix_light}"
                 btag_effM_light = GetBtagEff(jets_light, year, 'medium', btagAlgo)
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium', btagAlgo)
+                print('\n\n\n\n')
+                print("btag_effM_light", btag_effM_light)
+                print("btag_effM_bc",btag_effM_bc )
+                print('\n\n\n\n')
                 btag_effL_light = GetBtagEff(jets_light, year, 'loose', btagAlgo)
                 btag_effL_bc = GetBtagEff(jets_bc, year, 'loose', btagAlgo)
                 btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M", year_light, btag_method_light, "central")
@@ -1309,8 +1313,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("lt_onZ_loose", (tl_zpeak_mask | lt_vis_onZ_mask))
             if self.enable_fwd_blocks:
                 preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
-                preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
-                preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
 
             # 2lss selection
             preselections.add("2lss", (events.is2l & pass_trg))
