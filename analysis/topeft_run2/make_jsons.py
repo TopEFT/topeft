@@ -2063,7 +2063,7 @@ central_2022_bkg_dict = {
 
 wjets_2016APV_bkg_dict = {
     "WJetsToLNu_centralUL16APV": {
-        "path": "/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16MiniAODAPVv2-106X_mcRun2_asymptotic_preVFP_v11-v2/MINIAODSIM",
+        "path": "/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM",
         "histAxisName": "WJetsToLNu_centralUL16APV",
         "xsecName":     "WJetsToLNu"
     },
@@ -2415,7 +2415,7 @@ def main():
     # make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2023BPix",out_dir_central_bkg_2023BPix,on_das=True)
 
 
-    make_jsons_for_dict_of_samples(wjets_2016APV_bkg_dict,"root://cms-xrd-global.cern.ch/","2016",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(wjets_2016APV_bkg_dict,"root://cms-xrd-global.cern.ch/","2016APV",out_dir_central_bkg_UL,on_das=True)
     # make_jsons_for_dict_of_samples(wjets_2016_bkg_dict,"root://cms-xrd-global.cern.ch/","2016",out_dir_central_bkg_UL,on_das=True)
     # make_jsons_for_dict_of_samples(wjets_2017_bkg_dict,"root://cms-xrd-global.cern.ch/","2017",out_dir_central_bkg_UL,on_das=True)
     # make_jsons_for_dict_of_samples(wjets_2018_bkg_dict,"root://cms-xrd-global.cern.ch/","2018",out_dir_central_bkg_UL,on_das=True)
