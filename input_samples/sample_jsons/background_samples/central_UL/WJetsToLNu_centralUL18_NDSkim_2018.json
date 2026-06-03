@@ -1,0 +1,27 @@
+{
+  "xsec": 61526.7,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "WJetsToLNu_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_CR/background/NAOD_ULv9_lepMVA-run2/2018/v260603/WJetsToLNu_centralUL18_2018/output_55.root",
+    "/store/user/apiccine/skimmed_CR/background/NAOD_ULv9_lepMVA-run2/2018/v260603/WJetsToLNu_centralUL18_2018/output_56.root"
+  ],
+  "nEvents": 29117828,
+  "nGenEvents": 29117828,
+  "nSumOfWeights": 5018116854201.36,
+  "isData": false,
+  "path": "/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 5028942619054.334,
+  "nSumOfWeights_ISRDown": 5003675570563.127,
+  "nSumOfWeights_FSRUp": 5019607527894.723,
+  "nSumOfWeights_FSRDown": 5015948004441.797,
+  "nSumOfWeights_renormUp": 4938723041012.085,
+  "nSumOfWeights_renormDown": 5105639212209.891,
+  "nSumOfWeights_factUp": 5156402683527.016,
+  "nSumOfWeights_factDown": 4795038697218.866,
+  "nSumOfWeights_renormDown_factUp": 5196529075926.914,
+  "nSumOfWeights_renormUp_factDown": 4681456213876.939
+}
