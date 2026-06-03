@@ -2,7 +2,7 @@
 
 # PrintUsage: display script usage information
 PrintUsage() {
-  echo "Usage: $0 [-y YEAR [YEAR ...]] [-t TAG] --cr | --sr [run_analysis options]"
+  echo "Usage: $0 [-y YEAR [YEAR ...]] [-t TAG] --cr | --sr [--hist-vars HIST [HIST ...]] [run_analysis options]"
   echo
   echo "Options:"
   echo "  -y YEAR    Year identifier (repeat or list multiple years)"
@@ -12,6 +12,9 @@ PrintUsage() {
   echo "  --cr       Generate control-region histograms"
   echo "  --sr       Generate signal-region histograms"
   echo "  --defer-np Defer nonprompt post-processing (adds --np-postprocess=defer)"
+  echo "  --hist-vars HIST [HIST ...]"
+  echo "             Override the histogram list while preserving --cr/--sr region behavior"
+  echo "  --dry-run  Print the resolved run_analysis.py command and exit"
   echo "  -h, --help Show this help message"
   echo
   echo "Any additional options after those listed above are passed directly"
@@ -31,7 +34,10 @@ main() {
   local FLAG_CR=false
   local FLAG_SR=false
   local FLAG_DEFER_NP=false
+  local FLAG_DRY_RUN=false
+  local HIST_VARS_PROVIDED=false
   local -a EXTRA_ARGS=()
+  local -a HIST_VARS=()
   local -a YEARS=()
   local -a EXPANDED_YEARS=()
   local -a RESOLVED_YEARS=()
@@ -73,6 +79,29 @@ main() {
         ;;
       --defer-np)
         FLAG_DEFER_NP=true
+        shift
+        ;;
+      --hist-vars)
+        shift
+        if [[ $# -eq 0 || "$1" == -* ]]; then
+          echo "Error: --hist-vars requires at least one histogram name"
+          return 1
+        fi
+        HIST_VARS_PROVIDED=true
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            -*)
+              break
+              ;;
+            *)
+              HIST_VARS+=("$1")
+              shift
+              ;;
+          esac
+        done
+        ;;
+      --dry-run)
+        FLAG_DRY_RUN=true
         shift
         ;;
       -h|--help)
@@ -243,11 +272,30 @@ main() {
   echo "Resolved years: ${RESOLVED_YEARS[*]}"
   echo "Resolved CFGS: $CFGS"
 
+  local REGION_LABEL
+  if [[ "$FLAG_CR" == "true" ]]; then
+    REGION_LABEL="CR"
+  else
+    REGION_LABEL="SR"
+  fi
+
+  local -a HIST_LIST_ARGS=()
+  if [[ "$HIST_VARS_PROVIDED" == "true" ]]; then
+    HIST_LIST_ARGS=(--hist-list "${HIST_VARS[@]}")
+  elif [[ "$FLAG_CR" == "true" ]]; then
+    HIST_LIST_ARGS=(--hist-list cr)
+  else
+    HIST_LIST_ARGS=(--hist-list ana)
+  fi
+
+  echo "Resolved region: $REGION_LABEL"
+  echo "Resolved histogram list: ${HIST_LIST_ARGS[*]:1}"
+
   # Define options based on mode
   local -a OPTIONS
   if [[ "$FLAG_CR" == "true" ]]; then
     OPTIONS=(
-      --hist-list cr
+      "${HIST_LIST_ARGS[@]}"
       --skip-sr
     )
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
@@ -262,7 +310,7 @@ main() {
   else
     OPTIONS=(
       -p "/groups/klannon/$USER/"
-      --hist-list ana
+      "${HIST_LIST_ARGS[@]}"
       --skip-cr
       --do-systs
       --do-np
@@ -283,6 +331,10 @@ main() {
   RUN_CMD+=("${EXTRA_ARGS[@]}")
 
   printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
+
+  if [[ "$FLAG_DRY_RUN" == "true" ]]; then
+    return 0
+  fi
 
   time "${RUN_CMD[@]}"
 }
