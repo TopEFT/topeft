@@ -22,15 +22,14 @@ vars=(met lt ptz ptz_wtau)
 var_tag=$(IFS=-; echo "${vars[*]}")
 
 # years=(2022 2022EE 2023 2023BPix)
-years=(2016APV 2016 2017 2018)
+years=(2018) # 2016APV 2016 2017 2018)
 
 # Each entry is one independent subset of categories.
 # The script will run all subsets for every year.
 category_sets=(
   # "2l_CR 2los_CRtt 3l_CR"
   # "2los_CRZ 2l_CRflip"
-  # "2los_1tau 1l_1tau_CRtt"
-  "1l_1tau_CRDY"
+  "2los_1tau 1l_1tau_CRtt 1l_1tau_CRDY"
 )
 
 ###############################################################################
