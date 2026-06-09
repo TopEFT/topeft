@@ -256,6 +256,7 @@ def get_medium_btag_foryear(year,btagger="btagDeepFlavB"):
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
+
 class run2leptonselection:
 
     def __init__(self, btagger="btagDeepFlavB"):

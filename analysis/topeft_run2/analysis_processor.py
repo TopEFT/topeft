@@ -22,7 +22,7 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
+from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -583,8 +583,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         events.nom = ak.ones_like(met.pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
-        ele["conept"] = leptonSelection.coneptElec(ele)
-        mu["conept"] = leptonSelection.coneptMuon(mu)
+        mu["pt_raw"] = mu.pt
+        mu = AttachMuonMomentumCorrections(
+            year,
+            mu,
+            isData,
+            event_numbers=events.event,
+            luminosity_blocks=events.luminosityBlock,
+        )
+        if is_run2:
+            ele["pt_raw"] = ele.pt
 
         if not isData:
             ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
@@ -624,173 +632,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Initialize the out object
         hout = self.accumulator
 
-        ################### Electron selection ####################
-
-        ele["isPres"] = leptonSelection.isPresElec(ele)
-        ele["isLooseE"] = leptonSelection.isLooseElec(ele)
-        ele["isFO"] = leptonSelection.isFOElec(ele, year)
-        ele["isTightLep"] = leptonSelection.tightSelElec(ele)
-        if is_run2:
-            ele["pt_raw"] = ele.pt
-        ################### Muon selection ####################
-
-        mu["pt_raw"] = mu.pt
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ones are not available
-        mu["isPres"] = leptonSelection.isPresMuon(mu)
-        mu["isLooseM"] = leptonSelection.isLooseMuon(mu)
-        mu["isFO"] = leptonSelection.isFOMuon(mu, year)
-        mu["isTightLep"]= leptonSelection.tightSelMuon(mu)
-
-        ################### Loose selection ####################
-
-        m_loose = mu[mu.isPres & mu.isLooseM]
-        e_loose = ele[ele.isPres & ele.isLooseE]
-        l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
-
-        # Compute pair invariant masses, for all flavors all signes
-        llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
-
-        # Build FO collection
-        m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
-        e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
-        if "seediEtaOriX" not in ak.fields(e_fo):
-            e_fo["seediEtaOriX"] = ak.zeros_like(e_fo.pt)
-        if "seediPhiOriY" not in ak.fields(e_fo):
-            e_fo["seediPhiOriY"] = ak.zeros_like(e_fo.pt)
-
-        # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo, year=year, looseWP="none" if is_run3 else "wpLnoiso", useRun3MVA=self.useRun3MVA) #Run3 ready
-        AttachMuonSF(m_fo, year=year, useRun3MVA=self.useRun3MVA)
-
-        # Attach per lepton fake rates
-        AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
-        AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-        m_fo['convVeto'] = ak.ones_like(m_fo.charge)
-        m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
-        m_fo['seediEtaOriX'] = ak.zeros_like(m_fo.charge)
-        m_fo['seediPhiOriY'] = ak.zeros_like(m_fo.charge)
-        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
-        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
-
-        ################### Tau selection ####################
-
         if self.enable_tau_blocks:
             tau_fo_tag = "VLoose" if is_run2 else "Loose"
             tau_T_tag = "Loose" if is_run2 else "Medium"
-
-            if is_run2:
-                vs_jet = tau.idDeepTau2017v2p1VSjet
-                vs_e = tau.idDeepTau2017v2p1VSe
-                vs_mu = tau.idDeepTau2017v2p1VSmu
-            else:
-                vs_jet = tau.idDeepTau2018v2p5VSjet
-                vs_e = tau.idDeepTau2018v2p5VSe
-                vs_mu = tau.idDeepTau2018v2p5VSmu
-
-            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData, tau_T_tag)
-
-            tau["isVLoose"] = tauSelection.isVLooseTau(vs_jet)
-            tau["isLoose"] = tauSelection.isLooseTau(vs_jet)
-            tau["isMedium"] = tauSelection.isMediumTau(vs_jet)
-            tau["iseTight"] = tauSelection.iseTightTau(vs_e)
-            tau["ismTight"] = ak.values_astype(tauSelection.ismTightTau(vs_mu), np.int8)
-            tau["isPresVLoose"] = tauSelection.isPresTau(
-                tau.pt,
-                tau.eta,
-                tau.dxy,
-                tau.dz,
-                vs_jet,
-                vs_e,
-                vs_mu,
-                minpt=20,
-                vsJetWP="VLoose",
+            taus = AttachTauEnergyCorrections(
+                year, tau, isData, vsJetWP=tau_T_tag
             )
-            tau["isPresLoose"] = tauSelection.isPresTau(
-                tau.pt,
-                tau.eta,
-                tau.dxy,
-                tau.dz,
-                vs_jet,
-                vs_e,
-                vs_mu,
-                minpt=20,
-                vsJetWP="Loose",
-            )
-            tau["isPresMedium"] = tauSelection.isPresTau(
-                tau.pt,
-                tau.eta,
-                tau.dxy,
-                tau.dz,
-                vs_jet,
-                vs_e,
-                vs_mu,
-                minpt=20,
-                vsJetWP="Medium",
-            )
-
-            tau["isPres"] = tau[f"isPres{tau_fo_tag}"]
-
-            tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.5)
-            tau["isGood"]  =  tau["isClean"] & tau["isPres"]
-            # _log_tau_flag_counts(
-            #     "tau_h_presel",
-            #     {
-            #         "isVLoose": tau["isVLoose"],
-            #         "isLoose": tau["isLoose"],
-            #         "ismTight": tau["ismTight"],
-            #         "isPresVLoose": tau["isPresVLoose"],
-            #         "isPresLoose": tau["isPresLoose"],
-            #         "isPres": tau["isPres"],
-            #         "isClean": tau["isClean"],
-            #         "isGood": tau["isGood"],
-            #     },
-            # )
-            tau = tau[tau.isGood]
-
-            tau['DMflag'] = ((tau.decayMode==0) | (tau.decayMode==1) | (tau.decayMode==10) | (tau.decayMode==11))
-            # _log_tau_flag_counts(
-            #     "tau_h_dmflag",
-            #     {
-            #         "DMflag": tau['DMflag'],
-            #     },
-            # )
-            tau = tau[tau['DMflag']]
-
-            tau_fo = tau
-            tau_fo_padded = ak.pad_none(tau_fo, 1)
-            tau0_fo = tau_fo_padded[:,0]
-
-            tau_T = tau_fo[tau_fo[f"is{tau_T_tag}"]>0]
-            tau_T_padded = ak.pad_none(tau_T, 1)
-            tau0_T = tau_T_padded[:,0]
-
-            cleaning_taus = tau_T
-            nLtau  = ak.num(tau_T)
-
-            if self.tau_run_mode == "standard":
-                tau_F_mask = (ak.num(tau_fo) == 1)
-                tau_L_mask = (nLtau == 1)
-            elif self.tau_run_mode == "taufitter":
-                tau_F_mask = (ak.num(tau_fo) >= 1)
-                tau_L_mask = (nLtau >= 1)
-            else:
-                raise ValueError(f"Unknown tau_run_mode '{self.tau_run_mode}'")
-            no_tau_mask = (nLtau == 0)
-
-            tau0 = tau0_T
-
-            # _log_tau_flag_counts(
-            #     "tau_h_event_masks",
-            #     {
-            #         "tau_F_mask": tau_F_mask,
-            #         "tau_L_mask": tau_L_mask,
-            #         "no_tau_mask": no_tau_mask,
-            #     },
-            # )
-
-            if not isData:
-                AttachTauSF(events, tau_T, year=year, vsJetWP=tau_T_tag)
 
         # Define the lists of systematics we include
         obj_correction_syst_lst = get_supported_jet_systematics(
@@ -799,11 +646,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         obj_correction_syst_lst.extend(
             get_supported_met_systematics(year, isData=isData, era=run_era)
         )
+        obj_correction_syst_lst.extend(
+            get_supported_muon_momentum_systematics(year, isData=isData)
+        )
         if self.enable_tau_blocks:
-            obj_correction_syst_lst.append("TESUp")
-            obj_correction_syst_lst.append("TESDown")
-            obj_correction_syst_lst.append("FESUp")
-            obj_correction_syst_lst.append("FESDown")
+            obj_correction_syst_lst.extend(
+                get_supported_tau_energy_systematics(year, isData=isData)
+            )
 
         wgt_correction_syst_lst = [
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
@@ -919,14 +768,158 @@ class AnalysisProcessor(processor.ProcessorABC):
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
             weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
 
+            #################### Leptons ####################
+
+            mu = ApplyMuonMomentumSystematics(year, mu, syst_var)
+            mu["conept"] = leptonSelection.coneptMuon(mu)
+            mu["isPres"] = leptonSelection.isPresMuon(mu)
+            mu["isLooseM"] = leptonSelection.isLooseMuon(mu)
+            mu["isFO"] = leptonSelection.isFOMuon(mu, year)
+            mu["isTightLep"] = leptonSelection.tightSelMuon(mu)
+
+            ele["conept"] = leptonSelection.coneptElec(ele)
+            ele["isPres"] = leptonSelection.isPresElec(ele)
+            ele["isLooseE"] = leptonSelection.isLooseElec(ele)
+            ele["isFO"] = leptonSelection.isFOElec(ele, year)
+            ele["isTightLep"] = leptonSelection.tightSelElec(ele)
+
+            m_loose = mu[mu.isPres & mu.isLooseM]
+            e_loose = ele[ele.isPres & ele.isLooseE]
+            l_loose = ak.with_name(
+                ak.concatenate([e_loose, m_loose], axis=1),
+                "PtEtaPhiMCandidate",
+            )
+            llpairs = ak.combinations(l_loose, 2, fields=["l0", "l1"])
+            min_mll_afas = ak.min((llpairs.l0 + llpairs.l1).mass, axis=-1)
+
+            m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
+            e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
+            if "seediEtaOriX" not in ak.fields(e_fo):
+                e_fo["seediEtaOriX"] = ak.zeros_like(e_fo.pt)
+            if "seediPhiOriY" not in ak.fields(e_fo):
+                e_fo["seediPhiOriY"] = ak.zeros_like(e_fo.pt)
+
+            AttachElectronSF(
+                e_fo,
+                year=year,
+                looseWP="none" if is_run3 else "wpLnoiso",
+                useRun3MVA=self.useRun3MVA,
+            )
+            AttachMuonSF(m_fo, year=year, useRun3MVA=self.useRun3MVA)
+            AttachPerLeptonFR(e_fo, flavor="Elec", year=year)
+            AttachPerLeptonFR(m_fo, flavor="Muon", year=year)
+            m_fo["convVeto"] = ak.ones_like(m_fo.charge)
+            m_fo["lostHits"] = ak.zeros_like(m_fo.charge)
+            m_fo["seediEtaOriX"] = ak.zeros_like(m_fo.charge)
+            m_fo["seediPhiOriY"] = ak.zeros_like(m_fo.charge)
+            l_fo = ak.with_name(
+                ak.concatenate([e_fo, m_fo], axis=1),
+                "PtEtaPhiMCandidate",
+            )
+            l_fo_conept_sorted = l_fo[
+                ak.argsort(l_fo.conept, axis=-1, ascending=False)
+            ]
+
+            #################### Taus ####################
+
+            if self.enable_tau_blocks:
+                tau = ApplyTauEnergySystematics(taus, syst_var)
+
+                if is_run2:
+                    vs_jet = tau.idDeepTau2017v2p1VSjet
+                    vs_e = tau.idDeepTau2017v2p1VSe
+                    vs_mu = tau.idDeepTau2017v2p1VSmu
+                else:
+                    vs_jet = tau.idDeepTau2018v2p5VSjet
+                    vs_e = tau.idDeepTau2018v2p5VSe
+                    vs_mu = tau.idDeepTau2018v2p5VSmu
+
+                tau["isVLoose"] = tauSelection.isVLooseTau(vs_jet)
+                tau["isLoose"] = tauSelection.isLooseTau(vs_jet)
+                tau["isMedium"] = tauSelection.isMediumTau(vs_jet)
+                tau["iseTight"] = tauSelection.iseTightTau(vs_e)
+                tau["ismTight"] = ak.values_astype(
+                    tauSelection.ismTightTau(vs_mu), np.int8
+                )
+                tau["isPresVLoose"] = tauSelection.isPresTau(
+                    tau.pt,
+                    tau.eta,
+                    tau.dxy,
+                    tau.dz,
+                    vs_jet,
+                    vs_e,
+                    vs_mu,
+                    minpt=20,
+                    vsJetWP="VLoose",
+                )
+                tau["isPresLoose"] = tauSelection.isPresTau(
+                    tau.pt,
+                    tau.eta,
+                    tau.dxy,
+                    tau.dz,
+                    vs_jet,
+                    vs_e,
+                    vs_mu,
+                    minpt=20,
+                    vsJetWP="Loose",
+                )
+                tau["isPresMedium"] = tauSelection.isPresTau(
+                    tau.pt,
+                    tau.eta,
+                    tau.dxy,
+                    tau.dz,
+                    vs_jet,
+                    vs_e,
+                    vs_mu,
+                    minpt=20,
+                    vsJetWP="Medium",
+                )
+                tau["isPres"] = tau[f"isPres{tau_fo_tag}"]
+                tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.5)
+                tau["isGood"] = tau["isClean"] & tau["isPres"]
+                tau = tau[tau.isGood]
+                tau["DMflag"] = (
+                    (tau.decayMode == 0)
+                    | (tau.decayMode == 1)
+                    | (tau.decayMode == 10)
+                    | (tau.decayMode == 11)
+                )
+                tau = tau[tau.DMflag]
+
+                tau_fo = tau
+                tau_fo_padded = ak.pad_none(tau_fo, 1)
+                tau0_fo = tau_fo_padded[:, 0]
+                tau_T = tau_fo[tau_fo[f"is{tau_T_tag}"] > 0]
+                tau_T_padded = ak.pad_none(tau_T, 1)
+                tau0_T = tau_T_padded[:, 0]
+                cleaning_taus = tau_T
+                nLtau = ak.num(tau_T)
+
+                if self.tau_run_mode == "standard":
+                    tau_F_mask = ak.num(tau_fo) == 1
+                    tau_L_mask = nLtau == 1
+                elif self.tau_run_mode == "taufitter":
+                    tau_F_mask = ak.num(tau_fo) >= 1
+                    tau_L_mask = nLtau >= 1
+                else:
+                    raise ValueError(
+                        f"Unknown tau_run_mode '{self.tau_run_mode}'"
+                    )
+                no_tau_mask = nLtau == 0
+                tau0 = tau0_T
+
+                if not isData:
+                    AttachTauSF(
+                        events,
+                        tau_T,
+                        year=year,
+                        vsJetWP=tau_T_tag,
+                    )
+
             #################### Jets ####################
 
             # Jet cleaning, before any jet selection
-            #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-            # if self.enable_tau_blocks:
-            #     vetos_tocleanjets = ak.with_name( ak.concatenate([cleaning_taus, l_fo], axis=1), "PtEtaPhiMCandidate")
-            # else:
-            vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
+            vetos_tocleanjets = ak.with_name(l_fo, "PtEtaPhiMCandidate")
             tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
             cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
             
@@ -950,9 +943,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Jet energy corrections
             if not isData:
                 cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                if self.enable_tau_blocks:
-                    tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var, tau_T_tag)
-                    tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var, tau_T_tag)
 
             cleanedJets = ApplyJetCorrections(
                 year,
@@ -1018,6 +1008,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Put njets and l_fo_conept_sorted into events
             events["njets"] = njets
+            events["minMllAFAS"] = min_mll_afas
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
             # The event selection
