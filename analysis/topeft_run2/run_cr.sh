@@ -12,24 +12,24 @@ chunk_size="100000"
 
 # Configurable first part of the pkl tag.
 # pkl_base_tag="CR_t1met_fwdpt70_fulleta"
-pkl_base_tag="CR_t1met_fwdpt40_noband_wjets"
+pkl_base_tag="CR_muonres"
 
 # This tag should match what run_analysis.py will actually produce for --hist-list cr.
 # With your current CR block:
 #   hist_lst = ["ptz"]
 #   + "ptz_wtau" when --tau-h-analysis or --all-analysis is enabled.
-vars=(met lt ptz ptz_wtau)
+vars=(invmass l0ptcorr l0eta) # ptz ptz_wtau)
 var_tag=$(IFS=-; echo "${vars[*]}")
 
-# years=(2022 2022EE 2023 2023BPix)
-years=(2018) # 2016APV 2016 2017 2018)
+years=(2023 2023BPix 2018)
+# years=(2018) # 2016APV 2016 2017 2018)
 
 # Each entry is one independent subset of categories.
 # The script will run all subsets for every year.
 category_sets=(
   # "2l_CR 2los_CRtt 3l_CR"
-  # "2los_CRZ 2l_CRflip"
-  "2los_1tau 1l_1tau_CRtt 1l_1tau_CRDY"
+  "2los_CRZ 2l_CRflip"
+  # "2los_1tau 1l_1tau_CRtt 1l_1tau_CRDY"
 )
 
 ###############################################################################
@@ -73,7 +73,7 @@ run_cr_block() {
   local year="$1"
   shift
 
-  assert_run2_year "${year}"
+  # assert_run2_year "${year}"
 
   local cats=("$@")
   local cat_tag
@@ -91,20 +91,21 @@ run_cr_block() {
 
   clean_env_cache
 
-  local cmd=(
-    ./fullR3_run.sh
-    -y "${year}"
-    -t "${pkl_tag}"
-    -s "${chunk_size}"
-    --cr
-    --do-systs
-    --do-np
-    -p "${output_dir}"
-    --category-groups "${cats[@]}"
-    --suppress-forward-eta-stochastic-jer
-    --tau-h-analysis
-    --fwd-eta-band-pt-apply off # only for Run 2, not for Run 3, to avoid confusion with the "fwdfix" tag which implies the band is fixed to pt > 70 GeV
-  )
+local cmd=(
+  ./fullR3_run.sh
+  -y "${year}"
+  -t "${pkl_tag}"
+  -s "${chunk_size}"
+  --cr
+  --hist-vars "${vars[@]}"
+  --do-systs
+  # --do-np
+  -p "${output_dir}"
+  --category-groups "${cats[@]}"
+  --suppress-forward-eta-stochastic-jer
+  --tau-h-analysis
+  --split-lep-flavor
+)
 
   echo "Executing:"
   printf ' %q' "${cmd[@]}"
