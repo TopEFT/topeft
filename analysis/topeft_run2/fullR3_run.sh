@@ -2,7 +2,7 @@
 
 # PrintUsage: display script usage information
 PrintUsage() {
-  echo "Usage: $0 [-y YEAR [YEAR ...]] [-t TAG] --cr | --sr [run_analysis options]"
+  echo "Usage: $0 [-y YEAR [YEAR ...]] [-t TAG] --cr | --sr [--hist-vars HIST [HIST ...]] [--sample-json JSON | --cfg-override CFG] [run_analysis options]"
   echo
   echo "Options:"
   echo "  -y YEAR    Year identifier (repeat or list multiple years)"
@@ -12,6 +12,15 @@ PrintUsage() {
   echo "  --cr       Generate control-region histograms"
   echo "  --sr       Generate signal-region histograms"
   echo "  --defer-np Defer nonprompt post-processing (adds --np-postprocess=defer)"
+  echo "  --hist-vars HIST [HIST ...]"
+  echo "             Override the histogram list while preserving --cr/--sr region behavior"
+  echo "  --sample-json JSON"
+  echo "             Use one sample JSON instead of the default CFG bundle"
+  echo "  --cfg-override CFG"
+  echo "             Use one CFG file instead of the default CFG bundle"
+  echo "  -p, --outpath PATH"
+  echo "             Override the run_analysis.py output directory"
+  echo "  --dry-run  Print the resolved run_analysis.py command and exit"
   echo "  -h, --help Show this help message"
   echo
   echo "Any additional options after those listed above are passed directly"
@@ -31,12 +40,21 @@ main() {
   local FLAG_CR=false
   local FLAG_SR=false
   local FLAG_DEFER_NP=false
+  local FLAG_DRY_RUN=false
+  local HIST_VARS_PROVIDED=false
   local -a EXTRA_ARGS=()
+  local -a HIST_VARS=()
   local -a YEARS=()
   local -a EXPANDED_YEARS=()
   local -a RESOLVED_YEARS=()
   local USER_CHUNK_OVERRIDE=false
+  local USER_OUTPATH_OVERRIDE=false
+  local USER_OUTPATH_OPTION_COUNT=0
+  local DEFAULT_OUTPATH="/groups/klannon/$USER/"
+  local RESOLVED_OUTPATH="$DEFAULT_OUTPATH"
   local TAG=""
+  local SAMPLE_JSON=""
+  local CFG_OVERRIDE=""
 
   # Parse command-line arguments
   while [[ $# -gt 0 ]]; do
@@ -75,6 +93,45 @@ main() {
         FLAG_DEFER_NP=true
         shift
         ;;
+      --hist-vars)
+        shift
+        if [[ $# -eq 0 || "$1" == -* ]]; then
+          echo "Error: --hist-vars requires at least one histogram name"
+          return 1
+        fi
+        HIST_VARS_PROVIDED=true
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            -*)
+              break
+              ;;
+            *)
+              HIST_VARS+=("$1")
+              shift
+              ;;
+          esac
+        done
+        ;;
+      --dry-run)
+        FLAG_DRY_RUN=true
+        shift
+        ;;
+      --sample-json)
+        if [[ $# -lt 2 || "$2" == -* ]]; then
+          echo "Error: --sample-json requires a JSON path"
+          return 1
+        fi
+        SAMPLE_JSON="$2"
+        shift 2
+        ;;
+      --cfg-override)
+        if [[ $# -lt 2 || "$2" == -* ]]; then
+          echo "Error: --cfg-override requires a CFG path"
+          return 1
+        fi
+        CFG_OVERRIDE="$2"
+        shift 2
+        ;;
       -h|--help)
         PrintUsage
         return 0
@@ -88,14 +145,43 @@ main() {
 
   # Detect if a user-specified chunk size was provided
   local ARG
-  for ARG in "${EXTRA_ARGS[@]}"; do
+  local EXTRA_INDEX
+  for ((EXTRA_INDEX=0; EXTRA_INDEX<${#EXTRA_ARGS[@]}; EXTRA_INDEX++)); do
+    ARG="${EXTRA_ARGS[$EXTRA_INDEX]}"
     case "$ARG" in
       -s|--chunksize|--chunksize=*)
         USER_CHUNK_OVERRIDE=true
-        break
+        ;;
+    esac
+
+    case "$ARG" in
+      -p|--outpath)
+        USER_OUTPATH_OPTION_COUNT=$((USER_OUTPATH_OPTION_COUNT + 1))
+        if (( EXTRA_INDEX + 1 >= ${#EXTRA_ARGS[@]} )) || [[ "${EXTRA_ARGS[$((EXTRA_INDEX + 1))]}" == -* ]]; then
+          echo "Error: $ARG requires an output path"
+          return 1
+        fi
+        RESOLVED_OUTPATH="${EXTRA_ARGS[$((EXTRA_INDEX + 1))]}"
+        ;;
+      --outpath=*)
+        USER_OUTPATH_OPTION_COUNT=$((USER_OUTPATH_OPTION_COUNT + 1))
+        RESOLVED_OUTPATH="${ARG#--outpath=}"
+        if [[ -z "$RESOLVED_OUTPATH" ]]; then
+          echo "Error: --outpath requires an output path"
+          return 1
+        fi
         ;;
     esac
   done
+
+  if (( USER_OUTPATH_OPTION_COUNT > 1 )); then
+    echo "Error: provide only one output path option (-p or --outpath)." >&2
+    return 1
+  fi
+
+  if (( USER_OUTPATH_OPTION_COUNT == 1 )); then
+    USER_OUTPATH_OVERRIDE=true
+  fi
 
   # Ensure exactly one mode is chosen
   if [[ "$FLAG_CR" == "false" && "$FLAG_SR" == "false" ]] || [[ "$FLAG_CR" == "true" && "$FLAG_SR" == "true" ]]; then
@@ -136,6 +222,21 @@ main() {
 
   if [[ ${#RESOLVED_YEARS[@]} -eq 0 ]]; then
     echo "Error: No years resolved from the provided arguments." >&2
+    return 1
+  fi
+
+  if [[ -n "$SAMPLE_JSON" && -n "$CFG_OVERRIDE" ]]; then
+    echo "Error: use only one of --sample-json or --cfg-override." >&2
+    return 1
+  fi
+
+  if [[ -n "$SAMPLE_JSON" && ! -f "$SAMPLE_JSON" ]]; then
+    echo "Error: sample JSON not found: $SAMPLE_JSON" >&2
+    return 1
+  fi
+
+  if [[ -n "$CFG_OVERRIDE" && ! -f "$CFG_OVERRIDE" ]]; then
+    echo "Error: CFG override not found: $CFG_OVERRIDE" >&2
     return 1
   fi
 
@@ -202,71 +303,107 @@ main() {
     return 0
   }
 
-  local CFG YEAR_CFGS
-  for YEAR in "${RESOLVED_YEARS[@]}"; do
-    if [[ -n "${RUN2_YEAR_MAP[$YEAR]}" ]]; then
-      if [[ "$RUN2_BUNDLE_ADDED" == "false" ]]; then
-        if [[ "$FLAG_CR" == "true" ]]; then
-          for CFG in "${RUN2_CFGS_CR[@]}"; do
-            add_cfg "$CFG" || return 1
-          done
-        else
-          for CFG in "${RUN2_CFGS_SR[@]}"; do
-            add_cfg "$CFG" || return 1
-          done
+  local INPUT_OVERRIDE_LABEL=""
+  if [[ -n "$SAMPLE_JSON" ]]; then
+    CFGS_LIST=("$SAMPLE_JSON")
+    INPUT_OVERRIDE_LABEL="sample JSON: $SAMPLE_JSON"
+  elif [[ -n "$CFG_OVERRIDE" ]]; then
+    CFGS_LIST=("$CFG_OVERRIDE")
+    INPUT_OVERRIDE_LABEL="CFG: $CFG_OVERRIDE"
+  else
+    local CFG YEAR_CFGS
+    for YEAR in "${RESOLVED_YEARS[@]}"; do
+      if [[ -n "${RUN2_YEAR_MAP[$YEAR]}" ]]; then
+        if [[ "$RUN2_BUNDLE_ADDED" == "false" ]]; then
+          if [[ "$FLAG_CR" == "true" ]]; then
+            for CFG in "${RUN2_CFGS_CR[@]}"; do
+              add_cfg "$CFG" || return 1
+            done
+          else
+            for CFG in "${RUN2_CFGS_SR[@]}"; do
+              add_cfg "$CFG" || return 1
+            done
+          fi
+          RUN2_BUNDLE_ADDED=true
         fi
-        RUN2_BUNDLE_ADDED=true
-      fi
-    else
-      if [[ "$FLAG_CR" == "true" ]]; then
-        YEAR_CFGS=(
-          "${CFGS_PATH}/NDSkim_${YEAR}_background_samples_cr.cfg"
-          "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-          "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
-        )
       else
-        YEAR_CFGS=(
-          #"${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
-          "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
-          "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-          "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples_sr.cfg"
-        )
+        if [[ "$FLAG_CR" == "true" ]]; then
+          YEAR_CFGS=(
+            "${CFGS_PATH}/NDSkim_${YEAR}_background_samples_cr.cfg"
+            "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
+            "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
+          )
+        else
+          YEAR_CFGS=(
+            #"${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
+            "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
+            "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
+            "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples_sr.cfg"
+          )
+        fi
+        for CFG in "${YEAR_CFGS[@]}"; do
+          add_cfg "$CFG" || return 1
+        done
       fi
-      for CFG in "${YEAR_CFGS[@]}"; do
-        add_cfg "$CFG" || return 1
-      done
-    fi
-  done
+    done
+  fi
   local CFGS
   CFGS=$(IFS=,; echo "${CFGS_LIST[*]}")
 
   echo "Resolved years: ${RESOLVED_YEARS[*]}"
+  if [[ -n "$INPUT_OVERRIDE_LABEL" ]]; then
+    echo "Input override: $INPUT_OVERRIDE_LABEL"
+  fi
   echo "Resolved CFGS: $CFGS"
+
+  local REGION_LABEL
+  if [[ "$FLAG_CR" == "true" ]]; then
+    REGION_LABEL="CR"
+  else
+    REGION_LABEL="SR"
+  fi
+
+  local -a HIST_LIST_ARGS=()
+  if [[ "$HIST_VARS_PROVIDED" == "true" ]]; then
+    HIST_LIST_ARGS=(--hist-list "${HIST_VARS[@]}")
+  elif [[ "$FLAG_CR" == "true" ]]; then
+    HIST_LIST_ARGS=(--hist-list cr)
+  else
+    HIST_LIST_ARGS=(--hist-list ana)
+  fi
+
+  echo "Resolved region: $REGION_LABEL"
+  echo "Resolved histogram list: ${HIST_LIST_ARGS[*]:1}"
+  echo "Resolved output path: $RESOLVED_OUTPATH"
 
   # Define options based on mode
   local -a OPTIONS
   if [[ "$FLAG_CR" == "true" ]]; then
     OPTIONS=(
-      --hist-list cr
+      "${HIST_LIST_ARGS[@]}"
       --skip-sr
     )
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
       OPTIONS+=(-s 100000)
     fi
+    if [[ "$USER_OUTPATH_OVERRIDE" == "false" ]]; then
+      OPTIONS+=(-p "$RESOLVED_OUTPATH")
+    fi
     OPTIONS+=(
       #--split-lep-flavor
-      -p "/groups/klannon/$USER/"
       -o "$OUT_NAME"
       -x work_queue
     )
   else
     OPTIONS=(
-      -p "/groups/klannon/$USER/"
-      --hist-list ana
+      "${HIST_LIST_ARGS[@]}"
       --skip-cr
       --do-systs
       --do-np
     )
+    if [[ "$USER_OUTPATH_OVERRIDE" == "false" ]]; then
+      OPTIONS+=(-p "$RESOLVED_OUTPATH")
+    fi
     if [[ "$USER_CHUNK_OVERRIDE" == "false" ]]; then
       OPTIONS+=(-s 100000)
     fi
@@ -283,6 +420,10 @@ main() {
   RUN_CMD+=("${EXTRA_ARGS[@]}")
 
   printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
+
+  if [[ "$FLAG_DRY_RUN" == "true" ]]; then
+    return 0
+  fi
 
   time "${RUN_CMD[@]}"
 }

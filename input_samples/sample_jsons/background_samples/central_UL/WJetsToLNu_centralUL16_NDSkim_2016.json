@@ -1,0 +1,26 @@
+{
+  "xsec": 61526.7,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "WJetsToLNu_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/apiccine/skimmed_CR/background/NAOD_ULv9_lepMVA-run2/2016/v260602/WJetsToLNu_centralUL16_2016/output_29.root"
+  ],
+  "nEvents": 28268221,
+  "nGenEvents": 28268221,
+  "nSumOfWeights": 4872964545618.331,
+  "isData": false,
+  "path": "/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 4883351153670.984,
+  "nSumOfWeights_ISRDown": 4859105856881.687,
+  "nSumOfWeights_FSRUp": 4874649813110.747,
+  "nSumOfWeights_FSRDown": 4870622668869.433,
+  "nSumOfWeights_renormUp": 4795579536719.688,
+  "nSumOfWeights_renormDown": 4958300495850.627,
+  "nSumOfWeights_factUp": 5007757771091.544,
+  "nSumOfWeights_factDown": 4655958568843.3125,
+  "nSumOfWeights_renormDown_factUp": 5047047449992.258,
+  "nSumOfWeights_renormUp_factDown": 4545371409215.728
+}

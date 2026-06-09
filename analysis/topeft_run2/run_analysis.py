@@ -1172,6 +1172,8 @@ if __name__ == "__main__":
         # If we don't specify this argument, it will be None, and the processor will fill all hists
         hist_lst = hist_list
 
+    print("Resolved histogram list: {}".format(", ".join(hist_lst)))
+
     ### Load samples from json
     samplesdict = {}
     sample_sources = {}
