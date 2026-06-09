@@ -831,8 +831,6 @@ Tests may use current `HistEFT` as the reference implementation.
 
 ## 13. Optional tests added or proposed
 
-Added lightweight tests in `tests/test_histeft_api_contract.py`.
-
 These tests use current `HistEFT` as the reference behavior and do not require
 production files or large pkls. They cover:
 
@@ -866,11 +864,3 @@ Proposed future tests before any replacement:
   provided by a one-time converter plus clear migration boundary?
 - Should `as_hist` output include flow bins exactly as current plotter expects,
   or should plotting be migrated to an explicit flow policy at the same time?
-
-## 15. Suggested next prompt
-
-CL007AE - prototype scikit-hist EFT backend behind parity suite.
-
-This is reasonable only after the CL007AD contract is accepted and the parity
-suite is treated as the gate. If old-pkl compatibility is required for CL007AE,
-first add a tiny representative old-pkl fixture or a converter specification.
