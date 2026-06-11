@@ -7,29 +7,66 @@ cd /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2
 # Global configuration
 ###############################################################################
 
-output_dir="/groups/klannon/apiccine/xANv4"
+output_dir="/groups/klannon/apiccine/photons"
 chunk_size="100000"
 
-# Configurable first part of the pkl tag.
-# pkl_base_tag="CR_t1met_fwdpt70_fulleta"
-pkl_base_tag="CR_muonres"
+# Use a branch-specific tag to avoid mixing baseline and feature outputs.
+#
+# Suggested usage:
+#   on run3_test_mmerged_anpicci:
+#     campaign_tag="photon_fbranch_baseline"
+#
+#   on te/ttgamma_conversion_photon_diagnostics:
+#     campaign_tag="photon_fbranch_feature"
+campaign_tag="photon_fbranch_baseline"
 
-# This tag should match what run_analysis.py will actually produce for --hist-list cr.
-# With your current CR block:
-#   hist_lst = ["ptz"]
-#   + "ptz_wtau" when --tau-h-analysis or --all-analysis is enabled.
-vars=(invmass l0ptcorr l0eta) # ptz ptz_wtau)
+cr_pkl_base_tag="CR_${campaign_tag}"
+sr_pkl_base_tag="SR_${campaign_tag}"
+
+# Variables to be produced in both CR and SR pkls.
+vars=(lj0pt ptz)
 var_tag=$(IFS=-; echo "${vars[*]}")
 
-years=(2023 2023BPix 2018)
-# years=(2018) # 2016APV 2016 2017 2018)
+###############################################################################
+# CR configuration
+###############################################################################
+
+# Each entry is one independent year expression passed to fullR3_run.sh.
+# Examples:
+#   cr_year_sets=(2022EE 2018)        # two separate runs
+#   cr_year_sets=("2022EE 2018")      # one combined run
+cr_year_sets=(
+  "2022EE 2018"
+)
 
 # Each entry is one independent subset of categories.
-# The script will run all subsets for every year.
-category_sets=(
+# The script will run all subsets for every year expression.
+cr_category_sets=(
+  "2los_CRtt"
   # "2l_CR 2los_CRtt 3l_CR"
-  "2los_CRZ 2l_CRflip"
+  # "2los_CRZ 2l_CRflip"
   # "2los_1tau 1l_1tau_CRtt 1l_1tau_CRDY"
+)
+
+###############################################################################
+# SR configuration
+###############################################################################
+
+# Each entry is one independent year expression passed to fullR3_run.sh.
+# Examples:
+#   sr_year_sets=(2022 2022EE 2023 2023BPix)              # separate runs
+#   sr_year_sets=("2022 2022EE 2023 2023BPix")            # one combined run
+sr_year_sets=(
+  2022EE
+  2018
+  # "2022 2022EE 2023 2023BPix"
+)
+
+# Each entry is one independent subset of categories.
+# Grouped entries produce one pkl per grouped set.
+sr_category_sets=(
+  "2l 2lss_1tau 2los_1tau 3l_m_offZ"
+  "3l_p_offZ 3l_onZ_tau 3l_fwd 4l"
 )
 
 ###############################################################################
@@ -49,41 +86,47 @@ clean_env_cache() {
   fi
 }
 
-assert_run2_year() {
-  case "$1" in
-    2016APV|2016|2017|2018) ;;
-    *)
-      cat >&2 <<EOF
-ERROR: this CR script is configured for Run 2 only, got year '$1'.
+assert_supported_year_expr() {
+  local year_expr="$1"
+  local year
 
-Before using this script for Run 3:
-  - remove or replace this Run 2 year guard;
-  - change pkl_base_tag from fwdpt40_noband_fulleta to the intended Run 3 tag,
-    e.g. CR_t1met_fwdpt70_fulleta;
-  - remove '--fwd-eta-band-pt-apply off' or replace it with the intended Run 3 policy
-    (default auto already enables the eta-band pT tightening for Run 3);
-  - re-check vars/category_sets for the intended Run 3 production.
+  read -r -a years_in_expr <<< "${year_expr}"
+
+  for year in "${years_in_expr[@]}"; do
+    case "${year}" in
+      2016APV|2016|2017|2018|2022|2022EE|2023|2023BPix) ;;
+      *)
+        cat >&2 <<EOF
+ERROR: unsupported year token '${year}' in year expression '${year_expr}'.
+
+Allowed year tokens:
+  2016APV 2016 2017 2018 2022 2022EE 2023 2023BPix
 EOF
-      exit 1
-      ;;
-  esac
+        exit 1
+        ;;
+    esac
+  done
 }
 
+
 run_cr_block() {
-  local year="$1"
+  local year_expr="$1"
   shift
 
-  # assert_run2_year "${year}"
+  assert_supported_year_expr "${year_expr}"
+
+  local years=()
+  read -r -a years <<< "${year_expr}"
 
   local cats=("$@")
   local cat_tag
   local pkl_tag
 
   cat_tag=$(join_by - "${cats[@]}")
-  pkl_tag="${pkl_base_tag}_${cat_tag}_${var_tag}"
+  pkl_tag="${cr_pkl_base_tag}_${cat_tag}_${var_tag}"
 
   echo "----------------------------------------"
-  echo "Year: ${year}"
+  echo "Years: ${year_expr}"
   echo "Categories: ${cats[*]}"
   echo "Output tag: ${pkl_tag}"
   echo "Output dir: ${output_dir}"
@@ -91,21 +134,21 @@ run_cr_block() {
 
   clean_env_cache
 
-local cmd=(
-  ./fullR3_run.sh
-  -y "${year}"
-  -t "${pkl_tag}"
-  -s "${chunk_size}"
-  --cr
-  --hist-vars "${vars[@]}"
-  --do-systs
-  # --do-np
-  -p "${output_dir}"
-  --category-groups "${cats[@]}"
-  --suppress-forward-eta-stochastic-jer
-  --tau-h-analysis
-  --split-lep-flavor
-)
+  local cmd=(
+    ./fullR3_run.sh
+    -y "${years[@]}"
+    -t "${pkl_tag}"
+    -s "${chunk_size}"
+    --cr
+    --hist-vars "${vars[@]}"
+    # --do-systs
+    --do-np
+    -p "${output_dir}"
+    --category-groups "${cats[@]}"
+    --suppress-forward-eta-stochastic-jer
+    --all-analysis
+    # --split-lep-flavor
+  )
 
   echo "Executing:"
   printf ' %q' "${cmd[@]}"
@@ -113,117 +156,81 @@ local cmd=(
 
   "${cmd[@]}"
 
-  echo "${year} done"
+  echo "${year_expr} done"
   echo "----------------------------------------"
   echo
 }
 
+run_sr_block() {
+  local year_expr="$1"
+  shift
+
+  assert_supported_year_expr "${year_expr}"
+
+  local years=()
+  read -r -a years <<< "${year_expr}"
+
+  local cats=("$@")
+  local cat_tag
+  local pkl_tag
+
+  cat_tag=$(join_by - "${cats[@]}")
+  pkl_tag="${sr_pkl_base_tag}_${cat_tag}_${var_tag}"
+
+  echo "----------------------------------------"
+  echo "Years: ${year_expr}"
+  echo "Categories: ${cats[*]}"
+  echo "Output tag: ${pkl_tag}"
+  echo "Output dir: ${output_dir}"
+  echo "----------------------------------------"
+
+  clean_env_cache
+
+  local cmd=(
+    ./fullR3_run.sh
+    -y "${years[@]}"
+    -t "${pkl_tag}"
+    -s "${chunk_size}"
+    --sr
+    --hist-vars "${vars[@]}"
+    # --do-systs
+    --do-np
+    -p "${output_dir}"
+    --category-groups "${cats[@]}"
+    --suppress-forward-eta-stochastic-jer
+    --all-analysis
+    # --split-lep-flavor
+  )
+
+  echo "Executing:"
+  printf ' %q' "${cmd[@]}"
+  echo
+
+  "${cmd[@]}"
+
+  echo "${year_expr} done"
+  echo "----------------------------------------"
+  echo
+}
+
+# ###############################################################################
+# # Main CR production
+# ###############################################################################
+
+# for year_expr in "${cr_year_sets[@]}"; do
+#   for category_set in "${cr_category_sets[@]}"; do
+#     read -r -a cats <<< "${category_set}"
+#     run_cr_block "${year_expr}" "${cats[@]}"
+#   done
+# done
+
 ###############################################################################
-# Main CR production
+# Main SR production
 ###############################################################################
 
-for year in "${years[@]}"; do
-  for category_set in "${category_sets[@]}"; do
+for year_expr in "${sr_year_sets[@]}"; do
+  for category_set in "${sr_category_sets[@]}"; do
     read -r -a cats <<< "${category_set}"
-    run_cr_block "${year}" "${cats[@]}"
+    run_sr_block "${year_expr}" "${cats[@]}"
   done
 done
-
-###############################################################################
-# Parking area for future CR runs
-###############################################################################
-
-# If you later change the run_analysis.py CR hist list, update vars accordingly.
-#
-# Example if you restore lj0pt/met/fwd0eta:
-#
-# vars=(lj0pt met fwd0eta ptz ptz_wtau)
-# var_tag=$(IFS=-; echo "${vars[*]}")
-
-# Non-tau CR groups, first block:
-#
-# vars=(fwd0eta)
-# var_tag=$(IFS=-; echo "${vars[*]}")
-# category_sets=(
-#   "2l_CR 2l_CRflip 3l_CR"
-# )
-#
-# for year in "${years[@]}"; do
-#   for category_set in "${category_sets[@]}"; do
-#     read -r -a cats <<< "${category_set}"
-#     run_cr_block "${year}" "${cats[@]}"
-#   done
-# done
-
-# Non-tau CR groups, second block:
-#
-# vars=(fwd0eta)
-# var_tag=$(IFS=-; echo "${vars[*]}")
-# category_sets=(
-#   "2los_CRZ 2los_CRtt"
-# )
-#
-# for year in "${years[@]}"; do
-#   for category_set in "${category_sets[@]}"; do
-#     read -r -a cats <<< "${category_set}"
-#     run_cr_block "${year}" "${cats[@]}"
-#   done
-# done
-
-###############################################################################
-# Parking area for future SR runs
-###############################################################################
-
-# run_sr_block() {
-#   local year_expr="$1"
-#   shift
-#
-#   local cats=("$@")
-#   local cat_tag
-#   local pkl_tag
-#
-#   cat_tag=$(join_by - "${cats[@]}")
-#   pkl_tag="SR_fwdfix_pt70ext_${cat_tag}"
-#
-#   echo "----------------------------------------"
-#   echo "Years: ${year_expr}"
-#   echo "SR categories: ${cats[*]}"
-#   echo "Output tag: ${pkl_tag}"
-#   echo "Output dir: ${output_dir}"
-#   echo "----------------------------------------"
-#
-#   clean_env_cache
-#
-#   local cmd=(
-#     ./fullR3_run.sh
-#     -y "${year_expr}"
-#     -t "${pkl_tag}"
-#     -s "${chunk_size}"
-#     --sr
-#     --do-systs
-#     --do-np
-#     -p "${output_dir}"
-#     --category-groups "${cats[@]}"
-#     --suppress-forward-eta-stochastic-jer
-#     --all-analysis
-#   )
-#
-#   echo "Executing:"
-#   printf ' %q' "${cmd[@]}"
-#   echo
-#
-#   "${cmd[@]}"
-#
-#   echo "Done"
-#   echo "----------------------------------------"
-#   echo
-# }
-#
-# run_sr_block "2022 2022EE 2023 2023BPix" 2l
-# run_sr_block "2022 2022EE 2023 2023BPix" 2lss_1tau
-# run_sr_block "2022 2022EE 2023 2023BPix" 2los_1tau
-# run_sr_block "2022 2022EE 2023 2023BPix" 3l_m_offZ
-# run_sr_block "2022 2022EE 2023 2023BPix" 3l_p_offZ
-# run_sr_block "2022 2022EE 2023 2023BPix" 3l_onZ_tau
-# run_sr_block "2022 2022EE 2023 2023BPix" 3l_fwd
-# run_sr_block "2022 2022EE 2023 2023BPix" 4l
