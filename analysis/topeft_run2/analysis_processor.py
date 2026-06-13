@@ -434,7 +434,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 skip_hist = True
         elif self._analysis_mode == "fwd":
             if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
-                skip_hist = True
+                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
             if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
                 skip_hist = True
         else:
