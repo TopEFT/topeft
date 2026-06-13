@@ -18,6 +18,9 @@ PrintUsage() {
   echo "             Use one sample JSON instead of the default CFG bundle"
   echo "  --cfg-override CFG"
   echo "             Use one CFG file instead of the default CFG bundle"
+  echo "  --ttgamma-sample-role-policy POLICY"
+  echo "             Forward ttgamma sample-role policy to run_analysis.py"
+  echo "             Supported values: split, run2_nlo_inclusive"
   echo "  -p, --outpath PATH"
   echo "             Override the run_analysis.py output directory"
   echo "  --dry-run  Print the resolved run_analysis.py command and exit"
@@ -50,6 +53,7 @@ main() {
   local USER_CHUNK_OVERRIDE=false
   local USER_OUTPATH_OVERRIDE=false
   local USER_OUTPATH_OPTION_COUNT=0
+  local TTGAMMA_SAMPLE_ROLE_POLICY="split"
   local DEFAULT_OUTPATH="/groups/klannon/$USER/"
   local RESOLVED_OUTPATH="$DEFAULT_OUTPATH"
   local TAG=""
@@ -131,6 +135,35 @@ main() {
         fi
         CFG_OVERRIDE="$2"
         shift 2
+        ;;
+      --ttgamma-sample-role-policy)
+        if [[ $# -lt 2 || "$2" == -* ]]; then
+          echo "Error: --ttgamma-sample-role-policy requires a policy value"
+          return 1
+        fi
+        case "$2" in
+          split|run2_nlo_inclusive)
+            TTGAMMA_SAMPLE_ROLE_POLICY="$2"
+            ;;
+          *)
+            echo "Error: unsupported --ttgamma-sample-role-policy value: $2" >&2
+            echo "Supported values: split, run2_nlo_inclusive" >&2
+            return 1
+            ;;
+        esac
+        shift 2
+        ;;
+      --ttgamma-sample-role-policy=*)
+        TTGAMMA_SAMPLE_ROLE_POLICY="${1#--ttgamma-sample-role-policy=}"
+        case "$TTGAMMA_SAMPLE_ROLE_POLICY" in
+          split|run2_nlo_inclusive) ;;
+          *)
+            echo "Error: unsupported --ttgamma-sample-role-policy value: $TTGAMMA_SAMPLE_ROLE_POLICY" >&2
+            echo "Supported values: split, run2_nlo_inclusive" >&2
+            return 1
+            ;;
+        esac
+        shift
         ;;
       -h|--help)
         PrintUsage
@@ -375,6 +408,7 @@ main() {
   echo "Resolved region: $REGION_LABEL"
   echo "Resolved histogram list: ${HIST_LIST_ARGS[*]:1}"
   echo "Resolved output path: $RESOLVED_OUTPATH"
+  echo "Resolved ttgamma sample-role policy: $TTGAMMA_SAMPLE_ROLE_POLICY"
 
   # Define options based on mode
   local -a OPTIONS
@@ -414,6 +448,7 @@ main() {
   local -a RUN_CMD=(python run_analysis.py "$CFGS")
   RUN_CMD+=(--years "${RESOLVED_YEARS[@]}")
   RUN_CMD+=("${OPTIONS[@]}")
+  RUN_CMD+=(--ttgamma-sample-role-policy "$TTGAMMA_SAMPLE_ROLE_POLICY")
   if [[ "$FLAG_DEFER_NP" == "true" ]]; then
     RUN_CMD+=(--np-postprocess=defer)
   fi
