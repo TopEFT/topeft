@@ -25,6 +25,11 @@ from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
+from topeft.modules.ttgamma_photon_history import (
+    attach_conversion_overlap_removal_diagnostics,
+    attach_photon_history_diagnostics,
+    get_ttgamma_sample_role_policy,
+)
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
@@ -155,7 +160,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return bool(fill_sumw2_hist) and wgt_fluct == "nominal"
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto"):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split"):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -207,6 +212,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.tau_run_mode = tau_run_mode
         self.suppress_forward_eta_stochastic_jer = suppress_forward_eta_stochastic_jer
         self.fwd_eta_band_pt_apply = fwd_eta_band_pt_apply
+        self._ttgamma_sample_role_policy = get_ttgamma_sample_role_policy(
+            ttgamma_sample_role_policy
+        )
         # self._tau_wp_checked = False
 
         self._fill_sumw2_hist = bool(fill_sumw2_hist)  # Whether to fill the w**2 companion histograms
@@ -819,6 +827,17 @@ class AnalysisProcessor(processor.ProcessorABC):
             l_fo_conept_sorted = l_fo[
                 ak.argsort(l_fo.conept, axis=-1, ascending=False)
             ]
+            l_fo_conept_sorted = attach_photon_history_diagnostics(
+                events,
+                l_fo_conept_sorted,
+                None if isData else events.GenPart,
+            )
+            attach_conversion_overlap_removal_diagnostics(
+                events,
+                sample_name=events.metadata["dataset"],
+                is_data=isData,
+                sample_role_policy=self._ttgamma_sample_role_policy,
+            )
 
             #################### Taus ####################
 
@@ -1810,6 +1829,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
                                         else:
                                             all_cuts_mask = selections.all(*cuts_lst)
+                                        all_cuts_mask = (
+                                            all_cuts_mask
+                                            & events[
+                                                "ttgamma_photon_history_"
+                                                "pass_conversion_overlap_removal"
+                                            ]
+                                        )
                                         # Apply the optional cut on energy of the event
                                         if self._ecut_threshold is not None:
                                             all_cuts_mask = (all_cuts_mask & ecut_mask)
