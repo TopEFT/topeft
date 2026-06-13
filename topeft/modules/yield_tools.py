@@ -67,7 +67,25 @@ class YieldTools():
                     "NonPrompt2023BPix",
                 )
             ],
-            "conv"  : ["TTGamma_centralUL16"  ,"TTGamma_centralUL16APV"  ,"TTGamma_centralUL17"  ,"TTGamma_centralUL18"  ,"TTGamma_central2022", "TTGamma_central2022EE", "TTGamma_central2023", "TTGamma_central2023BPix"],
+            "conv"  : [
+                "TTGJets_centralUL16",
+                "TTGJets_centralUL16APV",
+                "TTGJets_centralUL17",
+                "TTGJets_centralUL18",
+                "TTGamma_centralUL16",
+                "TTGamma_centralUL16APV",
+                "TTGamma_centralUL17",
+                "TTGamma_centralUL18",
+                "TTGamma_central2022",
+                "TTGamma_central2022EE",
+                "TTGamma_central2023",
+                "TTGamma_central2023BPix",
+                *[
+                    f"TTG-1Jets_PTG-{pt_bin}_central{year}"
+                    for year in ("2022", "2022EE", "2023", "2023BPix")
+                    for pt_bin in ("10to100", "100to200", "200")
+                ],
+            ],
             "WW"    : ["WWTo2L2Nu_centralUL16","WWTo2L2Nu_centralUL16APV","WWTo2L2Nu_centralUL17","WWTo2L2Nu_centralUL18","WWTo2L2Nu_central2022", "WWTo2L2Nu_central2022EE", "WWTo2L2Nu_central2023", "WWTo2L2Nu_central2023BPix"],
             "WZ"    : ["WZTo3LNu_centralUL16" ,"WZTo3LNu_centralUL16APV" ,"WZTo3LNu_centralUL17" ,"WZTo3LNu_centralUL18","WZTo3LNu_central2022","WZTo3LNu_central2022EE", "WZTo3LNu_central2023", "WZTo3LNu_central2023BPix"],
             "ZZ"    : ["ZZTo4L_centralUL16"   ,"ZZTo4L_centralUL16APV"   ,"ZZTo4L_centralUL17"   ,"ZZTo4L_centralUL18"   ,"ZZTo4L_central2022", "ZZTo4L_central2022EE",  "ZZTo4L_central2023",  "ZZTo4L_central2023BPix"],
@@ -856,4 +874,3 @@ class YieldTools():
 
             print_ratios(yld_sum_dict["ee"],yld_sum_dict["mm"],2)
             print_ratios(yld_sum_dict["eee"],yld_sum_dict["mmm"],3)
-

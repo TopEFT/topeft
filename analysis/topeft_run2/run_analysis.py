@@ -24,6 +24,11 @@ from topeft.modules.deferred_np_metadata import (
     build_np_followup_command,
 )
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
+from topeft.modules.ttgamma_photon_history import (
+    SPLIT_SAMPLE_ROLE_POLICY,
+    SUPPORTED_SAMPLE_ROLE_POLICIES,
+    get_ttgamma_sample_role_policy,
+)
 import analysis_processor
 from analysis.topeft_run2.analysis_processor import (
     ANALYSIS_MODE_EXCLUSIVE_ERROR,
@@ -834,6 +839,16 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
+        "--ttgamma-sample-role-policy",
+        choices=list(SUPPORTED_SAMPLE_ROLE_POLICIES),
+        default=SPLIT_SAMPLE_ROLE_POLICY,
+        help=(
+            "Select the ttgamma conversion-overlap sample-role policy. "
+            "Use 'split' for nominal Run 2 production/decay role splitting, "
+            "or 'run2_nlo_inclusive' for the diagnostic Run 2 TTGJets-inclusive mode."
+        ),
+    )
+    parser.add_argument(
         "--ecut",
         default=None,
         help="Energy cut threshold i.e. throw out events above this (GeV)",
@@ -944,6 +959,7 @@ if __name__ == "__main__":
     wq_filepath = args.wq_filepath
     hist_list = args.hist_list
     category_groups = args.category_groups
+    ttgamma_sample_role_policy = args.ttgamma_sample_role_policy
     analysis_mode = args.analysis_mode
     env_file_override = args.env_file
     use_remote_env = args.use_remote_env
@@ -990,6 +1006,10 @@ if __name__ == "__main__":
         wc_lst = ops.pop("wc_list", wc_lst)
         hist_list = ops.pop("hist_list", hist_list)
         category_groups = ops.pop("category_groups", category_groups)
+        ttgamma_sample_role_policy = ops.pop(
+            "ttgamma_sample_role_policy",
+            ttgamma_sample_role_policy,
+        )
         port = ops.pop("port", port)
         wq_filepath = ops.pop("wq_filepath", wq_filepath)
         ecut = ops.pop("ecut", ecut)
@@ -1012,6 +1032,12 @@ if __name__ == "__main__":
     tau_h_analysis = validated_mode_flags["tau_h_analysis"]
     fwd_analysis = validated_mode_flags["fwd_analysis"]
     all_analysis = validated_mode_flags["all_analysis"]
+    try:
+        ttgamma_sample_role_policy = get_ttgamma_sample_role_policy(
+            ttgamma_sample_role_policy
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     _ensure_topcoffea_data_available(skip_topcoffea_data_check)
 
     out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
@@ -1173,6 +1199,11 @@ if __name__ == "__main__":
         hist_lst = hist_list
 
     print("Resolved histogram list: {}".format(", ".join(hist_lst)))
+    print(
+        "Resolved ttgamma sample-role policy: {}".format(
+            ttgamma_sample_role_policy
+        )
+    )
 
     ### Load samples from json
     samplesdict = {}
@@ -1501,6 +1532,7 @@ if __name__ == "__main__":
                 "skip_sr": skip_sr,
                 "skip_cr": skip_cr,
                 "do_systs": do_systs,
+                "ttgamma_sample_role_policy": ttgamma_sample_role_policy,
                 "fwd_eta_band_pt_apply": fwd_eta_band_pt_apply,
                 "fill_sumw2": fill_sumw2,
                 "useRun3MVA": useRun3MVA,
@@ -1592,6 +1624,7 @@ if __name__ == "__main__":
         cr_category_dict=category_group_selection["cr_category_dict"],
         suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
         fwd_eta_band_pt_apply=fwd_eta_band_pt_apply,
+        ttgamma_sample_role_policy=ttgamma_sample_role_policy,
     )
 
     if executor_name in ["work_queue", "taskvine"]:
@@ -1633,7 +1666,7 @@ if __name__ == "__main__":
             # exploratory mode.
             # 'cores': 1,
             # 'disk': 10000,   #MB
-            # 'memory': 4000, #MB
+            # 'memory': 16000, #MB
             # control the size of accumulation tasks.
             # "treereduction": 10,
             # terminate workers on which tasks have been running longer than average.

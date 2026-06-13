@@ -10,15 +10,22 @@ cd /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2
 output_dir="/groups/klannon/apiccine/photons"
 chunk_size="100000"
 
-# Use a branch-specific tag to avoid mixing baseline and feature outputs.
+# Nominal TOP-23-002-like ttgamma sample-role strategy.
 #
-# Suggested usage:
-#   on run3_test_mmerged_anpicci:
-#     campaign_tag="photon_fbranch_baseline"
+# Run 2:
+#   TTGJets NLO                         -> production-like ttgamma
+#   TTGamma_Dilept / TTGamma_SingleLept -> decay-like ttgamma
+#   inclusive ttbar                     -> veto selected external-conversion-like leptons
 #
-#   on te/ttgamma_conversion_photon_diagnostics:
-#     campaign_tag="photon_fbranch_feature"
-campaign_tag="photon_fbranch_baseline"
+# Run 3:
+#   TTG-1Jets_PTG-*                     -> inclusive ttgamma treatment
+#   inclusive ttbar                     -> veto selected external-conversion-like leptons
+#
+# The diagnostic Run 2 NLO-only policy is intentionally not used here.
+ttgamma_sample_role_policy="split"
+
+# Use a strategy-specific tag to avoid mixing baseline/feature/diagnostic outputs.
+campaign_tag="rolepolicy_v2"
 
 cr_pkl_base_tag="CR_${campaign_tag}"
 sr_pkl_base_tag="SR_${campaign_tag}"
@@ -26,6 +33,13 @@ sr_pkl_base_tag="SR_${campaign_tag}"
 # Variables to be produced in both CR and SR pkls.
 vars=(lj0pt ptz)
 var_tag=$(IFS=-; echo "${vars[*]}")
+
+# Execution switches.
+#
+# Current default preserves the recent usage: produce SR pkls only.
+# Set run_cr=true when you want CR production as well.
+run_cr=false
+run_sr=true
 
 ###############################################################################
 # CR configuration
@@ -76,6 +90,7 @@ sr_category_sets=(
 join_by() {
   local delimiter="$1"
   shift
+
   local IFS="$delimiter"
   echo "$*"
 }
@@ -89,6 +104,7 @@ clean_env_cache() {
 assert_supported_year_expr() {
   local year_expr="$1"
   local year
+  local years_in_expr=()
 
   read -r -a years_in_expr <<< "${year_expr}"
 
@@ -108,6 +124,13 @@ EOF
   done
 }
 
+print_command() {
+  local -a cmd=("$@")
+
+  echo "Executing:"
+  printf ' %q' "${cmd[@]}"
+  echo
+}
 
 run_cr_block() {
   local year_expr="$1"
@@ -126,8 +149,11 @@ run_cr_block() {
   pkl_tag="${cr_pkl_base_tag}_${cat_tag}_${var_tag}"
 
   echo "----------------------------------------"
+  echo "Mode: CR"
   echo "Years: ${year_expr}"
   echo "Categories: ${cats[*]}"
+  echo "ttgamma sample-role policy: ${ttgamma_sample_role_policy}"
+  echo "Campaign tag: ${campaign_tag}"
   echo "Output tag: ${pkl_tag}"
   echo "Output dir: ${output_dir}"
   echo "----------------------------------------"
@@ -141,6 +167,7 @@ run_cr_block() {
     -s "${chunk_size}"
     --cr
     --hist-vars "${vars[@]}"
+    --ttgamma-sample-role-policy "${ttgamma_sample_role_policy}"
     # --do-systs
     --do-np
     -p "${output_dir}"
@@ -150,13 +177,10 @@ run_cr_block() {
     # --split-lep-flavor
   )
 
-  echo "Executing:"
-  printf ' %q' "${cmd[@]}"
-  echo
-
+  print_command "${cmd[@]}"
   "${cmd[@]}"
 
-  echo "${year_expr} done"
+  echo "${year_expr} CR done"
   echo "----------------------------------------"
   echo
 }
@@ -178,8 +202,11 @@ run_sr_block() {
   pkl_tag="${sr_pkl_base_tag}_${cat_tag}_${var_tag}"
 
   echo "----------------------------------------"
+  echo "Mode: SR"
   echo "Years: ${year_expr}"
   echo "Categories: ${cats[*]}"
+  echo "ttgamma sample-role policy: ${ttgamma_sample_role_policy}"
+  echo "Campaign tag: ${campaign_tag}"
   echo "Output tag: ${pkl_tag}"
   echo "Output dir: ${output_dir}"
   echo "----------------------------------------"
@@ -193,6 +220,7 @@ run_sr_block() {
     -s "${chunk_size}"
     --sr
     --hist-vars "${vars[@]}"
+    --ttgamma-sample-role-policy "${ttgamma_sample_role_policy}"
     # --do-systs
     --do-np
     -p "${output_dir}"
@@ -202,35 +230,79 @@ run_sr_block() {
     # --split-lep-flavor
   )
 
-  echo "Executing:"
-  printf ' %q' "${cmd[@]}"
-  echo
-
+  print_command "${cmd[@]}"
   "${cmd[@]}"
 
-  echo "${year_expr} done"
+  echo "${year_expr} SR done"
   echo "----------------------------------------"
   echo
 }
 
-# ###############################################################################
-# # Main CR production
-# ###############################################################################
+###############################################################################
+# Preflight summary
+###############################################################################
 
-# for year_expr in "${cr_year_sets[@]}"; do
-#   for category_set in "${cr_category_sets[@]}"; do
-#     read -r -a cats <<< "${category_set}"
-#     run_cr_block "${year_expr}" "${cats[@]}"
-#   done
-# done
+echo "========================================"
+echo "run_cr.sh configuration"
+echo "campaign_tag: ${campaign_tag}"
+echo "ttgamma sample-role policy: ${ttgamma_sample_role_policy}"
+echo "output_dir: ${output_dir}"
+echo "chunk_size: ${chunk_size}"
+echo "vars: ${vars[*]}"
+echo "run_cr: ${run_cr}"
+echo "run_sr: ${run_sr}"
+echo "========================================"
+echo
+
+case "${ttgamma_sample_role_policy}" in
+  split) ;;
+  *)
+    cat >&2 <<EOF
+ERROR: this production helper is intended to run the nominal split policy.
+
+Current ttgamma_sample_role_policy:
+  ${ttgamma_sample_role_policy}
+
+Expected:
+  split
+EOF
+    exit 1
+    ;;
+esac
+
+###############################################################################
+# Main CR production
+###############################################################################
+
+if [[ "${run_cr}" == "true" ]]; then
+  for year_expr in "${cr_year_sets[@]}"; do
+    for category_set in "${cr_category_sets[@]}"; do
+      read -r -a cats <<< "${category_set}"
+      run_cr_block "${year_expr}" "${cats[@]}"
+    done
+  done
+else
+  echo "Skipping CR production because run_cr=${run_cr}"
+  echo
+fi
 
 ###############################################################################
 # Main SR production
 ###############################################################################
 
-for year_expr in "${sr_year_sets[@]}"; do
-  for category_set in "${sr_category_sets[@]}"; do
-    read -r -a cats <<< "${category_set}"
-    run_sr_block "${year_expr}" "${cats[@]}"
+if [[ "${run_sr}" == "true" ]]; then
+  for year_expr in "${sr_year_sets[@]}"; do
+    for category_set in "${sr_category_sets[@]}"; do
+      read -r -a cats <<< "${category_set}"
+      run_sr_block "${year_expr}" "${cats[@]}"
+    done
   done
-done
+else
+  echo "Skipping SR production because run_sr=${run_sr}"
+  echo
+fi
+
+echo "run_cr.sh completed"
+echo "campaign_tag: ${campaign_tag}"
+echo "ttgamma sample-role policy: ${ttgamma_sample_role_policy}"
+echo "output_dir: ${output_dir}"

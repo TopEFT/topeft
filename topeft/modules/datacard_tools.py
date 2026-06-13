@@ -450,6 +450,7 @@ class DatacardMaker():
         ],
         "convs": [
             "TTGamma_",
+            "TTGJets_",
             "TTG-1Jets_",
             "TTG-1Jets_PTG-100to200_",
             "TTG-1Jets_PTG-10to100_",
@@ -652,7 +653,6 @@ class DatacardMaker():
             "ST_antitop_t-channel", "ST_top_s-channel", "ST_top_t-channel", "tbarW", "tW",
             "TTJets",
             "WJetsToLNu",
-            "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
             # from run3
             "ST_tbarW_Leptonic",
             "ST_tbarW_Semileptonic",
@@ -668,7 +668,6 @@ class DatacardMaker():
             "ZG_MLL-4to50_PTG-200",
             "ZG_MLL-4to50_PTG-100to200",
             "ZG_MLL-50_PTG-400to600", # --> up to here
-            "TTG-1Jets_PTG-200",
             "DYJetsToLL_MLL-50",
             # "TTGamma",
             # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
