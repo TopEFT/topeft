@@ -7,7 +7,7 @@ cd /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2
 # Global configuration
 ###############################################################################
 
-output_dir="/groups/klannon/apiccine/photons"
+output_dir="/groups/klannon/apiccine/preappr_260613"
 chunk_size="100000"
 
 # Nominal TOP-23-002-like ttgamma sample-role strategy.
@@ -25,59 +25,114 @@ chunk_size="100000"
 ttgamma_sample_role_policy="split"
 
 # Use a strategy-specific tag to avoid mixing baseline/feature/diagnostic outputs.
-campaign_tag="rolepolicy_v2"
+campaign_tag="preappr"
 
-cr_pkl_base_tag="CR_${campaign_tag}"
-sr_pkl_base_tag="SR_${campaign_tag}"
-
-# Variables to be produced in both CR and SR pkls.
-vars=(lj0pt ptz)
-var_tag=$(IFS=-; echo "${vars[*]}")
+cr_pkl_base_tag="${campaign_tag}"
+sr_pkl_base_tag="${campaign_tag}"
 
 # Execution switches.
 #
-# Current default preserves the recent usage: produce SR pkls only.
-# Set run_cr=true when you want CR production as well.
-run_cr=false
-run_sr=true
+# This script is currently configured for Yuyi's CR distribution request.
+run_cr=true
+run_sr=false
+
+# Useful while checking resolved years/categories/histograms without launching production.
+dry_run=true
+
+# Current CR distribution production mode.
+#
+# Yuyi's request is for distributions, and the previous colleague-facing setup used
+# systematic variations for CR plotting. Keep nonprompt disabled unless explicitly needed.
+do_systs=true
+do_np=false
+
+# Enable only if the colleague explicitly needs lepton-flavour split outputs.
+split_lep_flavor=false
+
+###############################################################################
+# Histogram variable chunks
+###############################################################################
+
+# Each entry is one independent histogram chunk.
+#
+# Important:
+#   These are intentionally strings. Each string is split into a real bash array
+#   inside run_cr_block/run_sr_block before passing --hist-vars to fullR3_run.sh.
+#
+# Requested coverage:
+#   - fwd0pt for all periods/regions;
+#   - fwd0eta, lj0pt, lt, met, ptz for the relevant non-tau CRs;
+#   - ptz_wtau and tau variables for tau CR coverage;
+#   - invmass, j0eta, j0pt, l0/l1 variables, ljptsum, nbtagsl, njets for tau CRs.
+var_sets=(
+  "fwd0pt fwd0eta lj0pt lt"
+  "met ptz njets nbtagsl"
+  "l0conept l0eta l1conept l1eta"
+  "j0pt j0eta invmass ljptsum"
+  "j1pt j1eta nbtagsm npvsGood"
+  # "ptz_wtau tau0Fpt tau0Tpt"
+)
 
 ###############################################################################
 # CR configuration
 ###############################################################################
 
-# Each entry is one independent year expression passed to fullR3_run.sh.
-# Examples:
-#   cr_year_sets=(2022EE 2018)        # two separate runs
-#   cr_year_sets=("2022EE 2018")      # one combined run
+# Keep year periods separate so the output pkls are period-specific.
+#
+# Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
 cr_year_sets=(
-  "2022EE 2018"
+  2016APV
+  2016
+  2017
+  2018
+  2022
+  2022EE
+  2023
+  2023BPix
 )
 
-# Each entry is one independent subset of categories.
-# The script will run all subsets for every year expression.
+# Current category names used by the analysis helpers.
+#
+# Mapping to Yuyi labels:
+#   2los_Z      -> 2los_CRZ
+#   2lss_flip   -> 2l_CRflip
+#   2los_tt     -> 2los_CRtt
+#   3l          -> 3l_CR
+#   dy_tautau   -> 1l_1tau_CRDY
+#   1l_1tau_tt  -> 1l_1tau_CRtt
+#
+# The aggregate 2los_1tau group is included for the 2los tau request.
+# If the branch has explicit 2los_1tau_Ftau / 2los_1tau_Ttau category groups,
+# they can be added as separate entries after confirming the exact names.
 cr_category_sets=(
+  "2los_CRZ"
+  "2l_CRflip"
   "2los_CRtt"
-  # "2l_CR 2los_CRtt 3l_CR"
-  # "2los_CRZ 2l_CRflip"
-  # "2los_1tau 1l_1tau_CRtt 1l_1tau_CRDY"
+  "2l_CR"
+  "3l_CR"
+  # "1l_1tau_CRtt"
+  # "1l_1tau_CRDY"
+  # "2los_1tau"
+  # "2los_1tau_Ftau"
+  # "2los_1tau_Ttau"
 )
 
 ###############################################################################
 # SR configuration
 ###############################################################################
 
-# Each entry is one independent year expression passed to fullR3_run.sh.
-# Examples:
-#   sr_year_sets=(2022 2022EE 2023 2023BPix)              # separate runs
-#   sr_year_sets=("2022 2022EE 2023 2023BPix")            # one combined run
+# Kept available, but disabled by default for this request.
 sr_year_sets=(
+  2022
   2022EE
+  2023
+  2023BPix
+  2016APV
+  2016
+  2017
   2018
-  # "2022 2022EE 2023 2023BPix"
 )
 
-# Each entry is one independent subset of categories.
-# Grouped entries produce one pkl per grouped set.
 sr_category_sets=(
   "2l 2lss_1tau 2los_1tau 3l_m_offZ"
   "3l_p_offZ 3l_onZ_tau 3l_fwd 4l"
@@ -93,6 +148,16 @@ join_by() {
 
   local IFS="$delimiter"
   echo "$*"
+}
+
+bool_to_option_enabled() {
+  case "$1" in
+    true|false) ;;
+    *)
+      echo "ERROR: expected boolean true/false, got '$1'" >&2
+      exit 1
+      ;;
+  esac
 }
 
 clean_env_cache() {
@@ -132,30 +197,76 @@ print_command() {
   echo
 }
 
+print_var_sets() {
+  local var_set
+  local index=0
+
+  for var_set in "${var_sets[@]}"; do
+    index=$((index + 1))
+    echo "  ${index}: ${var_set}"
+  done
+}
+
+build_common_command_options() {
+  local -n cmd_ref="$1"
+
+  cmd_ref+=(--ttgamma-sample-role-policy "${ttgamma_sample_role_policy}")
+
+  if [[ "${do_systs}" == "true" ]]; then
+    cmd_ref+=(--do-systs)
+  fi
+
+  if [[ "${do_np}" == "true" ]]; then
+    cmd_ref+=(--do-np)
+  fi
+
+  cmd_ref+=(
+    -p "${output_dir}"
+    --suppress-forward-eta-stochastic-jer
+    --all-analysis
+  )
+
+  if [[ "${split_lep_flavor}" == "true" ]]; then
+    cmd_ref+=(--split-lep-flavor)
+  fi
+
+  if [[ "${dry_run}" == "true" ]]; then
+    cmd_ref+=(--dry-run)
+  fi
+}
+
 run_cr_block() {
   local year_expr="$1"
-  shift
+  local var_set="$2"
+  shift 2
 
   assert_supported_year_expr "${year_expr}"
 
   local years=()
   read -r -a years <<< "${year_expr}"
 
+  local vars=()
+  read -r -a vars <<< "${var_set}"
+
   local cats=("$@")
   local cat_tag
+  local var_tag
   local pkl_tag
 
   cat_tag=$(join_by - "${cats[@]}")
+  var_tag=$(join_by - "${vars[@]}")
   pkl_tag="${cr_pkl_base_tag}_${cat_tag}_${var_tag}"
 
   echo "----------------------------------------"
   echo "Mode: CR"
   echo "Years: ${year_expr}"
   echo "Categories: ${cats[*]}"
+  echo "Variables: ${vars[*]}"
   echo "ttgamma sample-role policy: ${ttgamma_sample_role_policy}"
   echo "Campaign tag: ${campaign_tag}"
   echo "Output tag: ${pkl_tag}"
   echo "Output dir: ${output_dir}"
+  echo "Dry run: ${dry_run}"
   echo "----------------------------------------"
 
   clean_env_cache
@@ -167,48 +278,51 @@ run_cr_block() {
     -s "${chunk_size}"
     --cr
     --hist-vars "${vars[@]}"
-    --ttgamma-sample-role-policy "${ttgamma_sample_role_policy}"
-    # --do-systs
-    --do-np
-    -p "${output_dir}"
     --category-groups "${cats[@]}"
-    --suppress-forward-eta-stochastic-jer
-    --all-analysis
-    # --split-lep-flavor
   )
+
+  build_common_command_options cmd
 
   print_command "${cmd[@]}"
   "${cmd[@]}"
 
-  echo "${year_expr} CR done"
+  echo "${year_expr} CR done for ${cat_tag} / ${var_tag}"
   echo "----------------------------------------"
   echo
 }
 
 run_sr_block() {
   local year_expr="$1"
-  shift
+  local var_set="$2"
+  shift 2
 
   assert_supported_year_expr "${year_expr}"
 
   local years=()
   read -r -a years <<< "${year_expr}"
 
+  local vars=()
+  read -r -a vars <<< "${var_set}"
+
   local cats=("$@")
   local cat_tag
+  local var_tag
   local pkl_tag
 
   cat_tag=$(join_by - "${cats[@]}")
+  var_tag=$(join_by - "${vars[@]}")
   pkl_tag="${sr_pkl_base_tag}_${cat_tag}_${var_tag}"
 
   echo "----------------------------------------"
   echo "Mode: SR"
   echo "Years: ${year_expr}"
   echo "Categories: ${cats[*]}"
+  echo "Variables: ${vars[*]}"
   echo "ttgamma sample-role policy: ${ttgamma_sample_role_policy}"
   echo "Campaign tag: ${campaign_tag}"
   echo "Output tag: ${pkl_tag}"
   echo "Output dir: ${output_dir}"
+  echo "Dry run: ${dry_run}"
   echo "----------------------------------------"
 
   clean_env_cache
@@ -220,20 +334,15 @@ run_sr_block() {
     -s "${chunk_size}"
     --sr
     --hist-vars "${vars[@]}"
-    --ttgamma-sample-role-policy "${ttgamma_sample_role_policy}"
-    # --do-systs
-    --do-np
-    -p "${output_dir}"
     --category-groups "${cats[@]}"
-    --suppress-forward-eta-stochastic-jer
-    --all-analysis
-    # --split-lep-flavor
   )
+
+  build_common_command_options cmd
 
   print_command "${cmd[@]}"
   "${cmd[@]}"
 
-  echo "${year_expr} SR done"
+  echo "${year_expr} SR done for ${cat_tag} / ${var_tag}"
   echo "----------------------------------------"
   echo
 }
@@ -242,15 +351,27 @@ run_sr_block() {
 # Preflight summary
 ###############################################################################
 
+bool_to_option_enabled "${run_cr}"
+bool_to_option_enabled "${run_sr}"
+bool_to_option_enabled "${dry_run}"
+bool_to_option_enabled "${do_systs}"
+bool_to_option_enabled "${do_np}"
+bool_to_option_enabled "${split_lep_flavor}"
+
 echo "========================================"
 echo "run_cr.sh configuration"
 echo "campaign_tag: ${campaign_tag}"
 echo "ttgamma sample-role policy: ${ttgamma_sample_role_policy}"
 echo "output_dir: ${output_dir}"
 echo "chunk_size: ${chunk_size}"
-echo "vars: ${vars[*]}"
 echo "run_cr: ${run_cr}"
 echo "run_sr: ${run_sr}"
+echo "dry_run: ${dry_run}"
+echo "do_systs: ${do_systs}"
+echo "do_np: ${do_np}"
+echo "split_lep_flavor: ${split_lep_flavor}"
+echo "variable chunks:"
+print_var_sets
 echo "========================================"
 echo
 
@@ -278,7 +399,10 @@ if [[ "${run_cr}" == "true" ]]; then
   for year_expr in "${cr_year_sets[@]}"; do
     for category_set in "${cr_category_sets[@]}"; do
       read -r -a cats <<< "${category_set}"
-      run_cr_block "${year_expr}" "${cats[@]}"
+
+      for var_set in "${var_sets[@]}"; do
+        run_cr_block "${year_expr}" "${var_set}" "${cats[@]}"
+      done
     done
   done
 else
@@ -294,7 +418,10 @@ if [[ "${run_sr}" == "true" ]]; then
   for year_expr in "${sr_year_sets[@]}"; do
     for category_set in "${sr_category_sets[@]}"; do
       read -r -a cats <<< "${category_set}"
-      run_sr_block "${year_expr}" "${cats[@]}"
+
+      for var_set in "${var_sets[@]}"; do
+        run_sr_block "${year_expr}" "${var_set}" "${cats[@]}"
+      done
     done
   done
 else
