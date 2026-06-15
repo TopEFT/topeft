@@ -37,14 +37,14 @@ run_cr=true
 run_sr=false
 
 # Useful while checking resolved years/categories/histograms without launching production.
-dry_run=true
+dry_run=false
 
 # Current CR distribution production mode.
 #
 # Yuyi's request is for distributions, and the previous colleague-facing setup used
 # systematic variations for CR plotting. Keep nonprompt disabled unless explicitly needed.
 do_systs=true
-do_np=false
+do_np=true
 
 # Enable only if the colleague explicitly needs lepton-flavour split outputs.
 split_lep_flavor=false
@@ -65,11 +65,8 @@ split_lep_flavor=false
 #   - ptz_wtau and tau variables for tau CR coverage;
 #   - invmass, j0eta, j0pt, l0/l1 variables, ljptsum, nbtagsl, njets for tau CRs.
 var_sets=(
-  "fwd0pt fwd0eta lj0pt lt"
-  "met ptz njets nbtagsl"
-  "l0conept l0eta l1conept l1eta"
-  "j0pt j0eta invmass ljptsum"
-  "j1pt j1eta nbtagsm npvsGood"
+  "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
+  "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
   # "ptz_wtau tau0Fpt tau0Tpt"
 )
 
