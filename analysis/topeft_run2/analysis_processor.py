@@ -88,6 +88,23 @@ def derive_analysis_enable_toggles(offz_3l_split, tau_h_analysis, fwd_analysis, 
     }
 
 
+def get_veto_map_input_jets(cleaned_jets, year, is_run3):
+    if not is_run3:
+        return cleaned_jets
+
+    jet_id_mask = tc_os.run3_nanoV12_ak4puppi_jet_id(
+        cleaned_jets,
+        year,
+        working_point="tight_lepton_veto",
+    )
+    em_fraction_mask = (cleaned_jets.chEmEF + cleaned_jets.neEmEF) < 0.9
+    return cleaned_jets[
+        (cleaned_jets.pt > 15.0)
+        & jet_id_mask
+        & em_fraction_mask
+    ]
+
+
 def resolve_category_dict_names(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
     if all_analysis:
         sr_dict_name = "ALL_CH_LST_SR"
@@ -949,7 +966,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Jet Veto Maps
             # Removes events that have ANY jet in a specific eta-phi space (not required for Run 2)
             # Zero is passing the veto map, so Run 2 will be assigned an array of length events with all zeros
-            veto_map_array = ApplyJetVetoMaps(cleanedJets, year) if is_run3 else ak.zeros_like(met.pt)
+            veto_map_input_jets = get_veto_map_input_jets(cleanedJets, year, is_run3)
+            veto_map_array = ApplyJetVetoMaps(veto_map_input_jets, year) if is_run3 else ak.zeros_like(met.pt)
             veto_map_mask = (veto_map_array == 0)
 
             # Selecting jets and cleaning them
