@@ -176,6 +176,9 @@ def get_jerc_keys(year, isdata, era=None, corr_type="jets"):
     if corr_type == "type1_met":
         type1_levels_key = "type1_jec_levels_data" if isdata else "type1_jec_levels_mc"
         jec_levels = jerc_dict[year].get(type1_levels_key, jec_levels)
+    elif corr_type == "jets":
+        levels_key = "jec_levels_data" if isdata else "jec_levels_mc"
+        jec_levels = jerc_dict[year].get(levels_key, jec_levels)
 
     # jerc keys and junc types
     if not isdata:

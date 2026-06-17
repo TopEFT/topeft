@@ -123,15 +123,33 @@ def test_run2_type1_data_jec_levels_include_residuals(year, era):
 
 
 @pytest.mark.parametrize("year", ["2016APV", "2016", "2017", "2018"])
-def test_regular_run2_analysis_jet_jec_levels_are_unchanged(year):
+def test_regular_run2_mc_analysis_jet_jec_levels_use_full_l1l2l3(year):
     _, _, levels, _, _ = get_jerc_keys(year, isdata=False, corr_type="jets")
 
-    assert levels == ["L1FastJet", "L2Relative"]
+    assert levels == ["L1FastJet", "L2Relative", "L3Absolute"]
+
+
+@pytest.mark.parametrize(
+    ("year", "era"),
+    [("2016APV", "B"), ("2016", "F"), ("2017", "B"), ("2018", "A")],
+)
+def test_regular_run2_data_analysis_jet_jec_levels_include_residuals(year, era):
+    _, _, levels, _, _ = get_jerc_keys(year, isdata=True, era=era, corr_type="jets")
+
+    assert levels == ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"]
 
 
 def test_run3_type1_jec_levels_are_unchanged():
     _, _, mc_levels, _, _ = get_jerc_keys("2022", isdata=False, corr_type="type1_met")
     _, _, data_levels, _, _ = get_jerc_keys("2022", isdata=True, era="C", corr_type="type1_met")
+
+    assert mc_levels == ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"]
+    assert data_levels == ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"]
+
+
+def test_run3_regular_jet_jec_levels_are_unchanged():
+    _, _, mc_levels, _, _ = get_jerc_keys("2022", isdata=False, corr_type="jets")
+    _, _, data_levels, _, _ = get_jerc_keys("2022", isdata=True, era="C", corr_type="jets")
 
     assert mc_levels == ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"]
     assert data_levels == ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"]
