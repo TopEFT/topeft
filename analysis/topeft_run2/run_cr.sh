@@ -8,7 +8,7 @@ cd /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2
 ###############################################################################
 
 output_dir="/groups/klannon/apiccine/preappr_260613"
-chunk_size="100000"
+chunk_size="50000"
 
 # Nominal TOP-23-002-like ttgamma sample-role strategy.
 #
@@ -102,10 +102,8 @@ cr_year_sets=(
 # If the branch has explicit 2los_1tau_Ftau / 2los_1tau_Ttau category groups,
 # they can be added as separate entries after confirming the exact names.
 cr_category_sets=(
-  "2los_CRZ"
-  "2l_CRflip"
-  "2los_CRtt"
-  "2l_CR"
+  "2los_CRZ 2l_CRflip"
+  "2los_CRtt 2l_CR"
   "3l_CR"
   # "1l_1tau_CRtt"
   # "1l_1tau_CRDY"
