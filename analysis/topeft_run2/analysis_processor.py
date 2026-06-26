@@ -963,13 +963,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 cleanedJets["isTauClean"] = te_os.isClean(cleanedJets, cleaning_taus, drmin=0.5)
                 cleanedJets = cleanedJets[cleanedJets.isTauClean]
 
-            # Jet Veto Maps
-            # Removes events that have ANY jet in a specific eta-phi space (not required for Run 2)
-            # Zero is passing the veto map, so Run 2 will be assigned an array of length events with all zeros
-            veto_map_input_jets = get_veto_map_input_jets(cleanedJets, year, is_run3)
-            veto_map_array = ApplyJetVetoMaps(veto_map_input_jets, year) if is_run3 else ak.zeros_like(met.pt)
-            veto_map_mask = (veto_map_array == 0)
-
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
@@ -990,6 +983,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer,
             ).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
+
+            # Jet Veto Maps
+            # Removes events that have ANY jet in a specific eta-phi space (not required for Run 2)
+            # Zero is passing the veto map, so Run 2 will be assigned an array of length events with all zeros
+            veto_map_input_jets = get_veto_map_input_jets(cleanedJets, year, is_run3)
+            veto_map_array = ApplyJetVetoMaps(veto_map_input_jets, year) if is_run3 else ak.zeros_like(met.pt)
+            veto_map_mask = (veto_map_array == 0)
+
             if use_type1_met(year):
                 met = ApplyMETSystematics(type1_met, syst_var)
             else:
