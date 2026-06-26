@@ -88,6 +88,23 @@ def derive_analysis_enable_toggles(offz_3l_split, tau_h_analysis, fwd_analysis, 
     }
 
 
+def get_veto_map_input_jets(cleaned_jets, year, is_run3):
+    if not is_run3:
+        return cleaned_jets
+
+    jet_id_mask = tc_os.run3_nanoV12_ak4puppi_jet_id(
+        cleaned_jets,
+        year,
+        working_point="tight_lepton_veto",
+    )
+    em_fraction_mask = (cleaned_jets.chEmEF + cleaned_jets.neEmEF) < 0.9
+    return cleaned_jets[
+        (cleaned_jets.pt > 15.0)
+        & jet_id_mask
+        & em_fraction_mask
+    ]
+
+
 def resolve_category_dict_names(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
     if all_analysis:
         sr_dict_name = "ALL_CH_LST_SR"
@@ -417,8 +434,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     lep_chan,
                     allow_offz_split=True,
                 )
-            if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
-                skip_hist = True
+            # if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
+            #     skip_hist = True
             if (("ptz_wtau" in dense_axis_name) and not self._should_fill_ptz_wtau_channel(lep_chan)):
                 skip_hist = True
         elif self._analysis_mode == "offz":
@@ -434,9 +451,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 skip_hist = True
         elif self._analysis_mode == "fwd":
             if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
-                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
-            if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
                 skip_hist = True
+            # if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
+            #     skip_hist = True
         else:
             if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
                 skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
@@ -946,12 +963,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 cleanedJets["isTauClean"] = te_os.isClean(cleanedJets, cleaning_taus, drmin=0.5)
                 cleanedJets = cleanedJets[cleanedJets.isTauClean]
 
-            # Jet Veto Maps
-            # Removes events that have ANY jet in a specific eta-phi space (not required for Run 2)
-            # Zero is passing the veto map, so Run 2 will be assigned an array of length events with all zeros
-            veto_map_array = ApplyJetVetoMaps(cleanedJets, year) if is_run3 else ak.zeros_like(met.pt)
-            veto_map_mask = (veto_map_array == 0)
-
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
@@ -972,6 +983,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer,
             ).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
+
+            # Jet Veto Maps
+            # Removes events that have ANY jet in a specific eta-phi space (not required for Run 2)
+            # Zero is passing the veto map, so Run 2 will be assigned an array of length events with all zeros
+            veto_map_input_jets = get_veto_map_input_jets(cleanedJets, year, is_run3)
+            veto_map_array = ApplyJetVetoMaps(veto_map_input_jets, year) if is_run3 else ak.zeros_like(met.pt)
+            veto_map_mask = (veto_map_array == 0)
+
             if use_type1_met(year):
                 met = ApplyMETSystematics(type1_met, syst_var)
             else:

@@ -7,6 +7,15 @@
   jec_levels:
     - L1FastJet
     - L2Relative
+  jec_levels_mc:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+  jec_levels_data:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+    - L2L3Residual
   type1_jec_levels_mc:
     - L1FastJet
     - L2Relative
@@ -39,6 +48,15 @@
   jec_levels:
     - L1FastJet
     - L2Relative
+  jec_levels_mc:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+  jec_levels_data:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+    - L2L3Residual
   type1_jec_levels_mc:
     - L1FastJet
     - L2Relative
@@ -71,6 +89,15 @@
   jec_levels:
     - L1FastJet
     - L2Relative
+  jec_levels_mc:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+  jec_levels_data:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+    - L2L3Residual
   type1_jec_levels_mc:
     - L1FastJet
     - L2Relative
@@ -102,6 +129,15 @@
   jec_levels:
     - L1FastJet
     - L2Relative
+  jec_levels_mc:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+  jec_levels_data:
+    - L1FastJet
+    - L2Relative
+    - L3Absolute
+    - L2L3Residual
   type1_jec_levels_mc:
     - L1FastJet
     - L2Relative
