@@ -111,7 +111,7 @@ def main():
         last_token = tokens[-1]                                # e.g. 2022
         base = "_".join(tokens[:-1])                           # e.g. WZto3LNu-2Jets
         # produce: WZto3LNu-2Jets_NDSkim_2022.json  (since postfix already includes leading "_")
-        outname = f"{base}{postfix}_{last_token}{ext}"
+        outname = f"{base}_{last_token}{postfix}{ext}"
 
         # outname = os.path.split(matched_json_fp)[1].replace(".json",f"{postfix}.json")
         if out_dir:

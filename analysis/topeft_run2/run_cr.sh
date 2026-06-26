@@ -7,7 +7,7 @@ cd /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2
 # Global configuration
 ###############################################################################
 
-output_dir="/groups/klannon/apiccine/preappr_260613"
+output_dir="/groups/klannon/apiccine/preappr_1l1tau_260613"
 chunk_size="50000"
 
 # Nominal TOP-23-002-like ttgamma sample-role strategy.
@@ -44,7 +44,7 @@ dry_run=false
 # Yuyi's request is for distributions, and the previous colleague-facing setup used
 # systematic variations for CR plotting. Keep nonprompt disabled unless explicitly needed.
 do_systs=true
-do_np=true
+do_np=false
 
 # Enable only if the colleague explicitly needs lepton-flavour split outputs.
 split_lep_flavor=false
@@ -65,9 +65,11 @@ split_lep_flavor=false
 #   - ptz_wtau and tau variables for tau CR coverage;
 #   - invmass, j0eta, j0pt, l0/l1 variables, ljptsum, nbtagsl, njets for tau CRs.
 var_sets=(
-  "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
-  "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
-  # "ptz_wtau tau0Fpt tau0Tpt"
+  # "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
+  # "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
+  # "l0eta l0conept met lt njets ptz_wtau tau0Fpt tau0Tpt"
+  # "lt"
+  "lj0pt nbtagsl nbtagsm fwd0pt fwd0eta lt"
 )
 
 ###############################################################################
@@ -78,12 +80,12 @@ var_sets=(
 #
 # Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
 cr_year_sets=(
-  2016APV
-  2016
-  2017
-  2018
-  2022
-  2022EE
+  # 2016APV
+  # 2016
+  # 2017
+  # 2018
+  # 2022
+  # 2022EE
   2023
   2023BPix
 )
@@ -102,14 +104,8 @@ cr_year_sets=(
 # If the branch has explicit 2los_1tau_Ftau / 2los_1tau_Ttau category groups,
 # they can be added as separate entries after confirming the exact names.
 cr_category_sets=(
-  "2los_CRZ 2l_CRflip"
-  "2los_CRtt 2l_CR"
-  "3l_CR"
-  # "1l_1tau_CRtt"
-  # "1l_1tau_CRDY"
-  # "2los_1tau"
-  # "2los_1tau_Ftau"
-  # "2los_1tau_Ttau"
+  # "2los_CRZ 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
+  "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau"
 )
 
 ###############################################################################

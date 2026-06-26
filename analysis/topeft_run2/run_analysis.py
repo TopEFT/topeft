@@ -1651,8 +1651,8 @@ if __name__ == "__main__":
             "resources_mode": "auto",
             "resource_monitor": "measure",
             "split_on_exhaustion": True,
-            'filepath': wq_staging_dir,
-            #"filepath": '/tmp',
+            #'filepath': wq_staging_dir,
+            "filepath": '/tmp',
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.

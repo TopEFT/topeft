@@ -306,11 +306,11 @@ main() {
     [UL18]=2018
   )
 
-  local RUN2_CFGS_SR=(
-    "${CFGS_PATH}/mc_signal_samples_NDSkim.cfg"
-    "${CFGS_PATH}/mc_background_samples_NDSkim.cfg"
-    "${CFGS_PATH}/data_samples_NDSkim.cfg"
-  )
+  # local RUN2_CFGS_SR=(
+  #   "${CFGS_PATH}/mc_signal_samples_NDSkim.cfg"
+  #   "${CFGS_PATH}/mc_background_samples_NDSkim.cfg"
+  #   "${CFGS_PATH}/data_samples_NDSkim.cfg"
+  # )
 
   local RUN2_CFGS_CR=(
     "${CFGS_PATH}/mc_signal_samples_NDSkim.cfg"
@@ -318,6 +318,12 @@ main() {
     "${CFGS_PATH}/mc_background_samples_cr_NDSkim.cfg"
     "${CFGS_PATH}/data_samples_NDSkim.cfg"
   )
+
+  # local RUN2_CFGS_CR=(
+  #   "${CFGS_PATH}/mc_signal_samples_cr_NDSkim.cfg"
+  #   "${CFGS_PATH}/mc_background_samples_cr_NDSkim.cfg"
+  #   "${CFGS_PATH}/data_samples_cr_NDSkim.cfg"
+  # )
 
   declare -A SEEN_CFGS=()
   local RUN2_BUNDLE_ADDED=false
