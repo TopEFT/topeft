@@ -730,13 +730,13 @@ if __name__ == "__main__":
         help="Compute systematic variations",
     )
     parser.add_argument(
-        "--suppress-forward-eta-stochastic-jer",
-        action="store_true",
+        "--no-suppress-forward-eta-stochastic-jer",
+        dest="suppress_forward_eta_stochastic_jer",
+        action="store_false",
+        default=True,
         help=(
-            "Opt-in analysis-specific JER mitigation: in 2.5 < abs(eta) < 3.0, "
-            "keep scaling JER for hybrid jets but suppress stochastic smearing for "
-            "non-hybrid jets. Disabled by default and requires JME/JERC approval "
-            "before production use."
+            "Disable the default forward-eta stochastic JER mitigation in "
+            "2.5 < abs(eta) < 3.0."
         ),
     )
     parser.add_argument(

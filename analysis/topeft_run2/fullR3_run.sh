@@ -283,10 +283,13 @@ main() {
   YEAR_LABEL=$(IFS=-; echo "${RESOLVED_YEARS[*]}")
 
   local OUT_NAME
+  local REGION_LABEL
   if [[ "$FLAG_CR" == "true" ]]; then
     OUT_NAME="${YEAR_LABEL}CRs_${TAG}"
+    REGION_LABEL="CR"
   else
     OUT_NAME="${YEAR_LABEL}SRs_${TAG}"
+    REGION_LABEL="SR"
   fi
 
   echo "OUT_NAME: $OUT_NAME"
@@ -306,29 +309,28 @@ main() {
     [UL18]=2018
   )
 
-  # local RUN2_CFGS_SR=(
-  #   "${CFGS_PATH}/mc_signal_samples_NDSkim.cfg"
-  #   "${CFGS_PATH}/mc_background_samples_NDSkim.cfg"
-  #   "${CFGS_PATH}/data_samples_NDSkim.cfg"
-  # )
+  local -a RUN2_CFGS_SR=(
+    "${CFGS_PATH}/mc_signal_samples_NDSkim.cfg"
+    "${CFGS_PATH}/mc_background_samples_NDSkim.cfg"
+    "${CFGS_PATH}/data_samples_NDSkim.cfg"
+  )
 
-  local RUN2_CFGS_CR=(
+  local -a RUN2_CFGS_CR=(
     "${CFGS_PATH}/mc_signal_samples_NDSkim.cfg"
     "${CFGS_PATH}/mc_background_samples_NDSkim.cfg"
     "${CFGS_PATH}/mc_background_samples_cr_NDSkim.cfg"
     "${CFGS_PATH}/data_samples_NDSkim.cfg"
   )
 
-  # local RUN2_CFGS_CR=(
-  #   "${CFGS_PATH}/mc_signal_samples_cr_NDSkim.cfg"
-  #   "${CFGS_PATH}/mc_background_samples_cr_NDSkim.cfg"
-  #   "${CFGS_PATH}/data_samples_cr_NDSkim.cfg"
-  # )
-
   declare -A SEEN_CFGS=()
   local RUN2_BUNDLE_ADDED=false
 
-  add_cfg() {
+  is_run2_year() {
+    local year="$1"
+    [[ -n "${RUN2_YEAR_MAP[$year]+x}" ]]
+  }
+
+  add_cfg_once() {
     local cfg_file="$1"
     if [[ ! -f "$cfg_file" ]]; then
       echo "Error: Required cfg file not found: $cfg_file" >&2
@@ -342,6 +344,66 @@ main() {
     return 0
   }
 
+  get_run2_cfgs_for_region() {
+    local region="$1"
+    case "$region" in
+      CR)
+        printf '%s\n' "${RUN2_CFGS_CR[@]}"
+        ;;
+      SR)
+        printf '%s\n' "${RUN2_CFGS_SR[@]}"
+        ;;
+      *)
+        echo "Error: Unsupported region for Run 2 cfg resolution: $region" >&2
+        return 1
+        ;;
+    esac
+  }
+
+  get_run3_cfgs_for_region_and_year() {
+    local region="$1"
+    local year="$2"
+    case "$region" in
+      CR)
+        printf '%s\n' \
+          "${CFGS_PATH}/NDSkim_${year}_background_samples_cr.cfg" \
+          "${CFGS_PATH}/NDSkim_${year}_data_samples.cfg" \
+          "${CFGS_PATH}/NDSkim_${year}_mc_signal_samples.cfg"
+        ;;
+      SR)
+        printf '%s\n' \
+          "${CFGS_PATH}/NDSkim_${year}_background_samples.cfg" \
+          "${CFGS_PATH}/NDSkim_${year}_data_samples.cfg" \
+          "${CFGS_PATH}/NDSkim_${year}_mc_signal_samples_sr.cfg"
+        ;;
+      *)
+        echo "Error: Unsupported region for Run 3 cfg resolution: $region" >&2
+        return 1
+        ;;
+    esac
+  }
+
+  add_run2_cfg_bundle_once() {
+    local region="$1"
+    local cfg
+    if [[ "$RUN2_BUNDLE_ADDED" == "true" ]]; then
+      return 0
+    fi
+    while IFS= read -r cfg; do
+      add_cfg_once "$cfg" || return 1
+    done < <(get_run2_cfgs_for_region "$region")
+    RUN2_BUNDLE_ADDED=true
+  }
+
+  add_run3_cfg_bundle_for_year() {
+    local region="$1"
+    local year="$2"
+    local cfg
+    while IFS= read -r cfg; do
+      add_cfg_once "$cfg" || return 1
+    done < <(get_run3_cfgs_for_region_and_year "$region" "$year")
+  }
+
   local INPUT_OVERRIDE_LABEL=""
   if [[ -n "$SAMPLE_JSON" ]]; then
     CFGS_LIST=("$SAMPLE_JSON")
@@ -350,39 +412,11 @@ main() {
     CFGS_LIST=("$CFG_OVERRIDE")
     INPUT_OVERRIDE_LABEL="CFG: $CFG_OVERRIDE"
   else
-    local CFG YEAR_CFGS
     for YEAR in "${RESOLVED_YEARS[@]}"; do
-      if [[ -n "${RUN2_YEAR_MAP[$YEAR]}" ]]; then
-        if [[ "$RUN2_BUNDLE_ADDED" == "false" ]]; then
-          if [[ "$FLAG_CR" == "true" ]]; then
-            for CFG in "${RUN2_CFGS_CR[@]}"; do
-              add_cfg "$CFG" || return 1
-            done
-          else
-            for CFG in "${RUN2_CFGS_SR[@]}"; do
-              add_cfg "$CFG" || return 1
-            done
-          fi
-          RUN2_BUNDLE_ADDED=true
-        fi
+      if is_run2_year "$YEAR"; then
+        add_run2_cfg_bundle_once "$REGION_LABEL" || return 1
       else
-        if [[ "$FLAG_CR" == "true" ]]; then
-          YEAR_CFGS=(
-            "${CFGS_PATH}/NDSkim_${YEAR}_background_samples_cr.cfg"
-            "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-            "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples.cfg"
-          )
-        else
-          YEAR_CFGS=(
-            #"${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
-            "${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg"
-            "${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg"
-            "${CFGS_PATH}/NDSkim_${YEAR}_mc_signal_samples_sr.cfg"
-          )
-        fi
-        for CFG in "${YEAR_CFGS[@]}"; do
-          add_cfg "$CFG" || return 1
-        done
+        add_run3_cfg_bundle_for_year "$REGION_LABEL" "$YEAR" || return 1
       fi
     done
   fi
@@ -394,13 +428,6 @@ main() {
     echo "Input override: $INPUT_OVERRIDE_LABEL"
   fi
   echo "Resolved CFGS: $CFGS"
-
-  local REGION_LABEL
-  if [[ "$FLAG_CR" == "true" ]]; then
-    REGION_LABEL="CR"
-  else
-    REGION_LABEL="SR"
-  fi
 
   local -a HIST_LIST_ARGS=()
   if [[ "$HIST_VARS_PROVIDED" == "true" ]]; then
