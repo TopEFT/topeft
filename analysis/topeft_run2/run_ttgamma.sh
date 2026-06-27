@@ -302,7 +302,6 @@ RunSrBlock() {
     --do-np
     -p "${outputDir}"
     --category-groups "${cats[@]}"
-    --suppress-forward-eta-stochastic-jer
     --all-analysis
   )
 
