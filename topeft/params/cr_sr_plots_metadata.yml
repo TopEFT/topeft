@@ -646,6 +646,12 @@ REGION_PLOTTING:
         - 2los_CRZ
       groups:
       - Nonprompt
+    - categories:
+        prefixes:
+        - 2l
+        - 3l
+      groups:
+      - Singleboson
     category_skips:
     - categories:
         equals:
