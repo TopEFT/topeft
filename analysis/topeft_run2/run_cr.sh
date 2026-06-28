@@ -120,10 +120,10 @@ cr_category_sets=(
 
 # Kept available, but disabled by default for this request.
 sr_year_sets=(
-  2022
-  2022EE
+  # 2022
+  # 2022EE
   2023
-  2023BPix
+  # 2023BPix
   # 2016APV
   # 2016
   # 2017
@@ -131,11 +131,11 @@ sr_year_sets=(
 )
 
 sr_category_sets=(
-  "2l"
-  "2lss_1tau 2los_1tau"
-  "3l_m_offZ"
-  "3l_p_offZ"
-  "3l_onZ_tau 4l"
+  # "2l"
+  # "2lss_1tau 2los_1tau"
+  # "3l_m_offZ"
+  # "3l_p_offZ"
+  # "3l_onZ_tau 4l"
   "3l_fwd"
 )
 
