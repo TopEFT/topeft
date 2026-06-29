@@ -1,10 +1,10 @@
 info = {
     "npvs": {
-        "regular": (100, 0, 100),
+        "regular": (50, 0, 100),
         "label": r"Number of reco primary vertices ",
     },
     "npvsGood": {
-        "regular": (100, 0, 100),
+        "regular": (50, 0, 100),
         "label": r"Number of Good reco primary vertices ",
     },
     "invmass": {
@@ -62,18 +62,19 @@ info = {
     },
     "l1conept": {
         "regular": (15, 0, 150),
+        "variable": [10, 20, 30, 40, 50, 60, 80, 100],
         "label": r"Subleading lep cone-$p_{T}$ (GeV) "
     },
     "l1eta": {
-        "regular": (20, -2.5, 2.5),
-        "label": r"Subleading $\eta$ "
+        "regular": (10, -2.5, 2.5),
+        "label": r"Subleading lep $\eta$ "
     },
     "j0pt": {
-        "regular": (50, 0, 500),
+        "regular": (15, 0, 300),
         "label": r"Leading jet  $p_{T}$ (GeV) "
     },
     "fwd0pt": {
-        "regular": (50, 0, 500),
+        "regular": (10, 0, 200),
         "label": r"Leading forward jet $p_{T}$ (GeV) "
     },
     "b0pt": {
@@ -81,12 +82,12 @@ info = {
         "label": r"Leading b jet  $p_{T}$ (GeV) "
     },
     "j0eta": {
-        "regular": (30, -3, 3),
+        "regular": (15, -3, 3),
         "label": r"Leading jet  $\eta$ "
     },
     "fwd0eta": {
         "regular": (50, -5, 5),
-        "variable": [-5, -4.5, -4, -3.8, -3.6, -3.4, -3.2, -3, -2.8, -2.6, -2.4, 2.4, 2.6, 2.8, 3, 3.2, 3.4, 3.6, 3.8, 4, 4.5, 5],
+        "variable": [-5, -4.5, -4, -3.6, -3.2, -2.8, -2.4, 2.4, 2.8, 3.2, 3.6, 4, 4.5, 5],
         "label": r"Leading forward jet $\eta$ "
     },
     "ht": {

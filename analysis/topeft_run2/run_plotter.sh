@@ -34,10 +34,14 @@ Optional arguments:
       --variable VAR          Limit plotting to a single histogram variable (repeat to add more)
       --variables VAR [VAR...]
                            Limit plotting to the listed histogram variables
+      --rebin-plot-vars SPEC
+                           Request plot/report-time rebinning, e.g. j0pt:2,l1conept=2
       --workers N          Number of worker processes for parallel plotting (default: 1; start with 2-4; higher values use more memory)
       --channel-output MODE  Forward merged/split channel selection (merged, split, both, merged-njets,
                            split-njets, both-njets). The -njets variants behave like their counterparts
                            but keep the per-njet bins defined in cr_sr_plots_metadata.yml (default: merged)
+      --no-negative-weight-report
+                           Disable the default negative MC contribution CSV/Markdown report
   -v, --verbose            Forward --verbose to enable detailed diagnostics
       --quiet              Forward --quiet to suppress per-variable chatter (default)
       --cr | --sr           Override the auto-detected region
@@ -47,7 +51,12 @@ Optional arguments:
 
 Unrecognised options are forwarded directly to make_cr_and_sr_plots.py. The
 historical "--" delimiter is no longer necessary; any leftover tokens are passed
-through automatically.
+through automatically. Negative MC contribution reports are enabled by default;
+use --no-negative-weight-report when only figures are needed.
+
+Example:
+  ./run_plotter.sh -f histos/plotsCR_2017.pkl.gz -o ~/www/cr_plots -y 2017 \
+    --variables j0pt l1conept --rebin-plot-vars j0pt:2,l1conept=2
 USAGE
 }
 
