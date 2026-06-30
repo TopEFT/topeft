@@ -825,7 +825,7 @@ if __name__ == "__main__":
         "--hist-list",
         action="extend",
         nargs="+",
-        help="Specify a list of histograms to fill.",
+        help="Specify a list of histograms to fill."
     )
     parser.add_argument(
         "--category-groups",
