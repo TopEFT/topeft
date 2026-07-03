@@ -88,6 +88,16 @@ def derive_analysis_enable_toggles(offz_3l_split, tau_h_analysis, fwd_analysis, 
     }
 
 
+def should_apply_fake_tau_sf(tau_run_mode, *, enable_tau_blocks, is_data):
+    if not enable_tau_blocks or is_data:
+        return False
+    if tau_run_mode == "standard":
+        return True
+    if tau_run_mode == "taufitter":
+        return False
+    raise ValueError(f"Unknown tau_run_mode '{tau_run_mode}'")
+
+
 def get_veto_map_input_jets(cleaned_jets, year, is_run3):
     if not is_run3:
         return cleaned_jets
@@ -663,6 +673,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             taus = AttachTauEnergyCorrections(
                 year, tau, isData, vsJetWP=tau_T_tag
             )
+        apply_fake_tau_sf = should_apply_fake_tau_sf(
+            self.tau_run_mode,
+            enable_tau_blocks=self.enable_tau_blocks,
+            is_data=isData,
+        )
 
         # Define the lists of systematics we include
         obj_correction_syst_lst = get_supported_jet_systematics(
@@ -686,6 +701,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         if self.enable_tau_blocks:
             wgt_correction_syst_lst.append("lepSF_taus_realUp")
             wgt_correction_syst_lst.append("lepSF_taus_realDown")
+        if apply_fake_tau_sf:
             wgt_correction_syst_lst.append("lepSF_taus_fakeUp")
             wgt_correction_syst_lst.append("lepSF_taus_fakeDown")
 
@@ -1248,18 +1264,21 @@ class AnalysisProcessor(processor.ProcessorABC):
                         weights_dict[ch_name].add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
                         if self.enable_tau_blocks:
                             weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                        if apply_fake_tau_sf:
                             weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("2l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
                         if self.enable_tau_blocks:
                             weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                        if apply_fake_tau_sf:
                             weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("3l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
                         if self.enable_tau_blocks:
                             weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                        if apply_fake_tau_sf:
                             weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("4l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
@@ -1434,6 +1453,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atleast_6j", (njets>=6))
             selections.add("atleast_7j", (njets>=7))
             selections.add("atleast_0j", (njets>=0))
+            selections.add("atmost_2j" , (njets<=2))
             selections.add("atmost_3j" , (njets<=3))
 
             # AR/SR categories

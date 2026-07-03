@@ -312,13 +312,15 @@ def test_plain_ptz_diagnostic_2los_1tau_crs_are_not_category_onz():
     channel_path = Path(__file__).resolve().parents[1] / "topeft" / "channels" / "ch_lst.json"
     channel_data = json.loads(channel_path.read_text())
     channels = channel_data["TAU_CH_LST_CR"]["2los_1tau"]["lep_chan_lst"]
+    zero_b_channels = channel_data["TAU_CH_LST_CR"]["2los_1tau_0b"]["lep_chan_lst"]
 
     assert {channel[0] for channel in channels} == {
         "2los_1tau_Ftau",
         "2los_1tau_Ttau",
-        "2los_1tau_0b",
     }
-    for channel in channels:
+    assert "2los_1tau_0b" not in {channel[0] for channel in channels}
+    assert {channel[0] for channel in zero_b_channels} == {"2los_1tau_0b"}
+    for channel in [*channels, *zero_b_channels]:
         assert "2los" in channel
         assert "2l_onZ" not in channel
 

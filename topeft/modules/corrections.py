@@ -911,7 +911,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose", run3_fake_split=False):
             (
                 "DeepTau2018v2p5VSe",
                 vse_flat_mask,
-                (flat_eta, flat_dm, flat_gen, "VVLoose"),
+                (flat_eta, flat_dm, flat_gen, "Tight"),
                 ((flat_gen == 1) | (flat_gen == 3)),
             ),
         ]
