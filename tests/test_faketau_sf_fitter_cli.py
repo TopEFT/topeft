@@ -293,7 +293,7 @@ def test_tau_sumw2_histogram_passes_validation(caplog):
     ttau_channels = ["2los_ee_1tau_Ttau_2j"]
 
     with caplog.at_level(logging.WARNING):
-        _mc_y, mc_e, _data_x, _data_y, data_e, stage_details = fitter.getPoints(
+        mc_y, mc_e, _data_x, data_y, data_e, stage_details = fitter.getPoints(
             histograms,
             ftau_channels,
             ttau_channels,
@@ -304,13 +304,70 @@ def test_tau_sumw2_histogram_passes_validation(caplog):
         for record in caplog.records
     )
 
-    mc_fake_errors = stage_details["native_yields"]["MC fake"][1]
-    data_fake_errors = stage_details["native_yields"]["Data fake"][1]
+    native_bin_labels = stage_details["native_bin_labels"]
+    native_yields = stage_details["native_yields"]
+    expected_native_mc_fake_errors = np.asarray(expected_errors[("MC", "fake")])
+    expected_native_mc_tight_errors = np.asarray(expected_errors[("MC", "tight")])
+    expected_native_data_fake_errors = np.asarray(expected_errors[("Data", "fake")])
+    expected_native_data_tight_errors = np.asarray(expected_errors[("Data", "tight")])
 
-    assert mc_fake_errors == pytest.approx(expected_errors[("MC", "fake")])
-    assert data_fake_errors == pytest.approx(expected_errors[("Data", "fake")])
-    assert mc_e.size == len(mc_fake_errors)
-    assert data_e.size == len(data_fake_errors)
+    native_mc_fake_errors = native_yields["MC fake"][1]
+    native_mc_tight_errors = native_yields["MC tight"][1]
+    native_data_fake_errors = native_yields["Data fake"][1]
+    native_data_tight_errors = native_yields["Data tight"][1]
+
+    assert len(native_bin_labels) == len(expected_native_mc_fake_errors)
+    assert len(native_mc_fake_errors) == len(native_bin_labels)
+    assert len(native_mc_tight_errors) == len(native_bin_labels)
+    assert len(native_data_fake_errors) == len(native_bin_labels)
+    assert len(native_data_tight_errors) == len(native_bin_labels)
+
+    assert native_mc_fake_errors == pytest.approx(expected_native_mc_fake_errors)
+    assert native_mc_tight_errors == pytest.approx(expected_native_mc_tight_errors)
+    assert native_data_fake_errors == pytest.approx(expected_native_data_fake_errors)
+    assert native_data_tight_errors == pytest.approx(expected_native_data_tight_errors)
+
+    regroup_labels = stage_details["regroup_labels"]
+    mc_regroup_summary = stage_details["mc_regroup_summary"]
+    data_regroup_summary = stage_details["data_regroup_summary"]
+
+    assert mc_e.size == len(regroup_labels)
+    assert data_e.size == len(regroup_labels)
+    assert len(mc_regroup_summary) == len(regroup_labels)
+    assert len(data_regroup_summary) == len(regroup_labels)
+
+    def _expected_regroup_errors(native_errors, regroup_summary):
+        native_errors = np.asarray(native_errors, dtype=float)
+        expected = []
+        for entry in regroup_summary:
+            start, stop = entry["slice"]
+            expected.append(math.sqrt(float(np.sum(native_errors[start:stop] ** 2))))
+        return expected
+
+    assert [entry["fake_err"] for entry in mc_regroup_summary] == pytest.approx(
+        _expected_regroup_errors(expected_native_mc_fake_errors, mc_regroup_summary)
+    )
+    assert [entry["tight_err"] for entry in mc_regroup_summary] == pytest.approx(
+        _expected_regroup_errors(expected_native_mc_tight_errors, mc_regroup_summary)
+    )
+    assert [entry["fake_err"] for entry in data_regroup_summary] == pytest.approx(
+        _expected_regroup_errors(expected_native_data_fake_errors, data_regroup_summary)
+    )
+    assert [entry["tight_err"] for entry in data_regroup_summary] == pytest.approx(
+        _expected_regroup_errors(expected_native_data_tight_errors, data_regroup_summary)
+    )
+
+    for summary in (mc_regroup_summary, data_regroup_summary):
+        for entry in summary:
+            assert math.isfinite(entry["fake_err"])
+            assert entry["fake_err"] >= 0.0
+            assert math.isfinite(entry["tight_err"])
+            assert entry["tight_err"] >= 0.0
+
+    assert np.all(np.isfinite(mc_e[mc_y > 0.0]))
+    assert np.all(mc_e[mc_y > 0.0] > 0.0)
+    assert np.all(np.isfinite(data_e[data_y > 0.0]))
+    assert np.all(data_e[data_y > 0.0] > 0.0)
     assert stage_details["year_filter"]["selected_years"] is None
 
 
