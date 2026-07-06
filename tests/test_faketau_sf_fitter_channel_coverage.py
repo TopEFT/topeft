@@ -34,9 +34,10 @@ def test_aggregate_only_tau_bins_are_accepted(
         hist_name="tau0Fpt" if tau_family == "Ftau" else "tau0Tpt",
     )
 
-    assert resolution["resolution_mode"] == "aggregate"
-    assert resolution["selected_bins"] == (aggregate_bin,)
-    assert resolution["missing_flavor_split_bins"] == configured_bins
+    assert isinstance(resolution, fitter.TauChannelResolution)
+    assert resolution.resolution_mode == "aggregate"
+    assert resolution.selected_bins == (aggregate_bin,)
+    assert resolution.missing_flavor_split_bins == configured_bins
 
 
 def test_complete_flavor_split_bins_are_preferred_over_aggregate():
@@ -47,9 +48,9 @@ def test_complete_flavor_split_bins_are_preferred_over_aggregate():
         hist_name="tau0Fpt",
     )
 
-    assert resolution["resolution_mode"] == "flavor_split"
-    assert resolution["selected_bins"] == FTAU_SPLIT_BINS
-    assert FTAU_AGGREGATE_BIN not in resolution["selected_bins"]
+    assert resolution.resolution_mode == "flavor_split"
+    assert resolution.selected_bins == FTAU_SPLIT_BINS
+    assert FTAU_AGGREGATE_BIN not in resolution.selected_bins
 
 
 def test_incomplete_flavor_split_bins_use_aggregate_without_double_counting():
@@ -60,10 +61,10 @@ def test_incomplete_flavor_split_bins_use_aggregate_without_double_counting():
         hist_name="tau0Fpt",
     )
 
-    assert resolution["resolution_mode"] == "aggregate"
-    assert resolution["selected_bins"] == (FTAU_AGGREGATE_BIN,)
-    assert FTAU_SPLIT_BINS[0] not in resolution["selected_bins"]
-    assert resolution["missing_flavor_split_bins"] == FTAU_SPLIT_BINS[1:]
+    assert resolution.resolution_mode == "aggregate"
+    assert resolution.selected_bins == (FTAU_AGGREGATE_BIN,)
+    assert FTAU_SPLIT_BINS[0] not in resolution.selected_bins
+    assert resolution.missing_flavor_split_bins == FTAU_SPLIT_BINS[1:]
 
 
 def test_missing_split_and_aggregate_bins_raise_actionable_error():
@@ -104,5 +105,24 @@ def test_observed_aggregate_channel_set_resolves_both_tau_families():
         hist_name="tau0Tpt",
     )
 
-    assert ftau_resolution["selected_bins"] == (FTAU_AGGREGATE_BIN,)
-    assert ttau_resolution["selected_bins"] == (TTAU_AGGREGATE_BIN,)
+    assert ftau_resolution.selected_bins == (FTAU_AGGREGATE_BIN,)
+    assert ttau_resolution.selected_bins == (TTAU_AGGREGATE_BIN,)
+
+
+def test_tau_channel_resolution_serializes_stage_detail_shape():
+    resolution = fitter.resolve_tau_cr_channel_bins(
+        {FTAU_AGGREGATE_BIN},
+        FTAU_SPLIT_BINS,
+        tau_family="Ftau",
+        hist_name="tau0Fpt",
+    )
+
+    detail = resolution.as_dict()
+    assert detail == {
+        "selected_bins": (FTAU_AGGREGATE_BIN,),
+        "resolution_mode": "aggregate",
+        "missing_flavor_split_bins": FTAU_SPLIT_BINS,
+        "aggregate_bins_checked": (FTAU_AGGREGATE_BIN,),
+        "available_aggregate_bins": (FTAU_AGGREGATE_BIN,),
+        "missing_aggregate_bins": (),
+    }
