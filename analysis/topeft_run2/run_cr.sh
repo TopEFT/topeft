@@ -210,7 +210,7 @@ build_common_command_options() {
   local -n cmd_ref="$1"
 
   cmd_ref+=(--ttgamma-sample-role-policy "${ttgamma_sample_role_policy}")
-  cmd_ref+=(--analysis-mode taufitter)
+  # cmd_ref+=(--analysis-mode taufitter)
   
   if [[ "${do_systs}" == "true" ]]; then
     cmd_ref+=(--do-systs)
