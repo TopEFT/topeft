@@ -22,7 +22,7 @@ if str(ROOT) not in sys.path:
 import analysis.topeft_run2.faketau_sf_fitter as fitter
 
 
-def _build_tau_histograms(process_weights=None):
+def _build_tau_histograms(process_weights=None, channel_scales=None):
     tau_edges = [20, 30, 40, 50, 60, 80, 100, 200]
     proc_axis = hist.axis.StrCategory([], name="process", growth=True)
     channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
@@ -82,10 +82,11 @@ def _build_tau_histograms(process_weights=None):
     }
 
     values = [25.0, 35.0, 45.0, 55.0, 70.0, 90.0, 150.0]
-    channel_scales = {
-        "2los_ee_1tau_Ftau_2j": 1.0,
-        "2los_ee_1tau_Ttau_2j": 0.6,
-    }
+    if channel_scales is None:
+        channel_scales = {
+            "2los_ee_1tau_Ftau_2j": 1.0,
+            "2los_ee_1tau_Ttau_2j": 0.6,
+        }
     if process_weights is None:
         base_weights = {
             "ttbar": [12.0, 11.0, 10.0, 9.0, 8.0, 7.0, 6.0],
@@ -311,6 +312,44 @@ def test_tau_sumw2_histogram_passes_validation(caplog):
     assert mc_e.size == len(mc_fake_errors)
     assert data_e.size == len(data_fake_errors)
     assert stage_details["year_filter"]["selected_years"] is None
+
+
+def test_get_points_uses_aggregate_tau_channel_fallbacks(caplog):
+    histograms, _ = _build_tau_histograms(
+        channel_scales={
+            "2los_1tau_Ftau_2j": 1.0,
+            "2los_1tau_Ttau_2j": 0.6,
+        }
+    )
+    ftau_channels = [
+        "2los_ee_1tau_Ftau_2j",
+        "2los_em_1tau_Ftau_2j",
+        "2los_mm_1tau_Ftau_2j",
+    ]
+    ttau_channels = [
+        "2los_ee_1tau_Ttau_2j",
+        "2los_em_1tau_Ttau_2j",
+        "2los_mm_1tau_Ttau_2j",
+    ]
+
+    with caplog.at_level(logging.INFO):
+        _mc_y, _mc_e, _data_x, _data_y, _data_e, stage_details = fitter.getPoints(
+            histograms,
+            ftau_channels,
+            ttau_channels,
+        )
+
+    resolutions = stage_details["tau_channel_resolution"]
+    assert resolutions["Ftau"]["resolution_mode"] == "aggregate"
+    assert resolutions["Ftau"]["selected_bins"] == (
+        "2los_1tau_Ftau_2j",
+    )
+    assert resolutions["Ttau"]["resolution_mode"] == "aggregate"
+    assert resolutions["Ttau"]["selected_bins"] == (
+        "2los_1tau_Ttau_2j",
+    )
+    assert "Ftau flavor-split bins are incomplete" in caplog.text
+    assert "using aggregate fallback 2los_1tau_Ftau_2j" in caplog.text
 
 
 def test_year_filter_limits_samples():

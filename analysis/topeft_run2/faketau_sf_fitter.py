@@ -1270,8 +1270,15 @@ def _validate_tau_channel_coverage(
     ftau_channels,
     ttau_channels,
     hist_name,
+    *,
+    allow_aggregate_fallback=True,
 ):
-    """Verify that all Ftau/Ttau channels are present in the histogram's channel axis."""
+    """Resolve configured tau CR bins against one histogram's channel axis.
+
+    Complete flavor-split bins take priority.  When any configured split bin for
+    a tau/jet family is absent, the corresponding aggregate bin is used if it is
+    available.  A family never selects split and aggregate bins together.
+    """
 
     channel_axis = None
     for axis in histogram.axes:
@@ -1292,37 +1299,193 @@ def _validate_tau_channel_coverage(
 
     available_channels = {str(category) for category in channel_axis}
 
-    missing_summary = {
-        "Ftau": sorted(
-            {channel for channel in ftau_channels if channel not in available_channels}
-        ),
-        "Ttau": sorted(
-            {channel for channel in ttau_channels if channel not in available_channels}
-        ),
+    resolutions = {}
+    for tau_family, configured_channels in (
+        ("Ftau", ftau_channels),
+        ("Ttau", ttau_channels),
+    ):
+        if not configured_channels:
+            continue
+        resolutions[tau_family] = resolve_tau_cr_channel_bins(
+            available_channels,
+            configured_channels,
+            tau_family=tau_family,
+            hist_name=hist_name,
+            allow_aggregate_fallback=allow_aggregate_fallback,
+            raise_on_missing=False,
+        )
+
+    unresolved = {
+        family: resolution
+        for family, resolution in resolutions.items()
+        if resolution["missing_aggregate_bins"]
     }
-
-    missing_lines = [
-        f"  {label}: {', '.join(channels)}"
-        for label, channels in missing_summary.items()
-        if channels
-    ]
-
-    if missing_lines:
+    if unresolved:
         summary_lines = [
             f"The '{hist_name}' histogram is missing required tau control-region categories.",
             "Missing bins summary:",
-            *missing_lines,
-            "Available channel bins: "
-            + (
-                ", ".join(sorted(available_channels))
-                if available_channels
-                else "<none>"
-            ),
-            "Regenerate the histogram pickle with complete Ftau/Ttau coverage before rerunning tauFitter.",
         ]
+        for tau_family, resolution in unresolved.items():
+            missing_split = resolution["missing_flavor_split_bins"]
+            checked_aggregate = resolution["aggregate_bins_checked"]
+            missing_aggregate = resolution["missing_aggregate_bins"]
+            available_aggregate = resolution["available_aggregate_bins"]
+            summary_lines.extend(
+                [
+                    f"  {tau_family}:",
+                    "    resolution attempted: complete flavor-split bins"
+                    + (
+                        ", then aggregate fallback"
+                        if allow_aggregate_fallback
+                        else " (aggregate fallback disabled)"
+                    ),
+                    "    missing flavor-split bins: "
+                    + (", ".join(missing_split) if missing_split else "<none>"),
+                    "    aggregate fallback bins checked: "
+                    + (", ".join(checked_aggregate) if checked_aggregate else "<none>"),
+                    "    missing aggregate fallback bins: "
+                    + (", ".join(missing_aggregate) if missing_aggregate else "<none>"),
+                    "    aggregate fallback available: "
+                    + ("yes" if available_aggregate else "no"),
+                ]
+            )
+        summary_lines.extend(
+            [
+                "Available channel bins: "
+                + (
+                    ", ".join(sorted(available_channels))
+                    if available_channels
+                    else "<none>"
+                ),
+                "Either regenerate the histogram pickle with complete flavor-split tau bins "
+                "or include the aggregate fallback bin(s): "
+                + ", ".join(
+                    sorted(
+                        {
+                            channel
+                            for resolution in unresolved.values()
+                            for channel in resolution["missing_aggregate_bins"]
+                        }
+                    )
+                )
+                + ".",
+            ]
+        )
         summary = "\n".join(summary_lines)
         LOGGER.error(summary)
         raise RuntimeError(summary)
+
+    return resolutions
+
+
+def _aggregate_tau_channel_name(channel):
+    """Return the aggregate name corresponding to an ee/em/mm tau CR bin."""
+
+    for flavor in ("ee", "em", "mm"):
+        marker = f"_{flavor}_"
+        if marker in channel:
+            return channel.replace(marker, "_", 1)
+    return channel
+
+
+def resolve_tau_cr_channel_bins(
+    available_bins,
+    configured_bins,
+    *,
+    tau_family,
+    hist_name,
+    allow_aggregate_fallback=True,
+    raise_on_missing=True,
+):
+    """Select complete split bins or one aggregate fallback per tau/jet family."""
+
+    available = {str(channel) for channel in available_bins}
+    grouped_channels = OrderedDict()
+    for configured_channel in configured_bins:
+        channel = str(configured_channel)
+        aggregate_channel = _aggregate_tau_channel_name(channel)
+        group = grouped_channels.setdefault(aggregate_channel, [])
+        if channel != aggregate_channel and channel not in group:
+            group.append(channel)
+
+    selected_bins = []
+    group_modes = []
+    missing_flavor_split_bins = []
+    aggregate_bins_checked = []
+    available_aggregate_bins = []
+    missing_aggregate_bins = []
+
+    for aggregate_channel, split_channels in grouped_channels.items():
+        missing_split = [
+            channel for channel in split_channels if channel not in available
+        ]
+        missing_flavor_split_bins.extend(missing_split)
+        aggregate_bins_checked.append(aggregate_channel)
+
+        if split_channels and not missing_split:
+            selected_bins.extend(split_channels)
+            group_modes.append("flavor_split")
+            continue
+
+        aggregate_available = aggregate_channel in available
+        if aggregate_available:
+            available_aggregate_bins.append(aggregate_channel)
+
+        if aggregate_available and (allow_aggregate_fallback or not split_channels):
+            selected_bins.append(aggregate_channel)
+            group_modes.append("aggregate")
+            continue
+
+        missing_aggregate_bins.append(aggregate_channel)
+
+    if not group_modes:
+        resolution_mode = "unresolved"
+    elif len(set(group_modes)) == 1:
+        resolution_mode = group_modes[0]
+    else:
+        resolution_mode = "mixed"
+
+    resolution = {
+        "selected_bins": tuple(selected_bins),
+        "resolution_mode": resolution_mode,
+        "missing_flavor_split_bins": tuple(missing_flavor_split_bins),
+        "aggregate_bins_checked": tuple(aggregate_bins_checked),
+        "available_aggregate_bins": tuple(available_aggregate_bins),
+        "missing_aggregate_bins": tuple(missing_aggregate_bins),
+    }
+
+    if raise_on_missing and missing_aggregate_bins:
+        missing_split = resolution["missing_flavor_split_bins"]
+        attempted = (
+            "complete flavor-split bins, then aggregate fallback"
+            if allow_aggregate_fallback
+            else "complete flavor-split bins (aggregate fallback disabled)"
+        )
+        message = "\n".join(
+            [
+                f"The '{hist_name}' histogram is missing required tau control-region categories.",
+                "Missing bins summary:",
+                f"  {tau_family}:",
+                f"    resolution attempted: {attempted}",
+                "    missing flavor-split bins: "
+                + (", ".join(missing_split) if missing_split else "<none>"),
+                "    aggregate fallback bins checked: "
+                + ", ".join(resolution["aggregate_bins_checked"]),
+                "    missing aggregate fallback bins: "
+                + ", ".join(resolution["missing_aggregate_bins"]),
+                "    aggregate fallback available: "
+                + ("yes" if available_aggregate_bins else "no"),
+                "Available channel bins: "
+                + (", ".join(sorted(available)) if available else "<none>"),
+                "Either regenerate the histogram pickle with complete flavor-split tau bins "
+                "or include the aggregate fallback bin(s): "
+                + ", ".join(resolution["missing_aggregate_bins"])
+                + ".",
+            ]
+        )
+        raise RuntimeError(message)
+
+    return resolution
 
 
 def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=None):
@@ -1381,7 +1544,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         _TAU_FAKE_HISTOGRAM_REQUIRED_AXES,
         fake_key,
     )
-    _validate_tau_channel_coverage(
+    fake_channel_resolutions = _validate_tau_channel_coverage(
         tau_fake_hist,
         "channel",
         ftau_channels,
@@ -1394,13 +1557,36 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         _TAU_TIGHT_HISTOGRAM_REQUIRED_AXES,
         tight_key,
     )
-    _validate_tau_channel_coverage(
+    tight_channel_resolutions = _validate_tau_channel_coverage(
         tau_tight_hist,
         "channel",
         (),
         ttau_channels,
         tight_key,
     )
+
+    fake_channel_resolution = fake_channel_resolutions["Ftau"]
+    tight_channel_resolution = tight_channel_resolutions["Ttau"]
+    resolved_ftau_channels = list(fake_channel_resolution["selected_bins"])
+    resolved_ttau_channels = list(tight_channel_resolution["selected_bins"])
+    LOGGER.info(
+        "Resolved tau CR channels: Ftau=%s %s; Ttau=%s %s",
+        fake_channel_resolution["resolution_mode"],
+        resolved_ftau_channels,
+        tight_channel_resolution["resolution_mode"],
+        resolved_ttau_channels,
+    )
+    for tau_family, resolution in (
+        ("Ftau", fake_channel_resolution),
+        ("Ttau", tight_channel_resolution),
+    ):
+        if resolution["resolution_mode"] == "aggregate":
+            LOGGER.info(
+                "%s flavor-split bins are incomplete (%s); using aggregate fallback %s.",
+                tau_family,
+                ", ".join(resolution["missing_flavor_split_bins"]),
+                ", ".join(resolution["selected_bins"]),
+            )
 
     if tau_fake_sumw2_hist is not None:
         try:
@@ -1424,9 +1610,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
             _validate_tau_channel_coverage(
                 tau_fake_sumw2_hist,
                 "channel",
-                ftau_channels,
+                resolved_ftau_channels,
                 (),
                 f"{fake_key}_sumw2",
+                allow_aggregate_fallback=False,
             )
 
     if tau_tight_sumw2_hist is not None:
@@ -1452,8 +1639,9 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
                 tau_tight_sumw2_hist,
                 "channel",
                 (),
-                ttau_channels,
+                resolved_ttau_channels,
                 f"{tight_key}_sumw2",
+                allow_aggregate_fallback=False,
             )
 
     # Remove any processes that should not contribute to the MC or data histograms.
@@ -1502,16 +1690,24 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         hist_data_tight_sumw2 = None
 
     # Integrate to get the categories we want
-    mc_fake = _integrate_tau_channels(hist_mc_fake, ftau_channels)
-    mc_tight = _integrate_tau_channels(hist_mc_tight, ttau_channels)
-    data_fake = _integrate_tau_channels(hist_data_fake, ftau_channels)
-    data_tight = _integrate_tau_channels(hist_data_tight, ttau_channels)
+    mc_fake = _integrate_tau_channels(hist_mc_fake, resolved_ftau_channels)
+    mc_tight = _integrate_tau_channels(hist_mc_tight, resolved_ttau_channels)
+    data_fake = _integrate_tau_channels(hist_data_fake, resolved_ftau_channels)
+    data_tight = _integrate_tau_channels(hist_data_tight, resolved_ttau_channels)
 
-    mc_fake_sumw2 = _integrate_tau_channels(hist_mc_fake_sumw2, ftau_channels)
-    mc_tight_sumw2 = _integrate_tau_channels(hist_mc_tight_sumw2, ttau_channels)
+    mc_fake_sumw2 = _integrate_tau_channels(
+        hist_mc_fake_sumw2, resolved_ftau_channels
+    )
+    mc_tight_sumw2 = _integrate_tau_channels(
+        hist_mc_tight_sumw2, resolved_ttau_channels
+    )
 
-    data_fake_sumw2 = _integrate_tau_channels(hist_data_fake_sumw2, ftau_channels)
-    data_tight_sumw2 = _integrate_tau_channels(hist_data_tight_sumw2, ttau_channels)
+    data_fake_sumw2 = _integrate_tau_channels(
+        hist_data_fake_sumw2, resolved_ftau_channels
+    )
+    data_tight_sumw2 = _integrate_tau_channels(
+        hist_data_tight_sumw2, resolved_ttau_channels
+    )
 
     # Build fresh grouping maps derived from the current histogram contents so we only
     # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
@@ -1677,6 +1873,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         "year_filter": year_filter_summary,
         "tau_pt_bin_starts": tuple(pt_bin_starts.tolist()),
         "tau_pt_edges": tuple(tau_pt_edges.tolist()),
+        "tau_channel_resolution": {
+            "Ftau": fake_channel_resolution,
+            "Ttau": tight_channel_resolution,
+        },
     }
 
     return mc_y, mc_e, data_x, data_y, data_e, stage_details
