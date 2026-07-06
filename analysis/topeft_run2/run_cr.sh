@@ -25,7 +25,7 @@ chunk_size="50000"
 ttgamma_sample_role_policy="split"
 
 # Use a strategy-specific tag to avoid mixing baseline/feature/diagnostic outputs.
-campaign_tag="preappr_ptz_taufitter"
+campaign_tag="preappr_ptz_taufitter_loose"
 
 cr_pkl_base_tag="${campaign_tag}"
 sr_pkl_base_tag="${campaign_tag}"
@@ -85,8 +85,8 @@ cr_var_sets=(
 # Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
 cr_year_sets=(
   "2016APV 2016 2017 2018"
-  "2022 2022EE"
-  "2023 2023BPix"
+  # "2022 2022EE"
+  # "2023 2023BPix"
 )
 
 # Current category names used by the analysis helpers.

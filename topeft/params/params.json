@@ -36,9 +36,9 @@
     "dz_cut" : 0.1,
     "dxy_tau_cut" : 1000.0,
     "dz_tau_cut" : 0.2,
-    "run2_tau_t_tag" : "Medium",
+    "run2_tau_t_tag" : "Loose",
     "run3_tau_t_tag" : "Medium",
-    "run2_tau_fo_tag" : "Loose",
+    "run2_tau_fo_tag" : "VLoose",
     "run3_tau_fo_tag" : "Loose",
     "sip3d_cut" : 8,
 
