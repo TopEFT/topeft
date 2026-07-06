@@ -68,9 +68,11 @@ cr_var_sets=(
   # "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
   # "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
   # "l0eta met lt ptz_wtau"
-  "l0conept njets tau0Fpt tau0Tpt"
+  # "l0conept njets tau0Fpt tau0Tpt"
   # "lt"
   # "lj0pt nbtagsl nbtagsm fwd0pt fwd0eta lt"
+
+  "ptz njets l0conept met"
 )
 
 # SR variable chunks are configured separately from CR so SR campaigns can use
@@ -88,8 +90,7 @@ sr_var_sets=(
 #
 # Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
 cr_year_sets=(
-  "2016APV 2016"
-  "2017 2018"
+  "2016APV 2016 2017 2018"
   "2022 2022EE"
   "2023 2023BPix"
 )
@@ -101,7 +102,9 @@ cr_year_sets=(
 # they can be added as separate entries after confirming the exact names.
 cr_category_sets=(
   # "2los_CRZ 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
-  "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
+  # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
+
+  "2los_CRZ 3l_CR"
 )
 
 ###############################################################################

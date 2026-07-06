@@ -99,6 +99,50 @@ def _make_multigroup_stacked_inputs(num_groups=8):
     return h_mc, h_data, group_map
 
 
+def test_ratio_axis_range_is_fixed_and_ratio_legend_is_opt_in():
+    h_mc, h_data, group_map = _make_simple_stacked_inputs()
+
+    default_fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc=h_mc,
+        h_data=h_data,
+        unit_norm_bool=False,
+        var="lj0pt",
+        group=group_map,
+        unblind=True,
+    )
+    legend_fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc=h_mc,
+        h_data=h_data,
+        unit_norm_bool=False,
+        var="lj0pt",
+        group=group_map,
+        unblind=True,
+        style={"ratio_band_legend": {"enabled": True}},
+    )
+
+    try:
+        default_ratio_axis = default_fig.axes[1]
+        legend_ratio_axis = legend_fig.axes[1]
+        assert default_ratio_axis.get_ylim() == pytest.approx((0.0, 2.0))
+        assert legend_ratio_axis.get_ylim() == pytest.approx((0.0, 2.0))
+        assert default_ratio_axis.get_legend() is None
+        assert legend_ratio_axis.get_legend() is not None
+    finally:
+        make_cr_and_sr_plots.plt.close(default_fig)
+        make_cr_and_sr_plots.plt.close(legend_fig)
+
+
+def test_show_ratio_legend_cli_is_disabled_by_default_and_explicitly_enabled():
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    assert parser.parse_args(["-f", "input.pkl.gz"]).show_ratio_legend is False
+    assert (
+        parser.parse_args(
+            ["-f", "input.pkl.gz", "--show-ratio-legend"]
+        ).show_ratio_legend
+        is True
+    )
+
+
 def _get_cms_text_union_bbox(fig, ax, renderer):
     def _cms_matches(text_artist):
         text = text_artist.get_text() or ""
