@@ -78,6 +78,38 @@ def get_supported_tau_energy_systematics(year, isData=False):
         return []
     return list(TAU_ENERGY_SYSTEMATICS)
 
+
+def get_run2_tau_fake_sf_name(vsJetWP):
+    wp = vsJetWP.strip().lower() if isinstance(vsJetWP, str) else None
+    if wp == "loose":
+        return "TauFakeSFL"
+    if wp == "medium":
+        return "TauFakeSFM"
+    raise ValueError(
+        "Unsupported Run 2 fake-tau SF VSjet working point "
+        f"{vsJetWP!r}. Supported payload-backed Run 2 fake-tau SF "
+        "working points are Loose and Medium. The legacy/stale "
+        "TauFakeSF/Tight payload is not used by the current Run 2 "
+        "fake-tau SF selection."
+    )
+
+
+def _get_tau_fake_sf_evaluators(evaluator, base_name):
+    keys = (base_name, f"{base_name}_up", f"{base_name}_down")
+    evaluators = {}
+    missing = []
+    for key in keys:
+        try:
+            evaluators[key] = evaluator[key]
+        except KeyError:
+            missing.append(key)
+    if missing:
+        raise RuntimeError(
+            f"Missing Run 2 fake-tau SF evaluator key(s) for {base_name}: "
+            f"{', '.join(missing)}."
+        )
+    return evaluators
+
 ###### Lepton scale factors
 ################################################################
 extLepSF = lookup_tools.extractor()
@@ -914,10 +946,12 @@ def AttachTauSF(
         fake_muon_sf_up = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_up'](np.abs(eta)), 1)
         fake_muon_sf_down = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_down'](np.abs(eta)), 1)
 
+        fake_sf_eval = get_run2_tau_fake_sf_name(vsJetWP)
+        fake_sf_evaluators = _get_tau_fake_sf_evaluators(SFevaluator, fake_sf_eval)
         whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
-        new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF'](pt), 1)
-        new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_up'](pt), 1)
-        new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_down'](pt), 1)
+        new_fake_sf = np.where(whereFlag, fake_sf_evaluators[fake_sf_eval](pt), 1)
+        new_fake_sf_up = np.where(whereFlag, fake_sf_evaluators[f"{fake_sf_eval}_up"](pt), 1)
+        new_fake_sf_down = np.where(whereFlag, fake_sf_evaluators[f"{fake_sf_eval}_down"](pt), 1)
 
     if is_run3:
         clib_year = clib_year_map[year]
