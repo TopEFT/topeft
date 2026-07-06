@@ -581,6 +581,14 @@ extLepSF.add_weight_sets(["TauFakeSF TauSF/pt_value %s"%topcoffea_path('data/Tau
 extLepSF.add_weight_sets(["TauFakeSF_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 extLepSF.add_weight_sets(["TauFakeSF_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 
+extLepSF.add_weight_sets(["TauFakeSFM TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
+extLepSF.add_weight_sets(["TauFakeSFM_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
+extLepSF.add_weight_sets(["TauFakeSFM_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
+
+extLepSF.add_weight_sets(["TauFakeSFL TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
+extLepSF.add_weight_sets(["TauFakeSFL_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
+extLepSF.add_weight_sets(["TauFakeSFL_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
+
 extLepSF.add_weight_sets(["TauFakeSF_Run3 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
 extLepSF.add_weight_sets(["TauFakeSF_Run3_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
 extLepSF.add_weight_sets(["TauFakeSF_Run3_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
