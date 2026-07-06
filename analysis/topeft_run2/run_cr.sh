@@ -25,7 +25,7 @@ chunk_size="50000"
 ttgamma_sample_role_policy="split"
 
 # Use a strategy-specific tag to avoid mixing baseline/feature/diagnostic outputs.
-campaign_tag="preappr_sr"
+campaign_tag="preappr_ptz_taufitter"
 
 cr_pkl_base_tag="${campaign_tag}"
 sr_pkl_base_tag="${campaign_tag}"
@@ -64,6 +64,11 @@ split_lep_flavor=false
 #   - fwd0eta, lj0pt, lt, met, ptz for the relevant non-tau CRs;
 #   - ptz_wtau and tau variables for tau CR coverage;
 #   - invmass, j0eta, j0pt, l0/l1 variables, ljptsum, nbtagsl, njets for tau CRs.
+
+###############################################################################
+# CR configuration
+###############################################################################
+
 cr_var_sets=(
   # "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
   # "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
@@ -72,19 +77,8 @@ cr_var_sets=(
   # "lt"
   # "lj0pt nbtagsl nbtagsm fwd0pt fwd0eta lt"
 
-  "ptz njets l0conept met"
+  "ptz njets l0conept met tau0Tpt tau0Fpt"
 )
-
-# SR variable chunks are configured separately from CR so SR campaigns can use
-# dedicated histogram groups without changing the CR request.
-sr_var_sets=(
-  "njets lj0pt"
-  "ptz ptz_wtau lt"
-)
-
-###############################################################################
-# CR configuration
-###############################################################################
 
 # Keep year periods separate so the output pkls are period-specific.
 #
@@ -103,13 +97,19 @@ cr_year_sets=(
 cr_category_sets=(
   # "2los_CRZ 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
   # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
-
-  "2los_CRZ 3l_CR"
+  "2los_CRZ 2los_1tau" # 2los_1tau_0b" # 3l_CR"
 )
 
 ###############################################################################
 # SR configuration
 ###############################################################################
+
+# SR variable chunks are configured separately from CR so SR campaigns can use
+# dedicated histogram groups without changing the CR request.
+sr_var_sets=(
+  "njets lj0pt"
+  "ptz ptz_wtau lt"
+)
 
 # Kept available, but disabled by default for this request.
 sr_year_sets=(
@@ -210,7 +210,8 @@ build_common_command_options() {
   local -n cmd_ref="$1"
 
   cmd_ref+=(--ttgamma-sample-role-policy "${ttgamma_sample_role_policy}")
-
+  cmd_ref+=(--analysis-mode taufitter)
+  
   if [[ "${do_systs}" == "true" ]]; then
     cmd_ref+=(--do-systs)
   fi
