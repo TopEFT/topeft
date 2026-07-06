@@ -133,8 +133,6 @@ def test_tau_vsjet_payload_uses_configured_wp_and_fake_sf_stays_separate(
     [
         ("Loose", "TauFakeSFL"),
         ("Medium", "TauFakeSFM"),
-        ("loose", "TauFakeSFL"),
-        ("medium", "TauFakeSFM"),
     ],
 )
 def test_run2_tau_fake_sf_resolver_selects_supported_payloads(vsJetWP, expected_key):
@@ -143,7 +141,18 @@ def test_run2_tau_fake_sf_resolver_selects_supported_payloads(vsJetWP, expected_
 
 @pytest.mark.parametrize(
     "vsJetWP",
-    ["Tight", "VLoose", "VVLoose", "VTight", "VVTight", "unexpected", None, ""],
+    [
+        "loose",
+        "medium",
+        "Tight",
+        "VLoose",
+        "VVLoose",
+        "VTight",
+        "VVTight",
+        "unexpected",
+        None,
+        "",
+    ],
 )
 def test_run2_tau_fake_sf_resolver_rejects_unsupported_or_stale_payloads(vsJetWP):
     with pytest.raises(ValueError) as excinfo:
@@ -153,6 +162,8 @@ def test_run2_tau_fake_sf_resolver_rejects_unsupported_or_stale_payloads(vsJetWP
     assert "Supported" in message
     assert "Loose" in message
     assert "Medium" in message
+    assert "canonical" in message
+    assert "case-sensitive" in message
     assert "legacy/stale" in message
     assert "TauFakeSF/Tight" in message
 
@@ -280,9 +291,45 @@ def test_run2_unsupported_fake_tau_wp_does_not_fall_back_to_legacy_payload(
     assert vsJetWP in message
     assert "Loose" in message
     assert "Medium" in message
+    assert "canonical" in message
+    assert "case-sensitive" in message
     assert "legacy/stale" in message
     assert "TauFakeSF/Tight" in message
     assert "TauFakeSF" not in recording_evaluator.keys
+
+
+@pytest.mark.parametrize("vsJetWP", ["loose", "medium"])
+def test_run2_lowercase_fake_tau_wp_fails_before_tau_mask_lookup(
+    monkeypatch,
+    vsJetWP,
+):
+    recording_corrections = {
+        "DeepTau2017v2p1VSjet": _RecordingCorrection("DeepTau2017v2p1VSjet"),
+    }
+    monkeypatch.setattr(
+        corrections.correctionlib,
+        "CorrectionSet",
+        SimpleNamespace(from_file=lambda path: recording_corrections),
+    )
+    recording_evaluator = _RecordingEvaluator()
+    monkeypatch.setattr(corrections, "SFevaluator", recording_evaluator)
+
+    with pytest.raises(ValueError) as excinfo:
+        corrections.AttachTauSF(
+            {},
+            _tau_record("2018", gen_part_flav=0),
+            "2018",
+            vsJetWP=vsJetWP,
+        )
+
+    message = str(excinfo.value)
+    assert vsJetWP in message
+    assert "canonical" in message
+    assert "case-sensitive" in message
+    assert "Loose" in message
+    assert "Medium" in message
+    assert recording_corrections["DeepTau2017v2p1VSjet"].calls == []
+    assert recording_evaluator.keys == []
 
 
 def test_run2_missing_fake_tau_evaluator_key_fails_clearly(monkeypatch):

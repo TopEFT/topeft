@@ -80,17 +80,16 @@ def get_supported_tau_energy_systematics(year, isData=False):
 
 
 def get_run2_tau_fake_sf_name(vsJetWP):
-    wp = vsJetWP.strip().lower() if isinstance(vsJetWP, str) else None
-    if wp == "loose":
+    if vsJetWP == "Loose":
         return "TauFakeSFL"
-    if wp == "medium":
+    if vsJetWP == "Medium":
         return "TauFakeSFM"
     raise ValueError(
         "Unsupported Run 2 fake-tau SF VSjet working point "
         f"{vsJetWP!r}. Supported payload-backed Run 2 fake-tau SF "
-        "working points are Loose and Medium. The legacy/stale "
-        "TauFakeSF/Tight payload is not used by the current Run 2 "
-        "fake-tau SF selection."
+        "working points are the canonical, case-sensitive values Loose "
+        "and Medium. The legacy/stale TauFakeSF/Tight payload is not "
+        "used by the current Run 2 fake-tau SF selection."
     )
 
 
@@ -854,6 +853,9 @@ def AttachTauSF(
     is_run3 = not is_run2
     if vsJetWP is None:
         vsJetWP = get_te_param("run2_tau_t_tag" if is_run2 else "run3_tau_t_tag")
+    run2_fake_sf_eval = None
+    if is_run2:
+        run2_fake_sf_eval = get_run2_tau_fake_sf_name(vsJetWP)
 
     stored_muon_mask = None
     if "ismTight" in ak.fields(taus):
@@ -946,12 +948,11 @@ def AttachTauSF(
         fake_muon_sf_up = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_up'](np.abs(eta)), 1)
         fake_muon_sf_down = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_down'](np.abs(eta)), 1)
 
-        fake_sf_eval = get_run2_tau_fake_sf_name(vsJetWP)
-        fake_sf_evaluators = _get_tau_fake_sf_evaluators(SFevaluator, fake_sf_eval)
+        fake_sf_evaluators = _get_tau_fake_sf_evaluators(SFevaluator, run2_fake_sf_eval)
         whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
-        new_fake_sf = np.where(whereFlag, fake_sf_evaluators[fake_sf_eval](pt), 1)
-        new_fake_sf_up = np.where(whereFlag, fake_sf_evaluators[f"{fake_sf_eval}_up"](pt), 1)
-        new_fake_sf_down = np.where(whereFlag, fake_sf_evaluators[f"{fake_sf_eval}_down"](pt), 1)
+        new_fake_sf = np.where(whereFlag, fake_sf_evaluators[run2_fake_sf_eval](pt), 1)
+        new_fake_sf_up = np.where(whereFlag, fake_sf_evaluators[f"{run2_fake_sf_eval}_up"](pt), 1)
+        new_fake_sf_down = np.where(whereFlag, fake_sf_evaluators[f"{run2_fake_sf_eval}_down"](pt), 1)
 
     if is_run3:
         clib_year = clib_year_map[year]
