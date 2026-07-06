@@ -51,6 +51,7 @@ _logger = logging.getLogger(__name__)
 _ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = tc_sparseHist.SparseHist._read_from_reduce.__func__
 _VALUES_METHOD_CAPS = {}
 _SYSTEMATICS_SUMMARY_EMITTED = set()
+RATIO_Y_RANGE = (0.0, 2.0)
 
 
 def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
@@ -2232,15 +2233,9 @@ def _rebin_uncertainty_array(
 
 
 def _determine_ratio_window(ratio_arrays, data_ratio_arrays, *, tolerance=1e-12):
-    """Return ratio axis limits and warning flags given MC/data ratio samples."""
+    """Return the fixed ratio limits and flags for values outside them."""
 
-    ratio_windows = (
-        (0.5, 1.5),
-        (0.0, 2.0),
-        (-1.0, 3.0),
-    )
-    ratio_window_deviations = (0.5, 1.0, 2.0)
-    largest_low, largest_high = ratio_windows[-1]
+    ratio_low, ratio_high = RATIO_Y_RANGE
 
     def _finite_segments(arrays):
         segments = []
@@ -2255,41 +2250,26 @@ def _determine_ratio_window(ratio_arrays, data_ratio_arrays, *, tolerance=1e-12)
 
     finite_segments = _finite_segments(ratio_arrays)
 
-    ratio_limits = ratio_windows[0]
-    exceeds_largest_window = False
+    exceeds_ratio_range = False
     if finite_segments:
         combined = np.concatenate(finite_segments)
         min_val = float(np.min(combined))
         max_val = float(np.max(combined))
-        max_abs_deviation = float(np.max(np.abs(combined - 1.0)))
-
-        selected_limits = ratio_windows[-1]
-        for (low, high), allowed_deviation in zip(ratio_windows, ratio_window_deviations):
-            if (
-                max_abs_deviation <= allowed_deviation + tolerance
-                and min_val >= low - tolerance
-                and max_val <= high + tolerance
-            ):
-                selected_limits = (low, high)
-                break
-
-        ratio_limits = selected_limits
-
-        exceeds_largest_window = (
-            min_val < largest_low - tolerance or max_val > largest_high + tolerance
+        exceeds_ratio_range = (
+            min_val < ratio_low - tolerance or max_val > ratio_high + tolerance
         )
 
     data_finite_segments = _finite_segments(data_ratio_arrays)
-    data_exceeds_largest_window = False
+    data_exceeds_ratio_range = False
     if data_finite_segments:
         data_combined = np.concatenate(data_finite_segments)
         data_min = float(np.min(data_combined))
         data_max = float(np.max(data_combined))
-        data_exceeds_largest_window = (
-            data_min < largest_low - tolerance or data_max > largest_high + tolerance
+        data_exceeds_ratio_range = (
+            data_min < ratio_low - tolerance or data_max > ratio_high + tolerance
         )
 
-    return ratio_limits, exceeds_largest_window, data_exceeds_largest_window
+    return RATIO_Y_RANGE, exceeds_ratio_range, data_exceeds_ratio_range
 
 
 def _merge_mappings(base, updates):
@@ -5010,7 +4990,10 @@ def _compute_uncertainty_bands(
                 )
                 ratio_band_handles.append(ratio_total_handle)
 
-    if has_ratio_axis and ratio_band_handles:
+    show_ratio_legend = bool(
+        _style_get(style, ("ratio_band_legend", "enabled"), False)
+    )
+    if has_ratio_axis and ratio_band_handles and show_ratio_legend:
         ratio_legend_style = _style_get(style, ("ratio_band_legend",), {})
         legend_kwargs = {
             "loc": ratio_legend_style.get("loc", "upper left"),
@@ -7910,13 +7893,13 @@ def make_region_stacked_ratio_fig(
 
         (
             ratio_limits,
-            exceeds_largest_window,
-            data_exceeds_largest_window,
+            exceeds_ratio_range,
+            data_exceeds_ratio_range,
         ) = _determine_ratio_window(ratio_arrays, data_ratio_arrays)
 
-        if exceeds_largest_window or data_exceeds_largest_window:
+        if exceeds_ratio_range or data_exceeds_ratio_range:
             warnings.warn(
-                "Ratio data exceed the [-1.0, 3.0] limits; values outside the plotted range will be clipped.",
+                "Ratio data exceed the [0.0, 2.0] limits; values outside the plotted range will be clipped.",
                 RuntimeWarning,
             )
 
@@ -8129,6 +8112,7 @@ def run_plots_for_region(
     report_zero_yields=False,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    show_ratio_legend=False,
 ):
     """Run one CR/SR plotting pass and write optional zero/negative reports."""
 
@@ -8194,6 +8178,13 @@ def run_plots_for_region(
         )
         if summary_region_ctx is None:
             summary_region_ctx = region_ctx
+
+        stacked_ratio_style = getattr(region_ctx, "stacked_ratio_style", None)
+        if isinstance(stacked_ratio_style, dict):
+            ratio_legend_style = stacked_ratio_style.setdefault(
+                "ratio_band_legend", {}
+            )
+            ratio_legend_style["enabled"] = bool(show_ratio_legend)
 
         if region_ctx.channel_mode == "per-channel" and not split_channels_available:
             mode_label = CHANNEL_MODE_LABELS.get(channel_mode, channel_mode)
@@ -8408,6 +8399,11 @@ def build_arg_parser():
         dest="negative_weight_report",
         action="store_false",
         help="Disable the end-of-run negative MC contribution CSV/Markdown report.",
+    )
+    parser.add_argument(
+        "--show-ratio-legend",
+        action="store_true",
+        help="Draw the uncertainty-band legend in ratio panels (default: hidden).",
     )
     parser.add_argument(
         "--on-process-collision",
@@ -8646,6 +8642,7 @@ def run_with_args(args, parser):
         report_zero_yields=args.report_zero_yields,
         rebin_plot_vars=rebin_plot_vars,
         negative_weight_report=args.negative_weight_report,
+        show_ratio_legend=args.show_ratio_legend,
     )
     return 0
 

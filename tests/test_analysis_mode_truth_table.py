@@ -7,6 +7,20 @@ import pytest
 from analysis.topeft_run2 import analysis_processor as ap
 
 
+def test_run_cr_requests_ptz_for_the_3l_cr_and_forwards_hist_variables():
+    run_cr_source = (
+        Path(__file__).resolve().parents[1]
+        / "analysis"
+        / "topeft_run2"
+        / "run_cr.sh"
+    ).read_text()
+
+    assert '"ptz njets l0conept met"' in run_cr_source
+    assert '"2los_CRZ 3l_CR"' in run_cr_source
+    assert '--hist-vars "${vars[@]}"' in run_cr_source
+    assert '--category-groups "${cats[@]}"' in run_cr_source
+
+
 @pytest.mark.parametrize(
     ("offz", "tau", "fwd", "all_mode"),
     [
@@ -190,6 +204,7 @@ def test_plain_ptz_cr_policy_fills_zll_and_diagnostic_crs(all_analysis):
         "2los_1tau_Ftau",
         "2los_1tau_Ttau",
         "2los_1tau_0b",
+        "3l_CR",
     ):
         assert (
             processor._should_skip_histogram_fill(
@@ -206,7 +221,6 @@ def test_plain_ptz_cr_policy_fills_zll_and_diagnostic_crs(all_analysis):
     "2los_CRtt",
     "1l_1tau_CR",
     "1l_dy_tautau_CR",
-    "3l_CR",
 ])
 def test_plain_ptz_cr_policy_skips_non_zll_crs(lep_chan):
     processor = ap.AnalysisProcessor(

@@ -410,6 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         explicit_zll_cr_channels = {
             "2los_CRZ",
             "2lss_CRflip",
+            "3l_CR",
         }
         # Diagnostic Z-candidate observable for the SFOS on-Z subset of these
         # selected 2lOS+tau CR events; the categories are not globally on-Z.
@@ -668,8 +669,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout = self.accumulator
 
         if self.enable_tau_blocks:
-            tau_fo_tag = "VLoose" if is_run2 else "Loose"
-            tau_T_tag = "Loose" if is_run2 else "Medium"
+            tau_fo_tag = get_te_param(
+                "run2_tau_fo_tag" if is_run2 else "run3_tau_fo_tag"
+            )
+            tau_T_tag = get_te_param(
+                "run2_tau_t_tag" if is_run2 else "run3_tau_t_tag"
+            )
             taus = AttachTauEnergyCorrections(
                 year, tau, isData, vsJetWP=tau_T_tag
             )
