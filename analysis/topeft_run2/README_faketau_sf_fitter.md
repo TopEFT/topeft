@@ -1,10 +1,10 @@
 # Fake-tau SF fitter
 
 The active fitter is `analysis/topeft_run2/faketau_sf_fitter.py`. It reads the
-fake- and tight-tau control-region histograms from a pkl, computes data and MC
-fake-rate points, and fits their ratio with a linear scale-factor model. Printed
-tables are the primary output; `--output-json` optionally writes the fitted
-TauFakeSF payload.
+fake- and tight-tau control-region histograms from one or more pkls, computes
+data and MC fake-rate points, and fits their ratio with a linear scale-factor
+model. Printed tables are the primary output; `--output-json` optionally writes
+the fitted TauFakeSF payload.
 
 The fitter resolves its configured tau control-region expectations against the
 actual `channel` axes in the input histograms. A filename, directory name, or
@@ -13,18 +13,27 @@ present.
 
 ### Input histogram contract
 
-The input pkl must contain both active histogram keys:
+Each input pkl must contain both active histogram keys:
 
 * `tau0Fpt`, with axes `process`, `channel`, `systematic`, and `tau0Fpt`;
 * `tau0Tpt`, with axes `process`, `channel`, `systematic`, and `tau0Tpt`.
 
 The optional `tau0Fpt_sumw2` and `tau0Tpt_sumw2` companions provide weighted
-statistical uncertainties. If a companion is absent or lacks its expected dense
-axis, the fitter logs a warning and falls back to Poisson counting uncertainty
-for that path. Produce histograms without `--no-sumw2` when the weighted sumw²
-uncertainties are required. See the
+statistical uncertainties. If a companion is absent from all inputs or lacks its
+expected dense axis, the fitter logs a warning and falls back to Poisson
+counting uncertainty for that path. Produce histograms without `--no-sumw2`
+when the weighted sumw² uncertainties are required. See the
 [Run 2 analysis README](README.md#run-scripts-and-processors)
 for the shared sumw² production guidance.
+
+For multiple input pkls, required `tau0Fpt` and `tau0Tpt` histograms are
+combined by histogram addition before fake-rate extraction. Optional sumw²
+companions must be consistently present in every input file or consistently
+absent from every input file. Consistently present sumw² companions are combined
+by direct addition, matching the `make_cr_and_sr_plots.py` convention for
+variance-like `*_sumw2` histograms; this is the quadrature-equivalent
+combination for stored sums of squared weights. Mixed sumw² availability raises
+an error naming the affected companion and the files with/without it.
 
 Configured Ftau/Ttau channel expectations come from
 `TAU_CH_LST_CR["2los_1tau"]` in `topeft/channels/ch_lst.json`, or from the file
@@ -90,8 +99,8 @@ family has neither complete split bins nor its aggregate fallback.
 ### Inspecting channels before fitting
 
 `--dump-channels` prints or writes the Ftau/Ttau channel names derived from the
-channel configuration. It does not inspect the pkl and does not prove that those
-labels exist in the histogram axes:
+channel configuration. It does not inspect the pkl input(s) and does not prove
+that those labels exist in the histogram axes:
 
 ```bash
 python analysis/topeft_run2/faketau_sf_fitter.py \
@@ -134,6 +143,20 @@ python analysis/topeft_run2/faketau_sf_fitter.py \
   -f /path/to/plotsTopEFT.pkl.gz \
   --channels-json /path/to/ch_lst.json
 ```
+
+To combine several compatible histogram pkls before fitting, pass all paths
+after one `-f`/`--pkl-file-path`:
+
+```bash
+python analysis/topeft_run2/faketau_sf_fitter.py \
+  -f /path/to/plotsTopEFT_part1.pkl.gz /path/to/plotsTopEFT_part2.pkl.gz \
+  --channels-json /path/to/ch_lst.json
+```
+
+The combined histograms are processed by the same split-first /
+aggregate-fallback channel-resolution logic as a single input pkl. The fitter
+prints a concise input summary listing the input paths, required histograms, and
+whether each sumw² companion is present in all inputs or absent from all inputs.
 
 To restrict both MC and data to selected campaign tokens:
 

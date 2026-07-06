@@ -6,14 +6,15 @@
 # sources and avoiding the overly conservative behaviour of the
 # historical linear addition.
 #
-# To use, run command python tauFitter.py -f /path/to/pkl/file
-# pkl file should have CRs listed below and have all other
-# corrections aside from fake tau SFs
+# Active script: analysis/topeft_run2/faketau_sf_fitter.py
+# Pass one or more input pkls with -f/--pkl-file-path. Input pkls should
+# include the fake- and tight-tau CR histograms and all corrections aside
+# from fake tau SFs.
 # output is in the form of linear fit y = mx+b
 # where m and b are in numerical form, y is the SF, and x is the tau pt
-# tau fake-rate fits use regrouped pt edges [20, 30, 40, 50, 60, 80, 100, 200]
+# tau fake-rate fits use regrouped pt edges [20, 30, 40, 50, 60, 200]
 # Detailed setup instructions and interpretation notes live in
-# README_FITTING.md (see the "Tau fake-rate fitter" section).
+# analysis/topeft_run2/README_faketau_sf_fitter.md.
 
 import numpy as np
 import os
@@ -42,6 +43,9 @@ LOGGER = logging.getLogger(__name__)
 
 _TAU_FAKE_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0Fpt")
 _TAU_TIGHT_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0Tpt")
+DEFAULT_INPUT_PKL_PATH = "histos/plotsTopEFT.pkl.gz"
+FAKETAU_REQUIRED_HISTOGRAMS = ("tau0Fpt", "tau0Tpt")
+FAKETAU_OPTIONAL_SUMW2_HISTOGRAMS = ("tau0Fpt_sumw2", "tau0Tpt_sumw2")
 
 
 YEAR_TOKEN_RULES = {
@@ -174,6 +178,149 @@ def load_tau_control_channels(channels_json_path=None):
         )
 
     return ftau_channels, ttau_channels
+
+
+def normalize_input_pkl_paths(paths=None):
+    """Return a non-empty list of input pkl paths."""
+
+    if paths is None:
+        return [DEFAULT_INPUT_PKL_PATH]
+    if isinstance(paths, (str, os.PathLike)):
+        normalized = [os.fspath(paths)]
+    else:
+        normalized = [os.fspath(path) for path in paths if path is not None]
+
+    if not normalized:
+        return [DEFAULT_INPUT_PKL_PATH]
+    if any(not path for path in normalized):
+        raise ValueError("Input pkl paths must be non-empty strings.")
+    return normalized
+
+
+def load_histogram_pkl(path):
+    """Load one histogram pkl with the same utility used by the legacy fitter."""
+
+    histograms = utils.get_hist_from_pkl(path, allow_empty=False)
+    if not isinstance(histograms, dict):
+        raise TypeError(
+            f"Input pkl file '{path}' did not contain a histogram dictionary. "
+            f"Got: {type(histograms).__name__}."
+        )
+    return histograms
+
+
+def _combine_histogram_sequence(hist_name, histograms, input_paths):
+    """Combine histograms without using a loaded input object as an accumulator."""
+
+    combined = histograms[0]
+    for incoming_hist, input_path in zip(histograms[1:], input_paths[1:]):
+        try:
+            combined = combined + incoming_hist
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to combine histogram '{hist_name}' from input pkl file "
+                f"'{input_path}' with earlier input file(s): {exc!r}."
+            ) from exc
+    return combined
+
+
+def merge_faketau_histogram_dicts(histogram_dicts, *, input_paths):
+    """Merge the fake-tau fitter's required histograms from loaded dictionaries."""
+
+    histogram_dicts = list(histogram_dicts)
+    input_paths = normalize_input_pkl_paths(input_paths)
+    if len(histogram_dicts) != len(input_paths):
+        raise ValueError(
+            "The number of histogram dictionaries does not match the number of input paths."
+        )
+    if not histogram_dicts:
+        raise ValueError("No histogram dictionaries were provided for fake-tau merging.")
+
+    for input_path, histograms in zip(input_paths, histogram_dicts):
+        if not isinstance(histograms, dict):
+            raise TypeError(
+                f"Input pkl file '{input_path}' did not contain a histogram dictionary. "
+                f"Got: {type(histograms).__name__}."
+            )
+        missing_required = [
+            hist_name
+            for hist_name in FAKETAU_REQUIRED_HISTOGRAMS
+            if hist_name not in histograms
+        ]
+        if missing_required:
+            raise RuntimeError(
+                f"Input pkl file '{input_path}' is missing required fake-tau "
+                f"histogram(s): {', '.join(missing_required)}."
+            )
+
+    combined_histograms = OrderedDict()
+    for hist_name in FAKETAU_REQUIRED_HISTOGRAMS:
+        combined_histograms[hist_name] = _combine_histogram_sequence(
+            hist_name,
+            [histograms[hist_name] for histograms in histogram_dicts],
+            input_paths,
+        )
+
+    sumw2_status = {}
+    for hist_name in FAKETAU_OPTIONAL_SUMW2_HISTOGRAMS:
+        paths_with = [
+            input_path
+            for input_path, histograms in zip(input_paths, histogram_dicts)
+            if hist_name in histograms
+        ]
+        paths_without = [
+            input_path
+            for input_path, histograms in zip(input_paths, histogram_dicts)
+            if hist_name not in histograms
+        ]
+        if paths_with and paths_without:
+            raise RuntimeError(
+                f"Optional sumw2 companion '{hist_name}' has mixed availability "
+                "across input pkl files. Present in: "
+                f"{', '.join(paths_with)}. Absent from: {', '.join(paths_without)}."
+            )
+        if paths_with:
+            combined_histograms[hist_name] = _combine_histogram_sequence(
+                hist_name,
+                [histograms[hist_name] for histograms in histogram_dicts],
+                input_paths,
+            )
+            sumw2_status[hist_name] = "present in all input files"
+        else:
+            sumw2_status[hist_name] = "absent from all input files"
+
+    input_summary = {
+        "num_inputs": len(input_paths),
+        "input_paths": tuple(input_paths),
+        "required_histograms": FAKETAU_REQUIRED_HISTOGRAMS,
+        "sumw2_status": sumw2_status,
+    }
+    return combined_histograms, input_summary
+
+
+def combine_faketau_histogram_pkls(paths):
+    """Load and combine one or more fake-tau fitter input pkls."""
+
+    input_paths = normalize_input_pkl_paths(paths)
+    histogram_dicts = [load_histogram_pkl(path) for path in input_paths]
+    return merge_faketau_histogram_dicts(
+        histogram_dicts,
+        input_paths=input_paths,
+    )
+
+
+def print_faketau_input_summary(input_summary):
+    """Print the concise input summary used before fake-rate extraction."""
+
+    print(f"Input pkl file(s): {input_summary['num_inputs']}")
+    for input_path in input_summary["input_paths"]:
+        print(f"  - {input_path}")
+    print(
+        "Combining required histograms: "
+        + ", ".join(input_summary["required_histograms"])
+    )
+    for hist_name in FAKETAU_OPTIONAL_SUMW2_HISTOGRAMS:
+        print(f"{hist_name}: {input_summary['sumw2_status'][hist_name]}")
 
 
 def _gather_axis_alias_tokens(mapping):
@@ -1253,7 +1400,7 @@ def _validate_histogram_axes(histogram, expected_axes, hist_name):
         summary = (
             f"The '{hist_name}' histogram is missing required axes: {', '.join(missing_axes)}. "
             f"Available axes: {available}. "
-            "Regenerate the histogram pickle with these axes enabled before running tauFitter."
+            "Regenerate the histogram pickle with these axes enabled before running the fake-tau SF fitter."
         )
         LOGGER.error(summary)
         raise HistogramAxisError(
@@ -1893,14 +2040,19 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
 
     return mc_y, mc_e, data_x, data_y, data_e, stage_details
 
-def main():
-
-    def _as_flat_float(array):
-        return np.asarray(array, dtype=float).reshape(-1)
-
-    # Set up the command line parser
+def build_arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
+    parser.add_argument(
+        "-f",
+        "--pkl-file-path",
+        nargs="+",
+        default=[DEFAULT_INPUT_PKL_PATH],
+        metavar="PKL",
+        help=(
+            "Path(s) to input pkl file(s). Pass one path for the legacy single-input "
+            "case or multiple paths after one -f to combine inputs before fitting."
+        ),
+    )
     parser.add_argument(
         "--channels-json",
         default=None,
@@ -1934,7 +2086,19 @@ def main():
             " Use '-' to write to stdout."
         ),
     )
+    return parser
+
+
+def main():
+    def _as_flat_float(array):
+        return np.asarray(array, dtype=float).reshape(-1)
+
+    parser = build_arg_parser()
     args = parser.parse_args()
+    try:
+        input_pkl_paths = normalize_input_pkl_paths(args.pkl_file_path)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     try:
         sample_filters = _resolve_year_filters(args.year)
@@ -1953,8 +2117,8 @@ def main():
                 json.dump(dump_payload, dump_file, indent=2)
             print(f"Tau channel lists written to {args.dump_channels}")
 
-    # Get the histograms
-    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    hin_dict, input_summary = combine_faketau_histogram_pkls(input_pkl_paths)
+    print_faketau_input_summary(input_summary)
     y_mc, yerr_mc, x_data, y_data, yerr_data, stage_details = getPoints(
         hin_dict,
         ftau_channels,
