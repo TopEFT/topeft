@@ -22,7 +22,7 @@ if str(ROOT) not in sys.path:
 import analysis.topeft_run2.faketau_sf_fitter as fitter
 
 
-def _build_tau_histograms(process_weights=None):
+def _build_tau_histograms(process_weights=None, channel_scales=None):
     tau_edges = [20, 30, 40, 50, 60, 80, 100, 200]
     proc_axis = hist.axis.StrCategory([], name="process", growth=True)
     channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
@@ -82,10 +82,11 @@ def _build_tau_histograms(process_weights=None):
     }
 
     values = [25.0, 35.0, 45.0, 55.0, 70.0, 90.0, 150.0]
-    channel_scales = {
-        "2los_ee_1tau_Ftau_2j": 1.0,
-        "2los_ee_1tau_Ttau_2j": 0.6,
-    }
+    if channel_scales is None:
+        channel_scales = {
+            "2los_ee_1tau_Ftau_2j": 1.0,
+            "2los_ee_1tau_Ttau_2j": 0.6,
+        }
     if process_weights is None:
         base_weights = {
             "ttbar": [12.0, 11.0, 10.0, 9.0, 8.0, 7.0, 6.0],
@@ -292,7 +293,7 @@ def test_tau_sumw2_histogram_passes_validation(caplog):
     ttau_channels = ["2los_ee_1tau_Ttau_2j"]
 
     with caplog.at_level(logging.WARNING):
-        _mc_y, mc_e, _data_x, _data_y, data_e, stage_details = fitter.getPoints(
+        mc_y, mc_e, _data_x, data_y, data_e, stage_details = fitter.getPoints(
             histograms,
             ftau_channels,
             ttau_channels,
@@ -303,14 +304,109 @@ def test_tau_sumw2_histogram_passes_validation(caplog):
         for record in caplog.records
     )
 
-    mc_fake_errors = stage_details["native_yields"]["MC fake"][1]
-    data_fake_errors = stage_details["native_yields"]["Data fake"][1]
+    native_bin_labels = stage_details["native_bin_labels"]
+    native_yields = stage_details["native_yields"]
+    expected_native_mc_fake_errors = np.asarray(expected_errors[("MC", "fake")])
+    expected_native_mc_tight_errors = np.asarray(expected_errors[("MC", "tight")])
+    expected_native_data_fake_errors = np.asarray(expected_errors[("Data", "fake")])
+    expected_native_data_tight_errors = np.asarray(expected_errors[("Data", "tight")])
 
-    assert mc_fake_errors == pytest.approx(expected_errors[("MC", "fake")])
-    assert data_fake_errors == pytest.approx(expected_errors[("Data", "fake")])
-    assert mc_e.size == len(mc_fake_errors)
-    assert data_e.size == len(data_fake_errors)
+    native_mc_fake_errors = native_yields["MC fake"][1]
+    native_mc_tight_errors = native_yields["MC tight"][1]
+    native_data_fake_errors = native_yields["Data fake"][1]
+    native_data_tight_errors = native_yields["Data tight"][1]
+
+    assert len(native_bin_labels) == len(expected_native_mc_fake_errors)
+    assert len(native_mc_fake_errors) == len(native_bin_labels)
+    assert len(native_mc_tight_errors) == len(native_bin_labels)
+    assert len(native_data_fake_errors) == len(native_bin_labels)
+    assert len(native_data_tight_errors) == len(native_bin_labels)
+
+    assert native_mc_fake_errors == pytest.approx(expected_native_mc_fake_errors)
+    assert native_mc_tight_errors == pytest.approx(expected_native_mc_tight_errors)
+    assert native_data_fake_errors == pytest.approx(expected_native_data_fake_errors)
+    assert native_data_tight_errors == pytest.approx(expected_native_data_tight_errors)
+
+    regroup_labels = stage_details["regroup_labels"]
+    mc_regroup_summary = stage_details["mc_regroup_summary"]
+    data_regroup_summary = stage_details["data_regroup_summary"]
+
+    assert mc_e.size == len(regroup_labels)
+    assert data_e.size == len(regroup_labels)
+    assert len(mc_regroup_summary) == len(regroup_labels)
+    assert len(data_regroup_summary) == len(regroup_labels)
+
+    def _expected_regroup_errors(native_errors, regroup_summary):
+        native_errors = np.asarray(native_errors, dtype=float)
+        expected = []
+        for entry in regroup_summary:
+            start, stop = entry["slice"]
+            expected.append(math.sqrt(float(np.sum(native_errors[start:stop] ** 2))))
+        return expected
+
+    assert [entry["fake_err"] for entry in mc_regroup_summary] == pytest.approx(
+        _expected_regroup_errors(expected_native_mc_fake_errors, mc_regroup_summary)
+    )
+    assert [entry["tight_err"] for entry in mc_regroup_summary] == pytest.approx(
+        _expected_regroup_errors(expected_native_mc_tight_errors, mc_regroup_summary)
+    )
+    assert [entry["fake_err"] for entry in data_regroup_summary] == pytest.approx(
+        _expected_regroup_errors(expected_native_data_fake_errors, data_regroup_summary)
+    )
+    assert [entry["tight_err"] for entry in data_regroup_summary] == pytest.approx(
+        _expected_regroup_errors(expected_native_data_tight_errors, data_regroup_summary)
+    )
+
+    for summary in (mc_regroup_summary, data_regroup_summary):
+        for entry in summary:
+            assert math.isfinite(entry["fake_err"])
+            assert entry["fake_err"] >= 0.0
+            assert math.isfinite(entry["tight_err"])
+            assert entry["tight_err"] >= 0.0
+
+    assert np.all(np.isfinite(mc_e[mc_y > 0.0]))
+    assert np.all(mc_e[mc_y > 0.0] > 0.0)
+    assert np.all(np.isfinite(data_e[data_y > 0.0]))
+    assert np.all(data_e[data_y > 0.0] > 0.0)
     assert stage_details["year_filter"]["selected_years"] is None
+
+
+def test_get_points_uses_aggregate_tau_channel_fallbacks(caplog):
+    histograms, _ = _build_tau_histograms(
+        channel_scales={
+            "2los_1tau_Ftau_2j": 1.0,
+            "2los_1tau_Ttau_2j": 0.6,
+        }
+    )
+    ftau_channels = [
+        "2los_ee_1tau_Ftau_2j",
+        "2los_em_1tau_Ftau_2j",
+        "2los_mm_1tau_Ftau_2j",
+    ]
+    ttau_channels = [
+        "2los_ee_1tau_Ttau_2j",
+        "2los_em_1tau_Ttau_2j",
+        "2los_mm_1tau_Ttau_2j",
+    ]
+
+    with caplog.at_level(logging.INFO):
+        _mc_y, _mc_e, _data_x, _data_y, _data_e, stage_details = fitter.getPoints(
+            histograms,
+            ftau_channels,
+            ttau_channels,
+        )
+
+    resolutions = stage_details["tau_channel_resolution"]
+    assert resolutions["Ftau"]["resolution_mode"] == "aggregate"
+    assert resolutions["Ftau"]["selected_bins"] == (
+        "2los_1tau_Ftau_2j",
+    )
+    assert resolutions["Ttau"]["resolution_mode"] == "aggregate"
+    assert resolutions["Ttau"]["selected_bins"] == (
+        "2los_1tau_Ttau_2j",
+    )
+    assert "Ftau flavor-split bins are incomplete" in caplog.text
+    assert "using aggregate fallback 2los_1tau_Ftau_2j" in caplog.text
 
 
 def test_year_filter_limits_samples():

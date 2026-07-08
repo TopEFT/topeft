@@ -59,7 +59,6 @@ TAU_ENERGY_FIELDS = {
     },
 }
 
-
 def is_muon_momentum_systematic(syst_var):
     return syst_var in RUN3_MUON_MOMENTUM_SYSTEMATICS
 
@@ -78,6 +77,37 @@ def get_supported_tau_energy_systematics(year, isData=False):
     if isData:
         return []
     return list(TAU_ENERGY_SYSTEMATICS)
+
+
+def get_run2_tau_fake_sf_name(vsJetWP):
+    if vsJetWP == "Loose":
+        return "TauFakeSFL"
+    if vsJetWP == "Medium":
+        return "TauFakeSFM"
+    raise ValueError(
+        "Unsupported Run 2 fake-tau SF VSjet working point "
+        f"{vsJetWP!r}. Supported payload-backed Run 2 fake-tau SF "
+        "working points are the canonical, case-sensitive values Loose "
+        "and Medium. The legacy/stale TauFakeSF/Tight payload is not "
+        "used by the current Run 2 fake-tau SF selection."
+    )
+
+
+def _get_tau_fake_sf_evaluators(evaluator, base_name):
+    keys = (base_name, f"{base_name}_up", f"{base_name}_down")
+    evaluators = {}
+    missing = []
+    for key in keys:
+        try:
+            evaluators[key] = evaluator[key]
+        except KeyError:
+            missing.append(key)
+    if missing:
+        raise RuntimeError(
+            f"Missing Run 2 fake-tau SF evaluator key(s) for {base_name}: "
+            f"{', '.join(missing)}."
+        )
+    return evaluators
 
 ###### Lepton scale factors
 ################################################################
@@ -582,6 +612,14 @@ extLepSF.add_weight_sets(["TauFakeSF TauSF/pt_value %s"%topcoffea_path('data/Tau
 extLepSF.add_weight_sets(["TauFakeSF_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 extLepSF.add_weight_sets(["TauFakeSF_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 
+extLepSF.add_weight_sets(["TauFakeSFM TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSFM.json')])
+extLepSF.add_weight_sets(["TauFakeSFM_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSFM.json')])
+extLepSF.add_weight_sets(["TauFakeSFM_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSFM.json')])
+
+extLepSF.add_weight_sets(["TauFakeSFL TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSFL.json')])
+extLepSF.add_weight_sets(["TauFakeSFL_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSFL.json')])
+extLepSF.add_weight_sets(["TauFakeSFL_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSFL.json')])
+
 extLepSF.add_weight_sets(["TauFakeSF_Run3 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
 extLepSF.add_weight_sets(["TauFakeSF_Run3_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
 extLepSF.add_weight_sets(["TauFakeSF_Run3_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_Run3.json')])
@@ -744,8 +782,11 @@ def _evaluate_tau_energy_components(
     }
 
 
-def AttachTauEnergyCorrections(year, taus, isData, vsJetWP="Medium"):
+def AttachTauEnergyCorrections(year, taus, isData, vsJetWP=None):
     """Attach complete nominal and varied tau pt/mass views from raw kinematics."""
+    is_run2 = str(year).startswith("201")
+    if vsJetWP is None:
+        vsJetWP = get_te_param("run2_tau_t_tag" if is_run2 else "run3_tau_t_tag")
     if "pt_raw" not in ak.fields(taus):
         taus = ak.with_field(taus, taus.pt, "pt_raw")
     if "mass_raw" not in ak.fields(taus):
@@ -795,7 +836,13 @@ def ApplyTauEnergySystematics(taus, syst_var):
     taus = ak.with_field(taus, taus[pt_field], "pt")
     return ak.with_field(taus, taus[mass_field], "mass")
 
-def AttachTauSF(events, taus, year, vsJetWP="Loose", run3_fake_split=False):
+def AttachTauSF(
+    events,
+    taus,
+    year,
+    vsJetWP=None,
+    run3_fake_split=False,
+):
     pt   = taus.pt
     dm   = taus.decayMode
     eta  = taus.eta
@@ -804,6 +851,11 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose", run3_fake_split=False):
 
     is_run2 = year.startswith("201")
     is_run3 = not is_run2
+    if vsJetWP is None:
+        vsJetWP = get_te_param("run2_tau_t_tag" if is_run2 else "run3_tau_t_tag")
+    run2_fake_sf_eval = None
+    if is_run2:
+        run2_fake_sf_eval = get_run2_tau_fake_sf_name(vsJetWP)
 
     stored_muon_mask = None
     if "ismTight" in ak.fields(taus):
@@ -858,13 +910,33 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose", run3_fake_split=False):
         json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
         ceval = correctionlib.CorrectionSet.from_file(json_path)
  
-        wp   = taus.idDeepTau2017v2p1VSjet
+        corr_jet = ceval["DeepTau2017v2p1VSjet"]
+        vsjet_flat_mask = ak.flatten(
+            ak.fill_none(taus[f"is{vsJetWP}"] > 0, False)
+        )
+        genuine_tau_mask = ak.fill_none(
+            pt_mask_flat & (flat_gen == 5) & vsjet_flat_mask,
+            False,
+        )
 
-        ## legacy
-        whereFlag = ((pt>20) & (pt<205) & (gen==5) & (taus[f"is{vsJetWP}"]>0) )
-        real_sf_loose = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}'](dm,pt), 1)
-        real_sf_loose_up = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}_up'](dm,pt), 1)
-        real_sf_loose_down = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}_down'](dm,pt), 1)
+        def evaluate_real_tau_sf(syst):
+            values = np.ones(len(flat_pt), dtype=np.float32)
+            selected = ak.to_numpy(genuine_tau_mask)
+            if np.any(selected):
+                values[selected] = corr_jet.evaluate(
+                    ak.to_numpy(flat_pt[selected]),
+                    ak.to_numpy(flat_dm[selected]),
+                    ak.to_numpy(flat_gen[selected]),
+                    vsJetWP,
+                    "VVLoose",
+                    syst,
+                    "dm",
+                )
+            return ak.unflatten(values, ak.num(pt))
+
+        real_sf = evaluate_real_tau_sf("nom")
+        real_sf_up = evaluate_real_tau_sf("up")
+        real_sf_down = evaluate_real_tau_sf("down")
 
         whereFlag = ((pt>20) & (pt<205) & ((gen==1)|(gen==3)) & (taus["iseTight"]>0))
         fake_elec_sf = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}'](np.abs(eta)), 1)
@@ -876,14 +948,11 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose", run3_fake_split=False):
         fake_muon_sf_up = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_up'](np.abs(eta)), 1)
         fake_muon_sf_down = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_down'](np.abs(eta)), 1)
 
+        fake_sf_evaluators = _get_tau_fake_sf_evaluators(SFevaluator, run2_fake_sf_eval)
         whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
-        new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF'](pt), 1)
-        new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_up'](pt), 1)
-        new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_down'](pt), 1)
-
-        real_sf = real_sf_loose
-        real_sf_up = real_sf_loose_up
-        real_sf_down = real_sf_loose_down
+        new_fake_sf = np.where(whereFlag, fake_sf_evaluators[run2_fake_sf_eval](pt), 1)
+        new_fake_sf_up = np.where(whereFlag, fake_sf_evaluators[f"{run2_fake_sf_eval}_up"](pt), 1)
+        new_fake_sf_down = np.where(whereFlag, fake_sf_evaluators[f"{run2_fake_sf_eval}_down"](pt), 1)
 
     if is_run3:
         clib_year = clib_year_map[year]
@@ -911,7 +980,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose", run3_fake_split=False):
             (
                 "DeepTau2018v2p5VSe",
                 vse_flat_mask,
-                (flat_eta, flat_dm, flat_gen, "VVLoose"),
+                (flat_eta, flat_dm, flat_gen, "Tight"),
                 ((flat_gen == 1) | (flat_gen == 3)),
             ),
         ]

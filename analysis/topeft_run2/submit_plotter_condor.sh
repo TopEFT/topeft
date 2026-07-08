@@ -44,6 +44,17 @@ options.
 In particular, plotting switches such as --channel-output understand the same
 merged/split/both values as the Python CLI along with the new -njets variants
 that preserve the per-njet bins defined in cr_sr_plots_metadata.yml.
+
+Example passthrough with focused plot-time rebinning:
+  ./submit_plotter_condor.sh --request-cpus 2 --request-memory 6GB -- \
+    -f /cephfs/<group>/<netid>/topeft/pickles/plotsCR_2017.pkl.gz \
+    -o /cephfs/<group>/<netid>/topeft/plots/cr_2017_rebin \
+    -y 2017 --cr --variables j0pt l1conept \
+    --rebin-plot-vars j0pt:2,l1conept:2
+
+Negative MC contribution CSV/Markdown reports are produced by default by the
+Python plotter; pass --no-negative-weight-report with the plotting arguments to
+disable them.
 USAGE
 }
 

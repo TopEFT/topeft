@@ -25,7 +25,7 @@ chunk_size="50000"
 ttgamma_sample_role_policy="split"
 
 # Use a strategy-specific tag to avoid mixing baseline/feature/diagnostic outputs.
-campaign_tag="preappr"
+campaign_tag="preappr_tauwp_loose"
 
 cr_pkl_base_tag="${campaign_tag}"
 sr_pkl_base_tag="${campaign_tag}"
@@ -39,12 +39,12 @@ run_sr=false
 # Useful while checking resolved years/categories/histograms without launching production.
 dry_run=false
 
-# Current CR distribution production mode.
+# Shared CR/SR production switches.
 #
 # Yuyi's request is for distributions, and the previous colleague-facing setup used
 # systematic variations for CR plotting. Keep nonprompt disabled unless explicitly needed.
 do_systs=true
-do_np=false
+do_np=true
 
 # Enable only if the colleague explicitly needs lepton-flavour split outputs.
 split_lep_flavor=false
@@ -64,69 +64,73 @@ split_lep_flavor=false
 #   - fwd0eta, lj0pt, lt, met, ptz for the relevant non-tau CRs;
 #   - ptz_wtau and tau variables for tau CR coverage;
 #   - invmass, j0eta, j0pt, l0/l1 variables, ljptsum, nbtagsl, njets for tau CRs.
-var_sets=(
-  # "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
-  # "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
-  # "l0eta l0conept met lt njets ptz_wtau tau0Fpt tau0Tpt"
-  # "lt"
-  "lj0pt nbtagsl nbtagsm fwd0pt fwd0eta lt"
-)
 
 ###############################################################################
 # CR configuration
 ###############################################################################
 
+cr_var_sets=(
+  # "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
+  # "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
+  # "l0eta met lt ptz_wtau"
+  # "l0conept njets tau0Fpt tau0Tpt"
+  # "lt"
+  # "lj0pt nbtagsl nbtagsm fwd0pt fwd0eta lt"
+
+  "ptz_wtau njets l0conept tau0Tpt tau0Fpt"
+)
+
 # Keep year periods separate so the output pkls are period-specific.
 #
 # Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
 cr_year_sets=(
-  # 2016APV
-  # 2016
-  # 2017
-  # 2018
-  # 2022
-  # 2022EE
-  2023
-  2023BPix
+  "2016APV 2016 2017 2018"
+  # "2022 2022EE"
+  # "2023 2023BPix"
 )
 
 # Current category names used by the analysis helpers.
-#
-# Mapping to Yuyi labels:
-#   2los_Z      -> 2los_CRZ
-#   2lss_flip   -> 2l_CRflip
-#   2los_tt     -> 2los_CRtt
-#   3l          -> 3l_CR
-#   dy_tautau   -> 1l_1tau_CRDY
-#   1l_1tau_tt  -> 1l_1tau_CRtt
 #
 # The aggregate 2los_1tau group is included for the 2los tau request.
 # If the branch has explicit 2los_1tau_Ftau / 2los_1tau_Ttau category groups,
 # they can be added as separate entries after confirming the exact names.
 cr_category_sets=(
   # "2los_CRZ 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
-  "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau"
+  # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
+  "2los_CRZ 2los_1tau 2los_1tau_0b" # 3l_CR"
 )
 
 ###############################################################################
 # SR configuration
 ###############################################################################
 
+# SR variable chunks are configured separately from CR so SR campaigns can use
+# dedicated histogram groups without changing the CR request.
+sr_var_sets=(
+  "njets lj0pt"
+  "ptz ptz_wtau lt"
+)
+
 # Kept available, but disabled by default for this request.
 sr_year_sets=(
-  2022
-  2022EE
-  2023
-  2023BPix
-  2016APV
-  2016
-  2017
-  2018
+  # 2022
+  # 2022EE
+  # 2023
+  # 2023BPix
+  "2022 2022EE 2023 2023BPix"
+  # 2016APV
+  # 2016
+  # 2017
+  # 2018
 )
 
 sr_category_sets=(
-  "2l 2lss_1tau 2los_1tau 3l_m_offZ"
-  "3l_p_offZ 3l_onZ_tau 3l_fwd 4l"
+  "2l"
+  "2lss_1tau 2los_1tau"
+  "3l_m_offZ"
+  "3l_p_offZ"
+  "3l_onZ_tau 4l"
+  "3l_fwd"
 )
 
 ###############################################################################
@@ -189,10 +193,14 @@ print_command() {
 }
 
 print_var_sets() {
+  local label="$1"
+  shift
+
   local var_set
   local index=0
 
-  for var_set in "${var_sets[@]}"; do
+  echo "${label} variable chunks:"
+  for var_set in "$@"; do
     index=$((index + 1))
     echo "  ${index}: ${var_set}"
   done
@@ -202,7 +210,8 @@ build_common_command_options() {
   local -n cmd_ref="$1"
 
   cmd_ref+=(--ttgamma-sample-role-policy "${ttgamma_sample_role_policy}")
-
+  # cmd_ref+=(--analysis-mode taufitter)
+  
   if [[ "${do_systs}" == "true" ]]; then
     cmd_ref+=(--do-systs)
   fi
@@ -213,7 +222,6 @@ build_common_command_options() {
 
   cmd_ref+=(
     -p "${output_dir}"
-    --suppress-forward-eta-stochastic-jer
     --all-analysis
   )
 
@@ -361,8 +369,8 @@ echo "dry_run: ${dry_run}"
 echo "do_systs: ${do_systs}"
 echo "do_np: ${do_np}"
 echo "split_lep_flavor: ${split_lep_flavor}"
-echo "variable chunks:"
-print_var_sets
+print_var_sets "CR" "${cr_var_sets[@]}"
+print_var_sets "SR" "${sr_var_sets[@]}"
 echo "========================================"
 echo
 
@@ -391,7 +399,7 @@ if [[ "${run_cr}" == "true" ]]; then
     for category_set in "${cr_category_sets[@]}"; do
       read -r -a cats <<< "${category_set}"
 
-      for var_set in "${var_sets[@]}"; do
+      for var_set in "${cr_var_sets[@]}"; do
         run_cr_block "${year_expr}" "${var_set}" "${cats[@]}"
       done
     done
@@ -410,7 +418,7 @@ if [[ "${run_sr}" == "true" ]]; then
     for category_set in "${sr_category_sets[@]}"; do
       read -r -a cats <<< "${category_set}"
 
-      for var_set in "${var_sets[@]}"; do
+      for var_set in "${sr_var_sets[@]}"; do
         run_sr_block "${year_expr}" "${var_set}" "${cats[@]}"
       done
     done

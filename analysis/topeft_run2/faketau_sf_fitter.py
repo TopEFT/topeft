@@ -6,14 +6,15 @@
 # sources and avoiding the overly conservative behaviour of the
 # historical linear addition.
 #
-# To use, run command python tauFitter.py -f /path/to/pkl/file
-# pkl file should have CRs listed below and have all other
-# corrections aside from fake tau SFs
+# Active script: analysis/topeft_run2/faketau_sf_fitter.py
+# Pass one or more input pkls with -f/--pkl-file-path. Input pkls should
+# include the fake- and tight-tau CR histograms and all corrections aside
+# from fake tau SFs.
 # output is in the form of linear fit y = mx+b
 # where m and b are in numerical form, y is the SF, and x is the tau pt
-# tau fake-rate fits use regrouped pt edges [20, 30, 40, 50, 60, 80, 100, 200]
+# tau fake-rate fits use regrouped pt edges [20, 30, 40, 50, 60, 200]
 # Detailed setup instructions and interpretation notes live in
-# README_FITTING.md (see the "Tau fake-rate fitter" section).
+# analysis/topeft_run2/README_faketau_sf_fitter.md.
 
 import numpy as np
 import os
@@ -22,6 +23,7 @@ import json
 import logging
 import math
 from collections import OrderedDict
+from dataclasses import dataclass
 import functools
 import hist
 
@@ -41,6 +43,9 @@ LOGGER = logging.getLogger(__name__)
 
 _TAU_FAKE_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0Fpt")
 _TAU_TIGHT_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0Tpt")
+DEFAULT_INPUT_PKL_PATH = "histos/plotsTopEFT.pkl.gz"
+FAKETAU_REQUIRED_HISTOGRAMS = ("tau0Fpt", "tau0Tpt")
+FAKETAU_OPTIONAL_SUMW2_HISTOGRAMS = ("tau0Fpt_sumw2", "tau0Tpt_sumw2")
 
 
 YEAR_TOKEN_RULES = {
@@ -173,6 +178,149 @@ def load_tau_control_channels(channels_json_path=None):
         )
 
     return ftau_channels, ttau_channels
+
+
+def normalize_input_pkl_paths(paths=None):
+    """Return a non-empty list of input pkl paths."""
+
+    if paths is None:
+        return [DEFAULT_INPUT_PKL_PATH]
+    if isinstance(paths, (str, os.PathLike)):
+        normalized = [os.fspath(paths)]
+    else:
+        normalized = [os.fspath(path) for path in paths if path is not None]
+
+    if not normalized:
+        return [DEFAULT_INPUT_PKL_PATH]
+    if any(not path for path in normalized):
+        raise ValueError("Input pkl paths must be non-empty strings.")
+    return normalized
+
+
+def load_histogram_pkl(path):
+    """Load one histogram pkl with the same utility used by the legacy fitter."""
+
+    histograms = utils.get_hist_from_pkl(path, allow_empty=False)
+    if not isinstance(histograms, dict):
+        raise TypeError(
+            f"Input pkl file '{path}' did not contain a histogram dictionary. "
+            f"Got: {type(histograms).__name__}."
+        )
+    return histograms
+
+
+def _combine_histogram_sequence(hist_name, histograms, input_paths):
+    """Combine histograms without using a loaded input object as an accumulator."""
+
+    combined = histograms[0]
+    for incoming_hist, input_path in zip(histograms[1:], input_paths[1:]):
+        try:
+            combined = combined + incoming_hist
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to combine histogram '{hist_name}' from input pkl file "
+                f"'{input_path}' with earlier input file(s): {exc!r}."
+            ) from exc
+    return combined
+
+
+def merge_faketau_histogram_dicts(histogram_dicts, *, input_paths):
+    """Merge the fake-tau fitter's required histograms from loaded dictionaries."""
+
+    histogram_dicts = list(histogram_dicts)
+    input_paths = normalize_input_pkl_paths(input_paths)
+    if len(histogram_dicts) != len(input_paths):
+        raise ValueError(
+            "The number of histogram dictionaries does not match the number of input paths."
+        )
+    if not histogram_dicts:
+        raise ValueError("No histogram dictionaries were provided for fake-tau merging.")
+
+    for input_path, histograms in zip(input_paths, histogram_dicts):
+        if not isinstance(histograms, dict):
+            raise TypeError(
+                f"Input pkl file '{input_path}' did not contain a histogram dictionary. "
+                f"Got: {type(histograms).__name__}."
+            )
+        missing_required = [
+            hist_name
+            for hist_name in FAKETAU_REQUIRED_HISTOGRAMS
+            if hist_name not in histograms
+        ]
+        if missing_required:
+            raise RuntimeError(
+                f"Input pkl file '{input_path}' is missing required fake-tau "
+                f"histogram(s): {', '.join(missing_required)}."
+            )
+
+    combined_histograms = OrderedDict()
+    for hist_name in FAKETAU_REQUIRED_HISTOGRAMS:
+        combined_histograms[hist_name] = _combine_histogram_sequence(
+            hist_name,
+            [histograms[hist_name] for histograms in histogram_dicts],
+            input_paths,
+        )
+
+    sumw2_status = {}
+    for hist_name in FAKETAU_OPTIONAL_SUMW2_HISTOGRAMS:
+        paths_with = [
+            input_path
+            for input_path, histograms in zip(input_paths, histogram_dicts)
+            if hist_name in histograms
+        ]
+        paths_without = [
+            input_path
+            for input_path, histograms in zip(input_paths, histogram_dicts)
+            if hist_name not in histograms
+        ]
+        if paths_with and paths_without:
+            raise RuntimeError(
+                f"Optional sumw2 companion '{hist_name}' has mixed availability "
+                "across input pkl files. Present in: "
+                f"{', '.join(paths_with)}. Absent from: {', '.join(paths_without)}."
+            )
+        if paths_with:
+            combined_histograms[hist_name] = _combine_histogram_sequence(
+                hist_name,
+                [histograms[hist_name] for histograms in histogram_dicts],
+                input_paths,
+            )
+            sumw2_status[hist_name] = "present in all input files"
+        else:
+            sumw2_status[hist_name] = "absent from all input files"
+
+    input_summary = {
+        "num_inputs": len(input_paths),
+        "input_paths": tuple(input_paths),
+        "required_histograms": FAKETAU_REQUIRED_HISTOGRAMS,
+        "sumw2_status": sumw2_status,
+    }
+    return combined_histograms, input_summary
+
+
+def combine_faketau_histogram_pkls(paths):
+    """Load and combine one or more fake-tau fitter input pkls."""
+
+    input_paths = normalize_input_pkl_paths(paths)
+    histogram_dicts = [load_histogram_pkl(path) for path in input_paths]
+    return merge_faketau_histogram_dicts(
+        histogram_dicts,
+        input_paths=input_paths,
+    )
+
+
+def print_faketau_input_summary(input_summary):
+    """Print the concise input summary used before fake-rate extraction."""
+
+    print(f"Input pkl file(s): {input_summary['num_inputs']}")
+    for input_path in input_summary["input_paths"]:
+        print(f"  - {input_path}")
+    print(
+        "Combining required histograms: "
+        + ", ".join(input_summary["required_histograms"])
+    )
+    for hist_name in FAKETAU_OPTIONAL_SUMW2_HISTOGRAMS:
+        print(f"{hist_name}: {input_summary['sumw2_status'][hist_name]}")
 
 
 def _gather_axis_alias_tokens(mapping):
@@ -1252,7 +1400,7 @@ def _validate_histogram_axes(histogram, expected_axes, hist_name):
         summary = (
             f"The '{hist_name}' histogram is missing required axes: {', '.join(missing_axes)}. "
             f"Available axes: {available}. "
-            "Regenerate the histogram pickle with these axes enabled before running tauFitter."
+            "Regenerate the histogram pickle with these axes enabled before running the fake-tau SF fitter."
         )
         LOGGER.error(summary)
         raise HistogramAxisError(
@@ -1264,14 +1412,99 @@ def _validate_histogram_axes(histogram, expected_axes, hist_name):
     return set(canonical_axes)
 
 
+@dataclass(frozen=True)
+class TauChannelResolution:
+    selected_bins: tuple
+    resolution_mode: str
+    missing_flavor_split_bins: tuple
+    aggregate_bins_checked: tuple
+    available_aggregate_bins: tuple
+    missing_aggregate_bins: tuple
+
+    def as_dict(self):
+        return {
+            "selected_bins": self.selected_bins,
+            "resolution_mode": self.resolution_mode,
+            "missing_flavor_split_bins": self.missing_flavor_split_bins,
+            "aggregate_bins_checked": self.aggregate_bins_checked,
+            "available_aggregate_bins": self.available_aggregate_bins,
+            "missing_aggregate_bins": self.missing_aggregate_bins,
+        }
+
+
+def _format_tau_resolution_bins(bins):
+    return ", ".join(bins) if bins else "<none>"
+
+
+def _tau_channel_resolution_attempt(allow_aggregate_fallback):
+    if allow_aggregate_fallback:
+        return "complete flavor-split bins, then aggregate fallback"
+    return "complete flavor-split bins (aggregate fallback disabled)"
+
+
+def format_tau_channel_resolution_error(
+    hist_name,
+    tau_resolutions,
+    available_channels,
+    *,
+    allow_aggregate_fallback=True,
+):
+    summary_lines = [
+        f"The '{hist_name}' histogram is missing required tau control-region categories.",
+        "Missing bins summary:",
+    ]
+    attempted = _tau_channel_resolution_attempt(allow_aggregate_fallback)
+    for tau_family, resolution in tau_resolutions.items():
+        summary_lines.extend(
+            [
+                f"  {tau_family}:",
+                f"    resolution attempted: {attempted}",
+                "    missing flavor-split bins: "
+                + _format_tau_resolution_bins(resolution.missing_flavor_split_bins),
+                "    aggregate fallback bins checked: "
+                + _format_tau_resolution_bins(resolution.aggregate_bins_checked),
+                "    missing aggregate fallback bins: "
+                + _format_tau_resolution_bins(resolution.missing_aggregate_bins),
+                "    aggregate fallback available: "
+                + ("yes" if resolution.available_aggregate_bins else "no"),
+            ]
+        )
+
+    missing_aggregate_bins = sorted(
+        {
+            channel
+            for resolution in tau_resolutions.values()
+            for channel in resolution.missing_aggregate_bins
+        }
+    )
+    summary_lines.extend(
+        [
+            "Available channel bins: "
+            + _format_tau_resolution_bins(sorted(available_channels)),
+            "Either regenerate the histogram pickle with complete flavor-split tau bins "
+            "or include the aggregate fallback bin(s): "
+            + _format_tau_resolution_bins(missing_aggregate_bins)
+            + ".",
+        ]
+    )
+    return "\n".join(summary_lines)
+
+
 def _validate_tau_channel_coverage(
     histogram,
     channel_axis_name,
     ftau_channels,
     ttau_channels,
     hist_name,
+    *,
+    allow_aggregate_fallback=True,
 ):
-    """Verify that all Ftau/Ttau channels are present in the histogram's channel axis."""
+    """Resolve configured tau CR bins against one histogram's channel axis.
+
+    Complete flavor-split bins take priority.  When any configured split bin for
+    a tau/jet family is absent, the corresponding aggregate bin is used if it is
+    available.  A family never selects split and aggregate bins together.
+    """
 
     channel_axis = None
     for axis in histogram.axes:
@@ -1292,37 +1525,126 @@ def _validate_tau_channel_coverage(
 
     available_channels = {str(category) for category in channel_axis}
 
-    missing_summary = {
-        "Ftau": sorted(
-            {channel for channel in ftau_channels if channel not in available_channels}
-        ),
-        "Ttau": sorted(
-            {channel for channel in ttau_channels if channel not in available_channels}
-        ),
+    resolutions = {}
+    for tau_family, configured_channels in (
+        ("Ftau", ftau_channels),
+        ("Ttau", ttau_channels),
+    ):
+        if not configured_channels:
+            continue
+        resolutions[tau_family] = resolve_tau_cr_channel_bins(
+            available_channels,
+            configured_channels,
+            tau_family=tau_family,
+            hist_name=hist_name,
+            allow_aggregate_fallback=allow_aggregate_fallback,
+            raise_on_missing=False,
+        )
+
+    unresolved = {
+        family: resolution
+        for family, resolution in resolutions.items()
+        if resolution.missing_aggregate_bins
     }
-
-    missing_lines = [
-        f"  {label}: {', '.join(channels)}"
-        for label, channels in missing_summary.items()
-        if channels
-    ]
-
-    if missing_lines:
-        summary_lines = [
-            f"The '{hist_name}' histogram is missing required tau control-region categories.",
-            "Missing bins summary:",
-            *missing_lines,
-            "Available channel bins: "
-            + (
-                ", ".join(sorted(available_channels))
-                if available_channels
-                else "<none>"
-            ),
-            "Regenerate the histogram pickle with complete Ftau/Ttau coverage before rerunning tauFitter.",
-        ]
-        summary = "\n".join(summary_lines)
+    if unresolved:
+        summary = format_tau_channel_resolution_error(
+            hist_name,
+            unresolved,
+            available_channels,
+            allow_aggregate_fallback=allow_aggregate_fallback,
+        )
         LOGGER.error(summary)
         raise RuntimeError(summary)
+
+    return resolutions
+
+
+def _aggregate_tau_channel_name(channel):
+    """Return the aggregate name corresponding to an ee/em/mm tau CR bin."""
+
+    for flavor in ("ee", "em", "mm"):
+        marker = f"_{flavor}_"
+        if marker in channel:
+            return channel.replace(marker, "_", 1)
+    return channel
+
+
+def resolve_tau_cr_channel_bins(
+    available_bins,
+    configured_bins,
+    *,
+    tau_family,
+    hist_name,
+    allow_aggregate_fallback=True,
+    raise_on_missing=True,
+):
+    """Select complete split bins or one aggregate fallback per tau/jet family."""
+
+    available = {str(channel) for channel in available_bins}
+    grouped_channels = OrderedDict()
+    for configured_channel in configured_bins:
+        channel = str(configured_channel)
+        aggregate_channel = _aggregate_tau_channel_name(channel)
+        group = grouped_channels.setdefault(aggregate_channel, [])
+        if channel != aggregate_channel and channel not in group:
+            group.append(channel)
+
+    selected_bins = []
+    group_modes = []
+    missing_flavor_split_bins = []
+    aggregate_bins_checked = []
+    available_aggregate_bins = []
+    missing_aggregate_bins = []
+
+    for aggregate_channel, split_channels in grouped_channels.items():
+        missing_split = [
+            channel for channel in split_channels if channel not in available
+        ]
+        missing_flavor_split_bins.extend(missing_split)
+        aggregate_bins_checked.append(aggregate_channel)
+
+        if split_channels and not missing_split:
+            selected_bins.extend(split_channels)
+            group_modes.append("flavor_split")
+            continue
+
+        aggregate_available = aggregate_channel in available
+        if aggregate_available:
+            available_aggregate_bins.append(aggregate_channel)
+
+        if aggregate_available and (allow_aggregate_fallback or not split_channels):
+            selected_bins.append(aggregate_channel)
+            group_modes.append("aggregate")
+            continue
+
+        missing_aggregate_bins.append(aggregate_channel)
+
+    if not group_modes:
+        resolution_mode = "unresolved"
+    elif len(set(group_modes)) == 1:
+        resolution_mode = group_modes[0]
+    else:
+        resolution_mode = "mixed"
+
+    resolution = TauChannelResolution(
+        selected_bins=tuple(selected_bins),
+        resolution_mode=resolution_mode,
+        missing_flavor_split_bins=tuple(missing_flavor_split_bins),
+        aggregate_bins_checked=tuple(aggregate_bins_checked),
+        available_aggregate_bins=tuple(available_aggregate_bins),
+        missing_aggregate_bins=tuple(missing_aggregate_bins),
+    )
+
+    if raise_on_missing and missing_aggregate_bins:
+        message = format_tau_channel_resolution_error(
+            hist_name,
+            {tau_family: resolution},
+            available,
+            allow_aggregate_fallback=allow_aggregate_fallback,
+        )
+        raise RuntimeError(message)
+
+    return resolution
 
 
 def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=None):
@@ -1381,7 +1703,7 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         _TAU_FAKE_HISTOGRAM_REQUIRED_AXES,
         fake_key,
     )
-    _validate_tau_channel_coverage(
+    fake_channel_resolutions = _validate_tau_channel_coverage(
         tau_fake_hist,
         "channel",
         ftau_channels,
@@ -1394,13 +1716,36 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         _TAU_TIGHT_HISTOGRAM_REQUIRED_AXES,
         tight_key,
     )
-    _validate_tau_channel_coverage(
+    tight_channel_resolutions = _validate_tau_channel_coverage(
         tau_tight_hist,
         "channel",
         (),
         ttau_channels,
         tight_key,
     )
+
+    fake_channel_resolution = fake_channel_resolutions["Ftau"]
+    tight_channel_resolution = tight_channel_resolutions["Ttau"]
+    resolved_ftau_channels = list(fake_channel_resolution.selected_bins)
+    resolved_ttau_channels = list(tight_channel_resolution.selected_bins)
+    LOGGER.info(
+        "Resolved tau CR channels: Ftau=%s %s; Ttau=%s %s",
+        fake_channel_resolution.resolution_mode,
+        resolved_ftau_channels,
+        tight_channel_resolution.resolution_mode,
+        resolved_ttau_channels,
+    )
+    for tau_family, resolution in (
+        ("Ftau", fake_channel_resolution),
+        ("Ttau", tight_channel_resolution),
+    ):
+        if resolution.resolution_mode == "aggregate":
+            LOGGER.info(
+                "%s flavor-split bins are incomplete (%s); using aggregate fallback %s.",
+                tau_family,
+                ", ".join(resolution.missing_flavor_split_bins),
+                ", ".join(resolution.selected_bins),
+            )
 
     if tau_fake_sumw2_hist is not None:
         try:
@@ -1424,9 +1769,10 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
             _validate_tau_channel_coverage(
                 tau_fake_sumw2_hist,
                 "channel",
-                ftau_channels,
+                resolved_ftau_channels,
                 (),
                 f"{fake_key}_sumw2",
+                allow_aggregate_fallback=False,
             )
 
     if tau_tight_sumw2_hist is not None:
@@ -1452,8 +1798,9 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
                 tau_tight_sumw2_hist,
                 "channel",
                 (),
-                ttau_channels,
+                resolved_ttau_channels,
                 f"{tight_key}_sumw2",
+                allow_aggregate_fallback=False,
             )
 
     # Remove any processes that should not contribute to the MC or data histograms.
@@ -1502,16 +1849,24 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         hist_data_tight_sumw2 = None
 
     # Integrate to get the categories we want
-    mc_fake = _integrate_tau_channels(hist_mc_fake, ftau_channels)
-    mc_tight = _integrate_tau_channels(hist_mc_tight, ttau_channels)
-    data_fake = _integrate_tau_channels(hist_data_fake, ftau_channels)
-    data_tight = _integrate_tau_channels(hist_data_tight, ttau_channels)
+    mc_fake = _integrate_tau_channels(hist_mc_fake, resolved_ftau_channels)
+    mc_tight = _integrate_tau_channels(hist_mc_tight, resolved_ttau_channels)
+    data_fake = _integrate_tau_channels(hist_data_fake, resolved_ftau_channels)
+    data_tight = _integrate_tau_channels(hist_data_tight, resolved_ttau_channels)
 
-    mc_fake_sumw2 = _integrate_tau_channels(hist_mc_fake_sumw2, ftau_channels)
-    mc_tight_sumw2 = _integrate_tau_channels(hist_mc_tight_sumw2, ttau_channels)
+    mc_fake_sumw2 = _integrate_tau_channels(
+        hist_mc_fake_sumw2, resolved_ftau_channels
+    )
+    mc_tight_sumw2 = _integrate_tau_channels(
+        hist_mc_tight_sumw2, resolved_ttau_channels
+    )
 
-    data_fake_sumw2 = _integrate_tau_channels(hist_data_fake_sumw2, ftau_channels)
-    data_tight_sumw2 = _integrate_tau_channels(hist_data_tight_sumw2, ttau_channels)
+    data_fake_sumw2 = _integrate_tau_channels(
+        hist_data_fake_sumw2, resolved_ftau_channels
+    )
+    data_tight_sumw2 = _integrate_tau_channels(
+        hist_data_tight_sumw2, resolved_ttau_channels
+    )
 
     # Build fresh grouping maps derived from the current histogram contents so we only
     # request bins that are still present after the Ftau/Ttau integrations.  This keeps the
@@ -1677,18 +2032,27 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         "year_filter": year_filter_summary,
         "tau_pt_bin_starts": tuple(pt_bin_starts.tolist()),
         "tau_pt_edges": tuple(tau_pt_edges.tolist()),
+        "tau_channel_resolution": {
+            "Ftau": fake_channel_resolution.as_dict(),
+            "Ttau": tight_channel_resolution.as_dict(),
+        },
     }
 
     return mc_y, mc_e, data_x, data_y, data_e, stage_details
 
-def main():
-
-    def _as_flat_float(array):
-        return np.asarray(array, dtype=float).reshape(-1)
-
-    # Set up the command line parser
+def build_arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
+    parser.add_argument(
+        "-f",
+        "--pkl-file-path",
+        nargs="+",
+        default=[DEFAULT_INPUT_PKL_PATH],
+        metavar="PKL",
+        help=(
+            "Path(s) to input pkl file(s). Pass one path for the legacy single-input "
+            "case or multiple paths after one -f to combine inputs before fitting."
+        ),
+    )
     parser.add_argument(
         "--channels-json",
         default=None,
@@ -1722,7 +2086,19 @@ def main():
             " Use '-' to write to stdout."
         ),
     )
+    return parser
+
+
+def main():
+    def _as_flat_float(array):
+        return np.asarray(array, dtype=float).reshape(-1)
+
+    parser = build_arg_parser()
     args = parser.parse_args()
+    try:
+        input_pkl_paths = normalize_input_pkl_paths(args.pkl_file_path)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     try:
         sample_filters = _resolve_year_filters(args.year)
@@ -1741,8 +2117,8 @@ def main():
                 json.dump(dump_payload, dump_file, indent=2)
             print(f"Tau channel lists written to {args.dump_channels}")
 
-    # Get the histograms
-    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    hin_dict, input_summary = combine_faketau_histogram_pkls(input_pkl_paths)
+    print_faketau_input_summary(input_summary)
     y_mc, yerr_mc, x_data, y_data, yerr_data, stage_details = getPoints(
         hin_dict,
         ftau_channels,

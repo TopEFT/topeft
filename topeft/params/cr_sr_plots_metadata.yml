@@ -25,8 +25,8 @@ REGION_CHANNEL_CONFIG:
 CR_CHAN_DICT:
   2los_CRZ:
     leaves:
-    - 2los_ee_CRZ_0j
-    - 2los_mm_CRZ_0j
+    - 2los_ee_CRZ_2j
+    - 2los_mm_CRZ_2j
     alias: cr_2los_Z
   2los_CRtt:
     leaves:
@@ -646,6 +646,13 @@ REGION_PLOTTING:
         - 2los_CRZ
       groups:
       - Nonprompt
+    - categories:
+        prefixes:
+        - 1l_1tau_CRtt
+        - 2l
+        - 3l
+      groups:
+      - Singleboson
     category_skips:
     - categories:
         equals:

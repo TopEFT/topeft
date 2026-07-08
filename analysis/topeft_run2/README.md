@@ -9,6 +9,8 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 - [Scripts for finding, comparing and plotting yields from histograms (from the processor)](#scripts-for-finding-comparing-and-plotting-yields-from-histograms-from-the-processor)
 - [Scripts for making and checking the datacards](#scripts-for-making-and-checking-the-datacards)
 - [CR/SR plotting CLI quickstart](#crsr-plotting-cli-quickstart)
+  - [Plot-Time Variable Rebinning](#plot-time-variable-rebinning)
+  - [Negative MC Contribution Reports](#negative-mc-contribution-reports)
   - [run\_plotter.sh shell wrapper quickstart](#run_plottersh-shell-wrapper-quickstart)
 - [HTCondor plotting on Glados](#htcondor-plotting-on-glados)
 - [make_cr_and_sr_plots.py internals](#make_cr_and_sr_plotspy-internals)
@@ -61,6 +63,10 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 
 ### Run scripts and processors
+
+For fake-tau SF extraction, including `tau0Fpt`/`tau0Tpt` input requirements and
+the split-first/aggregate-fallback channel contract, see
+[`README_faketau_sf_fitter.md`](README_faketau_sf_fitter.md).
 
 * `run_topeft.py` for `topeft.py`:
     - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses either the `work_queue` or the `futures` executors (with `futures` it uses 8 cores by default). The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`.
@@ -140,6 +146,8 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Pass `--log-y` to draw the stacked yields with a logarithmic y-axis (the ratio panel remains linear). The flag defaults to off so existing plots keep their linear scale unless explicitly requested, and is available both on the Python CLI and via `run_plotter.sh`.
     - Pass `--verbose` when you need detailed diagnostics (sample inventories, per-variable channel dumps). The default `--quiet` mode keeps the console output to high-level progress summaries.
     - `--report-zero-yields` emits a detailed summary of processes with zero or missing yields after plotting.
+    - `--rebin-plot-vars j0pt:2,l1conept=2` rebins only the listed variables at plot/report time. The input pickle is not modified.
+    - The negative MC contribution report is enabled by default and writes `negative_weight_contribution_report.csv` plus `negative_weight_contribution_summary.md` under the plot output directory. Add `--no-negative-weight-report` to suppress those files.
     - Histograms with multiple dense axes (e.g. the `SparseHist`-based `lepton_pt_vs_eta`) are automatically rendered as CMS-style 2D heatmaps, while the 1D rebinning and systematic envelopes quietly skip them. The heatmap canvas now includes a dedicated Data/MC ratio panel so comparisons are available at a glance alongside the nominal MC and data projections.
 
 ### CR/SR plotting CLI quickstart
@@ -188,11 +196,80 @@ Common invocation patterns (`-y/--year` accepts multiple tokens for combined cam
 * Producing unblinded CR plots with explicit tagging and timestamped directories: `python make_cr_and_sr_plots.py -f histos/CR2018.pkl.gz -y 2018 --cr -t -n cr_2018_scan`
 * Switching the stacked panel to a log scale: `python make_cr_and_sr_plots.py -f histos/plotsCR_Run2.pkl.gz -y run2 --log-y`
 
+#### Plot-Time Variable Rebinning
+
+Use `--rebin-plot-vars` when a plot needs coarser visible bins but the input pickle should remain untouched. The option takes comma-separated `variable:factor` or `variable=factor` entries, and each factor must be an integer greater than or equal to 2:
+
+```bash
+python make_cr_and_sr_plots.py \
+  -f histos/plotsCR_Run2.pkl.gz \
+  -y 2017 \
+  --variables j0pt l1conept \
+  --rebin-plot-vars j0pt:2,l1conept=2
+```
+
+Rebinning happens only inside the plotting/reporting path. The source histograms and input pickle are not rewritten. Visible-bin contents are summed, variances and `sumw2` values are summed, and any leftover visible bins that do not fill a complete factor group are merged into the final rebinned bin rather than being dropped.
+
+The rebinned edges are used for the stacked plot, ratio inputs, statistical and systematic uncertainty-band inputs, and the `post_rebin` rows in the negative MC contribution report. Variables not listed in `--rebin-plot-vars` keep their normal binning and, when applicable, use the configured `analysis_bins` edges from `cr_sr_plots_metadata.yml`. Rebinning is most useful together with `--variables` so focused checks do not render the entire pickle.
+
+#### Negative MC Contribution Reports
+
+The plotter writes negative MC contribution diagnostics by default. Disable them with `--no-negative-weight-report` if you only want figures. The output files are written under the selected plot output directory:
+
+```text
+negative_weight_contribution_report.csv
+negative_weight_contribution_summary.md
+```
+
+The CSV contains one row per negative bin contribution at two levels:
+
+* `level = process` identifies the raw process that contributed the negative bin.
+* `level = group` identifies the stacked plot group affected by the negative bin.
+
+The `stage` column records which binning was inspected:
+
+* `nominal_no_rebin` is used when no plot-time rebinning applies to that variable.
+* `pre_rebin` records the original visible bins when plot-time rebinning is requested.
+* `post_rebin` records the merged bins after plot-time rebinning.
+
+Important columns include `yield`, `sumw2`, `total_mc_yield`, `data_yield`, `yield_over_total_mc`, and `abs_yield_over_total_mc`. When `sumw2 >= 0`, `error = sqrt(sumw2)`. When `sumw2 > 0`, `effective_entries = yield^2 / sumw2`. The boolean flags use:
+
+* `is_compatible_with_zero_1sigma`: `abs(yield) <= error`;
+* `is_single_effective_entry_like`: `effective_entries <= 1.05`;
+* `is_low_effective_entries`: `effective_entries <= 5`.
+
+These reports are diagnostic aids, not physics corrections. Single-effective-entry-like rows often point to one or very few high-weight signed events. Rows compatible with zero at one sigma can be ordinary statistical fluctuations. Use the process and group rows to decide whether to rebin, annotate, or investigate a sample.
+
+`--report-zero-yields` is separate. It reports processes with zero or missing yields after plotting: it answers "what is absent or zero?" The negative contribution report answers "which signed MC components drive negative bins?"
+
+#### Focused CR Rebinning Example
+
+For a focused CR check of the known narrow-bin variables, run only the variables under study and request plot-time rebinning explicitly:
+
+```bash
+YR=2017
+PKL=/path/to/plotsCR_${YR}.pkl.gz
+
+python make_cr_and_sr_plots.py \
+  -f "$PKL" \
+  -n CR_preappr_rebin_check_${YR} \
+  -o ../../histos/ \
+  -y "$YR" \
+  --verbose \
+  --cr \
+  --workers 1 \
+  --channel-output both \
+  --variables j0pt l1conept \
+  --rebin-plot-vars j0pt:2,l1conept:2
+```
+
+The figures and negative-weight report files land under `../../histos/CR_preappr_rebin_check_${YR}`. The command does not modify `$PKL`.
+
 #### run_plotter.sh shell wrapper quickstart
 
 The `run_plotter.sh` helper script lives alongside `make_cr_and_sr_plots.py` and reproduces the same filename-based auto-detection for control vs. signal regions. After resolving the region it appends the corresponding `--cr` or `--sr` flag before delegating to the Python CLI. When both `CR` and `SR` tokens appear in the filename the wrapper prints a warning and falls back to the control-region defaults unless you pass an explicit override.
 
-Wrapper options mirror the Python interface with a few naming differences: `run_plotter.sh` uses `--input`/`--output-dir`/`--name` (vs `--pkl-file-path`/`--output-path`/`--output-name` on the Python CLI), requires `-y/--year`, and accepts `--variable` as a shorthand that it forwards as `--variables`. The required `-y/--year` flag shares the same individual years and `run2`/`run3` aggregates as the Python CLI (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`), so you can reuse the shortcuts when hopping between Run 2 and Run 3 payloads. `--channel-output` forwards the merged/split/both selection along with the `*-njets` variants that preserve the per-njet bins from `cr_sr_plots_metadata.yml`, and `--blind` / `--unblind` toggle data visibility after the wrapper has selected a region. You can still provide manual `--cr` or `--sr` overrides, and any other switches the wrapper does not understand are forwarded untouched to `make_cr_and_sr_plots.py`. The historical `--` passthrough marker remains accepted for backward compatibility but is no longer required.
+Wrapper options mirror the Python interface with a few naming differences: `run_plotter.sh` uses `--input`/`--output-dir`/`--name` (vs `--pkl-file-path`/`--output-path`/`--output-name` on the Python CLI), requires `-y/--year`, and accepts `--variable` as a shorthand that it forwards as `--variables`. The required `-y/--year` flag shares the same individual years and `run2`/`run3` aggregates as the Python CLI (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`), so you can reuse the shortcuts when hopping between Run 2 and Run 3 payloads. `--channel-output` forwards the merged/split/both selection along with the `*-njets` variants that preserve the per-njet bins from `cr_sr_plots_metadata.yml`, and `--blind` / `--unblind` toggle data visibility after the wrapper has selected a region. The wrapper also forwards `--rebin-plot-vars` and `--no-negative-weight-report`; any other switches the wrapper does not understand are passed untouched to `make_cr_and_sr_plots.py`. The historical `--` passthrough marker remains accepted for backward compatibility but is no longer required.
 
 If you need to control the Python interpreter, export `PYTHON_BIN="$PYTHON_ENV"` (or `PYTHON="$PYTHON_ENV"`) before calling the wrapper.
 
@@ -207,6 +284,8 @@ Example commands:
 * Enforcing a blinded SR pass with specific variables: `./run_plotter.sh -f histos/plotsTopEFT.pkl.gz -o ~/www/sr -n sr_scan -y run3 --sr --blind --variable lj0pt --variable ptz`
 * Passing additional CLI flags through the wrapper: `./run_plotter.sh -f histos/SR2018.pkl.gz -o ~/www/sr_2018 -y 2018 --unblind --skip-syst`
 * Switching the stacked panel to a log scale via the wrapper: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots -y run2 --log-y`
+* Focused rebinning with the default negative report: `./run_plotter.sh -f histos/plotsCR_2017.pkl.gz -o ~/www/cr_plots -y 2017 --cr --variables j0pt l1conept --rebin-plot-vars j0pt:2,l1conept:2`
+* Suppressing the negative report when only figures are needed: `./run_plotter.sh -f histos/plotsCR_Run2.pkl.gz -o ~/www/cr_plots -y run2 --no-negative-weight-report`
 
 #### HTCondor plotting on Glados
 
@@ -238,6 +317,19 @@ Prefix the command with `--dry-run` when you want to review the generated job wr
 
 `--request-cpus` requires a positive integer and `--request-memory` must be a non-empty HTCondor size string; the helper validates both before submitting so typos are caught locally during the dry-run step. The generated submit file exports `TOPEFT_REPO_ROOT` (the parent directory of `analysis/topeft_run2`) and `TOPEFT_ENTRY_DIR` (`analysis/topeft_run2` itself) to mirror the `initialdir` specified in the submit description, so the entry script can derive its working directory deterministically; add `--conda-prefix ...` when you also need the helper to append `TOPEFT_CONDA_PREFIX` for environment activation. A literal `--` separator is still tolerated if you have scripts that emit it, but new invocations can omit it entirely.
 
+Plotter options such as `--variables`, `--rebin-plot-vars`, and `--no-negative-weight-report` are forwarded through `submit_plotter_condor.sh` to `run_plotter.sh`. For example, keep Condor options before the delimiter and plotting options after it when you want to make the split explicit:
+
+```bash
+./submit_plotter_condor.sh \
+  --request-cpus 2 --request-memory 6GB \
+  -- \
+  -f /cephfs/<group>/<netid>/topeft/pickles/plotsCR_2017.pkl.gz \
+  -o /cephfs/<group>/<netid>/topeft/plots/cr_2017_rebin \
+  -y 2017 --cr \
+  --variables j0pt l1conept \
+  --rebin-plot-vars j0pt:2,l1conept:2
+```
+
 **Entry-script environment steps**
 
 Jobs land in `analysis/topeft_run2/condor_plotter_entry.sh`, which unsets `PYTHONPATH`, resolves its working directory from `TOPEFT_ENTRY_DIR`/Condor's `initialdir`/the script path, logs the choice, and activates `clib-env` via either the discovered Conda installation or an explicit `TOPEFT_CONDA_PREFIX`. Override those environment variables in the submit script when you need to point at a different checkout, wrapper directory, or Conda stack, or if you prefer to activate a bespoke environment before calling `run_plotter.sh`. The entry script shares the same `main()`-style return handling as the other helpers, so sourcing it during local smoke tests or unit checks surfaces failures without exiting your shell.
@@ -265,11 +357,24 @@ Under the hood the CLI defers to a unified region runner so that both CR and SR 
 
 `produce_region_plots()` then iterates over the requested histograms, applies the appropriate channel transformations, and orchestrates the per-category plotting. In aggregate (CR) mode the channel axis is integrated before rendering, while the SR configuration keeps each channel separate. During this sweep the code also:
 
-* Removes samples that do not belong to the selected MC/data view and applies optional group-specific removals. Category skip rules in the metadata are ignored unless you explicitly add `--enable-category-skips`.
+* Removes samples that do not belong to the selected MC/data view and applies optional group-specific removals. Category skip rules in the metadata are ignored unless you explicitly add `--enable-category-skips`; sample/group removals and category skip rules are separate controls.
 * Fetches `sumw2` histograms for statistical uncertainties and combines them with shape/rate systematics where requested.
 * Switches between raw 1D plotting and the dedicated 2D heatmap path when sparse histograms are encountered.
+* Applies requested plot-time rebinning and collects negative MC contribution rows without mutating the input histograms.
 
 Because everything flows through the same `RegionContext`, adding a new region or adjusting behaviour in the YAML automatically updates both CR and SR plotting passes without touching the CLI.
+
+#### Sumw2 Companion Histograms
+
+The plotter uses `sumw2` companion histograms for statistical uncertainty bands and for the negative-report `error` and `effective_entries` diagnostics. Nominal histograms normally expose a dense axis named after the variable, such as `j0pt`. Companion `sumw2` histograms may use that same dense-axis name or a companion name such as `j0pt_sumw2`. If neither name exists and the histogram has exactly one unambiguous dense numeric axis, the plotter can use that axis. Missing or ambiguous dense axes raise a clear error so uncertainty bands and effective-entry calculations do not silently use the wrong binning.
+
+This naming flexibility matters most after plot-time rebinning: nominal contents, data contents, and summed `sumw2` values must be merged with the same target edges even when the companion histogram uses a `_sumw2` dense-axis name.
+
+#### Missing-Process-Tolerant Shape Systematics
+
+Shape-systematic group maps can name processes that are absent from a currently plotted histogram because of metadata skips, sample removals, year filtering, or category-specific process availability. During shape-systematic evaluation, absent process labels are ignored for the affected histogram/group. If a group has no available processes after intersecting with the histogram process axis, it contributes zero/absent uncertainty for that systematic rather than causing a global shape-systematic failure.
+
+This keeps ordinary skipped or absent processes from disabling unrelated shape systematics such as `renorm` or `fact`. It does not hide genuine problems: missing systematic labels, malformed axes, or failures unrelated to process-axis availability can still warn or fail normally.
 
 
 ### CR/SR metadata reference

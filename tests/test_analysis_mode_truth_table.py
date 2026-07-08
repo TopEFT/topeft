@@ -7,6 +7,20 @@ import pytest
 from analysis.topeft_run2 import analysis_processor as ap
 
 
+def test_run_cr_requests_ptz_for_the_3l_cr_and_forwards_hist_variables():
+    run_cr_source = (
+        Path(__file__).resolve().parents[1]
+        / "analysis"
+        / "topeft_run2"
+        / "run_cr.sh"
+    ).read_text()
+
+    assert '"ptz njets l0conept met"' in run_cr_source
+    assert '"2los_CRZ 3l_CR"' in run_cr_source
+    assert '--hist-vars "${vars[@]}"' in run_cr_source
+    assert '--category-groups "${cats[@]}"' in run_cr_source
+
+
 @pytest.mark.parametrize(
     ("offz", "tau", "fwd", "all_mode"),
     [
@@ -190,6 +204,7 @@ def test_plain_ptz_cr_policy_fills_zll_and_diagnostic_crs(all_analysis):
         "2los_1tau_Ftau",
         "2los_1tau_Ttau",
         "2los_1tau_0b",
+        "3l_CR",
     ):
         assert (
             processor._should_skip_histogram_fill(
@@ -206,7 +221,6 @@ def test_plain_ptz_cr_policy_fills_zll_and_diagnostic_crs(all_analysis):
     "2los_CRtt",
     "1l_1tau_CR",
     "1l_dy_tautau_CR",
-    "3l_CR",
 ])
 def test_plain_ptz_cr_policy_skips_non_zll_crs(lep_chan):
     processor = ap.AnalysisProcessor(
@@ -312,13 +326,15 @@ def test_plain_ptz_diagnostic_2los_1tau_crs_are_not_category_onz():
     channel_path = Path(__file__).resolve().parents[1] / "topeft" / "channels" / "ch_lst.json"
     channel_data = json.loads(channel_path.read_text())
     channels = channel_data["TAU_CH_LST_CR"]["2los_1tau"]["lep_chan_lst"]
+    zero_b_channels = channel_data["TAU_CH_LST_CR"]["2los_1tau_0b"]["lep_chan_lst"]
 
     assert {channel[0] for channel in channels} == {
         "2los_1tau_Ftau",
         "2los_1tau_Ttau",
-        "2los_1tau_0b",
     }
-    for channel in channels:
+    assert "2los_1tau_0b" not in {channel[0] for channel in channels}
+    assert {channel[0] for channel in zero_b_channels} == {"2los_1tau_0b"}
+    for channel in [*channels, *zero_b_channels]:
         assert "2los" in channel
         assert "2l_onZ" not in channel
 
