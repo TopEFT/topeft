@@ -591,7 +591,7 @@ class DatacardMaker():
             return 2
         elif s.startswith("3l_"):
             return 3
-        elif s.startswith("4l_"):
+        elif s.startswith("4l"):
             return 4
         else:
             raise ValueError(f"Unable to determine lepton multiplicity from string {s}")
@@ -638,7 +638,6 @@ class DatacardMaker():
                     raise ValueError(f"Invalid year choice '{yr}', should be empty if running over all years or one of: {self.YEARS}")
        
         if self.use_run3_systs:
-            print("Run3Run3")
             rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run3.json")
         else:
             rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run2.json")
@@ -1458,37 +1457,39 @@ class DatacardMaker():
                         #     v = v[str(num_j)]
                     elif syst_name == "missing_parton":
                         v = rate_syst.get_process(proc_name)
-                        if "2los" in ch:
-                            ch = ch.replace("2los", "2lss").replace("_onZ", "_p")
-                        # First strip off any njet and/or bjet labels
-                        #ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","")
-                        ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","").replace("_1tau", "")
+                        if miss_part_path == "data/missing_parton/missing_parton.root":
+                            if "2los" in ch:
+                                ch = ch.replace("2los", "2lss").replace("_onZ", "_p")
+                            # First strip off any njet and/or bjet labels
+                            ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","").replace("_1tau", "")
                         # Now construct the category key, matching names in the missing_parton file to the current category
-                        if num_l == 2:
-                            njet_offset = 4
-                            ch_key = ch_key.replace("_onZ", "")
-                            ch_key = ch_key.replace("_offZ", "")
-                            ch_key = f"{ch_key}_{num_b}b"
-                        elif num_l == 3:
-                            njet_offset = 2
-                            if "_onZ" in ch:
-                                ch_key = f"{num_l}l_sfz_{num_b}b"
-                            elif "_p_offZ" in ch:
-                                ch_key = f"{num_l}l{num_b}b_p"
-                            elif "_m_offZ" in ch:
-                                ch_key = f"{num_l}l{num_b}b_m"
-                            elif "tau" in ch:
-                                ch_key = f"{num_l}l_sfz_{num_b}b"
+                            if num_l == 2:
+                                njet_offset = 4
+                                ch_key = ch_key.replace("_onZ", "")
+                                ch_key = ch_key.replace("_offZ", "")
+                                ch_key = f"{ch_key}_{num_b}b"
+                            elif num_l == 3:
+                                njet_offset = 2
+                                if "_onZ" in ch:
+                                    ch_key = f"{num_l}l_sfz_{num_b}b"
+                                elif "_p_offZ" in ch:
+                                    ch_key = f"{num_l}l{num_b}b_p"
+                                elif "_m_offZ" in ch:
+                                    ch_key = f"{num_l}l{num_b}b_m"
+                                elif "tau" in ch:
+                                    ch_key = f"{num_l}l_sfz_{num_b}b"
+                                else:
+                                    raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
+                            elif num_l == 4:
+                                njet_offset = 2
+                                ch_key = f"{ch_key}_{num_b}b"
                             else:
                                 raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
-                        elif num_l == 4:
-                            njet_offset = 2
-                            ch_key = f"{ch_key}_{num_b}b"
+                             The bins in the missing_parton root files start indexing from 0
+                            bin_idx = num_j - njet_offset
                         else:
-                            raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
-                        # The bins in the missing_parton root files start indexing from 0
-                        bin_idx = num_j - njet_offset
-
+                            ch_key = ch.replace(f"_{num_j}j","")
+                            bin_idx = num_j
                         if isinstance(v,dict):
                         
                             # Skip channels that don't exist in missing_parton file
