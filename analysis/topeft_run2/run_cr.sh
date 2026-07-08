@@ -25,7 +25,7 @@ chunk_size="50000"
 ttgamma_sample_role_policy="split"
 
 # Use a strategy-specific tag to avoid mixing baseline/feature/diagnostic outputs.
-campaign_tag="preappr_ptz_taufitter_loose"
+campaign_tag="preappr_tauwp_loose"
 
 cr_pkl_base_tag="${campaign_tag}"
 sr_pkl_base_tag="${campaign_tag}"
@@ -77,7 +77,7 @@ cr_var_sets=(
   # "lt"
   # "lj0pt nbtagsl nbtagsm fwd0pt fwd0eta lt"
 
-  "ptz njets l0conept met tau0Tpt tau0Fpt"
+  "ptz_wtau njets l0conept tau0Tpt tau0Fpt"
 )
 
 # Keep year periods separate so the output pkls are period-specific.
@@ -97,7 +97,7 @@ cr_year_sets=(
 cr_category_sets=(
   # "2los_CRZ 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
   # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
-  "2los_CRZ 2los_1tau" # 2los_1tau_0b" # 3l_CR"
+  "2los_CRZ 2los_1tau 2los_1tau_0b" # 3l_CR"
 )
 
 ###############################################################################

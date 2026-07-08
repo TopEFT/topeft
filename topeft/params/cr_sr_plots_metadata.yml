@@ -648,6 +648,7 @@ REGION_PLOTTING:
       - Nonprompt
     - categories:
         prefixes:
+        - 1l_1tau_CRtt
         - 2l
         - 3l
       groups:
