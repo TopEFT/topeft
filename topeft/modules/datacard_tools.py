@@ -1485,7 +1485,7 @@ class DatacardMaker():
                                 ch_key = f"{ch_key}_{num_b}b"
                             else:
                                 raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
-                             The bins in the missing_parton root files start indexing from 0
+                            #The bins in the missing_parton root files start indexing from 0
                             bin_idx = num_j - njet_offset
                         else:
                             ch_key = ch.replace(f"_{num_j}j","")
