@@ -947,7 +947,7 @@ class DatacardMaker():
         with uproot.open(fpath) as f:
             d = {}
             for k in f.keys():
-                k = k.replace(";1","")
+                #k = k.replace(";1","")
                 # Note: Values in the ROOT file are computed as the fraction of the rate needed to
                 #   reach agreement, so need to add 1 to get the corresponding kapaa value
                 d[k] = f[f"{k}/{branch_key}"].array() + 1
@@ -1457,39 +1457,39 @@ class DatacardMaker():
                         #     v = v[str(num_j)]
                     elif syst_name == "missing_parton":
                         v = rate_syst.get_process(proc_name)
-                        if miss_part_path == "data/missing_parton/missing_parton.root":
-                            if "2los" in ch:
-                                ch = ch.replace("2los", "2lss").replace("_onZ", "_p")
-                            # First strip off any njet and/or bjet labels
-                            ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","").replace("_1tau", "")
-                        # Now construct the category key, matching names in the missing_parton file to the current category
-                            if num_l == 2:
-                                njet_offset = 4
-                                ch_key = ch_key.replace("_onZ", "")
-                                ch_key = ch_key.replace("_offZ", "")
-                                ch_key = f"{ch_key}_{num_b}b"
-                            elif num_l == 3:
-                                njet_offset = 2
-                                if "_onZ" in ch:
-                                    ch_key = f"{num_l}l_sfz_{num_b}b"
-                                elif "_p_offZ" in ch:
-                                    ch_key = f"{num_l}l{num_b}b_p"
-                                elif "_m_offZ" in ch:
-                                    ch_key = f"{num_l}l{num_b}b_m"
-                                elif "tau" in ch:
-                                    ch_key = f"{num_l}l_sfz_{num_b}b"
-                                else:
-                                    raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
-                            elif num_l == 4:
-                                njet_offset = 2
-                                ch_key = f"{ch_key}_{num_b}b"
-                            else:
-                                raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
-                            #The bins in the missing_parton root files start indexing from 0
-                            bin_idx = num_j - njet_offset
-                        else:
-                            ch_key = ch.replace(f"_{num_j}j","")
-                            bin_idx = num_j
+                        #if miss_part_path == "data/missing_parton/missing_parton.root":
+                        #    if "2los" in ch:
+                        #        ch = ch.replace("2los", "2lss").replace("_onZ", "_p")
+                        #    # First strip off any njet and/or bjet labels
+                        #    ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","").replace("_1tau", "")
+                        ## Now construct the category key, matching names in the missing_parton file to the current category
+                        #    if num_l == 2:
+                        #        njet_offset = 4
+                        #        ch_key = ch_key.replace("_onZ", "")
+                        #        ch_key = ch_key.replace("_offZ", "")
+                        #        ch_key = f"{ch_key}_{num_b}b"
+                        #    elif num_l == 3:
+                        #        njet_offset = 2
+                        #        if "_onZ" in ch:
+                        #            ch_key = f"{num_l}l_sfz_{num_b}b"
+                        #        elif "_p_offZ" in ch:
+                        #            ch_key = f"{num_l}l{num_b}b_p"
+                        #        elif "_m_offZ" in ch:
+                        #            ch_key = f"{num_l}l{num_b}b_m"
+                        #        elif "tau" in ch:
+                        #            ch_key = f"{num_l}l_sfz_{num_b}b"
+                        #        else:
+                        #            raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
+                        #    elif num_l == 4:
+                        #        njet_offset = 2
+                        #        ch_key = f"{ch_key}_{num_b}b"
+                        #    else:
+                        #        raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
+                        #    #The bins in the missing_parton root files start indexing from 0
+                        #    bin_idx = num_j - njet_offset
+                        #else:
+                        ch_key = ch.replace(f"_{num_j}j","")
+                        bin_idx = num_j
                         if isinstance(v,dict):
                         
                             # Skip channels that don't exist in missing_parton file
@@ -1498,6 +1498,8 @@ class DatacardMaker():
                             else:
                                 unc_hi = v[ch_key][bin_idx]
                                 unc_lo = max(0.01,2 - unc_hi)
+                                print("ch", ch_key)
+                                print(unc_hi, unc_lo)
                                 v = f"{unc_lo:.{PRECISION}f}/{unc_hi:.{PRECISION}f}"
 
 
