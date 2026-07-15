@@ -71,13 +71,14 @@ split_lep_flavor=false
 ###############################################################################
 
 cr_var_sets=(
-  ## non-tau CRs
-  "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
-  "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
+  # "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
+  # "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
+  # "l0eta met lt ptz_wtau"
+  # "l0conept njets tau0Fpt tau0Tpt"
+  # "lt"
 
-  ## tau CRs
-  # "l0conept l0eta met lj0pt nbtagsl nbtagsm"
-  # "ptz_wtau njets lt tau0Tpt tau0Fpt fwd0pt fwd0eta"
+  "l0eta l0conept met njets tau0Fpt tau0Tpt"
+  "lj0pt nbtagsl nbtagsm lt fwd0pt fwd0eta ptz_wtau"
 )
 
 # Keep year periods separate so the output pkls are period-specific.
@@ -99,6 +100,8 @@ cr_category_sets=(
   # "2los_CRZ 2los_1tau 2los_1tau_0b" # 3l_CR"
 
   # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
+
+  "1l_1tau_CRDY 2los_1tau"
 )
 
 ###############################################################################
@@ -211,7 +214,7 @@ build_common_command_options() {
   local -n cmd_ref="$1"
 
   cmd_ref+=(--ttgamma-sample-role-policy "${ttgamma_sample_role_policy}")
-  # cmd_ref+=(--analysis-mode taufitter)
+  cmd_ref+=(--analysis-mode taufitter)
   
   if [[ "${do_systs}" == "true" ]]; then
     cmd_ref+=(--do-systs)

@@ -4,6 +4,7 @@ It requires the central (tZq) and private (tllq) samples exist in
 `histos/central_sm/` and `histos/private_sm/` respectively
 To create these, run the datacard maker (tllq `with` systematics, tZq without)
 '''
+
 import numpy as np
 import matplotlib.pyplot as plt
 import uproot
@@ -22,26 +23,100 @@ get_tc_param = GetParam(topcoffea_path("params/params.json"))
 files = ['2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m', '2lss_p', '3l_m_offZ_1b', '3l_m_offZ_2b', '3l_onZ_1b', '3l_onZ_2b', '3l_p_offZ_1b', '3l_p_offZ_2b', '4l']
 files = ['2lss_fwd_m', '2lss_fwd_p']
 files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
-files_ptz = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
+files = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
+
+#files_diff = ['2lss_4t_m_4j', '2lss_4t_m_5j', '2lss_4t_m_6j', '2lss_4t_m_7j', '2lss_4t_p_4j', '2lss_4t_p_5j', '2lss_4t_p_6j', '2lss_4t_p_7j', '2lss_m_4j', '2lss_m_5j', '2lss_m_6j', '2lss_m_7j', '2lss_p_4j', '2lss_p_5j', '2lss_p_6j', '2lss_p_7j', '3l_1tau_1b_2j', '3l_1tau_1b_3j', '3l_1tau_1b_4j', '3l_1tau_1b_5j','3l_m_offZ_none_1b_2j', '3l_m_offZ_none_1b_3j', '3l_m_offZ_none_1b_4j', '3l_m_offZ_none_1b_5j', '3l_m_offZ_none_2b_2j', '3l_m_offZ_none_2b_3j', '3l_m_offZ_none_2b_4j', '3l_m_offZ_none_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
+
+files_diff = ['2los_onZ_1tau', '2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m_1tau_offZ', '2lss_m_1tau_onZ', '2lss_m', '2lss_p_1tau_offZ', '2lss_p_1tau_onZ', '2lss_p', '3l_1tau_1b', '3l_1tau_2b', '3l_m_offZ_1b_fwd', '3l_m_offZ_2b_fwd', '3l_m_offZ_high_1b', '3l_m_offZ_high_2b', '3l_m_offZ_low_1b', '3l_m_offZ_low_2b', '3l_m_offZ_none_1b', '3l_m_offZ_none_2b', '3l_onZ_1b_fwd', '3l_onZ_1b', '3l_onZ_2b_fwd', '3l_onZ_2b', '3l_p_offZ_1b_fwd', '3l_p_offZ_2b_fwd', '3l_p_offZ_high_1b', '3l_p_offZ_high_2b', '3l_p_offZ_low_1b', '3l_p_offZ_low_2b', '3l_p_offZ_none_1b', '3l_p_offZ_none_2b', '4l']
+
+#files_ptz = ['3l_m_offZ_low_1b_2j', '3l_m_offZ_low_1b_3j', '3l_m_offZ_low_1b_4j', '3l_m_offZ_low_1b_5j', '3l_m_offZ_low_2b_2j', '3l_m_offZ_low_2b_3j', '3l_m_offZ_low_2b_4j', '3l_m_offZ_low_2b_5j', '3l_m_offZ_high_1b_2j', '3l_m_offZ_high_1b_3j', '3l_m_offZ_high_1b_4j', '3l_m_offZ_high_1b_5j', '3l_m_offZ_high_2b_2j', '3l_m_offZ_high_2b_3j', '3l_m_offZ_high_2b_4j', '3l_m_offZ_high_2b_5j']
+files_ptz_wtau = ['2lss_m_1tau_onZ_3j', '2lss_m_1tau_onZ_4j', '2lss_m_1tau_onZ_5j', '2lss_m_1tau_onZ_6j', '2lss_p_1tau_onZ_3j', '2lss_p_1tau_onZ_4j', '2lss_p_1tau_onZ_5j','2lss_p_1tau_onZ_6j']
+
+def matches_process(proc_name, process):
+
+    aliases = {
+        'tllq': [
+            'tllq',
+            'tZq',
+            'TZQB-Zto2L-4FS_MLL-30'
+        ],
+
+        'tZq': [
+            'tZq',
+            'TZQB-Zto2L-4FS_MLL-30'
+            ]
+    }
+
+    targets = aliases.get(process, [process])
+
+    return any(t in proc_name for t in targets)
 
 def get_hists(fname, path, process):
-    fin = uproot.open('histos/'+path+'/2lss_fwd/ttx_multileptons-'+fname+'.root')
-    card = strip('histos/'+path+'/2lss_fwd/ttx_multileptons-'+fname+'.txt')
+    fin = uproot.open('parton_datacards/Run2/'+path+'/ttx_multileptons-'+fname+'.root')
+    card = strip('parton_datacards/Run2/'+path+'/ttx_multileptons-'+fname+'.txt')
+    #print("card", card)
     sm = [k.split(';')[0] for k in fin.keys() if 'sm' in k]
 
     nom = {}; up = {}; down = {}
 
-    nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc and (process in proc or process.replace('ll','Z') in proc)}
+    #nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc and (process in proc or process.replace('ll','Z') in proc)}
+    nom = {
+        proc.replace(";1", ""): fin[proc].values()
+        for proc in fin
+        if (
+            'sm;' in proc
+            and matches_process(proc, process)
+        )
+    }
     for val in nom.values():
         val = [x if not math.isinf(x) else 0 for x in val]
 
-    up = {proc.strip('Up;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Up;' in proc or 'flat' in proc) and 'fakes' not in proc}
-    down = {proc.strip('Down;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Down;' in proc or 'flat' in proc) and 'fakes' not in proc}
+#    up = {proc.strip('Up;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Up;' in proc or 'flat' in proc) and 'fakes' not in proc}
+#    down = {proc.strip('Down;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Down;' in proc or 'flat' in proc) and 'fakes' not in proc}
+    up = {
+        proc.replace("Up;1", ""): fin[proc].to_numpy()[0]
+        for proc in fin
+        if (
+            'sm' in proc
+            and ('Up;' in proc or 'flat' in proc)
+            and 'fakes' not in proc
+            and matches_process(proc, process)
+        )
+    }
+
+    down = {
+        proc.replace("Down;1", ""): fin[proc].to_numpy()[0]
+        for proc in fin
+        if (
+            'sm' in proc
+            and ('Down;' in proc or 'flat' in proc)
+            and 'fakes' not in proc
+            and matches_process(proc, process)
+        )
+    }
+
+    if len(nom) == 0:
+        print("NO MATCH FOUND")
+        print("fname =", fname)
+        print("path =", path)
+        print("process =", process)
+        print("available keys =", fin.keys())
+        return None, {}, None, None, None
+
     total = np.array([v for v in nom.values()])[0]
 
     systs = [0,0]
     err = [np.zeros_like(total), np.zeros_like(total)]
-    total_systs = [fin[k].to_numpy()[0] for k in fin.keys() if 'sm' in k and ('Up' in k or 'Down' in k) and 'fakes' not in k]
+    total_systs = [
+        fin[k].to_numpy()[0]
+        for k in fin.keys()
+        if (
+            'sm' in k
+            and ('Up' in k or 'Down' in k)
+            and 'fakes' not in k
+            and matches_process(k, process)
+        )
+    ]
 
     # Handle shape systematics
     if len(total_systs) > 0:
@@ -74,7 +149,9 @@ def get_hists(fname, path, process):
             err[0] = np.sqrt(np.square(err[0]) + np.square(total*s[0]))
             err[1] = np.sqrt(np.square(err[1]) + np.square(total*s[1]))
 
-    bins = fin[process+'_sm'].axis().edges()
+    hist_key = list(nom.keys())[0]
+    bins = fin[hist_key + ';1'].axis().edges()
+
     return total, nom, err, bins, [proc.split('_sm')[0]for proc in fin if 'sm;' in proc]
 
 if __name__ == '__main__':
@@ -92,11 +169,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
     years    = args.years
     var      = args.var
-    if var != 'njets':
+    if var == 'njets':
         files = files_diff
     if var == 'ptz':
         files = files_ptz
+    if var == 'ptz_wtau':
+        files = files_ptz_wtau
     if len(years)==0: years = ['2016APV', '2016', '2017', '2018']
+    #if len(years)==0: years = ['2022', '2022EE', '2023', '2023BPix']
     lumi = {}
     for year in years:
         lumi[year] = get_tc_param(f"lumi_{year}")
@@ -115,14 +195,15 @@ if __name__ == '__main__':
         print(f'Overwriting contents in {outdir_name}\nUse the `-t` flag to make unique directories')
     save_dir_path = os.path.join(args.output_path,outdir_name)
 
-    fout = topeft_path('data/missing_parton/missing_parton.root')
-    if var == 'njets':
+    fout = topeft_path('data/missing_parton/missing_parton_test.root')
+    print("saving output in data/missing_parton/missing_parton_test.root")
+    if var == 'njets' or var == 'ptz_wtau':
         if not os.path.exists(fout):
             fout = uproot.create(fout)
         else:
             fout = uproot.update(fout)
     else:
-        fout = 'topcoffea/data/missing_parton/missing_parton.root'
+        fout = 'topcoffea/data/missing_parton/missing_parton_test.root'
         fout = uproot.open(fout)
 
     rename = {'tllq': 'tZq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
@@ -130,9 +211,14 @@ if __name__ == '__main__':
     for proc in ['tllq']:
         for fname in files:
             fname += '_' + var
-            total_private, nom_private, err, bins, label = get_hists(fname, 'private_sm', proc)
+            total_private, nom_private, err, bins, label = get_hists(fname, 'private_tllq', proc)
+            print("proc,", proc)
             rproc = rename[proc] if proc in rename else proc
-            total_central, nom_central, _, _, _ = get_hists(fname, 'central_sm', rproc)
+            total_central, nom_central, _, _, _ = get_hists(fname, 'central_tZq', 'tZq')
+            if total_private is None or total_central is None:
+                print(f"Skipping empty category: {fname}")
+                continue
+
             hep.style.use("CMS")
             fig,ax = plt.subplots(figsize=(8, 6))
             hep.histplot(total_private, bins=bins, stack=False, label='Priavte LO', ax=ax, sort='yield')
@@ -145,7 +231,12 @@ if __name__ == '__main__':
             pos = total_private >= total_central
             neg = total_private < total_central
             for n in range(len(total_private)):
-                sign = total_central[n] / np.abs(total_central[n])
+                #sign = total_central[n] / np.abs(total_central[n])
+                if total_central[n] != 0:
+                    sign = total_central[n] / abs(total_central[n])
+                else:
+                    sign = 1
+
                 # total_private - sqrt(err_low^2 + parton^2) = total_central
                 if total_private[n] >= total_central[n]:
                     if err_low[n]<total_central[n]: parton[n] = 0 # Error larger than central value
@@ -154,16 +245,44 @@ if __name__ == '__main__':
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.square(total_private[n] - total_central[n]) - np.square(err[1][n]))
-            if var == 'njets': fout[fname.replace('njets', '2b')] = {proc : np.nan_to_num(parton/total_private, 0)}
-            else:
+            #if var == 'njets': fout[fname.replace('njets', '2b')] = {proc : np.nan_to_num(parton/total_private, 0)}
+            if var == 'njets' or var == 'ptz_wtau':
+
                 lep_bin = re.sub('_'+var, '', fname)
-                lep_bin = re.sub('_\wj', '', lep_bin)
-                if 'offZ' in lep_bin:
-                    lep_bin = re.sub('_offZ', '', lep_bin)
-                    lep_bin = lep_bin.split('_')
-                    lep_bin = lep_bin[0] + lep_bin[-1] + '_' + lep_bin[1]
-                if 'onZ' in lep_bin:
-                    lep_bin = re.sub('onZ', 'sfz', lep_bin)
+
+                vals = np.nan_to_num(parton / total_private, 0)
+                merge_rules = [
+                    ("m_1tau",     6),  # 2lss 1tau merging 6j+
+                    ("p_1tau",     6),
+                    ("2los",       3),
+                    ("onZ_1b_fwd", 4),
+                    ("onZ_2b_fwd", 4),
+                    ("offZ_2b_fwd",4),
+                    ("4l",         4),
+                    ("3l",         5),  # avoid conflicting with 3l fwd
+                ]
+
+                for pattern, idx in merge_rules:
+                    if pattern in lep_bin:
+                        denom = np.sum(total_private[idx:])
+                        merged = 0.0 if denom == 0 else np.sum(parton[idx:]) / denom
+                        vals = np.concatenate([vals[:idx], [merged]])
+                        break
+
+                fout[lep_bin] = {
+                    proc: vals
+                }
+
+            else:
+                lep_bin = re.sub(f'_{var}$', '', lep_bin)
+
+                # remove jet bin like _2j, _3j, _4j, ...
+                lep_bin = re.sub(r'_\dj$', '', lep_bin)
+
+                # add fixed b-category for 2lss regions
+                if '2lss' in lep_bin:
+                    lep_bin += '_2b'
+
                 offset = -4 if '3l' not in fname else -2
                 jet_bin = int(re.findall('\dj', fname)[0][:-1])
                 parton = np.array(fout[lep_bin]['tllq'].array())[jet_bin + offset] * total_private
@@ -187,7 +306,9 @@ if __name__ == '__main__':
             plt.show()
             plt.tight_layout()
             plt.savefig(f'{outdir_name}/{fname}.png')
+            print(f'save {fname}.png in {outdir_name}')
             plt.savefig(f'{outdir_name}/{fname}.pdf')
+            print(f'save {fname}.pdf in {outdir_name}')
             plt.close('all')
 
     # Make an index.html file if saving to web area
