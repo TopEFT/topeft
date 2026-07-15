@@ -90,7 +90,7 @@ processor_instance = sow_processor.AnalysisProcessor(samples_to_process,wc_lst)
 
 if executor == "work_queue":
     executor_args = {
-        'master_name': '{}SoW-coffea'.format(os.environ['USER']),
+        'master_name': 'SoW-coffea{}'.format(os.environ['USER']),
 
         # find a port to run work queue in this range:
         'port': [9123,9130],

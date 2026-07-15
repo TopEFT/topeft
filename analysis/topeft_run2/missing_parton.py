@@ -67,7 +67,7 @@ def get_hists(fname, path, process):
             'sm;' in proc
             and matches_process(proc, process)
         )
-    } 
+    }
     for val in nom.values():
         val = [x if not math.isinf(x) else 0 for x in val]
 
@@ -83,7 +83,7 @@ def get_hists(fname, path, process):
             and matches_process(proc, process)
         )
     }
-    
+
     down = {
         proc.replace("Down;1", ""): fin[proc].to_numpy()[0]
         for proc in fin
@@ -261,24 +261,24 @@ if __name__ == '__main__':
                     ("4l",         4),
                     ("3l",         5),  # avoid conflicting with 3l fwd
                 ]
-                
+
                 for pattern, idx in merge_rules:
                     if pattern in lep_bin:
                         denom = np.sum(total_private[idx:])
                         merged = 0.0 if denom == 0 else np.sum(parton[idx:]) / denom
                         vals = np.concatenate([vals[:idx], [merged]])
                         break
-                
+
                 fout[lep_bin] = {
                     proc: vals
                 }
 
-            else:                
+            else:
                 lep_bin = re.sub(f'_{var}$', '', lep_bin)
-                
+
                 # remove jet bin like _2j, _3j, _4j, ...
                 lep_bin = re.sub(r'_\dj$', '', lep_bin)
-                
+
                 # add fixed b-category for 2lss regions
                 if '2lss' in lep_bin:
                     lep_bin += '_2b'

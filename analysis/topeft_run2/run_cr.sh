@@ -7,7 +7,8 @@ cd /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2
 # Global configuration
 ###############################################################################
 
-output_dir="/groups/klannon/apiccine/preappr_1l1tau_260613"
+# output_dir="/groups/klannon/apiccine/preappr_260710"
+output_dir="/groups/klannon/apiccine/preappr_260710_CR"
 chunk_size="50000"
 
 # Nominal TOP-23-002-like ttgamma sample-role strategy.
@@ -25,7 +26,7 @@ chunk_size="50000"
 ttgamma_sample_role_policy="split"
 
 # Use a strategy-specific tag to avoid mixing baseline/feature/diagnostic outputs.
-campaign_tag="preappr_tauwp_loose"
+campaign_tag="new-tau-sf"
 
 cr_pkl_base_tag="${campaign_tag}"
 sr_pkl_base_tag="${campaign_tag}"
@@ -75,9 +76,9 @@ cr_var_sets=(
   # "l0eta met lt ptz_wtau"
   # "l0conept njets tau0Fpt tau0Tpt"
   # "lt"
-  # "lj0pt nbtagsl nbtagsm fwd0pt fwd0eta lt"
 
-  "ptz_wtau njets l0conept tau0Tpt tau0Fpt"
+  "l0eta l0conept met njets tau0Fpt tau0Tpt"
+  "lj0pt nbtagsl nbtagsm lt fwd0pt fwd0eta ptz_wtau"
 )
 
 # Keep year periods separate so the output pkls are period-specific.
@@ -85,8 +86,7 @@ cr_var_sets=(
 # Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
 cr_year_sets=(
   "2016APV 2016 2017 2018"
-  # "2022 2022EE"
-  # "2023 2023BPix"
+  "2022 2022EE 2023 2023BPix"
 )
 
 # Current category names used by the analysis helpers.
@@ -95,9 +95,13 @@ cr_year_sets=(
 # If the branch has explicit 2los_1tau_Ftau / 2los_1tau_Ttau category groups,
 # they can be added as separate entries after confirming the exact names.
 cr_category_sets=(
-  # "2los_CRZ 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
+  "2los_CRZ" # 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
   # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
-  "2los_CRZ 2los_1tau 2los_1tau_0b" # 3l_CR"
+  # "2los_CRZ 2los_1tau 2los_1tau_0b" # 3l_CR"
+
+  # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
+
+  "1l_1tau_CRDY 2los_1tau"
 )
 
 ###############################################################################
@@ -107,8 +111,7 @@ cr_category_sets=(
 # SR variable chunks are configured separately from CR so SR campaigns can use
 # dedicated histogram groups without changing the CR request.
 sr_var_sets=(
-  "njets lj0pt"
-  "ptz ptz_wtau lt"
+  "njets lj0pt ptz ptz_wtau lt"
 )
 
 # Kept available, but disabled by default for this request.
@@ -117,20 +120,21 @@ sr_year_sets=(
   # 2022EE
   # 2023
   # 2023BPix
-  "2022 2022EE 2023 2023BPix"
-  # 2016APV
-  # 2016
-  # 2017
-  # 2018
+  "2022 2022EE"
+  "2023 2023BPix"
+  # "2016APV 2016 2017 2018"
 )
 
 sr_category_sets=(
-  "2l"
-  "2lss_1tau 2los_1tau"
-  "3l_m_offZ"
-  "3l_p_offZ"
-  "3l_onZ_tau 4l"
-  "3l_fwd"
+  # "2l"
+  # "2lss_1tau 2los_1tau"
+  # "3l_m_offZ"
+  # "3l_p_offZ"
+  # "3l_onZ_tau 4l"
+  # "3l_fwd"
+  "2l 2lss_1tau 2los_1tau 4l"
+  "3l_m_offZ 3l_p_offZ"
+  "3l_onZ_tau 3l_fwd"
 )
 
 ###############################################################################
@@ -210,7 +214,7 @@ build_common_command_options() {
   local -n cmd_ref="$1"
 
   cmd_ref+=(--ttgamma-sample-role-policy "${ttgamma_sample_role_policy}")
-  # cmd_ref+=(--analysis-mode taufitter)
+  cmd_ref+=(--analysis-mode taufitter)
   
   if [[ "${do_systs}" == "true" ]]; then
     cmd_ref+=(--do-systs)
