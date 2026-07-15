@@ -95,7 +95,7 @@ cr_year_sets=(
 # If the branch has explicit 2los_1tau_Ftau / 2los_1tau_Ttau category groups,
 # they can be added as separate entries after confirming the exact names.
 cr_category_sets=(
-  "2los_CRZ" # 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
+  # "2los_CRZ" # 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
   # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
   # "2los_CRZ 2los_1tau 2los_1tau_0b" # 3l_CR"
 
