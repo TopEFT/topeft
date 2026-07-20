@@ -15,6 +15,12 @@ from topcoffea.modules.utils import regex_match, get_hist_from_pkl
 from topeft.modules.paths import topeft_path
 from topeft.modules.axes import info as axes_info
 from topeft.modules.compatibility import add_sumw2_stub
+from topeft.modules.missing_parton_contract import (
+    DEFAULT_SR_REGISTRY,
+    SR_CHANNEL_CONFIG_KEY,
+    load_or_validate_selected_registry,
+    load_missing_parton_channel_contract,
+)
 
 
 PRECISION = 6   # Decimal point precision in the text datacard output
@@ -486,6 +492,22 @@ class DatacardMaker():
 
     SYST_YEARS = ["2016","2016APV","2017","2018","2022","2022EE","2023","2023BPix"]
 
+    MISSING_PARTON_YEAR_ERAS = {
+        "UL16": "run2",
+        "UL16APV": "run2",
+        "UL17": "run2",
+        "UL18": "run2",
+        "2022": "run3",
+        "2022EE": "run3",
+        "2023": "run3",
+        "2023BPix": "run3",
+    }
+    MISSING_PARTON_NUISANCE_NAME = "missing_parton"
+    MISSING_PARTON_DEFAULT_PAYLOADS = {
+        "run2": "data/missing_parton/missing_parton_run2.root",
+        "run3": "data/missing_parton/missing_parton_run3.root",
+    }
+
     FNAME_TEMPLATE = "ttx_multileptons-{cat}_{kmvar}.{ext}"
     # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
 
@@ -502,6 +524,94 @@ class DatacardMaker():
             if s.endswith(yr+"Up"): return yr
             if s.endswith(yr+"Down"): return yr
         return None
+
+    @classmethod
+    def missing_parton_run_era(cls, year_or_period):
+        """Resolve one canonical card-making period to its missing-parton era."""
+        if not isinstance(year_or_period, str) or not year_or_period:
+            raise ValueError(
+                "Missing canonical year or period for missing-parton nuisance correlation."
+            )
+        try:
+            return cls.MISSING_PARTON_YEAR_ERAS[year_or_period]
+        except KeyError as exc:
+            raise ValueError(
+                f"Unsupported canonical year or period {year_or_period!r} for "
+                "missing-parton nuisance correlation. Supported values: "
+                f"{tuple(cls.MISSING_PARTON_YEAR_ERAS)!r}."
+            ) from exc
+
+    @classmethod
+    def missing_parton_nuisance_name(cls, year_or_period):
+        cls.missing_parton_run_era(year_or_period)
+        return cls.MISSING_PARTON_NUISANCE_NAME
+
+    @classmethod
+    def missing_parton_run_era_for_years(cls, year_or_periods, payload_path=None):
+        if isinstance(year_or_periods, str):
+            year_or_periods = (year_or_periods,)
+        else:
+            try:
+                year_or_periods = tuple(year_or_periods)
+            except TypeError as exc:
+                raise ValueError(
+                    "Missing canonical year or period for missing-parton nuisance correlation."
+                ) from exc
+        if not year_or_periods:
+            raise ValueError(
+                "Missing canonical year or period for missing-parton nuisance correlation."
+            )
+
+        resolved_eras = tuple(
+            cls.missing_parton_run_era(year_or_period)
+            for year_or_period in year_or_periods
+        )
+        unique_eras = set(resolved_eras)
+        if len(unique_eras) != 1:
+            payload_text = ""
+            if payload_path is not None:
+                payload_text = f" Active payload path: {payload_path!r}."
+            raise ValueError(
+                "Mixed Run 2 and Run 3 years cannot use one explicit missing-parton "
+                "payload source in a single DatacardMaker run: "
+                f"original labels={year_or_periods!r}, resolved eras={resolved_eras!r}. "
+                "Produce Run 2 and Run 3 cards separately with their matching payloads."
+                f"{payload_text}"
+            )
+        return resolved_eras[0]
+
+    @classmethod
+    def missing_parton_nuisance_name_for_years(cls, year_or_periods, payload_path=None):
+        cls.missing_parton_run_era_for_years(
+            year_or_periods,
+            payload_path=payload_path,
+        )
+        return cls.MISSING_PARTON_NUISANCE_NAME
+
+    @classmethod
+    def resolve_missing_parton_payload_path(cls, year_or_periods, payload_path=None, sr_registry=DEFAULT_SR_REGISTRY):
+        if payload_path == "":
+            raise ValueError(
+                "An explicit missing-parton payload path must be non-empty. Omit the "
+                "option to select the run-era default."
+            )
+        registry, _ = load_or_validate_selected_registry(sr_registry)
+        era = cls.missing_parton_run_era_for_years(
+            year_or_periods,
+            payload_path=payload_path,
+        )
+        if payload_path is not None:
+            return payload_path
+        if registry != DEFAULT_SR_REGISTRY:
+            raise ValueError(
+                f"Selected SR registry {registry!r} has no canonical implicit missing-parton payload. "
+                "Use --miss-parton-file with a payload generated for the same registry."
+            )
+        return cls.MISSING_PARTON_DEFAULT_PAYLOADS[era]
+
+    @classmethod
+    def is_missing_parton_nuisance_name(cls, nuisance_name):
+        return nuisance_name == cls.MISSING_PARTON_NUISANCE_NAME
 
     @classmethod
     def strip_fluctuation(cls,s):
@@ -596,6 +706,105 @@ class DatacardMaker():
         else:
             raise ValueError(f"Unable to determine lepton multiplicity from string {s}")
 
+    @staticmethod
+    def _axis_names(h):
+        if h is None:
+            return ()
+        try:
+            return tuple(ax.name for ax in h.axes)
+        except Exception:
+            axes_name = getattr(getattr(h, "axes", None), "name", None)
+            if axes_name is None:
+                return ()
+            if isinstance(axes_name, str):
+                return (axes_name,)
+            return tuple(axes_name)
+
+    def _get_missing_parton_channel_contract(self):
+        contract = getattr(self, "_missing_parton_channel_contract", None)
+        if contract is None:
+            contract = load_missing_parton_channel_contract()
+            self._missing_parton_channel_contract = contract
+        return contract
+
+    def _resolve_supported_sr_appl(self, h, channel, process=None):
+        if h is None or "appl" not in self._axis_names(h):
+            return None
+
+        contract = self._get_missing_parton_channel_contract()
+        process_text = "" if process is None else f", process {process!r}"
+        try:
+            expected_sr_appl = contract.expected_sr_appl(channel)
+        except ValueError as exc:
+            raise ValueError(
+                "DatacardMaker application-axis selection currently supports only "
+                "metadata-defined SR channels. Requested channel "
+                f"{channel!r}{process_text} is not in the "
+                f"{SR_CHANNEL_CONFIG_KEY} contract. CR/AR application-axis card "
+                "production is not implemented. No SR/AR integration, label "
+                "guessing, or fallback was performed. Use an already projected/"
+                "no-appl input or add a separately reviewed supported workflow."
+            ) from exc
+
+        available_appl = [str(label) for label in h.axes["appl"]]
+        if expected_sr_appl not in available_appl:
+            raise ValueError(
+                f"DatacardMaker recognized channel {channel!r}{process_text} as a "
+                "metadata-defined SR channel, but its exact expected appl label "
+                f"{expected_sr_appl!r} is missing. Available appl labels are "
+                f"{available_appl!r}. No SR/AR integration, label guessing, or "
+                "fallback was performed."
+            )
+        return expected_sr_appl
+
+    def select_final_sr_appl(self, h, channel, process=None):
+        """Select the metadata-defined SR appl category when the axis exists."""
+        expected_sr_appl = self._resolve_supported_sr_appl(
+            h,
+            channel,
+            process=process,
+        )
+        if expected_sr_appl is None:
+            return h
+
+        return h.integrate("appl", expected_sr_appl)
+
+    @staticmethod
+    def _sparse_key_mapping(sp_key):
+        if hasattr(sp_key, "_asdict"):
+            return dict(sp_key._asdict())
+        fields = getattr(sp_key, "_fields", None)
+        if fields is not None:
+            return dict(zip(fields, sp_key))
+        return {}
+
+    @classmethod
+    def validate_sparse_axes_for_card(cls, templates, channel, process):
+        """Reject unresolved sparse axes that would duplicate template names."""
+        labels_by_axis = defaultdict(set)
+        for sp_key in templates:
+            key_map = cls._sparse_key_mapping(sp_key)
+            for axis_name, label in key_map.items():
+                if axis_name != "systematic":
+                    labels_by_axis[axis_name].add(str(label))
+
+        duplicate_producing_axes = {
+            axis_name: labels
+            for axis_name, labels in labels_by_axis.items()
+            if len(labels) > 1
+        }
+        if not duplicate_producing_axes:
+            return
+
+        axis_name = sorted(duplicate_producing_axes)[0]
+        labels = sorted(duplicate_producing_axes[axis_name])
+        raise ValueError(
+            f"Unresolved sparse axis {axis_name!r} while writing datacard channel "
+            f"{channel!r}, process {process!r}; labels are {labels!r}. This would "
+            "create duplicate ROOT template names. Resolve the sparse category "
+            "before card writing."
+        )
+
     @classmethod
     def get_processes_by_years(cls,h):
         """
@@ -613,6 +822,9 @@ class DatacardMaker():
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
         self.drop_syst       = kwargs.pop("drop_syst",[])
+        self.skip_missing_parton_rate_syst = bool(
+            kwargs.pop("skip_missing_parton_rate_syst",False)
+        )
         self.out_dir         = kwargs.pop("out_dir",".")
         self.var_lst         = kwargs.pop("var_lst",[])
         self.do_mc_stat      = kwargs.pop("do_mc_stat",False)
@@ -641,10 +853,23 @@ class DatacardMaker():
             rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run3.json")
         else:
             rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs_run2.json")
-        miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
+        explicit_missing_parton_path = kwargs.pop("missing_parton_path",None)
+        self.sr_registry, _ = load_or_validate_selected_registry(
+            kwargs.pop("sr_registry", DEFAULT_SR_REGISTRY)
+        )
+        self.missing_parton_payload_path = None
+        if self.do_nuisance and not self.skip_missing_parton_rate_syst:
+            self.missing_parton_payload_path = self.resolve_missing_parton_payload_path(
+                self.year_lst,
+                explicit_missing_parton_path,
+                self.sr_registry,
+            )
 
         # TODO: Need to find a better name for this variable
-        self.rate_systs = self.load_systematics(rate_syst_path,miss_part_path)
+        self.rate_systs = self.load_systematics(
+            rate_syst_path,
+            self.missing_parton_payload_path,
+        )
 
         # Samples to be excluded from the datacard, should correspond to names before group_processes is run
         self.ignore = [
@@ -936,24 +1161,31 @@ class DatacardMaker():
             new_syst.add_process(p,per_jet_uncs)
         rate_systs[syst_name] = new_syst
 
-        # Finally, deal with the missing_parton systematic
-        # TODO: This feels pretty hardcoded, but not sure there's any way around it
-        branch_key = "tllq"
-        syst_name = "missing_parton"
-        new_syst = RateSystematic(syst_name)
+        if getattr(self, "skip_missing_parton_rate_syst", False):
+            print("Skipping missing_parton rate systematic")
+        else:
+            # Finally, deal with the missing_parton systematic
+            # TODO: This feels pretty hardcoded, but not sure there's any way around it
+            branch_key = "tllq"
+            syst_name = self.missing_parton_nuisance_name_for_years(
+                self.year_lst,
+                payload_path=mp_fpath,
+            )
+            new_syst = RateSystematic(syst_name)
 
-        fpath = topeft_path(mp_fpath)
-        print(f"Opening: {fpath}")
-        with uproot.open(fpath) as f:
-            d = {}
-            for k in f.keys():
-                #k = k.replace(";1","")
-                # Note: Values in the ROOT file are computed as the fraction of the rate needed to
-                #   reach agreement, so need to add 1 to get the corresponding kapaa value
-                d[k] = f[f"{k}/{branch_key}"].array() + 1
-            new_syst.add_process("tllq",d)
-            new_syst.add_process("tHq",d)
-        rate_systs[syst_name] = new_syst
+            fpath = topeft_path(mp_fpath)
+            print(f"Opening: {fpath}")
+            with uproot.open(fpath) as f:
+                d = {}
+                for k in f.keys():
+                    #k = k.replace(";1","")
+                    # Note: Values in the ROOT file are computed as the fraction of the rate needed to
+                    #   reach agreement, so need to add 1 to get the corresponding kapaa value
+                    channel_key = str(k).split(";", 1)[0]
+                    d[channel_key] = f[f"{k}/{branch_key}"].array() + 1
+                new_syst.add_process("tllq",d)
+                new_syst.add_process("tHq",d)
+            rate_systs[syst_name] = new_syst
 
         return rate_systs
 
@@ -1171,6 +1403,11 @@ class DatacardMaker():
             print(f"[ERROR] Unknown channel {ch}")
             return None
 
+        h = self.hists[km_dist]
+        h_sumw2 = self.hists.get(f"{km_dist}_sumw2")
+        self._resolve_supported_sr_appl(h, ch)
+        self._resolve_supported_sr_appl(h_sumw2, ch)
+
         print(f"Analyzing {km_dist} in {ch}")
 
         bin_str = f"bin_{ch}_{km_dist}"
@@ -1187,11 +1424,7 @@ class DatacardMaker():
 
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
-        h = self.hists[km_dist]
-        h_sumw2 = None
-        if f"{km_dist}_sumw2" in self.hists:
-            h_sumw2 = self.hists[km_dist+"_sumw2"]
-        else:
+        if h_sumw2 is None:
             msg = "No sumw2 histogram found! Setting errors to 0"
             print(msg)
         ch_hist = h.integrate("channel",[ch])
@@ -1219,6 +1452,8 @@ class DatacardMaker():
 
                 proc_hist = ch_hist.integrate("process",[p])
                 proc_sumw2 = ch_sumw2 if ch_sumw2 is None else ch_sumw2.integrate("process",[p])
+                proc_hist = self.select_final_sr_appl(proc_hist, ch, process=p)
+                proc_sumw2 = self.select_final_sr_appl(proc_sumw2, ch, process=p)
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
                 decomposed_templates = self.decompose(proc_hist,proc_sumw2,wcs)
@@ -1242,10 +1477,12 @@ class DatacardMaker():
                         "shapes": set(),
                         "rate": -1
                     }
+                    self.validate_sparse_axes_for_card(v, ch, proc_name)
                     # There should be only 1 sparse axis at this point, the systematics axis
                     check_zero_arr0 = False
                     check_zero_arr1 = False
                     seen = {}
+                    written_hist_names = set()
                     for sp_key,arr in v.items():
                         syst = sp_key[0]
                         if crop_negative_bins:
@@ -1340,6 +1577,14 @@ class DatacardMaker():
                                     text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
                         zero_out_sumw2 = p != "fakes" and "close" not in p # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
+                        if hist_name in written_hist_names:
+                            raise ValueError(
+                                f"Duplicate ROOT template name {hist_name!r} while writing "
+                                f"datacard channel {ch!r}, process {proc_name!r}. An "
+                                "unexpected sparse axis was not resolved before template "
+                                "writing."
+                            )
+                        written_hist_names.add(hist_name)
                         f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2)
 
                         num_h += 1
@@ -1359,11 +1604,12 @@ class DatacardMaker():
                             pass
                 # obtain the scalings for scalings.json file
                 if p in self.SIGNALS:
+                    scaling_hist = self.select_final_sr_appl(h, ch, process=p)
                     if self.wc_scalings:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
+                        scalings = scaling_hist[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
                     else:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling()
+                        scalings = scaling_hist[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling()
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
@@ -1443,7 +1689,9 @@ class DatacardMaker():
             for k,rate_syst in self.rate_systs.items():
                 syst_name = rate_syst.name
                 left_text = f"{syst_name:<{syst_width}} lnN"
-                if km_dist == "njets" and (syst_name == "diboson_njets" or syst_name == "missing_parton"):
+                if km_dist == "njets" and (
+                    syst_name == "diboson_njets" or self.is_missing_parton_nuisance_name(syst_name)
+                ):
                     # These systematics are only treated as rate systs for njets distribution
                     continue
                 row = [f"{left_text:<{left_width}}"]
@@ -1455,7 +1703,7 @@ class DatacardMaker():
                         # v = rate_syst.get_process(proc_name)
                         # if isinstance(v,dict):
                         #     v = v[str(num_j)]
-                    elif syst_name == "missing_parton":
+                    elif self.is_missing_parton_nuisance_name(syst_name):
                         v = rate_syst.get_process(proc_name)
                         #if miss_part_path == "data/missing_parton/missing_parton.root":
                         #    if "2los" in ch:

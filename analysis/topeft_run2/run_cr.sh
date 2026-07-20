@@ -86,7 +86,8 @@ cr_var_sets=(
 # Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
 cr_year_sets=(
   "2016APV 2016 2017 2018"
-  "2022 2022EE 2023 2023BPix"
+  "2022 2022EE"
+  "2023 2023BPix"
 )
 
 # Current category names used by the analysis helpers.
@@ -101,7 +102,7 @@ cr_category_sets=(
 
   # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
 
-  "1l_1tau_CRDY 2los_1tau"
+  "1l_1tau_CRDY 1l_1tau_CRtt 2los_1tau"
 )
 
 ###############################################################################

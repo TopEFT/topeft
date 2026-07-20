@@ -21,6 +21,7 @@ import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
+from topeft.modules.missing_parton_contract import parse_analysis_njet_token
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
 import topeft.modules.event_selection as te_es
@@ -78,6 +79,42 @@ def validate_analysis_mode_flags(offz_3l_split, tau_h_analysis, fwd_analysis, al
     if sum(mode_flags.values()) > 1:
         raise ValueError(ANALYSIS_MODE_EXCLUSIVE_ERROR)
     return mode_flags
+
+
+def evaluate_eft_coefficients_at_sm(eft_coefficients):
+    """Evaluate quadratic EFT coefficients at the zero-WC SM point."""
+
+    coefficients = np.asarray(eft_coefficients)
+    if coefficients.ndim < 1:
+        raise ValueError("EFT coefficients must have a coefficient dimension")
+
+    coefficient_count = coefficients.shape[-1]
+    wc_count = int(efth.n_wc_from_quad(coefficient_count))
+    if int(efth.n_quad_terms(wc_count)) != coefficient_count:
+        raise ValueError(
+            "EFT coefficient count does not match a quadratic polynomial: "
+            f"{coefficient_count}"
+        )
+
+    sm_coordinates = np.zeros(wc_count, dtype=coefficients.dtype)
+    return efth.calc_eft_weights(coefficients, sm_coordinates)
+
+
+def calculate_sm_sumw2_weights(scalar_weights, eft_coefficients=None):
+    """Return squared complete SM event contributions for a companion fill."""
+
+    scalar_weights = np.asarray(scalar_weights)
+    if eft_coefficients is None:
+        # Preserve the established non-EFT operation exactly.
+        return np.square(scalar_weights)
+
+    eft_factor_sm = evaluate_eft_coefficients_at_sm(eft_coefficients)
+    if scalar_weights.shape != eft_factor_sm.shape:
+        raise ValueError(
+            "Scalar weights and evaluated EFT factors must have matching shapes: "
+            f"{scalar_weights.shape} != {eft_factor_sm.shape}"
+        )
+    return np.square(scalar_weights * eft_factor_sm)
 
 
 def derive_analysis_enable_toggles(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
@@ -653,18 +690,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### EFT coefficients ##########
 
-        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
+        # Extract the EFT quadratic coefficients.
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         if eft_coeffs is not None:
             # Check to see if the ordering of WCs for this sample matches what want
             if self._samples[dataset]["WCnames"] != self._wc_names_lst:
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
-        eft_w2_coeffs = (
-            efth.calc_w2_coeffs(eft_coeffs, self._dtype)
-            if (self._fill_sumw2_hist and eft_coeffs is not None)
-            else None
-        )
         # Initialize the out object
         hout = self.accumulator
 
@@ -1708,16 +1740,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for lep_cat in import_sr_cat_dict.keys():
                     sr_cat_dict[lep_cat] = {}
                     for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
-                        jettag = None
-                        if jet_cat.startswith("="):
-                            jettag = "exactly_"
-                        elif jet_cat.startswith("<"):
-                            jettag = "atmost_"
-                        elif jet_cat.startswith(">"):
-                            jettag = "atleast_"
-                        else:
-                            raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
-                        jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
+                        jet_mode, jet_threshold, _ = parse_analysis_njet_token(jet_cat)
+                        jet_key = f"{jet_mode}_{jet_threshold}j"
 
                         sr_cat_dict[lep_cat][jet_key] = {}
                         sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
@@ -1983,16 +2007,22 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             hout[dense_axis_name].fill(**axes_fill_info_dict)
                                                                                     
                                         if fill_nominal_sumw2_hist:
+                                            # The companion is an SM-only statistical moment.
+                                            # EFT factors are evaluated at the SM and folded into
+                                            # the scalar contribution before squaring. Filling
+                                            # without eft_coeff stores that result as a constant-
+                                            # only HistEFT while preserving its public container.
                                             sumw2_fill_info = {
                                                 **sumw2_values_cut_map,
                                                 "channel"    : ch_name,
                                                 "appl"       : appl,
                                                 "process"    : histAxisName,
                                                 "systematic": wgt_fluct,
-                                                "weight"     : np.square(weights_flat),
+                                                "weight"     : calculate_sm_sumw2_weights(
+                                                    weights_flat,
+                                                    eft_coeffs_cut,
+                                                ),
                                             }
-                                            if self._hist_requires_eft.get(dense_axis_name+"_sumw2", False):
-                                                sumw2_fill_info["eft_coeff"] = eft_coeffs_cut
                                             hout[dense_axis_name+"_sumw2"].fill(**sumw2_fill_info)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
