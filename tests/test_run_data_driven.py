@@ -1,6 +1,5 @@
 import gzip
 import importlib.util
-import json
 from pathlib import Path
 
 import cloudpickle
@@ -67,25 +66,6 @@ def clear_dummy_state():
     DummyProducer.output_hist = {}
     DummyProducer.get_calls = 0
     DummyProducer.iter_calls = 0
-
-
-def _write_metadata(tmp_path: Path, *, input_path: Path, output_path: Path) -> Path:
-    metadata = {
-        "metadata_version": 2,
-        "do_np": True,
-        "np_postprocess": "defer",
-        "pretend_mode": False,
-        "apply_renormfact_envelope": False,
-        "resolved_years": ["16", "17"],
-        "sample_years": ["16", "17", "18"],
-        "input_histogram": str(input_path),
-        "output_histogram": str(output_path),
-        "metadata_path": str(tmp_path / "metadata.json"),
-        "followup_command": "python analysis/topeft_run2/run_data_driven.py --metadata-json metadata.json",
-    }
-    metadata_path = tmp_path / "metadata.json"
-    metadata_path.write_text(json.dumps(metadata))
-    return metadata_path
 
 
 def _load_pkl(pkl_path: Path):
@@ -155,16 +135,17 @@ def _single_bin_total(histo, process_name):
     return float(np.asarray(values).sum())
 
 
-def test_run_data_driven_from_metadata(tmp_path, monkeypatch):
+def test_run_data_driven_from_pkl_paths(tmp_path, monkeypatch):
     input_path = tmp_path / "input.pkl.gz"
-    input_path.write_bytes(b"content")
+    _write_histograms(input_path, {"seed": FakeHist(["dataUL17"])})
     output_path = tmp_path / "output.pkl.gz"
-    metadata_path = _write_metadata(tmp_path, input_path=input_path, output_path=output_path)
 
     DummyProducer.output_hist = {"njets": FakeHist(["flipsUL17"])}
     monkeypatch.setattr(run_data_driven, "DataDrivenProducer", DummyProducer)
 
-    run_data_driven.main(["--metadata-json", str(metadata_path)])
+    run_data_driven.main(
+        ["--input-pkl", str(input_path), "--output-pkl", str(output_path)]
+    )
 
     assert DummyProducer.calls == [(str(input_path), str(output_path), True)]
     assert DummyProducer.iter_calls == 1
@@ -173,78 +154,45 @@ def test_run_data_driven_from_metadata(tmp_path, monkeypatch):
     assert list(result["njets"].axes["process"]) == ["flipsUL17"]
 
 
-def test_run_data_driven_only_flips_and_envelope(tmp_path, monkeypatch):
+def test_run_data_driven_rejects_deprecated_envelope_before_input_validation(tmp_path, monkeypatch):
     input_path = tmp_path / "input.pkl.gz"
-    input_path.write_bytes(b"content")
+    _write_histograms(input_path, {"seed": FakeHist(["dataUL18"])})
     output_path = tmp_path / "output.pkl.gz"
-    metadata_path = _write_metadata(tmp_path, input_path=input_path, output_path=output_path)
-    payload = json.loads(metadata_path.read_text())
-    payload["apply_renormfact_envelope"] = True
-    metadata_path.write_text(json.dumps(payload))
 
-    DummyProducer.output_hist = {
-        "njets": FakeHist(["flipsUL18", "nonpromptUL18", "ttbarUL18"])
-    }
-    monkeypatch.setattr(run_data_driven, "DataDrivenProducer", DummyProducer)
+    def fail_if_validated(_path):
+        raise AssertionError("input validation must not run")
 
-    envelope_calls = {}
+    monkeypatch.setattr(run_data_driven, "_validate_input_path", fail_if_validated)
 
-    def fake_envelope(histo, **_kwargs):
-        envelope_calls["value"] = histo
-        return histo
-
-    monkeypatch.setattr(
-        run_data_driven, "apply_renormfact_envelope_to_histogram", fake_envelope
-    )
-
-    run_data_driven.main(
-        [
-            "--metadata-json",
-            str(metadata_path),
-            "--only-flips",
-        ]
-    )
-
-    assert "value" in envelope_calls
-    assert DummyProducer.calls == [(str(input_path), str(output_path), True)]
-    assert DummyProducer.iter_calls == 1
-    assert DummyProducer.get_calls == 0
-    result = _load_pkl(output_path)
-    assert list(result["njets"].axes["process"]) == ["flipsUL18"]
-
-
-def test_run_data_driven_rejects_missing_required_metadata_keys(tmp_path):
-    metadata_path = tmp_path / "metadata.json"
-    metadata_path.write_text(
-        json.dumps(
-            {
-                "metadata_version": 2,
-                "do_np": True,
-                "np_postprocess": "defer",
-            }
+    with pytest.raises(RuntimeError, match="combined renorm/fact envelope"):
+        run_data_driven.main(
+            [
+                "--input-pkl",
+                str(input_path),
+                "--output-pkl",
+                str(output_path),
+                "--only-flips",
+                "--apply-renormfact-envelope",
+            ]
         )
-    )
 
-    with pytest.raises(ValueError, match="missing required keys"):
-        run_data_driven.main(["--metadata-json", str(metadata_path)])
+    assert not output_path.exists()
+    assert DummyProducer.calls == []
 
 
-def test_run_data_driven_rejects_inconsistent_metadata_years(tmp_path):
-    input_path = tmp_path / "input.pkl.gz"
-    input_path.write_bytes(b"content")
-    output_path = tmp_path / "output.pkl.gz"
-    metadata_path = _write_metadata(tmp_path, input_path=input_path, output_path=output_path)
-    payload = json.loads(metadata_path.read_text())
-    payload["resolved_years"] = ["16", "2022"]
-    metadata_path.write_text(json.dumps(payload))
+def test_run_data_driven_rejects_manual_metadata_sidecar_option():
+    with pytest.raises(SystemExit):
+        run_data_driven.main(["--metadata-json", "metadata.json"])
 
-    with pytest.raises(ValueError, match="requested years"):
-        run_data_driven.main(["--metadata-json", str(metadata_path)])
+
+def test_run_data_driven_requires_input_pkl():
+    with pytest.raises(SystemExit):
+        run_data_driven.main([])
 
 
 def test_run_data_driven_legacy_dict_mode(tmp_path, monkeypatch):
     input_path = tmp_path / "input.pkl.gz"
-    input_path.write_bytes(b"content")
+    _write_histograms(input_path, {"seed": FakeHist(["dataUL18"])})
     output_path = tmp_path / "output.pkl.gz"
 
     DummyProducer.output_hist = {"njets": FakeHist(["flipsUL18", "ttbarUL18"])}
@@ -325,44 +273,9 @@ def test_data_driven_preserves_sumw2_companions_for_prompt_subtraction():
     assert _single_bin_total(result["met_sumw2"], "nonpromptUL18") == pytest.approx(29.0)
 
 
-def test_run_data_driven_metadata_can_force_legacy_mode(tmp_path, monkeypatch):
-    input_path = tmp_path / "input.pkl.gz"
-    input_path.write_bytes(b"content")
-    output_path = tmp_path / "output.pkl.gz"
-    metadata_path = _write_metadata(tmp_path, input_path=input_path, output_path=output_path)
-
-    DummyProducer.output_hist = {"njets": FakeHist(["flipsUL18", "ttbarUL18"])}
-    monkeypatch.setattr(run_data_driven, "DataDrivenProducer", DummyProducer)
-    monkeypatch.setattr(
-        run_data_driven.utils,
-        "dump_dict_streaming",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            RuntimeError("streaming writer should not be used in legacy mode")
-        ),
-    )
-
-    def _fake_dump_to_pkl(path, payload):
-        with gzip.open(path, "wb") as stream:
-            cloudpickle.dump(payload, stream)
-
-    monkeypatch.setattr(run_data_driven.utils, "dump_to_pkl", _fake_dump_to_pkl)
-
-    run_data_driven.main(
-        [
-            "--metadata-json",
-            str(metadata_path),
-            "--legacy-dict-mode",
-        ]
-    )
-
-    assert DummyProducer.calls == [(str(input_path), str(output_path), False)]
-    assert DummyProducer.get_calls == 1
-    assert DummyProducer.iter_calls == 0
-
-
 def test_run_data_driven_heartbeat(tmp_path, monkeypatch, capsys):
     input_path = tmp_path / "input.pkl.gz"
-    input_path.write_bytes(b"content")
+    _write_histograms(input_path, {"seed": FakeHist(["dataUL17"])})
     output_path = tmp_path / "output.pkl.gz"
 
     DummyProducer.output_hist = {
@@ -389,7 +302,7 @@ def test_run_data_driven_heartbeat(tmp_path, monkeypatch, capsys):
 
 def test_run_data_driven_quiet(tmp_path, monkeypatch, capsys):
     input_path = tmp_path / "input.pkl.gz"
-    input_path.write_bytes(b"content")
+    _write_histograms(input_path, {"seed": FakeHist(["dataUL17"])})
     output_path = tmp_path / "output.pkl.gz"
 
     DummyProducer.output_hist = {"njets": FakeHist(["flipsUL17"])}
@@ -705,7 +618,7 @@ def test_run_data_driven_dd_report_is_emitted_before_only_flips(tmp_path, capsys
     assert list(result["met"].axes["process"]) == ["flipsUL18"]
 
 
-def test_run_data_driven_dd_report_is_emitted_before_renormfact_envelope(tmp_path, capsys):
+def test_run_data_driven_dd_report_with_deprecated_envelope_fails_before_output(tmp_path, capsys):
     histogram = _fill_data_driven_histogram(
         [
             {
@@ -723,21 +636,18 @@ def test_run_data_driven_dd_report_is_emitted_before_renormfact_envelope(tmp_pat
         ]
     )
 
-    _run_with_dd_report(
-        tmp_path,
-        {"met": histogram},
-        "--legacy-dict-mode",
-        "--apply-renormfact-envelope",
-        "--mem-report",
-    )
-
-    captured = capsys.readouterr().out
-    assert captured.index("[dd-report] hist=met channel=3l") < captured.index(
-        "before get_renormfact_envelope()"
-    )
+    with pytest.raises(RuntimeError, match="combined renorm/fact envelope"):
+        _run_with_dd_report(
+            tmp_path,
+            {"met": histogram},
+            "--legacy-dict-mode",
+            "--apply-renormfact-envelope",
+            "--mem-report",
+        )
+    assert "[dd-report]" not in capsys.readouterr().out
 
 
-def test_run_data_driven_dd_report_markdown_works_with_metadata(tmp_path):
+def test_run_data_driven_dd_report_markdown_works_with_pkl_paths(tmp_path):
     histogram = _fill_data_driven_histogram(
         [
             {
@@ -758,12 +668,13 @@ def test_run_data_driven_dd_report_markdown_works_with_metadata(tmp_path):
     output_path = tmp_path / "output.pkl.gz"
     report_path = tmp_path / "reports" / "metadata_dd_report.md"
     _write_histograms(input_path, {"met": histogram})
-    metadata_path = _write_metadata(tmp_path, input_path=input_path, output_path=output_path)
 
     run_data_driven.main(
         [
-            "--metadata-json",
-            str(metadata_path),
+            "--input-pkl",
+            str(input_path),
+            "--output-pkl",
+            str(output_path),
             "--dd-report-md",
             str(report_path),
             "--quiet",

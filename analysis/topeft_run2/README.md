@@ -77,9 +77,19 @@ the split-first/aggregate-fallback channel contract, see
     - Leave the default `sumw²` companions enabled whenever you plan to run downstream uncertainty-aware tooling such as the tau fake-rate fitter or the diboson scale-factor extractor. Disabling them with `--no-sumw2` drops the `*_sumw2` histograms (for example `tau0pt_sumw2`), which causes those utilities to fail or to lose their statistical error propagation. If you need to trim the histogram list, remove individual observables instead of the sumw² accumulators.
     - Pass `--years YEAR [YEAR ...]` to filter the loaded JSON samples to the requested campaign tokens. Supported values are `2016`, `2016APV`, `2017`, `2018`, `2022`, `2022EE`, `2023`, `2023BPix`, their UL aliases (`UL16`, `UL16APV`, `UL17`, `UL18`), and the aggregate shorthands `run2` (`UL16 UL16APV UL17 UL18`) and `run3` (`2022 2022EE 2023 2023BPix`). Legacy tokens remain valid, so existing command snippets do not require changes. When the option is absent every sample in the configuration is retained as before.
     - Pass `--category-groups GROUP [GROUP ...]` to narrow the resolved `ch_lst.json` SR/CR block selection to one or more named groups before `analysis_processor.py` starts any downstream work. The names are validated in `run_analysis.py` against the active block(s) chosen by the analysis-mode flags, so `ch_lst.json` remains the only source of truth. Omitting the option preserves the historical behavior and keeps every group in each active block. Example: `python analysis/topeft_run2/run_analysis.py ... --category-groups 3l_fwd 4l`. When both SR and CR are active, a requested group may exist in only one resolved block; that region is filtered normally and the other region may intentionally become empty (for example `--category-groups 4l` keeps the default SR `4l` group while the default CR block resolves to no selected groups).
-    - The data-driven helper now supports inline and deferred workflows. Keep the historical behaviour by relying on the default `--np-postprocess=inline` (paired with `--do-np`) so the `_np.pkl.gz` file appears immediately. Choose `--np-postprocess=defer` **together with `--do-np`** to emit the base pickle along with `histos/<outname>_np.pkl.gz.metadata.json`, which records the resolved years, the required renorm/fact-envelope setting, the absolute histogram paths, and the follow-up command for `run_data_driven.py`. Setting `--np-postprocess=skip` suppresses the data-driven step entirely.
+    - `sumw2_storage.mode` accepts six values: `production`, `production_central`, `taufitter`, `full_diagnostics`, `disabled`, and `full_custom`. Omission still selects `production`. The two production modes use the same selective allocation rules but certify different signal variants: use `production` with the maintained private-signal cfg bundle and `production_central` with a central-signal cfg bundle. The cfg remains authoritative and is never rewritten by the mode. A paired private/central mismatch or overlap is rejected before `AnalysisProcessor` construction. For example:
+
+      ```yaml
+      sumw2_storage:
+        mode: production_central
+        rules:
+          - process_prefixes: [data, TTTo, tZq_central]
+      ```
+
+      Switching only the cfg or only the mode is intentionally an error. Unpaired signals and signal groups absent from both variants remain governed by the active cfg and do not become false requirements.
+    - The data-driven helper supports inline and deferred workflows. Keep the historical behaviour by relying on the default `--np-postprocess=inline` (paired with `--do-np`) so the `_np.pkl.gz` file appears immediately. Choose `--np-postprocess=defer` **together with `--do-np`** to emit the base pickle and print the direct `run_data_driven.py --input-pkl ... --output-pkl ...` follow-up command. Setting `--np-postprocess=skip` suppresses the data-driven step entirely.
     - Startup now includes a quick sanity check that resolves `data/pileup/pileup_2016GH.root` via `topcoffea_path` and ensures the file exists. When it fails the CLI exits with instructions to re-run `scripts/install_topcoffea.sh`, verify the `external/topcoffea` checkout (currently `run3_test_mmerged`) is available, and try again. Use `--skip-topcoffea-data-check` only when you intentionally manage the shared pileup files outside of the helper script.
-    - The metadata sidecar allows the deferred helper to reconstruct the `_np.pkl.gz` file without repeating the whole analysis: `python run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json`. Metadata-driven runs automatically consume the recorded envelope requirement and still default to the streaming iterator path. Pass `--input-pkl / --output-pkl` directly if you prefer not to use the metadata, and add `--apply-renormfact-envelope` yourself in that direct-path mode.
+    - Deferred follow-up uses the printed direct command: `python run_data_driven.py --input-pkl histos/<outname>.pkl.gz --output-pkl histos/<outname>_np.pkl.gz`. The helper still defaults to the streaming iterator path. The maintained renorm/fact workflow retains the independent `renormUp`, `renormDown`, `factUp`, and `factDown` templates as separate `renorm` and `fact` nuisances; the historical combined envelope is unsupported.
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
@@ -87,7 +97,7 @@ the split-first/aggregate-fallback channel contract, see
 
 * `fullR3_run.sh`: Recommended wrapper script for both Run 2 and Run 3 histogram production. It expands the aggregate campaign aliases (`run2` → `UL16 UL16APV UL17 UL18`, `run3` → `2022 2022EE 2023 2023BPix`) before dispatching to `run_analysis.py`, superseding the legacy helper while keeping the historical single-year tokens functioning as before.
     - Whenever the Run 2 bundle is activated (any of `2016`, `2016APV`, `2017`, `2018`, `UL16`, `UL16APV`, `UL17`, or `UL18` appear in `-y/--year`), the wrapper forwards the matching Run 2 payload to `run_analysis.py` via `--years`. Aliases are resolved so that `UL16` behaves like `2016`, `UL16APV` like `2016APV`, and similarly for `UL17`/`2017` and `UL18`/`2018`.
-    - Add both `--do-np` and `--defer-np` when you want the wrapper to append `--do-np --np-postprocess=defer` to the delegated `run_analysis.py` command. The first flag enables the nonprompt producer, and the second switches it to deferred mode so the wrapper prints the metadata path (`histos/<outname>_np.pkl.gz.metadata.json`) and the follow-up helper has everything it needs. Passing only `--defer-np` leaves the producer disabled, so neither the metadata nor the `_np.pkl.gz` histogram will be created.
+    - Add both `--do-np` and `--defer-np` when you want the wrapper to append `--do-np --np-postprocess=defer` to the delegated `run_analysis.py` command. The first flag enables the nonprompt producer, and the second switches it to deferred mode so the wrapper prints the direct `run_data_driven.py --input-pkl ... --output-pkl ...` follow-up command. Passing only `--defer-np` leaves the producer disabled, so no `_np.pkl.gz` histogram will be created.
     - The wrapper inherits the same `topcoffea` data probe as `run_analysis.py`. If the command exits before queueing any jobs, re-run `scripts/install_topcoffea.sh` (or confirm that `external/topcoffea` tracks the branch advertised in the repository README) so the shared pileup payloads are restored. Expert setups can add `--skip-topcoffea-data-check` to the forwarded arguments, but keep the default enabled to avoid wasting Run 3 campaigns on misconfigured environments.
 * `fullR2_run.sh`: Historical wrapper for the original TOP-22-006 pickle production. Keep it around for archival reproducibility; new workflows should prefer `fullR3_run.sh`.
 
@@ -96,17 +106,11 @@ the split-first/aggregate-fallback channel contract, see
 
 #### `run_data_driven.py` usage and recovery paths
 
-- **Metadata-driven:** when `run_analysis.py` was run with `--np-postprocess=defer`, point the helper at the recorded sidecar to reconstruct the `_np.pkl.gz` output. The helper validates that metadata contract and automatically applies the recorded renorm/fact-envelope choice:
-
-  ```bash
-  python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json
-  ```
-
-- **Direct pickle path:** skip metadata entirely by forwarding the original histogram pickle and your desired destination explicitly:
+- **Deferred direct pickle path:** when `run_analysis.py` was run with `--np-postprocess=defer`, use the printed follow-up command (or forward the original histogram pickle and your desired destination explicitly):
 
   ```bash
   python run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz \
-      --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope
+      --output-pkl histos/plotsTopEFT_np.pkl.gz
   ```
 
   The helper streams `.pkl`/`.pkl.gz` inputs one histogram at a time, so even multi-GB dictionaries can be processed without holding everything in memory. Expect the `--input-pkl` file to be the base (pre-nonprompt) histograms and the `--output-pkl` path to receive the `_np.pkl.gz` variant ready for datacard production.
@@ -115,7 +119,7 @@ the split-first/aggregate-fallback channel contract, see
 
 - **Hardcoded streaming writer settings:** iterator/default mode writes through `dump_dict_streaming` with hardcoded `protocol=3` and `clear_memo_interval=1`. This is intentional for bounded-memory safety; protocols `>=4` are not currently used in this memo-clearing streaming path.
 
-- **Troubleshooting missing metadata or moved pickles:** if the sidecar no longer matches your filesystem (for example, after relocating the histogram directory), re-run the helper with explicit `--input-pkl`/`--output-pkl` paths. You can also pass an absolute path to `--metadata-json` so relative entries resolve correctly when the metadata lives in a different folder than the pickle. If the metadata is missing required keys or disagrees with the deferred-NP contract, `run_data_driven.py` now fails explicitly instead of guessing.
+- **Troubleshooting moved pickles:** if an input or output pickle has moved, re-run the helper with explicit `--input-pkl`/`--output-pkl` paths. The deferred workflow has no metadata JSON transport.
 
 > **Sourcing helpers:** `run_plotter.sh`, `submit_plotter_condor.sh`, `fullR3_run.sh`, `fullR3_run_diboson.sh`, and `condor_plotter_entry.sh` now funnel their work through a `main()` function. They return non-zero statuses instead of exiting outright when validation fails, so sourcing them in an interactive shell will surface the error without tearing down your session. Executing the scripts directly still exits with the same return codes as before.
 
@@ -398,7 +402,7 @@ The `analysis_bins` map inside `REGION_PLOTTING` (for example the `SR` block’s
 
 ### Scripts for making and checking the datacards
 
-All of the utilities in this section expect the nonprompt-enhanced histogram pickle (filename ending in `_np.pkl.gz`). Produce it inline via `run_analysis.py --do-np --np-postprocess=inline` or, when using the deferred workflow, call `python run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json` before pointing the datacard maker at the pickle.
+All of the utilities in this section expect the nonprompt-enhanced histogram pickle (filename ending in `_np.pkl.gz`). Produce it inline via `run_analysis.py --do-np --np-postprocess=inline` or, when using the deferred workflow, run the printed `run_data_driven.py --input-pkl ... --output-pkl ...` command before pointing the datacard maker at the pickle.
 
 * `make_cards.py`
     - Example usage: `time python make_cards.py /path/to/your.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d /path/to/output/dir --unblind --do-mc-stat`

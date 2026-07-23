@@ -1,11 +1,22 @@
 ##############################################################
-# Script for creating the fake tau scale factors
-# To use, run command python tauFitter.py -f /path/to/pkl/file
-# pkl file should have CRs listed below and have all other
-# corrections aside from fake tau SFs
-# output is in the form of linear fit y = mx+b
-# where m and b are in numerical form, y is the SF, and x is the tau pt
-# pt bins are from [20, 30], [30, 40], [40, 50], [50, 60], [60, 80], [80, 100], [100, 200]
+# Deprecated legacy fake-tau scale-factor implementation.
+# Use faketau_sf_fitter.py for maintained fake-tau scale-factor extraction.
+
+import sys
+
+
+tau_fitter_deprecation_message = (
+    "tauFitter.py is deprecated; use faketau_sf_fitter.py for maintained "
+    "fake-tau scale-factor extraction. No fit or output was produced."
+)
+
+
+def _abort_deprecated_direct_execution():
+    raise SystemExit(tau_fitter_deprecation_message)
+
+
+if __name__ == "__main__":
+    _abort_deprecated_direct_execution()
 
 import numpy as np
 import os
@@ -18,7 +29,6 @@ from cycler import cycler
 #from coffea import hist
 import hist
 
-import sys
 import re
 import numpy as np
 import matplotlib
@@ -31,6 +41,12 @@ from  numpy.linalg import eig
 from scipy.odr import *
 
 from topeft.modules.yield_tools import YieldTools
+from topeft.modules.datacard_tools import load_and_merge_histogram_pkls
+from topeft.modules.nominal_schema import (
+    NOMINAL_CONTAINER_SCHEMA_VERSION,
+    evaluate_nominal_at_wc,
+    is_split_nominal_mapping,
+)
 import topcoffea.modules.utils as utils
 
 yt = YieldTools()
@@ -181,13 +197,29 @@ def getPoints(dict_of_hists):
         else:
             CR_GRP_MAP["Ttbar"].append(proc_name)
 
-    var_name = "tau0pt"
+    fake_name = "tau0Fpt"
+    tight_name = "tau0Tpt"
+    required_keys = (
+        fake_name,
+        tight_name,
+        f"{fake_name}_sumw2",
+        f"{tight_name}_sumw2",
+    )
+    missing = [key for key in required_keys if key not in dict_of_hists]
+    if missing:
+        raise RuntimeError(
+            "Legacy tau fitter requires nominal and selected companion inputs: "
+            + ", ".join(missing)
+        )
 
-    hist_mc = dict_of_hists[var_name].remove("process",samples_to_rm_from_mc_hist)
-    hist_data = dict_of_hists[var_name].remove("process",samples_to_rm_from_data_hist)
-
-    hist_mc_sumw2 = dict_of_hists[var_name + '_sumw2'].remove("process",samples_to_rm_from_mc_hist)
-    hist_data_sumw2 = dict_of_hists[var_name + '_sumw2'].remove("process",samples_to_rm_from_data_hist)
+    hist_mc_fake = dict_of_hists[fake_name].remove("process",samples_to_rm_from_mc_hist)
+    hist_data_fake = dict_of_hists[fake_name].remove("process",samples_to_rm_from_data_hist)
+    hist_mc_fake_sumw2 = dict_of_hists[fake_name + '_sumw2'].remove("process",samples_to_rm_from_mc_hist)
+    hist_data_fake_sumw2 = dict_of_hists[fake_name + '_sumw2'].remove("process",samples_to_rm_from_data_hist)
+    hist_mc_tight = dict_of_hists[tight_name].remove("process",samples_to_rm_from_mc_hist)
+    hist_data_tight = dict_of_hists[tight_name].remove("process",samples_to_rm_from_data_hist)
+    hist_mc_tight_sumw2 = dict_of_hists[tight_name + '_sumw2'].remove("process",samples_to_rm_from_mc_hist)
+    hist_data_tight_sumw2 = dict_of_hists[tight_name + '_sumw2'].remove("process",samples_to_rm_from_data_hist)
 
 
     mc_fake_all = None
@@ -196,10 +228,10 @@ def getPoints(dict_of_hists):
     mc_tight_sumw2_all = None
 
     for ftau in Ftau:
-        mc_fake = hist_mc.integrate("channel", ftau)
-        mc_fake_sumw2 = hist_mc_sumw2.integrate("channel", ftau)
-        data_fake = hist_data.integrate("channel", ftau)
-        data_fake_sumw2 = hist_data_sumw2.integrate("channel", ftau)
+        mc_fake = hist_mc_fake.integrate("channel", ftau)
+        mc_fake_sumw2 = hist_mc_fake_sumw2.integrate("channel", ftau)
+        data_fake = hist_data_fake.integrate("channel", ftau)
+        data_fake_sumw2 = hist_data_fake_sumw2.integrate("channel", ftau)
 
         mc_fake = group_bins(mc_fake, CR_GRP_MAP, "process", drop_unspecified=True)
         mc_fake_sumw2 = group_bins(mc_fake_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
@@ -230,10 +262,10 @@ def getPoints(dict_of_hists):
 
 
     for ttau in Ttau:
-        mc_tight = hist_mc.integrate("channel", ttau)
-        mc_tight_sumw2 = hist_mc_sumw2.integrate("channel", ttau)
-        data_tight = hist_data.integrate("channel", ttau)
-        data_tight_sumw2 = hist_data_sumw2.integrate("channel", ttau)
+        mc_tight = hist_mc_tight.integrate("channel", ttau)
+        mc_tight_sumw2 = hist_mc_tight_sumw2.integrate("channel", ttau)
+        data_tight = hist_data_tight.integrate("channel", ttau)
+        data_tight_sumw2 = hist_data_tight_sumw2.integrate("channel", ttau)
 
         mc_tight = group_bins(mc_tight, CR_GRP_MAP, "process", drop_unspecified=True)
         mc_tight_sumw2 = group_bins(mc_tight_sumw2, CR_GRP_MAP, "process", drop_unspecified=True)
@@ -361,6 +393,38 @@ def getPoints(dict_of_hists):
             t_err = 0.0
     return np.array(mc_x), np.array(mc_y), np.array(mc_e), np.array(data_x), np.array(data_y), np.array(data_e)
 
+def prepare_taufitter_histograms(histograms):
+    required_families = ("tau0Fpt", "tau0Tpt")
+    required_keys = tuple(
+        key
+        for family in required_families
+        for key in (family, f"{family}_sumw2")
+    )
+    if is_split_nominal_mapping(histograms):
+        output = {}
+        for family in required_families:
+            output[family] = evaluate_nominal_at_wc(
+                histograms,
+                family,
+                {},
+                schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
+            )
+            companion_key = f"{family}_sumw2"
+            if companion_key not in histograms:
+                raise RuntimeError(
+                    f"Legacy tau fitter requires selected companion '{companion_key}'."
+                )
+            output[companion_key] = histograms[companion_key]
+        return output
+    missing = [key for key in required_keys if key not in histograms]
+    if missing:
+        raise RuntimeError(
+            "Legacy tau fitter requires nominal and selected companion inputs: "
+            + ", ".join(missing)
+        )
+    return {key: histograms[key] for key in required_keys}
+
+
 def main():
 
     # Set up the command line parser
@@ -370,7 +434,12 @@ def main():
 
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
 
-    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    hin_dict, _merge_report = load_and_merge_histogram_pkls(
+        [args.pkl_file_path],
+        require_sumw2=True,
+        consumer_required_families=("tau0Fpt", "tau0Tpt"),
+    )
+    hin_dict = prepare_taufitter_histograms(hin_dict)
 
     x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict)
 
@@ -442,6 +511,3 @@ def main():
         print(p, " SF= ", c1*(p)+c0)
         print(p, " SFup = ", (1 + lv0)*c0 + (1 + lv1)*c1*p)
         print(p, " SFdown = ", (1 - lv0)*c0 + (1 - lv1)*c1*p)
-
-if __name__ == "__main__":
-    main()

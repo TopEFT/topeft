@@ -22,7 +22,16 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.missing_parton_contract import parse_analysis_njet_token
+from topeft.modules.nominal_schema import (
+    EFT_NOMINAL_SUFFIX,
+    NOMINAL_CONTAINER_LAYOUT,
+    NOMINAL_CONTAINER_SCHEMA_VERSION,
+    SCALAR_NOMINAL_SUFFIX,
+    eft_nominal_key,
+    scalar_nominal_key,
+)
 from topeft.modules.paths import topeft_path
+from topeft.modules.sumw2_policy import resolve_nominal_component_availability
 from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
@@ -181,7 +190,13 @@ def load_category_config(category_config_path=None):
 class AnalysisProcessor(processor.ProcessorABC):
 
     @staticmethod
-    def _resolve_histogram_names(hist_lst, *, ordered_base_hist_names, fill_sumw2_hist):
+    def _resolve_histogram_names(
+        hist_lst,
+        *,
+        ordered_base_hist_names,
+        fill_sumw2_hist,
+        selected_sumw2_families=None,
+    ):
         """Return ordered collections of requested base and expanded histogram names."""
 
         available_base_hist_names = set(ordered_base_hist_names)
@@ -210,7 +225,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             if base_name not in expanded_seen:
                 expanded_hist_names_ordered.append(base_name)
                 expanded_seen.add(base_name)
-            if fill_sumw2_hist:
+            if fill_sumw2_hist and (
+                selected_sumw2_families is None
+                or base_name in selected_sumw2_families
+            ):
                 sumw2_name = f"{base_name}{sumw2_suffix}"
                 if sumw2_name not in expanded_seen:
                     expanded_hist_names_ordered.append(sumw2_name)
@@ -224,7 +242,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return bool(fill_sumw2_hist) and wgt_fluct == "nominal"
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split"):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -281,12 +299,36 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
         # self._tau_wp_checked = False
 
-        self._fill_sumw2_hist = bool(fill_sumw2_hist)  # Whether to fill the w**2 companion histograms
+        self._sumw2_policy = sumw2_policy
         self._hist_axis_map = {}
         self._hist_sumw2_axis_mapping = {}
         self._hist_requires_eft = {}
+        self.nominal_container_schema_version = NOMINAL_CONTAINER_SCHEMA_VERSION
+        self.nominal_container_layout = NOMINAL_CONTAINER_LAYOUT
 
         ordered_base_hist_names = list(axes_info.keys()) + list(axes_info_2d.keys())
+        base_hist_names_ordered, _ = self._resolve_histogram_names(
+            hist_lst,
+            ordered_base_hist_names=ordered_base_hist_names,
+            fill_sumw2_hist=False,
+        )
+        if self._sumw2_policy is not None:
+            if tuple(base_hist_names_ordered) != tuple(
+                self._sumw2_policy.runtime_histogram_families
+            ):
+                raise ValueError(
+                    "Resolved sumw2 policy runtime families do not match the processor "
+                    "histogram family order."
+                )
+            selected_sumw2_families = set(
+                self._sumw2_policy.selected_families()
+            )
+        else:
+            selected_sumw2_families = (
+                set(base_hist_names_ordered) if fill_sumw2_hist else set()
+            )
+        self._selected_sumw2_families = frozenset(selected_sumw2_families)
+        self._fill_sumw2_hist = bool(self._selected_sumw2_families)
         (
             base_hist_names_ordered,
             expanded_hist_names_ordered,
@@ -294,11 +336,24 @@ class AnalysisProcessor(processor.ProcessorABC):
             hist_lst,
             ordered_base_hist_names=ordered_base_hist_names,
             fill_sumw2_hist=self._fill_sumw2_hist,
+            selected_sumw2_families=self._selected_sumw2_families,
         )
 
         self._base_hist_name_set = set(base_hist_names_ordered)
         self._expanded_hist_name_set = set(expanded_hist_names_ordered)
         self._hist_lst = expanded_hist_names_ordered.copy()
+
+        if samples:
+            component_availability = resolve_nominal_component_availability(samples)
+        else:
+            # Construction-only tests do not have runtime sample metadata. Keep a
+            # deterministic scalar fixture and add the EFT sibling only when WCs
+            # were explicitly supplied; real runs always resolve from samples.
+            component_availability = {
+                "scalar": True,
+                "eft": bool(wc_names_lst),
+            }
+        self._nominal_component_availability = component_availability
 
         sumw2_suffix = "_sumw2"
 
@@ -316,10 +371,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             return hist.axis.Regular(*axis_cfg["regular"], name=axis_name, label=axis_label)
         for name, info in axes_info.items():
             sumw2_name = f"{name}{sumw2_suffix}"
-            build_base_hist = name in self._expanded_hist_name_set
-            build_sumw2_hist = self._fill_sumw2_hist and (
-                sumw2_name in self._expanded_hist_name_set
-            )
+            build_base_hist = name in self._base_hist_name_set
+            build_sumw2_hist = name in self._selected_sumw2_families
             if not (build_base_hist or build_sumw2_hist):
                 continue
 
@@ -337,8 +390,21 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axis = hist.axis.Regular(
                     *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
                 )
-            if build_base_hist:
-                histograms[name] = HistEFT(
+            if build_base_hist and component_availability["scalar"]:
+                scalar_key = scalar_nominal_key(name)
+                histograms[scalar_key] = SparseHist(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    dense_axis,
+                    storage="Double",
+                )
+                self._hist_axis_map[scalar_key] = [dense_axis.name]
+                self._hist_requires_eft[scalar_key] = False
+            if build_base_hist and component_availability["eft"]:
+                eft_key = eft_nominal_key(name)
+                histograms[eft_key] = HistEFT(
                     proc_axis,
                     chan_axis,
                     syst_axis,
@@ -347,27 +413,26 @@ class AnalysisProcessor(processor.ProcessorABC):
                     wc_names=wc_names_lst,
                     label=r"Events",
                 )
+                self._hist_axis_map[eft_key] = [dense_axis.name]
+                self._hist_requires_eft[eft_key] = True
+            if build_base_hist:
                 self._hist_axis_map[name] = [dense_axis.name]
-                self._hist_requires_eft[name] = True
-            if self._fill_sumw2_hist and build_sumw2_hist:
-                histograms[sumw2_name] = HistEFT(
+            if build_sumw2_hist:
+                histograms[sumw2_name] = SparseHist(
                     proc_axis,
                     chan_axis,
                     syst_axis,
                     appl_axis,
                     sumw2_axis,
-                    wc_names=wc_names_lst,
-                    label=r"Events",
+                    storage="Double",
                 )
                 self._hist_axis_map[sumw2_name] = [sumw2_axis.name]
                 self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
-                self._hist_requires_eft[sumw2_name] = True
+                self._hist_requires_eft[sumw2_name] = False
         for name, axes_cfg in axes_info_2d.items():
             sumw2_name = f"{name}{sumw2_suffix}"
-            build_base_hist = name in self._expanded_hist_name_set
-            build_sumw2_hist = self._fill_sumw2_hist and (
-                sumw2_name in self._expanded_hist_name_set
-            )
+            build_base_hist = name in self._base_hist_name_set
+            build_sumw2_hist = name in self._selected_sumw2_families
             if not (build_base_hist or build_sumw2_hist):
                 continue
 
@@ -400,7 +465,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axes.append(sumw2_axis)
                 sumw2_axis_names.append(sumw2_axis.name)
                 sumw2_axis_mapping[sumw2_axis.name] = base_axis_name
-            if self._fill_sumw2_hist and build_sumw2_hist:
+            if build_sumw2_hist:
                 histograms[sumw2_name] = SparseHist(
                     proc_axis,
                     chan_axis,
@@ -421,8 +486,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # absent (for example when a filtered ``hist_lst`` omits most
         # histograms).  Restricting the list here keeps the book-keeping
         # consistent with the constructed accumulator contents.
-        accumulator_keys = set(self._accumulator.keys())
-        self._hist_lst = [name for name in self._hist_lst if name in accumulator_keys]
+        self._hist_lst = list(self._accumulator.keys())
 
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
@@ -524,14 +588,20 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        dataset = events.metadata["dataset"]
-        isEFT   = self._samples[dataset]["WCnames"] != []
+        dataset_key = events.metadata["dataset"]
+        dataset = dataset_key
+        sample_metadata = self._samples[dataset_key]
+        isEFT   = sample_metadata["WCnames"] != []
 
-        isData             = self._samples[dataset]["isData"]
-        histAxisName       = self._samples[dataset]["histAxisName"]
-        year               = self._samples[dataset]["year"]
-        xsec               = self._samples[dataset]["xsec"]
-        sow                = self._samples[dataset]["nSumOfWeights"]
+        isData             = sample_metadata["isData"]
+        histAxisName       = sample_metadata["histAxisName"]
+        year               = sample_metadata["year"]
+        xsec               = sample_metadata["xsec"]
+        sow                = sample_metadata["nSumOfWeights"]
+        if isData and isEFT:
+            raise ValueError(
+                f"Data sample '{dataset_key}' cannot declare WC-dependent content."
+            )
 
         is_run3 = False
         if year.startswith("202"):
@@ -1809,9 +1879,37 @@ class AnalysisProcessor(processor.ProcessorABC):
                 companion_axis_mapping = self._hist_sumw2_axis_mapping.get(
                     dense_axis_name
                 )
-                fill_sumw2_hist = self._fill_sumw2_hist and bool(companion_axis_mapping)
+                if self._sumw2_policy is None:
+                    target_selected_for_sumw2 = self._fill_sumw2_hist
+                else:
+                    target_selected_for_sumw2 = self._sumw2_policy.selects(
+                        dataset_key,
+                        histAxisName,
+                        dense_axis_name,
+                    )
+                if target_selected_for_sumw2 and not companion_axis_mapping:
+                    raise RuntimeError(
+                        "Resolved sumw2 target has no allocated companion for "
+                        f"dataset='{dataset_key}', process='{histAxisName}', "
+                        f"family='{dense_axis_name}'."
+                    )
+                fill_sumw2_hist = target_selected_for_sumw2 and bool(
+                    companion_axis_mapping
+                )
                 if not (fill_base_hist or fill_sumw2_hist):
                     continue
+
+                if dense_axis_name in axes_info_2d:
+                    nominal_histogram_key = dense_axis_name
+                elif isEFT:
+                    nominal_histogram_key = eft_nominal_key(dense_axis_name)
+                else:
+                    nominal_histogram_key = scalar_nominal_key(dense_axis_name)
+                if fill_base_hist and nominal_histogram_key not in hout:
+                    raise RuntimeError(
+                        "Resolved sample metadata requires nominal component "
+                        f"'{nominal_histogram_key}', but it was not allocated."
+                    )
 
                 # Set up the list of syst wgt variations to loop over
                 wgt_var_lst = ["nominal"]
@@ -2002,16 +2100,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                 "systematic": wgt_fluct,
                                                 "weight"     : weights_flat,
                                             }
-                                            if self._hist_requires_eft.get(dense_axis_name, False):
+                                            if self._hist_requires_eft.get(nominal_histogram_key, False):
                                                 axes_fill_info_dict["eft_coeff"] = eft_coeffs_cut
-                                            hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                            hout[nominal_histogram_key].fill(**axes_fill_info_dict)
                                                                                     
                                         if fill_nominal_sumw2_hist:
                                             # The companion is an SM-only statistical moment.
                                             # EFT factors are evaluated at the SM and folded into
                                             # the scalar contribution before squaring. Filling
                                             # without eft_coeff stores that result as a constant-
-                                            # only HistEFT while preserving its public container.
+                                            # only scalar SparseHist content.
                                             sumw2_fill_info = {
                                                 **sumw2_values_cut_map,
                                                 "channel"    : ch_name,

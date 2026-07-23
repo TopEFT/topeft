@@ -39,7 +39,7 @@ A colleague unfamiliar with the repository followed the quickstart above to a su
 | Mode | How to request | When to use | Follow-up |
 | --- | --- | --- | --- |
 | Inline (default) | `--do-np --np-postprocess=inline` | Produce the `_np.pkl.gz` file immediately after the main histograms. | No extra steps—the nonprompt pickle is ready when the job finishes. |
-| Deferred | `--do-np --np-postprocess=defer` (or `fullR3_run.sh --do-np --defer-np`) | Separate heavy processing from later nonprompt combination runs. | Run `python run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json` (or use `--input-pkl/--output-pkl`) to finalize. |
+| Deferred | `--do-np --np-postprocess=defer` (or `fullR3_run.sh --do-np --defer-np`) | Separate heavy processing from later nonprompt combination runs. | Run the printed `run_data_driven.py --input-pkl ... --output-pkl ...` command to finalize. |
 | Skip | `--np-postprocess=skip` | Disable the nonprompt helper entirely. | None—no `_np.pkl.gz` is created. |
 
 ### Where to go next
@@ -68,22 +68,16 @@ The `topeft/topeft` directory is set up to be installed as a pip installable pac
 The next time you return to the repository, all you have to do is activate the environment via `conda activate coffea-env` (the editable installs keep `import topeft` and `import topcoffea` working).
 
 ## Nonprompt workflows
-When `--do-np` is passed `run_analysis.py` produces the nonprompt-enhanced `_np.pkl.gz` histogram in one of two ways controlled by `--np-postprocess={inline,defer,skip}`. Inline mode mirrors the historical behaviour so the nonprompt/flips histogram is ready as soon as the jobs finish. Deferred mode emits the base pickle plus a sidecar metadata file named like `histos/<outname>_np.pkl.gz.metadata.json`.
+When `--do-np` is passed `run_analysis.py` produces the nonprompt-enhanced `_np.pkl.gz` histogram in one of two ways controlled by `--np-postprocess={inline,defer,skip}`. Inline mode mirrors the historical behaviour so the nonprompt/flips histogram is ready as soon as the jobs finish. Deferred mode emits the base pickle and prints the direct `run_data_driven.py` follow-up command.
 
-The deferred sidecar is the explicit `run_analysis.py` to `run_data_driven.py` contract. It records the input/output pickle paths, the fact that `np_postprocess=defer`, whether the renorm/fact envelope should be applied, the resolved years, and a follow-up command that points back to the canonical helper script.
-
-Finalize deferred outputs with either:
-```bash
-python analysis/topeft_run2/run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json
-```
-or by skipping metadata entirely and pointing the helper directly at the pickle paths:
+Finalize deferred outputs by pointing the helper directly at the pickle paths:
 ```bash
 python analysis/topeft_run2/run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz \
-    --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope
+    --output-pkl histos/plotsTopEFT_np.pkl.gz
 ```
-Metadata-driven runs automatically honor the contract-recorded envelope choice. The direct invocation is handy when the metadata json is missing or when you have relocated the base pickle and want to override the output destination in one call. Long-running deferred jobs emit lightweight progress heartbeats while histograms are combined; tune the cadence with `--heartbeat-seconds` (set to `0` to log every histogram) or silence the messages with `--quiet` for batch use.
+Deferred mode prints this direct invocation; it does not create a metadata JSON. The combined renorm/fact envelope is unsupported: maintain the independent `renormUp`, `renormDown`, `factUp`, and `factDown` value templates, which feed separate `renorm` and `fact` shape nuisances. Long-running deferred jobs emit lightweight progress heartbeats while histograms are combined; tune the cadence with `--heartbeat-seconds` (set to `0` to log every histogram) or silence the messages with `--quiet` for batch use.
 
-`run_data_driven.py` now defaults to the streaming iterator workflow (lower peak RSS), including when it is invoked through the metadata entrypoint. The helper processes histograms incrementally and writes the output with hardcoded serialization defaults `protocol=3` and `clear_memo_interval=1`. These values are intentional: the memo-clearing strategy bounds memory safely for large payloads and is not currently used with pickle protocols `>=4` in this path. If you need the historical fully materialized behavior for either direct or metadata-driven runs, pass `--legacy-dict-mode` explicitly.
+`run_data_driven.py` now defaults to the streaming iterator workflow (lower peak RSS). The helper processes histograms incrementally and writes the output with hardcoded serialization defaults `protocol=3` and `clear_memo_interval=1`. These values are intentional: the memo-clearing strategy bounds memory safely for large payloads and is not currently used with pickle protocols `>=4` in this path. If you need the historical fully materialized behavior, pass `--legacy-dict-mode` explicitly.
 
 ## Executor diagnostics and troubleshooting
 Run 3 workflows emit clearer diagnostics for executor issues. When running with `-x futures` or `-x work_queue`, an empty file list (or `--nchunks 0`) fails fast with guidance instead of silently submitting nothing. Worker-side exceptions are surfaced explicitly rather than triggering a cryptic `TypeError`; review the stack trace printed in the error message and the worker logs to decide whether to retry the job or adjust the sample JSON/prefix.
@@ -138,7 +132,7 @@ The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used t
     time source fullR3_run.sh
     ```
 
-    Inline mode is still the default, but `fullR3_run.sh` does **not** automatically add `--do-np`. Pass it yourself (e.g. `time source fullR3_run.sh --do-np ...`) so that `run_analysis.py --np-postprocess=inline --do-np` runs and the `_np.pkl.gz` file is ready when the wrapper exits. To defer the nonprompt/flips step (e.g. when you want to rerun the data-driven combination without repeating the entire processing campaign) pass both `--do-np` and `--defer-np` to the helper; the former enables the producer and the latter switches it to deferred mode. In that configuration the wrapper records the follow-up command plus the required envelope setting in `histos/<outname>_np.pkl.gz.metadata.json`. Later run `python analysis/topeft_run2/run_data_driven.py --metadata-json histos/<outname>_np.pkl.gz.metadata.json` to materialize the `_np.pkl.gz` file before moving on to Step 2.
+    Inline mode is still the default, but `fullR3_run.sh` does **not** automatically add `--do-np`. Pass it yourself (e.g. `time source fullR3_run.sh --do-np ...`) so that `run_analysis.py --np-postprocess=inline --do-np` runs and the `_np.pkl.gz` file is ready when the wrapper exits. To defer the nonprompt/flips step (e.g. when you want to rerun the data-driven combination without repeating the entire processing campaign) pass both `--do-np` and `--defer-np` to the helper; the former enables the producer and the latter switches it to deferred mode. The wrapper prints a direct `run_data_driven.py --input-pkl ... --output-pkl ...` follow-up command; run it to materialize the `_np.pkl.gz` file before moving on to Step 2. The historical combined renorm/fact envelope is unsupported; use the independent `renormUp`, `renormDown`, `factUp`, and `factDown` shapes, retained as separate `renorm` and `fact` nuisances.
 
 2. Run the datacard maker to obtain the cards and templates from SM (from the pickled histogram file produced in Step 1, be sure to use the version with the nonprompt estimation, i.e. the one with `_np` appended to the name you specified for the `OUT_NAME` in `fullR3_run.sh`). Whether you produced `_np.pkl.gz` inline or via the deferred helper, point the datacard maker at the final `_np.pkl.gz`. This step would also produce scalings-preselect.json file which the later version is necessary for IM workspace making. Note that command option `--wc-scalings` is not mandatory but to enforce the ordering of wcs in scalings. Add command `-A` to include all EFT templates in datacards for previous AAC model. Add option `-C` to run on condor.
     ```

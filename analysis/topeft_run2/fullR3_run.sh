@@ -481,6 +481,7 @@ main() {
   local -a RUN_CMD=(python run_analysis.py "$CFGS")
   RUN_CMD+=(--years "${RESOLVED_YEARS[@]}")
   RUN_CMD+=("${OPTIONS[@]}")
+  RUN_CMD+=(--sample-universe-wrapper fullR3_run.sh)
   RUN_CMD+=(--ttgamma-sample-role-policy "$TTGAMMA_SAMPLE_ROLE_POLICY")
   if [[ "$FLAG_DEFER_NP" == "true" ]]; then
     RUN_CMD+=(--np-postprocess=defer)

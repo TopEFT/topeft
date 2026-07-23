@@ -45,6 +45,8 @@ from topeft.modules.get_rate_systs import (
     get_syst_lst as te_get_syst_lst,
 )
 from topeft.modules.datacard_tools import load_and_merge_histogram_pkls
+from topeft.modules.histogram_artifact import write_histogram_artifact
+from topeft.modules.nominal_schema import materialize_scalar_histogram_dict
 
 
 _logger = logging.getLogger(__name__)
@@ -108,7 +110,11 @@ def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_his
             cls, cat_axes, dense_axes, init_args, dense_hists
         )
 
-
+# Preserve the public reconstruction method name in pickle reducers.  Without
+# this, a cache written after importing this plotter records the local helper
+# name and cannot be reopened by a process that has not imported the plotter.
+_fast_sparsehist_from_reduce.__name__ = "_read_from_reduce"
+_fast_sparsehist_from_reduce.__qualname__ = "SparseHist._read_from_reduce"
 tc_sparseHist.SparseHist._read_from_reduce = classmethod(_fast_sparsehist_from_reduce)
 # Backward-compatible export used by existing tests/helpers.
 SparseHist = tc_sparseHist.SparseHist
@@ -4152,8 +4158,16 @@ def _normalize_histograms(
     mc_scaled = False
 
     if unit_norm_bool:
-        mc_eval = h_mc.eval({})
-        data_eval = h_data.eval({})
+        mc_eval = (
+            h_mc.eval({})
+            if isinstance(h_mc, tc_histEFT.HistEFT)
+            else h_mc.view(flow=True, as_dict=True)
+        )
+        data_eval = (
+            h_data.eval({})
+            if isinstance(h_data, tc_histEFT.HistEFT)
+            else h_data.view(flow=True, as_dict=True)
+        )
 
         sum_mc = 0.0
         for values in mc_eval.values():
@@ -7050,7 +7064,11 @@ def _values_without_flow(
 def _eval_without_underflow(hist_slice):
     """Return histogram values with the underflow bin removed."""
 
-    evaluated = hist_slice.eval({})
+    evaluated = (
+        hist_slice.eval({})
+        if isinstance(hist_slice, tc_histEFT.HistEFT)
+        else hist_slice.view(flow=True, as_dict=True)
+    )
     if isinstance(evaluated, dict):
         if () in evaluated:
             evaluated = evaluated[()]
@@ -8480,7 +8498,7 @@ def _emit_merge_report(report_obj, report_path, out_dir):
     print(f"Wrote merge report: {report_fpath}")
 
 
-def _cache_merged_histograms(merged_hists, cache_path, out_dir):
+def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=None):
     out_fpath = cache_path
     if not os.path.isabs(out_fpath):
         out_fpath = os.path.join(out_dir, out_fpath)
@@ -8490,8 +8508,29 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir):
     if out_parent:
         os.makedirs(out_parent, exist_ok=True)
     print(f"Caching merged histograms to {out_fpath}")
-    with gzip.open(out_fpath, "wb") as fout:
-        pickle.dump(merged_hists, fout, protocol=pickle.HIGHEST_PROTOCOL)
+    if merge_report and merge_report.get("schema") == "split_sibling_v1":
+        write_histogram_artifact(
+            out_fpath,
+            histograms=merged_hists,
+            artifact_kind=merge_report["artifact_kind"],
+            sumw2_storage_provenance=merge_report["sumw2_storage_provenance"],
+            production_sample_contract=merge_report[
+                "production_sample_contract"
+            ],
+            merged=True,
+            lineage_inputs=merge_report["lineage_inputs"],
+            required_sumw2_processes=merge_report["required_sumw2_processes"],
+            transformation_contract=merge_report["transformation_contract"],
+            requested_data_driven_products=merge_report[
+                "requested_data_driven_products"
+            ],
+            resolved_data_driven_contract=merge_report[
+                "resolved_data_driven_contract"
+            ],
+        )
+    else:
+        with gzip.open(out_fpath, "wb") as fout:
+            pickle.dump(merged_hists, fout, protocol=pickle.HIGHEST_PROTOCOL)
     return out_fpath
 
 
@@ -8606,7 +8645,9 @@ def run_with_args(args, parser):
     )
     _emit_merge_report(merge_report, args.merge_report, save_dir_path)
     if args.cache_merged_pkl:
-        _cache_merged_histograms(hin_dict, args.cache_merged_pkl, save_dir_path)
+        _cache_merged_histograms(
+            hin_dict, args.cache_merged_pkl, save_dir_path, merge_report
+        )
     if args.verbose:
         load_finish_time = datetime.datetime.now()
         print(
@@ -8618,6 +8659,16 @@ def run_with_args(args, parser):
     if args.merge_only:
         print("Merge-only mode enabled, stopping after successful merge validation.")
         return 0
+
+    if merge_report.get("schema") == "split_sibling_v1":
+        # Plotting still performs several HistEFT-aware transforms.  Build one
+        # consumer-local, non-serialized view only after schema-aware merging
+        # and cache handling have completed.
+        hin_dict = materialize_scalar_histogram_dict(
+            hin_dict,
+            runtime_families=merge_report["runtime_histogram_families"],
+            wc_values={},
+        )
 
     print("\nMaking plots for years:", selected_years if selected_years else "All")
     print("Output dir:",save_dir_path)

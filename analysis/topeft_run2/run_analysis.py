@@ -3,10 +3,9 @@
 import argparse
 import json
 import time
-import cloudpickle
-import gzip
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -19,11 +18,35 @@ import topcoffea.modules.remote_environment as remote_environment
 from topcoffea.modules.paths import topcoffea_path
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
-from topeft.modules.deferred_np_metadata import (
-    build_deferred_np_metadata,
-    build_np_followup_command,
+from topeft.modules.data_driven_products import (
+    certify_data_driven_preflight,
+    resolve_data_driven_products,
 )
-from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
+from topeft.modules.histogram_artifact import (
+    lineage_input_from_sidecar,
+    write_histogram_artifact,
+)
+from topeft.modules.nominal_schema import (
+    NOMINAL_CONTAINER_LAYOUT,
+    NOMINAL_CONTAINER_SCHEMA_VERSION,
+    canonicalize_nominal_keys,
+    validate_nominal_mapping,
+)
+from topeft.modules.axes import info as axes_info
+from topeft.modules.axes import info_2d as axes_info_2d
+from topeft.modules.sumw2_policy import (
+    resolve_sumw2_storage_mode,
+    resolve_sumw2_storage_policy,
+    sumw2_target,
+)
+from topeft.modules.production_sample_profile import (
+    build_active_sample_universe,
+    certify_production_sample_contract,
+    derive_required_prompt_signal_processes,
+    production_sample_profile_error,
+    validate_active_sample_profile,
+)
+from topeft.modules.get_renormfact_envelope import raise_unsupported_renormfact_envelope
 from topeft.modules.ttgamma_photon_history import (
     SPLIT_SAMPLE_ROLE_POLICY,
     SUPPORTED_SAMPLE_ROLE_POLICIES,
@@ -803,16 +826,15 @@ if __name__ == "__main__":
         default="inline",
         help=(
             "Control when the nonprompt post-processing step runs. "
-            "Use 'inline' (default) to run immediately, 'defer' to emit metadata "
-            "for a follow-up job, or 'skip' to omit the step entirely."
+            "Use 'inline' (default) to run immediately, 'defer' to print a direct "
+            "follow-up command, or 'skip' to omit the step entirely."
         ),
     )
     parser.add_argument(
         "--do-renormfact-envelope",
         action="store_true",
         help=(
-            "Perform renorm/fact envelope calculation on the output hist "
-            "(saves the modified with the same name as the original)."
+            "Deprecated unsupported option. It exits before any analysis work."
         ),
     )
     parser.add_argument(
@@ -896,6 +918,14 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
+        "--sample-universe-wrapper",
+        default="run_analysis.py",
+        help=(
+            "Portable identity of the maintained wrapper that selected the active "
+            "sample cfgs (recorded in generated sidecar provenance)."
+        ),
+    )
+    parser.add_argument(
         "--env-file",
         default=None,
         help=(
@@ -922,6 +952,8 @@ if __name__ == "__main__":
     parser.set_defaults(use_remote_env=True)
 
     args = parser.parse_args()
+    if args.do_renormfact_envelope:
+        raise_unsupported_renormfact_envelope()
     if args.debug_year_scan:
         _debug_year_scan_selfcheck()
         raise SystemExit(0)
@@ -939,6 +971,12 @@ if __name__ == "__main__":
     pretend = args.pretend
     treename = args.treename
     fill_sumw2 = not args.no_sumw2
+    legacy_no_sumw2_present = bool(args.no_sumw2)
+    legacy_no_sumw2_value = bool(args.no_sumw2)
+    sumw2_storage_present = False
+    sumw2_storage_config = None
+    data_driven_products_present = False
+    data_driven_products_config = None
     do_systs = args.do_systs
     suppress_forward_eta_stochastic_jer = args.suppress_forward_eta_stochastic_jer
     fwd_eta_band_pt_apply = args.fwd_eta_band_pt_apply
@@ -964,6 +1002,7 @@ if __name__ == "__main__":
     env_file_override = args.env_file
     use_remote_env = args.use_remote_env
     skip_topcoffea_data_check = args.skip_topcoffea_data_check
+    sample_universe_wrapper = args.sample_universe_wrapper
 
     if args.options:
         import yaml
@@ -980,13 +1019,34 @@ if __name__ == "__main__":
         outpath = ops.pop("outpath", outpath)
         pretend = ops.pop("pretend", pretend)
         treename = ops.pop("treename", treename)
-        no_sumw2_opt = ops.pop("no_sumw2", None)
-        if no_sumw2_opt is not None:
-            fill_sumw2 = not no_sumw2_opt
-        else:
-            legacy_do_errors = ops.pop("do_errors", None)
-            if legacy_do_errors is not None:
-                fill_sumw2 = bool(legacy_do_errors)
+        sumw2_storage_present = "sumw2_storage" in ops
+        sumw2_storage_config = ops.pop("sumw2_storage", None)
+        data_driven_products_present = "data_driven_products" in ops
+        data_driven_products_config = ops.pop("data_driven_products", None)
+        yaml_no_sumw2_present = "no_sumw2" in ops
+        yaml_do_errors_present = "do_errors" in ops
+        if yaml_no_sumw2_present and yaml_do_errors_present:
+            raise ValueError(
+                "Specify at most one legacy statistical flag: no_sumw2 or do_errors."
+            )
+        if args.no_sumw2 and (yaml_no_sumw2_present or yaml_do_errors_present):
+            raise ValueError(
+                "The command line and options file both explicitly set a legacy "
+                "statistical flag."
+            )
+        if yaml_no_sumw2_present:
+            yaml_no_sumw2_value = ops.pop("no_sumw2")
+            if not isinstance(yaml_no_sumw2_value, bool):
+                raise ValueError("Legacy no_sumw2 must be a boolean.")
+            legacy_no_sumw2_present = True
+            legacy_no_sumw2_value = yaml_no_sumw2_value
+        elif yaml_do_errors_present:
+            legacy_do_errors = ops.pop("do_errors")
+            if not isinstance(legacy_do_errors, bool):
+                raise ValueError("Legacy do_errors must be a boolean.")
+            legacy_no_sumw2_present = True
+            legacy_no_sumw2_value = not legacy_do_errors
+        fill_sumw2 = not legacy_no_sumw2_value
         do_systs = ops.pop("do_systs", do_systs)
         suppress_forward_eta_stochastic_jer = ops.pop(
             "suppress_forward_eta_stochastic_jer",
@@ -1018,6 +1078,9 @@ if __name__ == "__main__":
         use_remote_env = ops.pop("use_remote_env", use_remote_env)
         skip_topcoffea_data_check = ops.pop("skip_topcoffea_data_check", skip_topcoffea_data_check)
 
+    if do_renormfact_envelope:
+        raise_unsupported_renormfact_envelope()
+
     try:
         validated_mode_flags = analysis_processor.validate_analysis_mode_flags(
             offZ_split,
@@ -1042,26 +1105,12 @@ if __name__ == "__main__":
 
     out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
     out_pkl_file_name_np = os.path.join(outpath, outname + "_np.pkl.gz")
-    np_metadata_file = out_pkl_file_name_np + ".metadata.json"
 
     # Check if we have valid options
     if executor_name not in LST_OF_KNOWN_EXECUTORS:
         raise Exception(
             f'The "{executor_name}" executor is not known. Please specify an executor from the known executors ({LST_OF_KNOWN_EXECUTORS}). Exiting.'
         )
-    if do_renormfact_envelope:
-        if not do_systs:
-            raise Exception(
-                "Error: Cannot specify do_renormfact_envelope if we are not including systematics."
-            )
-        if not do_np:
-            raise Exception(
-                "Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step."
-            )
-        if np_postprocess_mode == "skip":
-            raise Exception(
-                "Error: Renorm/fact envelope cannot be requested when --np-postprocess=skip."
-            )
     if dotest:
         if executor_name == "futures":
             nchunks = 2
@@ -1198,7 +1247,11 @@ if __name__ == "__main__":
         # If we don't specify this argument, it will be None, and the processor will fill all hists
         hist_lst = hist_list
 
-    print("Resolved histogram list: {}".format(", ".join(hist_lst)))
+    print(
+        "Resolved histogram list: {}".format(
+            ", ".join(hist_lst) if hist_lst is not None else "all registered families"
+        )
+    )
     print(
         "Resolved ttgamma sample-role policy: {}".format(
             ttgamma_sample_role_policy
@@ -1500,72 +1553,170 @@ if __name__ == "__main__":
         }
     )
 
-    def _build_np_metadata_payload():
-        resolved_year_list = (
-            sorted(requested_years) if requested_years is not None else sample_years_from_inputs
-        )
-        payload = build_deferred_np_metadata(
-            input_histogram=out_pkl_file,
-            output_histogram=out_pkl_file_name_np,
-            metadata_path=np_metadata_file,
-            np_postprocess=np_postprocess_mode,
-            pretend_mode=pretend,
-            do_np=do_np,
-            apply_renormfact_envelope=do_renormfact_envelope,
-            resolved_years=resolved_year_list,
-            sample_years=sample_years_from_inputs,
-            input_jsons=resolved_input_jsons,
-            analysis_mode=analysis_mode,
-            hist_list=hist_lst,
-            wc_list=wc_lst,
-            executor=executor_name,
-            options_file=args.options,
-            flags={
-                "split_lep_flavor": split_lep_flavor,
-                "offZ_split": offZ_split,
-                "tau_h_analysis": tau_h_analysis,
-                "fwd_analysis": fwd_analysis,
-                "all_analysis": all_analysis,
-                "category_groups": list(
-                    category_group_selection["requested_category_groups"] or []
-                ),
-                "skip_sr": skip_sr,
-                "skip_cr": skip_cr,
-                "do_systs": do_systs,
-                "ttgamma_sample_role_policy": ttgamma_sample_role_policy,
-                "fwd_eta_band_pt_apply": fwd_eta_band_pt_apply,
-                "fill_sumw2": fill_sumw2,
-                "useRun3MVA": useRun3MVA,
-            },
-        )
-        payload["timestamp"] = time.time()
-        return payload
+    runtime_histogram_families = (
+        list(axes_info.keys()) + list(axes_info_2d.keys())
+        if hist_lst is None
+        else list(hist_lst)
+    )
+    runtime_histogram_families = [
+        family[:-6] if family.endswith("_sumw2") else family
+        for family in runtime_histogram_families
+    ]
+    runtime_histogram_families = list(dict.fromkeys(runtime_histogram_families))
 
-    def _write_np_metadata_sidecar(*, pretend_override=None):
-        payload = _build_np_metadata_payload()
-        if pretend_override is not None:
-            payload["pretend_mode"] = pretend_override
-        os.makedirs(outpath, exist_ok=True)
-        with open(np_metadata_file, "w") as metadata_stream:
-            json.dump(payload, metadata_stream, indent=2, sort_keys=True)
-        return payload
-
-    def _print_np_defer_instructions(metadata_payload):
-        followup_command = metadata_payload.get(
-            "followup_command", build_np_followup_command(np_metadata_file)
+    try:
+        active_universe = build_active_sample_universe(
+            samplesdict,
+            input_paths=resolved_input_jsons,
+            wrapper_identity=sample_universe_wrapper,
         )
+        sumw2_mode = resolve_sumw2_storage_mode(
+            sumw2_storage_config,
+            sumw2_storage_present=sumw2_storage_present,
+            legacy_no_sumw2_present=legacy_no_sumw2_present,
+            legacy_no_sumw2_value=legacy_no_sumw2_value,
+        )
+        validate_active_sample_profile(
+            active_universe,
+            sumw2_mode,
+            data_driven_products=data_driven_products_config,
+            data_driven_products_present=data_driven_products_present,
+            metadata_path=args.options,
+        )
+    except production_sample_profile_error as error:
+        raise SystemExit(str(error)) from None
+
+    resolved_data_driven_products = resolve_data_driven_products(
+        data_driven_products_config,
+        data_driven_products_present=data_driven_products_present,
+        legacy_do_np=do_np,
+        samples=samplesdict,
+        runtime_families=runtime_histogram_families,
+        metadata_path=args.options,
+        required_prompt_signal_processes=derive_required_prompt_signal_processes(
+            active_universe.processes,
+            signal_sample_profile=sumw2_mode.signal_sample_profile,
+            nonprompt_enabled=True,
+        ),
+    )
+    if do_np and not resolved_data_driven_products.enabled_products():
+        raise ValueError(
+            "do_np requests data-driven postprocessing, but data_driven_products "
+            "has no enabled product. Enable nonprompt or flips, or disable do_np."
+        )
+
+    required_sumw2_targets = []
+    if analysis_mode == "taufitter":
+        taufitter_families = ("tau0Fpt", "tau0Tpt")
+        missing_taufitter_families = sorted(
+            set(taufitter_families) - set(runtime_histogram_families)
+        )
+        if missing_taufitter_families:
+            raise ValueError(
+                "The taufitter workflow requires runtime histogram families: "
+                + ", ".join(missing_taufitter_families)
+            )
+        for dataset_key, sample in samplesdict.items():
+            for family in taufitter_families:
+                required_sumw2_targets.append(
+                    sumw2_target(dataset_key, sample["histAxisName"], family)
+                )
+
+    sumw2_policy = resolve_sumw2_storage_policy(
+        sumw2_storage_config,
+        samples=samplesdict,
+        runtime_families=runtime_histogram_families,
+        axes_info=axes_info,
+        axes_info_2d=axes_info_2d,
+        analysis_mode=analysis_mode,
+        sumw2_storage_present=sumw2_storage_present,
+        legacy_no_sumw2_present=legacy_no_sumw2_present,
+        legacy_no_sumw2_value=legacy_no_sumw2_value,
+        consumer_requirements=required_sumw2_targets,
+        implicit_production_requirements=(
+            resolved_data_driven_products.required_targets()
+        ),
+        mode_resolution=sumw2_mode,
+    )
+    try:
+        production_sample_contract = certify_production_sample_contract(
+            active_universe,
+            sumw2_policy,
+            resolved_data_driven_products,
+        )
+    except production_sample_profile_error as error:
+        raise SystemExit(str(error)) from None
+    (
+        requested_data_driven_products,
+        resolved_data_driven_contract,
+    ) = certify_data_driven_preflight(
+        resolved_data_driven_products,
+        sumw2_policy,
+    )
+    fill_sumw2 = bool(sumw2_policy.selected_families())
+    print(
+        "Resolved sumw2 storage: mode={} source={} targets={} families={}".format(
+            sumw2_policy.requested_mode,
+            sumw2_policy.source,
+            len(sumw2_policy.resolved_targets),
+            ",".join(sumw2_policy.selected_families()) or "<none>",
+        )
+    )
+    print(
+        "Certified production sample profile: profile={} wrapper={} cfgs={}".format(
+            sumw2_policy.signal_sample_profile,
+            active_universe.wrapper_identity,
+            ",".join(
+                identity["basename"]
+                for identity in active_universe.serialized_cfg_identities()
+            ),
+        )
+    )
+    print(
+        "Resolved nominal container: version={} layout={}".format(
+            NOMINAL_CONTAINER_SCHEMA_VERSION,
+            NOMINAL_CONTAINER_LAYOUT,
+        )
+    )
+    print(
+        "Resolved data-driven products: source={} enabled={}".format(
+            resolved_data_driven_products.source,
+            ",".join(resolved_data_driven_products.enabled_products()) or "<none>",
+        )
+    )
+
+    inline_artifact_kind = (
+        "flips_output"
+        if resolved_data_driven_products.enabled_products() == ("flips",)
+        else "nonprompt_output"
+    )
+
+    def _build_np_followup_command():
+        command = [
+            "python",
+            "analysis/topeft_run2/run_data_driven.py",
+            "--input-pkl",
+            out_pkl_file,
+            "--output-pkl",
+            out_pkl_file_name_np,
+        ]
+        if inline_artifact_kind == "flips_output":
+            command.append("--only-flips")
+        return shlex.join(command)
+
+    def _print_np_defer_instructions():
         print(
-            "Nonprompt estimation deferred. Metadata saved to {}.\n"
+            "Nonprompt estimation deferred. The processor sidecar is discovered "
+            "automatically from the input PKL.\n"
             "Run the following command to finalize the nonprompt histograms:\n  {}".format(
-                metadata_payload.get("metadata_path", np_metadata_file), followup_command
+                _build_np_followup_command()
             )
         )
 
     if pretend:
         print("pretending...")
         if do_np and np_postprocess_mode == "defer":
-            metadata_payload = _write_np_metadata_sidecar(pretend_override=True)
-            _print_np_defer_instructions(metadata_payload)
+            _print_np_defer_instructions()
         exit()
 
     # Extract the list of all WCs, as long as we haven't already specified one.
@@ -1625,6 +1776,7 @@ if __name__ == "__main__":
         suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
         fwd_eta_band_pt_apply=fwd_eta_band_pt_apply,
         ttgamma_sample_role_policy=ttgamma_sample_role_policy,
+        sumw2_policy=sumw2_policy,
     )
 
     if executor_name in ["work_queue", "taskvine"]:
@@ -1771,6 +1923,18 @@ if __name__ == "__main__":
 
         print("Finished running the processor...")
 
+        validate_nominal_mapping(
+            output,
+            runtime_families=runtime_histogram_families,
+            schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
+            policy=sumw2_policy,
+        )
+        output = canonicalize_nominal_keys(
+            output,
+            runtime_families=runtime_histogram_families,
+            schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
+        )
+
         dt = time.time() - tstart
 
         if executor_name in ["work_queue", "taskvine"]:
@@ -1793,33 +1957,43 @@ if __name__ == "__main__":
         # Save the output
         os.makedirs(outpath, exist_ok=True)
         print(f"\nSaving output in {out_pkl_file}...")
-        with gzip.open(out_pkl_file, "wb") as fout:
-            cloudpickle.dump(output, fout)
+        processor_sidecar = write_histogram_artifact(
+            out_pkl_file,
+            histograms=output,
+            artifact_kind="processor_output",
+            sumw2_storage_provenance=sumw2_policy.to_provenance(),
+            production_sample_contract=production_sample_contract,
+            requested_data_driven_products=requested_data_driven_products,
+            resolved_data_driven_contract=resolved_data_driven_contract,
+        )
         print("Done!")
 
         # Run the data driven estimation, save the output
         if do_np:
             if np_postprocess_mode == "inline":
                 print("\nDoing the nonprompt estimation...")
-                ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
+                ddp = DataDrivenProducer(
+                    out_pkl_file,
+                    "",
+                    artifact_kind=inline_artifact_kind,
+                )
+                data_driven_histograms = ddp.getDataDrivenHistogram()
                 print(f"Saving output in {out_pkl_file_name_np}...")
-                ddp.dumpToPickle()
+                write_histogram_artifact(
+                    out_pkl_file_name_np,
+                    histograms=data_driven_histograms,
+                    artifact_kind=inline_artifact_kind,
+                    sumw2_storage_provenance=sumw2_policy.to_provenance(),
+                    lineage_inputs=[lineage_input_from_sidecar(processor_sidecar)],
+                    input_sidecar=processor_sidecar,
+                    transformation_context=ddp.get_transformation_context(
+                        inline_artifact_kind
+                    ),
+                )
                 print("Done!")
-                if do_renormfact_envelope:
-                    print("\nDoing the renorm. fact. envelope calculation...")
-                    dict_of_histos = utils.get_hist_from_pkl(
-                        out_pkl_file_name_np, allow_empty=False
-                    )
-                    dict_of_histos_after_applying_envelope = get_renormfact_envelope(
-                        dict_of_histos
-                    )
-                    utils.dump_to_pkl(
-                        out_pkl_file_name_np, dict_of_histos_after_applying_envelope
-                    )
             elif np_postprocess_mode == "defer":
-                print("\nDeferring the nonprompt estimation and writing metadata...")
-                metadata_payload = _write_np_metadata_sidecar()
-                _print_np_defer_instructions(metadata_payload)
+                print("\nDeferring the nonprompt estimation...")
+                _print_np_defer_instructions()
             else:
                 print("\nSkipping the nonprompt estimation as requested (--np-postprocess=skip).")
             run_succeeded = True

@@ -14,11 +14,19 @@ def test_run_cr_requests_ptz_for_the_3l_cr_and_forwards_hist_variables():
         / "topeft_run2"
         / "run_cr.sh"
     ).read_text()
+    full_run_source = (
+        Path(__file__).resolve().parents[1]
+        / "analysis"
+        / "topeft_run2"
+        / "fullR3_run.sh"
+    ).read_text()
 
-    assert '"ptz njets l0conept met"' in run_cr_source
-    assert '"2los_CRZ 3l_CR"' in run_cr_source
+    assert 'read -r -a vars <<< "${var_set}"' in run_cr_source
+    assert 'local cats=("$@")' in run_cr_source
     assert '--hist-vars "${vars[@]}"' in run_cr_source
     assert '--category-groups "${cats[@]}"' in run_cr_source
+    assert 'HIST_VARS+=("$1")' in full_run_source
+    assert 'HIST_LIST_ARGS=(--hist-list "${HIST_VARS[@]}")' in full_run_source
 
 
 @pytest.mark.parametrize(

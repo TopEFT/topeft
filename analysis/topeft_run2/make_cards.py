@@ -9,6 +9,7 @@ import numpy as np
 
 from topcoffea.modules.utils import regex_match,clean_dir,dict_comp
 from topeft.modules.datacard_tools import *
+from topeft.modules.histogram_artifact import write_histogram_artifact
 
 # Note:
 #   Not sure if constructing the condor related files this way is good or bad practice. It already
@@ -154,7 +155,7 @@ def _emit_merge_report(report_obj, report_path, out_dir):
     print(f"Wrote merge report: {report_fpath}")
 
 
-def _cache_merged_histograms(merged_hists, cache_path, out_dir):
+def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=None):
     out_fpath = cache_path
     if not os.path.isabs(out_fpath):
         out_fpath = os.path.join(out_dir, out_fpath)
@@ -164,8 +165,29 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir):
     if out_parent:
         os.makedirs(out_parent, exist_ok=True)
     print(f"Caching merged histograms to {out_fpath}")
-    with gzip.open(out_fpath, "wb") as fout:
-        pickle.dump(merged_hists, fout, protocol=pickle.HIGHEST_PROTOCOL)
+    if merge_report and merge_report.get("schema") == "split_sibling_v1":
+        write_histogram_artifact(
+            out_fpath,
+            histograms=merged_hists,
+            artifact_kind=merge_report["artifact_kind"],
+            sumw2_storage_provenance=merge_report["sumw2_storage_provenance"],
+            production_sample_contract=merge_report[
+                "production_sample_contract"
+            ],
+            merged=True,
+            lineage_inputs=merge_report["lineage_inputs"],
+            required_sumw2_processes=merge_report["required_sumw2_processes"],
+            transformation_contract=merge_report["transformation_contract"],
+            requested_data_driven_products=merge_report[
+                "requested_data_driven_products"
+            ],
+            resolved_data_driven_contract=merge_report[
+                "resolved_data_driven_contract"
+            ],
+        )
+    else:
+        with gzip.open(out_fpath, "wb") as fout:
+            pickle.dump(merged_hists, fout, protocol=pickle.HIGHEST_PROTOCOL)
     return out_fpath
 
 def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
@@ -355,7 +377,9 @@ def main():
     )
     _emit_merge_report(merge_report, args.merge_report, out_dir)
     if args.cache_merged_pkl:
-        _cache_merged_histograms(merged_hists, args.cache_merged_pkl, out_dir)
+        _cache_merged_histograms(
+            merged_hists, args.cache_merged_pkl, out_dir, merge_report
+        )
     if args.merge_only:
         print("Merge-only mode enabled, stopping after successful merge validation.")
         return

@@ -63,6 +63,8 @@ def test_sr_metadata_covers_default_producer_truth():
 
 
 def test_standard_cr_categories_use_existing_forward_gate_token():
+    """Standard CR groups intentionally leave forward-jet gating unapplied."""
+
     channel_json = _load_channel_json()
     standard_cr_categories = [
         "2l_CR",
@@ -77,7 +79,8 @@ def test_standard_cr_categories_use_existing_forward_gate_token():
             tokens_by_channel = _tokens_for_category(channel_json[block_name][category_name])
             assert tokens_by_channel
             for tokens in tokens_by_channel.values():
-                assert "fwdjet_mask" in tokens
+                assert "fwdjet_mask" not in tokens
+                assert "~fwdjet_mask" not in tokens
 
 
 def test_tau_specific_cr_categories_do_not_inherit_forward_gate_token():

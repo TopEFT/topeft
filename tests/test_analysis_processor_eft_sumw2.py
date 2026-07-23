@@ -12,24 +12,22 @@ from analysis.topeft_run2.analysis_processor import (
     evaluate_eft_coefficients_at_sm,
 )
 from topcoffea.modules import eft_helper
-from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.sparseHist import SparseHist
 
 
-def _make_companion() -> HistEFT:
-    return HistEFT(
+def _make_companion() -> SparseHist:
+    return SparseHist(
         hist.axis.StrCategory([], name="process", growth=True),
         hist.axis.StrCategory([], name="channel", growth=True),
         hist.axis.StrCategory([], name="systematic", growth=True),
         hist.axis.StrCategory([], name="appl", growth=True),
         hist.axis.Regular(2, 0.0, 2.0, name="njets_sumw2"),
-        wc_names=["ctG"],
-        label="Events",
+        storage="Double",
     )
 
 
-def _eval_array(histogram: HistEFT, point=None) -> np.ndarray:
-    evaluated = histogram.eval({} if point is None else point)
-    assert evaluated
+def _eval_array(histogram: SparseHist) -> np.ndarray:
+    evaluated = histogram.view(flow=True, as_dict=True)
     return np.sum(
         [np.asarray(values, dtype=float) for values in evaluated.values()],
         axis=0,
@@ -128,7 +126,7 @@ def test_invalid_quadratic_coefficient_count_and_shape_mismatch_fail_clearly():
         calculate_sm_sumw2_weights(np.ones(3), np.ones((2, 3)))
 
 
-def test_constant_only_histeft_companion_preserves_consumer_operations():
+def test_scalar_sparse_companion_preserves_consumer_operations():
     companion = _make_companion()
     corrected_weights = np.asarray([9.0, 36.0, 4.0])
     companion.fill(
@@ -148,26 +146,21 @@ def test_constant_only_histeft_companion_preserves_consumer_operations():
         weight=corrected_weights[2:],
     )
 
-    assert isinstance(companion, HistEFT)
-    assert companion.wc_names == ["ctG"]
+    assert isinstance(companion, SparseHist)
     assert [axis.name for axis in companion.axes] == [
         "process",
         "channel",
         "systematic",
         "appl",
         "njets_sumw2",
-        "quadratic_term",
     ]
     np.testing.assert_allclose(_eval_array(companion), [0.0, 9.0, 40.0, 0.0])
-    np.testing.assert_allclose(
-        _eval_array(companion, {"ctG": 7.0}),
-        [0.0, 9.0, 40.0, 0.0],
-    )
 
     selected = companion.integrate("systematic", "nominal")
     grouped = selected.group("process", {"signal": ["tllq"]})
+    grouped_values = grouped.view(flow=True, as_dict=True)
     np.testing.assert_allclose(
-        np.asarray(grouped.as_hist({}).values(flow=True)).reshape(-1),
+        np.asarray(next(iter(grouped_values.values()))).reshape(-1),
         np.asarray([0.0, 9.0, 36.0, 0.0]),
     )
 
@@ -180,7 +173,7 @@ def test_constant_only_histeft_companion_preserves_consumer_operations():
     np.testing.assert_allclose(_eval_array(merged), 2.0 * _eval_array(companion))
 
     restored = pickle.loads(pickle.dumps(companion))
-    assert isinstance(restored, HistEFT)
+    assert isinstance(restored, SparseHist)
     np.testing.assert_allclose(_eval_array(restored), _eval_array(companion))
 
     from analysis.topeft_run2 import make_cr_and_sr_plots

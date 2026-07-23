@@ -19,6 +19,7 @@
 import numpy as np
 import os
 import argparse
+import copy
 import json
 import logging
 import math
@@ -33,6 +34,12 @@ from scipy.optimize import curve_fit
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.yield_tools import YieldTools
+from topeft.modules.datacard_tools import load_and_merge_histogram_pkls
+from topeft.modules.nominal_schema import (
+    NOMINAL_CONTAINER_SCHEMA_VERSION,
+    evaluate_nominal_at_wc,
+    is_split_nominal_mapping,
+)
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.utils as utils
 
@@ -45,7 +52,7 @@ _TAU_FAKE_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0Fp
 _TAU_TIGHT_HISTOGRAM_REQUIRED_AXES = ("process", "channel", "systematic", "tau0Tpt")
 DEFAULT_INPUT_PKL_PATH = "histos/plotsTopEFT.pkl.gz"
 FAKETAU_REQUIRED_HISTOGRAMS = ("tau0Fpt", "tau0Tpt")
-FAKETAU_OPTIONAL_SUMW2_HISTOGRAMS = ("tau0Fpt_sumw2", "tau0Tpt_sumw2")
+FAKETAU_REQUIRED_SUMW2_HISTOGRAMS = ("tau0Fpt_sumw2", "tau0Tpt_sumw2")
 
 
 YEAR_TOKEN_RULES = {
@@ -209,6 +216,28 @@ def load_histogram_pkl(path):
     return histograms
 
 
+def _materialize_faketau_scalar_view(histograms):
+    """Return only the strict WC=0 tau families and scalar companions."""
+
+    if not is_split_nominal_mapping(histograms):
+        return histograms
+    output = OrderedDict()
+    for family in FAKETAU_REQUIRED_HISTOGRAMS:
+        output[family] = evaluate_nominal_at_wc(
+            histograms,
+            family,
+            {},
+            schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
+        )
+        companion_key = f"{family}_sumw2"
+        if companion_key not in histograms:
+            raise RuntimeError(
+                f"Fake-tau fitting requires selected companion '{companion_key}'."
+            )
+        output[companion_key] = copy.deepcopy(histograms[companion_key])
+    return output
+
+
 def _combine_histogram_sequence(hist_name, histograms, input_paths):
     """Combine histograms without using a loaded input object as an accumulator."""
 
@@ -244,7 +273,10 @@ def merge_faketau_histogram_dicts(histogram_dicts, *, input_paths):
             )
         missing_required = [
             hist_name
-            for hist_name in FAKETAU_REQUIRED_HISTOGRAMS
+            for hist_name in (
+                *FAKETAU_REQUIRED_HISTOGRAMS,
+                *FAKETAU_REQUIRED_SUMW2_HISTOGRAMS,
+            )
             if hist_name not in histograms
         ]
         if missing_required:
@@ -262,32 +294,13 @@ def merge_faketau_histogram_dicts(histogram_dicts, *, input_paths):
         )
 
     sumw2_status = {}
-    for hist_name in FAKETAU_OPTIONAL_SUMW2_HISTOGRAMS:
-        paths_with = [
-            input_path
-            for input_path, histograms in zip(input_paths, histogram_dicts)
-            if hist_name in histograms
-        ]
-        paths_without = [
-            input_path
-            for input_path, histograms in zip(input_paths, histogram_dicts)
-            if hist_name not in histograms
-        ]
-        if paths_with and paths_without:
-            raise RuntimeError(
-                f"Optional sumw2 companion '{hist_name}' has mixed availability "
-                "across input pkl files. Present in: "
-                f"{', '.join(paths_with)}. Absent from: {', '.join(paths_without)}."
-            )
-        if paths_with:
-            combined_histograms[hist_name] = _combine_histogram_sequence(
-                hist_name,
-                [histograms[hist_name] for histograms in histogram_dicts],
-                input_paths,
-            )
-            sumw2_status[hist_name] = "present in all input files"
-        else:
-            sumw2_status[hist_name] = "absent from all input files"
+    for hist_name in FAKETAU_REQUIRED_SUMW2_HISTOGRAMS:
+        combined_histograms[hist_name] = _combine_histogram_sequence(
+            hist_name,
+            [histograms[hist_name] for histograms in histogram_dicts],
+            input_paths,
+        )
+        sumw2_status[hist_name] = "present in all input files"
 
     input_summary = {
         "num_inputs": len(input_paths),
@@ -302,11 +315,24 @@ def combine_faketau_histogram_pkls(paths):
     """Load and combine one or more fake-tau fitter input pkls."""
 
     input_paths = normalize_input_pkl_paths(paths)
-    histogram_dicts = [load_histogram_pkl(path) for path in input_paths]
-    return merge_faketau_histogram_dicts(
-        histogram_dicts,
-        input_paths=input_paths,
+    merged, merge_report = load_and_merge_histogram_pkls(
+        input_paths,
+        on_process_collision="allow",
+        require_sumw2=True,
+        consumer_required_families=FAKETAU_REQUIRED_HISTOGRAMS,
     )
+    scalar_view = _materialize_faketau_scalar_view(merged)
+    summary = {
+        "num_inputs": len(input_paths),
+        "input_paths": tuple(input_paths),
+        "required_histograms": FAKETAU_REQUIRED_HISTOGRAMS,
+        "sumw2_status": {
+            key: "present in all input files"
+            for key in FAKETAU_REQUIRED_SUMW2_HISTOGRAMS
+        },
+        "schema": merge_report["schema"],
+    }
+    return scalar_view, summary
 
 
 def print_faketau_input_summary(input_summary):
@@ -319,7 +345,7 @@ def print_faketau_input_summary(input_summary):
         "Combining required histograms: "
         + ", ".join(input_summary["required_histograms"])
     )
-    for hist_name in FAKETAU_OPTIONAL_SUMW2_HISTOGRAMS:
+    for hist_name in FAKETAU_REQUIRED_SUMW2_HISTOGRAMS:
         print(f"{hist_name}: {input_summary['sumw2_status'][hist_name]}")
 
 
@@ -744,31 +770,24 @@ def _extract_tau_counts(histogram, expected_bins, sumw2_input=None):
     if "quadratic_term" in axis_names:
         values = _collapse_quadratic_axis(values, working_hist, axis_names)
 
-    variances = None
-
-    if sumw2_input is not None:
-        if isinstance(sumw2_input, (np.ndarray, list, tuple)):
-            variances = np.asarray(sumw2_input, dtype=float)
-        else:
-            sumw2_hist = _ensure_dense_histogram(sumw2_input)
-            if sumw2_hist is not None:
-                sumw2_axis_names = tuple(
-                    getattr(axis, "name", None) for axis in getattr(sumw2_hist, "axes", ())
-                )
-                variances = np.asarray(sumw2_hist.values(flow=True), dtype=float)
-                if "quadratic_term" in sumw2_axis_names:
-                    variances = _collapse_quadratic_axis(
-                        variances,
-                        sumw2_hist,
-                        sumw2_axis_names,
-                    )
-
-    if variances is None:
-        variances = working_hist.variances(flow=True)
-        if variances is not None:
-            variances = np.asarray(variances, dtype=float)
-            if "quadratic_term" in axis_names:
-                variances = _collapse_quadratic_axis(variances, working_hist, axis_names)
+    if sumw2_input is None:
+        raise RuntimeError("A selected scalar sumw2 companion is required for tau fitting.")
+    if isinstance(sumw2_input, (np.ndarray, list, tuple)):
+        variances = np.asarray(sumw2_input, dtype=float)
+    else:
+        sumw2_hist = _ensure_dense_histogram(sumw2_input)
+        if sumw2_hist is None:
+            raise RuntimeError("The tau sumw2 companion could not be evaluated.")
+        sumw2_axis_names = tuple(
+            getattr(axis, "name", None) for axis in getattr(sumw2_hist, "axes", ())
+        )
+        variances = np.asarray(sumw2_hist.values(flow=True), dtype=float)
+        if "quadratic_term" in sumw2_axis_names:
+            variances = _collapse_quadratic_axis(
+                variances,
+                sumw2_hist,
+                sumw2_axis_names,
+            )
 
     values_1d = np.squeeze(values)
     if values_1d.ndim == 0:
@@ -790,8 +809,8 @@ def _extract_tau_counts(histogram, expected_bins, sumw2_input=None):
                 f"received {variances.shape}."
             )
 
-    if variances_1d is None or not np.any(variances_1d):
-        variances_1d = np.maximum(values_1d, 0.0)
+    if variances_1d is None:
+        raise RuntimeError("The selected tau sumw2 companion has no variance values.")
 
     folded_values = _fold_tau_overflow(values_1d, expected_bins=expected_bins)
     folded_variances = _fold_tau_overflow(variances_1d, expected_bins=expected_bins)
@@ -811,6 +830,8 @@ def _collect_grouped_counts(hist, sumw2_hist, expected_bins, *, hist_label="grou
         raise RuntimeError(
             f"Missing {hist_label}; expected a grouped histogram with a 'process' axis."
         )
+    if sumw2_hist is None:
+        raise RuntimeError(f"Missing selected scalar companion for {hist_label}.")
 
     try:
         process_axis = hist.axes["process"]
@@ -823,7 +844,7 @@ def _collect_grouped_counts(hist, sumw2_hist, expected_bins, *, hist_label="grou
     for process in process_axis:
         proc_name = str(process)
         proc_hist = hist[{"process": process}]
-        proc_sumw2_hist = sumw2_hist[{"process": process}] if sumw2_hist is not None else None
+        proc_sumw2_hist = sumw2_hist[{"process": process}]
         proc_vals, proc_vars = _extract_tau_counts(
             proc_hist,
             expected_bins,
@@ -1675,7 +1696,12 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
 
     available_keys = sorted(dict_of_hists)
     available_desc = ", ".join(available_keys) if available_keys else "<none>"
-    for required_key in (fake_key, tight_key):
+    for required_key in (
+        fake_key,
+        tight_key,
+        f"{fake_key}_sumw2",
+        f"{tight_key}_sumw2",
+    ):
         if required_key not in dict_of_hists:
             raise RuntimeError(
                 f"The histogram pickle is missing the required '{required_key}' histogram. "
@@ -1684,19 +1710,8 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
 
     tau_fake_hist = dict_of_hists[fake_key]
     tau_tight_hist = dict_of_hists[tight_key]
-    tau_fake_sumw2_hist = dict_of_hists.get(f"{fake_key}_sumw2")
-    tau_tight_sumw2_hist = dict_of_hists.get(f"{tight_key}_sumw2")
-
-    if tau_fake_sumw2_hist is None:
-        LOGGER.warning(
-            "Histogram '%s_sumw2' is missing; falling back to Poisson statistical uncertainties.",
-            fake_key,
-        )
-    if tau_tight_sumw2_hist is None:
-        LOGGER.warning(
-            "Histogram '%s_sumw2' is missing; falling back to Poisson statistical uncertainties.",
-            tight_key,
-        )
+    tau_fake_sumw2_hist = dict_of_hists[f"{fake_key}_sumw2"]
+    tau_tight_sumw2_hist = dict_of_hists[f"{tight_key}_sumw2"]
 
     tau_fake_canonical_axes = _validate_histogram_axes(
         tau_fake_hist,
@@ -1747,61 +1762,33 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
                 ", ".join(resolution.selected_bins),
             )
 
-    if tau_fake_sumw2_hist is not None:
-        try:
-            _validate_histogram_axes(
-                tau_fake_sumw2_hist,
-                tau_fake_canonical_axes,
-                f"{fake_key}_sumw2",
-            )
-        except HistogramAxisError as exc:
-            if set(exc.missing_axes) == {fake_key}:
-                LOGGER.warning(
-                    "The '%s' histogram is missing the '%s' axis; "
-                    "falling back to Poisson counting uncertainties.",
-                    f"{fake_key}_sumw2",
-                    fake_key,
-                )
-                tau_fake_sumw2_hist = None
-            else:
-                raise
-        else:
-            _validate_tau_channel_coverage(
-                tau_fake_sumw2_hist,
-                "channel",
-                resolved_ftau_channels,
-                (),
-                f"{fake_key}_sumw2",
-                allow_aggregate_fallback=False,
-            )
+    _validate_histogram_axes(
+        tau_fake_sumw2_hist,
+        tau_fake_canonical_axes,
+        f"{fake_key}_sumw2",
+    )
+    _validate_tau_channel_coverage(
+        tau_fake_sumw2_hist,
+        "channel",
+        resolved_ftau_channels,
+        (),
+        f"{fake_key}_sumw2",
+        allow_aggregate_fallback=False,
+    )
 
-    if tau_tight_sumw2_hist is not None:
-        try:
-            _validate_histogram_axes(
-                tau_tight_sumw2_hist,
-                tau_tight_canonical_axes,
-                f"{tight_key}_sumw2",
-            )
-        except HistogramAxisError as exc:
-            if set(exc.missing_axes) == {tight_key}:
-                LOGGER.warning(
-                    "The '%s' histogram is missing the '%s' axis; "
-                    "falling back to Poisson counting uncertainties.",
-                    f"{tight_key}_sumw2",
-                    tight_key,
-                )
-                tau_tight_sumw2_hist = None
-            else:
-                raise
-        else:
-            _validate_tau_channel_coverage(
-                tau_tight_sumw2_hist,
-                "channel",
-                (),
-                resolved_ttau_channels,
-                f"{tight_key}_sumw2",
-                allow_aggregate_fallback=False,
-            )
+    _validate_histogram_axes(
+        tau_tight_sumw2_hist,
+        tau_tight_canonical_axes,
+        f"{tight_key}_sumw2",
+    )
+    _validate_tau_channel_coverage(
+        tau_tight_sumw2_hist,
+        "channel",
+        (),
+        resolved_ttau_channels,
+        f"{tight_key}_sumw2",
+        allow_aggregate_fallback=False,
+    )
 
     # Remove any processes that should not contribute to the MC or data histograms.
     # When no removals are needed, reuse the existing histogram instead of cloning it.
@@ -1818,35 +1805,27 @@ def getPoints(dict_of_hists, ftau_channels, ttau_channels, *, sample_filters=Non
         tau_tight_hist, "process", samples_to_rm_from_data_hist
     )
 
-    if tau_fake_sumw2_hist is not None:
-        hist_mc_fake_sumw2 = _maybe_remove_processes(
-            tau_fake_sumw2_hist,
-            "process",
-            samples_to_rm_from_mc_hist,
-        )
-        hist_data_fake_sumw2 = _maybe_remove_processes(
-            tau_fake_sumw2_hist,
-            "process",
-            samples_to_rm_from_data_hist,
-        )
-    else:
-        hist_mc_fake_sumw2 = None
-        hist_data_fake_sumw2 = None
+    hist_mc_fake_sumw2 = _maybe_remove_processes(
+        tau_fake_sumw2_hist,
+        "process",
+        samples_to_rm_from_mc_hist,
+    )
+    hist_data_fake_sumw2 = _maybe_remove_processes(
+        tau_fake_sumw2_hist,
+        "process",
+        samples_to_rm_from_data_hist,
+    )
 
-    if tau_tight_sumw2_hist is not None:
-        hist_mc_tight_sumw2 = _maybe_remove_processes(
-            tau_tight_sumw2_hist,
-            "process",
-            samples_to_rm_from_mc_hist,
-        )
-        hist_data_tight_sumw2 = _maybe_remove_processes(
-            tau_tight_sumw2_hist,
-            "process",
-            samples_to_rm_from_data_hist,
-        )
-    else:
-        hist_mc_tight_sumw2 = None
-        hist_data_tight_sumw2 = None
+    hist_mc_tight_sumw2 = _maybe_remove_processes(
+        tau_tight_sumw2_hist,
+        "process",
+        samples_to_rm_from_mc_hist,
+    )
+    hist_data_tight_sumw2 = _maybe_remove_processes(
+        tau_tight_sumw2_hist,
+        "process",
+        samples_to_rm_from_data_hist,
+    )
 
     # Integrate to get the categories we want
     mc_fake = _integrate_tau_channels(hist_mc_fake, resolved_ftau_channels)

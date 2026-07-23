@@ -17,7 +17,9 @@ class _DummyHist:
     def __init__(self):
         self.scale_factors = []
 
-    def eval(self, _):
+    def view(self, *, flow, as_dict):
+        assert flow is True
+        assert as_dict is True
         return {"sample": np.zeros(4)}
 
     def scale(self, factor):
@@ -1040,7 +1042,7 @@ def test_both_includes_split_channels_when_available(tmp_path):
 
     setattr(h_met, "_sumw2", defaultdict(lambda: None))
 
-    for channel, weight in ("2los_ee_CRZ_0j", 1.0), ("2los_mm_CRZ_0j", 2.0):
+    for channel, weight in ("2los_ee_CRZ_2j", 1.0), ("2los_mm_CRZ_2j", 2.0):
         h_met.fill(
             process="dataUL18",
             channel=channel,
@@ -1429,7 +1431,7 @@ def test_all_variables_render_for_merged_and_split_categories(
     for hist_obj in (h_j0pt, h_met):
         setattr(hist_obj, "_sumw2", defaultdict(lambda: None))
 
-    for channel, weight in ("2los_ee_CRZ_0j", 1.0), ("2los_mm_CRZ_0j", 2.0):
+    for channel, weight in ("2los_ee_CRZ_2j", 1.0), ("2los_mm_CRZ_2j", 2.0):
         h_j0pt.fill(
             process="dataUL18",
             channel=channel,
@@ -1489,7 +1491,7 @@ def test_all_variables_render_for_merged_and_split_categories(
         )
 
     merged_dir_name = (
-        "cr_2los_Z_0j" if channel_output.endswith("njets") else "cr_2los_Z"
+        "cr_2los_Z_2j" if channel_output.endswith("njets") else "cr_2los_Z"
     )
     merged_dir = tmp_path / merged_dir_name
     assert merged_dir.exists()
@@ -1497,8 +1499,8 @@ def test_all_variables_render_for_merged_and_split_categories(
     merged_plots = {path.name for path in merged_dir.glob("*.png")}
     if channel_output.endswith("njets"):
         expected_merged = {
-            "2los_CRZ_0j_j0pt.png",
-            "2los_CRZ_0j_met.png",
+            "2los_CRZ_2j_j0pt.png",
+            "2los_CRZ_2j_met.png",
         }
     else:
         expected_merged = {
@@ -1509,13 +1511,13 @@ def test_all_variables_render_for_merged_and_split_categories(
 
     if channel_output.endswith("njets"):
         split_expectations = {
-            "cr_2los_Z_ee_0j": {
-                "2los_CRZ_ee_0j_j0pt.png",
-                "2los_CRZ_ee_0j_met.png",
+            "cr_2los_Z_ee_2j": {
+                "2los_CRZ_ee_2j_j0pt.png",
+                "2los_CRZ_ee_2j_met.png",
             },
-            "cr_2los_Z_mm_0j": {
-                "2los_CRZ_mm_0j_j0pt.png",
-                "2los_CRZ_mm_0j_met.png",
+            "cr_2los_Z_mm_2j": {
+                "2los_CRZ_mm_2j_j0pt.png",
+                "2los_CRZ_mm_2j_met.png",
             },
         }
         for dir_name, expected_plots in split_expectations.items():
