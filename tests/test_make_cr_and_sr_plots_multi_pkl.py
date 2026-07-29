@@ -89,3 +89,45 @@ def test_merge_only_short_circuits_before_plotting(monkeypatch, tmp_path):
     report_data = json.loads(report_path.read_text())
     assert report_data["num_inputs"] == 1
     assert report_data["num_process_collisions"] == 0
+
+
+def test_no_uncertainties_keeps_sumw2_requirement_and_propagates_mode(
+    monkeypatch, tmp_path
+):
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    args = parser.parse_args(
+        [
+            "-f",
+            "input.pkl.gz",
+            "-o",
+            str(tmp_path),
+            "-n",
+            "out",
+            "--no-uncertainties",
+        ]
+    )
+    captured = {}
+    fake_report = {
+        "num_inputs": 1,
+        "num_merged_keys": 1,
+        "num_process_collisions": 0,
+        "process_collisions": [],
+    }
+
+    def _fake_load(*_args, **kwargs):
+        captured["require_sumw2"] = kwargs["require_sumw2"]
+        return {"met": object()}, fake_report
+
+    def _capture_run(*_args, **kwargs):
+        captured["uncertainty_mode"] = kwargs["uncertainty_mode"]
+        captured["negative_weight_report"] = kwargs["negative_weight_report"]
+
+    monkeypatch.setattr(make_cr_and_sr_plots, "load_and_merge_histogram_pkls", _fake_load)
+    monkeypatch.setattr(make_cr_and_sr_plots, "run_plots_for_region", _capture_run)
+
+    assert make_cr_and_sr_plots.run_with_args(args, parser) == 0
+    assert captured == {
+        "require_sumw2": True,
+        "uncertainty_mode": "none",
+        "negative_weight_report": True,
+    }

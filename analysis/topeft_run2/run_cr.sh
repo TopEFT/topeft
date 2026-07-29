@@ -8,7 +8,7 @@ cd /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2
 ###############################################################################
 
 # output_dir="/groups/klannon/apiccine/preappr_260710"
-output_dir="/groups/klannon/apiccine/preappr_260710_CR"
+output_dir="/groups/klannon/apiccine/preappr_260723_sumw2-test"
 chunk_size="50000"
 
 # Nominal TOP-23-002-like ttgamma sample-role strategy.
@@ -26,7 +26,7 @@ chunk_size="50000"
 ttgamma_sample_role_policy="split"
 
 # Use a strategy-specific tag to avoid mixing baseline/feature/diagnostic outputs.
-campaign_tag="new-tau-sf"
+campaign_tag="sumw2-test"
 
 cr_pkl_base_tag="${campaign_tag}"
 sr_pkl_base_tag="${campaign_tag}"
@@ -78,7 +78,7 @@ cr_var_sets=(
   # "lt"
 
   "l0eta l0conept met njets tau0Fpt tau0Tpt"
-  "lj0pt nbtagsl nbtagsm lt fwd0pt fwd0eta ptz_wtau"
+  # "lj0pt nbtagsl nbtagsm lt fwd0pt fwd0eta ptz_wtau"
 )
 
 # Keep year periods separate so the output pkls are period-specific.
@@ -86,8 +86,8 @@ cr_var_sets=(
 # Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
 cr_year_sets=(
   "2016APV 2016 2017 2018"
-  "2022 2022EE"
-  "2023 2023BPix"
+  # "2022 2022EE"
+  # "2023 2023BPix"
 )
 
 # Current category names used by the analysis helpers.
@@ -216,7 +216,7 @@ build_common_command_options() {
 
   cmd_ref+=(--ttgamma-sample-role-policy "${ttgamma_sample_role_policy}")
   cmd_ref+=(--sample-universe-wrapper "run_cr.sh -> fullR3_run.sh")
-  cmd_ref+=(--analysis-mode taufitter)
+  # cmd_ref+=(--analysis-mode taufitter)
   
   if [[ "${do_systs}" == "true" ]]; then
     cmd_ref+=(--do-systs)

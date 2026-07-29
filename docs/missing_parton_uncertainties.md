@@ -488,3 +488,18 @@ format.
   change that requires full reconstruction and consumer checks.
 - Keep source-card yield diagnostics distinct from downstream card and fit
   effects.
+
+## 18. Selective-sumw2 input boundary
+
+The maintained standard-analysis workflow uses its resolved selective-sumw2
+policy and validated histogram artifact as the upstream input contract. This
+guide does not broaden that contract into a new missing-parton physics claim.
+
+`full_custom` is different: the operator owns the configuration and must
+explicitly select and validate every family/process companion required by the
+intended missing-parton and downstream card consumers. It is not automatically
+equivalent to a maintained standard-analysis mode. Use the
+[Run 2 operator guide](../analysis/topeft_run2/README.md#selective-sumw2-storage-workflow)
+for mode/rule configuration and the
+[HistEFT API contract](histeft_api_contract.md#15-selective-sumw2-schema-and-consumer-contract)
+for artifact, merge, and consumer boundaries.

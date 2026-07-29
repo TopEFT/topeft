@@ -68,6 +68,74 @@ For fake-tau SF extraction, including `tau0Fpt`/`tau0Tpt` input requirements and
 the split-first/aggregate-fallback channel contract, see
 [`README_faketau_sf_fitter.md`](README_faketau_sf_fitter.md).
 
+### Selective sumw2 storage workflow
+
+`sumw2_storage` selects statistical second-moment companions; it does not
+change nominal histogram content. See the
+[artifact tutorial](../../docs/histeft_pkl_tutorial.md) for the pkl layout and
+the [API contract](../../docs/histeft_api_contract.md) for exact semantics.
+
+| Mode | Intended use | Rule boundary |
+| --- | --- | --- |
+| `production` | Maintained private-signal production; the default when `sumw2_storage` is absent. | Explicit use needs nonempty rules; implicit default requirements come from active consumers. |
+| `production_central` | Maintained central-signal production. | Nonempty rules and the matching central-signal configuration. |
+| `taufitter` | Fake-tau input production. | Nonempty rules and `analysis_mode=taufitter` are required together. |
+| `full_diagnostics` | Diagnostics needing every runtime companion. | Rules are forbidden. |
+| `disabled` | A workflow with no supported companions. | Rules are forbidden. |
+| `full_custom` | An operator-owned nonstandard workflow. | Nonempty rules; select every companion required by intended consumers. |
+
+Rules use `dataset_names`, `dataset_prefixes`, `process_names`,
+`process_prefixes`, and optional `variables` to select concrete
+dataset/process/family targets. Duplicate, overlapping, and zero-match rules
+are errors. `production` and `production_central` certify different
+private/central signal profiles, so changing only the sample configuration or
+only the mode is invalid.
+
+```yaml
+# Explicit maintained production policy
+sumw2_storage:
+  mode: production
+  rules:
+    - process_prefixes: [data, TTTo]
+      variables: [njets]
+```
+
+```yaml
+# A custom study owns every required consumer companion
+sumw2_storage:
+  mode: full_custom
+  rules:
+    - dataset_prefixes: [my_study_]
+      variables: [njets, tau0Fpt, tau0Tpt]
+```
+
+The legacy CLI flag `--no-sumw2` and YAML `no_sumw2`/`do_errors` settings are
+migration-only interfaces. Explicit legacy true maps to `disabled`; explicit
+legacy false maps to `full_diagnostics`; mixing a legacy setting with
+`sumw2_storage` is rejected. New configurations should use
+`sumw2_storage` directly.
+
+Data-driven nonprompt and charge-flip products need their selected scalar
+companions. In particular, nonprompt construction rejects schema-v2 input that
+lacks a companion for a scalar 1D sibling or selected 2D family; it does not
+reconstruct statistics from nominal yields. The maintained renorm/fact contract
+keeps `renormUp`, `renormDown`, `factUp`, and `factDown` as two separate
+`renorm` and `fact` shape nuisances. The historical combined envelope is
+unsupported.
+
+| Symptom | Check and recovery |
+| --- | --- |
+| Missing companion | Inspect the artifact layout, then add the active consumer's required rule; do not infer a variance from nominal content. |
+| Invalid mode or rules | Check the matching signal profile, selector spelling, and nonempty/forbidden-rule boundary above. |
+| Legacy-flag error | Remove `--no-sumw2`, `no_sumw2`, or `do_errors` and use `sumw2_storage`. |
+| Collision diagnostic while combining pkls | Resolve the duplicate source/process input using the consumer report; see the [API contract](../../docs/histeft_api_contract.md#application-axis-and-merge-and-collision-boundaries). |
+| Expected Poisson fallback | It is unsupported for the maintained fake-tau fitter; use the [fitter guide](README_faketau_sf_fitter.md). |
+
+Related guides: [tutorial](../../docs/histeft_pkl_tutorial.md),
+[API contract](../../docs/histeft_api_contract.md), [fake-tau fitter](README_faketau_sf_fitter.md),
+[diboson](../diboson_njets/README.md), and
+[missing parton](../../docs/missing_parton_uncertainties.md).
+
 * `run_topeft.py` for `topeft.py`:
     - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses either the `work_queue` or the `futures` executors (with `futures` it uses 8 cores by default). The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`.
     - Example usage: `python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg`
@@ -120,6 +188,64 @@ the split-first/aggregate-fallback channel contract, see
 - **Hardcoded streaming writer settings:** iterator/default mode writes through `dump_dict_streaming` with hardcoded `protocol=3` and `clear_memo_interval=1`. This is intentional for bounded-memory safety; protocols `>=4` are not currently used in this memo-clearing streaming path.
 
 - **Troubleshooting moved pickles:** if an input or output pickle has moved, re-run the helper with explicit `--input-pkl`/`--output-pkl` paths. The deferred workflow has no metadata JSON transport.
+
+#### Applicability-aware data-driven outputs and recovery
+
+`--do-np` enables the maintained data-driven product family for the resolved
+run configuration. It does not mean that every histogram family generates
+every product. Output generation is family-specific and follows the source
+histogram's authoritative application-axis content. The exact definitions and
+version-3 sidecar fields are maintained in the
+[HistEFT API contract](../../docs/histeft_api_contract.md#16-data-driven-applicability-and-transformed-artifacts),
+and a practical inspection example is in the
+[pkl tutorial](../../docs/histeft_pkl_tutorial.md#18-inspecting-data-driven-applicability).
+
+The maintained application mapping is explicit:
+
+- nonprompt consumes `isAR_1l`, `isAR_2lSS`, `isAR_2lOS`, and `isAR_3l`;
+- flips consumes `isAR_2lSS_OS`.
+
+Therefore, a category without `isAR_2lSS_OS` does not generate flips. When
+`isAR_2lSS_OS` is present and flips are enabled, the flips output is mandatory.
+An unknown `isAR_*` name is not automatically accepted as a nonprompt region.
+Do not add an unknown AR to a registry or edit a sidecar as a substitute for a
+reviewed applicability-contract change; see the API contract's
+[contract-change procedure](../../docs/histeft_api_contract.md#changing-the-data-driven-applicability-contract).
+
+##### Postprocess-only recovery from a completed processor pickle
+
+When the main processor pickle was written successfully but inline nonprompt
+sidecar publication failed, recover from that completed processor artifact.
+Choose a fresh destination and run only the maintained postprocessor from the
+repository root:
+
+```bash
+python_env=/users/apiccine/work/miniconda3/envs/clib-env/bin/python
+input_pkl=/path/to/completed_processor.pkl.gz
+output_pkl=/path/to/fresh_nonprompt_output.pkl.gz
+
+"$python_env" analysis/topeft_run2/run_data_driven.py \
+  --input-pkl "$input_pkl" \
+  --output-pkl "$output_pkl"
+```
+
+The helper reads the processor's automatic sidecar, streams the transformation,
+and publishes the transformed PKL plus its automatic metadata sidecar through
+the maintained atomic writer. Before downstream use:
+
+- preserve the completed processor PKL and its sidecar as read-only inputs;
+- use a fresh output path and do not overwrite a partial or historically failed
+  destination;
+- do not rerun event processing or Work Queue merely to repeat this
+  transformation;
+- validate output kind, sidecar schema, source lineage, generated processes,
+  and required `_sumw2` companions;
+- treat unknown ARs, manual sidecar edits, and unrecorded runtime policy
+  overrides as unsupported.
+
+This recovery path transforms an existing processor artifact only. It does not
+rerun event processing, change the source processor contract, or make plotting
+or datacard validation implicit.
 
 > **Sourcing helpers:** `run_plotter.sh`, `submit_plotter_condor.sh`, `fullR3_run.sh`, `fullR3_run_diboson.sh`, and `condor_plotter_entry.sh` now funnel their work through a `main()` function. They return non-zero statuses instead of exiting outright when validation fails, so sourcing them in an interactive shell will surface the error without tearing down your session. Executing the scripts directly still exits with the same return codes as before.
 

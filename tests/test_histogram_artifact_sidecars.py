@@ -17,7 +17,10 @@ from topcoffea.modules.utils import get_hist_from_pkl
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.datacard_tools import load_and_merge_histogram_pkls
-from topeft.modules.dataDrivenEstimation import DataDrivenProducer
+from topeft.modules.dataDrivenEstimation import (
+    DataDrivenProducer,
+    _producer_transformation_context,
+)
 from topeft.modules.data_driven_products import (
     certify_data_driven_preflight,
     data_driven_product_error,
@@ -42,6 +45,7 @@ from topeft.modules.nominal_schema import (
     is_split_nominal_mapping,
 )
 from topeft.modules.sumw2_policy import resolve_sumw2_storage_policy
+from topeft.modules.paths import topeft_path
 from topeft.modules.production_sample_profile import (
     build_active_sample_universe,
     certify_production_sample_contract,
@@ -65,6 +69,34 @@ _POLICY_SAMPLES = {
         "WCnames": ["ctG"],
     },
 }
+_REGISTRY_NAMES = (
+    "TOP22_006_CH_LST_SR",
+    "TAU_CH_LST_SR",
+    "OFFZ_SPLIT_CH_LST_SR",
+    "FWD_CH_LST_SR",
+    "CH_LST_CR",
+    "TAU_CH_LST_CR",
+    "ALL_CH_LST_SR",
+)
+_LEGACY_NONPROMPT_APPLICATION_REGIONS = {
+    "isAR_1l",
+    "isAR_2lSS",
+    "isAR_2lOS",
+    "isAR_3l",
+}
+_LEGACY_FLIPS_APPLICATION_REGION = "isAR_2lSS_OS"
+with open(topeft_path("channels/ch_lst.json"), encoding="utf-8") as _registry_stream:
+    _CHANNEL_REGISTRY = json.load(_registry_stream)
+_REGISTRY_CASES = tuple(
+    pytest.param(
+        registry_name,
+        category_name,
+        category,
+        id=f"{registry_name}/{category_name}",
+    )
+    for registry_name in _REGISTRY_NAMES
+    for category_name, category in _CHANNEL_REGISTRY[registry_name].items()
+)
 
 
 def _axes(dense_name):
@@ -165,7 +197,31 @@ def _processor_payload():
     }
 
 
-def _write_processor(path, policy, products_block=None):
+def _processor_payload_for_regions(
+    source_application_regions,
+    *,
+    family="njets",
+):
+    scalar_entries = []
+    companion_entries = []
+    for index, region in enumerate(sorted(set(source_application_regions)), start=1):
+        entries = (
+            ("dataUL18", 10.0 + index),
+            ("TTTo2L2Nu_centralUL18", 3.0 + index),
+        )
+        for process, weight in entries:
+            scalar_entries.append((process, region, weight))
+            companion_entries.append((process, region, weight**2))
+    return {
+        scalar_nominal_key(family): _fill_sparse(family, scalar_entries),
+        f"{family}_sumw2": _fill_sparse(
+            f"{family}_sumw2",
+            companion_entries,
+        ),
+    }
+
+
+def _write_processor(path, policy, products_block=None, source_payload=None):
     samples = {
         "data_dataset": {
             "histAxisName": "dataUL18",
@@ -211,13 +267,631 @@ def _write_processor(path, policy, products_block=None):
     requested, contract = certify_data_driven_preflight(products, policy)
     return write_histogram_artifact(
         path,
-        histograms=_processor_payload(),
+        histograms=source_payload or _processor_payload(),
         artifact_kind="processor_output",
         sumw2_storage_provenance=policy.to_provenance(),
         production_sample_contract=_certify_profile(policy, samples, products),
         requested_data_driven_products=requested,
         resolved_data_driven_contract=contract,
     )
+
+
+def _independent_expected_applicability(source_application_regions):
+    regions = set(source_application_regions)
+    return {
+        "nonprompt": bool(regions & _LEGACY_NONPROMPT_APPLICATION_REGIONS),
+        "flips": _LEGACY_FLIPS_APPLICATION_REGION in regions,
+    }
+
+
+def _exercise_applicability_case(tmp_path, policy, source_application_regions):
+    source_path = tmp_path / "processor.pkl.gz"
+    source_sidecar = _write_processor(
+        source_path,
+        policy,
+        source_payload=_processor_payload_for_regions(
+            source_application_regions
+        ),
+    )
+    producer = DataDrivenProducer(
+        str(source_path),
+        "",
+        artifact_kind="nonprompt_output",
+    )
+    transformed = producer.getDataDrivenHistogram()
+    context = producer.get_transformation_context("nonprompt_output")
+    contract, required = derive_transformed_required_sumw2_processes(
+        input_sidecar=source_sidecar,
+        transformation_context=context,
+        artifact_kind="nonprompt_output",
+        transformed_histograms=transformed,
+    )
+    generated_labels = {"nonpromptUL18", "flipsUL18"}
+    scalar_generated = generated_labels & {
+        str(process)
+        for process in transformed[scalar_nominal_key("njets")].axes["process"]
+    }
+    sumw2_generated = generated_labels & {
+        str(process) for process in transformed["njets_sumw2"].axes["process"]
+    }
+    required_generated = generated_labels & set(required["njets"])
+    return {
+        "contract": contract,
+        "required": required,
+        "scalar_generated": scalar_generated,
+        "sumw2_generated": sumw2_generated,
+        "required_generated": required_generated,
+    }
+
+
+@pytest.mark.parametrize(
+    "registry_name,category_name,category",
+    _REGISTRY_CASES,
+)
+def test_all_cr_sr_registry_entries_preserve_applicability_semantics(
+    tmp_path,
+    policy,
+    registry_name,
+    category_name,
+    category,
+):
+    source_application_regions = sorted(
+        set(category["appl_lst"]) | set(category.get("appl_lst_data", []))
+    )
+    expected_applicability = _independent_expected_applicability(
+        source_application_regions
+    )
+    observed = _exercise_applicability_case(
+        tmp_path,
+        policy,
+        source_application_regions,
+    )
+    expected_generated = {
+        process
+        for product, process in (
+            ("nonprompt", "nonpromptUL18"),
+            ("flips", "flipsUL18"),
+        )
+        if expected_applicability[product]
+    }
+    family = observed["contract"]["families"]["njets"]
+    assert observed["contract"]["contract_version"] == 3
+    assert family["source_application_regions"] == source_application_regions
+    assert family["applicable_products"] == expected_applicability
+    assert observed["scalar_generated"] == expected_generated
+    assert observed["sumw2_generated"] == expected_generated
+    assert observed["required_generated"] == expected_generated
+
+
+def test_cr_sr_registry_schema_and_applicability_counts_are_guarded():
+    classifications = {
+        "nonprompt_flips": 0,
+        "nonprompt_only": 0,
+        "neither": 0,
+        "flips_only": 0,
+    }
+    observed_ar_labels = set()
+    optional_appl_lst_data = False
+    entries = 0
+    for registry_name in _REGISTRY_NAMES:
+        registry = _CHANNEL_REGISTRY[registry_name]
+        entries += len(registry)
+        for category in registry.values():
+            optional_appl_lst_data |= "appl_lst_data" not in category
+            regions = set(category["appl_lst"]) | set(
+                category.get("appl_lst_data", [])
+            )
+            observed_ar_labels.update(
+                region for region in regions if region.startswith("isAR")
+            )
+            applicability = _independent_expected_applicability(regions)
+            if applicability == {"nonprompt": True, "flips": True}:
+                classifications["nonprompt_flips"] += 1
+            elif applicability == {"nonprompt": True, "flips": False}:
+                classifications["nonprompt_only"] += 1
+            elif applicability == {"nonprompt": False, "flips": True}:
+                classifications["flips_only"] += 1
+            else:
+                classifications["neither"] += 1
+
+    assert len(_REGISTRY_NAMES) == 7
+    assert entries == 37
+    assert classifications == {
+        "nonprompt_flips": 11,
+        "nonprompt_only": 18,
+        "neither": 8,
+        "flips_only": 0,
+    }
+    assert observed_ar_labels == {
+        "isAR_1l",
+        "isAR_2lSS",
+        "isAR_2lSS_OS",
+        "isAR_2lOS",
+        "isAR_3l",
+    }
+    assert optional_appl_lst_data is True
+    assert histogram_artifact.derive_data_driven_applicability(
+        ["isAR_future"]
+    ) == {"nonprompt": False, "flips": False}
+
+
+@pytest.mark.parametrize(
+    "left_class,right_class,expected",
+    [
+        ("neither", "neither", {"nonprompt": False, "flips": False}),
+        ("neither", "nonprompt", {"nonprompt": True, "flips": False}),
+        ("nonprompt", "nonprompt", {"nonprompt": True, "flips": False}),
+        ("nonprompt", "flips", {"nonprompt": True, "flips": True}),
+        ("flips", "neither", {"nonprompt": True, "flips": True}),
+    ],
+    ids=[
+        "neither_neither",
+        "neither_nonprompt",
+        "nonprompt_nonprompt",
+        "nonprompt_flips",
+        "flips_neither",
+    ],
+)
+def test_registry_category_union_applicability(
+    tmp_path,
+    policy,
+    left_class,
+    right_class,
+    expected,
+):
+    regions_by_class = {"neither": [], "nonprompt": [], "flips": []}
+    for registry_name in _REGISTRY_NAMES:
+        for category in _CHANNEL_REGISTRY[registry_name].values():
+            regions = set(category["appl_lst"]) | set(
+                category.get("appl_lst_data", [])
+            )
+            applicability = _independent_expected_applicability(regions)
+            classification = (
+                "flips"
+                if applicability["flips"]
+                else "nonprompt"
+                if applicability["nonprompt"]
+                else "neither"
+            )
+            regions_by_class[classification].append(regions)
+    left_index = 0
+    right_index = 1 if left_class == right_class else 0
+    union_regions = (
+        regions_by_class[left_class][left_index]
+        | regions_by_class[right_class][right_index]
+    )
+    observed = _exercise_applicability_case(
+        tmp_path,
+        policy,
+        union_regions,
+    )
+    assert observed["contract"]["families"]["njets"][
+        "applicable_products"
+    ] == expected
+
+
+@pytest.mark.parametrize(
+    "source_application_regions,expected_generated",
+    [
+        (["isAR_1l", "isSR_1l"], {"nonpromptUL18"}),
+        (["isAR_2lSS_OS"], {"flipsUL18"}),
+        (["isSR_1l"], set()),
+    ],
+    ids=["nonprompt_without_flips", "flips", "no_application_region"],
+)
+def test_current_transformer_matches_exact_legacy_applicability_cases(
+    tmp_path,
+    policy,
+    source_application_regions,
+    expected_generated,
+):
+    observed = _exercise_applicability_case(
+        tmp_path,
+        policy,
+        source_application_regions,
+    )
+    assert observed["scalar_generated"] == expected_generated
+    assert observed["sumw2_generated"] == expected_generated
+    assert observed["required_generated"] == expected_generated
+
+
+def test_enabled_but_inapplicable_flips_write_truthful_contract(
+    tmp_path,
+    policy,
+):
+    source_path = tmp_path / "processor_nonprompt_only.pkl.gz"
+    output_path = tmp_path / "nonprompt_only.pkl.gz"
+    source_regions = ["isAR_1l", "isSR_1l"]
+    source_sidecar = _write_processor(
+        source_path,
+        policy,
+        source_payload=_processor_payload_for_regions(source_regions),
+    )
+    source_identity = (
+        source_path.read_bytes(),
+        metadata_sidecar_path(source_path).read_bytes(),
+    )
+    run_data_driven.main(
+        [
+            "--input-pkl",
+            str(source_path),
+            "--output-pkl",
+            str(output_path),
+            "--quiet",
+        ]
+    )
+    sidecar = read_histogram_sidecar(output_path)
+    family_contract = sidecar["transformation_contract"]["families"]["njets"]
+    family_manifest = sidecar["sumw2_content_manifest"]["families"]["njets"]
+    output = get_hist_from_pkl(str(output_path))
+
+    assert sidecar["transformation_contract"]["contract_version"] == 3
+    assert family_contract["source_application_regions"] == source_regions
+    assert family_contract["applicable_products"] == {
+        "nonprompt": True,
+        "flips": False,
+    }
+    assert family_contract["generated_nonprompt_processes"] == [
+        "nonpromptUL18"
+    ]
+    assert family_contract["generated_flips_processes"] == []
+    assert "nonpromptUL18" in output[scalar_nominal_key("njets")].axes[
+        "process"
+    ]
+    assert "nonpromptUL18" in output["njets_sumw2"].axes["process"]
+    assert "flipsUL18" not in output[scalar_nominal_key("njets")].axes[
+        "process"
+    ]
+    assert "flipsUL18" not in output["njets_sumw2"].axes["process"]
+    assert "nonpromptUL18" in family_manifest["required_sumw2_processes"]
+    assert "flipsUL18" not in family_manifest["required_sumw2_processes"]
+    assert source_identity == (
+        source_path.read_bytes(),
+        metadata_sidecar_path(source_path).read_bytes(),
+    )
+    assert source_sidecar["artifact"]["artifact_kind"] == "processor_output"
+
+
+@pytest.mark.parametrize(
+    "missing_component",
+    ["nominal", "sumw2"],
+)
+def test_applicable_flips_remain_strict_before_publication(
+    tmp_path,
+    policy,
+    missing_component,
+):
+    source_path = tmp_path / "processor_with_flips.pkl.gz"
+    rejected_path = tmp_path / f"missing_flips_{missing_component}.pkl.gz"
+    source_sidecar = _write_processor(source_path, policy)
+    producer = DataDrivenProducer(
+        str(source_path),
+        "",
+        artifact_kind="nonprompt_output",
+    )
+    transformed = copy.deepcopy(producer.getDataDrivenHistogram())
+    context = producer.get_transformation_context("nonprompt_output")
+    assert context["families"]["njets"]["applicable_products"]["flips"] is True
+    key = (
+        scalar_nominal_key("njets")
+        if missing_component == "nominal"
+        else "njets_sumw2"
+    )
+    transformed[key] = transformed[key].remove("process", ["flipsUL18"])
+
+    with pytest.raises(
+        histogram_artifact_error,
+        match=(
+            "scalar nominal roles differ.*flipsUL18"
+            if missing_component == "nominal"
+            else "requires sumw2 processes absent.*flipsUL18"
+        ),
+    ):
+        write_histogram_artifact(
+            rejected_path,
+            histograms=transformed,
+            artifact_kind="nonprompt_output",
+            sumw2_storage_provenance=policy.to_provenance(),
+            lineage_inputs=[lineage_input_from_sidecar(source_sidecar)],
+            input_sidecar=source_sidecar,
+            transformation_context=context,
+        )
+    assert not rejected_path.exists()
+    assert not metadata_sidecar_path(rejected_path).exists()
+
+
+def test_mixed_families_keep_independent_flips_applicability(tmp_path):
+    runtime_families = ("njets", "met")
+    local_policy = resolve_sumw2_storage_policy(
+        {"mode": "full_diagnostics"},
+        samples=_POLICY_SAMPLES,
+        runtime_families=runtime_families,
+        axes_info=axes_info,
+        axes_info_2d=axes_info_2d,
+        sumw2_storage_present=True,
+    )
+    payload = {}
+    payload.update(
+        _processor_payload_for_regions(
+            ["isAR_1l", "isSR_1l"],
+            family="njets",
+        )
+    )
+    payload.update(
+        _processor_payload_for_regions(
+            ["isAR_2lSS", "isAR_2lSS_OS", "isSR_2lSS"],
+            family="met",
+        )
+    )
+    source_path = tmp_path / "mixed_processor.pkl.gz"
+    source_sidecar = _write_processor(
+        source_path,
+        local_policy,
+        source_payload=payload,
+    )
+    producer = DataDrivenProducer(str(source_path), "")
+    transformed = producer.getDataDrivenHistogram()
+    contract, required = derive_transformed_required_sumw2_processes(
+        input_sidecar=source_sidecar,
+        transformation_context=producer.get_transformation_context(
+            "nonprompt_output"
+        ),
+        artifact_kind="nonprompt_output",
+        transformed_histograms=transformed,
+    )
+
+    assert contract["families"]["njets"]["applicable_products"] == {
+        "nonprompt": True,
+        "flips": False,
+    }
+    assert contract["families"]["met"]["applicable_products"] == {
+        "nonprompt": True,
+        "flips": True,
+    }
+    assert "flipsUL18" not in required["njets"]
+    assert "flipsUL18" in required["met"]
+    assert "flipsUL18" not in transformed[
+        scalar_nominal_key("njets")
+    ].axes["process"]
+    assert "flipsUL18" in transformed[
+        scalar_nominal_key("met")
+    ].axes["process"]
+
+
+@pytest.mark.parametrize(
+    "mutation,error_match",
+    [
+        (
+            "contradict_flips_false",
+            "applicable_products.*contradicts authoritative",
+        ),
+        (
+            "contradict_flips_true",
+            "applicable_products.*contradicts authoritative",
+        ),
+        (
+            "contradict_nonprompt",
+            "applicable_products.*contradicts authoritative",
+        ),
+        ("non_boolean", "applicable_products.*values must be booleans"),
+        (
+            "missing_applicability",
+            "Invalid transformation context.*missing=.*applicable_products",
+        ),
+        ("missing_family", "cover the input runtime families"),
+        ("unknown_product", "unknown=.*future_product"),
+        (
+            "generated_processes",
+            "Transformed flips processes disagree",
+        ),
+    ],
+)
+def test_applicability_context_tampering_is_rejected(
+    tmp_path,
+    policy,
+    mutation,
+    error_match,
+):
+    include_flips = mutation not in {"contradict_flips_true"}
+    regions = (
+        ["isAR_3l", "isAR_2lSS_OS"]
+        if include_flips
+        else ["isAR_3l"]
+    )
+    source_path = tmp_path / f"tamper_{mutation}.pkl.gz"
+    source_sidecar = _write_processor(
+        source_path,
+        policy,
+        source_payload=_processor_payload_for_regions(regions),
+    )
+    producer = DataDrivenProducer(str(source_path), "")
+    transformed = producer.getDataDrivenHistogram()
+    context = copy.deepcopy(
+        producer.get_transformation_context("nonprompt_output")
+    )
+    family = context["families"]["njets"]
+    if mutation == "contradict_flips_false":
+        family["applicable_products"]["flips"] = False
+    elif mutation == "contradict_flips_true":
+        family["applicable_products"]["flips"] = True
+    elif mutation == "contradict_nonprompt":
+        family["applicable_products"]["nonprompt"] = False
+    elif mutation == "non_boolean":
+        family["applicable_products"]["flips"] = 1
+    elif mutation == "missing_applicability":
+        family.pop("applicable_products")
+    elif mutation == "missing_family":
+        context["families"].pop("njets")
+    elif mutation == "unknown_product":
+        family["applicable_products"]["future_product"] = False
+    else:
+        family["generated_flips_processes"] = []
+
+    with pytest.raises(histogram_artifact_error, match=error_match):
+        derive_transformed_required_sumw2_processes(
+            input_sidecar=source_sidecar,
+            transformation_context=context,
+            artifact_kind="nonprompt_output",
+            transformed_histograms=transformed,
+        )
+
+
+def test_caller_authored_transformation_context_is_rejected(tmp_path, policy):
+    source_path = tmp_path / "caller_context.pkl.gz"
+    source_sidecar = _write_processor(source_path, policy)
+    producer = DataDrivenProducer(str(source_path), "")
+    producer_context = producer.get_transformation_context("nonprompt_output")
+    caller_context = {
+        "eft_prompt_projection": copy.deepcopy(
+            producer_context["eft_prompt_projection"]
+        ),
+        "families": copy.deepcopy(producer_context["families"]),
+    }
+    with pytest.raises(
+        histogram_artifact_error,
+        match="caller-authored transformation contexts are not accepted",
+    ):
+        derive_transformed_required_sumw2_processes(
+            input_sidecar=source_sidecar,
+            transformation_context=caller_context,
+            artifact_kind="nonprompt_output",
+            transformed_histograms=producer.getDataDrivenHistogram(),
+        )
+
+
+def _write_transformed_case(
+    tmp_path,
+    policy,
+    name,
+    source_application_regions,
+):
+    source_path = tmp_path / f"{name}_processor.pkl.gz"
+    output_path = tmp_path / f"{name}_nonprompt.pkl.gz"
+    source_sidecar = _write_processor(
+        source_path,
+        policy,
+        source_payload=_processor_payload_for_regions(
+            source_application_regions
+        ),
+    )
+    producer = DataDrivenProducer(str(source_path), "")
+    write_histogram_artifact(
+        output_path,
+        histograms=producer.getDataDrivenHistogram(),
+        artifact_kind="nonprompt_output",
+        sumw2_storage_provenance=policy.to_provenance(),
+        lineage_inputs=[lineage_input_from_sidecar(source_sidecar)],
+        input_sidecar=source_sidecar,
+        transformation_context=producer.get_transformation_context(
+            "nonprompt_output"
+        ),
+    )
+    return output_path
+
+
+def _downgrade_transformation_contract_fixture(output_path):
+    sidecar_path = metadata_sidecar_path(output_path)
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    sidecar["transformation_contract"][
+        "contract_version"
+    ] = histogram_artifact.PRIOR_TRANSFORMATION_CONTRACT_VERSION
+    for family in sidecar["transformation_contract"]["families"].values():
+        family.pop("source_application_regions")
+        family.pop("applicable_products")
+    sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+    return read_histogram_sidecar(output_path)
+
+
+def test_prior_transformation_contract_remains_readable_and_mergeable(
+    tmp_path,
+    policy,
+):
+    old_sidecars = []
+    for index in range(2):
+        output_path = _write_transformed_case(
+            tmp_path,
+            policy,
+            f"old_{index}",
+            ["isAR_3l", "isAR_2lSS_OS", "isSR_3l"],
+        )
+        old_sidecars.append(
+            _downgrade_transformation_contract_fixture(output_path)
+        )
+
+    merged = merge_histogram_sidecars(old_sidecars)
+    assert {
+        sidecar["transformation_contract"]["contract_version"]
+        for sidecar in old_sidecars
+    } == {histogram_artifact.PRIOR_TRANSFORMATION_CONTRACT_VERSION}
+    assert merged["transformation_contract"]["contract_version"] == 2
+    assert merged["required_sumw2_processes"]["njets"] == [
+        "TTTo2L2Nu_centralUL18",
+        "dataUL18",
+        "flipsUL18",
+        "nonpromptUL18",
+    ]
+
+
+def test_new_contract_merge_recomputes_applicability_from_source_evidence(
+    tmp_path,
+    policy,
+):
+    nonprompt_path = _write_transformed_case(
+        tmp_path,
+        policy,
+        "merge_nonprompt",
+        ["isAR_1l", "isSR_1l"],
+    )
+    flips_path = _write_transformed_case(
+        tmp_path,
+        policy,
+        "merge_flips",
+        ["isAR_2lSS", "isAR_2lSS_OS", "isSR_2lSS"],
+    )
+    nonprompt_sidecar = read_histogram_sidecar(nonprompt_path)
+    flips_sidecar = read_histogram_sidecar(flips_path)
+    merged = merge_histogram_sidecars(
+        [nonprompt_sidecar, flips_sidecar]
+    )
+    family = merged["transformation_contract"]["families"]["njets"]
+
+    assert merged["transformation_contract"]["contract_version"] == 3
+    assert family["source_application_regions"] == [
+        "isAR_1l",
+        "isAR_2lSS",
+        "isAR_2lSS_OS",
+        "isSR_1l",
+        "isSR_2lSS",
+    ]
+    assert family["applicable_products"] == {
+        "nonprompt": True,
+        "flips": True,
+    }
+    assert "flipsUL18" in merged["required_sumw2_processes"]["njets"]
+
+    tampered_flips = copy.deepcopy(flips_sidecar)
+    tampered_flips["transformation_contract"]["families"]["njets"][
+        "generated_flips_processes"
+    ] = []
+    with pytest.raises(
+        histogram_artifact_error,
+        match="Transformed flips processes disagree",
+    ):
+        merge_histogram_sidecars([nonprompt_sidecar, tampered_flips])
+
+    old_sidecar = _downgrade_transformation_contract_fixture(
+        _write_transformed_case(
+            tmp_path,
+            policy,
+            "mixed_old",
+            ["isAR_3l", "isAR_2lSS_OS", "isSR_3l"],
+        )
+    )
+    with pytest.raises(
+        histogram_artifact_error,
+        match="prior and applicability-aware",
+    ):
+        merge_histogram_sidecars([old_sidecar, flips_sidecar])
 
 
 def test_processor_sidecar_uses_family_free_generated_output_contract(
@@ -894,29 +1568,42 @@ def _transformed_payload(artifact_kind):
 
 def _transformed_context(source_sidecar, artifact_kind):
     source = source_sidecar["sumw2_content_manifest"]["families"]["njets"]
-    return {
-        "eft_prompt_projection": {
-            "mode": "sm_point",
-            "required_processes": [],
-            "generated_nonprompt_eft_dependence": False,
-        },
-        "families": {
-            "njets": {
-                "source_scalar_processes": source["scalar_nominal_processes"],
-                "source_eft_processes": source["eft_nominal_processes"],
-                "retained_scalar_processes": [],
-                "retained_eft_processes": [],
-                "generated_nonprompt_processes": (
-                    ["nonpromptUL18"]
-                    if artifact_kind == "nonprompt_output"
-                    else []
-                ),
-                "generated_flips_processes": (
-                    ["flipsUL18"]
-                ),
-            }
+    return _producer_transformation_context(
+        {
+            "eft_prompt_projection": {
+                "mode": "sm_point",
+                "required_processes": [],
+                "generated_nonprompt_eft_dependence": False,
+            },
+            "families": {
+                "njets": {
+                    "source_scalar_processes": source[
+                        "scalar_nominal_processes"
+                    ],
+                    "source_eft_processes": source[
+                        "eft_nominal_processes"
+                    ],
+                    "retained_scalar_processes": [],
+                    "retained_eft_processes": [],
+                    "generated_nonprompt_processes": (
+                        ["nonpromptUL18"]
+                        if artifact_kind == "nonprompt_output"
+                        else []
+                    ),
+                    "generated_flips_processes": ["flipsUL18"],
+                    "source_application_regions": [
+                        "isAR_2lSS_OS",
+                        "isAR_3l",
+                        "isSR_3l",
+                    ],
+                    "applicable_products": {
+                        "nonprompt": True,
+                        "flips": True,
+                    },
+                }
+            },
         }
-    }
+    )
 
 
 @pytest.mark.parametrize(
@@ -1483,27 +2170,7 @@ def test_merged_flips_contract_unions_independently_validated_requirements(
     for index in range(2):
         process = "flipsUL18"
         path = tmp_path / f"flips_{index}.pkl.gz"
-        context = {
-            "eft_prompt_projection": {
-                "mode": "sm_point",
-                "required_processes": [],
-                "generated_nonprompt_eft_dependence": False,
-            },
-            "families": {
-                "njets": {
-                    "source_scalar_processes": source_family[
-                        "scalar_nominal_processes"
-                    ],
-                    "source_eft_processes": source_family[
-                        "eft_nominal_processes"
-                    ],
-                    "retained_scalar_processes": [],
-                    "retained_eft_processes": [],
-                    "generated_nonprompt_processes": [],
-                    "generated_flips_processes": [process],
-                }
-            }
-        }
+        context = _transformed_context(source_sidecar, "flips_output")
         payload = {
             scalar_nominal_key("njets"): _fill_sparse(
                 "njets", ((process, "isSR_3l", 2.0),)

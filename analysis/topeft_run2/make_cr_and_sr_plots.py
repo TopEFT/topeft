@@ -2340,7 +2340,7 @@ _WORKER_RENDER_CONTEXT = None
 
 def _initialize_render_worker(
     save_dir_path,
-    skip_syst_errs,
+    uncertainty_mode,
     unit_norm_bool,
     unblind_flag,
     stacked_log_y,
@@ -2370,7 +2370,7 @@ def _initialize_render_worker(
     _WORKER_RENDER_CONTEXT = {
         "region_ctx": region_ctx,
         "save_dir_path": save_dir_path,
-        "skip_syst_errs": skip_syst_errs,
+        "uncertainty_mode": uncertainty_mode,
         "unit_norm_bool": unit_norm_bool,
         "unblind_flag": unblind_flag,
         "stacked_log_y": stacked_log_y,
@@ -2427,7 +2427,7 @@ def _render_variable_from_worker(task_id, payload):
             var_name,
             ctx["region_ctx"],
             ctx["save_dir_path"],
-            ctx["skip_syst_errs"],
+            ctx["uncertainty_mode"],
             ctx["unit_norm_bool"],
             ctx["stacked_log_y"],
             ctx["unblind_flag"],
@@ -2462,7 +2462,7 @@ def _render_variable_from_worker(task_id, payload):
                     hist_mc_sumw2_orig=variable_payload["hist_mc_sumw2_orig"],
                     is_sparse2d=variable_payload["is_sparse2d"],
                     save_dir_path=ctx["save_dir_path"],
-                    skip_syst_errs=ctx["skip_syst_errs"],
+                    uncertainty_mode=ctx["uncertainty_mode"],
                     unit_norm_bool=ctx["unit_norm_bool"],
                     stacked_log_y=ctx["stacked_log_y"],
                     unblind_flag=ctx["unblind_flag"],
@@ -2643,7 +2643,7 @@ def _render_variable(
     var_name,
     region_ctx,
     save_dir_path,
-    skip_syst_errs,
+    uncertainty_mode,
     unit_norm_bool,
     stacked_log_y,
     unblind_flag,
@@ -2708,7 +2708,7 @@ def _render_variable(
             hist_mc_sumw2_orig=variable_payload["hist_mc_sumw2_orig"],
             is_sparse2d=variable_payload["is_sparse2d"],
             save_dir_path=save_dir_path,
-            skip_syst_errs=skip_syst_errs,
+            uncertainty_mode=uncertainty_mode,
             unit_norm_bool=unit_norm_bool,
             stacked_log_y=stacked_log_y,
             unblind_flag=unblind_flag,
@@ -2738,7 +2738,7 @@ def _render_variable_category(
     hist_mc_sumw2_orig,
     is_sparse2d,
     save_dir_path,
-    skip_syst_errs,
+    uncertainty_mode,
     unit_norm_bool,
     stacked_log_y,
     unblind_flag,
@@ -2884,7 +2884,7 @@ def _render_variable_category(
         p_err_arr_ratio = None
         m_err_arr_ratio = None
         syst_err_mode = False
-        if not (is_sparse2d or skip_syst_errs):
+        if uncertainty_mode == "total" and not is_sparse2d:
             rate_syst_keys = _cached_get_syst_lst()
             shape_syst_details = {
                 "valid_bases": tuple(),
@@ -3078,6 +3078,7 @@ def _render_variable_category(
                 "set_x_lim": x_range,
                 "log_scale": stacked_log_y,
                 "style": region_ctx.stacked_ratio_style,
+                "uncertainty_mode": uncertainty_mode,
             }
             bins_override = region_ctx.analysis_bins.get(var_name)
             rebin_report = _prepare_plot_rebin_and_negative_rows(
@@ -3201,7 +3202,7 @@ def _render_variable_category(
         err_m_syst = None
         err_ratio_p_syst = None
         err_ratio_m_syst = None
-        if not skip_syst_errs:
+        if uncertainty_mode == "total":
             rate_syst_keys = _cached_get_syst_lst()
             shape_syst_details = {
                 "valid_bases": tuple(),
@@ -3338,6 +3339,7 @@ def _render_variable_category(
             "unblind": unblind_flag,
             "log_scale": stacked_log_y,
             "style": region_ctx.stacked_ratio_style,
+            "uncertainty_mode": uncertainty_mode,
         }
         bins_to_use = bins_override if bins_override is not None else default_bins
         rebin_report = _prepare_plot_rebin_and_negative_rows(
@@ -4360,6 +4362,7 @@ def _draw_stacked_panel(
     log_scale=False,
     style=None,
     include_ratio_panel=True,
+    show_data_errors=True,
 ):
     """Render stacked MC content, optionally with data and ratio subpanels."""
 
@@ -4643,6 +4646,9 @@ def _draw_stacked_panel(
     ratio_yerr = None
     mc_totals = summed_mc_values
     if include_ratio_panel:
+        data_error_kwargs = dict(DATA_ERR_OPS)
+        if not show_data_errors:
+            data_error_kwargs["yerr"] = False
         hep.histplot(
            summed_data_values,
            ax=ax,
@@ -4651,7 +4657,7 @@ def _draw_stacked_panel(
            density=unit_norm_bool,
            label="Data",
            histtype="errorbar",
-           **DATA_ERR_OPS,
+           **data_error_kwargs,
         )
 
         data_vals = summed_data_values
@@ -4663,31 +4669,34 @@ def _draw_stacked_panel(
             default=np.nan,
             zero_over_zero=1.0,
         )
-        ratio_yerr = _safe_divide(
-            np.sqrt(data_vals),
-            mc_vals_total,
-            default=0.0,
-        )
-        ratio_yerr[mc_vals_total == 0] = np.nan
+        if show_data_errors:
+            ratio_yerr = _safe_divide(
+                np.sqrt(data_vals),
+                mc_vals_total,
+                default=0.0,
+            )
+            ratio_yerr[mc_vals_total == 0] = np.nan
 
         mc_nonpositive_mask = mc_vals_total <= 0
         zero_over_zero_mask = (mc_vals_total == 0) & (data_vals == 0)
         mask_for_nan = mc_nonpositive_mask & ~zero_over_zero_mask
         if np.any(mask_for_nan):
             ratio_vals = ratio_vals.astype(float, copy=True)
-            ratio_yerr = ratio_yerr.astype(float, copy=True)
             ratio_vals[mask_for_nan] = np.nan
-            ratio_yerr[mask_for_nan] = np.nan
+            if ratio_yerr is not None:
+                ratio_yerr = ratio_yerr.astype(float, copy=True)
+                ratio_yerr[mask_for_nan] = np.nan
 
+        ratio_error_kwargs = dict(DATA_ERR_OPS)
         hep.histplot(
            ratio_vals,
-           yerr=ratio_yerr,
+           yerr=ratio_yerr if show_data_errors else False,
            ax=rax,
            bins=bins,
            stack=False,
            density=unit_norm_bool,
            histtype="errorbar",
-           **DATA_ERR_OPS,
+           **ratio_error_kwargs,
         )
 
         mc_totals = mc_vals_total
@@ -6153,7 +6162,7 @@ def produce_region_plots(
     region_ctx,
     save_dir_path,
     variables,
-    skip_syst_errs,
+    uncertainty_mode,
     unit_norm_bool,
     stacked_log_y,
     unblind=None,
@@ -6346,7 +6355,7 @@ def produce_region_plots(
                 initializer=_initialize_render_worker,
                 initargs=(
                     save_dir_path,
-                    skip_syst_errs,
+                    uncertainty_mode,
                     unit_norm_bool,
                     unblind_flag,
                     stacked_log_y,
@@ -6392,7 +6401,7 @@ def produce_region_plots(
                     var_name,
                     region_ctx,
                     save_dir_path,
-                    skip_syst_errs,
+                    uncertainty_mode,
                     unit_norm_bool,
                     stacked_log_y,
                     unblind_flag,
@@ -6434,7 +6443,7 @@ def produce_region_plots(
                             hist_mc_sumw2_orig=variable_payload["hist_mc_sumw2_orig"],
                             is_sparse2d=variable_payload["is_sparse2d"],
                             save_dir_path=save_dir_path,
-                            skip_syst_errs=skip_syst_errs,
+                            uncertainty_mode=uncertainty_mode,
                             unit_norm_bool=unit_norm_bool,
                             stacked_log_y=stacked_log_y,
                             unblind_flag=unblind_flag,
@@ -6468,9 +6477,20 @@ def produce_region_plots(
     else:
         summary_suffix = "; no rendering tasks were executed"
 
+    if uncertainty_mode == "none":
+        plot_word = "plot" if stat_only_plots == 1 else "plots"
+        uncertainty_summary = (
+            f"{stat_only_plots} {plot_word} without uncertainty bars or bands"
+        )
+    elif uncertainty_mode == "stat":
+        uncertainty_summary = f"{stat_only_plots} plots with stat-only bands"
+    else:
+        uncertainty_summary = (
+            f"{stat_and_syst_plots} plots with stat⊕syst uncertainties and "
+            f"{stat_only_plots} plots with stat-only bands"
+        )
     print(
-        f"[{region_ctx.name}] Produced {stat_and_syst_plots} plots with stat⊕syst uncertainties and {stat_only_plots} plots with stat-only bands"
-        f"{summary_suffix}",
+        f"[{region_ctx.name}] Produced {uncertainty_summary}{summary_suffix}",
         end="",
     )
     if save_dir_path:
@@ -7503,7 +7523,14 @@ def make_region_stacked_ratio_fig(
     log_scale=False,
     unblind=False,
     style=None,
+    uncertainty_mode="total",
 ):
+    if uncertainty_mode not in {"total", "stat", "none"}:
+        raise ValueError(
+            "Unsupported uncertainty mode '{}'; expected total, stat, or none.".format(
+                uncertainty_mode
+            )
+        )
     if bins is None:
         bins = []
     else:
@@ -7703,7 +7730,7 @@ def make_region_stacked_ratio_fig(
             default_color_index += 1
         colors.append(c)
 
-    display_label = te_axes_info.get(var, {}).get("label", var)
+    display_label = _resolve_plot_axis_label(var)
 
     axis_edges = target_edges
     if axis_edges is None:
@@ -7763,6 +7790,7 @@ def make_region_stacked_ratio_fig(
             mc_norm_factor,
             log_scale=log_scale,
             style=style,
+            show_data_errors=uncertainty_mode != "none",
         )
     else:
         panel_info = _draw_stacked_panel_only(
@@ -7828,26 +7856,37 @@ def make_region_stacked_ratio_fig(
                     1.0,
                 )
 
-    band_info = _compute_uncertainty_bands(
-        ax,
-        rax,
-        bins,
-        mc_totals,
-        mc_sumw2_vals,
-        h_mc_sumw2,
-        unit_norm_bool,
-        mc_scaled,
-        mc_norm_factor,
-        err_p_syst,
-        err_m_syst,
-        err_ratio_p_syst,
-        err_ratio_m_syst,
-        syst_err,
-        display_mc_totals=adjusted_mc_totals,
-        log_axis_enabled=log_axis_enabled,
-        log_y_baseline=log_y_baseline,
-        style=style,
-    )
+    if uncertainty_mode == "none":
+        band_info = {
+            "main_band_handles": [],
+            "ratio_stat_band_up": None,
+            "ratio_stat_band_down": None,
+            "ratio_syst_band_up": None,
+            "ratio_syst_band_down": None,
+            "ratio_total_band_up": None,
+            "ratio_total_band_down": None,
+        }
+    else:
+        band_info = _compute_uncertainty_bands(
+            ax,
+            rax,
+            bins,
+            mc_totals,
+            mc_sumw2_vals,
+            h_mc_sumw2,
+            unit_norm_bool,
+            mc_scaled,
+            mc_norm_factor,
+            err_p_syst,
+            err_m_syst,
+            err_ratio_p_syst,
+            err_ratio_m_syst,
+            "stat" if uncertainty_mode == "stat" else syst_err,
+            display_mc_totals=adjusted_mc_totals,
+            log_axis_enabled=log_axis_enabled,
+            log_y_baseline=log_y_baseline,
+            style=style,
+        )
 
     main_band_handles = band_info.get("main_band_handles", [])
 
@@ -8091,6 +8130,9 @@ def make_region_stacked_ratio_fig(
     top_adjusted = legend_layout["top_adjusted"]
     legend_anchor = legend_layout["legend_anchor"]
 
+    for axis_obj in (ax, rax):
+        if axis_obj is not None:
+            axis_obj.set_xlabel("")
     label_artist = None
     iterations = 3 if top_adjusted else 2
     for _ in range(iterations):
@@ -8119,6 +8161,7 @@ def run_plots_for_region(
     save_dir_path,
     *,
     skip_syst_errs=False,
+    uncertainty_mode=None,
     unit_norm_bool=False,
     stacked_log_y=False,
     variables=None,
@@ -8135,6 +8178,14 @@ def run_plots_for_region(
     """Run one CR/SR plotting pass and write optional zero/negative reports."""
 
     _SYSTEMATICS_SUMMARY_EMITTED.clear()
+    if uncertainty_mode is None:
+        uncertainty_mode = _resolve_uncertainty_mode(skip_syst=skip_syst_errs)
+    elif uncertainty_mode not in {"total", "stat", "none"}:
+        raise ValueError(
+            "Unsupported uncertainty mode '{}'; expected total, stat, or none.".format(
+                uncertainty_mode
+            )
+        )
 
     channel_output_cfg = CHANNEL_OUTPUT_CHOICES.get(channel_output)
     if channel_output_cfg is None:
@@ -8223,7 +8274,7 @@ def run_plots_for_region(
             region_ctx,
             save_dir_path,
             variables,
-            skip_syst_errs,
+            uncertainty_mode,
             unit_norm_bool,
             stacked_log_y,
             unblind=unblind,
@@ -8294,6 +8345,25 @@ def _detect_region_from_path(path):
     return None, False
 
 
+def _resolve_uncertainty_mode(*, skip_syst=False, no_uncertainties=False):
+    """Return the canonical 1D uncertainty presentation mode."""
+
+    if skip_syst and no_uncertainties:
+        raise ValueError("--skip-syst and --no-uncertainties cannot be combined.")
+    if no_uncertainties:
+        return "none"
+    if skip_syst:
+        return "stat"
+    return "total"
+
+
+def _resolve_plot_axis_label(var_name):
+    """Return the authoritative 1D display label for *var_name*."""
+
+    label = te_axes_info.get(var_name, {}).get("label")
+    return label if label else var_name
+
+
 def build_arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -8350,12 +8420,18 @@ def build_arg_parser():
         action="store_true",
         help="Use a logarithmic y-axis for the stacked (upper) panel; the ratio subplot remains linear.",
     )
-    parser.add_argument(
+    uncertainty_group = parser.add_mutually_exclusive_group()
+    uncertainty_group.add_argument(
         "-s",
         "--skip-syst",
         default=False,
         action="store_true",
         help="Skip systematic error bands in plots (statistical bands fall back to Poisson when sumw² histograms are absent)",
+    )
+    uncertainty_group.add_argument(
+        "--no-uncertainties",
+        action="store_true",
+        help="Render 1D plots without statistical or systematic uncertainty bars or bands.",
     )
     parser.add_argument(
         "--unblind",
@@ -8538,6 +8614,10 @@ def run_with_args(args, parser):
     """Normalize CLI arguments, load histograms, and dispatch region plotting."""
 
     pkl_paths = _resolve_pkl_paths(args, parser)
+    uncertainty_mode = _resolve_uncertainty_mode(
+        skip_syst=args.skip_syst,
+        no_uncertainties=args.no_uncertainties,
+    )
 
     normalized_years = _normalize_year_tokens(args.year)
     if args.year and not normalized_years:
@@ -8573,6 +8653,7 @@ def run_with_args(args, parser):
         )
     )
     print(f"Channel output selection: {args.channel_output}")
+    print(f"Resolved uncertainty mode: {uncertainty_mode}")
 
     try:
         rebin_plot_vars = parse_rebin_plot_vars(args.rebin_plot_vars)
@@ -8682,6 +8763,7 @@ def run_with_args(args, parser):
         selected_years,
         save_dir_path,
         skip_syst_errs=args.skip_syst,
+        uncertainty_mode=uncertainty_mode,
         unit_norm_bool=unit_norm_bool,
         stacked_log_y=args.log_y,
         variables=selected_variables,

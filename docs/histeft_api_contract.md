@@ -477,34 +477,38 @@ not extra EFT polynomial dimensions. The processors fill nominal and variations
 under the same `HistEFT` object with different `systematic` labels. Source:
 `analysis_processor.py:642-719,1744-1760,1900-1924`.
 
-`_sumw2` companion histograms are separate top-level objects with dense axis
-names suffixed by `_sumw2`. The main processor creates them at
-`analysis_processor.py:245-292` and fills nominal sumw2 companions at
-`analysis_processor.py:1913-1924` with:
+`_sumw2` companion histograms are separate top-level scalar `SparseHist`
+objects with dense axis names suffixed by `_sumw2`. Their allocation is
+policy-selected by concrete dataset/process/family targets. The main processor
+fills a selected companion only for the nominal producer path. For an EFT
+event, the EFT factor is evaluated at WC=0 and folded into the event weight
+before squaring; the companion fill has no `eft_coeff` argument. Thus the
+companion is a complete-event SM/WC=0 second moment, not an EFT-polynomial
+variance object.
 
-```text
-weight = event_weight ** 2
-eft_coeff = same quadratic coefficient array
-```
-
-The code computes `eft_w2_coeffs` with `eft_helper.calc_w2_coeffs` in both
-processors, but no later use of `eft_w2_coeffs` was found in the inspected
-processor, plotting, datacard, or yield paths. Therefore quartic EFT sumw2
-helpers are implemented but not actually used by the current fill contract.
+The codebase contains quartic/squared-weight helpers, but nonzero-WC quartic
+sumw2 is outside the maintained storage and consumer contract.
 
 ## 8. Pickle and pkl compatibility contract
 
 ### Top-level pkl structure
 
-Current processor output is a gzip-compressed pickle containing a dictionary:
+Schema-v2 processor output is a gzip-compressed pickle containing a dictionary
+whose 1D nominal content is split by source type:
 
 ```text
 {
-  "<hist_name>": HistEFT or SparseHist,
-  "<hist_name>_sumw2": matching HistEFT or SparseHist companion,
+  "<family>__scalar_nominal": SparseHist,  # when scalar content exists
+  "<family>__eft_nominal": HistEFT,        # when EFT content exists
+  "<family>_sumw2": SparseHist,            # when policy-selected
   ...
 }
 ```
+
+The original unsplit 1D `<family>` key is forbidden in schema-v2 producer
+output. A 2D family remains a scalar `SparseHist` at `<family>` and can have
+an optional `<family>_sumw2` companion. See
+[`histeft_pkl_tutorial.md`](histeft_pkl_tutorial.md) for artifact inspection.
 
 Evidence:
 
@@ -741,7 +745,8 @@ Tests may use current `HistEFT` as the reference implementation.
 - Merge/add after unpickle.
 - Compare WC metadata after unpickle.
 - Compare axes and categorical labels after unpickle.
-- Preserve top-level dict with base hist and `_sumw2` companion.
+- Preserve the schema-v2 sibling layout and policy-selected scalar companion
+  contract for new producer output.
 - Load one representative old pkl if a small safe fixture exists, or define a
   converter test that proves old content can be translated.
 
@@ -750,7 +755,8 @@ Tests may use current `HistEFT` as the reference implementation.
 - Mock a processor-like fill with `process/channel/systematic/appl`, dense axis,
   event weights, and `eft_coeff`.
 - Mock non-EFT fill with `eft_coeff=None`.
-- Build a top-level dict with `<hist>` and `<hist>_sumw2`.
+- Build a schema-v2 top-level dict with 1D scalar/EFT siblings and any selected
+  scalar `<hist>_sumw2` companion.
 - Run a minimal plotter-like flow: integrate nominal, group processes, sum
   process axis, evaluate `eval({})`, materialize `as_hist({})`, and read values.
 - Preserve `process/channel/systematic/appl` labels exactly.
@@ -808,16 +814,17 @@ Tests may use current `HistEFT` as the reference implementation.
 
 ### Fixture D: `_sumw2` companion behavior
 
-- Purpose: current squared-weight top-level companion contract.
-- Axes: same as Fixture C, but dense axis names `njets` and `njets_sumw2`.
-- WC names: same as base hist.
-- Event inputs: base fill weight `w`; sumw2 fill weight `w*w`; same
-  `eft_coeff`.
-- Expected SM eval: base first bin `w*a_00`, sumw2 first bin `w*w*a_00`.
-- Expected nonzero-WC eval: same polynomial with the different fill weight.
-- Metadata: both histograms have matching sparse axes and WC names; top-level
-  keys are `njets` and `njets_sumw2`.
-- Tests: pkl payload, datacard merge validation, plotter uncertainty input.
+- Purpose: schema-v2 scalar second-moment companion contract.
+- Axes: categorical axes match the selected base source; its dense axis is
+  `njets_sumw2`.
+- Event inputs: scalar base contribution `w`; EFT event contribution evaluated
+  at WC=0 and folded into the scalar event weight before it is squared.
+- Expected content: a scalar `SparseHist` second moment, not an EFT polynomial
+  that can be evaluated at a nonzero WC.
+- Metadata: its top-level key is `njets_sumw2`; schema-v2 1D nominal sources
+  are `njets__scalar_nominal` and/or `njets__eft_nominal`.
+- Tests: pkl payload, schema/coverage validation, datacard merge validation,
+  and plotter uncertainty input.
 
 ### Fixture E: pickle round-trip fixture
 
@@ -857,10 +864,213 @@ Proposed future tests before any replacement:
 - Are old `make_cr_and_sr_plots_v*`, validation, training, and extreme-event
   scripts in scope for the replacement, or only the current processor/plotter/
   datacard/yield path?
-- Should future sumw2 semantics continue using the same quadratic coefficients
-  with squared event weights, or should the currently unused quartic
-  `calc_w2_coeffs` helpers become part of the physics contract?
+- Whether a future, separately reviewed nonzero-WC quartic uncertainty contract
+  is needed; it is not part of the maintained contract described here.
 - Is old pkl compatibility required inside the replacement class, or can it be
   provided by a one-time converter plus clear migration boundary?
 - Should `as_hist` output include flow bins exactly as current plotter expects,
   or should plotting be migrated to an explicit flow policy at the same time?
+
+## 15. Selective sumw2 schema and consumer contract
+
+### Source components and selected companions
+
+Schema version 2 uses `split_sibling_v1` for each 1D family. Scalar nominal
+content and EFT nominal content are separate, non-overlapping process sources:
+`<family>__scalar_nominal` is an exact `SparseHist`, while
+`<family>__eft_nominal` is an exact `HistEFT`. Either sibling can be absent
+when that content class is empty. The original unsplit 1D `<family>` producer
+key is not valid schema-v2 output.
+
+`<family>_sumw2`, when selected, is a scalar `SparseHist` holding a selected SM
+second moment. An EFT contribution enters it as the complete event evaluated at
+WC=0 before squaring; it is not a quadratic or quartic EFT variance payload.
+Nonzero-WC quartic sumw2 is intentionally unsupported. The selection policy
+resolves rules over dataset, process, and family and records the resolved
+provenance; a selected required target without a companion is invalid.
+
+2D families remain scalar `SparseHist` objects under the base `<family>` key
+and may carry an optional `<family>_sumw2` companion. They never use
+scalar/EFT split siblings.
+
+### Serialization, merge, and consumer-local views
+
+Serialization retains schema/provenance and validates known families, sibling
+types, non-overlapping process labels, companion axes, and selected-process
+coverage. Merge validation happens before consumers transform the mapping. The
+uniform/scalar dictionaries used by plotting or card making are bounded
+consumer-local views, not an alternate producer format.
+
+Legacy uniform pkls may be read through the established compatibility path, but
+that does not relax schema-v2 producer requirements. Deprecated `no_sumw2` and
+`do_errors` flags are migration mappings, not a promise of broad legacy
+production behavior. This contract adds no compatibility shim.
+
+### Application-axis and merge-and-collision boundaries
+
+The producer retains the `appl` axis. Data-driven nonprompt processing may use
+AR content transiently at WC=0 while constructing scalar output. At the
+DatacardMaker boundary, only the exact metadata-defined final SR application
+label is selected; CR/AR card production, label guessing, and fallback are not
+implemented.
+
+Collision handling is consumer-specific. A supported merge validates schema and
+provenance, permits only the consumer's documented disjoint/allowed source
+merge behavior, and reports exact duplicate or incompatible process content.
+Remediate a collision by removing the duplicate input, separating incompatible
+productions, or using the supported consumer workflow with explicitly
+documented collision handling. Do not rename inputs, suppress the diagnostic,
+or add an adapter merely to force an unsupported merge.
+
+## 16. Data-driven applicability and transformed artifacts
+
+This section is the normative contract for the maintained nonprompt and charge-
+flip (flips) transformations. It complements the operational instructions in
+the [Run-2 README](../analysis/topeft_run2/README.md#applicability-aware-data-driven-outputs-and-recovery)
+and the practical [sidecar inspection tutorial](histeft_pkl_tutorial.md#18-inspecting-data-driven-applicability).
+
+### Enabled, applicable, and generated
+
+The source-wide data-driven policy and each histogram family answer different
+questions:
+
+- **Enabled** means that the source-wide `requested_data_driven_products`
+  policy requests a product. It is a policy decision shared by the artifact;
+  it does not assert that every family contains the inputs for that product.
+- **Applicable** means that one family’s authoritative `appl` axis contains a
+  maintained application region consumed by that product’s transformer. It is
+  family-specific and is derived from actual source histogram content.
+- **Generated** means that the transformed nominal or `_sumw2` payload contains
+  the certified output process labels for an enabled-and-applicable product.
+
+Thus, enabled does not imply applicable, applicable is family-specific, and
+generated labels are required exactly when the product is both enabled and
+applicable. A family with no maintained data-driven application region keeps
+its ordinary source content and generates neither product.
+
+The current application-region policy is centralized in
+`histogram_artifact.py`:
+
+| Product | Maintained application regions |
+| --- | --- |
+| nonprompt | `isAR_1l`, `isAR_2lSS`, `isAR_2lOS`, `isAR_3l` |
+| flips | `isAR_2lSS_OS` |
+
+This is an explicit mapping. A string merely beginning with `isAR_` is not
+automatically a nonprompt region. Unknown application labels are not silently
+reclassified; they are not a supported runtime policy override.
+
+For the established 1-lepton/1-tau control-region shape, the physical output
+pattern is nonprompt-only when the source contains `isAR_1l` alongside the
+`isSR_1l` content, flips-only when `isAR_2lSS_OS` is present, and neither when
+there is no maintained data-driven AR. The broader mapping above is the
+authoritative rule for other maintained categories.
+
+### Version-3 transformed sidecars
+
+The source processor sidecar remains a schema-v2 `split_sibling_v1` artifact.
+The transformed sidecar adds `transformation_contract` with
+`contract_version: 3`. Its top-level normalized shape is:
+
+```json
+{
+  "contract_version": 3,
+  "artifact_kind": "nonprompt_output",
+  "eft_prompt_projection": {
+    "mode": "sm_point",
+    "required_processes": [],
+    "generated_nonprompt_eft_dependence": false
+  },
+  "families": {
+    "njets": {
+      "source_scalar_processes": [],
+      "source_eft_processes": [],
+      "retained_scalar_processes": [],
+      "retained_eft_processes": [],
+      "generated_nonprompt_processes": ["nonpromptUL18"],
+      "generated_flips_processes": ["flipsUL18"],
+      "consumed_source_processes": [],
+      "source_application_regions": [
+        "isAR_2lSS_OS",
+        "isAR_3l",
+        "isSR_3l"
+      ],
+      "applicable_products": {
+        "flips": true,
+        "nonprompt": true
+      }
+    }
+  }
+}
+```
+
+The excerpt uses the exact normalized field names and shape emitted by the
+maintained producer; a real sidecar contains the complete runtime family order
+and complete process lists. `source_application_regions` is producer-derived
+evidence from the scalar source sibling. `applicable_products` is recomputed
+from that evidence and validated, not accepted as an independent caller
+choice. Generated process sets must agree with the enabled-and-applicable
+products. `required_sumw2_processes` is independently derived from those roles,
+so generated companions are mandatory only for applicable products. In
+particular, a nonprompt-only family must not acquire flips companions merely
+because the source-wide flips product is enabled.
+
+The maintained reader rejects tampering when applicable booleans contradict
+the source regions, generated labels disagree with the certified resolved
+product contract, or serialized required companions disagree with the
+independently derived requirement. The writer also requires the transformation
+context generated by `DataDrivenProducer`; caller-authored replacement
+contexts/contracts are rejected. Editing a sidecar by hand cannot redefine the
+contract.
+
+### Merge and version-2 compatibility
+
+Version-3 merges union each family’s authoritative
+`source_application_regions` deterministically, recompute
+`applicable_products`, and then revalidate generated roles and required
+sumw2 companions. If merged evidence makes a product applicable, its certified
+generated labels and companions remain mandatory. The merged contract must
+remain internally consistent with the resolved source-wide data-driven policy.
+
+Version-2 transformed contracts contain the prior maintained role fields but
+not the version-3 applicability evidence. They remain readable and mergeable
+under their established semantics. Version-2 and version-3 transformed
+contracts are not silently mixed or reinterpreted: a merge containing both
+versions is rejected. Version 3 changes transformed-artifact provenance and
+validation; it does not rewrite the source processor contract or old artifacts.
+
+### Changing the data-driven applicability contract
+
+Use this procedure when the policy itself changes. A category that uses only
+already recognized AR labels is not an applicability-contract semantic change;
+adding a new AR label, changing an AR’s meaning, or adding a product is.
+
+1. Define the physics meaning of the region and its owning data-driven product.
+2. Update the centralized checked-in applicability policy/helper.
+3. Update `DataDrivenProducer` transformation logic when the new meaning
+   requires it.
+4. Update normalization, generated-process validation, and tamper checks.
+5. Update exhaustive `ch_lst.json` registry coverage and union tests.
+6. Add old/new read and merge compatibility tests.
+7. Bump the transformation-contract version when semantics changed.
+8. Update this API contract, the [pkl tutorial](histeft_pkl_tutorial.md), and
+   the [Run-2 operational README](../analysis/topeft_run2/README.md).
+9. Validate at least one representative synthetic or real artifact.
+10. Preserve truthful provenance and never fabricate empty products.
+
+The cases are:
+
+- **Existing recognized AR only:** adding or modifying a category that uses
+  already recognized labels normally needs no applicability-contract version
+  bump.
+- **New AR mapped to an existing product:** applicability semantics change;
+  introduce the next transformation-contract version and compatibility tests.
+- **Changed AR meaning or new product:** this is semantically incompatible;
+  introduce a new contract version and update every producer/reader gate.
+
+These are not supported change mechanisms: adding an unknown `isAR_*` label to
+`ch_lst.json` alone; editing `applicable_products` or generated-process lists
+in a sidecar; introducing an unrecorded CLI/runtime override; or disabling
+validation to accept a new region. A future runtime-configurable policy would
+need a versioned policy identity serialized in the artifact and independently
+validated; no such override is currently supported.

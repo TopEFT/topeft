@@ -164,7 +164,7 @@ def _run_run_analysis(monkeypatch, tmp_path, extra_cli_args, outname):
                     for process_name, appl, nominal_weight in (
                         ("dataUL17", "isAR_3l", 10.0),
                         ("TTTo2L2Nu_centralUL17", "isAR_3l", 3.0),
-                        ("dataUL17", "isAR_2lSS_OS", 4.0),
+                        ("TTTo2L2Nu_centralUL17", "isSR_3l", 2.0),
                     ):
                         weight = (
                             nominal_weight**2
@@ -326,6 +326,22 @@ def test_np_postprocess_inline_writes_transformed_artifact_sidecar(
             ],
         }
     }
+    family_contracts = sidecar["transformation_contract"]["families"]
+    assert sidecar["transformation_contract"]["contract_version"] == 3
+    for family_name in ("ptz", "met", "lt"):
+        family_contract = family_contracts[family_name]
+        assert family_contract["source_application_regions"] == [
+            "isAR_3l",
+            "isSR_3l",
+        ]
+        assert family_contract["applicable_products"] == {
+            "nonprompt": True,
+            "flips": False,
+        }
+        assert family_contract["generated_nonprompt_processes"] == [
+            "nonpromptUL17"
+        ]
+        assert family_contract["generated_flips_processes"] == []
 
 
 def test_incomplete_requested_product_fails_before_processor_construction(

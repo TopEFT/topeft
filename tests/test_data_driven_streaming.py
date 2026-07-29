@@ -11,7 +11,10 @@ from analysis.topeft_run2 import run_data_driven
 from topcoffea.modules.sparseHist import SparseHist
 from topcoffea.modules.histEFT import HistEFT
 from topeft.modules import dataDrivenEstimation
-from topeft.modules.dataDrivenEstimation import DataDrivenProducer
+from topeft.modules.dataDrivenEstimation import (
+    DataDrivenProducer,
+    derive_data_driven_applicability,
+)
 from topcoffea.modules.utils import get_hist_from_pkl
 from topeft.modules.nominal_schema import eft_nominal_key, scalar_nominal_key
 
@@ -210,3 +213,67 @@ def test_split_nonprompt_rejects_missing_selected_scalar_companion():
     )
     with pytest.raises(RuntimeError, match="requires scalar statistical companions"):
         producer.getDataDrivenHistogram()
+
+
+@pytest.mark.parametrize(
+    "regions,expected_generated",
+    [
+        (["isAR_1l", "isSR_1l"], {"nonpromptUL18"}),
+        (["isAR_2lSS_OS"], {"flipsUL18"}),
+        (["isSR_1l"], set()),
+        (["isAR_future", "isSR_1l"], set()),
+    ],
+    ids=[
+        "legacy_nonprompt",
+        "legacy_flips",
+        "legacy_no_ar",
+        "unknown_ar_is_not_nonprompt",
+    ],
+)
+def test_data_driven_application_regions_have_explicit_physical_semantics(
+    sparse_hist_axes,
+    regions,
+    expected_generated,
+):
+    entries = []
+    for region in regions:
+        if region == "isAR_2lSS_OS":
+            entries.append(
+                {"process": "dataUL18", "appl": region, "weight": 4.0}
+            )
+        elif region.startswith("isAR"):
+            entries.extend(
+                [
+                    {"process": "dataUL18", "appl": region, "weight": 10.0},
+                    {
+                        "process": "TTTo2L2Nu_centralUL18",
+                        "appl": region,
+                        "weight": 3.0,
+                    },
+                ]
+            )
+        else:
+            entries.append(
+                {
+                    "process": "TTTo2L2Nu_centralUL18",
+                    "appl": region,
+                    "weight": 2.0,
+                }
+            )
+    histograms = {
+        "nominal": _fill_histogram(entries, sparse_hist_axes),
+        "nominal_sumw2": _fill_histogram(
+            [dict(entry, weight=entry["weight"] ** 2) for entry in entries],
+            sparse_hist_axes,
+        ),
+    }
+    output = DataDrivenProducer(histograms, "").getDataDrivenHistogram()
+    generated_names = {"nonpromptUL18", "flipsUL18"}
+    observed = generated_names & {
+        str(process) for process in output["nominal"].axes["process"]
+    }
+    assert observed == expected_generated
+    assert derive_data_driven_applicability(regions) == {
+        "nonprompt": "nonpromptUL18" in expected_generated,
+        "flips": "flipsUL18" in expected_generated,
+    }

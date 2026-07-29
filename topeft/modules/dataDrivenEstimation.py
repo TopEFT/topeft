@@ -16,6 +16,10 @@ from topeft.modules.data_driven_products import (
     validate_requested_product_input,
 )
 from topeft.modules.histogram_artifact import (
+    FLIPS_APPLICATION_REGION,
+    NONPROMPT_APPLICATION_REGIONS,
+    _PRODUCER_CONTEXT_TOKEN,
+    derive_data_driven_applicability,
     lineage_input_from_sidecar,
     validate_histogram_artifact,
     write_histogram_artifact,
@@ -27,6 +31,24 @@ from topeft.modules.nominal_schema import (
 )
 from topeft.modules.paths import topeft_path
 get_te_param = GetParam(topeft_path("params/params.json"))
+
+
+def data_driven_product_for_application_region(application_region):
+    """Return the maintained product consuming one application region."""
+
+    region = str(application_region)
+    if region == FLIPS_APPLICATION_REGION:
+        return "flips"
+    if region in NONPROMPT_APPLICATION_REGIONS:
+        return "nonprompt"
+    return None
+
+
+class _producer_transformation_context(dict):
+    """Marker for transformation evidence emitted only by DataDrivenProducer."""
+
+    _producer_context_token = _PRODUCER_CONTEXT_TOKEN
+
 
 class DataDrivenProducer:
     def __init__(
@@ -126,6 +148,8 @@ class DataDrivenProducer:
                 "retained_eft_processes": [],
                 "generated_nonprompt_processes": [],
                 "generated_flips_processes": [],
+                "source_application_regions": None,
+                "applicable_products": None,
             }
         return families
 
@@ -259,6 +283,28 @@ class DataDrivenProducer:
         roles["generated_nonprompt_processes"] = sorted(generated_nonprompt)
         roles["generated_flips_processes"] = sorted(generated_flips)
 
+    def _record_family_application_evidence(self, key, histogram):
+        if self._transformation_role_context is None:
+            return
+        family, component = self._family_from_nominal_key(key)
+        if family is None or component != "scalar":
+            return
+        source_application_regions = sorted(
+            {str(region) for region in self._axis_labels(histogram, "appl")}
+        )
+        roles = self._transformation_role_context[family]
+        if roles["source_application_regions"] is not None:
+            if roles["source_application_regions"] != source_application_regions:
+                raise RuntimeError(
+                    f"Family {family!r} has inconsistent source application-region "
+                    "evidence across scalar nominal inputs."
+                )
+            return
+        roles["source_application_regions"] = source_application_regions
+        roles["applicable_products"] = derive_data_driven_applicability(
+            source_application_regions
+        )
+
     def get_transformation_context(self, artifact_kind="nonprompt_output"):
         if self._transformation_role_context is None:
             raise RuntimeError(
@@ -270,18 +316,41 @@ class DataDrivenProducer:
             )
         families = {}
         for family, raw_roles in self._transformation_role_context.items():
+            if (
+                raw_roles["source_application_regions"] is None
+                or raw_roles["applicable_products"] is None
+            ):
+                raise RuntimeError(
+                    f"Missing producer-generated application-region evidence for "
+                    f"family {family!r}."
+                )
             roles = {
-                field_name: sorted(set(processes))
-                for field_name, processes in raw_roles.items()
+                field_name: sorted(set(raw_roles[field_name]))
+                for field_name in (
+                    "source_scalar_processes",
+                    "source_eft_processes",
+                    "retained_scalar_processes",
+                    "retained_eft_processes",
+                    "generated_nonprompt_processes",
+                    "generated_flips_processes",
+                )
             }
+            roles["source_application_regions"] = list(
+                raw_roles["source_application_regions"]
+            )
+            roles["applicable_products"] = dict(
+                raw_roles["applicable_products"]
+            )
             if artifact_kind == "flips_output":
                 roles["retained_scalar_processes"] = []
                 roles["generated_nonprompt_processes"] = []
             families[family] = roles
-        return {
-            "eft_prompt_projection": dict(self._eft_prompt_projection_context),
-            "families": families,
-        }
+        return _producer_transformation_context(
+            {
+                "eft_prompt_projection": dict(self._eft_prompt_projection_context),
+                "families": families,
+            }
+        )
 
     def _parse_process(self, process_name):
         try:
@@ -633,6 +702,7 @@ class DataDrivenProducer:
                 )
 
     def _build_data_driven_histogram(self, key, histo):
+        self._record_family_application_evidence(key, histo)
         if key.endswith(EFT_NOMINAL_SUFFIX):
             output = None
             for appl in histo.axes["appl"]:
@@ -670,8 +740,11 @@ class DataDrivenProducer:
         generated_flips_processes = set()
         for ident in histo.axes["appl"]:
             hAR = histo.integrate("appl", ident)
+            product = data_driven_product_for_application_region(ident)
 
-            if "isAR" not in ident:
+            if product is None:
+                if str(ident).startswith("isAR"):
+                    continue
                 # if we are in the signal region, we just take the
                 # whole histogram integrating out the application region axis
                 if report is not None:
@@ -680,7 +753,7 @@ class DataDrivenProducer:
                     newhist = hAR
                 else:
                     newhist += hAR
-            elif ident == "isAR_2lSS_OS":
+            elif product == "flips":
                 if not flips_enabled:
                     continue
                 # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done

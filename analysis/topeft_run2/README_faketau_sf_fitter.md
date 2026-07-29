@@ -6,6 +6,10 @@ data and MC fake-rate points, and fits their ratio with a linear scale-factor
 model. Printed tables are the primary output; `--output-json` optionally writes
 the fitted TauFakeSF payload.
 
+> **Migration:** direct `tauFitter.py` execution is deprecated and aborts
+> without producing a fit or output. Use `faketau_sf_fitter.py` for maintained
+> fake-tau scale-factor extraction.
+
 The fitter resolves its configured tau control-region expectations against the
 actual `channel` axes in the input histograms. A filename, directory name, or
 production tag is not evidence that the required histograms or channels are
@@ -18,22 +22,19 @@ Each input pkl must contain both active histogram keys:
 * `tau0Fpt`, with axes `process`, `channel`, `systematic`, and `tau0Fpt`;
 * `tau0Tpt`, with axes `process`, `channel`, `systematic`, and `tau0Tpt`.
 
-The optional `tau0Fpt_sumw2` and `tau0Tpt_sumw2` companions provide weighted
-statistical uncertainties. If a companion is absent from all inputs or lacks its
-expected dense axis, the fitter logs a warning and falls back to Poisson
-counting uncertainty for that path. Produce histograms without `--no-sumw2`
-when the weighted sumw² uncertainties are required. See the
+Both `tau0Fpt_sumw2` and `tau0Tpt_sumw2` companions are mandatory supported
+inputs. No count-based uncertainty fallback exists, and the fitter does not
+reconstruct their uncertainty from nominal yields. Produce a `taufitter`-mode
+artifact with both selected companions. See the
 [Run 2 analysis README](README.md#run-scripts-and-processors)
 for the shared sumw² production guidance.
 
-For multiple input pkls, required `tau0Fpt` and `tau0Tpt` histograms are
-combined by histogram addition before fake-rate extraction. Optional sumw²
-companions must be consistently present in every input file or consistently
-absent from every input file. Consistently present sumw² companions are combined
-by direct addition, matching the `make_cr_and_sr_plots.py` convention for
-variance-like `*_sumw2` histograms; this is the quadrature-equivalent
-combination for stored sums of squared weights. Mixed sumw² availability raises
-an error naming the affected companion and the files with/without it.
+For multiple input pkls, required `tau0Fpt`, `tau0Tpt`, `tau0Fpt_sumw2`, and
+`tau0Tpt_sumw2` histograms are combined only after schema and merge consistency
+checks. Companions must be present in every input and are combined by direct
+addition, the quadrature-equivalent operation for stored sums of squared
+weights. Missing or incompatible companions raise an error naming the affected
+input; no supported fallback is available.
 
 Configured Ftau/Ttau channel expectations come from
 `TAU_CH_LST_CR["2los_1tau"]` in `topeft/channels/ch_lst.json`, or from the file
