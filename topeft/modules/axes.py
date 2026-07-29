@@ -32,46 +32,46 @@ info = {
     },
     "nbtagsl": {
         "regular": (5, 0, 5),
-        "label": r"Loose btag multiplicity "},
+        "label": r"Loose btagged jet multiplicity "},
     "nbtagsm": {
         "regular": (5, 0, 5),
-        "label": r"Medium btag multiplicity "},
+        "label": r"Medium btagged jet multiplicity "},
     "l0pt": {
         "regular": (25, 0, 250),
-        "label": r"Leading lep raw $p_{T}$ (GeV) ",
+        "label": r"Leading lepton raw $p_{T}$ (GeV) ",
     },
     "l0ptcorr": {
         "regular": (25, 0, 250),
-        "label": r"Leading corrected lep $p_{T}$ (GeV) ",
+        "label": r"Leading corrected lepton $p_{T}$ (GeV) ",
     },
     "l0conept": {
         "regular": (25, 0, 250),
-        "label": r"Leading lep cone-$p_{T}$ (GeV) ",
+        "label": r"Leading lepton cone-$p_{T}$ (GeV) ",
     },
     "l0eta": {
         "regular": (20, -2.5, 2.5),
-        "label": r"Leading lep $\eta$ "
+        "label": r"Leading lepton $\eta$ "
     },
     "l1pt": {
         "regular": (15, 0, 150),
-        "label": r"Subleading lep raw $p_{T}$ (GeV) "
+        "label": r"Subleading lepton raw $p_{T}$ (GeV) "
     },
     "l1ptcorr": {
         "regular": (15, 0, 150),
-        "label": r"Subleading lep corrected $p_{T}$ (GeV) "
+        "label": r"Subleading lepton corrected $p_{T}$ (GeV) "
     },
     "l1conept": {
         "regular": (15, 0, 150),
         "variable": [10, 20, 30, 40, 50, 60, 80, 100],
-        "label": r"Subleading lep cone-$p_{T}$ (GeV) "
+        "label": r"Subleading lepton cone-$p_{T}$ (GeV) "
     },
     "l1eta": {
         "regular": (10, -2.5, 2.5),
-        "label": r"Subleading lep $\eta$ "
+        "label": r"Subleading lepton $\eta$ "
     },
     "j0pt": {
         "regular": (15, 0, 300),
-        "label": r"Leading jet  $p_{T}$ (GeV) "
+        "label": r"Leading jet $p_{T}$ (GeV) "
     },
     "fwd0pt": {
         "regular": (10, 0, 200),
@@ -79,11 +79,11 @@ info = {
     },
     "b0pt": {
         "regular": (50, 0, 500),
-        "label": r"Leading b jet  $p_{T}$ (GeV) "
+        "label": r"Leading b-jet $p_{T}$ (GeV) "
     },
     "j0eta": {
         "regular": (15, -3, 3),
-        "label": r"Leading jet  $\eta$ "
+        "label": r"Leading jet $\eta$ "
     },
     "fwd0eta": {
         "regular": (50, -5, 5),
@@ -114,27 +114,27 @@ info = {
     "lj0pt": {
         "regular": (12, 0, 600),
         "variable": [0, 150, 250, 500],
-        "label": r"Leading pt of pair from l+j collection (GeV) ",
+        "label": r"Leading $p_{T}$ of pair from the ($\ell$+j+$\tau$) collection ${\pt}_{\ell j 0}$ (GeV) ",
     },
     "ptz_wtau": {
         "regular": (12, 0, 600),
         "variable": [0, 150, 250],
-        "label": r"pt of lepton hadronic tau pair (GeV) ",
+        "label": r"$p_{T}$ of $\ell+\tau_h$ pair (GeV) ",
     },
     "tau0Tpt": {
         "regular": (20, 0, 200),
         #"variable": [0, 150, 250, 500],
-        "label": r"pt of leading tight hadronic tau (GeV) ",
+        "label": r"$p_{T}$ of leading tight hadronic tau (GeV) ",
     },
     "tau0Fpt": {
         "regular": (20, 0, 200),
         #"variable": [0, 150, 250, 500],
-        "label": r"pt of leading FO hadronic tau (GeV) ",
+        "label": r"$p_{T}$ of leading FO hadronic tau (GeV) ",
     },
     "lt": {
         "regular": (12, 0, 600),
         "variable": [0,150,250,500],
-        "label": r"Scalar sum of met at leading leptons (GeV)",
+        "label": r"Scalar sum of MET and leading leptons (GeV)",
     },
 
     "l0_gen_pdgId": {
