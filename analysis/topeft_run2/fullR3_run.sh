@@ -21,6 +21,8 @@ PrintUsage() {
   echo "  --ttgamma-sample-role-policy POLICY"
   echo "             Forward ttgamma sample-role policy to run_analysis.py"
   echo "             Supported values: split, run2_nlo_inclusive"
+  echo "  --sample-universe-wrapper VALUE"
+  echo "             Record wrapper provenance exactly once (default: fullR3_run.sh)"
   echo "  -p, --outpath PATH"
   echo "             Override the run_analysis.py output directory"
   echo "  --dry-run  Print the resolved run_analysis.py command and exit"
@@ -59,6 +61,8 @@ main() {
   local TAG=""
   local SAMPLE_JSON=""
   local CFG_OVERRIDE=""
+  local SAMPLE_UNIVERSE_WRAPPER="fullR3_run.sh"
+  local SAMPLE_UNIVERSE_WRAPPER_PROVIDED=false
 
   # Parse command-line arguments
   while [[ $# -gt 0 ]]; do
@@ -163,6 +167,32 @@ main() {
             return 1
             ;;
         esac
+        shift
+        ;;
+      --sample-universe-wrapper)
+        if [[ "$SAMPLE_UNIVERSE_WRAPPER_PROVIDED" == "true" ]]; then
+          echo "Error: provide --sample-universe-wrapper at most once." >&2
+          return 1
+        fi
+        if [[ $# -lt 2 || -z "$2" || "$2" == -* ]]; then
+          echo "Error: --sample-universe-wrapper requires a non-empty value." >&2
+          return 1
+        fi
+        SAMPLE_UNIVERSE_WRAPPER="$2"
+        SAMPLE_UNIVERSE_WRAPPER_PROVIDED=true
+        shift 2
+        ;;
+      --sample-universe-wrapper=*)
+        if [[ "$SAMPLE_UNIVERSE_WRAPPER_PROVIDED" == "true" ]]; then
+          echo "Error: provide --sample-universe-wrapper at most once." >&2
+          return 1
+        fi
+        SAMPLE_UNIVERSE_WRAPPER="${1#--sample-universe-wrapper=}"
+        if [[ -z "$SAMPLE_UNIVERSE_WRAPPER" ]]; then
+          echo "Error: --sample-universe-wrapper requires a non-empty value." >&2
+          return 1
+        fi
+        SAMPLE_UNIVERSE_WRAPPER_PROVIDED=true
         shift
         ;;
       -h|--help)
@@ -465,8 +495,6 @@ main() {
     OPTIONS=(
       "${HIST_LIST_ARGS[@]}"
       --skip-cr
-      --do-systs
-      --do-np
     )
     if [[ "$USER_OUTPATH_OVERRIDE" == "false" ]]; then
       OPTIONS+=(-p "$RESOLVED_OUTPATH")
@@ -481,7 +509,7 @@ main() {
   local -a RUN_CMD=(python run_analysis.py "$CFGS")
   RUN_CMD+=(--years "${RESOLVED_YEARS[@]}")
   RUN_CMD+=("${OPTIONS[@]}")
-  RUN_CMD+=(--sample-universe-wrapper fullR3_run.sh)
+  RUN_CMD+=(--sample-universe-wrapper "$SAMPLE_UNIVERSE_WRAPPER")
   RUN_CMD+=(--ttgamma-sample-role-policy "$TTGAMMA_SAMPLE_ROLE_POLICY")
   if [[ "$FLAG_DEFER_NP" == "true" ]]; then
     RUN_CMD+=(--np-postprocess=defer)

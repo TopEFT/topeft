@@ -75,9 +75,7 @@ cr_var_sets=(
   "nbtagsl invmass ljptsum npvsGood ptz_wtau tau0Fpt tau0Tpt"
 )
 
-# Keep year periods separate so the output pkls are period-specific.
-#
-# Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
+# CR outputs intentionally combine periods into Run-2, 2022, and 2023 groups.
 cr_year_sets=(
   "2016APV 2016 2017 2018"
   "2022 2022EE"
@@ -104,14 +102,16 @@ sr_var_sets=(
   "njets lj0pt ptz ptz_wtau lt"
 )
 
-# Kept available
+# SR outputs are period-specific.
 sr_year_sets=(
-  # 2022
-  # 2022EE
-  # 2023
-  # 2023BPix
-  "2022 2022EE 2023 2023BPix"
-  "2016APV 2016 2017 2018"
+  "2016APV"
+  "2016"
+  "2017"
+  "2018"
+  "2022"
+  "2022EE"
+  "2023"
+  "2023BPix"
 )
 
 sr_category_sets=(
