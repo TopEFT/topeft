@@ -7,8 +7,7 @@ cd /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2
 # Global configuration
 ###############################################################################
 
-# output_dir="/groups/klannon/apiccine/preappr_260710"
-output_dir="/groups/klannon/apiccine/preappr_260723_sumw2-test"
+output_dir="/groups/klannon/apiccine/preappr_v9_260729"
 chunk_size="50000"
 
 # Nominal TOP-23-002-like ttgamma sample-role strategy.
@@ -26,7 +25,7 @@ chunk_size="50000"
 ttgamma_sample_role_policy="split"
 
 # Use a strategy-specific tag to avoid mixing baseline/feature/diagnostic outputs.
-campaign_tag="sumw2-test"
+campaign_tag="ANv9"
 
 cr_pkl_base_tag="${campaign_tag}"
 sr_pkl_base_tag="${campaign_tag}"
@@ -35,15 +34,15 @@ sr_pkl_base_tag="${campaign_tag}"
 #
 # This script is currently configured for Yuyi's CR distribution request.
 run_cr=true
-run_sr=false
+run_sr=true
 
 # Useful while checking resolved years/categories/histograms without launching production.
-dry_run=false
+dry_run=true
 
 # Shared CR/SR production switches.
 #
 # Yuyi's request is for distributions, and the previous colleague-facing setup used
-# systematic variations for CR plotting. Keep nonprompt disabled unless explicitly needed.
+# systematic variations for CR plotting.
 do_systs=true
 do_np=true
 
@@ -61,7 +60,7 @@ split_lep_flavor=false
 #   inside run_cr_block/run_sr_block before passing --hist-vars to fullR3_run.sh.
 #
 # Requested coverage:
-#   - fwd0pt for all periods/regions;
+#   - fwd0pt for all periods and CRs;
 #   - fwd0eta, lj0pt, lt, met, ptz for the relevant non-tau CRs;
 #   - ptz_wtau and tau variables for tau CR coverage;
 #   - invmass, j0eta, j0pt, l0/l1 variables, ljptsum, nbtagsl, njets for tau CRs.
@@ -71,14 +70,9 @@ split_lep_flavor=false
 ###############################################################################
 
 cr_var_sets=(
-  # "fwd0pt fwd0eta lj0pt lt met ptz nbtagsl l0conept l0eta"
-  # "njets l1conept l1eta j0pt j0eta invmass ljptsum nbtagsm npvsGood"
-  # "l0eta met lt ptz_wtau"
-  # "l0conept njets tau0Fpt tau0Tpt"
-  # "lt"
-
-  "l0eta l0conept met njets tau0Fpt tau0Tpt"
-  # "lj0pt nbtagsl nbtagsm lt fwd0pt fwd0eta ptz_wtau"
+  "fwd0pt fwd0eta j0pt j0eta lj0pt njets nbtagsm"
+  "lt met ptz l0conept l0eta l1conept l1eta"
+  "nbtagsl invmass ljptsum npvsGood ptz_wtau tau0Fpt tau0Tpt"
 )
 
 # Keep year periods separate so the output pkls are period-specific.
@@ -86,8 +80,8 @@ cr_var_sets=(
 # Yuyi requested Run 2 period-specific coverage and Run 3 tau-region coverage.
 cr_year_sets=(
   "2016APV 2016 2017 2018"
-  # "2022 2022EE"
-  # "2023 2023BPix"
+  "2022 2022EE"
+  "2023 2023BPix"
 )
 
 # Current category names used by the analysis helpers.
@@ -96,13 +90,8 @@ cr_year_sets=(
 # If the branch has explicit 2los_1tau_Ftau / 2los_1tau_Ttau category groups,
 # they can be added as separate entries after confirming the exact names.
 cr_category_sets=(
-  # "2los_CRZ" # 2l_CR 2los_CRtt 2l_CRflip 3l_CR"
-  # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
-  # "2los_CRZ 2los_1tau 2los_1tau_0b" # 3l_CR"
-
-  # "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau 2los_1tau_0b"
-
-  "1l_1tau_CRDY 1l_1tau_CRtt 2los_1tau"
+  "2l_CR 2l_CRflip 2los_CRZ 2los_CRtt 3l_CR"
+  "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau" # 2los_1tau_0b"
 )
 
 ###############################################################################
@@ -115,24 +104,17 @@ sr_var_sets=(
   "njets lj0pt ptz ptz_wtau lt"
 )
 
-# Kept available, but disabled by default for this request.
+# Kept available
 sr_year_sets=(
   # 2022
   # 2022EE
   # 2023
   # 2023BPix
-  "2022 2022EE"
-  "2023 2023BPix"
-  # "2016APV 2016 2017 2018"
+  "2022 2022EE 2023 2023BPix"
+  "2016APV 2016 2017 2018"
 )
 
 sr_category_sets=(
-  # "2l"
-  # "2lss_1tau 2los_1tau"
-  # "3l_m_offZ"
-  # "3l_p_offZ"
-  # "3l_onZ_tau 4l"
-  # "3l_fwd"
   "2l 2lss_1tau 2los_1tau 4l"
   "3l_m_offZ 3l_p_offZ"
   "3l_onZ_tau 3l_fwd"
