@@ -9,6 +9,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Mapping
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
@@ -19,8 +20,13 @@ from topcoffea.modules.paths import topcoffea_path
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.data_driven_products import (
+    DATA_DRIVEN_PRODUCT_NAMES,
     certify_data_driven_preflight,
     resolve_data_driven_products,
+)
+from topeft.modules.histogram_category_compatibility import (
+    histogram_category_compatibility_error,
+    validate_histogram_category_compatibility,
 )
 from topeft.modules.histogram_artifact import (
     lineage_input_from_sidecar,
@@ -125,6 +131,30 @@ def _dedupe_preserve_order(values):
 
 def _format_name_list(names):
     return ", ".join(map(str, names)) if names else "<none>"
+
+
+def _requested_products_for_histogram_preflight(
+    data_driven_products_config,
+    *,
+    data_driven_products_present,
+    legacy_do_np,
+):
+    """Resolve only the enabled product names needed by the early preflight."""
+
+    if not data_driven_products_present:
+        return DATA_DRIVEN_PRODUCT_NAMES if legacy_do_np else ()
+    if not isinstance(data_driven_products_config, Mapping):
+        return ()
+
+    requested_products = []
+    for product_name in DATA_DRIVEN_PRODUCT_NAMES:
+        product_config = data_driven_products_config.get(product_name)
+        if (
+            isinstance(product_config, Mapping)
+            and product_config.get("enabled") is True
+        ):
+            requested_products.append(product_name)
+    return tuple(requested_products)
 
 
 def _resolve_category_group_selection(
@@ -1258,6 +1288,38 @@ if __name__ == "__main__":
         )
     )
 
+    runtime_histogram_families_for_preflight = (
+        list(axes_info.keys()) + list(axes_info_2d.keys())
+        if hist_lst is None
+        else list(hist_lst)
+    )
+    runtime_histogram_families_for_preflight = [
+        family[:-6] if family.endswith("_sumw2") else family
+        for family in runtime_histogram_families_for_preflight
+    ]
+    runtime_histogram_families_for_preflight = list(
+        dict.fromkeys(runtime_histogram_families_for_preflight)
+    )
+    requested_products_for_preflight = (
+        _requested_products_for_histogram_preflight(
+            data_driven_products_config,
+            data_driven_products_present=data_driven_products_present,
+            legacy_do_np=do_np,
+        )
+    )
+    try:
+        validate_histogram_category_compatibility(
+            runtime_histogram_families_for_preflight,
+            selected_category_dicts=(
+                category_group_selection["sr_category_dict"],
+                category_group_selection["cr_category_dict"],
+            ),
+            histogram_selection_explicit=hist_list is not None,
+            requested_data_driven_products=requested_products_for_preflight,
+        )
+    except histogram_category_compatibility_error as error:
+        raise SystemExit(str(error)) from None
+
     ### Load samples from json
     samplesdict = {}
     sample_sources = {}
@@ -1553,16 +1615,7 @@ if __name__ == "__main__":
         }
     )
 
-    runtime_histogram_families = (
-        list(axes_info.keys()) + list(axes_info_2d.keys())
-        if hist_lst is None
-        else list(hist_lst)
-    )
-    runtime_histogram_families = [
-        family[:-6] if family.endswith("_sumw2") else family
-        for family in runtime_histogram_families
-    ]
-    runtime_histogram_families = list(dict.fromkeys(runtime_histogram_families))
+    runtime_histogram_families = runtime_histogram_families_for_preflight
 
     try:
         active_universe = build_active_sample_universe(

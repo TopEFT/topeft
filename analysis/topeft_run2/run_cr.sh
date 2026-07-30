@@ -69,7 +69,13 @@ split_lep_flavor=false
 # CR configuration
 ###############################################################################
 
-cr_var_sets=(
+cr_non_tau_var_sets=(
+  "fwd0pt fwd0eta j0pt j0eta lj0pt njets nbtagsm"
+  "lt met ptz l0conept l0eta l1conept l1eta"
+  "nbtagsl invmass ljptsum npvsGood"
+)
+
+cr_tau_var_sets=(
   "fwd0pt fwd0eta j0pt j0eta lj0pt njets nbtagsm"
   "lt met ptz l0conept l0eta l1conept l1eta"
   "nbtagsl invmass ljptsum npvsGood ptz_wtau tau0Fpt tau0Tpt"
@@ -90,6 +96,13 @@ cr_year_sets=(
 cr_category_sets=(
   "2l_CR 2l_CRflip 2los_CRZ 2los_CRtt 3l_CR"
   "1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau" # 2los_1tau_0b"
+)
+
+# Parallel to cr_category_sets: each category family selects its intentional
+# histogram chunks rather than forming an invalid shared Cartesian product.
+cr_category_var_set_names=(
+  "cr_non_tau_var_sets"
+  "cr_tau_var_sets"
 )
 
 ###############################################################################
@@ -357,7 +370,8 @@ echo "dry_run: ${dry_run}"
 echo "do_systs: ${do_systs}"
 echo "do_np: ${do_np}"
 echo "split_lep_flavor: ${split_lep_flavor}"
-print_var_sets "CR" "${cr_var_sets[@]}"
+print_var_sets "CR non-tau" "${cr_non_tau_var_sets[@]}"
+print_var_sets "CR tau" "${cr_tau_var_sets[@]}"
 print_var_sets "SR" "${sr_var_sets[@]}"
 echo "========================================"
 echo
@@ -384,12 +398,16 @@ esac
 
 if [[ "${run_cr}" == "true" ]]; then
   for year_expr in "${cr_year_sets[@]}"; do
-    for category_set in "${cr_category_sets[@]}"; do
+    for category_index in "${!cr_category_sets[@]}"; do
+      category_set="${cr_category_sets[category_index]}"
+      category_var_set_name="${cr_category_var_set_names[category_index]}"
+      declare -n category_var_sets="${category_var_set_name}"
       read -r -a cats <<< "${category_set}"
 
-      for var_set in "${cr_var_sets[@]}"; do
+      for var_set in "${category_var_sets[@]}"; do
         run_cr_block "${year_expr}" "${var_set}" "${cats[@]}"
       done
+      unset -n category_var_sets
     done
   done
 else
