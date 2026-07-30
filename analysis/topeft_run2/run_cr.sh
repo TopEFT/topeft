@@ -34,10 +34,10 @@ sr_pkl_base_tag="${campaign_tag}"
 #
 # This script is currently configured for Yuyi's CR distribution request.
 run_cr=true
-run_sr=true
+run_sr=false
 
 # Useful while checking resolved years/categories/histograms without launching production.
-dry_run=true
+dry_run=false
 
 # Shared CR/SR production switches.
 #
