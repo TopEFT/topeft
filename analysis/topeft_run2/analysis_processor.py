@@ -126,6 +126,96 @@ def calculate_sm_sumw2_weights(scalar_weights, eft_coefficients=None):
     return np.square(scalar_weights * eft_factor_sm)
 
 
+SUPPORTED_EFT_TREATMENTS = frozenset({"sm_only"})
+
+
+def resolve_eft_treatment(sample_metadata, *, sample_name="<unknown>"):
+    """Validate and return an explicitly requested EFT source treatment."""
+
+    treatment = sample_metadata.get("eft_treatment")
+    if treatment is None:
+        # Preserve the established metadata-derived behavior exactly.
+        return None
+
+    if not isinstance(treatment, str) or treatment not in SUPPORTED_EFT_TREATMENTS:
+        raise ValueError(
+            "EFT-TREATMENT-E001: unsupported eft_treatment "
+            f"{treatment!r} for sample {sample_name!r}; "
+            f"supported values are {sorted(SUPPORTED_EFT_TREATMENTS)}."
+        )
+    if sample_metadata.get("isData") is not False:
+        raise ValueError(
+            "EFT-TREATMENT-E002: explicit EFT treatment is allowed only for MC; "
+            f"sample={sample_name!r} treatment={treatment!r}."
+        )
+
+    wc_names = sample_metadata.get("WCnames")
+    if not isinstance(wc_names, list) or not wc_names:
+        raise ValueError(
+            "EFT-TREATMENT-E003: sm_only requires a nonempty WCnames list; "
+            f"sample={sample_name!r}."
+        )
+    if any(not isinstance(name, str) or not name for name in wc_names):
+        raise ValueError(
+            "EFT-TREATMENT-E003: sm_only requires nonempty string WCnames; "
+            f"sample={sample_name!r}."
+        )
+    if len(set(wc_names)) != len(wc_names):
+        raise ValueError(
+            "EFT-TREATMENT-E003: sm_only requires unique WCnames; "
+            f"sample={sample_name!r}."
+        )
+    return treatment
+
+
+def project_eft_coefficients_for_treatment(
+    eft_coefficients,
+    eft_treatment,
+    *,
+    sample_name="<unknown>",
+):
+    """Project an explicit EFT source role after native-to-global remapping."""
+
+    if eft_treatment is None:
+        return eft_coefficients
+    if eft_treatment not in SUPPORTED_EFT_TREATMENTS:
+        raise ValueError(
+            "EFT-TREATMENT-E001: unsupported runtime eft_treatment "
+            f"{eft_treatment!r} for sample {sample_name!r}."
+        )
+    if eft_coefficients is None:
+        raise RuntimeError(
+            "EFT-TREATMENT-E004: sm_only requires an EFTfitCoefficients branch; "
+            f"sample={sample_name!r}."
+        )
+
+    coefficients = np.asarray(eft_coefficients)
+    sm_values = evaluate_eft_coefficients_at_sm(coefficients)
+    projected = np.zeros_like(coefficients)
+    projected[..., 0] = sm_values
+    return projected
+
+
+def prepare_eft_coefficients(
+    eft_coefficients,
+    native_wc_names,
+    global_wc_names,
+    eft_treatment,
+    *,
+    sample_name="<unknown>",
+):
+    """Remap source coefficients and then apply their explicit treatment."""
+
+    prepared = eft_coefficients
+    if prepared is not None and native_wc_names != global_wc_names:
+        prepared = efth.remap_coeffs(native_wc_names, global_wc_names, prepared)
+    return project_eft_coefficients_for_treatment(
+        prepared,
+        eft_treatment,
+        sample_name=sample_name,
+    )
+
+
 def derive_analysis_enable_toggles(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
     return {
         "enable_offz_blocks": bool(offz_3l_split) or bool(all_analysis),
@@ -592,6 +682,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         dataset = dataset_key
         sample_metadata = self._samples[dataset_key]
         isEFT   = sample_metadata["WCnames"] != []
+        eft_treatment = resolve_eft_treatment(
+            sample_metadata,
+            sample_name=dataset_key,
+        )
 
         isData             = sample_metadata["isData"]
         histAxisName       = sample_metadata["histAxisName"]
@@ -763,10 +857,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Extract the EFT quadratic coefficients.
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
-        if eft_coeffs is not None:
-            # Check to see if the ordering of WCs for this sample matches what want
-            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
+        eft_coeffs = prepare_eft_coefficients(
+            eft_coeffs,
+            self._samples[dataset]["WCnames"],
+            self._wc_names_lst,
+            eft_treatment,
+            sample_name=dataset_key,
+        )
         # Initialize the out object
         hout = self.accumulator
 

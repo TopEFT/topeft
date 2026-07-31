@@ -80,11 +80,12 @@ VALIDATED_SIGNAL_VARIANT_GROUPS = (
 )
 
 
-# Direct maintained evidence classifies tHq_private as a signal process and as
-# a legacy nonprompt prompt-subtraction source, but no validated replacement
-# group exists for it.  Keep this list narrower than the signal-role catalog:
-# unpaired processes without both pieces of evidence are not inferred here.
-UNPAIRED_PROMPT_SIGNAL_BASES = ("tHq_private",)
+# Direct maintained evidence classifies tHq_private and Run 3 ttll_private as
+# signal processes and nonprompt prompt-subtraction sources, but no validated
+# replacement group exists for either.  Keep this list narrower than the
+# signal-role catalog: unpaired processes without both pieces of evidence are
+# not inferred here.
+UNPAIRED_PROMPT_SIGNAL_BASES = ("tHq_private", "ttll_private")
 
 
 @dataclass(frozen=True)

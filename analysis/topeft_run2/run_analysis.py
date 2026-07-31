@@ -1360,6 +1360,10 @@ if __name__ == "__main__":
         with open(jsonFile, encoding="utf-8") as jf:
             payload = json.load(jf)
         _validate_payload_schema(payload, source_json_path)
+        analysis_processor.resolve_eft_treatment(
+            payload,
+            sample_name=sampleName,
+        )
         year_scan_warning = _validate_payload_year_tokens(payload, source_json_path)
         if year_scan_warning is not None:
             year_scan_warnings.append(year_scan_warning)
