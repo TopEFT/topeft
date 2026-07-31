@@ -216,6 +216,32 @@ def prepare_eft_coefficients(
     )
 
 
+def prepare_event_eft_coefficients(
+    events,
+    sample_metadata,
+    global_wc_names,
+    eft_treatment,
+    *,
+    sample_name="<unknown>",
+):
+    """Route one source through EFT setup only when its runtime role needs it."""
+
+    eft_coefficients = (
+        ak.to_numpy(events["EFTfitCoefficients"])
+        if hasattr(events, "EFTfitCoefficients")
+        else None
+    )
+    if eft_coefficients is None and eft_treatment is None:
+        return None
+    return prepare_eft_coefficients(
+        eft_coefficients,
+        sample_metadata["WCnames"],
+        global_wc_names,
+        eft_treatment,
+        sample_name=sample_name,
+    )
+
+
 def derive_analysis_enable_toggles(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
     return {
         "enable_offz_blocks": bool(offz_3l_split) or bool(all_analysis),
@@ -854,12 +880,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### EFT coefficients ##########
 
-        # Extract the EFT quadratic coefficients.
-        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
-        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
-        eft_coeffs = prepare_eft_coefficients(
-            eft_coeffs,
-            self._samples[dataset]["WCnames"],
+        # Extract and prepare EFT coefficients only for sources that carry them
+        # or explicitly require the sm_only runtime branch validation.
+        eft_coeffs = prepare_event_eft_coefficients(
+            events,
+            sample_metadata,
             self._wc_names_lst,
             eft_treatment,
             sample_name=dataset_key,
