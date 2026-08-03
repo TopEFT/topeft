@@ -947,7 +947,7 @@ class DatacardMaker():
         with uproot.open(fpath) as f:
             d = {}
             for k in f.keys():
-                #k = k.replace(";1","")
+                k = k.replace(";1","")
                 # Note: Values in the ROOT file are computed as the fraction of the rate needed to
                 #   reach agreement, so need to add 1 to get the corresponding kapaa value
                 d[k] = f[f"{k}/{branch_key}"].array() + 1
