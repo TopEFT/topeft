@@ -8,7 +8,7 @@ cd /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2
 ###############################################################################
 
 output_dir="/groups/klannon/apiccine/preappr_v9_260729"
-chunk_size="50000"
+chunk_size="100000"
 
 # Nominal TOP-23-002-like ttgamma sample-role strategy.
 #
@@ -83,7 +83,7 @@ cr_tau_var_sets=(
 
 # CR outputs intentionally combine periods into Run-2, 2022, and 2023 groups.
 cr_year_sets=(
-  "2016APV 2016 2017 2018"
+  # "2016APV 2016 2017 2018"
   "2022 2022EE"
   "2023 2023BPix"
 )

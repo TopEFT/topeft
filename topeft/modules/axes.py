@@ -114,7 +114,7 @@ info = {
     "lj0pt": {
         "regular": (12, 0, 600),
         "variable": [0, 150, 250, 500],
-        "label": r"Leading $p_{T}$ of pair from the ($\ell$+j+$\tau$) collection ${\pt}_{\ell j 0}$ (GeV) ",
+        "label": r"Leading $p_{T}$ of pair from the ($\ell$+j+$\tau$) collection $p_{T}^{\ell j 0}$ (GeV) ",
     },
     "ptz_wtau": {
         "regular": (12, 0, 600),
