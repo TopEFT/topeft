@@ -21,6 +21,11 @@ info = {
         "variable": [0, 200, 300, 400, 500],
         "label": r"$p_{T}$ Z (GeV) ",
     },
+    "ptll": {
+        "regular": (12, 0, 600),
+        "variable": [0, 50, 100, 200, 300],
+        "label": r"$p_{T}$ ll (GeV) ",
+    },
     "njets": {
         "regular": (7, 0, 7),
         "variable_multi": {
@@ -113,12 +118,14 @@ info = {
     },
     "lj0pt": {
         "regular": (12, 0, 600),
-        "variable": [0, 150, 250, 500],
+        #"variable": [0, 150, 250, 500],
+        "variable": [0, 150, 250, 350],
         "label": r"Leading pt of pair from l+j collection (GeV) ",
     },
     "ptz_wtau": {
         "regular": (12, 0, 600),
-        "variable": [0, 150, 250],
+        #"variable": [0, 150, 250],
+        "variable": [0,50,100,150],
         "label": r"pt of lepton hadronic tau pair (GeV) ",
     },
     "tau0Tpt": {
@@ -133,7 +140,8 @@ info = {
     },
     "lt": {
         "regular": (12, 0, 600),
-        "variable": [0,150,250,500],
+        #"variable": [0,150,250,500],
+        "variable": [0, 250, 400, 500],
         "label": r"Scalar sum of met at leading leptons (GeV)",
     },
 
