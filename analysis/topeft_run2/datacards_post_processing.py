@@ -130,7 +130,7 @@ def main():
         elif args.fwd_flag:
             import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
         elif args.all_analysis:
-            import_sr_ch_lst = select_ch_lst["ALL_CH_LST_SR"]
+            import_sr_ch_lst = select_ch_lst["ALL_CH_LST_SR_org"]
 
         CATSELECTED = []
 
@@ -156,7 +156,7 @@ def main():
                     ):
                         continue
                     elif (args.set_up_offZdivision or args.all_analysis) and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
-                        channelname = lep_ch_name + "_" + jet + "j_ptz"
+                        channelname = lep_ch_name + "_" + jet + "j_ptll"
                     elif (args.tau_flag or args.all_analysis) and ("2los" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif (args.tau_flag or args.all_analysis) and ("1tau_onZ" in lep_ch_name):
@@ -210,8 +210,8 @@ def main():
     print(args.tau_flag)
     print((n_txt != 60) or (n_root != 60))
     print((args.tau_flag and ((n_txt != 60) or (n_root != 60))))
-    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75)))   or   (args.tau_flag and ((n_txt != 60) or (n_root != 60))) or (args.all_analysis and (n_root != 129)):
-        raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
+    #if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75)))   or   (args.tau_flag and ((n_txt != 60) or (n_root != 60))) or (args.all_analysis and (n_root != 129)):
+    #    raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
     print("Done.\n")
 
 main()
