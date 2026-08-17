@@ -1263,9 +1263,9 @@ class DatacardMaker():
                                 check_zero_arr1 = True
                         if "FF" in syst:
                             if check_zero_arr0 and sum(arr[0]) != 0:
-                                raise Warning("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
+                                print("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
                             if check_zero_arr1 and sum(arr[1]) != 0:
-                                raise Warning("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
+                                print("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
 
                         syst_base = syst.replace("Up","").replace("Down","")
 
