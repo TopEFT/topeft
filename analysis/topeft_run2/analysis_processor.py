@@ -406,7 +406,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
 
     @staticmethod
-    def _should_fill_plain_ptz_channel(lep_chan, allow_offz_split=False):
+    def _should_fill_plain_ptz_channel(lep_chan):
         explicit_zll_cr_channels = {
             "2los_CRZ",
             "2lss_CRflip",
@@ -425,6 +425,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             return True
         if ("onZ" in lep_chan) and ("2lss" not in lep_chan):
             return True
+        else:
+            return False
+
+    @staticmethod
+    def  _should_fill_plain_ptll_channel(lep_chan, allow_offz_split=False):
         return allow_offz_split and (
             ("offZ_high" in lep_chan) or ("offZ_low" in lep_chan)
         )
@@ -441,20 +446,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         # continue/skip behavior by returning a single skip decision.
         if self._analysis_mode == "all":
             if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
-                skip_hist = not self._should_fill_plain_ptz_channel(
-                    lep_chan,
-                    allow_offz_split=True,
-                )
-            # if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
-            #     skip_hist = True
+                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
+                skip_hist = True
             if (("ptz_wtau" in dense_axis_name) and not self._should_fill_ptz_wtau_channel(lep_chan)):
                 skip_hist = True
-        elif self._analysis_mode == "offz":
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
-                skip_hist = not self._should_fill_plain_ptz_channel(
+            if ("ptll" in dense_axis_name):
+                skip_hist = not self._should_fill_plain_ptll_channel(
                     lep_chan,
                     allow_offz_split=True,
                 )
+        elif self._analysis_mode == "offz":
+            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if ("ptll" in dense_axis_name):
+                skip_hist = not self._should_fill_plain_ptll_channel(
+                    lep_chan,
+                    allow_offz_split=True,
+                )
+
         elif self._analysis_mode == "tau":
             if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
                 skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
@@ -463,8 +473,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         elif self._analysis_mode == "fwd":
             if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
                 skip_hist = True
-            # if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
-            #     skip_hist = True
+            if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
+                skip_hist = True
         else:
             if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
                 skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
@@ -1490,7 +1500,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
 
             if self.enable_offz_blocks:
-                ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+                ptll = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
             bjetsm = goodJets[isBtagJetsMedium][ak.argsort(goodJets[isBtagJetsMedium].pt, axis=-1, ascending=False)]
@@ -1581,6 +1591,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["invmass"] = mll_0_1
             varnames["ptbl"]    = ak.flatten(ptbl)
             varnames["ptz"]     = ptz
+            varnames["ptll"]    = ptll
             varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
