@@ -12,6 +12,7 @@ hist = pytest.importorskip("hist")
 from topcoffea.modules.histEFT import HistEFT
 from topeft.modules.datacard_tools import DatacardMaker, RateSystematic
 from topeft.modules.missing_parton_contract import (
+    DEFAULT_SR_REGISTRY,
     LEGACY_MISSING_PARTON_BASE_CHANNELS,
     legacy_missing_parton_payload_lengths,
 )
@@ -72,6 +73,7 @@ def load_missing_parton_systematic(payload_path, year_lst=("UL18",)):
     loader.do_nuisance = True
     loader.skip_missing_parton_rate_syst = False
     loader.year_lst = list(year_lst)
+    loader.sr_registry = DEFAULT_SR_REGISTRY
     return loader.load_systematics(
         "params/rate_systs_run3.json",
         str(payload_path),

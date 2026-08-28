@@ -15,38 +15,36 @@ RUN2_DEFAULT_PAYLOAD = "data/missing_parton/missing_parton_run2.root"
 RUN3_DEFAULT_PAYLOAD = "data/missing_parton/missing_parton_run3.root"
 
 
-class _fake_branch:
-    def __init__(self, values):
-        self.values = values
-
-    def array(self):
-        return np.asarray(self.values, dtype=float)
-
-
-class _fake_missing_parton_file:
-    def __init__(self, values):
-        self.values = values
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return False
-
-    def keys(self):
-        return ["3l_onZ_1b"]
-
-    def __getitem__(self, key):
-        assert key == "3l_onZ_1b/tllq"
-        return _fake_branch(self.values)
-
-
-def _systematics_loader(*, years, do_nuisance=True, skip=False):
+def _systematics_loader(
+    *,
+    years,
+    do_nuisance=True,
+    skip=False,
+    sr_registry=DEFAULT_SR_REGISTRY,
+):
     maker = object.__new__(DatacardMaker)
     maker.do_nuisance = do_nuisance
     maker.skip_missing_parton_rate_syst = skip
     maker.year_lst = list(years)
+    maker.sr_registry = sr_registry
     return maker
+
+
+def _mock_payload_validator(monkeypatch, values_by_path):
+    calls = []
+
+    def validate(path, *, sr_registry):
+        path_name = str(path).rsplit("/", 1)[-1]
+        calls.append((str(path), sr_registry))
+        values = values_by_path[path_name]
+        return {"3l_onZ_1b": np.asarray(values, dtype=float)}
+
+    monkeypatch.setattr(
+        datacard_tools,
+        "validate_legacy_missing_parton_payload",
+        validate,
+    )
+    return calls
 
 
 @pytest.mark.parametrize("year", ("UL16", "UL16APV", "UL17", "UL18"))
@@ -214,7 +212,11 @@ def test_mixed_era_loader_fails_before_opening_the_payload(monkeypatch):
     def fail_if_opened(_):
         raise AssertionError("mixed-era resolution should happen before payload loading")
 
-    monkeypatch.setattr(datacard_tools.uproot, "open", fail_if_opened)
+    monkeypatch.setattr(
+        datacard_tools,
+        "validate_legacy_missing_parton_payload",
+        fail_if_opened,
+    )
 
     with pytest.raises(ValueError, match="one explicit missing-parton payload source"):
         maker.load_systematics("params/rate_systs_run3.json", "synthetic.root")
@@ -251,18 +253,15 @@ def test_direct_constructor_uses_the_same_era_default_payload(
     ("year", "expected_payload"),
     (("UL18", RUN2_DEFAULT_PAYLOAD), ("2023", RUN3_DEFAULT_PAYLOAD)),
 )
-def test_default_payload_path_is_opened_for_the_resolved_era(
+def test_default_payload_path_is_validated_for_the_resolved_era(
     monkeypatch,
     year,
     expected_payload,
 ):
-    opened_paths = []
-
-    def open_payload(path):
-        opened_paths.append(str(path))
-        return _fake_missing_parton_file((0.2, 0.3))
-
-    monkeypatch.setattr(datacard_tools.uproot, "open", open_payload)
+    validation_calls = _mock_payload_validator(
+        monkeypatch,
+        {expected_payload.rsplit("/", 1)[-1]: (0.2, 0.3)},
+    )
     maker = _systematics_loader(years=(year,))
     resolved_payload = DatacardMaker.resolve_missing_parton_payload_path((year,))
 
@@ -270,7 +269,23 @@ def test_default_payload_path_is_opened_for_the_resolved_era(
 
     assert "missing_parton" in systematics
     assert resolved_payload == expected_payload
-    assert opened_paths[0].endswith(expected_payload)
+    assert validation_calls[0][0].endswith(expected_payload)
+    assert validation_calls[0][1] == DEFAULT_SR_REGISTRY
+
+
+@pytest.mark.parametrize(
+    ("year", "payload_path"),
+    (("UL18", RUN2_DEFAULT_PAYLOAD), ("2023", RUN3_DEFAULT_PAYLOAD)),
+)
+def test_consumer_boundary_accepts_packaged_current_payload(year, payload_path):
+    maker = _systematics_loader(years=(year,))
+
+    systematics = maker.load_systematics(
+        "params/rate_systs_run3.json",
+        payload_path,
+    )
+
+    assert systematics["missing_parton"].get_process("tllq")
 
 
 @pytest.mark.parametrize("do_nuisance, skip", ((False, False), (True, True)))
@@ -315,11 +330,7 @@ def test_loader_uses_era_specific_name_and_preserves_process_scope(
     years,
     payload_values,
 ):
-    monkeypatch.setattr(
-        datacard_tools.uproot,
-        "open",
-        lambda _: _fake_missing_parton_file(payload_values),
-    )
+    _mock_payload_validator(monkeypatch, {"synthetic.root": payload_values})
     maker = _systematics_loader(years=years)
 
     systematics = maker.load_systematics(
@@ -343,13 +354,7 @@ def test_shared_identity_keeps_explicit_payload_factors_distinct(monkeypatch):
         "run2.root": (0.2, 0.3),
         "run3.root": (0.4, 0.5),
     }
-    monkeypatch.setattr(
-        datacard_tools.uproot,
-        "open",
-        lambda path: _fake_missing_parton_file(
-            payload_values_by_path[str(path).rsplit("/", 1)[-1]]
-        ),
-    )
+    _mock_payload_validator(monkeypatch, payload_values_by_path)
 
     run2 = _systematics_loader(years=("UL18",)).load_systematics(
         "params/rate_systs_run2.json",
@@ -373,7 +378,11 @@ def test_skip_bypasses_payload_loading_and_mixed_era_resolution(monkeypatch):
     def fail_if_opened(_):
         raise AssertionError("missing-parton payload was opened despite suppression")
 
-    monkeypatch.setattr(datacard_tools.uproot, "open", fail_if_opened)
+    monkeypatch.setattr(
+        datacard_tools,
+        "validate_legacy_missing_parton_payload",
+        fail_if_opened,
+    )
     systematics = maker.load_systematics(
         "params/rate_systs_run3.json",
         "does-not-exist.root",
@@ -389,6 +398,58 @@ def test_disabled_nuisances_bypass_payload_loading_and_era_resolution(monkeypatc
     def fail_if_opened(_):
         raise AssertionError("missing-parton payload was opened while nuisances were disabled")
 
-    monkeypatch.setattr(datacard_tools.uproot, "open", fail_if_opened)
+    monkeypatch.setattr(
+        datacard_tools,
+        "validate_legacy_missing_parton_payload",
+        fail_if_opened,
+    )
 
     assert maker.load_systematics("params/rate_systs_run3.json", "does-not-exist.root") == {}
+
+
+def test_consumer_boundary_passes_the_exact_selected_registry(monkeypatch):
+    calls = _mock_payload_validator(monkeypatch, {"selected.root": (0.2, 0.3)})
+    maker = _systematics_loader(
+        years=("UL18",),
+        sr_registry="FWD_CH_LST_SR",
+    )
+
+    systematics = maker.load_systematics(
+        "params/rate_systs_run2.json",
+        "selected.root",
+    )
+
+    assert calls[0][1] == "FWD_CH_LST_SR"
+    assert systematics["missing_parton"].get_process("tllq") == {
+        "3l_onZ_1b": pytest.approx(np.asarray((1.2, 1.3)))
+    }
+
+
+def test_consumer_boundary_rejects_payload_for_a_different_registry():
+    maker = _systematics_loader(
+        years=("UL18",),
+        sr_registry="FWD_CH_LST_SR",
+    )
+
+    with pytest.raises(ValueError, match="Invalid legacy missing-parton key set"):
+        maker.load_systematics(
+            "params/rate_systs_run2.json",
+            RUN2_DEFAULT_PAYLOAD,
+        )
+
+
+def test_consumer_boundary_rejects_obsolete_payload_without_fallback(monkeypatch):
+    def reject_obsolete(path, *, sr_registry):
+        raise ValueError(
+            f"obsolete missing-parton schema for {sr_registry!r}: {path}"
+        )
+
+    monkeypatch.setattr(
+        datacard_tools,
+        "validate_legacy_missing_parton_payload",
+        reject_obsolete,
+    )
+    maker = _systematics_loader(years=("UL18",))
+
+    with pytest.raises(ValueError, match="obsolete missing-parton schema"):
+        maker.load_systematics("params/rate_systs_run2.json", "legacy.root")

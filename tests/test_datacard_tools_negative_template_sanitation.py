@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import OrderedDict, namedtuple
 
 import numpy as np
 import pytest
@@ -23,6 +23,16 @@ def _templates(nominal, variation, variation_name="FFDown"):
         ],
     }
     return templates, nominal_key, variation_key
+
+
+def _validate(templates):
+    _validate_ff_template_support(
+        templates,
+        variable="ptll",
+        channel="2lss_p_2b",
+        process="fakes",
+        decomposition="sm",
+    )
 
 
 @pytest.mark.parametrize(
@@ -100,12 +110,7 @@ def test_all_negative_nominal_cannot_leave_ff_support_after_sanitation():
     np.testing.assert_array_equal(sanitized[nominal_key][0], [0.0, 0.0])
     np.testing.assert_array_equal(sanitized[variation_key][0], [0.0, 0.0])
     np.testing.assert_array_equal(sanitized[variation_key][1], [0.0, 0.0])
-    _validate_ff_template_support(
-        variation_key.systematic,
-        sanitized[variation_key],
-        nominal_content_is_zero=True,
-        nominal_sumw2_is_zero=True,
-    )
+    _validate(sanitized)
 
 
 def test_true_zero_nominal_with_unsupported_ff_variation_still_raises():
@@ -118,12 +123,63 @@ def test_true_zero_nominal_with_unsupported_ff_variation_still_raises():
 
     np.testing.assert_array_equal(sanitized[variation_key][0], [0.5, 0.0])
     with pytest.raises(
-        Warning,
-        match="Zero values in 'nominal' but non-zero in 'FFDown'",
+        ValueError,
+        match="FF template support mismatch",
     ):
-        _validate_ff_template_support(
-            variation_key.systematic,
-            sanitized[variation_key],
-            nominal_content_is_zero=True,
-            nominal_sumw2_is_zero=True,
-        )
+        _validate(sanitized)
+
+
+def test_ff_support_validation_is_independent_of_mapping_order():
+    templates, nominal_key, variation_key = _templates(
+        nominal=[0.0, 0.0],
+        variation=[0.5, 0.0],
+    )
+    sanitized = _sanitize_negative_template_bins(templates)
+
+    for ordered_templates in (
+        OrderedDict(
+            (
+                (nominal_key, sanitized[nominal_key]),
+                (variation_key, sanitized[variation_key]),
+            )
+        ),
+        OrderedDict(
+            (
+                (variation_key, sanitized[variation_key]),
+                (nominal_key, sanitized[nominal_key]),
+            )
+        ),
+    ):
+        with pytest.raises(ValueError, match="FF template support mismatch"):
+            _validate(ordered_templates)
+
+
+def test_ff_support_diagnostic_identifies_the_affected_template():
+    templates, _, _ = _templates(
+        nominal=[0.0, 0.0],
+        variation=[0.5, 0.0],
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        _validate(_sanitize_negative_template_bins(templates))
+
+    message = str(exc_info.value)
+    for expected in (
+        "variable='ptll'",
+        "channel='2lss_p_2b'",
+        "process='fakes'",
+        "decomposition='sm'",
+        "nominal_key=",
+        "variation_key=",
+    ):
+        assert expected in message
+
+
+def test_ff_support_does_not_require_shifted_sumw2():
+    templates, _, variation_key = _templates(
+        nominal=[1.0, 0.0],
+        variation=[0.5, 0.0],
+    )
+    templates[variation_key][1] = None
+
+    _validate(_sanitize_negative_template_bins(templates))

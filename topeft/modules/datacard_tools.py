@@ -45,6 +45,7 @@ from topeft.modules.missing_parton_contract import (
     SR_CHANNEL_CONFIG_KEY,
     load_or_validate_selected_registry,
     load_missing_parton_channel_contract,
+    validate_legacy_missing_parton_payload,
 )
 
 
@@ -574,23 +575,48 @@ def _sanitize_negative_template_bins(templates):
 
 
 def _validate_ff_template_support(
-    syst,
-    arr,
-    nominal_content_is_zero,
-    nominal_sumw2_is_zero,
+    templates,
+    *,
+    variable,
+    channel,
+    process,
+    decomposition,
 ):
-    if "FF" not in syst:
+    """Require FF shape support to be compatible with the sanitized nominal."""
+    ff_templates = [
+        (sp_key, arr)
+        for sp_key, arr in templates.items()
+        if "FF" in sp_key.systematic
+    ]
+    if not ff_templates:
         return
-    if nominal_content_is_zero and sum(arr[0]) != 0:
-        raise Warning(
-            "Systematics Error arr[0]:Zero values in 'nominal' "
-            f"but non-zero in '{syst}'"
+
+    nominal_templates = [
+        (sp_key, arr)
+        for sp_key, arr in templates.items()
+        if sp_key.systematic == "nominal"
+    ]
+    if len(nominal_templates) != 1:
+        raise ValueError(
+            "FF template support validation requires exactly one sanitized nominal "
+            f"template, found {len(nominal_templates)} "
+            f"(variable={variable!r}, channel={channel!r}, process={process!r}, "
+            f"decomposition={decomposition!r})."
         )
-    if nominal_sumw2_is_zero and sum(arr[1]) != 0:
-        raise Warning(
-            "Systematics Error arr[1]:Zero values in 'nominal' "
-            f"but non-zero in '{syst}'"
-        )
+
+    nominal_key, nominal_arr = nominal_templates[0]
+    if np.sum(nominal_arr[0]) != 0:
+        return
+
+    for variation_key, variation_arr in ff_templates:
+        if np.sum(variation_arr[0]) != 0:
+            raise ValueError(
+                "FF template support mismatch: sanitized nominal content is zero "
+                "but the FF variation content is nonzero "
+                f"(variable={variable!r}, channel={channel!r}, process={process!r}, "
+                f"decomposition={decomposition!r}, nominal_key={nominal_key!r}, "
+                f"variation_key={variation_key!r})."
+            )
 
 
 class RateSystematic():
@@ -1470,7 +1496,6 @@ class DatacardMaker():
         else:
             # Finally, deal with the missing_parton systematic
             # TODO: This feels pretty hardcoded, but not sure there's any way around it
-            branch_key = "tllq"
             syst_name = self.missing_parton_nuisance_name_for_years(
                 self.year_lst,
                 payload_path=mp_fpath,
@@ -1479,16 +1504,18 @@ class DatacardMaker():
 
             fpath = topeft_path(mp_fpath)
             print(f"Opening: {fpath}")
-            with uproot.open(fpath) as f:
-                d = {}
-                for k in f.keys():
-                    #k = k.replace(";1","")
-                    # Note: Values in the ROOT file are computed as the fraction of the rate needed to
-                    #   reach agreement, so need to add 1 to get the corresponding kapaa value
-                    channel_key = str(k).split(";", 1)[0]
-                    d[channel_key] = f[f"{k}/{branch_key}"].array() + 1
-                new_syst.add_process("tllq",d)
-                new_syst.add_process("tHq",d)
+            payload_values = validate_legacy_missing_parton_payload(
+                fpath,
+                sr_registry=self.sr_registry,
+            )
+            # Values in the ROOT file are fractional rate shifts, so add 1 to
+            # obtain the corresponding kappa values used by the datacard.
+            d = {
+                channel_key: values + 1
+                for channel_key, values in payload_values.items()
+            }
+            new_syst.add_process("tllq",d)
+            new_syst.add_process("tHq",d)
             rate_systs[syst_name] = new_syst
 
         return rate_systs
@@ -1820,25 +1847,19 @@ class DatacardMaker():
                     self.validate_sparse_axes_for_card(v, ch, proc_name)
                     if crop_negative_bins:
                         v = _sanitize_negative_template_bins(v)
+                    _validate_ff_template_support(
+                        v,
+                        variable=km_dist,
+                        channel=ch,
+                        process=p,
+                        decomposition=base,
+                    )
                     # There should be only 1 sparse axis at this point, the systematics axis
-                    check_zero_arr0 = False
-                    check_zero_arr1 = False
                     seen = {}
                     written_hist_names = set()
                     for sp_key,arr in v.items():
                         syst = sp_key[0]
                         syst = sp_key.systematic
-                        if syst =="nominal":  # check systematics error for fake factors
-                            if sum(arr[0]) == 0:
-                                check_zero_arr0 = True
-                            if sum(arr[1]) == 0:
-                                check_zero_arr1 = True
-                        _validate_ff_template_support(
-                            syst,
-                            arr,
-                            check_zero_arr0,
-                            check_zero_arr1,
-                        )
 
                         syst_base = syst.replace("Up","").replace("Down","")
 
