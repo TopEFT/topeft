@@ -19,6 +19,7 @@ import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.axes import info as axes_info
+from topeft.modules.axis_binning import make_processing_axis
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression
 import topeft.modules.event_selection as te_es
@@ -57,7 +58,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto"):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto"):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -76,20 +77,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         histograms = {}
         for name, info in axes_info.items():
-            if not rebin and "variable" in info:
-                dense_axis = hist.axis.Variable(
-                    info["variable"], name=name, label=info["label"]
-                )
-                sumw2_axis = hist.axis.Variable(
-                    info["variable"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
-                )
-            else:
-                dense_axis = hist.axis.Regular(
-                    *info["regular"], name=name, label=info["label"]
-                )
-                sumw2_axis = hist.axis.Regular(
-                    *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
-                )
+            dense_axis = make_processing_axis(
+                info, name=name, label=info["label"]
+            )
+            sumw2_axis = make_processing_axis(
+                info,
+                name=name,
+                label=info["label"],
+                suffix="_sumw2",
+                label_suffix=" sum of w^2",
+            )
             histograms[name] = HistEFT(
                 proc_axis,
                 chan_axis,

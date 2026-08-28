@@ -21,6 +21,7 @@ import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
+from topeft.modules.axis_binning import make_processing_axis
 from topeft.modules.missing_parton_contract import parse_analysis_njet_token
 from topeft.modules.nominal_schema import (
     EFT_NOMINAL_SUFFIX,
@@ -76,6 +77,48 @@ ANALYSIS_MODE_EXCLUSIVE_ERROR = (
     "Flags are mutually exclusive. Set at most one of: "
     "--offZ-3l-split, --tau-h-analysis, --fwd-analysis, --all-analysis."
 )
+
+JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS = frozenset(
+    {
+        "jet_eta_phi_before_veto",
+        "jet_eta_phi_after_veto",
+    }
+)
+
+
+def flatten_jagged_jet_eta_phi_weights(jets, event_mask, event_weights):
+    """Return aligned flattened eta, phi, and per-jet event weights."""
+
+    selected_jets = jets[event_mask]
+    selected_event_weights = event_weights[event_mask]
+    _, per_jet_weights = ak.broadcast_arrays(selected_jets.eta, selected_event_weights)
+    return (
+        ak.flatten(selected_jets.eta),
+        ak.flatten(selected_jets.phi),
+        ak.flatten(per_jet_weights),
+    )
+
+
+def get_jvm_eta_phi_event_mask(base_event_mask, jet_veto_mask, histogram_name):
+    """Apply the diagnostic's family-local event-veto policy."""
+
+    if histogram_name == "jet_eta_phi_before_veto":
+        return base_event_mask
+    if histogram_name == "jet_eta_phi_after_veto":
+        return base_event_mask & jet_veto_mask
+    raise ValueError(f"Unknown JVM eta-phi diagnostic '{histogram_name}'")
+
+
+def should_include_jet_veto_in_histogram_selection(histogram_name):
+    """Preserve the standard post-veto selection outside the diagnostic pair."""
+
+    return histogram_name not in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS
+
+
+def should_fill_jvm_eta_phi_diagnostic(is_run3, syst_var, wgt_fluct):
+    """Keep reviewer diagnostics to the Run 3 nominal object/weight state."""
+
+    return is_run3 and syst_var == "nominal" and wgt_fluct == "nominal"
 
 
 def validate_analysis_mode_flags(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
@@ -358,7 +401,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return bool(fill_sumw2_hist) and wgt_fluct == "nominal"
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -443,6 +486,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selected_sumw2_families = (
                 set(base_hist_names_ordered) if fill_sumw2_hist else set()
             )
+        selected_sumw2_families.difference_update(JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS)
         self._selected_sumw2_families = frozenset(selected_sumw2_families)
         self._fill_sumw2_hist = bool(self._selected_sumw2_families)
         (
@@ -480,11 +524,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         histograms = {}
         def _build_axis(axis_cfg, *, suffix="", label_suffix=""):
-            axis_name = axis_cfg["name"] + suffix
-            axis_label = axis_cfg["label"] + label_suffix
-            if (not rebin) and ("variable" in axis_cfg):
-                return hist.axis.Variable(axis_cfg["variable"], name=axis_name, label=axis_label)
-            return hist.axis.Regular(*axis_cfg["regular"], name=axis_name, label=axis_label)
+            return make_processing_axis(
+                axis_cfg,
+                name=axis_cfg["name"],
+                label=axis_cfg["label"],
+                suffix=suffix,
+                label_suffix=label_suffix,
+            )
         for name, info in axes_info.items():
             sumw2_name = f"{name}{sumw2_suffix}"
             build_base_hist = name in self._base_hist_name_set
@@ -492,20 +538,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not (build_base_hist or build_sumw2_hist):
                 continue
 
-            if not rebin and "variable" in info:
-                dense_axis = hist.axis.Variable(
-                    info["variable"], name=name, label=info["label"]
-                )
-                sumw2_axis = hist.axis.Variable(
-                    info["variable"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
-                )
-            else:
-                dense_axis = hist.axis.Regular(
-                    *info["regular"], name=name, label=info["label"]
-                )
-                sumw2_axis = hist.axis.Regular(
-                    *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
-                )
+            dense_axis = make_processing_axis(
+                info, name=name, label=info["label"]
+            )
+            sumw2_axis = make_processing_axis(
+                info,
+                name=name,
+                label=info["label"],
+                suffix="_sumw2",
+                label_suffix=" sum of w^2",
+            )
             if build_base_hist and component_availability["scalar"]:
                 scalar_key = scalar_nominal_key(name)
                 histograms[scalar_key] = SparseHist(
@@ -623,7 +665,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
 
     @staticmethod
-    def _should_fill_plain_ptz_channel(lep_chan, allow_offz_split=False):
+    def _should_fill_plain_ptz_channel(lep_chan):
         explicit_zll_cr_channels = {
             "2los_CRZ",
             "2lss_CRflip",
@@ -642,8 +684,17 @@ class AnalysisProcessor(processor.ProcessorABC):
             return True
         if ("onZ" in lep_chan) and ("2lss" not in lep_chan):
             return True
-        return allow_offz_split and (
-            ("offZ_high" in lep_chan) or ("offZ_low" in lep_chan)
+        return False
+
+    @staticmethod
+    def _should_fill_plain_ptll_channel(lep_chan, allow_offz_split=False):
+        return allow_offz_split and lep_chan.startswith(
+            (
+                "3l_m_offZ_low_",
+                "3l_m_offZ_high_",
+                "3l_p_offZ_low_",
+                "3l_p_offZ_high_",
+            )
         )
 
     def _should_skip_histogram_fill(self, dense_axis_name, ch_name, lep_chan):
@@ -657,34 +708,42 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Mode flags are mutually exclusive; mirror the historical loop-local
         # continue/skip behavior by returning a single skip decision.
         if self._analysis_mode == "all":
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
-                skip_hist = not self._should_fill_plain_ptz_channel(
-                    lep_chan,
-                    allow_offz_split=True,
+            if dense_axis_name == "ptz":
+                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if dense_axis_name == "ptll":
+                skip_hist = not self._should_fill_plain_ptll_channel(
+                    lep_chan, allow_offz_split=True
                 )
             # if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
             #     skip_hist = True
             if (("ptz_wtau" in dense_axis_name) and not self._should_fill_ptz_wtau_channel(lep_chan)):
                 skip_hist = True
         elif self._analysis_mode == "offz":
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
-                skip_hist = not self._should_fill_plain_ptz_channel(
-                    lep_chan,
-                    allow_offz_split=True,
+            if dense_axis_name == "ptz":
+                skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if dense_axis_name == "ptll":
+                skip_hist = not self._should_fill_plain_ptll_channel(
+                    lep_chan, allow_offz_split=True
                 )
         elif self._analysis_mode == "tau":
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+            if dense_axis_name == "ptz":
                 skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if dense_axis_name == "ptll":
+                skip_hist = True
             if (("ptz_wtau" in dense_axis_name) and not self._should_fill_ptz_wtau_channel(lep_chan)):
                 skip_hist = True
         elif self._analysis_mode == "fwd":
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+            if dense_axis_name == "ptz":
+                skip_hist = True
+            if dense_axis_name == "ptll":
                 skip_hist = True
             # if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
             #     skip_hist = True
         else:
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+            if dense_axis_name == "ptz":
                 skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if dense_axis_name == "ptll":
+                skip_hist = True
 
         if ((dense_axis_name in ["o0pt", "b0pt", "bl0pt"]) & ("CR" in ch_name)):
             skip_hist = True
@@ -1708,13 +1767,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptbl_lep = l_fo_conept_sorted
             ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
 
-            # Z pt (pt of the ll pair that form the Z for the onZ categories)
+            # Keep the public concepts distinct: ptz is the in-window
+            # Z-candidate pT, while ptll is the closest-SFOS dilepton pT used by
+            # the 3l off-Z low/high categories.
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             if self.enable_tau_blocks:
                 ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
 
             if self.enable_offz_blocks:
-                ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+                ptll = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
             bjetsm = goodJets[isBtagJetsMedium][ak.argsort(goodJets[isBtagJetsMedium].pt, axis=-1, ascending=False)]
@@ -1805,6 +1866,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["invmass"] = mll_0_1
             varnames["ptbl"]    = ak.flatten(ptbl)
             varnames["ptz"]     = ptz
+            if self.enable_offz_blocks:
+                varnames["ptll"] = ptll
             varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
@@ -1812,6 +1875,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
+            if is_run3:
+                varnames["jet_eta_phi_before_veto"] = veto_map_input_jets
+                varnames["jet_eta_phi_after_veto"] = veto_map_input_jets
             lepton0_pt_raw = l0.pt_raw 
             lepton0_abseta = abs(l0.eta) 
 
@@ -2002,7 +2068,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     dense_axis_name
                 )
                 if self._sumw2_policy is None:
-                    target_selected_for_sumw2 = self._fill_sumw2_hist
+                    target_selected_for_sumw2 = (
+                        self._fill_sumw2_hist
+                        and dense_axis_name not in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS
+                    )
                 else:
                     target_selected_for_sumw2 = self._sumw2_policy.selects(
                         dataset_key,
@@ -2102,7 +2171,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         #Selections applied everywhere
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
-                                        cuts_lst.append("jet_veto")
+                                        is_jvm_eta_phi_diagnostic = (
+                                            dense_axis_name in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS
+                                        )
+                                        if should_include_jet_veto_in_histogram_selection(
+                                            dense_axis_name
+                                        ):
+                                            cuts_lst.append("jet_veto")
 
                                         if self._split_by_lepton_flavor:
                                             flav_ch = lep_flav
@@ -2127,6 +2202,40 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Apply the optional cut on energy of the event
                                         if self._ecut_threshold is not None:
                                             all_cuts_mask = (all_cuts_mask & ecut_mask)
+
+                                        if is_jvm_eta_phi_diagnostic:
+                                            if not should_fill_jvm_eta_phi_diagnostic(
+                                                is_run3,
+                                                syst_var,
+                                                wgt_fluct,
+                                            ):
+                                                continue
+                                            diagnostic_event_mask = get_jvm_eta_phi_event_mask(
+                                                all_cuts_mask,
+                                                veto_map_mask,
+                                                dense_axis_name,
+                                            )
+                                            eta_flat, phi_flat, weights_flat = (
+                                                flatten_jagged_jet_eta_phi_weights(
+                                                    veto_map_input_jets,
+                                                    diagnostic_event_mask,
+                                                    weight,
+                                                )
+                                            )
+                                            if fill_base_hist:
+                                                axis_names = self._hist_axis_map[dense_axis_name]
+                                                hout[nominal_histogram_key].fill(
+                                                    **{
+                                                        axis_names[0]: eta_flat,
+                                                        axis_names[1]: phi_flat,
+                                                        "channel": ch_name,
+                                                        "appl": appl,
+                                                        "process": histAxisName,
+                                                        "systematic": wgt_fluct,
+                                                        "weight": weights_flat,
+                                                    }
+                                                )
+                                            continue
 
                                         # Weights and eft coeffs
                                         weights_flat = weight[all_cuts_mask]

@@ -31,7 +31,7 @@ def samples():
             "WCnames": [],
         },
         "unselected_a": {
-            "histAxisName": "other_centralUL18",
+            "histAxisName": "WWTo2L2Nu_centralUL18",
             "isData": False,
             "WCnames": [],
         },
@@ -52,7 +52,10 @@ def _explicit_block(*, nonprompt=True, flips=True):
                     "source_contributors": {
                         "data": {"process_names": ["dataUL18"]},
                         "prompt_mc": {
-                            "process_prefixes": ["TTTo2L2Nu_central"]
+                            "process_names": [
+                                "TTTo2L2Nu_centralUL18",
+                                "ttHJet_privateUL18",
+                            ]
                         },
                     }
                 }
@@ -81,7 +84,6 @@ def _resolve_products(
     *,
     present=True,
     legacy_do_np=False,
-    required_prompt_signal_processes=(),
 ):
     return resolve_data_driven_products(
         block,
@@ -90,7 +92,6 @@ def _resolve_products(
         samples=samples,
         runtime_families=("njets", "met"),
         metadata_path="run_options.yml",
-        required_prompt_signal_processes=required_prompt_signal_processes,
     )
 
 
@@ -113,6 +114,7 @@ def test_explicit_products_resolve_editable_exact_and_prefix_contributors(sample
     assert resolved.product("nonprompt").contributors_for("data") == ("dataUL18",)
     assert resolved.product("nonprompt").contributors_for("prompt_mc") == (
         "TTTo2L2Nu_centralUL18",
+        "ttHJet_privateUL18",
     )
     assert resolved.product("flips").output_processes == ("flipsUL18",)
     assert resolved.product("nonprompt").output_processes == ("nonpromptUL18",)
@@ -130,8 +132,9 @@ def test_absent_block_derives_exact_legacy_products_and_warns(samples):
     assert resolved.enabled_products() == ("nonprompt", "flips")
     assert resolved.product("nonprompt").contributors_for("prompt_mc") == (
         "TTTo2L2Nu_centralUL18",
+        "ttHJet_privateUL18",
     )
-    assert "ttHJet_privateUL18" not in resolved.product(
+    assert "ttHJet_privateUL18" in resolved.product(
         "nonprompt"
     ).contributors_for("prompt_mc")
 
@@ -160,7 +163,7 @@ def test_absent_block_without_legacy_do_np_disables_both_products(samples):
         ),
         (
             lambda block: block["nonprompt"]["source_contributors"].__setitem__(
-                "signal", {"process_names": ["other_centralUL18"]}
+                "signal", {"process_names": ["WWTo2L2Nu_centralUL18"]}
             ),
             r"unknown=\['signal'\]",
         ),
@@ -186,7 +189,7 @@ def test_overlapping_roles_and_ambiguous_duplicate_selector_resolution_fail(samp
     overlapping["nonprompt"]["source_contributors"]["prompt_mc"] = {
         "process_names": ["dataUL18"]
     }
-    with pytest.raises(data_driven_product_error, match="scalar non-EFT MC"):
+    with pytest.raises(data_driven_product_error, match="must be non-data MC"):
         _resolve_products(overlapping, samples)
 
     ambiguous = _explicit_block()
@@ -207,7 +210,6 @@ def test_both_disabled_is_valid_and_requires_no_targets(samples):
 
 
 def test_implicit_production_selects_only_requested_source_targets(samples):
-    required_signals = ("ttHJet_privateUL18",)
     block = _explicit_block()
     block["nonprompt"]["source_contributors"]["prompt_mc"] = {
         "process_names": [
@@ -215,11 +217,7 @@ def test_implicit_production_selects_only_requested_source_targets(samples):
             "ttHJet_privateUL18",
         ]
     }
-    products = _resolve_products(
-        block,
-        samples,
-        required_prompt_signal_processes=required_signals,
-    )
+    products = _resolve_products(block, samples)
     policy = resolve_sumw2_storage_policy(
         None,
         samples=samples,
@@ -237,17 +235,18 @@ def test_implicit_production_selects_only_requested_source_targets(samples):
         "TTTo2L2Nu_centralUL18",
         "ttHJet_privateUL18",
     }
-    assert "other_centralUL18" not in policy.selected_processes("njets")
+    assert "WWTo2L2Nu_centralUL18" not in policy.selected_processes("njets")
     assert requested["products"]["nonprompt"]["enabled"] is True
     assert set(contract) == {
         "contract_version",
-        "required_prompt_signal_processes",
+        "nonprompt_policy",
+        "resolved_prompt_process_set",
+        "policy_migration",
         "products",
     }
-    assert contract["contract_version"] == 3
-    assert contract["required_prompt_signal_processes"] == [
-        "ttHJet_privateUL18"
-    ]
+    assert contract["contract_version"] == 4
+    assert "required_prompt_signal_processes" not in contract
+    assert "eft_prompt_processes" not in contract["nonprompt_policy"]
     assert contract["products"]["flips"]["generated_outputs"]["flipsUL18"][
         "required_source_sumw2_processes"
     ] == ["dataUL18"]
@@ -266,6 +265,7 @@ def test_full_diagnostics_and_complete_full_custom_pass_all_families(samples):
                     "process_names": [
                         "dataUL18",
                         "TTTo2L2Nu_centralUL18",
+                        "ttHJet_privateUL18",
                     ]
                 }
             ],
@@ -283,11 +283,7 @@ def test_explicit_production_and_taufitter_require_complete_product_sources(samp
             "ttHJet_privateUL18",
         ]
     }
-    products = _resolve_products(
-        block,
-        samples,
-        required_prompt_signal_processes=("ttHJet_privateUL18",),
-    )
+    products = _resolve_products(block, samples)
     source_rule = {
         "process_names": [
             "dataUL18",
@@ -371,6 +367,23 @@ def test_serialized_contract_validation_rejects_tampering(samples):
         contract,
         policy=policy,
     ) == (requested, contract)
+
+    historical = copy.deepcopy(contract)
+    historical["required_prompt_signal_processes"] = ["stale_processUL18"]
+    historical["nonprompt_policy"]["eft_prompt_processes"] = [
+        "stale_processUL18"
+    ]
+    historical["nonprompt_policy"]["eft_sm_point"] = True
+    historical["nonprompt_policy"]["resolutions"][0]["eft_sm_point"] = True
+    normalized_requested, normalized_contract = (
+        validate_serialized_data_driven_contract(
+            requested,
+            historical,
+            policy=policy,
+        )
+    )
+    assert normalized_requested == requested
+    assert normalized_contract == contract
 
     tampered = copy.deepcopy(contract)
     tampered["products"]["nonprompt"]["generated_outputs"]["nonpromptUL18"][
@@ -461,7 +474,7 @@ def test_implicit_legacy_orphan_prompt_year_fails_during_resolution():
 def test_data_only_year_and_complete_years_resolve_exact_output_maps():
     local_samples = {
         "data_17_a": {"histAxisName": "dataUL17", "isData": True, "WCnames": []},
-        "data_17_b": {"histAxisName": "dataMuonUL17", "isData": True, "WCnames": []},
+        "data_17_b": {"histAxisName": "dataUL17", "isData": True, "WCnames": []},
         "data_18": {"histAxisName": "dataUL18", "isData": True, "WCnames": []},
         "prompt_17_a": {
             "histAxisName": "TTTo2L2Nu_centralUL17",
@@ -470,11 +483,6 @@ def test_data_only_year_and_complete_years_resolve_exact_output_maps():
         },
         "prompt_17_b": {
             "histAxisName": "WZTo3LNu_centralUL17",
-            "isData": False,
-            "WCnames": [],
-        },
-        "prompt_18": {
-            "histAxisName": "TTTo2L2Nu_centralUL18",
             "isData": False,
             "WCnames": [],
         },
@@ -503,7 +511,6 @@ def test_data_only_year_and_complete_years_resolve_exact_output_maps():
     nonprompt_outputs = dict(resolved.product("nonprompt").generated_outputs)
     assert tuple(nonprompt_outputs) == ("nonpromptUL17", "nonpromptUL18")
     assert nonprompt_outputs["nonpromptUL17"].contributors_for("data") == (
-        "dataMuonUL17",
         "dataUL17",
     )
     assert nonprompt_outputs["nonpromptUL17"].contributors_for("prompt_mc") == (
@@ -517,7 +524,13 @@ def test_data_only_year_and_complete_years_resolve_exact_output_maps():
     complete_block["nonprompt"]["source_contributors"]["prompt_mc"][
         "process_names"
     ].append("TTTo2L2Nu_centralUL18")
-    complete = _resolve_products(complete_block, local_samples)
+    complete_samples = dict(local_samples)
+    complete_samples["prompt_18"] = {
+        "histAxisName": "TTTo2L2Nu_centralUL18",
+        "isData": False,
+        "WCnames": [],
+    }
+    complete = _resolve_products(complete_block, complete_samples)
     complete_outputs = dict(complete.product("nonprompt").generated_outputs)
     assert complete_outputs["nonpromptUL18"].contributors_for("prompt_mc") == (
         "TTTo2L2Nu_centralUL18",
@@ -530,7 +543,12 @@ def test_all_canonical_years_and_overlapping_suffixes_group_exactly():
     prompt_processes = []
     for index, year in enumerate(CANONICAL_DATA_DRIVEN_YEARS):
         data_process = f"data{year}"
-        prompt_process = f"TTTo2L2Nu_central{year}"
+        prompt_base = (
+            "TTTo2L2Nu_central"
+            if year.startswith("UL")
+            else "TTto2L2Nu_central"
+        )
+        prompt_process = f"{prompt_base}{year}"
         data_processes.append(data_process)
         prompt_processes.append(prompt_process)
         local_samples[f"data_{index}"] = {
@@ -548,7 +566,7 @@ def test_all_canonical_years_and_overlapping_suffixes_group_exactly():
             "enabled": True,
             "source_contributors": {
                 "data": {"process_names": data_processes},
-                "prompt_mc": {"process_prefixes": ["TTTo2L2Nu_central"]},
+                "prompt_mc": {"process_names": prompt_processes},
             },
         },
         "flips": {
@@ -584,7 +602,7 @@ def test_all_canonical_years_and_overlapping_suffixes_group_exactly():
     ],
 )
 def test_shortened_or_unknown_year_aliases_are_rejected(process):
-    with pytest.raises(data_driven_product_error, match="year naming convention"):
+    with pytest.raises(data_driven_product_error, match="year suffix"):
         parse_process_name(process)
 
 
@@ -612,7 +630,7 @@ def test_serialized_contract_rejects_cross_year_and_orphan_output_tampering(samp
         "TTTo2L2Nu_centralUL17",
         "dataUL18",
     ]
-    with pytest.raises(data_driven_product_error, match="has year 'UL17'.*year 'UL18'"):
+    with pytest.raises(data_driven_product_error, match="has year 'UL17'.*year 'UL18'|certified resolved prompt"):
         validate_serialized_data_driven_contract(
             requested, moved_contributor, policy=policy
         )

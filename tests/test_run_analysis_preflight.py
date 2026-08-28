@@ -244,3 +244,58 @@ def test_mixed_category_request_reaches_processor_construction_boundary(
             ],
             use_real_sample=True,
         )
+
+
+def test_yaml_values_replace_overlapping_cli_values(monkeypatch, tmp_path):
+    options_path = tmp_path / "recognized_options.yml"
+    options_path.write_text(
+        "hist_list:\n  - met\nuse_remote_env: false\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(processor_construction_boundary):
+        _run_cli_to_preflight_or_processor(
+            monkeypatch,
+            tmp_path,
+            [
+                "--all-analysis",
+                "--skip-sr",
+                "--category-groups",
+                "2l_CR",
+                "--hist-list",
+                "ptz_wtau",
+                "--options",
+                str(options_path),
+                "--executor",
+                "futures",
+            ],
+            use_real_sample=True,
+        )
+
+
+def test_unknown_yaml_keys_fail_before_processor_executor_and_output(
+    monkeypatch,
+    tmp_path,
+):
+    options_path = tmp_path / "unknown_options.yml"
+    options_path.write_text(
+        "zeta_typo: true\nalpha_typo: false\nuse_remote_env: false\n",
+        encoding="utf-8",
+    )
+    state = {}
+
+    with pytest.raises(
+        ValueError,
+        match=r"Unsupported YAML option key\(s\): alpha_typo, zeta_typo",
+    ):
+        _run_cli_to_preflight_or_processor(
+            monkeypatch,
+            tmp_path,
+            ["--options", str(options_path), "--executor", "work_queue"],
+            use_real_sample=False,
+            state=state,
+        )
+
+    assert state["captured"]["processor_construction"] == 0
+    assert state["captured"]["executor_setup"] == 0
+    assert not state["output_dir"].exists()

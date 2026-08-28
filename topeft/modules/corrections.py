@@ -59,6 +59,15 @@ TAU_ENERGY_FIELDS = {
     },
 }
 
+
+def _evaluate_correctionlib(correction, *args):
+    """Evaluate correctionlib without exposing it to Awkward-1 arrays."""
+    numpy_args = tuple(
+        ak.to_numpy(arg) if isinstance(arg, ak.highlevel.Array) else arg
+        for arg in args
+    )
+    return correction.evaluate(*numpy_args)
+
 def is_muon_momentum_systematic(syst_var):
     return syst_var in RUN3_MUON_MOMENTUM_SYSTEMATICS
 
@@ -650,7 +659,9 @@ def ApplyJetVetoMaps(jets, year):
     phi_flat_bound = ak.where(phi_flat>3.14159,3.14159, ak.where(phi_flat<-3.14159,-3.14159, phi_flat))
 
     #Get pass/fail values for each jet (0 is pass and >0 is fail)
-    jet_vetomap_flat = ceval[key].evaluate('jetvetomap',eta_flat_bound,phi_flat_bound)
+    jet_vetomap_flat = _evaluate_correctionlib(
+        ceval[key], 'jetvetomap', eta_flat_bound, phi_flat_bound
+    )
     
     #Unflatten the array
     jet_vetomap_score = ak.unflatten(jet_vetomap_flat,ak.num(jets.phi))
@@ -1001,7 +1012,7 @@ def AttachTauSF(
                 ak.where(
                     ~tau_mask_flat,
                     1,
-                    ceval[discr].evaluate(*arg_sf)
+                    _evaluate_correctionlib(ceval[discr], *arg_sf)
                 )
             )
 
@@ -1013,7 +1024,7 @@ def AttachTauSF(
                 ak.where(
                     ~tau_mask_flat,
                     1,
-                    ceval[discr].evaluate(*arg_up)
+                    _evaluate_correctionlib(ceval[discr], *arg_up)
                 )
             )
             if "VSjet" in discr:
@@ -1024,7 +1035,7 @@ def AttachTauSF(
                 ak.where(
                     ~tau_mask_flat,
                     1,
-                    ceval[discr].evaluate(*arg_down)
+                    _evaluate_correctionlib(ceval[discr], *arg_down)
                 )
             )
 
@@ -1158,7 +1169,12 @@ def AttachPerLeptonFR(leps, flavor, year):
         fr_year_tag = "fakeRate_2023_2023BPix" if year.startswith("2023") else "fakeRate_2022_2022EE"
 
         for syst in ffSysts:
-            fr = ak.unflatten(ceval[fr_year_tag].evaluate(pt_masked, abseta, syst, abspdgid), ak.num(leps.conept))
+            fr = ak.unflatten(
+                _evaluate_correctionlib(
+                    ceval[fr_year_tag], pt_masked, abseta, syst, abspdgid
+                ),
+                ak.num(leps.conept),
+            )
             leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0)
             leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.0 + 1.0
             leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0
@@ -1278,13 +1294,41 @@ def AttachMuonSF(muons, year, useRun3MVA=True):
         loose_sf_flat = ak.where(
             ~pt_mask,
             1,
-            ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "nominal")
+            _evaluate_correctionlib(
+                ceval["NUM_LooseID_DEN_TrackerMuons"],
+                abseta_flat,
+                pt_flat_loose,
+                "nominal",
+            )
         )
         loose_err_flat = ak.where(
             ~pt_mask,
             1,
             np.sqrt(
-                ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "syst") * ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "syst") + ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "stat") * ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "stat")
+                _evaluate_correctionlib(
+                    ceval["NUM_LooseID_DEN_TrackerMuons"],
+                    abseta_flat,
+                    pt_flat_loose,
+                    "syst",
+                )
+                * _evaluate_correctionlib(
+                    ceval["NUM_LooseID_DEN_TrackerMuons"],
+                    abseta_flat,
+                    pt_flat_loose,
+                    "syst",
+                )
+                + _evaluate_correctionlib(
+                    ceval["NUM_LooseID_DEN_TrackerMuons"],
+                    abseta_flat,
+                    pt_flat_loose,
+                    "stat",
+                )
+                * _evaluate_correctionlib(
+                    ceval["NUM_LooseID_DEN_TrackerMuons"],
+                    abseta_flat,
+                    pt_flat_loose,
+                    "stat",
+                )
             )
         )
         loose_sf  = ak.unflatten(loose_sf_flat, ak.num(pt))
@@ -1318,13 +1362,41 @@ def AttachMuonSF(muons, year, useRun3MVA=True):
         loose_sf_flat = ak.where(
             ~pt_mask,
             1,
-            ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "nominal")
+            _evaluate_correctionlib(
+                ceval["NUM_LooseID_DEN_TrackerMuons"],
+                abseta_flat,
+                pt_flat_loose,
+                "nominal",
+            )
         )
         loose_err_flat = ak.where(
             ~pt_mask,
             1,
             np.sqrt(
-                ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "syst") * ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "syst") + ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "stat") * ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "stat")
+                _evaluate_correctionlib(
+                    ceval["NUM_LooseID_DEN_TrackerMuons"],
+                    abseta_flat,
+                    pt_flat_loose,
+                    "syst",
+                )
+                * _evaluate_correctionlib(
+                    ceval["NUM_LooseID_DEN_TrackerMuons"],
+                    abseta_flat,
+                    pt_flat_loose,
+                    "syst",
+                )
+                + _evaluate_correctionlib(
+                    ceval["NUM_LooseID_DEN_TrackerMuons"],
+                    abseta_flat,
+                    pt_flat_loose,
+                    "stat",
+                )
+                * _evaluate_correctionlib(
+                    ceval["NUM_LooseID_DEN_TrackerMuons"],
+                    abseta_flat,
+                    pt_flat_loose,
+                    "stat",
+                )
             )
         )
         loose_sf  = ak.unflatten(loose_sf_flat, ak.num(pt))
@@ -1354,14 +1426,26 @@ def AttachMuonSF(muons, year, useRun3MVA=True):
 
             if year.startswith("2022"):
                 muo_tag  = "mu_allflavor"
-                lepmva_vals_nom= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "", pdgid_flat)
-                lepmva_vals_up= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_muup", pdgid_flat)
-                lepmva_vals_down= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_mudn", pdgid_flat)
+                lepmva_vals_nom = _evaluate_correctionlib(
+                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "", pdgid_flat
+                )
+                lepmva_vals_up = _evaluate_correctionlib(
+                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "_muup", pdgid_flat
+                )
+                lepmva_vals_down = _evaluate_correctionlib(
+                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "_mudn", pdgid_flat
+                )
             elif year.startswith("2023"):
                 muo_tag = "NUM_TightmvaTTH_DEN_LooseMuons"
-                lepmva_vals_nom = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "nominal")
-                lepmva_vals_up = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systup")
-                lepmva_vals_down = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systdown")
+                lepmva_vals_nom = _evaluate_correctionlib(
+                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "nominal"
+                )
+                lepmva_vals_up = _evaluate_correctionlib(
+                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "systup"
+                )
+                lepmva_vals_down = _evaluate_correctionlib(
+                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "systdown"
+                )
 
             new_sf_flat = ak.where(
                 ~pt_lepmva_mask,
@@ -1489,21 +1573,21 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
             ak.where(
                 ~pt_mask,
                 1,
-                ceval[egm_tag].evaluate(egm_year, "sf", *egm_args)
+                _evaluate_correctionlib(ceval[egm_tag], egm_year, "sf", *egm_args)
             )
         )
         reco_up_perbin.append(
             ak.where(
                 ~pt_mask,
                 1,
-                ceval[egm_tag].evaluate(egm_year, "sfup", *egm_args)
+                _evaluate_correctionlib(ceval[egm_tag], egm_year, "sfup", *egm_args)
             )
         )
         reco_do_perbin.append(
             ak.where(
                 ~pt_mask,
                 1,
-                ceval[egm_tag].evaluate(egm_year, "sfdown", *egm_args)
+                _evaluate_correctionlib(ceval[egm_tag], egm_year, "sfdown", *egm_args)
             )
         )
 
@@ -1581,14 +1665,26 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
 
             if year.startswith("2022"):
                 egm_tag  = "el_allflavor"
-                lepmva_vals_nom= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "", pdgid_flat)
-                lepmva_vals_up= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "_elup", pdgid_flat)
-                lepmva_vals_down= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "_eldn", pdgid_flat)
+                lepmva_vals_nom = _evaluate_correctionlib(
+                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "", pdgid_flat
+                )
+                lepmva_vals_up = _evaluate_correctionlib(
+                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "_elup", pdgid_flat
+                )
+                lepmva_vals_down = _evaluate_correctionlib(
+                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "_eldn", pdgid_flat
+                )
             elif year.startswith("2023"):
                 egm_tag = "NUM_TightmvaTTH_DEN_LooseElectrons"
-                lepmva_vals_nom = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "nominal")
-                lepmva_vals_up = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systup")
-                lepmva_vals_down = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systdown")
+                lepmva_vals_nom = _evaluate_correctionlib(
+                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "nominal"
+                )
+                lepmva_vals_up = _evaluate_correctionlib(
+                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "systup"
+                )
+                lepmva_vals_down = _evaluate_correctionlib(
+                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "systdown"
+                )
 
             new_sf_flat = ak.where(
                 ~pt_lepmva_mask,
@@ -1686,7 +1782,8 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
         run_per_electron = ak.full_like(pt, 1, dtype=int) * run
         run_flat = ak.flatten(run_per_electron)
 
-        scale_flat = scale_eval.evaluate(
+        scale_flat = _evaluate_correctionlib(
+            scale_eval,
             "scale",
             run_flat,
             sceta_flat,
@@ -1709,7 +1806,9 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
         absEta_flat = ak.flatten(absEta)
 
         # nominal smear width
-        smear_nom = smear_eval.evaluate("smear", pt_flat, r9_flat, absEta_flat)
+        smear_nom = _evaluate_correctionlib(
+            smear_eval, "smear", pt_flat, r9_flat, absEta_flat
+        )
         # random numbers per event
         rng = np.random.default_rng(12345)
         rnd = rng.normal(size=len(pt_flat))
@@ -1717,7 +1816,9 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
         pt_smeared_nom = pt_flat * (1 + smear_nom * rnd)
 
         # systematic up/down on smear
-        dsmear = smear_eval.evaluate("esmear", pt_flat, r9_flat, absEta_flat)
+        dsmear = _evaluate_correctionlib(
+            smear_eval, "esmear", pt_flat, r9_flat, absEta_flat
+        )
         pt_smeared_up   = pt_flat * (1 + (smear_nom + dsmear) * rnd)
         pt_smeared_down = pt_flat * (1 + (smear_nom - dsmear) * rnd)
 
@@ -1734,7 +1835,9 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
 
         # 2) Scale uncertainties on the *smeared* pt
         scale_eval = smear_eval  # same JSON holds "escale"
-        escale = scale_eval.evaluate("escale", pt_flat, r9_flat, absEta_flat)
+        escale = _evaluate_correctionlib(
+            scale_eval, "escale", pt_flat, r9_flat, absEta_flat
+        )
 
         scale_up   = (1 + escale) * pt_smeared_nom
         scale_down = (1 - escale) * pt_smeared_nom

@@ -317,7 +317,6 @@ def combine_faketau_histogram_pkls(paths):
     input_paths = normalize_input_pkl_paths(paths)
     merged, merge_report = load_and_merge_histogram_pkls(
         input_paths,
-        on_process_collision="allow",
         require_sumw2=True,
         consumer_required_families=FAKETAU_REQUIRED_HISTOGRAMS,
     )

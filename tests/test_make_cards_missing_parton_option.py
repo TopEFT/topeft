@@ -35,6 +35,7 @@ def _condor_namespace(
         skip_missing_parton_rate_syst=skip_missing_parton_rate_syst,
         missing_parton_payload_path=missing_parton_payload_path,
         sr_registry=sr_registry,
+        binning_mode="fitting",
     )
 
 
@@ -93,6 +94,23 @@ def test_parser_default_preserves_missing_parton_nuisance():
     assert args.skip_missing_parton_rate_syst is False
     assert args.miss_parton_file is None
     assert args.sr_registry == DEFAULT_SR_REGISTRY
+    assert args.binning == "fitting"
+
+
+@pytest.mark.parametrize("binning_mode", ("processing", "fitting"))
+def test_parser_accepts_card_binning_modes(binning_mode):
+    args = make_cards.build_arg_parser().parse_args(
+        ["input.pkl.gz", "--binning", binning_mode]
+    )
+
+    assert args.binning == binning_mode
+
+
+def test_parser_rejects_unknown_card_binning_mode():
+    with pytest.raises(SystemExit):
+        make_cards.build_arg_parser().parse_args(
+            ["input.pkl.gz", "--binning", "legacy"]
+        )
 
 
 def test_parser_accepts_every_canonical_sr_registry():
@@ -113,6 +131,8 @@ def test_parser_help_records_registry_default_and_payload_override():
 
     assert "default: ALL_CH_LST_SR" in " ".join(help_text.split())
     assert "--miss-parton-file" in help_text
+    assert "--binning {processing,fitting}" in help_text
+    assert "default: fitting" in " ".join(help_text.split())
 
 
 def test_parser_preserves_explicit_missing_parton_payload_override():
@@ -146,6 +166,8 @@ def test_local_main_propagates_targeted_suppression(monkeypatch):
             "make_cards.py",
             "input.pkl.gz",
             "--skip-missing-parton-rate-syst",
+            "--binning",
+            "processing",
         ],
     )
     monkeypatch.setattr(
@@ -160,6 +182,7 @@ def test_local_main_propagates_targeted_suppression(monkeypatch):
         make_cards.main()
 
     assert exc_info.value.args[0]["skip_missing_parton_rate_syst"] is True
+    assert exc_info.value.args[0]["binning_mode"] == "processing"
 
 
 def test_local_cli_omission_passes_direct_default_resolution_inputs(monkeypatch):
@@ -189,6 +212,39 @@ def test_local_cli_omission_passes_direct_default_resolution_inputs(monkeypatch)
     assert exc_info.value.args[0]["missing_parton_path"] is None
     assert exc_info.value.args[0]["year_lst"] == ["UL18"]
     assert exc_info.value.args[0]["sr_registry"] == DEFAULT_SR_REGISTRY
+    assert "rate_systs_path" not in exc_info.value.args[0]
+
+
+def test_local_cli_propagates_explicit_rate_systematics_override(monkeypatch):
+    class captured_kwargs(RuntimeError):
+        pass
+
+    def capture_datacard_maker(*, hists, **kwargs):
+        assert hists == {}
+        raise captured_kwargs(kwargs)
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "make_cards.py",
+            "input.pkl.gz",
+            "--rate-syst-json",
+            "custom/rate_systematics.json",
+        ],
+    )
+    monkeypatch.setattr(
+        make_cards,
+        "load_and_merge_histogram_pkls",
+        lambda *args, **kwargs: ({}, {}),
+    )
+    monkeypatch.setattr(make_cards, "_emit_merge_report", lambda *args: None)
+    monkeypatch.setattr(make_cards, "DatacardMaker", capture_datacard_maker)
+
+    with pytest.raises(captured_kwargs) as exc_info:
+        make_cards.main()
+
+    assert exc_info.value.args[0]["rate_systs_path"] == "custom/rate_systematics.json"
 
 
 def test_local_cli_propagates_registry_and_exact_payload_override(monkeypatch):
@@ -237,11 +293,25 @@ def test_condor_option_propagation_is_additive_and_targeted():
     )
 
     assert "--skip-missing-parton-rate-syst" not in default_opts
-    assert skip_opts == default_opts[:-2] + [
-        "--skip-missing-parton-rate-syst",
-        "--on-process-collision",
+    assert skip_opts == default_opts[:3] + [
+        "--skip-missing-parton-rate-syst"
+    ] + default_opts[3:]
+    assert default_opts[-4:] == [
+        "--binning",
+        "fitting",
+        "--year-coverage-policy",
         "error",
     ]
+
+
+def test_condor_option_propagates_selected_card_binning_mode():
+    namespace = _condor_namespace(False)
+    namespace.binning_mode = "processing"
+
+    opts = make_cards._build_condor_base_other_opts(namespace, "warn")
+
+    binning_index = opts.index("--binning")
+    assert opts[binning_index + 1] == "processing"
 
 
 @pytest.mark.parametrize(
@@ -319,8 +389,9 @@ def test_default_missing_parton_contract_remains_tllq_and_thq(monkeypatch):
     assert missing_parton.get_process("ttH") == "-"
 
 
+@pytest.mark.parametrize("binning_mode", ("processing", "fitting"))
 def test_missing_parton_card_formatting_and_missing_entry_remain_public(
-    tmp_path,
+    tmp_path, binning_mode
 ):
     channel = "3l_onZ_1b_2j"
     hists = {
@@ -333,6 +404,7 @@ def test_missing_parton_card_formatting_and_missing_entry_remain_public(
         var_lst=["ht"],
         do_nuisance=False,
         verbose=False,
+        binning_mode=binning_mode,
     )
     nuisance_name = "missing_parton"
     missing_parton = RateSystematic(nuisance_name)

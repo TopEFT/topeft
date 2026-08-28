@@ -13,7 +13,6 @@ from topeft.modules.production_sample_profile import (
     VALIDATED_SIGNAL_VARIANT_GROUPS,
     build_active_sample_universe,
     certify_production_sample_contract,
-    derive_required_prompt_signal_processes,
     production_sample_profile_error,
     signal_variant_group,
     validate_active_sample_profile,
@@ -104,29 +103,6 @@ def test_absent_group_and_unpaired_signals_create_no_false_requirement(mode):
         }
     )
     validate_active_sample_profile(universe, _mode(mode))
-
-
-def test_run3_ttll_private_is_an_unpaired_required_prompt_signal():
-    processes = (
-        "TTTo2L2Nu_central2022",
-        "ttll_private2022",
-        "data2022",
-    )
-    assert derive_required_prompt_signal_processes(
-        processes,
-        signal_sample_profile="private",
-        nonprompt_enabled=True,
-    ) == ("ttll_private2022",)
-    assert derive_required_prompt_signal_processes(
-        processes,
-        signal_sample_profile="central",
-        nonprompt_enabled=True,
-    ) == ("ttll_private2022",)
-    assert derive_required_prompt_signal_processes(
-        processes,
-        signal_sample_profile="private",
-        nonprompt_enabled=False,
-    ) == ()
 
 
 def test_explicit_contributor_and_prefix_must_exist_in_active_cfg():

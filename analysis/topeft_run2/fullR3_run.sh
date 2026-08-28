@@ -25,6 +25,8 @@ PrintUsage() {
   echo "             Record wrapper provenance exactly once (default: fullR3_run.sh)"
   echo "  -p, --outpath PATH"
   echo "             Override the run_analysis.py output directory"
+  echo "  --env-file PATH"
+  echo "             Forward one prebuilt Poncho archive to run_analysis.py"
   echo "  --dry-run  Print the resolved run_analysis.py command and exit"
   echo "  -h, --help Show this help message"
   echo

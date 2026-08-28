@@ -35,8 +35,8 @@ current_payload_paths = {
     "run3": payload_directory / "missing_parton_run3.root",
 }
 current_payload_semantic_digests = {
-    "run2": "4a869bc8ecc56adb491100e50b29d0e600a6916824b2849ff9f9d31c5a09736a",
-    "run3": "6f948c7859a43249dae70e4e679c4439425dc4384991ab2829e0d85c09eed26f",
+    "run2": "936a7316894257a5dcac31c345c60ea273d27cb672c71fbce6382fe5df534a24",
+    "run3": "8ddf59420ed47828551803ef7b168ae1dec02e1402418801ab5ec2efc90de332",
 }
 run3_test_mmerged_payload_commit = (
     "2469053a8d7ab0b42c86c68000f51b6e7f6dafff"

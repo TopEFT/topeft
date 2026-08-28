@@ -113,19 +113,23 @@ def test_analysis_processor_all_mode_enables_all_blocks():
     assert processor.enable_fwd_blocks is True
 
 
-def test_all_mode_keeps_offz_split_ptz_histograms():
+def test_all_mode_routes_offz_split_to_ptll_not_ptz():
     processor = ap.AnalysisProcessor(
         samples={},
         wc_names_lst=[],
         hist_lst=[],
         all_analysis=True,
     )
-    should_skip = processor._should_skip_histogram_fill(
+    assert processor._should_skip_histogram_fill(
         dense_axis_name="ptz",
         ch_name="3l_channel",
         lep_chan="3l_m_offZ_low_1b",
-    )
-    assert should_skip is False
+    ) is True
+    assert processor._should_skip_histogram_fill(
+        dense_axis_name="ptll",
+        ch_name="3l_channel",
+        lep_chan="3l_m_offZ_low_1b",
+    ) is False
 
 
 @pytest.mark.parametrize("all_analysis", [False, True])
@@ -248,7 +252,7 @@ def test_plain_ptz_cr_policy_skips_non_zll_crs(lep_chan):
     )
 
 
-def test_plain_ptz_sr_policy_preserves_existing_onz_and_offz_decisions():
+def test_ptz_ptll_sr_policy_separates_onz_and_offz_decisions():
     tau_processor = ap.AnalysisProcessor(
         samples={},
         wc_names_lst=[],
@@ -309,11 +313,19 @@ def test_plain_ptz_sr_policy_preserves_existing_onz_and_offz_decisions():
             ch_name="3l_m_offZ_low_1b_2j",
             lep_chan="3l_m_offZ_low_1b",
         )
+        is True
+    )
+    assert (
+        all_processor._should_skip_histogram_fill(
+            dense_axis_name="ptll",
+            ch_name="3l_m_offZ_low_1b_2j",
+            lep_chan="3l_m_offZ_low_1b",
+        )
         is False
     )
     assert (
         all_processor._should_skip_histogram_fill(
-            dense_axis_name="ptz",
+            dense_axis_name="ptll",
             ch_name="3l_m_offZ_none_1b_2j",
             lep_chan="3l_m_offZ_none_1b",
         )

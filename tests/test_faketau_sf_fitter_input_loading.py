@@ -20,7 +20,7 @@ from analysis.topeft_run2 import tauFitter as legacy_fitter
 from tests.sumw2_profile_test_helpers import certify_test_profile
 
 
-def _make_tau_hist(axis_name, value):
+def _make_tau_hist(axis_name, value, channel_suffix=""):
     tau_edges = [20.0, 30.0]
     histogram = HistEFT(
         hist.axis.StrCategory([], name="process", growth=True),
@@ -35,9 +35,8 @@ def _make_tau_hist(axis_name, value):
     histogram.fill(
         process="ttbar",
         channel=(
-            "2los_1tau_Ftau_2j"
-            if "Fpt" in axis_name
-            else "2los_1tau_Ttau_2j"
+            ("2los_1tau_Ftau_2j" if "Fpt" in axis_name else "2los_1tau_Ttau_2j")
+            + channel_suffix
         ),
         systematic="nominal",
         appl="isSR_2lOS",
@@ -74,14 +73,19 @@ def _make_payload(
     fake_sumw2=4.0,
     tight_sumw2=9.0,
     include_sumw2=True,
+    channel_suffix="",
 ):
     payload = {
-        "tau0Fpt": _make_tau_hist("tau0Fpt", fake_value),
-        "tau0Tpt": _make_tau_hist("tau0Tpt", tight_value),
+        "tau0Fpt": _make_tau_hist("tau0Fpt", fake_value, channel_suffix),
+        "tau0Tpt": _make_tau_hist("tau0Tpt", tight_value, channel_suffix),
     }
     if include_sumw2:
-        payload["tau0Fpt_sumw2"] = _make_tau_hist("tau0Fpt_sumw2", fake_sumw2)
-        payload["tau0Tpt_sumw2"] = _make_tau_hist("tau0Tpt_sumw2", tight_sumw2)
+        payload["tau0Fpt_sumw2"] = _make_tau_hist(
+            "tau0Fpt_sumw2", fake_sumw2, channel_suffix
+        )
+        payload["tau0Tpt_sumw2"] = _make_tau_hist(
+            "tau0Tpt_sumw2", tight_sumw2, channel_suffix
+        )
     return payload
 
 
@@ -131,6 +135,7 @@ def test_combine_faketau_histogram_pkls_adds_nominal_and_sumw2_contents(tmp_path
             tight_value=7.0,
             fake_sumw2=25.0,
             tight_sumw2=49.0,
+            channel_suffix="_fragment_b",
         ),
     )
 
@@ -161,7 +166,12 @@ def test_combine_faketau_histogram_pkls_rejects_all_absent_sumw2(tmp_path):
     _write_payload(path_a, _make_payload(include_sumw2=False))
     _write_payload(
         path_b,
-        _make_payload(fake_value=5.0, tight_value=7.0, include_sumw2=False),
+        _make_payload(
+            fake_value=5.0,
+            tight_value=7.0,
+            include_sumw2=False,
+            channel_suffix="_fragment_b",
+        ),
     )
 
     with pytest.raises(RuntimeError, match=r"missing required \*_sumw2 companions"):
@@ -188,7 +198,7 @@ def test_combine_faketau_histogram_pkls_rejects_mixed_sumw2_availability(tmp_pat
     path_a = tmp_path / "with_sumw2.pkl.gz"
     path_b = tmp_path / "without_sumw2.pkl.gz"
     _write_payload(path_a, _make_payload())
-    payload_without_fake_sumw2 = _make_payload()
+    payload_without_fake_sumw2 = _make_payload(channel_suffix="_fragment_b")
     payload_without_fake_sumw2.pop("tau0Fpt_sumw2")
     _write_payload(path_b, payload_without_fake_sumw2)
 

@@ -28,7 +28,10 @@ import topcoffea.modules.utils as utils
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.data_driven_products import (
+    FLIPS_OUTPUT_ARTIFACT_KIND,
     generated_output_processes_from_contract,
+    NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND,
+    NONPROMPT_OUTPUT_ARTIFACT_KIND,
     validate_requested_product_input,
 )
 from topeft.modules.histogram_artifact import (
@@ -81,6 +84,14 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         "--only-flips",
         action="store_true",
         help="Drop nonprompt processes so only flips contributions remain in the output histograms.",
+    )
+    parser.add_argument(
+        "--nominal-only-reference",
+        action="store_true",
+        help=(
+            "Create an explicitly non-card-ready nominal-only nonprompt reference. "
+            "It records missing prompt sumw2 and never fabricates second moments."
+        ),
     )
     parser.add_argument(
         "--dd-report",
@@ -154,14 +165,15 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _default_output_path(input_path: str) -> str:
+def _default_output_path(input_path: str, *, nominal_only_reference: bool = False) -> str:
     if input_path.endswith(".pkl.gz"):
         base = input_path[:-7]
     elif input_path.endswith(".pkl"):
         base = input_path[:-4]
     else:
         base = input_path
-    return f"{base}_np.pkl.gz"
+    suffix = "_np_nominal_reference" if nominal_only_reference else "_np"
+    return f"{base}{suffix}.pkl.gz"
 
 
 def _validate_input_path(input_path: str) -> None:
@@ -639,6 +651,7 @@ def _finalize_histograms(
     output_pkl: str,
     *,
     only_flips: bool,
+    nominal_only_reference: bool = False,
     apply_envelope: bool,
     dd_report_stdout: bool = False,
     dd_report_md: Optional[str] = None,
@@ -673,7 +686,13 @@ def _finalize_histograms(
     try:
         memory_reporter.mark("start")
         memory_reporter.mark("before DataDrivenProducer(...)")
-        artifact_kind = "flips_output" if only_flips else "nonprompt_output"
+        artifact_kind = (
+            FLIPS_OUTPUT_ARTIFACT_KIND
+            if only_flips
+            else NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND
+            if nominal_only_reference
+            else NONPROMPT_OUTPUT_ARTIFACT_KIND
+        )
         ddp_kwargs: Dict[str, Any] = {"iterator_mode": iterator_mode}
         if input_sidecar is not None:
             ddp_kwargs["artifact_kind"] = artifact_kind
@@ -822,9 +841,7 @@ def _finalize_histograms(
             print(f"[run_data_driven] Finalized {processed} histograms in {elapsed:.1f}s.")
 
         transformation_context = (
-            ddp.get_transformation_context(
-                "flips_output" if only_flips else "nonprompt_output"
-            )
+            ddp.get_transformation_context(artifact_kind)
             if input_sidecar is not None
             else None
         )
@@ -839,6 +856,8 @@ def _finalize_histograms(
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_argument_parser()
     args = parser.parse_args(argv)
+    if args.only_flips and args.nominal_only_reference:
+        parser.error("--only-flips and --nominal-only-reference are mutually exclusive.")
     if args.apply_renormfact_envelope:
         raise_unsupported_renormfact_envelope()
     dd_report_stdout = args.dd_report
@@ -849,12 +868,16 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     output_pkl = os.path.normpath(args.output_pkl) if args.output_pkl else None
     if not output_pkl:
-        output_pkl = _default_output_path(input_pkl)
+        output_pkl = _default_output_path(
+            input_pkl,
+            nominal_only_reference=args.nominal_only_reference,
+        )
 
     input_validation = validate_histogram_artifact(input_pkl)
     input_sidecar = input_validation["metadata"]
     finalize_kwargs = {
         "only_flips": args.only_flips,
+        "nominal_only_reference": args.nominal_only_reference,
         "apply_envelope": args.apply_renormfact_envelope,
         "dd_report_stdout": dd_report_stdout,
         "dd_report_md": dd_report_md,
@@ -873,17 +896,24 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "run_data_driven requires a processor_output input artifact; got "
                 f"{input_sidecar['artifact']['artifact_kind']!r} for '{input_pkl}'."
             )
-        validate_requested_product_input(
+        resolution = validate_requested_product_input(
             input_sidecar,
-            artifact_kind="flips_output" if args.only_flips else "nonprompt_output",
+            artifact_kind=(
+                FLIPS_OUTPUT_ARTIFACT_KIND
+                if args.only_flips
+                else NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND
+                if args.nominal_only_reference
+                else NONPROMPT_OUTPUT_ARTIFACT_KIND
+            ),
         )
+        effective_input_sidecar = resolution["effective_sidecar"]
 
         def _write_payload(staged_path: str) -> Dict[str, Any]:
             transformation_context = _finalize_histograms(
                 input_pkl,
                 output_pkl,
                 serialization_path=staged_path,
-                input_sidecar=input_sidecar,
+                input_sidecar=effective_input_sidecar,
                 **finalize_kwargs,
             )
             assert transformation_context is not None
@@ -892,10 +922,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         write_histogram_artifact(
             output_pkl,
             payload_writer=_write_payload,
-            artifact_kind="flips_output" if args.only_flips else "nonprompt_output",
-            sumw2_storage_provenance=input_sidecar["sumw2_storage_provenance"],
+            artifact_kind=(
+                FLIPS_OUTPUT_ARTIFACT_KIND
+                if args.only_flips
+                else NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND
+                if args.nominal_only_reference
+                else NONPROMPT_OUTPUT_ARTIFACT_KIND
+            ),
+            sumw2_storage_provenance=effective_input_sidecar["sumw2_storage_provenance"],
             lineage_inputs=[lineage_input_from_sidecar(input_sidecar)],
-            input_sidecar=input_sidecar,
+            input_sidecar=effective_input_sidecar,
         )
 
     return 0

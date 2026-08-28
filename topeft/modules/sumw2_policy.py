@@ -41,6 +41,7 @@ POLICY_KEYS = frozenset({"mode", "rules"})
 
 @dataclass(frozen=True, order=True)
 class sumw2_target:
+    """One concrete dataset/process/histogram-family storage target."""
     dataset: str
     process: str
     family: str
@@ -55,6 +56,7 @@ class sumw2_target:
 
 @dataclass(frozen=True)
 class sumw2_mode_resolution:
+    """Public mode resolution before sample-specific targets are selected."""
     source: str
     requested_mode: str
     resolved_mode: str
@@ -65,6 +67,7 @@ class sumw2_mode_resolution:
 
 @dataclass(frozen=True)
 class normalized_sumw2_rule:
+    """Validated selector rule used to derive concrete sumw2 targets."""
     dataset_names: tuple[str, ...] = ()
     dataset_prefixes: tuple[str, ...] = ()
     process_names: tuple[str, ...] = ()
@@ -93,6 +96,7 @@ class normalized_sumw2_rule:
 
 @dataclass(frozen=True)
 class resolved_sumw2_policy:
+    """Immutable resolved policy serialized into histogram provenance."""
     source: str
     requested_mode: str
     resolved_mode: str
@@ -396,6 +400,12 @@ def resolve_sumw2_storage_policy(
     ] = (),
     mode_resolution: sumw2_mode_resolution | None = None,
 ) -> resolved_sumw2_policy:
+    """Resolve, validate, and certify concrete selective-sumw2 targets.
+
+    The function rejects unknown families, empty or overlapping rules,
+    analysis-mode mismatches, and policies that omit declared consumer
+    requirements. The returned policy is the source for artifact provenance.
+    """
     dataset_processes = _validate_sample_metadata(samples)
     datasets = tuple(sorted(dataset_processes))
     processes = tuple(sorted(set(dataset_processes.values())))

@@ -9,14 +9,14 @@ PYTHON_BIN=${PYTHON_BIN:-${PYTHON:-python}}
 
 show_help() {
     cat <<'USAGE'
-Usage: run_plotter.sh -f PICKLE -o OUTPUT_DIR -y YEAR [YEAR ...] [options]
+Usage: run_plotter.sh -f PICKLE [-f PICKLE ...] -o OUTPUT_DIR -y YEAR [YEAR ...] [options]
 
 Wrapper around make_cr_and_sr_plots.py with filename-based region detection.
 Consult the "CR/SR plotting CLI quickstart" section of analysis/topeft_run2/README.md
 for more workflow examples.
 
 Required arguments:
-  -f, --input PATH          Input histogram pickle (must exist and be readable, e.g. histos/plotsCR_Run2.pkl.gz)
+  -f, --input PATH          Input histogram pickle (must exist and be readable; repeat for multiple inputs)
   -o, --output-dir PATH     Directory where plots will be written
   -y, --year YEAR [YEAR ...]
                            One or more year tokens forwarded to the plotter.
@@ -125,7 +125,7 @@ main() {
         return 1
     fi
 
-    local input_path=""
+    local -a input_paths=()
     local output_dir=""
     local output_name=""
     local -a years=()
@@ -151,7 +151,7 @@ main() {
                 echo "Error: Missing value for $1" >&2
                 return 1
             fi
-            input_path="$2"
+            input_paths+=("$2")
             shift 2
             ;;
         -o|--output-dir)
@@ -322,15 +322,18 @@ main() {
         return 1
     fi
 
-    if [[ -z "${input_path}" ]]; then
-        echo "Error: An input pickle must be provided with -f/--input." >&2
+    if (( ${#input_paths[@]} == 0 )); then
+        echo "Error: At least one input pickle must be provided with -f/--input." >&2
         return 1
     fi
 
-    if [[ ! -r "${input_path}" ]]; then
-        echo "Error: Input pickle '${input_path}' is missing or unreadable." >&2
-        return 1
-    fi
+    local input_path
+    for input_path in "${input_paths[@]}"; do
+        if [[ ! -r "${input_path}" ]]; then
+            echo "Error: Input pickle '${input_path}' is missing or unreadable." >&2
+            return 1
+        fi
+    done
 
     if [[ -z "${output_dir}" ]]; then
         echo "Error: An output directory must be provided with -o/--output-dir." >&2
@@ -371,12 +374,14 @@ main() {
     fi
     }
 
-    IFS=$'\n' read -r detected_region detection_ambiguous < <(detect_region "${input_path}")
-
     local resolved_region="${region_override}"
     if [[ -n "${resolved_region}" ]]; then
         echo "Region override requested: ${resolved_region}"
-    else
+    elif (( ${#input_paths[@]} == 1 )); then
+        local detected_region=""
+        local detection_ambiguous=0
+        IFS=$'\n' read -r detected_region detection_ambiguous < <(detect_region "${input_paths[0]}")
+
         if [[ -n "${detected_region}" ]]; then
             echo "Auto-detected region '${detected_region}' from input filename."
             resolved_region="${detected_region}"
@@ -384,9 +389,43 @@ main() {
             echo "No region token detected in input filename; defaulting to 'CR'."
             resolved_region="CR"
         fi
-        if [[ "${detection_ambiguous}" == "1" && -z "${region_override}" ]]; then
+        if [[ "${detection_ambiguous}" == "1" ]]; then
             echo "Warning: Detected both 'CR' and 'SR' tokens in the input filename. Defaulting to 'CR'." >&2
             resolved_region="CR"
+        fi
+    else
+        local detected_region=""
+        local detection_ambiguous=0
+        local classified_input_count=0
+        local input_path
+        local first_detected_region=""
+
+        for input_path in "${input_paths[@]}"; do
+            IFS=$'\n' read -r detected_region detection_ambiguous < <(detect_region "${input_path}")
+            if [[ "${detection_ambiguous}" == "1" ]]; then
+                echo "Error: Input filename '${input_path}' contains both CR and SR region tokens; use --cr or --sr to override." >&2
+                return 1
+            fi
+            if [[ -n "${detected_region}" ]]; then
+                ((classified_input_count += 1))
+                if [[ -z "${first_detected_region}" ]]; then
+                    first_detected_region="${detected_region}"
+                elif [[ "${detected_region}" != "${first_detected_region}" ]]; then
+                    echo "Error: Input filenames resolve to conflicting regions; use --cr or --sr to override." >&2
+                    return 1
+                fi
+            fi
+        done
+
+        if (( classified_input_count == 0 )); then
+            echo "No region token detected in input filenames; defaulting to 'CR'."
+            resolved_region="CR"
+        elif (( classified_input_count != ${#input_paths[@]} )); then
+            echo "Error: Some input filenames have a region token and others do not; use --cr or --sr to override." >&2
+            return 1
+        else
+            echo "Auto-detected region '${first_detected_region}' from all input filenames."
+            resolved_region="${first_detected_region}"
         fi
     fi
 
@@ -449,9 +488,11 @@ main() {
             ;;
     esac
 
-    mkdir -p "${output_dir}"
-
-    local -a cmd=("${PYTHON_BIN}" "${PLOTTER_SCRIPT}" "-f" "${input_path}" "-o" "${output_dir}")
+    local -a cmd=("${PYTHON_BIN}" "${PLOTTER_SCRIPT}")
+    for input_path in "${input_paths[@]}"; do
+        cmd+=("-f" "${input_path}")
+    done
+    cmd+=("-o" "${output_dir}")
 
     if [[ -n "${output_name}" ]]; then
         cmd+=("-n" "${output_name}")
@@ -507,6 +548,7 @@ main() {
     if (( dry_run )); then
         echo "Dry-run requested; skipping execution."
     else
+        mkdir -p "${output_dir}"
         "${cmd[0]}" "${cmd[@]:1}"
     fi
 

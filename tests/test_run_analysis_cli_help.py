@@ -35,6 +35,10 @@ def test_cli_help_shows_canonical_analysis_mode_flags(capsys):
     )
     assert "Accepts multiple group names and preserves user order after deduplication." in normalized_help
     assert "When omitted, all groups in each resolved block are used." in normalized_help
+    assert (
+        "Recognized YAML values replace overlapping command-line and parser-default values."
+        in normalized_help
+    )
 
     assert "--offZ-split" not in help_text
     assert "--tau_h_analysis" not in help_text

@@ -106,6 +106,7 @@ def _make_region_context(
     preserve_njets_bins=False,
     channel_output_mode="merged",
     is_lepton_flavor_in_pkl=True,
+    binning_mode="processing",
 ):
     sumw2_suffix = "_sumw2"
     sumw2_hists = {}
@@ -130,7 +131,6 @@ def _make_region_context(
         unblind_default=True,
         lumi_pair=("1", "13TeV"),
         skip_variables=None,
-        analysis_bins=None,
         stacked_ratio_style=None,
         channel_rules=_default_channel_rules(),
         sample_removal_rules=[],
@@ -145,6 +145,7 @@ def _make_region_context(
         preserve_njets_bins=preserve_njets_bins,
         channel_output_mode=channel_output_mode,
         is_lepton_flavor_in_pkl=is_lepton_flavor_in_pkl,
+        binning_mode=binning_mode,
     )
 
 
@@ -302,6 +303,7 @@ def test_split_mode_skips_when_hist_not_flavour_split(monkeypatch, tmp_path):
         preserve_njets_bins=False,
         channel_output_mode="merged",
         enable_category_skips=False,
+        binning_mode="processing",
     ):
         channel_mode = channel_mode_override or "aggregate"
         return _make_region_context(
@@ -310,6 +312,7 @@ def test_split_mode_skips_when_hist_not_flavour_split(monkeypatch, tmp_path):
             channel_mode=channel_mode,
             preserve_njets_bins=preserve_njets_bins,
             channel_output_mode=channel_output_mode,
+            binning_mode=binning_mode,
         )
 
     monkeypatch.setattr(plots, "build_region_context", fake_build_region_context)
@@ -1056,6 +1059,7 @@ def test_both_njets_channel_output_writes_pngs_and_uncertainties(monkeypatch, tm
         preserve_njets_bins=False,
         channel_output_mode="merged",
         enable_category_skips=False,
+        binning_mode="processing",
     ):
         mode = channel_mode_override or "aggregate"
         return _make_region_context(
@@ -1064,6 +1068,7 @@ def test_both_njets_channel_output_writes_pngs_and_uncertainties(monkeypatch, tm
             channel_mode=mode,
             preserve_njets_bins=preserve_njets_bins,
             channel_output_mode=channel_output_mode,
+            binning_mode=binning_mode,
         )
 
     monkeypatch.setattr(plots, "build_region_context", fake_build_region_context)

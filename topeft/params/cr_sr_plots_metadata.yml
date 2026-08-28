@@ -689,6 +689,3 @@ REGION_PLOTTING:
     sumw2_remove_signal: false
     sumw2_remove_signal_when_blinded: true
     debug_channel_lists: true
-    analysis_bins:
-      ptz: ptz
-      lj0pt: lj0pt

@@ -17,22 +17,29 @@ from topcoffea.modules.utils import regex_match, get_hist_from_pkl
 from topeft.modules.paths import topeft_path
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
+from topeft.modules.axis_binning import (
+    BINNING_MODES,
+    resolve_and_rebin_histogram,
+    validate_matching_histogram_edges,
+)
 from topeft.modules.compatibility import add_sumw2_stub
+from topeft.modules.data_driven_products import CANONICAL_DATA_DRIVEN_YEARS
 from topeft.modules.histogram_artifact import (
     merge_histogram_sidecars,
     validate_histogram_artifact,
 )
 from topeft.modules.nominal_schema import (
     NOMINAL_CONTAINER_SCHEMA_VERSION,
+    canonical_process_year,
+    histogram_contribution_support,
     is_split_nominal_mapping,
     materialize_legacy_histogram_dict,
     merge_nominal_mappings,
+    validate_year_coverage,
     validate_nominal_mapping,
+    year_independent_process,
 )
-from topeft.modules.sumw2_policy import (
-    resolved_policy_from_provenance,
-    validate_policy_identity,
-)
+from topeft.modules.sumw2_policy import resolved_policy_from_provenance
 from topeft.modules.missing_parton_contract import (
     DEFAULT_SR_REGISTRY,
     SR_CHANNEL_CONFIG_KEY,
@@ -216,32 +223,111 @@ def _process_labels(hist_obj):
         return None
 
 
+_RUN2_CANONICAL_YEARS = frozenset(
+    year for year in CANONICAL_DATA_DRIVEN_YEARS if year.startswith("UL")
+)
+_RUN3_CANONICAL_YEARS = frozenset(CANONICAL_DATA_DRIVEN_YEARS) - _RUN2_CANONICAL_YEARS
+
+
+def _canonical_run_eras(processes):
+    eras = set()
+    for process in processes:
+        year = canonical_process_year(str(process))
+        if year in _RUN2_CANONICAL_YEARS:
+            eras.add("run2")
+        elif year in _RUN3_CANONICAL_YEARS:
+            eras.add("run3")
+    return frozenset(eras)
+
+
+def _mapping_process_labels(histograms):
+    return {
+        process
+        for histogram in histograms.values()
+        for process in (_process_labels(histogram) or ())
+    }
+
+
+def _reject_cross_run_histogram_composition(
+    pkl_paths,
+    loaded_inputs,
+    input_metadata,
+):
+    input_eras = []
+    for path, histograms, metadata in zip(
+        pkl_paths, loaded_inputs, input_metadata
+    ):
+        if metadata is None:
+            processes = _mapping_process_labels(histograms)
+        else:
+            processes = metadata["sumw2_storage_provenance"][
+                "resolved_processes"
+            ]
+        input_eras.append((path, _canonical_run_eras(processes)))
+
+    composed_eras = set().union(*(eras for _path, eras in input_eras))
+    if {"run2", "run3"} <= composed_eras:
+        era_summary = ", ".join(
+            f"{path}={sorted(eras)}" for path, eras in input_eras
+        )
+        raise RuntimeError(
+            "Histogram-level Run 2 + Run 3 composition is unsupported. "
+            "Produce Run 2 and Run 3 cards separately and combine them only at "
+            "the card/workspace/statistical-model level. "
+            f"Resolved input eras: {era_summary}."
+        )
+
+
+def _validate_disjoint_histogram_contributions(pkl_paths, loaded_inputs):
+    owner_by_contribution = {}
+    for path, histograms in zip(pkl_paths, loaded_inputs):
+        contributions = histogram_contribution_support(histograms)
+        collisions = sorted(
+            set(owner_by_contribution) & contributions,
+            key=repr,
+        )
+        if collisions:
+            examples = _short_examples(collisions, max_items=12)
+            first_owner = owner_by_contribution[collisions[0]]
+            raise RuntimeError(
+                "Duplicate histogram contribution support detected before "
+                f"histogram addition: incoming_path={path!r}, "
+                f"existing_path={first_owner!r}, contributions={examples!r}. "
+                "A contribution is identified by its payload component key and "
+                "complete categorical coordinate."
+            )
+        owner_by_contribution.update(
+            {contribution: path for contribution in contributions}
+        )
+
+
 def load_and_merge_histogram_pkls(
     pkl_paths,
     *,
-    on_process_collision="error",
     require_sumw2=True,
     consumer_required_families=(),
+    year_coverage_policy="off",
 ):
     """
-        Load one or more histogram pkls and merge them in memory with strict validation.
-        Returns: (merged_hist_dict, merge_report_dict)
+    Load and validate one or more histogram PKLs before merging them in memory.
+
+    Every input owns exact structural contributions identified by payload
+    component key plus the complete categorical coordinate.  Channel and
+    process labels may repeat when another coordinate differs.
+
+    Returns: (merged_hist_dict, merge_report_dict)
     """
-    if on_process_collision not in {"error", "warn", "allow"}:
-        raise ValueError(
-            f"Unknown process collision policy '{on_process_collision}'. "
-            "Valid options are: error, warn, allow."
-        )
     if not pkl_paths:
         raise ValueError("No input pickle files were provided for merging.")
+    validate_year_coverage({}, policy=year_coverage_policy)
 
     report = {
         "num_inputs": len(pkl_paths),
         "inputs": list(pkl_paths),
-        "on_process_collision": on_process_collision,
         "require_sumw2": bool(require_sumw2),
+        "year_coverage_policy": year_coverage_policy,
         "files": [],
-        "process_collisions": [],
+        "contribution_identity": "payload_component_key + complete_categorical_coordinate",
         "schema": None,
     }
 
@@ -291,17 +377,21 @@ def load_and_merge_histogram_pkls(
     schema_version = next(iter(schema_versions))
     report["schema"] = "legacy_uniform" if schema_version is None else "split_sibling_v1"
 
+    _reject_cross_run_histogram_composition(
+        pkl_paths,
+        loaded_inputs,
+        input_metadata,
+    )
+
     merged_hists = {}
     if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION:
         merged_sidecar = merge_histogram_sidecars(input_metadata)
+        if len(pkl_paths) > 1:
+            _validate_disjoint_histogram_contributions(pkl_paths, loaded_inputs)
         artifact_kind = merged_sidecar["artifact_kind"]
-        policies = [
-            resolved_policy_from_provenance(metadata["sumw2_storage_provenance"])
-            for metadata in input_metadata
-        ]
-        for policy in policies[1:]:
-            validate_policy_identity(policies[0], policy)
-        policy = policies[0]
+        policy = resolved_policy_from_provenance(
+            merged_sidecar["sumw2_storage_provenance"]
+        )
         runtime_families = policy.runtime_histogram_families
         required_families = frozenset(consumer_required_families)
         if artifact_kind == "processor_output":
@@ -311,70 +401,40 @@ def load_and_merge_histogram_pkls(
                 if not policy.selects_family(family)
             )
         else:
-            manifest_families = input_metadata[0]["sumw2_content_manifest"][
-                "families"
-            ]
             missing_policy_requirements = sorted(
                 family
                 for family in required_families
-                if not manifest_families.get(family, {}).get(
-                    "required_sumw2_processes"
-                )
+                if not merged_sidecar["required_sumw2_processes"].get(family)
             )
         if missing_policy_requirements:
             raise RuntimeError(
                 "Active consumer requirements are absent from the artifact contract: "
                 + ", ".join(missing_policy_requirements)
             )
-        for path, hist_dict in zip(pkl_paths, loaded_inputs):
+        for path, hist_dict, metadata in zip(
+            pkl_paths, loaded_inputs, input_metadata
+        ):
+            input_policy = resolved_policy_from_provenance(
+                metadata["sumw2_storage_provenance"]
+            )
+            input_runtime_families = input_policy.runtime_histogram_families
             validate_nominal_mapping(
                 hist_dict,
-                runtime_families=runtime_families,
+                runtime_families=input_runtime_families,
                 schema_version=schema_version,
-                policy=policy if artifact_kind == "processor_output" else None,
+                policy=(
+                    input_policy if artifact_kind == "processor_output" else None
+                ),
             )
             keys = set(hist_dict)
             report["files"].append(
                 {
                     "path": path,
                     "num_keys": len(keys),
-                    "num_base_keys": len(runtime_families),
+                    "num_base_keys": len(input_runtime_families),
                     "num_sumw2_keys": sum(_is_sumw2_key(key) for key in keys),
                 }
             )
-        seen_processes_by_key = {}
-        for input_index, (path, hist_dict) in enumerate(zip(pkl_paths, loaded_inputs)):
-            for key, histogram in hist_dict.items():
-                incoming_procs = _process_labels(histogram) or set()
-                existing_procs = seen_processes_by_key.setdefault(key, set())
-                if input_index == 0:
-                    existing_procs.update(incoming_procs)
-                    continue
-                incoming_procs = _process_labels(hist_dict[key])
-                overlap = sorted((existing_procs or set()) & (incoming_procs or set()))
-                if not overlap:
-                    existing_procs.update(incoming_procs or set())
-                    continue
-                collision = {
-                    "key": key,
-                    "path": path,
-                    "overlap_count": len(overlap),
-                    "overlap_examples": _short_examples(overlap, max_items=15),
-                    "existing_process_count": len(existing_procs),
-                    "incoming_process_count": len(incoming_procs),
-                }
-                report["process_collisions"].append(collision)
-                message = (
-                    f"Process-label overlap detected while merging key '{key}' from "
-                    f"'{path}': {len(overlap)} overlapping labels. "
-                    "Use --on-process-collision allow to merge intentional overlaps, "
-                    "or --merge-only --on-process-collision warn to inspect them."
-                )
-                if on_process_collision == "error":
-                    raise RuntimeError(message)
-                if on_process_collision == "warn":
-                    print(f"WARNING: {message}")
-                existing_procs.update(incoming_procs or set())
         merged_hists = merge_nominal_mappings(
             loaded_inputs,
             runtime_families=runtime_families,
@@ -404,6 +464,8 @@ def load_and_merge_histogram_pkls(
     elif schema_version is None:
         report["artifact_kind"] = "legacy_uniform"
         report["artifact_merged"] = len(pkl_paths) > 1
+        if len(pkl_paths) > 1:
+            _validate_disjoint_histogram_contributions(pkl_paths, loaded_inputs)
         for path, hist_dict in zip(pkl_paths, loaded_inputs):
             keys = set(hist_dict.keys())
             base_keys = sorted(k for k in keys if not _is_sumw2_key(k))
@@ -437,35 +499,18 @@ def load_and_merge_histogram_pkls(
                     continue
                 existing_hist = merged_hists[key]
                 _validate_hist_compatibility(key, existing_hist, incoming_hist, path)
-                existing_procs = _process_labels(existing_hist)
-                incoming_procs = _process_labels(incoming_hist)
-                overlap = sorted((existing_procs or set()) & (incoming_procs or set()))
-                if overlap:
-                    collision = {
-                        "key": key,
-                        "path": path,
-                        "overlap_count": len(overlap),
-                        "overlap_examples": _short_examples(overlap, max_items=15),
-                        "existing_process_count": len(existing_procs),
-                        "incoming_process_count": len(incoming_procs),
-                    }
-                    report["process_collisions"].append(collision)
-                    message = (
-                        f"Process-label overlap detected while merging key '{key}' from "
-                        f"'{path}': {len(overlap)} overlapping labels. "
-                        "Use --on-process-collision allow to merge intentional overlaps, "
-                        "or --merge-only --on-process-collision warn to inspect them."
-                    )
-                    if on_process_collision == "error":
-                        raise RuntimeError(message)
-                    if on_process_collision == "warn":
-                        print(f"WARNING: {message}")
                 merged_hists[key] += incoming_hist
     else:
         raise RuntimeError(f"Unsupported nominal schema version {schema_version!r}.")
 
     report["num_merged_keys"] = len(merged_hists)
-    report["num_process_collisions"] = len(report["process_collisions"])
+    report["year_coverage_mismatches"] = validate_year_coverage(
+        merged_hists,
+        policy=year_coverage_policy,
+    )
+    report["num_year_coverage_mismatches"] = len(
+        report["year_coverage_mismatches"]
+    )
 
     return merged_hists, report
 
@@ -492,6 +537,60 @@ def to_hist(arr,name,zero_wgts=False):
     else:
         h[...] = np.stack([clipped[0], clipped[1]],axis=-1)
     return h
+
+
+def _sanitize_negative_template_bins(templates):
+    """Crop negative bins without letting variations revive raw-negative nominal bins."""
+    raw_nominal = next(
+        (
+            arr
+            for sp_key, arr in templates.items()
+            if sp_key.systematic == "nominal"
+        ),
+        None,
+    )
+    nominal_negative_mask = (
+        None if raw_nominal is None else np.asarray(raw_nominal[0]) < 0
+    )
+
+    sanitized_templates = {}
+    for sp_key, arr in templates.items():
+        sanitized_arr = [
+            None if component is None else np.array(component, copy=True)
+            for component in arr
+        ]
+        if nominal_negative_mask is not None:
+            for component in sanitized_arr:
+                if component is not None:
+                    component[nominal_negative_mask] = 0
+
+        negative_bin_mask = sanitized_arr[0] < 0
+        sanitized_arr[0][negative_bin_mask] = 0
+        if sanitized_arr[1] is not None:
+            sanitized_arr[1][negative_bin_mask] = 0
+        sanitized_templates[sp_key] = sanitized_arr
+
+    return sanitized_templates
+
+
+def _validate_ff_template_support(
+    syst,
+    arr,
+    nominal_content_is_zero,
+    nominal_sumw2_is_zero,
+):
+    if "FF" not in syst:
+        return
+    if nominal_content_is_zero and sum(arr[0]) != 0:
+        raise Warning(
+            "Systematics Error arr[0]:Zero values in 'nominal' "
+            f"but non-zero in '{syst}'"
+        )
+    if nominal_sumw2_is_zero and sum(arr[1]) != 0:
+        raise Warning(
+            "Systematics Error arr[1]:Zero values in 'nominal' "
+            f"but non-zero in '{syst}'"
+        )
 
 
 class RateSystematic():
@@ -643,12 +742,6 @@ class DatacardMaker():
             "ttlnu_",
         ],
     }
-
-    # Controls how we rebin the dense axis of the corresponding distribution
-    BINNING = {}
-    for name, value in axes_info.items():
-        if "variable" in value:
-            BINNING[name] = value["variable"]
 
     YEARS = ["UL16","UL16APV","UL17","UL18","2022","2022EE","2023","2023BPix"]
 
@@ -817,16 +910,7 @@ class DatacardMaker():
     @classmethod
     def get_process(cls,s):
         """ Strips off the year designation from a process name, can also be used for decomposed terms."""
-        for yr in cls.YEARS:
-            if s.endswith(yr):
-                s = s.replace(yr,"")
-        if cls.is_eft_term(s):
-            # For now we can simply split on first underscore, if signal process names get underscores
-            #   will need to update this to be smarter
-            s = s.split("_",1)[0]
-        if "_" in s:
-            s = s.rsplit("_",1)[0]
-        return s
+        return year_independent_process(s)
 
     # TODO: I don't like the naming
     @classmethod
@@ -980,6 +1064,11 @@ class DatacardMaker():
         return r
 
     def __init__(self,pkl_path=None,hists=None,**kwargs):
+        self.binning_mode    = kwargs.pop("binning_mode", "fitting")
+        if self.binning_mode not in BINNING_MODES:
+            raise ValueError(
+                f"Unknown binning mode {self.binning_mode!r}; expected one of {BINNING_MODES}."
+            )
         self.year_lst        = kwargs.pop("year_lst",[])
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
@@ -1183,7 +1272,6 @@ class DatacardMaker():
             tic = time.time()
             self.hists, merge_report = load_and_merge_histogram_pkls(
                 [fpath],
-                on_process_collision="allow",
                 require_sumw2=False,
             )
             dt = time.time() - tic
@@ -1260,13 +1348,6 @@ class DatacardMaker():
                     print(f"Removing systematic: {x}")
                 h = h.remove("systematic", list(to_drop))
 
-            if h.should_rebin() and km_dist != "njets":
-                edge_arr = self.BINNING[km_dist] + [list(h.axes[km_dist].edges())[-1]]
-                h = h.rebin(km_dist, hist.axis.Variable(edge_arr, km_dist, h.axes[km_dist].label))
-            else:
-                # TODO: Still need to handle njets case properly
-                pass
-
             # Remove 'central', 'private', '_4F' text from process names
             grp_map = {}
             for x in h.axes["process"]:
@@ -1289,6 +1370,37 @@ class DatacardMaker():
 
     def processes(self, km_dist):
         return list(self.hists[km_dist].axes["process"])
+
+    def binning_view(self, histogram, km_dist, channel):
+        """Return the one card-facing histogram view for the selected binning mode."""
+        if self.binning_mode == "processing":
+            return histogram
+        return resolve_and_rebin_histogram(
+            histogram,
+            km_dist,
+            mode="fitting",
+            channel=channel,
+        )
+
+    def _scaling_histogram_for_json(self, channel_hist, channel, process):
+        """Project one card-facing signal histogram onto its scaling payload axes."""
+        scaling_hist = channel_hist[
+            {
+                "channel": channel,
+                "process": process,
+                "systematic": "nominal",
+            }
+        ]
+        scaling_hist = self.select_final_sr_appl(
+            scaling_hist, channel, process=process
+        )
+        retained_categories = tuple(scaling_hist.categorical_axes.name)
+        if retained_categories:
+            raise ValueError(
+                "Scaling JSON requires category-projected HistEFT input; "
+                f"retained categorical axes: {retained_categories!r}."
+            )
+        return scaling_hist
 
     # TODO: Can be a static member function
     def load_systematics(self,rs_fpath,mp_fpath):
@@ -1506,11 +1618,12 @@ class DatacardMaker():
         """
         tic = time.time()
         h = self.hists[km_dist].integrate("systematic",["nominal"])
+        channels = list(h.axes["channel"])
         if ch_lst:
-            # Only select from a subset of channels
             if self.verbose:
                 print(f"Selecting WCs from subset of channels: {ch_lst}")
-            h.prune("channel", ch_lst)
+            requested = set(ch_lst)
+            channels = [channel for channel in channels if channel in requested]
 
         procs = list(h.axes["process"])
         selected_wcs = {p: set() for p in procs}
@@ -1542,7 +1655,6 @@ class DatacardMaker():
         for p in procs:
             if not self.is_signal(p):
                 continue
-            p_hist = h.integrate("process",[p])
             for wc,idx_arr in wc_to_terms.items():
                 if len(self.coeffs) and not wc in self.coeffs:
                     continue
@@ -1550,17 +1662,28 @@ class DatacardMaker():
                     continue
                 if wc == "ctlTi" and p == "tttt":
                     continue
-                for sp_key, arr in p_hist.view(as_dict=True, flow=True).items():
-                    # Ignore underflow, and overflow bins
-                    sl_arr = arr[1:-1]
-                    # Here we replace any SM terms that are too small with a large dummy value
-                    sm_norm = np.where(sl_arr[:,start_index] < 1e-5,999,sl_arr[:,start_index])
-                    # Normalize each sub-array by corresponding SM term
-                    n_arr = (sl_arr.T / sm_norm).T
-                    # This will contain only the coefficients which involve the given WC
-                    wc_terms = np.abs(n_arr[:,idx_arr])
-                    if np.any(wc_terms > self.tolerance):
-                        selected_wcs[p].add(wc)
+                selected = False
+                for channel in channels:
+                    channel_hist = self.binning_view(
+                        h.integrate("channel", [channel]), km_dist, channel
+                    )
+                    p_hist = channel_hist.integrate("process", [p])
+                    for sp_key, arr in p_hist.view(as_dict=True, flow=True).items():
+                        # Ignore underflow and overflow bins. The remaining bins
+                        # are the exact fitting bins used by the card templates.
+                        sl_arr = arr[1:-1]
+                        sm_norm = np.where(
+                            sl_arr[:,start_index] < 1e-5,
+                            999,
+                            sl_arr[:,start_index],
+                        )
+                        n_arr = (sl_arr.T / sm_norm).T
+                        wc_terms = np.abs(n_arr[:,idx_arr])
+                        if np.any(wc_terms > self.tolerance):
+                            selected_wcs[p].add(wc)
+                            selected = True
+                            break
+                    if selected:
                         break
         if self.verbose:
             dt = time.time() - tic
@@ -1619,8 +1742,18 @@ class DatacardMaker():
         if h_sumw2 is None:
             msg = "No sumw2 histogram found! Setting errors to 0"
             print(msg)
-        ch_hist = h.integrate("channel",[ch])
-        ch_sumw2 = h_sumw2 if h_sumw2 is None else h_sumw2.integrate("channel",[ch])
+        ch_hist = self.binning_view(h.integrate("channel",[ch]), km_dist, ch)
+        ch_sumw2 = (
+            None
+            if h_sumw2 is None
+            else self.binning_view(h_sumw2.integrate("channel",[ch]), km_dist, ch)
+        )
+        if ch_sumw2 is not None:
+            validate_matching_histogram_edges(
+                ch_hist,
+                ch_sumw2,
+                context=f"datacard nominal/sumw2 for {km_dist}:{ch}",
+            )
         data_obs = np.zeros((2, ch_hist.dense_axis.extent))
 
         print(f"Generating root file: {outf_root_name}")
@@ -1685,6 +1818,8 @@ class DatacardMaker():
                         "rate": -1
                     }
                     self.validate_sparse_axes_for_card(v, ch, proc_name)
+                    if crop_negative_bins:
+                        v = _sanitize_negative_template_bins(v)
                     # There should be only 1 sparse axis at this point, the systematics axis
                     check_zero_arr0 = False
                     check_zero_arr1 = False
@@ -1692,24 +1827,18 @@ class DatacardMaker():
                     written_hist_names = set()
                     for sp_key,arr in v.items():
                         syst = sp_key[0]
-                        if crop_negative_bins:
-                            negative_bin_mask = np.where( arr[0] < 0) # see where bins are negative
-                            arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
-                            if arr[1] is not None:
-                                arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
-
-
                         syst = sp_key.systematic
                         if syst =="nominal":  # check systematics error for fake factors
                             if sum(arr[0]) == 0:
                                 check_zero_arr0 = True
                             if sum(arr[1]) == 0:
                                 check_zero_arr1 = True
-                        if "FF" in syst:
-                            if check_zero_arr0 and sum(arr[0]) != 0:
-                                raise Warning("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
-                            if check_zero_arr1 and sum(arr[1]) != 0:
-                                raise Warning("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
+                        _validate_ff_template_support(
+                            syst,
+                            arr,
+                            check_zero_arr0,
+                            check_zero_arr1,
+                        )
 
                         syst_base = syst.replace("Up","").replace("Down","")
 
@@ -1720,6 +1849,11 @@ class DatacardMaker():
                             if "Down" in syst:
                                 syst = syst_base + "Down"
 
+                        if syst_base == "JES_Total":
+                            continue
+                        sum_arr = sum(arr[0])
+                        if sum_arr == 0: continue #TODO find a more elegant solution
+
                         if syst_base not in seen:
                             seen[syst_base] = [False, False] # check[Up, Down]
                         if "Up" in syst:
@@ -1727,10 +1861,6 @@ class DatacardMaker():
                         if "Down" in syst:
                             seen[syst_base][1] = True
 
-                        if syst_base == "JES_Total":
-                            continue
-                        sum_arr = sum(arr[0])
-                        if sum_arr == 0: continue #TODO find a more elegant solution
                         if syst == "nominal" and base == "sm":
                             if self.verbose:
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
@@ -1811,12 +1941,17 @@ class DatacardMaker():
                             pass
                 # obtain the scalings for scalings.json file
                 if p in self.SIGNALS:
-                    scaling_hist = self.select_final_sr_appl(h, ch, process=p)
+                    scaling_hist = self._scaling_histogram_for_json(ch_hist, ch, p)
+                    validate_matching_histogram_edges(
+                        proc_hist,
+                        scaling_hist,
+                        context=f"datacard template/scaling for {km_dist}:{ch}:{p}",
+                    )
                     if self.wc_scalings:
-                        scalings = scaling_hist[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
+                        scalings = scaling_hist.make_scaling(wc_list=self.wc_scalings)
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
                     else:
-                        scalings = scaling_hist[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling()
+                        scalings = scaling_hist.make_scaling()
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 

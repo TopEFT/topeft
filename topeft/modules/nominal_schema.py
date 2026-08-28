@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import copy
+import warnings
 from collections import OrderedDict
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
+from itertools import product
 from typing import Any
 
 import numpy as np
@@ -13,6 +16,11 @@ from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
 
 from topeft.modules.axes import info_2d as axes_info_2d
+from topeft.modules.data_driven_products import (
+    CANONICAL_DATA_DRIVEN_YEARS,
+    data_driven_product_error,
+    parse_process_name,
+)
 from topeft.modules.sumw2_policy import resolved_sumw2_policy
 
 
@@ -21,6 +29,7 @@ NOMINAL_CONTAINER_LAYOUT = "split_sibling_v1"
 SCALAR_NOMINAL_SUFFIX = "__scalar_nominal"
 EFT_NOMINAL_SUFFIX = "__eft_nominal"
 SUMW2_SUFFIX = "_sumw2"
+YEAR_COVERAGE_POLICIES = frozenset({"warn", "error", "off"})
 
 
 def scalar_nominal_key(family: str) -> str:
@@ -40,6 +49,160 @@ def family_from_component_key(key: str) -> str | None:
         if key.endswith(suffix) and len(key) > len(suffix):
             return key[: -len(suffix)]
     return None
+
+
+def canonical_process_year(process_name: str) -> str | None:
+    """Return the maintained canonical year for one structural process label."""
+
+    try:
+        _base_name, year = parse_process_name(str(process_name))
+    except data_driven_product_error:
+        return None
+    return year
+
+
+def year_independent_process(process_name: str) -> str:
+    """Match the logical process identity used by ``DatacardMaker.get_process``."""
+
+    value = str(process_name)
+    try:
+        value, _year = parse_process_name(value)
+    except data_driven_product_error:
+        pass
+    if "_lin_" in value or "_quad_" in value:
+        value = value.split("_", 1)[0]
+    if "_" in value:
+        value = value.rsplit("_", 1)[0]
+    return value
+
+
+def histogram_categorical_support(histogram: Any) -> frozenset[tuple[tuple[str, Any], ...]]:
+    """Return structurally materialized categorical cells without reading yields."""
+
+    categorical_axes = tuple(getattr(histogram, "categorical_axes", ()))
+    axis_names = tuple(axis.name for axis in categorical_axes)
+    if not axis_names:
+        return frozenset()
+    categorical_keys = getattr(histogram, "categorical_keys", None)
+    if categorical_keys is None:
+        categorical_keys = product(*(tuple(axis) for axis in categorical_axes))
+    return frozenset(
+        tuple(zip(axis_names, tuple(key))) for key in categorical_keys
+    )
+
+
+def histogram_contribution_support(
+    histograms: Mapping[str, Any],
+) -> frozenset[tuple[str, tuple[tuple[str, Any], ...]]]:
+    """Identify exact payload contributions merged by histogram addition."""
+
+    return frozenset(
+        (key, categorical_cell)
+        for key, histogram in histograms.items()
+        for categorical_cell in histogram_categorical_support(histogram)
+    )
+
+
+def _canonical_year_sort_key(year: str) -> tuple[int, str]:
+    try:
+        return (CANONICAL_DATA_DRIVEN_YEARS.index(year), year)
+    except ValueError:
+        return (len(CANONICAL_DATA_DRIVEN_YEARS), year)
+
+
+def year_coverage_mismatches(
+    histograms: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Collect structural year coverage by nominal family/channel/process slice."""
+
+    slice_process_years: dict[tuple[str, str], dict[str, set[str]]] = defaultdict(
+        lambda: defaultdict(set)
+    )
+    for key, histogram in histograms.items():
+        if key.endswith(SUMW2_SUFFIX):
+            continue
+        family = family_from_component_key(key) or key
+        for categorical_cell in histogram_categorical_support(histogram):
+            coordinates = dict(categorical_cell)
+            if "process" not in coordinates or "channel" not in coordinates:
+                continue
+            year = canonical_process_year(str(coordinates["process"]))
+            if year is None:
+                continue
+            logical_process = year_independent_process(str(coordinates["process"]))
+            slice_process_years[(family, str(coordinates["channel"]))][
+                logical_process
+            ].add(year)
+
+    mismatches = []
+    for (family, channel), process_years in sorted(slice_process_years.items()):
+        slice_years = set().union(*process_years.values())
+        for process, represented_years in sorted(process_years.items()):
+            if represented_years == slice_years:
+                continue
+            mismatches.append(
+                {
+                    "family": family,
+                    "channel": channel,
+                    "process": process,
+                    "slice_years": sorted(slice_years, key=_canonical_year_sort_key),
+                    "process_years": sorted(
+                        represented_years, key=_canonical_year_sort_key
+                    ),
+                    "missing_years": sorted(
+                        slice_years - represented_years,
+                        key=_canonical_year_sort_key,
+                    ),
+                }
+            )
+    return mismatches
+
+
+def validate_year_coverage(
+    histograms: Mapping[str, Any],
+    *,
+    policy: str = "warn",
+) -> list[dict[str, Any]]:
+    """Apply the shared non-mutating structural year-coverage policy."""
+
+    if policy not in YEAR_COVERAGE_POLICIES:
+        raise ValueError(
+            f"Unknown year coverage policy {policy!r}; expected one of "
+            f"{sorted(YEAR_COVERAGE_POLICIES)!r}."
+        )
+    if policy == "off":
+        return []
+    mismatches = year_coverage_mismatches(histograms)
+    if not mismatches:
+        return []
+    mismatches_by_slice = defaultdict(list)
+    for mismatch in mismatches:
+        mismatches_by_slice[(mismatch["family"], mismatch["channel"])].append(
+            mismatch
+        )
+    sections = []
+    for (family, channel), slice_mismatches in mismatches_by_slice.items():
+        lines = [
+            f"Year-coverage mismatch for {family} / {channel}:",
+            "  slice years: " + ", ".join(slice_mismatches[0]["slice_years"]),
+        ]
+        for mismatch in slice_mismatches:
+            lines.extend(
+                (
+                    "  {process} years: {years}".format(
+                        process=mismatch["process"],
+                        years=", ".join(mismatch["process_years"]),
+                    ),
+                    "    missing: " + ", ".join(mismatch["missing_years"]),
+                )
+            )
+        lines.append(f"  policy: {policy}")
+        sections.append("\n".join(lines))
+    message = "\n\n".join(sections)
+    if policy == "error":
+        raise ValueError(message)
+    warnings.warn(message, UserWarning, stacklevel=2)
+    return mismatches
 
 
 def is_split_nominal_mapping(histograms: Mapping[str, Any]) -> bool:
@@ -426,6 +589,29 @@ def canonicalize_nominal_keys(
     return output
 
 
+def _materialized_runtime_families(
+    histograms: Mapping[str, Any],
+    *,
+    runtime_families: Iterable[str],
+    schema_version: int | None,
+) -> tuple[str, ...]:
+    """Return runtime families represented by at least one schema component."""
+
+    materialized = []
+    for family in runtime_families:
+        if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION and _dimensionality(family) == 1:
+            family_keys = (
+                scalar_nominal_key(family),
+                eft_nominal_key(family),
+                sumw2_key(family),
+            )
+        else:
+            family_keys = (family, sumw2_key(family))
+        if any(key in histograms for key in family_keys):
+            materialized.append(family)
+    return tuple(materialized)
+
+
 def merge_nominal_mappings(
     histogram_mappings: Iterable[Mapping[str, Any]],
     *,
@@ -439,9 +625,14 @@ def merge_nominal_mappings(
     runtime_families = tuple(runtime_families)
     merged = OrderedDict()
     for mapping in histogram_mappings:
-        validate_nominal_mapping(
+        input_families = _materialized_runtime_families(
             mapping,
             runtime_families=runtime_families,
+            schema_version=schema_version,
+        )
+        validate_nominal_mapping(
+            mapping,
+            runtime_families=input_families,
             schema_version=schema_version,
             policy=policy,
         )

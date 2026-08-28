@@ -22,10 +22,8 @@ import json
 from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
-from topeft.modules.axes import info as axes_info
+from topeft.modules.axis_binning import resolve_axis_edges
 from topcoffea.modules.utils import canonicalize_process_name
-
-BINNING = {k: v['variable'] for k,v in axes_info.items() if 'variable' in v}
 
 def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
     fout = open('comp_log.txt', 'w')
@@ -130,12 +128,16 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                             # Rebin old histogram to match new variable binning
                             if 'njets' not in hname and not newHist1:
                                 v1norebin = h1_syst.values(overflow='all')[()]
-                                bins = BINNING[hname]
+                                bins = resolve_axis_edges(
+                                    hname, mode="fitting", channel=chan
+                                ).tolist()
                                 v1rebin = h1_syst.rebin(hname, Bin(hname, h1_syst.axis(hname).label, bins))
                                 v1 = v1rebin.values(overflow='all')[()]
                                 #v1norebin = h1_syst.rebin(hname, Bin(hname, h1_syst.axis(hname).label, bins)).values(overflow='all')[()]
                             if 'njets' not in hname and not newHist2:
-                                bins = BINNING[hname]
+                                bins = resolve_axis_edges(
+                                    hname, mode="fitting", channel=chan
+                                ).tolist()
                                 v2 = h2_syst.rebin(hname, Bin(hname, h2_syst.axis(hname).label, bins)).values(overflow='all')[()]
                             if old_hist and 'data' not in proc:
                                 v2 = v2*lumi
@@ -156,7 +158,9 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                                     edg = h1_syst.axes()[0].edges()[:-1]
                                 else:
                                     edg = h1_syst.axes[0].edges[:-1]
-                                bins = BINNING[hname]#[:-1]
+                                bins = resolve_axis_edges(
+                                    hname, mode="fitting", channel=chan
+                                ).tolist()
                                 #if not newHist1 and 'TTTo2L2Nu_centralUL18' in proc: print(proc, 'full1', edg, v1norebin)
                                 #if 'TTTo2L2Nu_centralUL18' in proc: print(proc, 'rebin', bins, v1)
                                 #if not newHist1 and 'TTTo2L2Nu_centralUL18' in proc: print(proc, 'manre', bins, [v1norebin[0], sum(v1norebin[1:3]), sum(v1norebin[4:5]), sum(v1norebin[6:11])])
@@ -170,7 +174,6 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                                 #edg = h2_syst.axes[0].edges
                                 if not newHist2: hep.histplot(h2_syst.to_hist(), label=fin2.split('/')[-1].split('_')[0], ls='--', histtype='step', yerr=False, flow='show')
                                 else: hep.histplot(h2_syst.as_hist(pt), label=fin2.split('/')[-1].split('_')[0], ls='--', histtype='step', yerr=False, flow='show')
-                                #if 'regular' in fin2: hep.histplot(bins, [v2[0], sum(v2[1:3]), sum(v2[4:5]), sum(v2[6:11])], label=fin2.split('/')[-1].split('_')[0] + ' manual rebin', ls='--', histtype='step', yerr=False, flow='show')
                                 plt.legend()
                                 if pt == {}:
                                     tpt = 'sm'
@@ -289,10 +292,14 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                             else: v2 = h2_syst.values(overflow='all')[()]
                             # Rebin old histogram to match new variable binning
                             if 'njets' not in hname and not newHist1:
-                                bins = BINNING[hname]
+                                bins = resolve_axis_edges(
+                                    hname, mode="fitting", channel=chan
+                                ).tolist()
                                 v1 = h1_syst.rebin(hname, Bin(hname, h1_syst.axis(hname).label, bins)).values(overflow='all')[()]
                             if 'njets' not in hname and not newHist2:
-                                bins = BINNING[hname]
+                                bins = resolve_axis_edges(
+                                    hname, mode="fitting", channel=chan
+                                ).tolist()
                                 v2 = h2_syst.rebin(hname, Bin(hname, h2_syst.axis(hname).label, bins)).values(overflow='all')[()]
                             if old_hist and 'data' not in canonical_proc:
                                 v2 = v2*lumi

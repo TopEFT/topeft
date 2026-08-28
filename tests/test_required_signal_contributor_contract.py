@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import copy
-import json
-from pathlib import Path
 
 import pytest
 
@@ -17,7 +15,6 @@ from topeft.modules.data_driven_products import (
 from topeft.modules.production_sample_profile import (
     build_active_sample_universe,
     certify_production_sample_contract,
-    derive_required_prompt_signal_processes,
     production_sample_profile_error,
     validate_active_sample_profile,
 )
@@ -117,11 +114,6 @@ def _resolve_case(
         wrapper_identity="required-signal-test",
     )
     validate_active_sample_profile(universe, mode_resolution)
-    required_candidates = derive_required_prompt_signal_processes(
-        universe.processes,
-        signal_sample_profile=mode_resolution.signal_sample_profile,
-        nonprompt_enabled=True,
-    )
     products = resolve_data_driven_products(
         product_block,
         data_driven_products_present=product_present,
@@ -129,7 +121,6 @@ def _resolve_case(
         samples=samples,
         runtime_families=families,
         metadata_path=f"{mode}.yml",
-        required_prompt_signal_processes=required_candidates,
     )
     policy = resolve_sumw2_storage_policy(
         storage,
@@ -150,7 +141,7 @@ def _resolve_case(
         ("production_central", "tZq_centralUL18", ()),
     ],
 )
-def test_implicit_metadata_includes_active_profile_signal(
+def test_implicit_metadata_includes_canonical_prompt_process(
     mode, signal_process, signal_wc_names
 ):
     universe, products, policy = _resolve_case(
@@ -166,7 +157,8 @@ def test_implicit_metadata_includes_active_profile_signal(
     )
     certify_production_sample_contract(universe, policy, products)
     _requested, contract = certify_data_driven_preflight(products, policy)
-    assert contract["required_prompt_signal_processes"] == [signal_process]
+    assert signal_process in contract["resolved_prompt_process_set"]
+    assert "required_prompt_signal_processes" not in contract
 
 
 @pytest.mark.parametrize(
@@ -176,91 +168,26 @@ def test_implicit_metadata_includes_active_profile_signal(
         ("production_central", "tZq_centralUL18", ()),
     ],
 )
-def test_explicit_signal_omission_reports_e007_before_processing(
+def test_explicit_signal_omission_fails_at_canonical_policy_gate(
     mode, signal_process, signal_wc_names
 ):
-    universe, products, policy = _resolve_case(
-        mode,
-        signal_process,
-        signal_wc_names=signal_wc_names,
-        product_block=_explicit_products(
-            prompt_processes=("TTTo2L2Nu_centralUL18",)
-        ),
-    )
-    with pytest.raises(production_sample_profile_error) as captured:
-        certify_production_sample_contract(universe, policy, products)
+    with pytest.raises(data_driven_product_error) as captured:
+        _resolve_case(
+            mode,
+            signal_process,
+            signal_wc_names=signal_wc_names,
+            product_block=_explicit_products(
+                prompt_processes=("TTTo2L2Nu_centralUL18",)
+            ),
+        )
     message = str(captured.value)
     for expected in (
-        "SUMW2-PROFILE-E007",
-        f"resolved_mode='{mode}'",
-        "expected_signal_profile=",
-        "sr_cfg_identities=",
-        "metadata_source='explicit'",
-        "active_required_prompt_signals=",
-        "resolved_contributor_processes=",
+        "NONPROMPT-POLICY-E009",
+        "cannot override the canonical resolved prompt process set",
+        "missing=",
         signal_process,
-        "Recommended correction:",
     ):
         assert expected in message
-
-
-def test_absent_signal_creates_no_profile_requirement():
-    processes = ("dataUL18", "TTTo2L2Nu_centralUL18")
-    assert derive_required_prompt_signal_processes(
-        processes,
-        signal_sample_profile="private",
-        nonprompt_enabled=True,
-    ) == ()
-    assert derive_required_prompt_signal_processes(
-        processes,
-        signal_sample_profile="central",
-        nonprompt_enabled=True,
-    ) == ()
-
-
-def _cfg_processes(cfg_name):
-    cfg_path = Path("input_samples/cfgs") / cfg_name
-    processes = []
-    for raw_line in cfg_path.read_text(encoding="utf-8").splitlines():
-        token = raw_line.split("#", 1)[0].strip()
-        if not token.endswith(".json"):
-            continue
-        json_path = cfg_path.parent / token
-        processes.append(json.loads(json_path.read_text())["histAxisName"])
-    return tuple(processes)
-
-
-def test_actual_2022_cfgs_derive_only_evidenced_required_signals():
-    private_processes = _cfg_processes("NDSkim_2022_mc_signal_samples_sr.cfg")
-    central_processes = _cfg_processes("NDSkim_2022_central_signal_samples.cfg")
-    assert derive_required_prompt_signal_processes(
-        private_processes,
-        signal_sample_profile="private",
-        nonprompt_enabled=True,
-    ) == (
-        "tHq_private2022",
-        "tllq_private2022",
-        "ttlnu_private2022",
-        "tttt_private2022",
-    )
-    assert derive_required_prompt_signal_processes(
-        central_processes,
-        signal_sample_profile="central",
-        nonprompt_enabled=True,
-    ) == (
-        "TTTT_central2022",
-        "tZq_central2022",
-        "ttLNu_cental2022",
-    )
-
-
-def test_evidenced_unpaired_prompt_signal_is_required_in_both_profiles():
-    for profile in ("private", "central"):
-        assert derive_required_prompt_signal_processes(
-            ("tHq_private2022",),
-            signal_sample_profile=profile,
-            nonprompt_enabled=True,
-        ) == ("tHq_private2022",)
 
 
 @pytest.mark.parametrize(
@@ -303,7 +230,7 @@ def test_nonprompt_disabled_and_flips_only_require_no_signal(nonprompt, flips):
     )
     certify_production_sample_contract(universe, policy, products)
     _requested, contract = certify_data_driven_preflight(products, policy)
-    assert contract["required_prompt_signal_processes"] == []
+    assert "required_prompt_signal_processes" not in contract
 
 
 def test_nonprompt_plus_flips_requirement_comes_only_from_nonprompt():
@@ -323,7 +250,8 @@ def test_nonprompt_plus_flips_requirement_comes_only_from_nonprompt():
     )
     certify_production_sample_contract(universe, policy, products)
     _requested, contract = certify_data_driven_preflight(products, policy)
-    assert contract["required_prompt_signal_processes"] == [signal_process]
+    assert signal_process in contract["resolved_prompt_process_set"]
+    assert "required_prompt_signal_processes" not in contract
     flips_sources = contract["products"]["flips"]["generated_outputs"][
         "flipsUL18"
     ]["source_contributors"]
@@ -338,11 +266,6 @@ def test_required_signal_needs_every_dataset_process_family_target():
         sumw2_storage_present=True,
     )
     universe = build_active_sample_universe(samples)
-    required = derive_required_prompt_signal_processes(
-        universe.processes,
-        signal_sample_profile="private",
-        nonprompt_enabled=True,
-    )
     products = resolve_data_driven_products(
         _explicit_products(
             prompt_processes=("TTTo2L2Nu_centralUL18", signal_process)
@@ -352,7 +275,6 @@ def test_required_signal_needs_every_dataset_process_family_target():
         samples=samples,
         runtime_families=("njets", "met"),
         metadata_path="targets.yml",
-        required_prompt_signal_processes=required,
     )
     incomplete_storage = {
         "mode": "production",
@@ -398,7 +320,7 @@ def test_required_signal_needs_every_dataset_process_family_target():
     certify_production_sample_contract(universe, complete_policy, products)
 
 
-def test_required_signal_provenance_rejects_list_and_contributor_tampering():
+def test_historical_required_signal_key_is_ignored_but_contributor_tampering_fails():
     signal_process = "tllq_privateUL18"
     universe, products, policy = _resolve_case(
         "production",
@@ -414,14 +336,16 @@ def test_required_signal_provenance_rejects_list_and_contributor_tampering():
     certify_production_sample_contract(universe, policy, products)
     requested, contract = certify_data_driven_preflight(products, policy)
 
-    tampered_list = copy.deepcopy(contract)
-    tampered_list["required_prompt_signal_processes"] = []
-    with pytest.raises(data_driven_product_error, match="contradict"):
+    historical = copy.deepcopy(contract)
+    historical["required_prompt_signal_processes"] = ["staleUL18"]
+    _normalized_requested, normalized_contract = (
         validate_serialized_data_driven_contract(
             requested,
-            tampered_list,
+            historical,
             policy=policy,
         )
+    )
+    assert normalized_contract == contract
 
     missing_contributor = copy.deepcopy(contract)
     output = missing_contributor["products"]["nonprompt"]["generated_outputs"][
@@ -429,7 +353,10 @@ def test_required_signal_provenance_rejects_list_and_contributor_tampering():
     ]
     output["source_contributors"]["prompt_mc"].remove(signal_process)
     output["required_source_sumw2_processes"].remove(signal_process)
-    with pytest.raises(data_driven_product_error, match="omit.*required"):
+    with pytest.raises(
+        data_driven_product_error,
+        match="Nominal prompt contributors.*certified resolved prompt process set differ",
+    ):
         validate_serialized_data_driven_contract(
             requested,
             missing_contributor,

@@ -1,14 +1,8 @@
-### Documentation
+# Parameter-file documentation
 
-:warning: Is this documentation out of date?
-* Twiki with the b tag working points (does not have UL16 yet): https://twiki.cern.ch/twiki/bin/viewauth/CMS/BtagRecommendation
-
-### CR/SR plot configuration
-
-* Background groups used for the control- and signal-region plots are driven by
-  pattern lists defined in `params/cr_sr_plots_metadata.yml`.
-* Any Monte Carlo process that fails to match one of the configured patterns is
-  no longer dropped from the stack. Instead, the plotting code will emit a
-  warning and create a one-off group named after the raw process. The fallback
-  group participates in the stack and inherits a default colour palette so the
-  total MC yield remains unchanged.
+Plot metadata is documented in
+[`docs/reference/plotting.md`](../../docs/reference/plotting.md). Packaged UL
+b-tag inputs are documented in
+[`docs/reference/btag_scale_factor_payloads.md`](../../docs/reference/btag_scale_factor_payloads.md).
+The JSON and YAML files in this directory remain the machine-readable owners;
+this source-local page is only a navigation pointer.

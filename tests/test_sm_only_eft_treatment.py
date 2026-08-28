@@ -24,10 +24,6 @@ from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.data_driven_products import resolve_data_driven_products
 from topeft.modules.datacard_tools import DatacardMaker
-from topeft.modules.production_sample_profile import (
-    build_active_sample_universe,
-    derive_required_prompt_signal_processes,
-)
 from topeft.modules.sumw2_policy import (
     resolve_nominal_component_availability,
     resolve_sumw2_storage_policy,
@@ -283,14 +279,6 @@ def test_two_source_datasets_target_one_prompt_process_and_both_sumw2_inputs():
         },
         "data": {"histAxisName": "data2022", "isData": True, "WCnames": []},
     }
-    universe = build_active_sample_universe(samples)
-    required = derive_required_prompt_signal_processes(
-        universe.processes,
-        signal_sample_profile="private",
-        nonprompt_enabled=True,
-    )
-    assert required == (process,)
-
     products = resolve_data_driven_products(
         {
             "nonprompt": {
@@ -307,7 +295,6 @@ def test_two_source_datasets_target_one_prompt_process_and_both_sumw2_inputs():
         samples=samples,
         runtime_families=("njets",),
         metadata_path="test.yml",
-        required_prompt_signal_processes=required,
     )
     assert products.product("nonprompt").contributors_for("prompt_mc") == (process,)
 

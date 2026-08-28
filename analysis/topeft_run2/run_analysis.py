@@ -38,6 +38,10 @@ from topeft.modules.nominal_schema import (
     canonicalize_nominal_keys,
     validate_nominal_mapping,
 )
+from topeft.modules.nonprompt_policy import (
+    certify_active_nonprompt_policy,
+    nonprompt_policy_error,
+)
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.sumw2_policy import (
@@ -48,7 +52,6 @@ from topeft.modules.sumw2_policy import (
 from topeft.modules.production_sample_profile import (
     build_active_sample_universe,
     certify_production_sample_contract,
-    derive_required_prompt_signal_processes,
     production_sample_profile_error,
     validate_active_sample_profile,
 )
@@ -77,6 +80,25 @@ WGT_VAR_LST = [
     #"nSumOfWeights_renormfactUp",
     #"nSumOfWeights_renormfactDown",
 ]
+
+
+def _certify_nonprompt_policy_before_executor(
+    samples,
+    *,
+    nonprompt_enabled,
+    configuration_source,
+):
+    """Hard-fail the active nonprompt universe before processor/executor setup."""
+
+    if not nonprompt_enabled:
+        return None
+    try:
+        return certify_active_nonprompt_policy(
+            samples,
+            configuration_source=configuration_source,
+        )
+    except nonprompt_policy_error as error:
+        raise SystemExit(str(error)) from None
 
 def _ensure_topcoffea_data_available(skip_check=False):
     if skip_check:
@@ -303,14 +325,73 @@ def _log_category_group_selection(category_group_selection):
             )
 
 
-def _resolve_environment_file(env_override, use_remote_env, extra_pip_local=None):
+def _environment_rebuild_command(interpreter=None, script_path=None):
+    return shlex.join(
+        [
+            interpreter or os.path.realpath(os.sys.executable),
+            script_path or os.path.abspath(__file__),
+            "--prepare-env-only",
+            "--rebuild-env",
+        ]
+    )
+
+
+def _print_environment_identity(validation):
+    print(f"env_file: {validation['archive_path']}")
+    print(f"env_file_sha256: {validation['archive_sha256']}")
+    print(f"env_manifest: {validation['manifest_path']}")
+    print(f"environment_fingerprint: {validation['environment_fingerprint']}")
+    print(f"environment_validation_status: {validation['status']}")
+    for package in validation.get("editable_packages", []):
+        if package.get("package_name") == "topcoffea":
+            print(f"topcoffea_git_commit: {package.get('git_commit')}")
+            print(f"topcoffea_relevant_source_fingerprint: {package.get('watched_source_fingerprint')}")
+
+
+def _strict_environment_error(validation):
+    reasons = "\n".join(f"  - {reason}" for reason in validation["mismatches"])
+    raise SystemExit(
+        "environment_status: {}\nreason(s):\n{}\n\nCreate a compatible current environment with:\n\n"
+        "  {}\n\nThen rerun with:\n  --env-file <new archive path>".format(
+            validation["status"], reasons or "  - archive validation failed", _environment_rebuild_command()
+        )
+    )
+
+
+def _resolve_environment_file(
+    env_override,
+    use_remote_env,
+    extra_pip_local=None,
+    rebuild_env=False,
+    snapshot=False,
+    integrity_only=False,
+):
+    extra_pip_local = extra_pip_local or {"topeft": ["topeft", "setup.py"]}
     if env_override:
         env_path = os.path.abspath(os.path.expanduser(env_override))
-        if not os.path.exists(env_path):
-            raise SystemExit(
-                f"Requested remote environment file {env_path} does not exist. "
-                "Point --env-file at a poncho tarball built from environment.yml or drop the flag to rebuild."
-            )
+        integrity = remote_environment.validate_environment_archive(env_path, snapshot=snapshot)
+        if integrity["status"] == "invalid_archive":
+            _strict_environment_error(integrity)
+        if integrity_only:
+            if not integrity["usable"]:
+                _strict_environment_error(integrity)
+            _print_environment_identity(integrity)
+            return env_path
+        current_request = remote_environment.resolve_environment_request(
+            extra_pip_local=extra_pip_local,
+            unstaged="fail",
+        )
+        validation = remote_environment.validate_environment_archive(
+            env_path, current_request, snapshot=snapshot
+        )
+        if not validation["usable"]:
+            _strict_environment_error(validation)
+        if snapshot:
+            print("SNAPSHOT ENVIRONMENT MODE")
+            print("compatibility enforcement: bypassed explicitly with --snapshot")
+            for mismatch in validation["mismatches"]:
+                print(f"snapshot_environment_mismatch: {mismatch}")
+        _print_environment_identity(validation)
         return env_path
 
     if not use_remote_env:
@@ -318,7 +399,8 @@ def _resolve_environment_file(env_override, use_remote_env, extra_pip_local=None
 
     try:
         return remote_environment.get_environment(
-            extra_pip_local=extra_pip_local or {"topeft": ["topeft", "setup.py"]},
+            extra_pip_local=extra_pip_local,
+            force=rebuild_env,
         )
     except subprocess.CalledProcessError as exc:
         raise SystemExit(
@@ -928,7 +1010,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--options",
         default=None,
-        help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence",
+        help=(
+            "YAML file that specifies supported options. Recognized YAML values "
+            "replace overlapping command-line and parser-default values."
+        ),
     )
     parser.add_argument(
         "--analysis-mode",
@@ -965,6 +1050,27 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
+        "--rebuild-env",
+        action="store_true",
+        help="Force recreation of the current automatic remote environment archive.",
+    )
+    parser.add_argument(
+        "--prepare-env-only",
+        action="store_true",
+        help="Create and validate the current environment archive, then exit before analysis setup.",
+    )
+    parser.add_argument(
+        "--snapshot",
+        action="store_true",
+        help="Use an explicit historical archive after integrity validation, bypassing current compatibility only.",
+    )
+    parser.add_argument(
+        "--validate-env-file",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument("--env-integrity-only", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
         "--no-remote-env",
         dest="use_remote_env",
         action="store_false",
@@ -982,6 +1088,54 @@ if __name__ == "__main__":
     parser.set_defaults(use_remote_env=True)
 
     args = parser.parse_args()
+    if args.rebuild_env and args.env_file:
+        parser.error("--rebuild-env cannot be combined with --env-file")
+    if args.snapshot and not args.env_file:
+        parser.error("--snapshot requires --env-file")
+    if args.snapshot and args.rebuild_env:
+        parser.error("--snapshot cannot be combined with --rebuild-env")
+    if args.snapshot and args.prepare_env_only:
+        parser.error("--snapshot cannot be combined with --prepare-env-only")
+    if args.validate_env_file and not args.env_file:
+        parser.error("--validate-env-file requires --env-file")
+    if args.validate_env_file and args.snapshot:
+        parser.error("--validate-env-file cannot be combined with --snapshot")
+    if args.env_integrity_only and not args.validate_env_file:
+        parser.error("--env-integrity-only requires --validate-env-file")
+
+    env_extra_pip_local = {"topeft": ["topeft", "setup.py"]}
+    if args.prepare_env_only:
+        environment_file = _resolve_environment_file(
+            None,
+            True,
+            extra_pip_local=env_extra_pip_local,
+            rebuild_env=args.rebuild_env,
+        )
+        request = remote_environment.resolve_environment_request(
+            extra_pip_local=env_extra_pip_local,
+            unstaged="fail",
+        )
+        validation = remote_environment.validate_environment_archive(environment_file, request)
+        if not validation["usable"]:
+            _strict_environment_error(validation)
+        _print_environment_identity(validation)
+        raise SystemExit(0)
+    if args.validate_env_file:
+        _resolve_environment_file(
+            args.env_file,
+            True,
+            extra_pip_local=env_extra_pip_local,
+            integrity_only=args.env_integrity_only,
+        )
+        raise SystemExit(0)
+    resolved_explicit_env_file = None
+    if args.env_file:
+        resolved_explicit_env_file = _resolve_environment_file(
+            args.env_file,
+            True,
+            extra_pip_local=env_extra_pip_local,
+            snapshot=args.snapshot,
+        )
     if args.do_renormfact_envelope:
         raise_unsupported_renormfact_envelope()
     if args.debug_year_scan:
@@ -1107,6 +1261,11 @@ if __name__ == "__main__":
         env_file_override = ops.pop("env_file", env_file_override)
         use_remote_env = ops.pop("use_remote_env", use_remote_env)
         skip_topcoffea_data_check = ops.pop("skip_topcoffea_data_check", skip_topcoffea_data_check)
+        if ops:
+            unsupported_option_keys = ", ".join(sorted(str(key) for key in ops))
+            raise ValueError(
+                f"Unsupported YAML option key(s): {unsupported_option_keys}"
+            )
 
     if do_renormfact_envelope:
         raise_unsupported_renormfact_envelope()
@@ -1643,6 +1802,21 @@ if __name__ == "__main__":
     except production_sample_profile_error as error:
         raise SystemExit(str(error)) from None
 
+    configured_nonprompt_enabled = (
+        bool(
+            data_driven_products_config.get("nonprompt", {}).get("enabled")
+        )
+        if data_driven_products_present
+        and isinstance(data_driven_products_config, Mapping)
+        and isinstance(data_driven_products_config.get("nonprompt"), Mapping)
+        else bool(do_np)
+    )
+    certified_nonprompt_policy = _certify_nonprompt_policy_before_executor(
+        samplesdict,
+        nonprompt_enabled=configured_nonprompt_enabled,
+        configuration_source=args.options or "<command-line/default>",
+    )
+
     resolved_data_driven_products = resolve_data_driven_products(
         data_driven_products_config,
         data_driven_products_present=data_driven_products_present,
@@ -1650,11 +1824,7 @@ if __name__ == "__main__":
         samples=samplesdict,
         runtime_families=runtime_histogram_families,
         metadata_path=args.options,
-        required_prompt_signal_processes=derive_required_prompt_signal_processes(
-            active_universe.processes,
-            signal_sample_profile=sumw2_mode.signal_sample_profile,
-            nonprompt_enabled=True,
-        ),
+        nonprompt_policy=certified_nonprompt_policy,
     )
     if do_np and not resolved_data_driven_products.enabled_products():
         raise ValueError(
@@ -1800,14 +1970,15 @@ if __name__ == "__main__":
     else:
         print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
 
-    env_extra_pip_local = {"topeft": ["topeft", "setup.py"]}
     wq_staging_dir = None
     wq_cleanup_after = False
     if executor_name in ["work_queue", "taskvine"]:
-        environment_file = _resolve_environment_file(
+        environment_file = resolved_explicit_env_file or _resolve_environment_file(
             env_file_override,
             use_remote_env,
             extra_pip_local=env_extra_pip_local,
+            rebuild_env=args.rebuild_env,
+            snapshot=args.snapshot,
         )
     else:
         environment_file = None

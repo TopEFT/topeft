@@ -36,12 +36,36 @@ def test_j0eta_remains_sourced_from_leading_central_jet():
 
 
 def test_fwd0eta_axis_is_forward_jet_specific():
-    assert axes_info["fwd0eta"]["regular"] == (50, -5, 5)
+    assert axes_info["fwd0eta"]["processing"] == {
+        "kind": "edges",
+        "edges": [
+            -5,
+            -4.5,
+            -4,
+            -3.6,
+            -3.2,
+            -2.8,
+            -2.4,
+            2.4,
+            2.8,
+            3.2,
+            3.6,
+            4,
+            4.5,
+            5,
+        ],
+    }
     assert "forward jet" in axes_info["fwd0eta"]["label"]
-    assert axes_info["j0eta"]["regular"] == (15, -3, 3)
+    assert axes_info["j0eta"]["processing"] == {
+        "kind": "uniform", "bins": 15, "start": -3, "stop": 3
+    }
 
 
 def test_fwd0pt_axis_is_forward_jet_specific():
-    assert axes_info["fwd0pt"]["regular"] == (10, 0, 200)
+    assert axes_info["fwd0pt"]["processing"] == {
+        "kind": "uniform", "bins": 10, "start": 0, "stop": 200
+    }
     assert "forward jet" in axes_info["fwd0pt"]["label"]
-    assert axes_info["j0pt"]["regular"] == (15, 0, 300)
+    assert axes_info["j0pt"]["processing"] == {
+        "kind": "uniform", "bins": 15, "start": 0, "stop": 300
+    }

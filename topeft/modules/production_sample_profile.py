@@ -80,14 +80,6 @@ VALIDATED_SIGNAL_VARIANT_GROUPS = (
 )
 
 
-# Direct maintained evidence classifies tHq_private and Run 3 ttll_private as
-# signal processes and nonprompt prompt-subtraction sources, but no validated
-# replacement group exists for either.  Keep this list narrower than the
-# signal-role catalog: unpaired processes without both pieces of evidence are
-# not inferred here.
-UNPAIRED_PROMPT_SIGNAL_BASES = ("tHq_private", "ttll_private")
-
-
 @dataclass(frozen=True)
 class active_sample_universe:
     wrapper_identity: str
@@ -259,37 +251,6 @@ def _group_active_variants(
     return tuple(output)
 
 
-def derive_required_prompt_signal_processes(
-    processes: Sequence[str],
-    *,
-    signal_sample_profile: str,
-    nonprompt_enabled: bool,
-) -> tuple[str, ...]:
-    """Derive the active profile signal subset required by nonprompt."""
-
-    if not nonprompt_enabled or signal_sample_profile not in {"private", "central"}:
-        return ()
-
-    from topeft.modules.data_driven_products import parse_process_name
-
-    required = set()
-    for record in _group_active_variants(processes):
-        required.update(record[f"{signal_sample_profile}_processes"])
-    for process in sorted(set(processes)):
-        try:
-            base_name, _year = parse_process_name(process)
-        except ValueError as error:
-            if any(process.startswith(base) for base in UNPAIRED_PROMPT_SIGNAL_BASES):
-                raise production_sample_profile_error(
-                    "SUMW2-PROFILE-E006: unpaired prompt-signal process has an "
-                    f"unsupported canonical year suffix: process={process!r}."
-                ) from error
-            continue
-        if base_name in UNPAIRED_PROMPT_SIGNAL_BASES:
-            required.add(process)
-    return tuple(sorted(required))
-
-
 def _format_profile_error(
     error_id: str,
     summary: str,
@@ -304,7 +265,6 @@ def _format_profile_error(
     product: str = "<not-applicable>",
     family: str = "<not-applicable>",
     conflicts: Sequence[str] = (),
-    required_prompt_signals: Sequence[str] = (),
     metadata_source: str = "<not-provided>",
     correction: str,
 ) -> str:
@@ -318,7 +278,6 @@ def _format_profile_error(
         f"central_variant={list(central_variants)}; "
         f"active_cfg_processes={list(universe.processes)}; "
         f"resolved_contributor_processes={sorted(set(contributors))}; "
-        f"active_required_prompt_signals={sorted(set(required_prompt_signals))}; "
         f"metadata_source={metadata_source!r}; "
         f"affected_data_driven_product={product!r}; affected_family={family!r}; "
         f"missing_or_conflicting_targets={list(conflicts)}. "
@@ -538,39 +497,6 @@ def certify_production_sample_contract(
                 contributors=contributors,
                 conflicts=missing_contributors,
                 correction="correct the explicit contributor selector or restore the intended active cfg sample",
-            )
-        )
-
-    nonprompt = resolved_products.product("nonprompt")
-    required_prompt_signals = derive_required_prompt_signal_processes(
-        universe.processes,
-        signal_sample_profile=policy.signal_sample_profile,
-        nonprompt_enabled=nonprompt.enabled,
-    )
-    resolved_prompt_mc = (
-        nonprompt.contributors_for("prompt_mc") if nonprompt.enabled else ()
-    )
-    missing_prompt_signals = sorted(
-        set(required_prompt_signals) - set(resolved_prompt_mc)
-    )
-    if missing_prompt_signals:
-        raise production_sample_profile_error(
-            _format_profile_error(
-                "SUMW2-PROFILE-E007",
-                "active profile-required prompt signal is missing from resolved nonprompt prompt_mc contributors",
-                universe=universe,
-                mode_resolution=mode_resolution,
-                metadata_path=resolved_products.metadata_path,
-                metadata_source=resolved_products.source,
-                contributors=resolved_prompt_mc,
-                required_prompt_signals=required_prompt_signals,
-                product="nonprompt",
-                conflicts=missing_prompt_signals,
-                correction=(
-                    "add every missing active required signal to explicit "
-                    "data_driven_products.nonprompt.source_contributors.prompt_mc, "
-                    "or disable nonprompt; implicit metadata is derived automatically"
-                ),
             )
         )
 

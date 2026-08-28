@@ -1,3 +1,10 @@
+"""Select a card topology and deterministically finalize EFT scaling records.
+
+The command consumes a directory produced by ``make_cards.py``. It does not
+consume or create ``combinedcard.txt``; card combination belongs to the later
+EFTFit/Combine workflow.
+"""
+
 import os
 import shutil
 import argparse
@@ -18,6 +25,7 @@ IGNORE_LINES = [
 
 # Return list of lines in a file
 def read_file(filename):
+    """Return stripped text lines from *filename*."""
     with open(filename) as f:
         content = f.readlines()
     content = [x.strip() for x in content]
@@ -25,6 +33,7 @@ def read_file(filename):
 
 # Check if we want to ignore the line or not (based on whether or not any of a list of strings we don't care about shows up in the line)
 def ignore_line(line_to_check,list_of_str_to_ignore=IGNORE_LINES):
+    """Return whether a log line contains an explicitly ignored fragment."""
     ignore = False
     for str_to_ignore in list_of_str_to_ignore:
         if str_to_ignore in line_to_check:
@@ -32,10 +41,36 @@ def ignore_line(line_to_check,list_of_str_to_ignore=IGNORE_LINES):
     return ignore
 
 def extract_number(item):
+    """Return the decimal characters embedded in a channel jet-bin label."""
     return str(''.join(char for char in item if char.isdigit()))
+
+
+def _validate_copied_template_counts(args, n_txt, n_root):
+    if n_txt != n_root:
+        raise Exception(
+            f"Error, expected one text card per ROOT template but copied "
+            f"{n_txt} text and {n_root} ROOT files"
+        )
+
+    expected_count = None
+    if args.set_up_top22006:
+        expected_count = 43
+    elif args.set_up_offZdivision:
+        expected_count = 75
+    elif args.tau_flag:
+        expected_count = 60
+    elif args.all_analysis:
+        expected_count = 129
+
+    if expected_count is not None and n_txt != expected_count:
+        raise Exception(
+            f"Error, unexpected number of text ({n_txt}) or root ({n_root}) "
+            "files copied"
+        )
 
 # Check the output of the datacard maekr
 def main():
+    """Parse one topology selector, copy selected cards, and write scalings."""
 
     parser = argparse.ArgumentParser()
     parser.add_argument("datacards_path", help = "The path to the directory with the datacards in it.")
@@ -62,8 +97,8 @@ def main():
     # check exactly one is True
     if sum(flags) != 1:
         raise ValueError(
-            "Exactly one of --set_up_top22006, "
-            "--set_up_offZdivision, --tau_flag, --fwd_flag must be set."
+            "Exactly one of --set-up-top22006, --set-up-offZdivision, "
+            "--tau-flag, --fwd-flag, or --all-analysis must be set."
         )
     
     ###### Print out general info ######
@@ -155,8 +190,8 @@ def main():
                         ("offZ_2b_fwd" in lep_ch_name and int(jet) == 1)
                     ):
                         continue
-                    elif (args.set_up_offZdivision or args.all_analysis) and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
-                        channelname = lep_ch_name + "_" + jet + "j_ptz"
+                    elif (args.set_up_offZdivision or args.all_analysis) and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # off-Z closest-SFOS dilepton-pT categories
+                        channelname = lep_ch_name + "_" + jet + "j_ptll"
                     elif (args.tau_flag or args.all_analysis) and ("2los" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif (args.tau_flag or args.all_analysis) and ("1tau_onZ" in lep_ch_name):
@@ -206,12 +241,9 @@ def main():
 
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
-    print(f"\tNumber of root templates copied: {n_txt}")
-    print(args.tau_flag)
-    print((n_txt != 60) or (n_root != 60))
-    print((args.tau_flag and ((n_txt != 60) or (n_root != 60))))
-    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75)))   or   (args.tau_flag and ((n_txt != 60) or (n_root != 60))) or (args.all_analysis and (n_root != 129)):
-        raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
+    print(f"\tNumber of root templates copied: {n_root}")
+    _validate_copied_template_counts(args, n_txt, n_root)
     print("Done.\n")
 
-main()
+if __name__ == "__main__":
+    main()

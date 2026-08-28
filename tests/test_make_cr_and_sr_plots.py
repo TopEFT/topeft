@@ -147,6 +147,51 @@ def test_show_ratio_legend_cli_is_disabled_by_default_and_explicitly_enabled():
     )
 
 
+def test_binning_cli_defaults_to_processing_and_accepts_fitting():
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    assert parser.parse_args(["-f", "input.pkl.gz"]).binning == "processing"
+    assert (
+        parser.parse_args(["-f", "input.pkl.gz", "--binning", "fitting"]).binning
+        == "fitting"
+    )
+
+
+def test_plot_binning_view_uses_stored_processing_and_shared_fitting_resolution():
+    channel = "3l_1tau_1b_2j"
+    histogram = make_cr_and_sr_plots.SparseHist(
+        hist.axis.StrCategory(["background"], name="process", growth=True),
+        hist.axis.Regular(12, 0, 600, name="lj0pt"),
+    )
+    histogram.fill(process="background", lj0pt=np.array([25.0, 175.0, 375.0]))
+
+    processing_view = make_cr_and_sr_plots._apply_plot_binning_view(
+        histogram, "lj0pt", [channel], "processing"
+    )
+    fitting_view = make_cr_and_sr_plots._apply_plot_binning_view(
+        histogram, "lj0pt", [channel], "fitting"
+    )
+
+    assert processing_view is histogram
+    assert np.array_equal(processing_view.axes["lj0pt"].edges, np.arange(0, 601, 50))
+    assert np.array_equal(fitting_view.axes["lj0pt"].edges, [0, 150, 250, 350])
+    assert sum(next(iter(fitting_view.view(flow=True).values()))) == pytest.approx(3.0)
+
+
+def test_aggregate_fitting_plot_rejects_incompatible_exact_channel_axes():
+    histogram = make_cr_and_sr_plots.SparseHist(
+        hist.axis.StrCategory(["background"], name="process", growth=True),
+        hist.axis.Regular(12, 0, 600, name="lt"),
+    )
+    histogram.fill(process="background", lt=25.0)
+    with pytest.raises(ValueError, match="incompatible fitting axes"):
+        make_cr_and_sr_plots._apply_plot_binning_view(
+            histogram,
+            "lt",
+            ["3l_m_offZ_2b_fwd_1j", "3l_m_offZ_2b_fwd_2j"],
+            "fitting",
+        )
+
+
 def test_uncertainty_mode_parser_and_resolution_contract():
     parser = make_cr_and_sr_plots.build_arg_parser()
 
@@ -1962,6 +2007,34 @@ def test_data_driven_reinsertion_respects_year_tokens():
     assert "flips2022" not in ctx_run2.mc_samples
 
 
+def test_combined_run2_run3_year_context_is_rejected():
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    parsed = parser.parse_args(["-f", "input.pkl.gz", "--year", "run2", "run3"])
+    assert parsed.year == ["run2", "run3"]
+
+    hist_inputs = {"met": _make_met_histogram_for_channels(["2lss_ee_CR_1j"])}
+    with pytest.raises(ValueError, match=r"Combined Run 2 \+ Run 3 plotting"):
+        make_cr_and_sr_plots.build_region_context(
+            "CR", hist_inputs, years=["run2", "run3"], unblind=True
+        )
+    run2_ctx = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["run2"], unblind=True
+    )
+    run3_ctx = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["run3"], unblind=True
+    )
+    physical_year_ctx = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["2022"], unblind=True
+    )
+
+    assert run2_ctx.lumi_pair == ("137.6", "13")
+    assert run2_ctx.lumi_components == (("137.6", "13"),)
+    assert run2_ctx.scope_label == "Run 2"
+    assert run3_ctx.lumi_pair == ("61.891", "13.6")
+    assert run3_ctx.lumi_components == (("61.891", "13.6"),)
+    assert run3_ctx.scope_label == "Run 3"
+    assert physical_year_ctx.lumi_pair == ("7.98", "13.6")
+    assert physical_year_ctx.scope_label is None
 def test_parse_rebin_plot_vars_accepts_colon_and_equals():
     parsed = make_cr_and_sr_plots.parse_rebin_plot_vars("j0pt:2,l1conept=3")
 
