@@ -151,30 +151,36 @@ def test_sample_universe_wrapper_rejects_missing_empty_or_duplicate_values(extra
     assert "sample-universe-wrapper" in result.stderr
 
 
-def test_run_cr_matrix_has_18_ordered_unique_outputs():
-    _script_text, rows = _run_cr_command_matrix()
+def test_run_cr_matrix_tracks_active_cr_profile_mappings():
+    script_text, rows = _run_cr_command_matrix()
+    year_sets = _bash_string_array(script_text, "cr_year_sets")
+    category_sets = _bash_string_array(script_text, "cr_category_sets")
+    variable_set_names = _bash_string_array(
+        script_text, "cr_category_var_set_names"
+    )
+    expected_rows = [
+        (year_set, category_set, histogram_chunk)
+        for year_set in year_sets
+        for category_set, variable_set_name in zip(
+            category_sets, variable_set_names
+        )
+        for histogram_chunk in _bash_string_array(script_text, variable_set_name)
+    ]
 
-    assert len(rows) == 18
-    assert len({row["output_identity"] for row in rows}) == 18
-    assert [row["year_group"] for row in rows] == (
-        ["2016APV 2016 2017 2018"] * 6
-        + ["2022 2022EE"] * 6
-        + ["2023 2023BPix"] * 6
-    )
-    assert [row["categories"] for row in rows[:6]] == (
-        ["2l_CR 2l_CRflip 2los_CRZ 2los_CRtt 3l_CR"] * 3
-        + ["1l_1tau_CRtt 1l_1tau_CRDY 2los_1tau"] * 3
-    )
+    assert "2016APV 2016 2017 2018" not in year_sets
+    assert [
+        (row["year_group"], row["categories"], row["histogram_chunk"])
+        for row in rows
+    ] == expected_rows
+    assert len({row["output_identity"] for row in rows}) == len(expected_rows)
 
 
 def test_run_cr_non_tau_commands_exclude_tau_only_histograms():
-    _script_text, rows = _run_cr_command_matrix()
+    script_text, rows = _run_cr_command_matrix()
     tau_only_histograms = {"ptz_wtau", "tau0Fpt", "tau0Tpt"}
     non_tau_categories = "2l_CR 2l_CRflip 2los_CRZ 2los_CRtt 3l_CR"
 
-    for command_index in (3, 9, 15):
-        histogram_chunk = set(rows[command_index - 1]["histogram_chunk"].split())
-        assert histogram_chunk.isdisjoint(tau_only_histograms)
+    assert _bash_string_array(script_text, "cr_category_sets")[0] == non_tau_categories
     for row in rows:
         if row["categories"] == non_tau_categories:
             assert set(row["histogram_chunk"].split()).isdisjoint(
@@ -183,23 +189,32 @@ def test_run_cr_non_tau_commands_exclude_tau_only_histograms():
 
 
 def test_run_cr_tau_third_chunks_retain_tau_only_histograms():
-    _script_text, rows = _run_cr_command_matrix()
+    script_text, rows = _run_cr_command_matrix()
     tau_only_histograms = {"ptz_wtau", "tau0Fpt", "tau0Tpt"}
+    category_sets = _bash_string_array(script_text, "cr_category_sets")
+    variable_set_names = _bash_string_array(
+        script_text, "cr_category_var_set_names"
+    )
+    tau_category = category_sets[1]
+    tau_chunks = _bash_string_array(script_text, variable_set_names[1])
 
-    for command_index in (6, 12, 18):
-        histogram_chunk = set(rows[command_index - 1]["histogram_chunk"].split())
-        assert tau_only_histograms.issubset(histogram_chunk)
+    for year_group in _bash_string_array(script_text, "cr_year_sets"):
+        tau_rows = [
+            row
+            for row in rows
+            if row["year_group"] == year_group and row["categories"] == tau_category
+        ]
+        assert [row["histogram_chunk"] for row in tau_rows] == tau_chunks
+        assert tau_only_histograms.issubset(set(tau_rows[-1]["histogram_chunk"].split()))
 
 
 def test_run_cr_production_switches_flags_and_provenance_are_preserved():
     script_text, _rows = _run_cr_command_matrix()
 
-    assert re.search(r"^run_sr=false$", script_text, flags=re.MULTILINE)
-    assert re.search(r"^dry_run=false$", script_text, flags=re.MULTILINE)
-    assert 'cmd_ref+=(--ttgamma-sample-role-policy "${ttgamma_sample_role_policy}")' in script_text
-    assert (
-        'cmd_ref+=(--sample-universe-wrapper "run_cr.sh -> fullR3_run.sh")'
-        in script_text
-    )
+    assert re.search(r"^run_sr=true$", script_text, flags=re.MULTILINE)
+    assert re.search(r"^profile_dry_run=false$", script_text, flags=re.MULTILINE)
+    assert 'dry_run="${profile_dry_run}"' in script_text
+    assert '--ttgamma-sample-role-policy "${ttgamma_sample_role_policy}"' in script_text
+    assert '--sample-universe-wrapper "run_cr.sh -> fullR3_run.sh"' in script_text
     assert 'cmd_ref+=(--do-systs)' in script_text
-    assert 'cmd_ref+=(--do-np)' in script_text
+    assert 'cmd_ref+=(--do-np --defer-np)' in script_text

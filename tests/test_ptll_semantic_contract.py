@@ -263,13 +263,12 @@ def test_run_cr_profiles_request_canonical_families():
     assert _bash_array(source, "sr_offz_var_sets") == ["njets lj0pt ptll lt"]
     assert _bash_array(source, "sr_onz_tau_var_sets") == ["njets lj0pt ptz lt"]
     assert _bash_array(source, "sr_fwd_var_sets") == ["njets lj0pt ptz lt"]
-    assert _bash_array(source, "sr_run2_category_var_set_names") == [
-        "sr_with_ptz_wtau_var_sets",
-        "sr_offz_var_sets",
-        "sr_onz_tau_var_sets",
-        "sr_fwd_var_sets",
+    assert _bash_array(source, "rebin_fine_category_var_set_names") == [
+        "rebin_fine_2lss_1tau_3l_m_offz_var_sets",
+        "rebin_fine_3l_p_offz_3l_onZ_tau_var_sets",
+        "rebin_fine_3l_fwd_var_sets",
     ]
-    assert _bash_array(source, "sr_run3_category_var_set_names") == [
+    assert _bash_array(source, "run3_full_category_var_set_names") == [
         "sr_with_ptz_wtau_var_sets",
         "sr_offz_var_sets",
         "sr_offz_var_sets",
