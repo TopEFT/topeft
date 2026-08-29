@@ -367,10 +367,13 @@ def test_skip_option_suppresses_only_missing_parton(monkeypatch):
 
 def test_default_missing_parton_contract_remains_tllq_and_thq(monkeypatch):
     maker = _systematics_loader(False)
+    maker.sr_registry = DEFAULT_SR_REGISTRY
     monkeypatch.setattr(
-        datacard_tools.uproot,
-        "open",
-        lambda _: _fake_missing_parton_file(),
+        datacard_tools,
+        "validate_legacy_missing_parton_payload",
+        lambda *_args, **_kwargs: {
+            "3l_onZ_1b": np.asarray([0.2, 0.3], dtype=float)
+        },
     )
 
     systematics = maker.load_systematics(

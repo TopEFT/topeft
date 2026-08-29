@@ -398,7 +398,7 @@ def test_sumw2_histogram_passed_to_stacked_plot(monkeypatch, tmp_path):
         hist_mc_sumw2_orig=payload["hist_mc_sumw2_orig"],
         is_sparse2d=payload["is_sparse2d"],
         save_dir_path=str(tmp_path),
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind_flag=True,
@@ -463,7 +463,7 @@ def test_plotter_accepts_nominal_only_sumw2_with_shape_systematics(monkeypatch, 
         hist_mc_sumw2_orig=payload["hist_mc_sumw2_orig"],
         is_sparse2d=payload["is_sparse2d"],
         save_dir_path=str(tmp_path),
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind_flag=True,
@@ -493,7 +493,7 @@ def test_flavour_split_hist_preserves_per_channel_entries():
 def test_channel_output_both_runs_all_modes_and_uses_sumw2(monkeypatch, tmp_path):
     # Use an observable that only declares regular binning metadata.
     variable = "npvs"
-    channel_bins = ["category_em", "category_mm"]
+    channel_bins = ["2los_ee_CRZ_2j", "2los_mm_CRZ_2j"]
     histograms = {
         variable: _build_histogram(variable, channel_bins, hist_type="HistEFT"),
         f"{variable}_sumw2": _build_sumw2_histogram(variable, channel_bins),
@@ -613,7 +613,7 @@ def test_split_mode_groups_year_suffixed_channels(monkeypatch, tmp_path):
         aggregate_ctx,
         str(tmp_path / "agg"),
         [variable],
-        skip_syst_errs=False,
+        uncertainty_mode="total",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -627,7 +627,7 @@ def test_split_mode_groups_year_suffixed_channels(monkeypatch, tmp_path):
         split_ctx,
         str(tmp_path / "split"),
         [variable],
-        skip_syst_errs=False,
+        uncertainty_mode="total",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -708,7 +708,7 @@ def test_split_mode_uses_flavour_label_for_single_bin(monkeypatch, tmp_path):
         aggregate_ctx,
         str(tmp_path / "agg"),
         [variable],
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -724,7 +724,7 @@ def test_split_mode_uses_flavour_label_for_single_bin(monkeypatch, tmp_path):
         split_ctx,
         str(tmp_path / "split"),
         [variable],
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -816,7 +816,7 @@ def test_split_mode_breaks_out_lepton_flavour_buckets(monkeypatch, tmp_path):
         aggregate_ctx,
         str(tmp_path / "agg"),
         [variable],
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -836,7 +836,7 @@ def test_split_mode_breaks_out_lepton_flavour_buckets(monkeypatch, tmp_path):
         split_ctx,
         str(tmp_path / "split"),
         [variable],
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -993,7 +993,7 @@ def test_preserved_njets_missing_bins_log_and_skip(monkeypatch, caplog, tmp_path
 
     caplog.set_level("INFO", logger=plots.__name__)
 
-    stat_only, stat_and_syst, html_dirs = plots._render_variable_category(
+    stat_only, stat_and_syst, html_dirs, negative_rows = plots._render_variable_category(
         variable,
         "cr_all",
         ["category_4j"],
@@ -1004,7 +1004,7 @@ def test_preserved_njets_missing_bins_log_and_skip(monkeypatch, caplog, tmp_path
         hist_mc_sumw2_orig=payload["hist_mc_sumw2_orig"],
         is_sparse2d=payload["is_sparse2d"],
         save_dir_path=str(tmp_path),
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind_flag=True,
@@ -1014,6 +1014,7 @@ def test_preserved_njets_missing_bins_log_and_skip(monkeypatch, caplog, tmp_path
 
     assert stat_only == 0 and stat_and_syst == 0
     assert html_dirs == set()
+    assert negative_rows == []
     assert not any(tmp_path.iterdir())
     assert "no preserved njet bins overlap" in caplog.text
 

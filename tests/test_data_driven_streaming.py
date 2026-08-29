@@ -68,7 +68,7 @@ def _build_hist_dict(axes):
     sumw2_entries = [dict(entry, weight=entry["weight"] ** 2) for entry in entries]
     sumw2_hist = _fill_histogram(sumw2_entries, axes)
 
-    return {"nominal": main_hist, "nominal_sumw2": sumw2_hist}
+    return {"met": main_hist, "met_sumw2": sumw2_hist}
 
 
 def test_data_driven_producer_streams_histograms(monkeypatch, tmp_path):
@@ -93,11 +93,14 @@ def test_data_driven_producer_streams_histograms(monkeypatch, tmp_path):
     assert calls == [
         (str(input_path), True, False),
         (str(input_path), True, False),
+        (str(input_path), True, False),
     ]
 
 
 def test_run_data_driven_matches_inline_output(tmp_path, sparse_hist_axes):
-    expected_histograms = DataDrivenProducer(_build_hist_dict(sparse_hist_axes), "").getDataDrivenHistogram()
+    expected_histograms = DataDrivenProducer(
+        _build_hist_dict(sparse_hist_axes), ""
+    ).getDataDrivenHistogram()
 
     input_histograms = _build_hist_dict(sparse_hist_axes)
     input_path = tmp_path / "input.pkl.gz"
@@ -177,7 +180,7 @@ def test_split_nonprompt_uses_scalar_subtraction_sumw2_addition_and_eft_passthro
     eft = HistEFT(*_split_axes("njets"), wc_names=["ctG"], label="Events")
     for appl, weight in (("isAR_3l", 9.0), ("isSR_3l", 5.0)):
         eft.fill(
-            process="signal_centralUL18",
+            process="WWTo2L2Nu_centralUL18",
             appl=appl,
             systematic="nominal",
             njets=np.asarray([0.5]),
@@ -195,7 +198,7 @@ def test_split_nonprompt_uses_scalar_subtraction_sumw2_addition_and_eft_passthro
     ).getDataDrivenHistogram()
     assert _total_for_process(output[scalar_nominal_key("njets")], "nonpromptUL18") == pytest.approx(7.0)
     assert _total_for_process(output["njets_sumw2"], "nonpromptUL18") == pytest.approx(109.0)
-    assert _total_for_process(output[eft_nominal_key("njets")], "signal_centralUL18") == pytest.approx(5.0)
+    assert _total_for_process(output[eft_nominal_key("njets")], "WWTo2L2Nu_centralUL18") == pytest.approx(5.0)
     assert "appl" not in [axis.name for axis in output[eft_nominal_key("njets")].axes]
 
 
@@ -260,17 +263,33 @@ def test_data_driven_application_regions_have_explicit_physical_semantics(
                     "weight": 2.0,
                 }
             )
+    legacy_met_axes = (
+        *sparse_hist_axes[:-1],
+        hist.axis.Regular(1, 0.0, 1.0, name="met"),
+    )
+
+    def fill_legacy_met_histogram(histogram_entries):
+        histogram = SparseHist(*legacy_met_axes)
+        for entry in histogram_entries:
+            histogram.fill(
+                process=entry["process"],
+                appl=entry["appl"],
+                systematic=entry.get("systematic", "nominal"),
+                met=entry.get("pt", 0.5),
+                weight=entry["weight"],
+            )
+        return histogram
+
     histograms = {
-        "nominal": _fill_histogram(entries, sparse_hist_axes),
-        "nominal_sumw2": _fill_histogram(
+        "met": fill_legacy_met_histogram(entries),
+        "met_sumw2": fill_legacy_met_histogram(
             [dict(entry, weight=entry["weight"] ** 2) for entry in entries],
-            sparse_hist_axes,
         ),
     }
     output = DataDrivenProducer(histograms, "").getDataDrivenHistogram()
     generated_names = {"nonpromptUL18", "flipsUL18"}
     observed = generated_names & {
-        str(process) for process in output["nominal"].axes["process"]
+        str(process) for process in output["met"].axes["process"]
     }
     assert observed == expected_generated
     assert derive_data_driven_applicability(regions) == {

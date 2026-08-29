@@ -19,39 +19,43 @@ def sparse_hist_axes():
 
 
 def test_data_driven_producer_canonicalizes_data_driven_outputs(sparse_hist_axes):
-    histogram = SparseHist(*sparse_hist_axes)
+    legacy_met_axes = (
+        *sparse_hist_axes[:-1],
+        hist.axis.Regular(1, 0.0, 1.0, name="met"),
+    )
+    histogram = SparseHist(*legacy_met_axes)
 
     histogram.fill(
         process="data2023BPix",
         appl="isAR_2lSS_OS",
         systematic="nominal",
-        pt=0.5,
+        met=0.5,
         weight=7.0,
     )
     histogram.fill(
         process="dataUL16",
         appl="isAR_3l",
         systematic="nominal",
-        pt=0.5,
+        met=0.5,
         weight=11.0,
     )
     histogram.fill(
         process="TTTo2L2Nu_centralUL16",
         appl="isAR_3l",
         systematic="nominal",
-        pt=0.5,
+        met=0.5,
         weight=3.0,
     )
     histogram.fill(
         process="TTTo2L2Nu_centralUL16",
         appl="isSR_3l",
         systematic="nominal",
-        pt=0.5,
+        met=0.5,
         weight=1.5,
     )
 
-    producer = DataDrivenProducer({"nominal": histogram}, "")
-    output_hist = producer.getDataDrivenHistogram()["nominal"]
+    producer = DataDrivenProducer({"met": histogram}, "")
+    output_hist = producer.getDataDrivenHistogram()["met"]
 
     processes = list(output_hist.axes["process"])
     assert "nonpromptUL16" in processes

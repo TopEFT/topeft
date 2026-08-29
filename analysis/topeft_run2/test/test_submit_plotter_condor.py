@@ -30,6 +30,8 @@ def test_submit_plotter_condor_dry_run(tmp_path):
 
     log_dir = tmp_path / "logs"
     output_dir = tmp_path / "plots"
+    input_path = tmp_path / "plotsCR_Run2.pkl.gz"
+    input_path.touch()
 
     submit_helper = repo_root / "analysis/topeft_run2/submit_plotter_condor.sh"
 
@@ -42,7 +44,7 @@ def test_submit_plotter_condor_dry_run(tmp_path):
             "--log-dir",
             str(log_dir),
             "-f",
-            "/cephfs/example/plotsCR_Run2.pkl.gz",
+            str(input_path),
             "-o",
             str(output_dir),
             "-y",

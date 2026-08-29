@@ -310,7 +310,7 @@ def test_np_postprocess_inline_writes_transformed_artifact_sidecar(
         "nonprompt": {"enabled": True},
         "flips": {"enabled": True},
     }
-    assert sidecar["resolved_data_driven_contract"]["contract_version"] == 3
+    assert sidecar["resolved_data_driven_contract"]["contract_version"] == 4
     assert sidecar["resolved_data_driven_contract"]["products"]["nonprompt"][
         "generated_outputs"
     ] == {
@@ -471,15 +471,26 @@ data_driven_products:
             "--sample-universe-wrapper",
             "required-signal-test",
         ]
+        expected_exception = (
+            data_driven_product_error if mode == "production" else SystemExit
+        )
+        expected_error_id = (
+            "NONPROMPT-POLICY-E009"
+            if mode == "production"
+            else "NONPROMPT-POLICY-E006"
+        )
         with mock.patch.object(sys, "argv", argv):
-            with pytest.raises(SystemExit) as error_info:
+            with pytest.raises(expected_exception) as error_info:
                 runpy.run_path(str(_SCRIPT_PATH), run_name="__main__")
         message = str(error_info.value)
-        assert "SUMW2-PROFILE-E007" in message
-        assert f"resolved_mode='{mode}'" in message
+        assert expected_error_id in message
         assert signal_process in message
-        assert "metadata_source='explicit'" in message
-        assert "Recommended correction" in message
+        if mode == "production":
+            assert "missing=['tllq_private2022']" in message
+            assert "metadata_path=" in message
+        else:
+            assert "run_era='run3'" in message
+            assert "allowed_run_eras=['run2']" in message
     finally:
         sys.path = original_sys_path
 
@@ -656,6 +667,8 @@ def test_np_postprocess_defer_prints_pkl_only_followup(tmp_path, capsys):
         "--pretend",
         "--do-np",
         "--np-postprocess=defer",
+        "--hist-list",
+        "met",
     ]
 
     original_sys_path = list(sys.path)
