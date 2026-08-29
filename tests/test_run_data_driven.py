@@ -246,7 +246,7 @@ def test_data_driven_preserves_sumw2_companions_for_prompt_subtraction():
             weight=np.array([data_weight], dtype=float),
         )
         histo.fill(
-            process="ttbarUL18",
+            process="TTTo2L2Nu_centralUL18",
             channel="2lss",
             systematic="nominal",
             appl="isAR_2lSS",
@@ -259,8 +259,6 @@ def test_data_driven_preserves_sumw2_companions_for_prompt_subtraction():
         "unused-output.pkl.gz",
         iterator_mode=True,
     )
-    producer.promptSubtractionSamples = {"ttbar"}
-
     result = dict(producer.iter_data_driven_histograms())
 
     assert "met" in result

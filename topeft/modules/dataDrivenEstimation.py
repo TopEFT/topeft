@@ -8,7 +8,7 @@ import cloudpickle
 import numpy as np
 from topcoffea.modules.hist_utils import iterate_hist_from_pkl
 
-from topeft.modules.axes import info_2d as axes_info_2d
+from topeft.modules.axes import info as axes_info, info_2d as axes_info_2d
 from topeft.modules.data_driven_products import (
     data_driven_product_error,
     FLIPS_OUTPUT_ARTIFACT_KIND,
@@ -335,6 +335,8 @@ class DataDrivenProducer:
             return key[: -len(EFT_NOMINAL_SUFFIX)], "eft"
         if key.endswith(SUMW2_SUFFIX):
             return key[: -len(SUMW2_SUFFIX)], "sumw2"
+        if key in axes_info:
+            return key, "scalar"
         if key in axes_info_2d:
             return key, "scalar"
         return None, None
