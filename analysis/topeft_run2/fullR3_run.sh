@@ -43,7 +43,7 @@ main() {
 
   # Default values
   local DEFAULT_YEAR="2022"
-  local DEFAULT_TAG="fec79a60_PNet"
+  local DEFAULT_TAG="rebin_lj0pt350GeV"
   local FLAG_CR=false
   local FLAG_SR=false
   local FLAG_DEFER_NP=false
