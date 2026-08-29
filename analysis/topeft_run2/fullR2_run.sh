@@ -8,11 +8,11 @@ TAG="run2_rebin_lj0pt350GeV"
 #TAG="${TAG}_SRs"
 #OUT_NAME="${TAG}_${COMMIT}"
 CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
-OPTIONS="--hist-list ana --skip-cr -s 50000 --do-syst --do-np -o $OUT_NAME --all-analysis" # For analysis
-
-# Build the run command for filling CR histos
 TAG="${TAG}_SRs"
 OUT_NAME="${TAG}_${COMMIT}"
+OPTIONS="--hist-list ana --skip-cr -s 50000 --do-systs --do-np -o $OUT_NAME --all-analysis" # For analysis
+
+# Build the run command for filling CR histos
 #CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_cr_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
 #CFGS="../../input_samples/cfgs/mc_background_samples_NDSkim_loc.cfg"
 #OPTIONS="--hist-list cr --skip-sr --do-systs --wc-list ctG -o $OUT_NAME --tau-h-analysis --split-lep-flavor -x futures -c 1 -s 50" # For CR plots

@@ -1,22 +1,71 @@
 import argparse
+import copy
 import gzip
-import re
+import warnings
 from collections import defaultdict
 
 import cloudpickle
 import numpy as np
 from topcoffea.modules.hist_utils import iterate_hist_from_pkl
 
-from topcoffea.modules.get_param_from_jsons import GetParam
-from topcoffea.modules.utils import canonicalize_process_name
-from topeft.modules.paths import topeft_path
-get_te_param = GetParam(topeft_path("params/params.json"))
+from topeft.modules.axes import info as axes_info, info_2d as axes_info_2d
+from topeft.modules.data_driven_products import (
+    data_driven_product_error,
+    FLIPS_OUTPUT_ARTIFACT_KIND,
+    generated_process_name,
+    NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND,
+    NONPROMPT_OUTPUT_ARTIFACT_KIND,
+    parse_process_name,
+    TRANSFORMED_DATA_DRIVEN_ARTIFACT_KINDS,
+    validate_requested_product_input,
+)
+from topeft.modules.nonprompt_policy import (
+    certify_active_nonprompt_policy,
+    nonprompt_policy_error,
+)
+from topeft.modules.histogram_artifact import (
+    FLIPS_APPLICATION_REGION,
+    NONPROMPT_APPLICATION_REGIONS,
+    _PRODUCER_CONTEXT_TOKEN,
+    derive_data_driven_applicability,
+    lineage_input_from_sidecar,
+    validate_histogram_artifact,
+    write_histogram_artifact,
+)
+from topeft.modules.nominal_schema import (
+    EFT_NOMINAL_SUFFIX,
+    SCALAR_NOMINAL_SUFFIX,
+    SUMW2_SUFFIX,
+    evaluate_eft_histogram_at_wc,
+)
+
+
+def data_driven_product_for_application_region(application_region):
+    """Return the maintained product consuming one application region."""
+
+    region = str(application_region)
+    if region == FLIPS_APPLICATION_REGION:
+        return "flips"
+    if region in NONPROMPT_APPLICATION_REGIONS:
+        return "nonprompt"
+    return None
+
+
+class _producer_transformation_context(dict):
+    """Marker for transformation evidence emitted only by DataDrivenProducer."""
+
+    _producer_context_token = _PRODUCER_CONTEXT_TOKEN
+
 
 class DataDrivenProducer:
-    _NAME_REGEX = r"^(?P<process>.*?)(?:UL)?(?P<year>(?:\d{2}(?:APV|EE|BPix)?|\d{4}(?:EE|BPix)?))$"
-    _KNOWN_YEARS = {"16APV", "16", "17", "18", "2022", "2022EE", "2023", "2023BPix"}
-
-    def __init__(self, inputHist, outputName, iterator_mode=False, dd_report=False):
+    def __init__(
+        self,
+        inputHist,
+        outputName,
+        iterator_mode=False,
+        dd_report=False,
+        artifact_kind="nonprompt_output",
+    ):
         self._input_source = inputHist
         self.outputName=outputName
         self.verbose=False
@@ -24,9 +73,42 @@ class DataDrivenProducer:
         self.outHist=None
         self.iterator_mode = iterator_mode
         self._dd_report_enabled = dd_report
-        self.promptSubtractionSamples=get_te_param('prompt_subtraction_samples')
-        self._name_pattern = re.compile(self._NAME_REGEX)
+        if artifact_kind not in TRANSFORMED_DATA_DRIVEN_ARTIFACT_KINDS:
+            raise RuntimeError(f"Unknown data-driven artifact kind {artifact_kind!r}.")
+        self._artifact_kind = artifact_kind
+        self._resolved_input_sidecar = None
+        self._nonprompt_policy_migration = None
         self._dd_report_by_key = {} if dd_report else None
+        self._input_artifact_validation = None
+        if self._is_histogram_path(self._input_source):
+            self._input_artifact_validation = validate_histogram_artifact(
+                self._input_source
+            )
+            if self._input_artifact_validation["schema"] == "legacy_uniform":
+                warnings.warn(
+                    "Transforming a legacy uniform histogram PKL without a "
+                    "schema-v2 sidecar; the output remains on the explicit legacy "
+                    "path and no schema-v2 sidecar will be synthesized.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            elif self._input_artifact_validation["metadata"]:
+                resolution = validate_requested_product_input(
+                    self._input_artifact_validation["metadata"],
+                    artifact_kind=artifact_kind,
+                )
+                self._resolved_input_sidecar = resolution["effective_sidecar"]
+                self._nonprompt_policy_migration = resolution["migration"]
+        self._transformation_role_context = self._initialize_transformation_role_context()
+        self._prompt_subtraction_execution_by_family = (
+            self._initialize_prompt_subtraction_execution_context()
+        )
+        self._prompt_subtraction_coverage_validated = False
+        (
+            self._eft_prompt_processes_by_family,
+            self._eft_prompt_projection_context,
+        ) = self._initialize_eft_prompt_projection_context()
+        self._eft_prompt_projections = self._build_eft_prompt_projections()
         if not self.iterator_mode:
             self.DDFakes()
 
@@ -46,19 +128,446 @@ class DataDrivenProducer:
 
         yield from source
 
-    def _parse_process(self, process_name):
-        match = self._name_pattern.search(process_name)
-        if not match:
-            raise RuntimeError(f"Sample {process_name} does not match the naming convention.")
+    def _input_histogram_keys(self):
+        source = self._input_source
+        if self._is_histogram_path(source):
+            return tuple(
+                key
+                for key, _histogram in iterate_hist_from_pkl(
+                    source, allow_empty=True, materialize=False
+                )
+            )
+        if hasattr(source, "keys"):
+            return tuple(source.keys())
+        raise TypeError(
+            "Streaming nonprompt input must be a histogram path or keyed mapping."
+        )
 
-        sample_name = match.group("process")
-        year = match.group("year").replace("central", "").replace("UL", "")
-        if year not in self._KNOWN_YEARS:
-            raise RuntimeError(
-                f"Sample {process_name} does not match the naming convention, year \"{year}\" is unknown."
+    def _initialize_transformation_role_context(self):
+        if self._input_artifact_validation is None:
+            return None
+        input_sidecar = self._resolved_input_sidecar
+        if not input_sidecar or "sumw2_content_manifest" not in input_sidecar:
+            return None
+        families = {}
+        for family, manifest in input_sidecar["sumw2_content_manifest"][
+            "families"
+        ].items():
+            families[family] = {
+                "source_scalar_processes": list(
+                    manifest["scalar_nominal_processes"]
+                ),
+                "source_eft_processes": list(manifest["eft_nominal_processes"]),
+                "retained_scalar_processes": [],
+                "retained_eft_processes": [],
+                "generated_nonprompt_processes": [],
+                "generated_flips_processes": [],
+                "source_application_regions": None,
+                "applicable_products": None,
+            }
+        return families
+
+    @staticmethod
+    def _build_prompt_subtraction_execution_plan(
+        selected_processes,
+        explicit_exclusions,
+        family_inventories,
+    ):
+        selected = {str(process) for process in selected_processes}
+        excluded = {str(process) for process in explicit_exclusions}
+        plans = {}
+        for family, inventory in family_inventories.items():
+            scalar = {str(process) for process in inventory["scalar"]}
+            eft = {str(process) for process in inventory["eft"]}
+            sumw2 = {str(process) for process in inventory["sumw2"]}
+            present = scalar | eft | sumw2
+            selected_present = selected & present
+            ambiguous = selected_present & scalar & eft
+            scalar_route = selected_present & scalar
+            eft_route = selected_present & eft
+            unhandled = selected_present - scalar_route - eft_route
+            if ambiguous:
+                raise RuntimeError(
+                    f"Family {family!r} has selected prompt process(es) with "
+                    "ambiguous scalar and EFT nominal representations: "
+                    + ", ".join(sorted(ambiguous))
+                )
+            if unhandled:
+                raise RuntimeError(
+                    f"Family {family!r} has selected prompt process(es) present "
+                    "without a supported scalar or EFT nominal representation: "
+                    + ", ".join(sorted(unhandled))
+                )
+            plans[family] = {
+                "selected_processes": selected,
+                "present_processes": present,
+                "selected_present_processes": selected_present,
+                "selected_absent_processes": selected - present,
+                "scalar_processes": scalar_route,
+                "eft_processes": eft_route,
+                "excluded_processes": excluded & present,
+                "ambiguous_processes": ambiguous,
+                "unhandled_processes": unhandled,
+                "executed_processes": set(),
+                "nonprompt_applicable": False,
+            }
+        return plans
+
+    def _initialize_prompt_subtraction_execution_context(self):
+        if self._artifact_kind not in {
+            NONPROMPT_OUTPUT_ARTIFACT_KIND,
+            NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND,
+        }:
+            return {}
+        if self._resolved_input_sidecar is not None:
+            contract = self._resolved_input_sidecar["resolved_data_driven_contract"]
+            policy = contract["nonprompt_policy"]
+            family_inventories = {
+                family: {
+                    "scalar": manifest["scalar_nominal_processes"],
+                    "eft": manifest["eft_nominal_processes"],
+                    "sumw2": manifest["sumw2_processes"],
+                }
+                for family, manifest in self._resolved_input_sidecar[
+                    "sumw2_content_manifest"
+                ]["families"].items()
+            }
+            return self._build_prompt_subtraction_execution_plan(
+                contract["resolved_prompt_process_set"],
+                policy["explicit_exclusions"],
+                family_inventories,
             )
 
-        return sample_name, year
+        family_inventories = defaultdict(
+            lambda: {"scalar": set(), "eft": set(), "sumw2": set()}
+        )
+        process_universe = set()
+        for key, histogram in self._iter_input_histograms():
+            family, component = self._family_from_nominal_key(key)
+            if family is None:
+                continue
+            processes = {
+                str(process) for process in self._axis_labels(histogram, "process")
+            }
+            family_inventories[family][component].update(processes)
+            if component != "sumw2":
+                process_universe.update(processes)
+        if not process_universe:
+            return {}
+        try:
+            certificate = certify_active_nonprompt_policy(
+                sorted(process_universe),
+                configuration_source="legacy_histogram_process_inventory",
+            )
+        except nonprompt_policy_error as error:
+            raise RuntimeError(str(error)) from error
+        return self._build_prompt_subtraction_execution_plan(
+            certificate.resolved_prompt_process_set,
+            certificate.explicit_exclusions,
+            family_inventories,
+        )
+
+    def _initialize_eft_prompt_projection_context(self):
+        empty_context = {
+            "mode": "sm_point",
+            "required_processes": [],
+            "generated_nonprompt_eft_dependence": False,
+        }
+        if (
+            self._artifact_kind
+            not in {
+                NONPROMPT_OUTPUT_ARTIFACT_KIND,
+                NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND,
+            }
+        ):
+            return {}, empty_context
+
+        processes_by_family = {}
+        projected_processes = set()
+        for family, plan in self._prompt_subtraction_execution_by_family.items():
+            family_processes = sorted(plan["eft_processes"])
+            processes_by_family[family] = family_processes
+            projected_processes.update(family_processes)
+        return processes_by_family, {
+            **empty_context,
+            "required_processes": sorted(projected_processes),
+        }
+
+    @staticmethod
+    def _filter_to_processes(histogram, process_names):
+        allowed = {str(process) for process in process_names}
+        observed = {
+            str(process) for process in histogram.axes["process"]
+        }
+        return histogram.remove("process", sorted(observed - allowed))
+
+    def _build_eft_prompt_projections(self):
+        required_families = {
+            family: processes
+            for family, processes in self._eft_prompt_processes_by_family.items()
+            if processes
+        }
+        if not required_families:
+            return {}
+        projections = {}
+        for key, histogram in self._iter_input_histograms():
+            if not key.endswith(EFT_NOMINAL_SUFFIX):
+                continue
+            family = key[: -len(EFT_NOMINAL_SUFFIX)]
+            required_processes = required_families.get(family)
+            if not required_processes:
+                continue
+            selected = self._filter_to_processes(histogram, required_processes)
+            projections[family] = evaluate_eft_histogram_at_wc(selected, {})
+        missing = sorted(set(required_families) - set(projections))
+        if missing:
+            raise RuntimeError(
+                "Selected EFT prompt source sibling is missing for family/families: "
+                + ", ".join(missing)
+            )
+        return projections
+
+    @staticmethod
+    def _family_from_nominal_key(key):
+        if key.endswith(SCALAR_NOMINAL_SUFFIX):
+            return key[: -len(SCALAR_NOMINAL_SUFFIX)], "scalar"
+        if key.endswith(EFT_NOMINAL_SUFFIX):
+            return key[: -len(EFT_NOMINAL_SUFFIX)], "eft"
+        if key.endswith(SUMW2_SUFFIX):
+            return key[: -len(SUMW2_SUFFIX)], "sumw2"
+        if key in axes_info:
+            return key, "scalar"
+        if key in axes_info_2d:
+            return key, "scalar"
+        return None, None
+
+    def _record_transformation_roles(
+        self,
+        key,
+        output,
+        *,
+        generated_nonprompt_processes=(),
+        generated_flips_processes=(),
+    ):
+        if self._transformation_role_context is None:
+            return
+        family, component = self._family_from_nominal_key(key)
+        if family is None:
+            return
+        roles = self._transformation_role_context[family]
+        output_processes = {
+            str(process) for process in self._axis_labels(output, "process")
+        }
+        if component == "eft":
+            roles["retained_eft_processes"] = sorted(
+                output_processes & set(roles["source_eft_processes"])
+            )
+            return
+        if component == "sumw2":
+            return
+        generated_nonprompt = {
+            str(process) for process in generated_nonprompt_processes
+        }
+        generated_flips = {str(process) for process in generated_flips_processes}
+        roles["retained_scalar_processes"] = sorted(
+            output_processes & set(roles["source_scalar_processes"])
+        )
+        roles["generated_nonprompt_processes"] = sorted(generated_nonprompt)
+        roles["generated_flips_processes"] = sorted(generated_flips)
+
+    def _record_family_application_evidence(self, key, histogram):
+        if self._transformation_role_context is None:
+            return
+        family, component = self._family_from_nominal_key(key)
+        if family is None or component != "scalar":
+            return
+        source_application_regions = sorted(
+            {str(region) for region in self._axis_labels(histogram, "appl")}
+        )
+        roles = self._transformation_role_context[family]
+        if roles["source_application_regions"] is not None:
+            if roles["source_application_regions"] != source_application_regions:
+                raise RuntimeError(
+                    f"Family {family!r} has inconsistent source application-region "
+                    "evidence across scalar nominal inputs."
+                )
+            return
+        roles["source_application_regions"] = source_application_regions
+        roles["applicable_products"] = derive_data_driven_applicability(
+            source_application_regions
+        )
+
+    def get_transformation_context(self, artifact_kind="nonprompt_output"):
+        if self._transformation_role_context is None:
+            raise RuntimeError(
+                "Transformation roles are available only for validated schema-v2 inputs."
+            )
+        if artifact_kind not in TRANSFORMED_DATA_DRIVEN_ARTIFACT_KINDS:
+            raise RuntimeError(
+                f"Unknown data-driven artifact kind {artifact_kind!r}."
+            )
+        families = {}
+        for family, raw_roles in self._transformation_role_context.items():
+            if (
+                raw_roles["source_application_regions"] is None
+                or raw_roles["applicable_products"] is None
+            ):
+                raise RuntimeError(
+                    f"Missing producer-generated application-region evidence for "
+                    f"family {family!r}."
+                )
+            roles = {
+                field_name: sorted(set(raw_roles[field_name]))
+                for field_name in (
+                    "source_scalar_processes",
+                    "source_eft_processes",
+                    "retained_scalar_processes",
+                    "retained_eft_processes",
+                    "generated_nonprompt_processes",
+                    "generated_flips_processes",
+                )
+            }
+            roles["source_application_regions"] = list(
+                raw_roles["source_application_regions"]
+            )
+            roles["applicable_products"] = dict(
+                raw_roles["applicable_products"]
+            )
+            if artifact_kind == FLIPS_OUTPUT_ARTIFACT_KIND:
+                roles["retained_scalar_processes"] = []
+                roles["generated_nonprompt_processes"] = []
+            families[family] = roles
+        return _producer_transformation_context(
+            {
+                "eft_prompt_projection": dict(self._eft_prompt_projection_context),
+                "families": families,
+            }
+        )
+
+    def get_prompt_subtraction_execution_evidence(self):
+        if not self._prompt_subtraction_coverage_validated:
+            raise RuntimeError(
+                "Prompt-subtraction execution evidence is available only after "
+                "the complete transformation has passed coverage validation."
+            )
+        families = {}
+        for family, plan in self._prompt_subtraction_execution_by_family.items():
+            evaluation_routes = {
+                process: "scalar_nominal"
+                for process in plan["scalar_processes"]
+            }
+            evaluation_routes.update(
+                {
+                    process: "eft_sm_point"
+                    for process in plan["eft_processes"]
+                }
+            )
+            families[family] = {
+                "selected_processes": sorted(plan["selected_processes"]),
+                "present_processes": sorted(plan["present_processes"]),
+                "selected_present_processes": sorted(
+                    plan["selected_present_processes"]
+                ),
+                "selected_absent_processes": sorted(
+                    plan["selected_absent_processes"]
+                ),
+                "representation": dict(evaluation_routes),
+                "nominal_evaluation_route": dict(evaluation_routes),
+                "executed_processes": sorted(plan["executed_processes"]),
+                "excluded_processes": sorted(plan["excluded_processes"]),
+                "ambiguous_processes": sorted(plan["ambiguous_processes"]),
+                "unhandled_processes": sorted(plan["unhandled_processes"]),
+                "nonprompt_applicable": plan["nonprompt_applicable"],
+            }
+        return {"families": families}
+
+    def get_effective_input_sidecar(self):
+        return copy.deepcopy(self._resolved_input_sidecar)
+
+    def _record_prompt_subtraction_execution(self, family, processes):
+        plan = self._prompt_subtraction_execution_by_family.get(family)
+        if plan is None:
+            return
+        duplicate = plan["executed_processes"] & set(processes)
+        if duplicate:
+            raise RuntimeError(
+                f"Family {family!r} would subtract selected prompt process(es) "
+                "through more than one nominal route: "
+                + ", ".join(sorted(duplicate))
+            )
+        plan["executed_processes"].update(processes)
+
+    @staticmethod
+    def _validate_prompt_execution_groups(family, route, groups, expected):
+        grouped = [
+            process
+            for processes in groups.values()
+            for process in processes
+        ]
+        duplicates = sorted(
+            process
+            for process in set(grouped)
+            if grouped.count(process) > 1
+        )
+        observed = set(grouped)
+        if duplicates or observed != set(expected):
+            raise RuntimeError(
+                f"Family {family!r} prompt-subtraction {route} routing is not "
+                "one-to-one with the selected execution set: "
+                f"selected={sorted(expected)} routed={sorted(observed)} "
+                f"duplicates={duplicates}."
+            )
+
+    def _group_selected_prompt_processes(
+        self,
+        family,
+        route,
+        selected_processes,
+        allowed_outputs,
+    ):
+        groups = defaultdict(list)
+        for process_name in sorted(selected_processes):
+            _sample_name, year = self._parse_process(process_name)
+            output_process = self._nonprompt_process_name(year)
+            if allowed_outputs is not None and output_process not in allowed_outputs:
+                raise RuntimeError(
+                    f"Family {family!r} selected prompt process {process_name!r} "
+                    f"has no certified nonprompt output route {output_process!r}."
+                )
+            groups[output_process].append(process_name)
+        self._validate_prompt_execution_groups(
+            family,
+            route,
+            groups,
+            selected_processes,
+        )
+        return groups
+
+    def _validate_prompt_subtraction_execution_coverage(self):
+        for family, plan in self._prompt_subtraction_execution_by_family.items():
+            expected = (
+                plan["selected_present_processes"]
+                if plan["nonprompt_applicable"]
+                else set()
+            )
+            missing = expected - plan["executed_processes"]
+            unexpected = plan["executed_processes"] - expected
+            excluded = plan["executed_processes"] & plan["excluded_processes"]
+            if missing or unexpected or excluded:
+                raise RuntimeError(
+                    f"Family {family!r} prompt-subtraction execution coverage failed: "
+                    f"selected_present={sorted(expected)} "
+                    f"executed={sorted(plan['executed_processes'])} "
+                    f"missing={sorted(missing)} unexpected={sorted(unexpected)} "
+                    f"excluded_executed={sorted(excluded)}."
+                )
+        self._prompt_subtraction_coverage_validated = True
+
+    def _parse_process(self, process_name):
+        try:
+            return parse_process_name(str(process_name))
+        except data_driven_product_error as error:
+            raise RuntimeError(str(error)) from error
 
     def _build_process_metadata(self, histo):
         # Parse process names once per histogram and reuse the mapping across appl regions.
@@ -196,19 +705,63 @@ class DataDrivenProducer:
 
     @staticmethod
     def _nonprompt_process_name(year):
-        if ("2022" in year) or ("2023" in year):
-            raw_name = f"nonprompt{year}"
-        else:
-            raw_name = f"nonpromptUL{year}"
-        return canonicalize_process_name(raw_name)
+        return generated_process_name("nonprompt", year)
 
     @staticmethod
     def _flips_process_name(year):
-        if year.startswith("202"):
-            raw_name = f"flips{year}"
-        else:
-            raw_name = f"flipsUL{year}"
-        return canonicalize_process_name(raw_name)
+        return generated_process_name("flips", year)
+
+    def _resolved_family_products(self, key):
+        family, _component = self._family_from_nominal_key(key)
+        if family is None and key.endswith("_sumw2"):
+            family = key[: -len("_sumw2")]
+        input_sidecar = (
+            self._resolved_input_sidecar
+        )
+        if input_sidecar is None or "resolved_data_driven_contract" not in input_sidecar:
+            return {
+                "nonprompt": {
+                    "enabled": self._artifact_kind
+                    in {
+                        NONPROMPT_OUTPUT_ARTIFACT_KIND,
+                        NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND,
+                    }
+                    and not (
+                        self._artifact_kind
+                        == NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND
+                        and key.endswith("_sumw2")
+                    ),
+                    "generated_outputs": None,
+                },
+                "flips": {
+                    "enabled": True,
+                    "generated_outputs": None,
+                },
+            }
+        if family not in input_sidecar["sumw2_content_manifest"]["families"]:
+            raise RuntimeError(
+                f"Missing resolved data-driven contract for family {family!r}."
+            )
+        products = input_sidecar["resolved_data_driven_contract"]["products"]
+        return {
+            "nonprompt": {
+                **products["nonprompt"],
+                "enabled": (
+                    products["nonprompt"]["enabled"]
+                    and self._artifact_kind
+                    in {
+                        NONPROMPT_OUTPUT_ARTIFACT_KIND,
+                        NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND,
+                    }
+                    and not (
+                        self._artifact_kind
+                        == NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND
+                        and key.endswith("_sumw2")
+                    )
+                ),
+            },
+            "flips": products["flips"],
+        }
 
     @classmethod
     def _systematic_summary(cls, source_hist, used_hist):
@@ -376,23 +929,51 @@ class DataDrivenProducer:
                 )
 
     def _build_data_driven_histogram(self, key, histo):
+        self._record_family_application_evidence(key, histo)
+        family, component = self._family_from_nominal_key(key)
+        if key.endswith(EFT_NOMINAL_SUFFIX):
+            output = None
+            for appl in histo.axes["appl"]:
+                selected = histo.integrate("appl", appl)
+                if "isAR" in appl:
+                    continue
+                output = selected if output is None else output + selected
+            if output is None:
+                output = histo.integrate("appl")
+                output.reset()
+            self._record_transformation_roles(key, output)
+            return output
+
         if histo.empty():  # histo is empty, so we just integrate over appl and keep an empty histo
             if self._dd_report_enabled and not key.endswith("_sumw2"):
                 self._dd_report_by_key[key] = self._init_dd_report(key, histo, empty=True)
             print(f"[W]: Histogram {key} is empty, returning an empty histo")
-            return histo.integrate("appl")
+            output = histo.integrate("appl")
+            self._record_transformation_roles(key, output)
+            return output
 
         process_metadata = self._build_process_metadata(histo)
+        resolved_products = self._resolved_family_products(key)
+        nonprompt_enabled = resolved_products["nonprompt"]["enabled"]
+        flips_enabled = resolved_products["flips"]["enabled"]
+        nonprompt_outputs = resolved_products["nonprompt"]["generated_outputs"]
+        flips_outputs = resolved_products["flips"]["generated_outputs"]
         report = None
         if self._dd_report_enabled and not key.endswith("_sumw2"):
             report = self._init_dd_report(key, histo)
 
         # now for each year we actually perform the subtraction and integrate out the application regions
         newhist = None
+        generated_nonprompt_processes = set()
+        generated_flips_processes = set()
+        executed_prompt_processes = set()
         for ident in histo.axes["appl"]:
             hAR = histo.integrate("appl", ident)
+            product = data_driven_product_for_application_region(ident)
 
-            if "isAR" not in ident:
+            if product is None:
+                if str(ident).startswith("isAR"):
+                    continue
                 # if we are in the signal region, we just take the
                 # whole histogram integrating out the application region axis
                 if report is not None:
@@ -401,14 +982,25 @@ class DataDrivenProducer:
                     newhist = hAR
                 else:
                     newhist += hAR
-            elif ident == "isAR_2lSS_OS":
+            elif product == "flips":
+                if not flips_enabled:
+                    continue
                 # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
-                newNameDictData = defaultdict(list)
-                for process_name in hAR.axes["process"]:
-                    sampleName, year = process_metadata[process_name]
-                    flips_name = self._flips_process_name(year)
-                    if self.dataName == sampleName:
-                        newNameDictData[flips_name].append(process_name)
+                if flips_outputs is not None:
+                    newNameDictData = {
+                        output_process: list(
+                            output_record["source_contributors"]["data"]
+                        )
+                        for output_process, output_record in flips_outputs.items()
+                    }
+                else:
+                    newNameDictData = defaultdict(list)
+                    for process_name in hAR.axes["process"]:
+                        sampleName, year = process_metadata[process_name]
+                        flips_name = self._flips_process_name(year)
+                        if self.dataName == sampleName:
+                            newNameDictData[flips_name].append(process_name)
+                generated_flips_processes.update(newNameDictData)
                 hFlips = hAR.group("process", newNameDictData)
                 hFlipsRaw = hFlips
 
@@ -441,25 +1033,131 @@ class DataDrivenProducer:
                     newhist += hFlips
 
             else:
+                if not nonprompt_enabled:
+                    continue
+                if family in self._prompt_subtraction_execution_by_family:
+                    self._prompt_subtraction_execution_by_family[family][
+                        "nonprompt_applicable"
+                    ] = True
                 # if we are in the nonprompt application region, we also integrate the application region axis
                 # and construct the new process 'nonprompt'
                 # we look at data only, and rename it to fakes
-                newNameDictData = defaultdict(list)
-                newNameDictNoData = defaultdict(list)
-                for process_name in hAR.axes["process"]:
-                    sampleName, year = process_metadata[process_name]
-
-                    nonprompt_name = self._nonprompt_process_name(year)
-                    if self.dataName == sampleName:
-                        newNameDictData[nonprompt_name].append(process_name)
-                    elif sampleName in self.promptSubtractionSamples:
-                        newNameDictNoData[nonprompt_name].append(process_name)
+                if nonprompt_outputs is not None:
+                    newNameDictData = {
+                        output_process: list(
+                            output_record["source_contributors"]["data"]
+                        )
+                        for output_process, output_record in nonprompt_outputs.items()
+                    }
+                    scalar_processes = {
+                        str(process) for process in hAR.axes["process"]
+                    }
+                    if component == "sumw2":
+                        selected_scalar_processes = (
+                            self._prompt_subtraction_execution_by_family[family][
+                                "selected_processes"
+                            ]
+                            & scalar_processes
+                        )
                     else:
-                        pass
-                        # print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
+                        selected_scalar_processes = (
+                            self._prompt_subtraction_execution_by_family[family][
+                                "scalar_processes"
+                            ]
+                        )
+                    newNameDictNoData = self._group_selected_prompt_processes(
+                        family,
+                        "sumw2" if component == "sumw2" else "scalar",
+                        selected_scalar_processes,
+                        set(nonprompt_outputs),
+                    )
+                else:
+                    newNameDictData = defaultdict(list)
+                    newNameDictNoData = defaultdict(list)
+                    if component == "sumw2":
+                        resolved_prompt_processes = (
+                            self._prompt_subtraction_execution_by_family[family][
+                                "selected_processes"
+                            ]
+                            & {str(process) for process in hAR.axes["process"]}
+                        )
+                    else:
+                        resolved_prompt_processes = (
+                            self._prompt_subtraction_execution_by_family[family][
+                                "scalar_processes"
+                            ]
+                        )
+                    for process_name in hAR.axes["process"]:
+                        sampleName, year = process_metadata[process_name]
+
+                        nonprompt_name = self._nonprompt_process_name(year)
+                        if self.dataName == sampleName:
+                            newNameDictData[nonprompt_name].append(process_name)
+                        elif str(process_name) in resolved_prompt_processes:
+                            newNameDictNoData[nonprompt_name].append(process_name)
+                        else:
+                            pass
+                            # print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
+                    self._validate_prompt_execution_groups(
+                        family,
+                        "sumw2" if component == "sumw2" else "scalar",
+                        newNameDictNoData,
+                        resolved_prompt_processes,
+                    )
+                generated_nonprompt_processes.update(newNameDictData)
+                generated_nonprompt_processes.update(newNameDictNoData)
                 hFakes = hAR.group("process", newNameDictData)
                 # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
                 hPromptSub = hAR.group("process", newNameDictNoData)
+                prompt_source_hist = hAR
+                projection = self._eft_prompt_projections.get(family)
+                if projection is not None and not key.endswith("_sumw2"):
+                    projected_ar = projection.integrate("appl", ident)
+                    projected_processes = {
+                        str(process) for process in projected_ar.axes["process"]
+                    }
+                    selected_eft_processes = (
+                        self._prompt_subtraction_execution_by_family[family][
+                            "eft_processes"
+                        ]
+                    )
+                    if projected_processes != selected_eft_processes:
+                        raise RuntimeError(
+                            f"Family {family!r} EFT nominal evaluation did not cover "
+                            "the selected EFT execution route exactly: "
+                            f"selected={sorted(selected_eft_processes)} "
+                            f"evaluated={sorted(projected_processes)}."
+                        )
+                    projection_groups = self._group_selected_prompt_processes(
+                        family,
+                        "eft_sm_point",
+                        selected_eft_processes,
+                        (
+                            set(nonprompt_outputs)
+                            if nonprompt_outputs is not None
+                            else None
+                        ),
+                    )
+                    projected_prompt = projected_ar.group(
+                        "process", projection_groups
+                    )
+                    try:
+                        hPromptSub += projected_prompt
+                        prompt_source_hist = hAR + projected_ar
+                    except Exception as error:
+                        raise RuntimeError(
+                            f"Incompatible axes while evaluating selected EFT prompt "
+                            f"sources at the SM point for family={family!r} "
+                            f"application_region={ident!r}."
+                        ) from error
+                if component == "scalar":
+                    executed_prompt_processes.update(
+                        process
+                        for processes in newNameDictNoData.values()
+                        for process in processes
+                    )
+                    if projection is not None:
+                        executed_prompt_processes.update(projected_processes)
                 hPromptSubRaw = hPromptSub
 
                 # remove the up/down variations (if any) from the prompt subtraction histo
@@ -484,7 +1182,7 @@ class DataDrivenProducer:
                     self._record_nonprompt_report(
                         report,
                         ident,
-                        hAR,
+                        prompt_source_hist,
                         hAR.group("process", newNameDictData),
                         hPromptSubRaw,
                         hPromptSub,
@@ -501,6 +1199,18 @@ class DataDrivenProducer:
 
         if report is not None:
             self._dd_report_by_key[key] = report
+        if not key.endswith("_sumw2"):
+            self._record_transformation_roles(
+                key,
+                newhist,
+                generated_nonprompt_processes=generated_nonprompt_processes,
+                generated_flips_processes=generated_flips_processes,
+            )
+        if component == "scalar" and executed_prompt_processes:
+            self._record_prompt_subtraction_execution(
+                family,
+                executed_prompt_processes,
+            )
         return newhist
 
     def iter_data_driven_histograms(self):
@@ -508,8 +1218,23 @@ class DataDrivenProducer:
             yield from self.outHist.items()
             return
 
+        seen_keys = set(self._input_histogram_keys())
+        required_companions = set()
+        for key in seen_keys:
+            if key.endswith(SCALAR_NOMINAL_SUFFIX):
+                family = key[: -len(SCALAR_NOMINAL_SUFFIX)]
+                required_companions.add(f"{family}_sumw2")
+            elif key in axes_info_2d:
+                required_companions.add(f"{key}_sumw2")
+        missing = sorted(required_companions - seen_keys)
+        if missing:
+            raise RuntimeError(
+                "Nonprompt construction requires scalar statistical companions: "
+                + ", ".join(missing)
+            )
         for key, histo in self._iter_input_histograms():
             yield key, self._build_data_driven_histogram(key, histo)
+        self._validate_prompt_subtraction_execution_coverage()
 
     def DDFakes(self):
         new_output = {}
@@ -520,8 +1245,28 @@ class DataDrivenProducer:
     def dumpToPickle(self):
         if not self.outputName.endswith(".pkl.gz"):
             self.outputName = self.outputName + ".pkl.gz"
-        with gzip.open(self.outputName, "wb") as fout:
-            cloudpickle.dump(self.outHist, fout)
+        if self.outHist is None:
+            self.DDFakes()
+        input_sidecar = (
+            self._resolved_input_sidecar
+        )
+        if input_sidecar is not None:
+            write_histogram_artifact(
+                self.outputName,
+                histograms=self.outHist,
+                artifact_kind=self._artifact_kind,
+                sumw2_storage_provenance=input_sidecar[
+                    "sumw2_storage_provenance"
+                ],
+                lineage_inputs=[lineage_input_from_sidecar(input_sidecar)],
+                input_sidecar=input_sidecar,
+                transformation_context=self.get_transformation_context(
+                    self._artifact_kind
+                ),
+            )
+        else:
+            with gzip.open(self.outputName, "wb") as fout:
+                cloudpickle.dump(self.outHist, fout)
 
 
     def getDataDrivenHistogram(self):

@@ -14,7 +14,7 @@ import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
-from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
+from topeft.modules.get_renormfact_envelope import raise_unsupported_renormfact_envelope
 import analysis_processor_diboson as analysis_processor
 
 LST_OF_KNOWN_EXECUTORS = ["futures","work_queue"]
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
     parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
     parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
-    parser.add_argument('--do-renormfact-envelope', action='store_true', help = 'Perform renorm/fact envelope calculation on the output hist (saves the modified with the the same name as the original.')
+    parser.add_argument('--do-renormfact-envelope', action='store_true', help = 'Deprecated unsupported option; exits before analysis work.')
     parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
     parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
     parser.add_argument('--ecut', default=None  , help = 'Energy cut threshold i.e. throw out events above this (GeV)')
@@ -69,6 +69,8 @@ if __name__ == '__main__':
     parser.add_argument('--noRun3MVA'    , action='store_false', default=True, help = 'Add fwd channels')
 
     args = parser.parse_args()
+    if args.do_renormfact_envelope:
+        raise_unsupported_renormfact_envelope()
     jsonFiles  = args.jsonFiles
     prefix     = args.prefix
     executor   = args.executor
@@ -97,11 +99,6 @@ if __name__ == '__main__':
     # Check if we have valid options
     if executor not in LST_OF_KNOWN_EXECUTORS:
         raise Exception(f"The \"{executor}\" executor is not known. Please specify an executor from the known executors ({LST_OF_KNOWN_EXECUTORS}). Exiting.")
-    if do_renormfact_envelope:
-        if not do_systs:
-            raise Exception("Error: Cannot specify do_renormfact_envelope if we are not including systematics.")
-        if not do_np:
-            raise Exception("Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step.")
     if dotest:
         if executor == "futures":
             nchunks = 2
@@ -382,9 +379,3 @@ if __name__ == '__main__':
         print(f"Saving output in {out_pkl_file_name_np}...")
         ddp.dumpToPickle()
         print("Done!")
-        # Run the renorm fact envelope calculation
-        if do_renormfact_envelope:
-            print("\nDoing the renorm. fact. envelope calculation...")
-            dict_of_histos = utils.get_hist_from_pkl(out_pkl_file_name_np,allow_empty=False)
-            dict_of_histos_after_applying_envelope = get_renormfact_envelope(dict_of_histos)
-            utils.dump_to_pkl(out_pkl_file_name_np,dict_of_histos_after_applying_envelope)

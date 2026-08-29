@@ -1,8 +1,9 @@
 {
-  "xsec": 0.245,
+  "xsec": 0.025442626,
   "year": "2022",
   "treeName": "Events",
-  "histAxisName": "ttll",
+  "histAxisName": "ttll_private2022",
+  "eft_treatment": "sm_only",
   "options": "",
   "WCnames": [
     "cQu8",

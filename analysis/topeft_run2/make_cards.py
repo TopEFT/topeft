@@ -9,6 +9,8 @@ import numpy as np
 
 from topcoffea.modules.utils import regex_match,clean_dir,dict_comp
 from topeft.modules.datacard_tools import *
+from topeft.modules.histogram_artifact import write_histogram_artifact
+from topeft.modules.axis_binning import BINNING_MODES
 
 # Note:
 #   Not sure if constructing the condor related files this way is good or bad practice. It already
@@ -68,8 +70,30 @@ def build_arg_parser():
     parser = argparse.ArgumentParser(description="You can select which file to run over")
     parser.add_argument("pkl_file",nargs="*",help="One or more pickle files with histograms to run over")
     parser.add_argument("--pkl-list-file",default="",help="Optional text file with one pkl path per line")
-    parser.add_argument("--rate-syst-json","-s",default="params/rate_systs.json",help="Rate related systematics json file, path relative to topeft_path()")
-    parser.add_argument("--miss-parton-file","-m",default="data/missing_parton/missing_parton.root",help="File for missing parton systematic, path relative to topeft_path()")
+    parser.add_argument(
+        "--rate-syst-json",
+        "-s",
+        default=None,
+        help=(
+            "Override the run-era rate-systematics JSON path relative to "
+            "topeft_path(); omission keeps DatacardMaker's Run-2/Run-3 default."
+        ),
+    )
+    parser.add_argument(
+        "--miss-parton-file",
+        "-m",
+        default=None,
+        help=(
+            "Optional missing-parton payload path relative to topeft_path(); when "
+            "omitted, select missing_parton_run2.root or missing_parton_run3.root "
+            "from the resolved card era."
+        ),
+    )
+    from topeft.modules.missing_parton_contract import SUPPORTED_SR_REGISTRIES, DEFAULT_SR_REGISTRY
+    parser.add_argument("--sr-registry", choices=SUPPORTED_SR_REGISTRIES, default=DEFAULT_SR_REGISTRY,
+                        help=("SR registry associated with missing-parton payload selection "
+                              f"(default: {DEFAULT_SR_REGISTRY})."))
+    parser.add_argument("--skip-missing-parton-rate-syst",action="store_true",default=False,help="Skip loading/inserting only the missing-parton rate systematic; preserves other nuisances.")
     parser.add_argument("--selected-wcs-ref",default="test/selectedWCs.json",help="Reference file for selected wcs")
     parser.add_argument("--out-dir","-d",default=".",help="Output directory to write root and text datacard files to")
     parser.add_argument("--var-lst",default=[],action="extend",nargs="+",help="Specify a list of variables to make cards for.")
@@ -92,18 +116,27 @@ def build_arg_parser():
     parser.add_argument("--wc-vals", default="",action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
     parser.add_argument("--wc-scalings", default=[],action="extend",nargs="+",help="Specify a list of wc ordering for scalings.json")
     parser.add_argument(
-        "--on-process-collision",
-        choices=["error","warn","allow"],
-        default="error",
+        "--year-coverage-policy",
+        choices=["warn", "error", "off"],
+        default="warn",
         help=(
-            "Policy for process-label overlaps when merging multiple input pkl files. "
-            "Default is strict `error`. Expert-only escape hatches: `warn`/`allow`, "
-            "to be used only when overlaps are intentional (e.g. chunked outputs)."
+            "Structural process/year coverage policy for each histogram-family and "
+            "final-channel slice (default: warn)."
         ),
     )
     parser.add_argument("--merge-report",default="-",help="Path for merge diagnostic report JSON, or '-' for stdout")
     parser.add_argument("--merge-only",action="store_true",help="Only load+merge+validate input histograms and exit")
     parser.add_argument("--cache-merged-pkl",default="",help="Optional output path for merged histogram dictionary (.pkl.gz)")
+    parser.add_argument(
+        "--binning",
+        choices=BINNING_MODES,
+        default="fitting",
+        help=(
+            "Histogram binning used for card templates: 'fitting' applies the "
+            "current exact channel fitting contract; 'processing' uses the "
+            "dense axis stored in the input PKL (default: fitting)."
+        ),
+    )
     return parser
 
 
@@ -140,7 +173,7 @@ def _emit_merge_report(report_obj, report_path, out_dir):
     print(f"Wrote merge report: {report_fpath}")
 
 
-def _cache_merged_histograms(merged_hists, cache_path, out_dir):
+def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=None):
     out_fpath = cache_path
     if not os.path.isabs(out_fpath):
         out_fpath = os.path.join(out_dir, out_fpath)
@@ -150,9 +183,68 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir):
     if out_parent:
         os.makedirs(out_parent, exist_ok=True)
     print(f"Caching merged histograms to {out_fpath}")
-    with gzip.open(out_fpath, "wb") as fout:
-        pickle.dump(merged_hists, fout, protocol=pickle.HIGHEST_PROTOCOL)
+    if merge_report and merge_report.get("schema") == "split_sibling_v1":
+        write_histogram_artifact(
+            out_fpath,
+            histograms=merged_hists,
+            artifact_kind=merge_report["artifact_kind"],
+            sumw2_storage_provenance=merge_report["sumw2_storage_provenance"],
+            production_sample_contract=merge_report[
+                "production_sample_contract"
+            ],
+            merged=True,
+            lineage_inputs=merge_report["lineage_inputs"],
+            required_sumw2_processes=merge_report["required_sumw2_processes"],
+            transformation_contract=merge_report["transformation_contract"],
+            requested_data_driven_products=merge_report[
+                "requested_data_driven_products"
+            ],
+            resolved_data_driven_contract=merge_report[
+                "resolved_data_driven_contract"
+            ],
+        )
+    else:
+        with gzip.open(out_fpath, "wb") as fout:
+            pickle.dump(merged_hists, fout, protocol=pickle.HIGHEST_PROTOCOL)
     return out_fpath
+
+
+def _signal_only_selected_wcs(dc, selected_wcs):
+    return {
+        process: list(wcs)
+        for process, wcs in selected_wcs.items()
+        if dc.is_signal(process)
+    }
+
+
+def _materialize_selected_wcs(
+    out_dir,
+    selected_wcs_for_json,
+    source_path=None,
+):
+    output_path = os.path.join(out_dir, "selectedWCs.txt")
+    source_is_output = False
+    if source_path:
+        source_is_output = os.path.abspath(source_path) == os.path.abspath(output_path)
+        if os.path.exists(output_path):
+            source_is_output = source_is_output or os.path.samefile(
+                source_path,
+                output_path,
+            )
+
+    if source_is_output:
+        with open(output_path) as selected_wcs_file:
+            existing_selected_wcs = json.load(selected_wcs_file)
+        if existing_selected_wcs != selected_wcs_for_json:
+            raise ValueError(
+                "--use-selected points to the output selectedWCs.txt, but its "
+                "content is not the canonical signal-only representation."
+            )
+        return output_path
+
+    with open(output_path, "w") as selected_wcs_file:
+        json.dump(selected_wcs_for_json, selected_wcs_file)
+    return output_path
 
 def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
     for km_dist in km_dists:
@@ -163,6 +255,32 @@ def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
         for ch in matched_chs:
             r = dc.analyze(km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict)
 
+def _build_condor_base_other_opts(dc, year_coverage_policy, rate_syst_json=None):
+    base_other_opts = []
+    if dc.do_mc_stat:
+        base_other_opts.append("--do-mc-stat")
+    if dc.verbose:
+        base_other_opts.append("--verbose")
+    if dc.use_real_data:
+        base_other_opts.append("--unblind")
+    if dc.do_nuisance:
+        base_other_opts.append("--do-nuisance")
+    if dc.year_lst:
+        base_other_opts.extend(["--year"," ".join(dc.year_lst)])
+    if dc.drop_syst:
+        base_other_opts.extend(["--drop-syst"," ".join(dc.drop_syst)])
+    missing_parton_payload_path = getattr(dc, "missing_parton_payload_path", None)
+    if missing_parton_payload_path is not None:
+        base_other_opts.extend(["--miss-parton-file", missing_parton_payload_path])
+    base_other_opts.extend(["--sr-registry", dc.sr_registry])
+    if getattr(dc, "skip_missing_parton_rate_syst", False):
+        base_other_opts.append("--skip-missing-parton-rate-syst")
+    if rate_syst_json is not None:
+        base_other_opts.extend(["--rate-syst-json", rate_syst_json])
+    base_other_opts.extend(["--binning", dc.binning_mode])
+    base_other_opts.extend(["--year-coverage-policy", year_coverage_policy])
+    return base_other_opts
+
 # VERY IMPORTANT:
 #   This setup assumes the output directory is mounted on the remote condor machines
 # Note:
@@ -171,7 +289,17 @@ def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
 #   repo is located).
 # TODO: Currently there's no way to transparently passthrough parent arguments to the condor ones.
 #   There's also no clear way to pass customized options to different sub-sets of condor jobs
-def run_condor(dc,pkl_paths,out_dir,var_lst,ch_lst,chunk_size,on_process_collision="error",merge_report="-"):
+def run_condor(
+    dc,
+    pkl_paths,
+    out_dir,
+    var_lst,
+    ch_lst,
+    chunk_size,
+    year_coverage_policy="warn",
+    merge_report="-",
+    rate_syst_json=None,
+):
     import subprocess
     import stat
 
@@ -206,20 +334,11 @@ def run_condor(dc,pkl_paths,out_dir,var_lst,ch_lst,chunk_size,on_process_collisi
 
     os.chmod(condor_exe_fname,usr_perms | grp_perms | all_perms)    # equiv. to 777
 
-    base_other_opts = []
-    if dc.do_mc_stat:
-        base_other_opts.append("--do-mc-stat")
-    if dc.verbose:
-        base_other_opts.append("--verbose")
-    if dc.use_real_data:
-        base_other_opts.append("--unblind")
-    if dc.do_nuisance:
-        base_other_opts.append("--do-nuisance")
-    if dc.year_lst:
-        base_other_opts.extend(["--year"," ".join(dc.year_lst)])
-    if dc.drop_syst:
-        base_other_opts.extend(["--drop-syst"," ".join(dc.drop_syst)])
-    base_other_opts.extend(["--on-process-collision",on_process_collision])
+    base_other_opts = _build_condor_base_other_opts(
+        dc,
+        year_coverage_policy,
+        rate_syst_json=rate_syst_json,
+    )
 
     idx = 0
     for km_dist in var_lst:
@@ -277,10 +396,13 @@ def main():
     ignore     = args.ignore
     do_nuis    = args.do_nuisance
     drop_syst  = args.drop_syst
+    skip_missing_parton_rate_syst = args.skip_missing_parton_rate_syst
+    sr_registry = args.sr_registry
     unblind    = args.unblind
     verbose    = args.verbose
     use_AAC     = args.use_AAC
     wc_vals    = args.wc_vals
+    binning_mode = args.binning
 
     wc_scalings = args.wc_scalings
     select_only = args.select_only
@@ -294,21 +416,25 @@ def main():
 
     kwargs = {
         "wcs": wcs,
-        "rate_syst_path": rs_json,
         "missing_parton_path": mp_file,
+        "sr_registry": sr_registry,
         "out_dir": out_dir,
         "var_lst": var_lst,
         "do_mc_stat": do_mc_stat,
         "ignore": ignore,
         "do_nuisance": do_nuis,
         "drop_syst": drop_syst,
+        "skip_missing_parton_rate_syst": skip_missing_parton_rate_syst,
         "unblind": unblind,
         "verbose": verbose,
         "year_lst": years,
         "use_AAC":  use_AAC,
         "wc_vals": wc_vals,
         "wc_scalings": wc_scalings,
+        "binning_mode": binning_mode,
     }
+    if rs_json is not None:
+        kwargs["rate_systs_path"] = rs_json
 
     if out_dir != "." and not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -322,12 +448,14 @@ def main():
 
     merged_hists, merge_report = load_and_merge_histogram_pkls(
         pkl_files,
-        on_process_collision=args.on_process_collision,
         require_sumw2=True,
+        year_coverage_policy=args.year_coverage_policy,
     )
     _emit_merge_report(merge_report, args.merge_report, out_dir)
     if args.cache_merged_pkl:
-        _cache_merged_histograms(merged_hists, args.cache_merged_pkl, out_dir)
+        _cache_merged_histograms(
+            merged_hists, args.cache_merged_pkl, out_dir, merge_report
+        )
     if args.merge_only:
         print("Merge-only mode enabled, stopping after successful merge validation.")
         return
@@ -343,7 +471,20 @@ def main():
     if use_selected:
         # Use a pre-generated selectionWCs.txt file
         with open(use_selected) as f:
-            selected_wcs = json.load(f)
+            loaded_selected_wcs = json.load(f)
+        selected_wcs_for_json = _signal_only_selected_wcs(
+            dc,
+            loaded_selected_wcs,
+        )
+        _materialize_selected_wcs(
+            out_dir,
+            selected_wcs_for_json,
+            source_path=use_selected,
+        )
+        selected_wcs = {
+            process: list(process_wcs)
+            for process, process_wcs in loaded_selected_wcs.items()
+        }
         # This is needed since when we load WCs from a file, the background processes aren't included
         for km_dist in dists:
             all_procs = dc.processes(km_dist)
@@ -369,14 +510,8 @@ def main():
                 for wc in wcs:
                     if not wc in selected_wcs[p]:
                         selected_wcs[p].append(wc)
-        with open(os.path.join(out_dir,"selectedWCs.txt"),"w") as f:
-            selected_wcs_for_json = {}
-            for p,v in selected_wcs.items():
-                if not dc.is_signal(p):
-                    # WC selection will include backgrounds in the dict (always with an empty list), so remove them here
-                    continue
-                selected_wcs_for_json[p] = list(v)
-            json.dump(selected_wcs_for_json,f)
+        selected_wcs_for_json = _signal_only_selected_wcs(dc, selected_wcs)
+        _materialize_selected_wcs(out_dir, selected_wcs_for_json)
 
     # Check selected WCs against what's currently the list being assumed by the physcis model
     # Right now we're set to raise an exception if these files differ (warnings are easy to miss, and we really want the user to notice)
@@ -400,8 +535,9 @@ def main():
             dists,
             ch_lst,
             chunks,
-            on_process_collision=args.on_process_collision,
+            year_coverage_policy=args.year_coverage_policy,
             merge_report=args.merge_report,
+            rate_syst_json=rs_json,
         )
     else:
         run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins, wcs_dict)

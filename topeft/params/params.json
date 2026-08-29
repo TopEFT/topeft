@@ -173,7 +173,19 @@
         "ttH_central",
         "ttW_central",
         "ttZ_central",
-        "tttt_central"
+        "tttt_central",
+
+        "TTto2L2Nu_central",
+        "ttH_private",
+        "ttll_private",
+        "ttlnu_private",
+        "ggToZZTo2e2mu_central",
+        "ggToZZTo2e2nu_central",
+        "ggToZZTo2e2tau_central",
+        "ggToZZTo2mu2tau_central",
+        "ggToZZTo4e_central",
+        "ggToZZTo4mu_central",
+        "ggToZZTo4tau_central"
     ],
 
     "chargeflip_sf_dict" : {

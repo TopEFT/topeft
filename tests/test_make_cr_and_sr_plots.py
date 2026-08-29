@@ -17,7 +17,9 @@ class _DummyHist:
     def __init__(self):
         self.scale_factors = []
 
-    def eval(self, _):
+    def view(self, *, flow, as_dict):
+        assert flow is True
+        assert as_dict is True
         return {"sample": np.zeros(4)}
 
     def scale(self, factor):
@@ -61,9 +63,11 @@ def _make_met_histogram_for_channels(channel_names):
     return hist_obj
 
 
-def _make_simple_stacked_inputs():
+def _make_simple_stacked_inputs(axis_label=None):
     process_axis = hist.axis.StrCategory([], name="process", growth=True)
-    value_axis = hist.axis.Regular(2, 0.0, 2.0, name="lj0pt")
+    value_axis = hist.axis.Regular(
+        2, 0.0, 2.0, name="lj0pt", label=axis_label
+    )
     h_mc = hist.Hist(process_axis, value_axis, storage=hist.storage.Double())
     h_data = hist.Hist(process_axis, value_axis, storage=hist.storage.Double())
 
@@ -141,6 +145,390 @@ def test_show_ratio_legend_cli_is_disabled_by_default_and_explicitly_enabled():
         ).show_ratio_legend
         is True
     )
+
+
+def test_binning_cli_defaults_to_processing_and_accepts_fitting():
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    assert parser.parse_args(["-f", "input.pkl.gz"]).binning == "processing"
+    assert (
+        parser.parse_args(["-f", "input.pkl.gz", "--binning", "fitting"]).binning
+        == "fitting"
+    )
+
+
+def test_plot_binning_view_uses_stored_processing_and_shared_fitting_resolution():
+    channel = "3l_1tau_1b_2j"
+    histogram = make_cr_and_sr_plots.SparseHist(
+        hist.axis.StrCategory(["background"], name="process", growth=True),
+        hist.axis.Regular(12, 0, 600, name="lj0pt"),
+    )
+    histogram.fill(process="background", lj0pt=np.array([25.0, 175.0, 375.0]))
+
+    processing_view = make_cr_and_sr_plots._apply_plot_binning_view(
+        histogram, "lj0pt", [channel], "processing"
+    )
+    fitting_view = make_cr_and_sr_plots._apply_plot_binning_view(
+        histogram, "lj0pt", [channel], "fitting"
+    )
+
+    assert processing_view is histogram
+    assert np.array_equal(processing_view.axes["lj0pt"].edges, np.arange(0, 601, 50))
+    assert np.array_equal(fitting_view.axes["lj0pt"].edges, [0, 150, 250, 350])
+    assert sum(next(iter(fitting_view.view(flow=True).values()))) == pytest.approx(3.0)
+
+
+def test_aggregate_fitting_plot_rejects_incompatible_exact_channel_axes():
+    histogram = make_cr_and_sr_plots.SparseHist(
+        hist.axis.StrCategory(["background"], name="process", growth=True),
+        hist.axis.Regular(12, 0, 600, name="lt"),
+    )
+    histogram.fill(process="background", lt=25.0)
+    with pytest.raises(ValueError, match="incompatible fitting axes"):
+        make_cr_and_sr_plots._apply_plot_binning_view(
+            histogram,
+            "lt",
+            ["3l_m_offZ_2b_fwd_1j", "3l_m_offZ_2b_fwd_2j"],
+            "fitting",
+        )
+
+
+def test_uncertainty_mode_parser_and_resolution_contract():
+    parser = make_cr_and_sr_plots.build_arg_parser()
+
+    assert make_cr_and_sr_plots._resolve_uncertainty_mode() == "total"
+    assert make_cr_and_sr_plots._resolve_uncertainty_mode(skip_syst=True) == "stat"
+    assert (
+        make_cr_and_sr_plots._resolve_uncertainty_mode(no_uncertainties=True)
+        == "none"
+    )
+    assert parser.parse_args(["-f", "input.pkl.gz"]).no_uncertainties is False
+    assert parser.parse_args(["-f", "input.pkl.gz", "--skip-syst"]).skip_syst
+    assert parser.parse_args(["-f", "input.pkl.gz", "--no-uncertainties"]).no_uncertainties
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            ["-f", "input.pkl.gz", "--skip-syst", "--no-uncertainties"]
+        )
+    assert (
+        make_cr_and_sr_plots._resolve_plot_axis_label("missing_plot_axis")
+        == "missing_plot_axis"
+    )
+
+
+def test_none_mode_preserves_unblinded_markers_without_errorbars_or_bands(monkeypatch):
+    h_mc, h_data, group_map = _make_simple_stacked_inputs()
+    plotted_calls = []
+    fill_between_calls = []
+
+    original_histplot = make_cr_and_sr_plots.hep.histplot
+
+    def _capture_histplot(*args, **kwargs):
+        plotted_calls.append((args, kwargs))
+        return original_histplot(*args, **kwargs)
+
+    def _capture_fill_between(self, *args, **kwargs):
+        fill_between_calls.append((args, kwargs))
+        return None
+
+    monkeypatch.setattr(make_cr_and_sr_plots.hep, "histplot", _capture_histplot)
+    monkeypatch.setattr(
+        make_cr_and_sr_plots.mpl.axes.Axes,
+        "fill_between",
+        _capture_fill_between,
+    )
+
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc=h_mc,
+        h_data=h_data,
+        unit_norm_bool=False,
+        var="lj0pt",
+        group=group_map,
+        unblind=True,
+        uncertainty_mode="none",
+    )
+
+    try:
+        errorbar_calls = [
+            (args, kwargs)
+            for args, kwargs in plotted_calls
+            if kwargs.get("histtype") == "errorbar"
+        ]
+        assert len(errorbar_calls) == 2
+        assert errorbar_calls[0][1]["label"] == "Data"
+        assert errorbar_calls[0][1]["yerr"] is False
+        assert errorbar_calls[1][1]["yerr"] is False
+        np.testing.assert_allclose(errorbar_calls[1][0][0][:2], np.array([0.8, 1.2]))
+        assert not fill_between_calls
+        assert not any(
+            "unc." in text.get_text().lower() for text in fig.texts
+        )
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
+
+
+def test_none_mode_keeps_blinded_mc_stack_without_band(monkeypatch):
+    h_mc, h_data, group_map = _make_simple_stacked_inputs()
+    fill_between_calls = []
+
+    def _capture_fill_between(self, *args, **kwargs):
+        fill_between_calls.append((args, kwargs))
+        return None
+
+    monkeypatch.setattr(
+        make_cr_and_sr_plots.mpl.axes.Axes,
+        "fill_between",
+        _capture_fill_between,
+    )
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc=h_mc,
+        h_data=h_data,
+        unit_norm_bool=False,
+        var="lj0pt",
+        group=group_map,
+        unblind=False,
+        uncertainty_mode="none",
+    )
+
+    try:
+        assert len(fig.axes) == 1
+        assert not fill_between_calls
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
+
+
+def test_none_mode_propagates_to_aggregate_and_per_channel_paths(monkeypatch, tmp_path):
+    captured_modes = []
+    negative_report_calls = []
+
+    def _build_context(*_args, channel_mode_override, **_kwargs):
+        return SimpleNamespace(
+            name="CR",
+            channel_mode=channel_mode_override,
+            stacked_ratio_style=None,
+        )
+
+    def _capture_production(region_ctx, _save_dir, _variables, uncertainty_mode, *_args, **_kwargs):
+        captured_modes.append((region_ctx.channel_mode, uncertainty_mode))
+        return []
+
+    minimal_summary = {
+        "region": "CR",
+        "channels_scanned": 0,
+        "channel_entries": [],
+        "zero_process_total": 0,
+        "data_driven_zero_total": 0,
+        "missing_data_driven_prefixes": set(),
+        "errors": [],
+    }
+    monkeypatch.setattr(make_cr_and_sr_plots, "build_region_context", _build_context)
+    monkeypatch.setattr(
+        make_cr_and_sr_plots.yt, "is_split_by_lepflav", lambda *_args, **_kwargs: True
+    )
+    monkeypatch.setattr(make_cr_and_sr_plots, "produce_region_plots", _capture_production)
+    monkeypatch.setattr(
+        make_cr_and_sr_plots,
+        "_summarize_zero_yield_processes",
+        lambda *_args, **_kwargs: minimal_summary,
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "_emit_zero_yield_summary", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots,
+        "write_negative_weight_report",
+        lambda *_args, **_kwargs: negative_report_calls.append(True) or {"csv": "x", "markdown": "y"},
+    )
+
+    make_cr_and_sr_plots.run_plots_for_region(
+        "CR",
+        {},
+        years=["2022"],
+        save_dir_path=str(tmp_path),
+        channel_output="both",
+        uncertainty_mode="none",
+        negative_weight_report=True,
+    )
+
+    assert captured_modes == [("aggregate", "none"), ("per-channel", "none")]
+    assert negative_report_calls == [True]
+
+
+def test_none_mode_does_not_calculate_rate_or_shape_systematics(monkeypatch, tmp_path):
+    hist_inputs = {
+        "met": _make_met_histogram_for_channels(["2lss_ee_CR_1j"])
+    }
+
+    def _unexpected_systematics(*_args, **_kwargs):
+        raise AssertionError("none mode must not calculate drawing-only systematics")
+
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "get_rate_syst_arrs", _unexpected_systematics
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "get_shape_syst_arrs", _unexpected_systematics
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots.yt, "is_split_by_lepflav", lambda *_args, **_kwargs: True
+    )
+
+    make_cr_and_sr_plots.run_plots_for_region(
+        "CR",
+        hist_inputs,
+        years=["2022"],
+        save_dir_path=str(tmp_path),
+        variables=["met"],
+        channel_output="both",
+        uncertainty_mode="none",
+        workers=1,
+    )
+
+
+@pytest.mark.parametrize(
+    "render_results, expected_summary, expected_tasks",
+    [
+        (
+            [(1, 0, set(), []), (0, 0, set(), [])],
+            "1 plot without uncertainty bars or bands",
+            "after completing 2 rendering tasks",
+        ),
+        (
+            [(1, 0, set(), []), (1, 0, set(), []), (0, 0, set(), [])],
+            "2 plots without uncertainty bars or bands",
+            "after completing 3 rendering tasks",
+        ),
+    ],
+)
+def test_none_summary_reports_successful_plot_count_not_task_count(
+    monkeypatch,
+    capsys,
+    render_results,
+    expected_summary,
+    expected_tasks,
+):
+    variable_names = [f"var_{idx}" for idx in range(len(render_results))]
+    region_ctx = SimpleNamespace(
+        dict_of_hists={name: object() for name in variable_names},
+        name="CR",
+        apply_category_skips=False,
+        skip_variables=set(),
+        unblind_default=True,
+    )
+    payload = {
+        "channel_dict": {},
+        "channel_transformations": {},
+        "is_sparse2d": False,
+    }
+    results = iter(render_results)
+
+    monkeypatch.setattr(
+        make_cr_and_sr_plots,
+        "_resolve_requested_variables",
+        lambda *_args, **_kwargs: variable_names,
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots,
+        "_prepare_variable_payload",
+        lambda *_args, **_kwargs: payload,
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots,
+        "_render_variable",
+        lambda *_args, **_kwargs: next(results),
+    )
+
+    make_cr_and_sr_plots.produce_region_plots(
+        region_ctx,
+        None,
+        None,
+        "none",
+        False,
+        False,
+        workers=1,
+    )
+
+    output = capsys.readouterr().out
+    assert expected_summary in output
+    assert expected_tasks in output
+
+
+@pytest.mark.parametrize("unblind", [False, True])
+def test_authoritative_axis_label_replaces_histogram_label(monkeypatch, unblind):
+    h_mc, h_data, group_map = _make_simple_stacked_inputs(
+        axis_label="description stored in pkl"
+    )
+    authoritative_label = "authoritative axes.py label"
+    monkeypatch.setitem(
+        make_cr_and_sr_plots.te_axes_info,
+        "lj0pt",
+        {"label": authoritative_label},
+    )
+
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc=h_mc,
+        h_data=h_data,
+        unit_norm_bool=False,
+        var="lj0pt",
+        group=group_map,
+        unblind=unblind,
+    )
+
+    try:
+        visible_axis_labels = [
+            axis.get_xlabel()
+            for axis in fig.axes
+            if axis.xaxis.label.get_visible() and axis.get_xlabel()
+        ]
+        visible_texts = [
+            text.get_text()
+            for text in fig.texts
+            if text.get_visible() and text.get_text()
+        ]
+        assert visible_axis_labels == []
+        assert visible_texts.count(authoritative_label) == 1
+        assert "description stored in pkl" not in visible_texts
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
+
+
+@pytest.mark.parametrize("uncertainty_mode", ["stat", "total"])
+def test_stat_and_total_modes_keep_mc_uncertainty_bands(monkeypatch, uncertainty_mode):
+    h_mc, h_data, group_map = _make_simple_stacked_inputs()
+    mc_totals = h_mc[{"process": sum}].values(flow=True)[1:]
+    fill_between_calls = []
+    original_fill_between = make_cr_and_sr_plots.mpl.axes.Axes.fill_between
+
+    def _capture_fill_between(self, *args, **kwargs):
+        fill_between_calls.append((args, kwargs))
+        return original_fill_between(self, *args, **kwargs)
+
+    monkeypatch.setattr(
+        make_cr_and_sr_plots.mpl.axes.Axes,
+        "fill_between",
+        _capture_fill_between,
+    )
+
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc=h_mc,
+        h_data=h_data,
+        unit_norm_bool=False,
+        var="lj0pt",
+        group=group_map,
+        unblind=True,
+        uncertainty_mode=uncertainty_mode,
+        syst_err="total",
+        err_p_syst=mc_totals + 1.0,
+        err_m_syst=mc_totals - 1.0,
+        err_ratio_p_syst=np.array([1.1, 1.2]),
+        err_ratio_m_syst=np.array([0.9, 0.8]),
+    )
+
+    try:
+        assert fill_between_calls
+        if uncertainty_mode == "stat":
+            assert len(fill_between_calls) == 2
+        else:
+            assert len(fill_between_calls) == 4
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
 
 
 def _get_cms_text_union_bbox(fig, ax, renderer):
@@ -1040,7 +1428,7 @@ def test_both_includes_split_channels_when_available(tmp_path):
 
     setattr(h_met, "_sumw2", defaultdict(lambda: None))
 
-    for channel, weight in ("2los_ee_CRZ_0j", 1.0), ("2los_mm_CRZ_0j", 2.0):
+    for channel, weight in ("2los_ee_CRZ_2j", 1.0), ("2los_mm_CRZ_2j", 2.0):
         h_met.fill(
             process="dataUL18",
             channel=channel,
@@ -1429,7 +1817,7 @@ def test_all_variables_render_for_merged_and_split_categories(
     for hist_obj in (h_j0pt, h_met):
         setattr(hist_obj, "_sumw2", defaultdict(lambda: None))
 
-    for channel, weight in ("2los_ee_CRZ_0j", 1.0), ("2los_mm_CRZ_0j", 2.0):
+    for channel, weight in ("2los_ee_CRZ_2j", 1.0), ("2los_mm_CRZ_2j", 2.0):
         h_j0pt.fill(
             process="dataUL18",
             channel=channel,
@@ -1489,7 +1877,7 @@ def test_all_variables_render_for_merged_and_split_categories(
         )
 
     merged_dir_name = (
-        "cr_2los_Z_0j" if channel_output.endswith("njets") else "cr_2los_Z"
+        "cr_2los_Z_2j" if channel_output.endswith("njets") else "cr_2los_Z"
     )
     merged_dir = tmp_path / merged_dir_name
     assert merged_dir.exists()
@@ -1497,8 +1885,8 @@ def test_all_variables_render_for_merged_and_split_categories(
     merged_plots = {path.name for path in merged_dir.glob("*.png")}
     if channel_output.endswith("njets"):
         expected_merged = {
-            "2los_CRZ_0j_j0pt.png",
-            "2los_CRZ_0j_met.png",
+            "2los_CRZ_2j_j0pt.png",
+            "2los_CRZ_2j_met.png",
         }
     else:
         expected_merged = {
@@ -1509,13 +1897,13 @@ def test_all_variables_render_for_merged_and_split_categories(
 
     if channel_output.endswith("njets"):
         split_expectations = {
-            "cr_2los_Z_ee_0j": {
-                "2los_CRZ_ee_0j_j0pt.png",
-                "2los_CRZ_ee_0j_met.png",
+            "cr_2los_Z_ee_2j": {
+                "2los_CRZ_ee_2j_j0pt.png",
+                "2los_CRZ_ee_2j_met.png",
             },
-            "cr_2los_Z_mm_0j": {
-                "2los_CRZ_mm_0j_j0pt.png",
-                "2los_CRZ_mm_0j_met.png",
+            "cr_2los_Z_mm_2j": {
+                "2los_CRZ_mm_2j_j0pt.png",
+                "2los_CRZ_mm_2j_met.png",
             },
         }
         for dir_name, expected_plots in split_expectations.items():
@@ -1619,6 +2007,34 @@ def test_data_driven_reinsertion_respects_year_tokens():
     assert "flips2022" not in ctx_run2.mc_samples
 
 
+def test_combined_run2_run3_year_context_is_rejected():
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    parsed = parser.parse_args(["-f", "input.pkl.gz", "--year", "run2", "run3"])
+    assert parsed.year == ["run2", "run3"]
+
+    hist_inputs = {"met": _make_met_histogram_for_channels(["2lss_ee_CR_1j"])}
+    with pytest.raises(ValueError, match=r"Combined Run 2 \+ Run 3 plotting"):
+        make_cr_and_sr_plots.build_region_context(
+            "CR", hist_inputs, years=["run2", "run3"], unblind=True
+        )
+    run2_ctx = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["run2"], unblind=True
+    )
+    run3_ctx = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["run3"], unblind=True
+    )
+    physical_year_ctx = make_cr_and_sr_plots.build_region_context(
+        "CR", hist_inputs, years=["2022"], unblind=True
+    )
+
+    assert run2_ctx.lumi_pair == ("137.6", "13")
+    assert run2_ctx.lumi_components == (("137.6", "13"),)
+    assert run2_ctx.scope_label == "Run 2"
+    assert run3_ctx.lumi_pair == ("61.891", "13.6")
+    assert run3_ctx.lumi_components == (("61.891", "13.6"),)
+    assert run3_ctx.scope_label == "Run 3"
+    assert physical_year_ctx.lumi_pair == ("7.98", "13.6")
+    assert physical_year_ctx.scope_label is None
 def test_parse_rebin_plot_vars_accepts_colon_and_equals():
     parsed = make_cr_and_sr_plots.parse_rebin_plot_vars("j0pt:2,l1conept=3")
 

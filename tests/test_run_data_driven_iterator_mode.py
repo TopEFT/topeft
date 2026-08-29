@@ -118,7 +118,7 @@ def _fill_data_driven_histogram(entries):
 
 def test_default_mode_uses_streaming_writer(tmp_path, monkeypatch):
     input_path = tmp_path / "input.pkl.gz"
-    input_path.write_bytes(b"content")
+    _write_with_cloudpickle(str(input_path), {"seed": FakeHist(["dataUL18"])})
     output_path = tmp_path / "output.pkl.gz"
 
     IteratorDummyProducer.output_hist = {"njets": FakeHist(["flipsUL18", "ttbarUL18"])}
@@ -161,7 +161,7 @@ def test_default_mode_uses_streaming_writer(tmp_path, monkeypatch):
 
 def test_default_mode_matches_legacy_dict_mode(tmp_path, monkeypatch):
     input_path = tmp_path / "input.pkl.gz"
-    input_path.write_bytes(b"content")
+    _write_with_cloudpickle(str(input_path), {"seed": FakeHist(["dataUL18"])})
     output_default_mode = tmp_path / "default_mode.pkl.gz"
     output_legacy_mode = tmp_path / "legacy_mode.pkl.gz"
 

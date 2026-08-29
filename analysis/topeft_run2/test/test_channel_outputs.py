@@ -106,6 +106,7 @@ def _make_region_context(
     preserve_njets_bins=False,
     channel_output_mode="merged",
     is_lepton_flavor_in_pkl=True,
+    binning_mode="processing",
 ):
     sumw2_suffix = "_sumw2"
     sumw2_hists = {}
@@ -130,7 +131,6 @@ def _make_region_context(
         unblind_default=True,
         lumi_pair=("1", "13TeV"),
         skip_variables=None,
-        analysis_bins=None,
         stacked_ratio_style=None,
         channel_rules=_default_channel_rules(),
         sample_removal_rules=[],
@@ -145,6 +145,7 @@ def _make_region_context(
         preserve_njets_bins=preserve_njets_bins,
         channel_output_mode=channel_output_mode,
         is_lepton_flavor_in_pkl=is_lepton_flavor_in_pkl,
+        binning_mode=binning_mode,
     )
 
 
@@ -302,6 +303,7 @@ def test_split_mode_skips_when_hist_not_flavour_split(monkeypatch, tmp_path):
         preserve_njets_bins=False,
         channel_output_mode="merged",
         enable_category_skips=False,
+        binning_mode="processing",
     ):
         channel_mode = channel_mode_override or "aggregate"
         return _make_region_context(
@@ -310,6 +312,7 @@ def test_split_mode_skips_when_hist_not_flavour_split(monkeypatch, tmp_path):
             channel_mode=channel_mode,
             preserve_njets_bins=preserve_njets_bins,
             channel_output_mode=channel_output_mode,
+            binning_mode=binning_mode,
         )
 
     monkeypatch.setattr(plots, "build_region_context", fake_build_region_context)
@@ -395,7 +398,7 @@ def test_sumw2_histogram_passed_to_stacked_plot(monkeypatch, tmp_path):
         hist_mc_sumw2_orig=payload["hist_mc_sumw2_orig"],
         is_sparse2d=payload["is_sparse2d"],
         save_dir_path=str(tmp_path),
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind_flag=True,
@@ -460,7 +463,7 @@ def test_plotter_accepts_nominal_only_sumw2_with_shape_systematics(monkeypatch, 
         hist_mc_sumw2_orig=payload["hist_mc_sumw2_orig"],
         is_sparse2d=payload["is_sparse2d"],
         save_dir_path=str(tmp_path),
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind_flag=True,
@@ -490,7 +493,7 @@ def test_flavour_split_hist_preserves_per_channel_entries():
 def test_channel_output_both_runs_all_modes_and_uses_sumw2(monkeypatch, tmp_path):
     # Use an observable that only declares regular binning metadata.
     variable = "npvs"
-    channel_bins = ["category_em", "category_mm"]
+    channel_bins = ["2los_ee_CRZ_2j", "2los_mm_CRZ_2j"]
     histograms = {
         variable: _build_histogram(variable, channel_bins, hist_type="HistEFT"),
         f"{variable}_sumw2": _build_sumw2_histogram(variable, channel_bins),
@@ -610,7 +613,7 @@ def test_split_mode_groups_year_suffixed_channels(monkeypatch, tmp_path):
         aggregate_ctx,
         str(tmp_path / "agg"),
         [variable],
-        skip_syst_errs=False,
+        uncertainty_mode="total",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -624,7 +627,7 @@ def test_split_mode_groups_year_suffixed_channels(monkeypatch, tmp_path):
         split_ctx,
         str(tmp_path / "split"),
         [variable],
-        skip_syst_errs=False,
+        uncertainty_mode="total",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -705,7 +708,7 @@ def test_split_mode_uses_flavour_label_for_single_bin(monkeypatch, tmp_path):
         aggregate_ctx,
         str(tmp_path / "agg"),
         [variable],
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -721,7 +724,7 @@ def test_split_mode_uses_flavour_label_for_single_bin(monkeypatch, tmp_path):
         split_ctx,
         str(tmp_path / "split"),
         [variable],
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -813,7 +816,7 @@ def test_split_mode_breaks_out_lepton_flavour_buckets(monkeypatch, tmp_path):
         aggregate_ctx,
         str(tmp_path / "agg"),
         [variable],
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -833,7 +836,7 @@ def test_split_mode_breaks_out_lepton_flavour_buckets(monkeypatch, tmp_path):
         split_ctx,
         str(tmp_path / "split"),
         [variable],
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind=True,
@@ -990,7 +993,7 @@ def test_preserved_njets_missing_bins_log_and_skip(monkeypatch, caplog, tmp_path
 
     caplog.set_level("INFO", logger=plots.__name__)
 
-    stat_only, stat_and_syst, html_dirs = plots._render_variable_category(
+    stat_only, stat_and_syst, html_dirs, negative_rows = plots._render_variable_category(
         variable,
         "cr_all",
         ["category_4j"],
@@ -1001,7 +1004,7 @@ def test_preserved_njets_missing_bins_log_and_skip(monkeypatch, caplog, tmp_path
         hist_mc_sumw2_orig=payload["hist_mc_sumw2_orig"],
         is_sparse2d=payload["is_sparse2d"],
         save_dir_path=str(tmp_path),
-        skip_syst_errs=True,
+        uncertainty_mode="stat",
         unit_norm_bool=False,
         stacked_log_y=False,
         unblind_flag=True,
@@ -1011,6 +1014,7 @@ def test_preserved_njets_missing_bins_log_and_skip(monkeypatch, caplog, tmp_path
 
     assert stat_only == 0 and stat_and_syst == 0
     assert html_dirs == set()
+    assert negative_rows == []
     assert not any(tmp_path.iterdir())
     assert "no preserved njet bins overlap" in caplog.text
 
@@ -1056,6 +1060,7 @@ def test_both_njets_channel_output_writes_pngs_and_uncertainties(monkeypatch, tm
         preserve_njets_bins=False,
         channel_output_mode="merged",
         enable_category_skips=False,
+        binning_mode="processing",
     ):
         mode = channel_mode_override or "aggregate"
         return _make_region_context(
@@ -1064,6 +1069,7 @@ def test_both_njets_channel_output_writes_pngs_and_uncertainties(monkeypatch, tm
             channel_mode=mode,
             preserve_njets_bins=preserve_njets_bins,
             channel_output_mode=channel_output_mode,
+            binning_mode=binning_mode,
         )
 
     monkeypatch.setattr(plots, "build_region_context", fake_build_region_context)

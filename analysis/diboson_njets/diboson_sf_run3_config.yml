@@ -1,0 +1,14 @@
+diboson:
+  propagate_statistical_uncertainties: true
+  process_roles:
+    data:
+      - data_a_2022
+      - data_b_2022
+    background:
+      - ttbar_2022
+      - zjets_2022
+    diboson:
+      - WZTo3LNu_2022
+      - ZZTo2L2Nu_2022
+    ignored:
+      - flip_2022

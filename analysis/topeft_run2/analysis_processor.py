@@ -21,7 +21,18 @@ import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
+from topeft.modules.axis_binning import make_processing_axis
+from topeft.modules.missing_parton_contract import parse_analysis_njet_token
+from topeft.modules.nominal_schema import (
+    EFT_NOMINAL_SUFFIX,
+    NOMINAL_CONTAINER_LAYOUT,
+    NOMINAL_CONTAINER_SCHEMA_VERSION,
+    SCALAR_NOMINAL_SUFFIX,
+    eft_nominal_key,
+    scalar_nominal_key,
+)
 from topeft.modules.paths import topeft_path
+from topeft.modules.sumw2_policy import resolve_nominal_component_availability
 from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
@@ -67,6 +78,48 @@ ANALYSIS_MODE_EXCLUSIVE_ERROR = (
     "--offZ-3l-split, --tau-h-analysis, --fwd-analysis, --all-analysis."
 )
 
+JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS = frozenset(
+    {
+        "jet_eta_phi_before_veto",
+        "jet_eta_phi_after_veto",
+    }
+)
+
+
+def flatten_jagged_jet_eta_phi_weights(jets, event_mask, event_weights):
+    """Return aligned flattened eta, phi, and per-jet event weights."""
+
+    selected_jets = jets[event_mask]
+    selected_event_weights = event_weights[event_mask]
+    _, per_jet_weights = ak.broadcast_arrays(selected_jets.eta, selected_event_weights)
+    return (
+        ak.flatten(selected_jets.eta),
+        ak.flatten(selected_jets.phi),
+        ak.flatten(per_jet_weights),
+    )
+
+
+def get_jvm_eta_phi_event_mask(base_event_mask, jet_veto_mask, histogram_name):
+    """Apply the diagnostic's family-local event-veto policy."""
+
+    if histogram_name == "jet_eta_phi_before_veto":
+        return base_event_mask
+    if histogram_name == "jet_eta_phi_after_veto":
+        return base_event_mask & jet_veto_mask
+    raise ValueError(f"Unknown JVM eta-phi diagnostic '{histogram_name}'")
+
+
+def should_include_jet_veto_in_histogram_selection(histogram_name):
+    """Preserve the standard post-veto selection outside the diagnostic pair."""
+
+    return histogram_name not in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS
+
+
+def should_fill_jvm_eta_phi_diagnostic(is_run3, syst_var, wgt_fluct):
+    """Keep reviewer diagnostics to the Run 3 nominal object/weight state."""
+
+    return is_run3 and syst_var == "nominal" and wgt_fluct == "nominal"
+
 
 def validate_analysis_mode_flags(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
     mode_flags = {
@@ -78,6 +131,158 @@ def validate_analysis_mode_flags(offz_3l_split, tau_h_analysis, fwd_analysis, al
     if sum(mode_flags.values()) > 1:
         raise ValueError(ANALYSIS_MODE_EXCLUSIVE_ERROR)
     return mode_flags
+
+
+def evaluate_eft_coefficients_at_sm(eft_coefficients):
+    """Evaluate quadratic EFT coefficients at the zero-WC SM point."""
+
+    coefficients = np.asarray(eft_coefficients)
+    if coefficients.ndim < 1:
+        raise ValueError("EFT coefficients must have a coefficient dimension")
+
+    coefficient_count = coefficients.shape[-1]
+    wc_count = int(efth.n_wc_from_quad(coefficient_count))
+    if int(efth.n_quad_terms(wc_count)) != coefficient_count:
+        raise ValueError(
+            "EFT coefficient count does not match a quadratic polynomial: "
+            f"{coefficient_count}"
+        )
+
+    sm_coordinates = np.zeros(wc_count, dtype=coefficients.dtype)
+    return efth.calc_eft_weights(coefficients, sm_coordinates)
+
+
+def calculate_sm_sumw2_weights(scalar_weights, eft_coefficients=None):
+    """Return squared complete SM event contributions for a companion fill."""
+
+    scalar_weights = np.asarray(scalar_weights)
+    if eft_coefficients is None:
+        # Preserve the established non-EFT operation exactly.
+        return np.square(scalar_weights)
+
+    eft_factor_sm = evaluate_eft_coefficients_at_sm(eft_coefficients)
+    if scalar_weights.shape != eft_factor_sm.shape:
+        raise ValueError(
+            "Scalar weights and evaluated EFT factors must have matching shapes: "
+            f"{scalar_weights.shape} != {eft_factor_sm.shape}"
+        )
+    return np.square(scalar_weights * eft_factor_sm)
+
+
+SUPPORTED_EFT_TREATMENTS = frozenset({"sm_only"})
+
+
+def resolve_eft_treatment(sample_metadata, *, sample_name="<unknown>"):
+    """Validate and return an explicitly requested EFT source treatment."""
+
+    treatment = sample_metadata.get("eft_treatment")
+    if treatment is None:
+        # Preserve the established metadata-derived behavior exactly.
+        return None
+
+    if not isinstance(treatment, str) or treatment not in SUPPORTED_EFT_TREATMENTS:
+        raise ValueError(
+            "EFT-TREATMENT-E001: unsupported eft_treatment "
+            f"{treatment!r} for sample {sample_name!r}; "
+            f"supported values are {sorted(SUPPORTED_EFT_TREATMENTS)}."
+        )
+    if sample_metadata.get("isData") is not False:
+        raise ValueError(
+            "EFT-TREATMENT-E002: explicit EFT treatment is allowed only for MC; "
+            f"sample={sample_name!r} treatment={treatment!r}."
+        )
+
+    wc_names = sample_metadata.get("WCnames")
+    if not isinstance(wc_names, list) or not wc_names:
+        raise ValueError(
+            "EFT-TREATMENT-E003: sm_only requires a nonempty WCnames list; "
+            f"sample={sample_name!r}."
+        )
+    if any(not isinstance(name, str) or not name for name in wc_names):
+        raise ValueError(
+            "EFT-TREATMENT-E003: sm_only requires nonempty string WCnames; "
+            f"sample={sample_name!r}."
+        )
+    if len(set(wc_names)) != len(wc_names):
+        raise ValueError(
+            "EFT-TREATMENT-E003: sm_only requires unique WCnames; "
+            f"sample={sample_name!r}."
+        )
+    return treatment
+
+
+def project_eft_coefficients_for_treatment(
+    eft_coefficients,
+    eft_treatment,
+    *,
+    sample_name="<unknown>",
+):
+    """Project an explicit EFT source role after native-to-global remapping."""
+
+    if eft_treatment is None:
+        return eft_coefficients
+    if eft_treatment not in SUPPORTED_EFT_TREATMENTS:
+        raise ValueError(
+            "EFT-TREATMENT-E001: unsupported runtime eft_treatment "
+            f"{eft_treatment!r} for sample {sample_name!r}."
+        )
+    if eft_coefficients is None:
+        raise RuntimeError(
+            "EFT-TREATMENT-E004: sm_only requires an EFTfitCoefficients branch; "
+            f"sample={sample_name!r}."
+        )
+
+    coefficients = np.asarray(eft_coefficients)
+    sm_values = evaluate_eft_coefficients_at_sm(coefficients)
+    projected = np.zeros_like(coefficients)
+    projected[..., 0] = sm_values
+    return projected
+
+
+def prepare_eft_coefficients(
+    eft_coefficients,
+    native_wc_names,
+    global_wc_names,
+    eft_treatment,
+    *,
+    sample_name="<unknown>",
+):
+    """Remap source coefficients and then apply their explicit treatment."""
+
+    prepared = eft_coefficients
+    if prepared is not None and native_wc_names != global_wc_names:
+        prepared = efth.remap_coeffs(native_wc_names, global_wc_names, prepared)
+    return project_eft_coefficients_for_treatment(
+        prepared,
+        eft_treatment,
+        sample_name=sample_name,
+    )
+
+
+def prepare_event_eft_coefficients(
+    events,
+    sample_metadata,
+    global_wc_names,
+    eft_treatment,
+    *,
+    sample_name="<unknown>",
+):
+    """Route one source through EFT setup only when its runtime role needs it."""
+
+    eft_coefficients = (
+        ak.to_numpy(events["EFTfitCoefficients"])
+        if hasattr(events, "EFTfitCoefficients")
+        else None
+    )
+    if eft_coefficients is None and eft_treatment is None:
+        return None
+    return prepare_eft_coefficients(
+        eft_coefficients,
+        sample_metadata["WCnames"],
+        global_wc_names,
+        eft_treatment,
+        sample_name=sample_name,
+    )
 
 
 def derive_analysis_enable_toggles(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
@@ -144,7 +349,13 @@ def load_category_config(category_config_path=None):
 class AnalysisProcessor(processor.ProcessorABC):
 
     @staticmethod
-    def _resolve_histogram_names(hist_lst, *, ordered_base_hist_names, fill_sumw2_hist):
+    def _resolve_histogram_names(
+        hist_lst,
+        *,
+        ordered_base_hist_names,
+        fill_sumw2_hist,
+        selected_sumw2_families=None,
+    ):
         """Return ordered collections of requested base and expanded histogram names."""
 
         available_base_hist_names = set(ordered_base_hist_names)
@@ -173,7 +384,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             if base_name not in expanded_seen:
                 expanded_hist_names_ordered.append(base_name)
                 expanded_seen.add(base_name)
-            if fill_sumw2_hist:
+            if fill_sumw2_hist and (
+                selected_sumw2_families is None
+                or base_name in selected_sumw2_families
+            ):
                 sumw2_name = f"{base_name}{sumw2_suffix}"
                 if sumw2_name not in expanded_seen:
                     expanded_hist_names_ordered.append(sumw2_name)
@@ -187,7 +401,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return bool(fill_sumw2_hist) and wgt_fluct == "nominal"
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split"):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -244,12 +458,37 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
         # self._tau_wp_checked = False
 
-        self._fill_sumw2_hist = bool(fill_sumw2_hist)  # Whether to fill the w**2 companion histograms
+        self._sumw2_policy = sumw2_policy
         self._hist_axis_map = {}
         self._hist_sumw2_axis_mapping = {}
         self._hist_requires_eft = {}
+        self.nominal_container_schema_version = NOMINAL_CONTAINER_SCHEMA_VERSION
+        self.nominal_container_layout = NOMINAL_CONTAINER_LAYOUT
 
         ordered_base_hist_names = list(axes_info.keys()) + list(axes_info_2d.keys())
+        base_hist_names_ordered, _ = self._resolve_histogram_names(
+            hist_lst,
+            ordered_base_hist_names=ordered_base_hist_names,
+            fill_sumw2_hist=False,
+        )
+        if self._sumw2_policy is not None:
+            if tuple(base_hist_names_ordered) != tuple(
+                self._sumw2_policy.runtime_histogram_families
+            ):
+                raise ValueError(
+                    "Resolved sumw2 policy runtime families do not match the processor "
+                    "histogram family order."
+                )
+            selected_sumw2_families = set(
+                self._sumw2_policy.selected_families()
+            )
+        else:
+            selected_sumw2_families = (
+                set(base_hist_names_ordered) if fill_sumw2_hist else set()
+            )
+        selected_sumw2_families.difference_update(JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS)
+        self._selected_sumw2_families = frozenset(selected_sumw2_families)
+        self._fill_sumw2_hist = bool(self._selected_sumw2_families)
         (
             base_hist_names_ordered,
             expanded_hist_names_ordered,
@@ -257,11 +496,24 @@ class AnalysisProcessor(processor.ProcessorABC):
             hist_lst,
             ordered_base_hist_names=ordered_base_hist_names,
             fill_sumw2_hist=self._fill_sumw2_hist,
+            selected_sumw2_families=self._selected_sumw2_families,
         )
 
         self._base_hist_name_set = set(base_hist_names_ordered)
         self._expanded_hist_name_set = set(expanded_hist_names_ordered)
         self._hist_lst = expanded_hist_names_ordered.copy()
+
+        if samples:
+            component_availability = resolve_nominal_component_availability(samples)
+        else:
+            # Construction-only tests do not have runtime sample metadata. Keep a
+            # deterministic scalar fixture and add the EFT sibling only when WCs
+            # were explicitly supplied; real runs always resolve from samples.
+            component_availability = {
+                "scalar": True,
+                "eft": bool(wc_names_lst),
+            }
+        self._nominal_component_availability = component_availability
 
         sumw2_suffix = "_sumw2"
 
@@ -272,36 +524,45 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         histograms = {}
         def _build_axis(axis_cfg, *, suffix="", label_suffix=""):
-            axis_name = axis_cfg["name"] + suffix
-            axis_label = axis_cfg["label"] + label_suffix
-            if (not rebin) and ("variable" in axis_cfg):
-                return hist.axis.Variable(axis_cfg["variable"], name=axis_name, label=axis_label)
-            return hist.axis.Regular(*axis_cfg["regular"], name=axis_name, label=axis_label)
+            return make_processing_axis(
+                axis_cfg,
+                name=axis_cfg["name"],
+                label=axis_cfg["label"],
+                suffix=suffix,
+                label_suffix=label_suffix,
+            )
         for name, info in axes_info.items():
             sumw2_name = f"{name}{sumw2_suffix}"
-            build_base_hist = name in self._expanded_hist_name_set
-            build_sumw2_hist = self._fill_sumw2_hist and (
-                sumw2_name in self._expanded_hist_name_set
-            )
+            build_base_hist = name in self._base_hist_name_set
+            build_sumw2_hist = name in self._selected_sumw2_families
             if not (build_base_hist or build_sumw2_hist):
                 continue
 
-            if not rebin and "variable" in info:
-                dense_axis = hist.axis.Variable(
-                    info["variable"], name=name, label=info["label"]
+            dense_axis = make_processing_axis(
+                info, name=name, label=info["label"]
+            )
+            sumw2_axis = make_processing_axis(
+                info,
+                name=name,
+                label=info["label"],
+                suffix="_sumw2",
+                label_suffix=" sum of w^2",
+            )
+            if build_base_hist and component_availability["scalar"]:
+                scalar_key = scalar_nominal_key(name)
+                histograms[scalar_key] = SparseHist(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    dense_axis,
+                    storage="Double",
                 )
-                sumw2_axis = hist.axis.Variable(
-                    info["variable"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
-                )
-            else:
-                dense_axis = hist.axis.Regular(
-                    *info["regular"], name=name, label=info["label"]
-                )
-                sumw2_axis = hist.axis.Regular(
-                    *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
-                )
-            if build_base_hist:
-                histograms[name] = HistEFT(
+                self._hist_axis_map[scalar_key] = [dense_axis.name]
+                self._hist_requires_eft[scalar_key] = False
+            if build_base_hist and component_availability["eft"]:
+                eft_key = eft_nominal_key(name)
+                histograms[eft_key] = HistEFT(
                     proc_axis,
                     chan_axis,
                     syst_axis,
@@ -310,27 +571,26 @@ class AnalysisProcessor(processor.ProcessorABC):
                     wc_names=wc_names_lst,
                     label=r"Events",
                 )
+                self._hist_axis_map[eft_key] = [dense_axis.name]
+                self._hist_requires_eft[eft_key] = True
+            if build_base_hist:
                 self._hist_axis_map[name] = [dense_axis.name]
-                self._hist_requires_eft[name] = True
-            if self._fill_sumw2_hist and build_sumw2_hist:
-                histograms[sumw2_name] = HistEFT(
+            if build_sumw2_hist:
+                histograms[sumw2_name] = SparseHist(
                     proc_axis,
                     chan_axis,
                     syst_axis,
                     appl_axis,
                     sumw2_axis,
-                    wc_names=wc_names_lst,
-                    label=r"Events",
+                    storage="Double",
                 )
                 self._hist_axis_map[sumw2_name] = [sumw2_axis.name]
                 self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
-                self._hist_requires_eft[sumw2_name] = True
+                self._hist_requires_eft[sumw2_name] = False
         for name, axes_cfg in axes_info_2d.items():
             sumw2_name = f"{name}{sumw2_suffix}"
-            build_base_hist = name in self._expanded_hist_name_set
-            build_sumw2_hist = self._fill_sumw2_hist and (
-                sumw2_name in self._expanded_hist_name_set
-            )
+            build_base_hist = name in self._base_hist_name_set
+            build_sumw2_hist = name in self._selected_sumw2_families
             if not (build_base_hist or build_sumw2_hist):
                 continue
 
@@ -363,7 +623,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axes.append(sumw2_axis)
                 sumw2_axis_names.append(sumw2_axis.name)
                 sumw2_axis_mapping[sumw2_axis.name] = base_axis_name
-            if self._fill_sumw2_hist and build_sumw2_hist:
+            if build_sumw2_hist:
                 histograms[sumw2_name] = SparseHist(
                     proc_axis,
                     chan_axis,
@@ -384,8 +644,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # absent (for example when a filtered ``hist_lst`` omits most
         # histograms).  Restricting the list here keeps the book-keeping
         # consistent with the constructed accumulator contents.
-        accumulator_keys = set(self._accumulator.keys())
-        self._hist_lst = [name for name in self._hist_lst if name in accumulator_keys]
+        self._hist_lst = list(self._accumulator.keys())
 
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
@@ -425,13 +684,17 @@ class AnalysisProcessor(processor.ProcessorABC):
             return True
         if ("onZ" in lep_chan) and ("2lss" not in lep_chan):
             return True
-        else:
-            return False
+        return False
 
     @staticmethod
-    def  _should_fill_plain_ptll_channel(lep_chan, allow_offz_split=False):
-        return allow_offz_split and (
-            ("offZ_high" in lep_chan) or ("offZ_low" in lep_chan)
+    def _should_fill_plain_ptll_channel(lep_chan, allow_offz_split=False):
+        return allow_offz_split and lep_chan.startswith(
+            (
+                "3l_m_offZ_low_",
+                "3l_m_offZ_high_",
+                "3l_p_offZ_low_",
+                "3l_p_offZ_high_",
+            )
         )
 
     def _should_skip_histogram_fill(self, dense_axis_name, ch_name, lep_chan):
@@ -445,39 +708,42 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Mode flags are mutually exclusive; mirror the historical loop-local
         # continue/skip behavior by returning a single skip decision.
         if self._analysis_mode == "all":
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+            if dense_axis_name == "ptz":
                 skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if dense_axis_name == "ptll":
+                skip_hist = not self._should_fill_plain_ptll_channel(
+                    lep_chan, allow_offz_split=True
+                )
             if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
                 skip_hist = True
             if (("ptz_wtau" in dense_axis_name) and not self._should_fill_ptz_wtau_channel(lep_chan)):
                 skip_hist = True
-            if ("ptll" in dense_axis_name):
-                skip_hist = not self._should_fill_plain_ptll_channel(
-                    lep_chan,
-                    allow_offz_split=True,
-                )
         elif self._analysis_mode == "offz":
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+            if dense_axis_name == "ptz":
                 skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
-            if ("ptll" in dense_axis_name):
+            if dense_axis_name == "ptll":
                 skip_hist = not self._should_fill_plain_ptll_channel(
-                    lep_chan,
-                    allow_offz_split=True,
+                    lep_chan, allow_offz_split=True
                 )
-
         elif self._analysis_mode == "tau":
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+            if dense_axis_name == "ptz":
                 skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if dense_axis_name == "ptll":
+                skip_hist = True
             if (("ptz_wtau" in dense_axis_name) and not self._should_fill_ptz_wtau_channel(lep_chan)):
                 skip_hist = True
         elif self._analysis_mode == "fwd":
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+            if dense_axis_name == "ptz":
+                skip_hist = True
+            if dense_axis_name == "ptll":
                 skip_hist = True
             if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)):
                 skip_hist = True
         else:
-            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name)):
+            if dense_axis_name == "ptz":
                 skip_hist = not self._should_fill_plain_ptz_channel(lep_chan)
+            if dense_axis_name == "ptll":
+                skip_hist = True
 
         if ((dense_axis_name in ["o0pt", "b0pt", "bl0pt"]) & ("CR" in ch_name)):
             skip_hist = True
@@ -497,14 +763,24 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        dataset = events.metadata["dataset"]
-        isEFT   = self._samples[dataset]["WCnames"] != []
+        dataset_key = events.metadata["dataset"]
+        dataset = dataset_key
+        sample_metadata = self._samples[dataset_key]
+        isEFT   = sample_metadata["WCnames"] != []
+        eft_treatment = resolve_eft_treatment(
+            sample_metadata,
+            sample_name=dataset_key,
+        )
 
-        isData             = self._samples[dataset]["isData"]
-        histAxisName       = self._samples[dataset]["histAxisName"]
-        year               = self._samples[dataset]["year"]
-        xsec               = self._samples[dataset]["xsec"]
-        sow                = self._samples[dataset]["nSumOfWeights"]
+        isData             = sample_metadata["isData"]
+        histAxisName       = sample_metadata["histAxisName"]
+        year               = sample_metadata["year"]
+        xsec               = sample_metadata["xsec"]
+        sow                = sample_metadata["nSumOfWeights"]
+        if isData and isEFT:
+            raise ValueError(
+                f"Data sample '{dataset_key}' cannot declare WC-dependent content."
+            )
 
         is_run3 = False
         if year.startswith("202"):
@@ -663,17 +939,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### EFT coefficients ##########
 
-        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
-        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
-        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
-        if eft_coeffs is not None:
-            # Check to see if the ordering of WCs for this sample matches what want
-            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
-        eft_w2_coeffs = (
-            efth.calc_w2_coeffs(eft_coeffs, self._dtype)
-            if (self._fill_sumw2_hist and eft_coeffs is not None)
-            else None
+        # Extract and prepare EFT coefficients only for sources that carry them
+        # or explicitly require the sm_only runtime branch validation.
+        eft_coeffs = prepare_event_eft_coefficients(
+            events,
+            sample_metadata,
+            self._wc_names_lst,
+            eft_treatment,
+            sample_name=dataset_key,
         )
         # Initialize the out object
         hout = self.accumulator
@@ -1494,7 +1767,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptbl_lep = l_fo_conept_sorted
             ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
 
-            # Z pt (pt of the ll pair that form the Z for the onZ categories)
+            # Keep the public concepts distinct: ptz is the in-window
+            # Z-candidate pT, while ptll is the closest-SFOS dilepton pT used by
+            # the 3l off-Z low/high categories.
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             if self.enable_tau_blocks:
                 ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
@@ -1591,7 +1866,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["invmass"] = mll_0_1
             varnames["ptbl"]    = ak.flatten(ptbl)
             varnames["ptz"]     = ptz
-            varnames["ptll"]    = ptll
+            if self.enable_offz_blocks:
+                varnames["ptll"] = ptll
             varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
@@ -1599,6 +1875,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
+            if is_run3:
+                varnames["jet_eta_phi_before_veto"] = veto_map_input_jets
+                varnames["jet_eta_phi_after_veto"] = veto_map_input_jets
             lepton0_pt_raw = l0.pt_raw 
             lepton0_abseta = abs(l0.eta) 
 
@@ -1719,16 +1998,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for lep_cat in import_sr_cat_dict.keys():
                     sr_cat_dict[lep_cat] = {}
                     for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
-                        jettag = None
-                        if jet_cat.startswith("="):
-                            jettag = "exactly_"
-                        elif jet_cat.startswith("<"):
-                            jettag = "atmost_"
-                        elif jet_cat.startswith(">"):
-                            jettag = "atleast_"
-                        else:
-                            raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
-                        jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
+                        jet_mode, jet_threshold, _ = parse_analysis_njet_token(jet_cat)
+                        jet_key = f"{jet_mode}_{jet_threshold}j"
 
                         sr_cat_dict[lep_cat][jet_key] = {}
                         sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
@@ -1796,9 +2067,40 @@ class AnalysisProcessor(processor.ProcessorABC):
                 companion_axis_mapping = self._hist_sumw2_axis_mapping.get(
                     dense_axis_name
                 )
-                fill_sumw2_hist = self._fill_sumw2_hist and bool(companion_axis_mapping)
+                if self._sumw2_policy is None:
+                    target_selected_for_sumw2 = (
+                        self._fill_sumw2_hist
+                        and dense_axis_name not in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS
+                    )
+                else:
+                    target_selected_for_sumw2 = self._sumw2_policy.selects(
+                        dataset_key,
+                        histAxisName,
+                        dense_axis_name,
+                    )
+                if target_selected_for_sumw2 and not companion_axis_mapping:
+                    raise RuntimeError(
+                        "Resolved sumw2 target has no allocated companion for "
+                        f"dataset='{dataset_key}', process='{histAxisName}', "
+                        f"family='{dense_axis_name}'."
+                    )
+                fill_sumw2_hist = target_selected_for_sumw2 and bool(
+                    companion_axis_mapping
+                )
                 if not (fill_base_hist or fill_sumw2_hist):
                     continue
+
+                if dense_axis_name in axes_info_2d:
+                    nominal_histogram_key = dense_axis_name
+                elif isEFT:
+                    nominal_histogram_key = eft_nominal_key(dense_axis_name)
+                else:
+                    nominal_histogram_key = scalar_nominal_key(dense_axis_name)
+                if fill_base_hist and nominal_histogram_key not in hout:
+                    raise RuntimeError(
+                        "Resolved sample metadata requires nominal component "
+                        f"'{nominal_histogram_key}', but it was not allocated."
+                    )
 
                 # Set up the list of syst wgt variations to loop over
                 wgt_var_lst = ["nominal"]
@@ -1869,7 +2171,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         #Selections applied everywhere
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
-                                        cuts_lst.append("jet_veto")
+                                        is_jvm_eta_phi_diagnostic = (
+                                            dense_axis_name in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS
+                                        )
+                                        if should_include_jet_veto_in_histogram_selection(
+                                            dense_axis_name
+                                        ):
+                                            cuts_lst.append("jet_veto")
 
                                         if self._split_by_lepton_flavor:
                                             flav_ch = lep_flav
@@ -1894,6 +2202,40 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Apply the optional cut on energy of the event
                                         if self._ecut_threshold is not None:
                                             all_cuts_mask = (all_cuts_mask & ecut_mask)
+
+                                        if is_jvm_eta_phi_diagnostic:
+                                            if not should_fill_jvm_eta_phi_diagnostic(
+                                                is_run3,
+                                                syst_var,
+                                                wgt_fluct,
+                                            ):
+                                                continue
+                                            diagnostic_event_mask = get_jvm_eta_phi_event_mask(
+                                                all_cuts_mask,
+                                                veto_map_mask,
+                                                dense_axis_name,
+                                            )
+                                            eta_flat, phi_flat, weights_flat = (
+                                                flatten_jagged_jet_eta_phi_weights(
+                                                    veto_map_input_jets,
+                                                    diagnostic_event_mask,
+                                                    weight,
+                                                )
+                                            )
+                                            if fill_base_hist:
+                                                axis_names = self._hist_axis_map[dense_axis_name]
+                                                hout[nominal_histogram_key].fill(
+                                                    **{
+                                                        axis_names[0]: eta_flat,
+                                                        axis_names[1]: phi_flat,
+                                                        "channel": ch_name,
+                                                        "appl": appl,
+                                                        "process": histAxisName,
+                                                        "systematic": wgt_fluct,
+                                                        "weight": weights_flat,
+                                                    }
+                                                )
+                                            continue
 
                                         # Weights and eft coeffs
                                         weights_flat = weight[all_cuts_mask]
@@ -1989,21 +2331,27 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                 "systematic": wgt_fluct,
                                                 "weight"     : weights_flat,
                                             }
-                                            if self._hist_requires_eft.get(dense_axis_name, False):
+                                            if self._hist_requires_eft.get(nominal_histogram_key, False):
                                                 axes_fill_info_dict["eft_coeff"] = eft_coeffs_cut
-                                            hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                            hout[nominal_histogram_key].fill(**axes_fill_info_dict)
                                                                                     
                                         if fill_nominal_sumw2_hist:
+                                            # The companion is an SM-only statistical moment.
+                                            # EFT factors are evaluated at the SM and folded into
+                                            # the scalar contribution before squaring. Filling
+                                            # without eft_coeff stores that result as a constant-
+                                            # only scalar SparseHist content.
                                             sumw2_fill_info = {
                                                 **sumw2_values_cut_map,
                                                 "channel"    : ch_name,
                                                 "appl"       : appl,
                                                 "process"    : histAxisName,
                                                 "systematic": wgt_fluct,
-                                                "weight"     : np.square(weights_flat),
+                                                "weight"     : calculate_sm_sumw2_weights(
+                                                    weights_flat,
+                                                    eft_coeffs_cut,
+                                                ),
                                             }
-                                            if self._hist_requires_eft.get(dense_axis_name+"_sumw2", False):
-                                                sumw2_fill_info["eft_coeff"] = eft_coeffs_cut
                                             hout[dense_axis_name+"_sumw2"].fill(**sumw2_fill_info)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times

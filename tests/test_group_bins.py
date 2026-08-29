@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
 import analysis.topeft_run2.make_cr_and_sr_plots as mcp
-import analysis.topeft_run2.tauFitter as tau
+import analysis.topeft_run2.faketau_sf_fitter as tau
 
 
 def _make_hist():
@@ -88,31 +88,20 @@ def test_removed_sr_helpers_are_absent():
 
 
 @pytest.mark.parametrize(
-    "group_fn,expect_raise",
-    [
-        (mcp.group_bins, True),
-        (tau.group_bins, False),
-    ],
+    "group_fn",
+    [mcp.group_bins, tau.group_bins],
+    ids=["group_bins-True", "group_bins-False"],
 )
-def test_group_bins_handles_unknown_sources(group_fn, expect_raise):
+def test_group_bins_handles_unknown_sources(group_fn):
     histo = _make_hist()
 
-    if expect_raise:
-        with pytest.raises(ValueError, match="missing"):
-            group_fn(
-                histo,
-                {"combo": ["missing"]},
-                axis_name="process",
-                drop_unspecified=True,
-            )
-    else:
-        grouped = group_fn(
+    with pytest.raises(ValueError, match="missing"):
+        group_fn(
             histo,
             {"combo": ["missing"]},
             axis_name="process",
             drop_unspecified=True,
         )
-        assert grouped is histo
 
 
 def _toy_histogram_arrays():
@@ -173,7 +162,7 @@ def test_validate_histogram_axes_raises_when_axes_missing():
     with pytest.raises(RuntimeError, match="missing required axes"):
         tau._validate_histogram_axes(
             histogram,
-            tau._TAU_HISTOGRAM_REQUIRED_AXES,
+            tau._TAU_FAKE_HISTOGRAM_REQUIRED_AXES,
             "tau0pt",
         )
 

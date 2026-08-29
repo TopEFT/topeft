@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Standalone helper to build data driven histograms from saved metadata.
+"""Standalone helper to build data-driven histograms from a saved PKL.
 
 Quickstart examples:
-  - Metadata sidecar: python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json
   - Direct pickle paths: python run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz \
-      --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope
+      --output-pkl histos/plotsTopEFT_np.pkl.gz
   - Legacy/materialized fallback: add --legacy-dict-mode to restore the
       original fully materialized dict workflow.
 
@@ -28,11 +27,21 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import topcoffea.modules.utils as utils
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
-from topeft.modules.deferred_np_metadata import load_deferred_np_metadata
-from topeft.modules.get_renormfact_envelope import (
-    apply_renormfact_envelope_to_histogram,
-    get_renormfact_envelope,
+from topeft.modules.data_driven_products import (
+    FLIPS_OUTPUT_ARTIFACT_KIND,
+    generated_output_processes_from_contract,
+    NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND,
+    NONPROMPT_OUTPUT_ARTIFACT_KIND,
+    validate_requested_product_input,
 )
+from topeft.modules.histogram_artifact import (
+    lineage_input_from_sidecar,
+    validate_histogram_artifact,
+    write_histogram_artifact,
+)
+from topeft.modules.nominal_schema import EFT_NOMINAL_SUFFIX
+from topeft.modules.get_renormfact_envelope import raise_unsupported_renormfact_envelope
+from topeft.modules.sumw2_policy import resolved_policy_from_provenance
 
 _STREAMING_PICKLE_PROTOCOL = 3
 _STREAMING_MEMO_CLEAR_INTERVAL = 1
@@ -43,11 +52,11 @@ _DD_REPORT_FAMILY_ORDER = {"sr": 0, "nonprompt": 1, "flips": 2}
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Finalize deferred nonprompt/flips histograms using the metadata emitted by run_analysis.py.\n\n"
+            "Finalize nonprompt/flips histograms from a processor PKL. Its artifact "
+            "sidecar is discovered automatically.\n\n"
             "Quickstart:\n"
-            "  - Metadata sidecar: python run_data_driven.py --metadata-json histos/plotsTopEFT_np.pkl.gz.metadata.json\n"
-            "  - Direct pickle paths: python run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz\\\n"
-            "      --output-pkl histos/plotsTopEFT_np.pkl.gz --apply-renormfact-envelope\n"
+            "  python run_data_driven.py --input-pkl histos/plotsTopEFT.pkl.gz\\\n"
+            "      --output-pkl histos/plotsTopEFT_np.pkl.gz\n"
             "Default mode is streaming iterator mode (lower peak RSS). "
             "Pass --legacy-dict-mode to restore the original materialized-dict behavior.\n"
             f"Streaming serialization defaults are hardcoded to protocol={_STREAMING_PICKLE_PROTOCOL} "
@@ -56,14 +65,8 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--metadata-json",
-        help=(
-            "Path to the metadata file created by run_analysis.py when using "
-            "--np-postprocess=defer."
-        ),
-    )
-    parser.add_argument(
         "--input-pkl",
+        required=True,
         help="Path to the histogram pickle emitted by run_analysis.py (pre data-driven step).",
     )
     parser.add_argument(
@@ -74,14 +77,21 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         "--apply-renormfact-envelope",
         action="store_true",
         help=(
-            "Also run the renorm/fact envelope step on the output histogram. "
-            "Metadata-driven runs also honor the contract-recorded envelope setting automatically."
+            "Deprecated unsupported option. It exits before opening the input or creating output."
         ),
     )
     parser.add_argument(
         "--only-flips",
         action="store_true",
         help="Drop nonprompt processes so only flips contributions remain in the output histograms.",
+    )
+    parser.add_argument(
+        "--nominal-only-reference",
+        action="store_true",
+        help=(
+            "Create an explicitly non-card-ready nominal-only nonprompt reference. "
+            "It records missing prompt sumw2 and never fabricates second moments."
+        ),
     )
     parser.add_argument(
         "--dd-report",
@@ -155,33 +165,15 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_metadata(metadata_path: str) -> Dict[str, Any]:
-    return load_deferred_np_metadata(metadata_path)
-
-
-def _default_output_path(input_path: str) -> str:
+def _default_output_path(input_path: str, *, nominal_only_reference: bool = False) -> str:
     if input_path.endswith(".pkl.gz"):
         base = input_path[:-7]
     elif input_path.endswith(".pkl"):
         base = input_path[:-4]
     else:
         base = input_path
-    return f"{base}_np.pkl.gz"
-
-
-def _resolve_path(
-    arg_value: Optional[str],
-    metadata_value: Optional[str],
-    *,
-    metadata_dir: Optional[str] = None,
-) -> Optional[str]:
-    if arg_value:
-        return arg_value
-    if not metadata_value:
-        return None
-    if metadata_dir and not os.path.isabs(metadata_value):
-        return os.path.normpath(os.path.join(metadata_dir, metadata_value))
-    return os.path.normpath(metadata_value)
+    suffix = "_np_nominal_reference" if nominal_only_reference else "_np"
+    return f"{base}{suffix}.pkl.gz"
 
 
 def _validate_input_path(input_path: str) -> None:
@@ -332,6 +324,22 @@ def _filter_to_flips(histo: Any) -> Any:
     return histo.remove("process", to_remove)
 
 
+def _filter_to_allowed_processes(histo: Any, allowed_processes: Iterable[str]) -> Any:
+    """Retain an exact generated/selected role set in a companion histogram."""
+
+    if histo is None:
+        return histo
+    try:
+        process_axis = [str(process) for process in histo.axes["process"]]
+    except Exception:
+        return histo
+    allowed = set(allowed_processes)
+    to_remove = [process for process in process_axis if process not in allowed]
+    if not to_remove or not hasattr(histo, "remove"):
+        return histo
+    return histo.remove("process", to_remove)
+
+
 def _maybe_emit_heartbeat(
     *,
     count: int,
@@ -351,9 +359,7 @@ def _maybe_emit_heartbeat(
 
 
 def _envelope_single_histogram(key: str, histo: Any) -> Any:
-    return apply_renormfact_envelope_to_histogram(
-        histo, verbose=False, hist_name=key
-    )
+    raise_unsupported_renormfact_envelope()
 
 
 def _dd_channel_label(channel_name: Optional[str]) -> str:
@@ -645,6 +651,7 @@ def _finalize_histograms(
     output_pkl: str,
     *,
     only_flips: bool,
+    nominal_only_reference: bool = False,
     apply_envelope: bool,
     dd_report_stdout: bool = False,
     dd_report_md: Optional[str] = None,
@@ -654,7 +661,12 @@ def _finalize_histograms(
     mem_report: bool = False,
     mem_tracemalloc: bool = False,
     mem_top_n: int = 20,
-) -> None:
+    serialization_path: Optional[str] = None,
+    input_sidecar: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    if apply_envelope:
+        raise_unsupported_renormfact_envelope()
+    serialization_path = serialization_path or output_pkl
     collect_dd_report = dd_report_stdout or bool(dd_report_md)
     memory_reporter = _MemoryReporter(
         enabled=(mem_report or mem_tracemalloc),
@@ -674,10 +686,39 @@ def _finalize_histograms(
     try:
         memory_reporter.mark("start")
         memory_reporter.mark("before DataDrivenProducer(...)")
+        artifact_kind = (
+            FLIPS_OUTPUT_ARTIFACT_KIND
+            if only_flips
+            else NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND
+            if nominal_only_reference
+            else NONPROMPT_OUTPUT_ARTIFACT_KIND
+        )
         ddp_kwargs: Dict[str, Any] = {"iterator_mode": iterator_mode}
+        if input_sidecar is not None:
+            ddp_kwargs["artifact_kind"] = artifact_kind
         if collect_dd_report:
             ddp_kwargs["dd_report"] = True
         ddp = DataDrivenProducer(input_pkl, output_pkl, **ddp_kwargs)
+        retained_selected_eft_by_family: Dict[str, List[str]] = {}
+        certified_flips_outputs = None
+        if input_sidecar is not None:
+            certified_flips_outputs = set(
+                generated_output_processes_from_contract(
+                    input_sidecar["resolved_data_driven_contract"],
+                    "flips",
+                )
+            )
+        if only_flips and input_sidecar is not None:
+            policy = resolved_policy_from_provenance(
+                input_sidecar["sumw2_storage_provenance"]
+            )
+            for family, manifest in input_sidecar["sumw2_content_manifest"][
+                "families"
+            ].items():
+                retained_selected_eft_by_family[family] = sorted(
+                    set(manifest["eft_nominal_processes"])
+                    & set(policy.selected_processes(family))
+                )
         memory_reporter.mark("after DataDrivenProducer(...)", include_top=mem_tracemalloc)
         os.makedirs(os.path.dirname(output_pkl) or ".", exist_ok=True)
 
@@ -686,12 +727,6 @@ def _finalize_histograms(
         processed = 0
 
         if iterator_mode:
-            if apply_envelope:
-                memory_reporter.mark(
-                    "iterator mode: envelope is applied per histogram",
-                    include_top=mem_tracemalloc,
-                )
-
             def _iter_output_items():
                 nonlocal processed, last_heartbeat
                 for key, histo in ddp.iter_data_driven_histograms():
@@ -709,10 +744,25 @@ def _finalize_histograms(
                         _emit_dd_report(report)
                     if markdown_writer is not None:
                         markdown_writer.write_report(report)
-                    working_histo = _filter_to_flips(histo) if only_flips else histo
-                    if apply_envelope:
-                        working_histo = _envelope_single_histogram(key, working_histo)
-
+                    if only_flips and key.endswith("_sumw2"):
+                        family = key[: -len("_sumw2")]
+                        generated_flips = set(certified_flips_outputs or ())
+                        working_histo = _filter_to_allowed_processes(
+                            histo,
+                            generated_flips
+                            | set(retained_selected_eft_by_family.get(family, ())),
+                        )
+                    elif only_flips:
+                        working_histo = (
+                            histo
+                            if key.endswith(EFT_NOMINAL_SUFFIX)
+                            else _filter_to_allowed_processes(
+                                histo,
+                                certified_flips_outputs,
+                            )
+                        ) if certified_flips_outputs is not None else _filter_to_flips(histo)
+                    else:
+                        working_histo = histo
                     if emitted_heartbeat:
                         memory_reporter.mark(f"processed {processed} histograms")
 
@@ -724,7 +774,7 @@ def _finalize_histograms(
 
             memory_reporter.mark("before dump_dict_streaming()", include_top=mem_tracemalloc)
             utils.dump_dict_streaming(
-                output_pkl,
+                serialization_path,
                 _iter_output_items(),
                 protocol=_STREAMING_PICKLE_PROTOCOL,
                 clear_memo_interval=_STREAMING_MEMO_CLEAR_INTERVAL,
@@ -752,7 +802,25 @@ def _finalize_histograms(
                     markdown_writer.write_report(report)
                 if only_flips:
                     assert filtered is not None
-                    filtered[key] = _filter_to_flips(histo)
+                    if key.endswith("_sumw2"):
+                        family = key[: -len("_sumw2")]
+                        generated_flips = set(certified_flips_outputs or ())
+                        filtered[key] = _filter_to_allowed_processes(
+                            histo,
+                            generated_flips
+                            | set(retained_selected_eft_by_family.get(family, ())),
+                        )
+                    elif certified_flips_outputs is not None:
+                        filtered[key] = (
+                            histo
+                            if key.endswith(EFT_NOMINAL_SUFFIX)
+                            else _filter_to_allowed_processes(
+                                histo,
+                                certified_flips_outputs,
+                            )
+                        )
+                    else:
+                        filtered[key] = _filter_to_flips(histo)
 
                 if emitted_heartbeat:
                     memory_reporter.mark(f"processed {processed} histograms")
@@ -764,69 +832,107 @@ def _finalize_histograms(
                 del filtered
                 memory_reporter.mark("after only-flips replacement")
 
-            if apply_envelope:
-                memory_reporter.mark("before get_renormfact_envelope()", include_top=mem_tracemalloc)
-                histograms = get_renormfact_envelope(histograms, verbose=False)
-                memory_reporter.mark("after get_renormfact_envelope()", include_top=mem_tracemalloc)
-
             memory_reporter.mark("before dump_to_pkl()", include_top=mem_tracemalloc)
-            utils.dump_to_pkl(output_pkl, histograms)
+            utils.dump_to_pkl(serialization_path, histograms)
             memory_reporter.mark("after dump_to_pkl()")
 
         if not quiet and processed:
             elapsed = time.monotonic() - start_time
             print(f"[run_data_driven] Finalized {processed} histograms in {elapsed:.1f}s.")
 
+        transformation_context = (
+            ddp.get_transformation_context(artifact_kind)
+            if input_sidecar is not None
+            else None
+        )
         del ddp
     finally:
         if markdown_writer is not None:
             markdown_writer.close()
         memory_reporter.stop()
+    return transformation_context
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_argument_parser()
     args = parser.parse_args(argv)
+    if args.only_flips and args.nominal_only_reference:
+        parser.error("--only-flips and --nominal-only-reference are mutually exclusive.")
+    if args.apply_renormfact_envelope:
+        raise_unsupported_renormfact_envelope()
     dd_report_stdout = args.dd_report
     dd_report_md = args.dd_report_md
 
-    metadata: Dict[str, Any] = {}
-    metadata_dir: Optional[str] = None
-    if args.metadata_json:
-        metadata = _load_metadata(args.metadata_json)
-        metadata_dir = os.path.dirname(os.path.abspath(args.metadata_json))
-
-    input_pkl = _resolve_path(
-        args.input_pkl, metadata.get("input_histogram"), metadata_dir=metadata_dir
-    )
-    if not input_pkl:
-        raise ValueError("Input histogram path must be provided via --input-pkl or the metadata file.")
+    input_pkl = os.path.normpath(args.input_pkl)
     _validate_input_path(input_pkl)
 
-    output_pkl = _resolve_path(
-        args.output_pkl, metadata.get("output_histogram"), metadata_dir=metadata_dir
-    )
+    output_pkl = os.path.normpath(args.output_pkl) if args.output_pkl else None
     if not output_pkl:
-        output_pkl = _default_output_path(input_pkl)
+        output_pkl = _default_output_path(
+            input_pkl,
+            nominal_only_reference=args.nominal_only_reference,
+        )
 
-    apply_envelope = args.apply_renormfact_envelope or metadata.get(
-        "apply_renormfact_envelope", False
-    )
+    input_validation = validate_histogram_artifact(input_pkl)
+    input_sidecar = input_validation["metadata"]
+    finalize_kwargs = {
+        "only_flips": args.only_flips,
+        "nominal_only_reference": args.nominal_only_reference,
+        "apply_envelope": args.apply_renormfact_envelope,
+        "dd_report_stdout": dd_report_stdout,
+        "dd_report_md": dd_report_md,
+        "iterator_mode": not args.legacy_dict_mode,
+        "heartbeat_seconds": args.heartbeat_seconds,
+        "quiet": args.quiet,
+        "mem_report": args.mem_report,
+        "mem_tracemalloc": args.mem_tracemalloc,
+        "mem_top_n": args.mem_top_n,
+    }
+    if input_sidecar is None:
+        _finalize_histograms(input_pkl, output_pkl, **finalize_kwargs)
+    else:
+        if input_sidecar["artifact"]["artifact_kind"] != "processor_output":
+            raise RuntimeError(
+                "run_data_driven requires a processor_output input artifact; got "
+                f"{input_sidecar['artifact']['artifact_kind']!r} for '{input_pkl}'."
+            )
+        resolution = validate_requested_product_input(
+            input_sidecar,
+            artifact_kind=(
+                FLIPS_OUTPUT_ARTIFACT_KIND
+                if args.only_flips
+                else NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND
+                if args.nominal_only_reference
+                else NONPROMPT_OUTPUT_ARTIFACT_KIND
+            ),
+        )
+        effective_input_sidecar = resolution["effective_sidecar"]
 
-    _finalize_histograms(
-        input_pkl,
-        output_pkl,
-        only_flips=args.only_flips,
-        apply_envelope=apply_envelope,
-        dd_report_stdout=dd_report_stdout,
-        dd_report_md=dd_report_md,
-        iterator_mode=not args.legacy_dict_mode,
-        heartbeat_seconds=args.heartbeat_seconds,
-        quiet=args.quiet,
-        mem_report=args.mem_report,
-        mem_tracemalloc=args.mem_tracemalloc,
-        mem_top_n=args.mem_top_n,
-    )
+        def _write_payload(staged_path: str) -> Dict[str, Any]:
+            transformation_context = _finalize_histograms(
+                input_pkl,
+                output_pkl,
+                serialization_path=staged_path,
+                input_sidecar=effective_input_sidecar,
+                **finalize_kwargs,
+            )
+            assert transformation_context is not None
+            return transformation_context
+
+        write_histogram_artifact(
+            output_pkl,
+            payload_writer=_write_payload,
+            artifact_kind=(
+                FLIPS_OUTPUT_ARTIFACT_KIND
+                if args.only_flips
+                else NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND
+                if args.nominal_only_reference
+                else NONPROMPT_OUTPUT_ARTIFACT_KIND
+            ),
+            sumw2_storage_provenance=effective_input_sidecar["sumw2_storage_provenance"],
+            lineage_inputs=[lineage_input_from_sidecar(input_sidecar)],
+            input_sidecar=effective_input_sidecar,
+        )
 
     return 0
 

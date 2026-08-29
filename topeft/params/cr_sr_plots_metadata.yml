@@ -648,8 +648,7 @@ REGION_PLOTTING:
       - Nonprompt
     - categories:
         prefixes:
-        - 1l_1tau_CRtt
-        - 1l_1tau_CRDY
+        - 1l_1tau
         - 2l
         - 3l
       groups:
@@ -690,6 +689,3 @@ REGION_PLOTTING:
     sumw2_remove_signal: false
     sumw2_remove_signal_when_blinded: true
     debug_channel_lists: true
-    analysis_bins:
-      ptz: ptz
-      lj0pt: lj0pt
