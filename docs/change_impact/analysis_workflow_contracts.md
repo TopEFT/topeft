@@ -3,7 +3,7 @@
 ## Summary
 
 This branch is an intentionally broad integration update. Relative to
-`run3_test_mmerged_anpicci`, it changes histogram representation and provenance,
+`run3_test_mmerged`, it changes histogram representation and provenance,
 sample identities and input endpoints, Run 3 JME diagnostics, datacard and
 binning contracts, remote-environment validation, nonprompt production, and the
 documentation that connects those surfaces. The domains are coupled through
