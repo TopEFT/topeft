@@ -159,7 +159,7 @@ def test_processor_applies_run3_veto_maps_after_jet_corrections_and_systematics(
     cleaning = source.index("cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]")
     raw_attachment = source.index('cleanedJets["pt_raw"] =')
     corrections = source.index("cleanedJets = ApplyJetCorrections(")
-    systematics = source.index("cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)")
+    systematics = source.index("cleanedJets = apply_maintained_jet_systematic(")
     veto_inputs = source.index(
         "veto_map_input_jets = get_veto_map_input_jets(cleanedJets, year, is_run3)"
     )

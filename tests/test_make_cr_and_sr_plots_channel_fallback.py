@@ -8,13 +8,23 @@ import pytest
 from analysis.topeft_run2 import make_cr_and_sr_plots
 
 
-EXACT_OFFZ_LABELS = (
+FALLBACK_SAMPLE_OFFZ_LABELS = (
     "3l_p_offZ_low_1b_2j",
     "3l_p_offZ_high_1b_2j",
     "3l_p_offZ_none_1b_2j",
     "3l_p_offZ_low_2b_5j",
     "3l_p_offZ_high_2b_5j",
     "3l_p_offZ_none_2b_5j",
+)
+POSITIVE_OFFZ_SPLIT_BASES = tuple(
+    f"3l_p_offZ_{region}_{btag}"
+    for region in ("high", "low", "none")
+    for btag in ("1b", "2b")
+)
+POSITIVE_OFFZ_SPLIT_LABELS = tuple(
+    f"{base}_{njets}"
+    for base in POSITIVE_OFFZ_SPLIT_BASES
+    for njets in ("2j", "3j", "4j", "5j")
 )
 
 
@@ -65,12 +75,12 @@ def _resolve_sr(labels, *, presets=None, category_map=None, known_channels=None)
     )
 
 
-def _minimal_sr_payload_context(histogram):
+def _minimal_sr_payload_context(histogram, *, preserve_njets_bins=False):
     return SimpleNamespace(
         name="SR",
         dict_of_hists={"ptz": histogram},
         skip_sparse_2d=False,
-        preserve_njets_bins=False,
+        preserve_njets_bins=preserve_njets_bins,
         channel_rules={"default": [], "variables": {}, "conditional": []},
         channel_map=make_cr_and_sr_plots.SR_CHAN_DICT,
         channel_base_to_alias=make_cr_and_sr_plots.SR_CHAN_ALIASES,
@@ -103,48 +113,77 @@ def test_yaml_only_path_preserves_primary_map_and_needs_no_fallback():
     )
 
 
-def test_exact_offz_fallback_selects_all_preset_and_survives_payload_filters():
-    histogram = _make_channel_hist(EXACT_OFFZ_LABELS)
+def test_positive_offz_split_channels_are_primary_known_and_merged_by_base():
+    histogram = _make_channel_hist(POSITIVE_OFFZ_SPLIT_LABELS)
     region_ctx = _minimal_sr_payload_context(histogram)
-    original_region_map = OrderedDict(
-        (name, list(labels)) for name, labels in region_ctx.channel_map.items()
+    expected_merged = OrderedDict(
+        (
+            base,
+            [f"{base}_{njets}" for njets in ("2j", "3j", "4j", "5j")],
+        )
+        for base in POSITIVE_OFFZ_SPLIT_BASES
     )
 
     payload = make_cr_and_sr_plots._prepare_variable_payload(
         "ptz", region_ctx, metadata_only=True
     )
-    resolution = payload["channel_fallback_resolution"]
 
-    assert resolution["selected_preset"] == "ALL_CH_LST_SR"
-    assert resolution["fallback_observed_labels"] == EXACT_OFFZ_LABELS
-    assert resolution["augmented_categories"] == ("3l_p_offZ",)
-    assert payload["channel_dict"]["3l_p_offZ"] == list(EXACT_OFFZ_LABELS)
-    assert region_ctx.channel_map == original_region_map
-    grouped_labels = {
-        label
-        for channel_labels in payload["channel_dict"].values()
-        for label in channel_labels or ()
-    }
-    assert set(EXACT_OFFZ_LABELS).issubset(grouped_labels)
+    assert set(POSITIVE_OFFZ_SPLIT_LABELS).issubset(
+        make_cr_and_sr_plots.SR_KNOWN_CHANNELS
+    )
+    assert _resolve_sr(POSITIVE_OFFZ_SPLIT_LABELS) is None
+    assert payload["channel_fallback_resolution"] is None
+    assert payload["channel_dict"] == expected_merged
+    assert len(payload["channel_dict"]) == 6
 
-    score_by_name = {
-        score["preset_name"]: score for score in resolution["candidate_scores"]
-    }
-    assert (
-        score_by_name["ALL_CH_LST_SR"]["category_compatibility"]
-        > score_by_name["OFFZ_SPLIT_CH_LST_SR"]["category_compatibility"]
+
+def test_positive_offz_split_channels_preserve_njets_when_requested():
+    histogram = _make_channel_hist(POSITIVE_OFFZ_SPLIT_LABELS)
+    region_ctx = _minimal_sr_payload_context(histogram, preserve_njets_bins=True)
+    expected_merged_njets = OrderedDict(
+        (label, [label]) for label in POSITIVE_OFFZ_SPLIT_LABELS
     )
 
-    validation_payload = {
-        "hist_mc": histogram,
-        "hist_data": None,
-        "channel_transformations": [],
-        "channel_fallback_resolution": resolution,
-    }
-    make_cr_and_sr_plots._ensure_variable_channel_coverage_validated(
-        "ptz", region_ctx, validation_payload
+    payload = make_cr_and_sr_plots._prepare_variable_payload(
+        "ptz", region_ctx, metadata_only=True
     )
-    assert validation_payload["_global_channel_coverage_validated"] is True
+
+    assert payload["channel_fallback_resolution"] is None
+    assert payload["channel_dict"] == expected_merged_njets
+    assert len(payload["channel_dict"]) == 24
+
+
+def test_legacy_positive_offz_entries_remain_primary_known():
+    for btag in ("1b", "2b"):
+        base = f"3l_p_offZ_{btag}"
+        expected = [f"{base}_{njets}j" for njets in range(1, 6)]
+        assert make_cr_and_sr_plots.SR_CHAN_DICT[base] == expected
+        assert set(expected).issubset(make_cr_and_sr_plots.SR_KNOWN_CHANNELS)
+
+
+def test_genuinely_unknown_channel_uses_synthetic_fallback():
+    labels = ("new_split_base_2j", "new_split_base_3j")
+    presets = _normalized_presets(
+        [
+            (
+                "SYNTHETIC_CH_LST_SR",
+                [("synthetic_group", ("new_split_base",))],
+            )
+        ]
+    )
+
+    resolution = _resolve_sr(
+        labels,
+        presets=presets,
+        category_map=OrderedDict(),
+        known_channels=(),
+    )
+
+    assert resolution["selected_preset"] == "SYNTHETIC_CH_LST_SR"
+    assert resolution["fallback_observed_labels"] == labels
+    assert resolution["augmented_category_map"] == OrderedDict(
+        [("synthetic_group", list(labels))]
+    )
 
 
 def test_fallback_assigns_both_offz_charges_to_distinct_subgroups():
@@ -356,7 +395,7 @@ def test_parent_aggregates_failures_before_executor_construction(monkeypatch):
 
 
 def test_parent_validates_all_payloads_before_worker_dispatch(monkeypatch):
-    labels = list(EXACT_OFFZ_LABELS)
+    labels = list(FALLBACK_SAMPLE_OFFZ_LABELS)
     region_ctx = SimpleNamespace(
         name="SR",
         dict_of_hists={"ptz": object(), "lt": object()},

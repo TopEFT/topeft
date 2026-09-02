@@ -206,6 +206,48 @@ SR_CHAN_DICT:
     - 3l_onZ_2b_4j
     - 3l_onZ_2b_5j
     alias: null
+  3l_p_offZ_high_1b:
+    leaves:
+    - 3l_p_offZ_high_1b_2j
+    - 3l_p_offZ_high_1b_3j
+    - 3l_p_offZ_high_1b_4j
+    - 3l_p_offZ_high_1b_5j
+    alias: null
+  3l_p_offZ_high_2b:
+    leaves:
+    - 3l_p_offZ_high_2b_2j
+    - 3l_p_offZ_high_2b_3j
+    - 3l_p_offZ_high_2b_4j
+    - 3l_p_offZ_high_2b_5j
+    alias: null
+  3l_p_offZ_low_1b:
+    leaves:
+    - 3l_p_offZ_low_1b_2j
+    - 3l_p_offZ_low_1b_3j
+    - 3l_p_offZ_low_1b_4j
+    - 3l_p_offZ_low_1b_5j
+    alias: null
+  3l_p_offZ_low_2b:
+    leaves:
+    - 3l_p_offZ_low_2b_2j
+    - 3l_p_offZ_low_2b_3j
+    - 3l_p_offZ_low_2b_4j
+    - 3l_p_offZ_low_2b_5j
+    alias: null
+  3l_p_offZ_none_1b:
+    leaves:
+    - 3l_p_offZ_none_1b_2j
+    - 3l_p_offZ_none_1b_3j
+    - 3l_p_offZ_none_1b_4j
+    - 3l_p_offZ_none_1b_5j
+    alias: null
+  3l_p_offZ_none_2b:
+    leaves:
+    - 3l_p_offZ_none_2b_2j
+    - 3l_p_offZ_none_2b_3j
+    - 3l_p_offZ_none_2b_4j
+    - 3l_p_offZ_none_2b_5j
+    alias: null
   3l_p_offZ_1b:
     leaves:
     - 3l_p_offZ_1b_1j

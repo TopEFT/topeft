@@ -105,3 +105,17 @@ disable/`off` controls show a supported alternative without assigning a
 scientific preference. See
 [change corrections, weights, or systematics](../how_to/corrections_weights_and_systematics.md)
 for era, payload, variation, and shared-mechanism routes.
+
+## TAU family boundary
+
+The analysis-owned jet-to-tau fake-weight families are
+`lepSF_taus_fake_run2` and `lepSF_taus_fake_run3`. They are distinct from
+genuine-tau POG `VSjet` weights, separate `VSe` and `VSmu` weights, and the
+source- and decay-mode-specific tau energy-shift families. Obsolete aggregate
+names are not a supported substitute for these factorized families.
+
+`topeft` owns the era, working point, data/MC gate, selected payload family,
+and processor routing. This producer/processor interface does not establish
+final nuisance correlations, datacard mapping, Combine behavior, or a broader
+scientific closure. HEM2018 is not described here as a standalone producer
+veto, and this page makes no final Run 2 JVM/HEM closure claim.

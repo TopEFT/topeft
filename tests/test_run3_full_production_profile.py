@@ -15,6 +15,7 @@ from topcoffea.modules import remote_environment
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_DIR = REPOSITORY_ROOT / "analysis" / "topeft_run2"
 RUN_CR = ANALYSIS_DIR / "run_cr.sh"
+FROZEN_ENV = ANALYSIS_DIR / "topeft-envs" / "env_spec_9d72aad444117c28.tar.gz"
 STATE_FILENAME = ".run3_full_campaign_state.json"
 YEARS = "2022 2022EE 2023 2023BPix"
 EXPECTED_BLOCKS = [
@@ -59,6 +60,8 @@ def _current_environment_request():
 
 
 def _write_env(tmp_path, content=b"synthetic current environment", *, current=True):
+    if current:
+        return FROZEN_ENV
     path = tmp_path / "verified_env.tar.gz"
     with tarfile.open(path, "w:gz") as archive:
         entry = tarfile.TarInfo("environment.txt")
@@ -139,7 +142,7 @@ def _write_state(output_dir, campaign_tag, env_file, *, status="planned"):
         item for item in manifest["editable_packages"] if item["package_name"] == "topcoffea"
     )
     state = {
-        "schema_version": 3,
+        "schema_version": 4,
         "production_profile": "run3_full",
         "campaign_tag": campaign_tag,
         "output_dir": str(output_dir),
@@ -152,12 +155,17 @@ def _write_state(output_dir, campaign_tag, env_file, *, status="planned"):
         "ttgamma_sample_role_policy": "split",
         "do_systs": True,
         "do_np": True,
+        "region": "SR",
+        "nonprompt_mode": "separate",
         "created_at_utc": "2026-01-01T00:00:00Z",
         "updated_at_utc": "2026-01-01T00:00:00Z",
         "blocks": blocks,
     }
     state_path = output_dir / STATE_FILENAME
     state_path.write_text(json.dumps(state), encoding="utf-8")
+    (output_dir / "sumw2_full_diagnostics.yml").write_text(
+        "sumw2_storage:\n  mode: full_diagnostics\n", encoding="utf-8"
+    )
     return state_path, state
 
 
@@ -245,7 +253,7 @@ def test_fresh_run3_full_state_materializes_plan_before_first_block_update(tmp_p
         str(state_path),
         str(plan_path),
         "run3_full",
-        "3",
+        "4",
         "run3_complete",
         str(output_dir),
         "topeft-test-commit",
@@ -257,6 +265,8 @@ def test_fresh_run3_full_state_materializes_plan_before_first_block_update(tmp_p
         "split",
         "true",
         "true",
+        "SR",
+        "separate",
     )
     assert initialize.returncode == 0, initialize.stderr
 
@@ -315,7 +325,7 @@ def test_fresh_rebin_fine_state_preserves_six_block_stage_model(tmp_path):
         str(state_path),
         str(plan_path),
         "rebin_fine",
-        "3",
+        "4",
         "fine_complete",
         str(output_dir),
         "topeft-test-commit",
@@ -327,6 +337,8 @@ def test_fresh_rebin_fine_state_preserves_six_block_stage_model(tmp_path):
         "split",
         "true",
         "true",
+        "SR",
+        "separate",
     )
     assert initialize.returncode == 0, initialize.stderr
 
@@ -365,11 +377,60 @@ def test_fresh_rebin_fine_state_preserves_six_block_stage_model(tmp_path):
     assert state["blocks"][0]["nonprompt_status"] == "failed"
 
 
-def test_baseline_is_retired_and_no_argument_invocation_fails_closed():
-    no_arguments = _run()
-    assert no_arguments.returncode != 0
-    assert "--production-profile is required" in no_arguments.stderr
-    assert "Executing:" not in no_arguments.stdout
+def test_running_stage_remains_ambiguous_and_is_not_rewritten_on_validation(tmp_path):
+    output_dir = tmp_path / "ambiguous"
+    output_dir.mkdir()
+    state_path = output_dir / STATE_FILENAME
+    plan_path = _write_run3_full_plan(tmp_path, output_dir, "ambiguous")
+    common = (
+        str(state_path),
+        str(plan_path),
+        "run3_full",
+        "4",
+        "ambiguous",
+        str(output_dir),
+        "topeft-test-commit",
+        "/tmp/current_environment.tar.gz",
+        "environment-sha256",
+        "environment-fingerprint",
+        "topcoffea-test-commit",
+        "topcoffea-source-fingerprint",
+        "split",
+        "true",
+        "true",
+        "SR",
+        "separate",
+    )
+    initialized = _run_state_tool(tmp_path, "initialize", *common)
+    assert initialized.returncode == 0, initialized.stderr
+    running = _run_state_tool(
+        tmp_path,
+        "mark",
+        str(state_path),
+        "run3_full_a",
+        "source",
+        "running",
+        "none",
+        "source_child_started",
+        "./fullR3_run.sh",
+        "--synthetic",
+    )
+    assert running.returncode == 0, running.stderr
+    before = state_path.read_bytes()
+    validate = _run_state_tool(tmp_path, "validate", *common, "false")
+    assert validate.returncode != 0
+    assert "ambiguous interrupted source stage" in validate.stderr
+    assert state_path.read_bytes() == before
+    state = json.loads(before)
+    assert state["blocks"][0]["status"] == "source_running"
+    assert state["blocks"][0]["source_exit_code"] is None
+
+
+def test_baseline_is_retired_and_no_argument_invocation_aliases_run2_full():
+    no_arguments = _run("--dry-run")
+    assert no_arguments.returncode == 0, no_arguments.stderr
+    assert no_arguments.stdout.count("SRPLOT009_BLOCK_COMMAND\t") == 5
+    assert "dry_run_complete:" in no_arguments.stdout
 
     baseline = _run("--production-profile", "baseline")
     assert baseline.returncode != 0
@@ -416,7 +477,7 @@ def test_run3_full_dry_run_resolves_exact_complete_five_block_plan(tmp_path):
 
 def test_run_cr_derives_checkout_paths_and_runs_from_unrelated_cwd(tmp_path):
     source = RUN_CR.read_text(encoding="utf-8")
-    assert "/users/apiccine/work/correction-lib/topeft" not in source
+    assert str(FROZEN_ENV) in source
     assert 'dirname -- "${BASH_SOURCE[0]}"' in source
     assert 'git -C "${script_dir}" rev-parse --show-toplevel' in source
 
@@ -472,7 +533,10 @@ def test_run3_full_requires_explicit_output_identity_and_pins_explicit_archives(
     assert "must be an absolute path" in relative_env.stderr
 
     source = RUN_CR.read_text(encoding="utf-8")
-    assert "validation_args=(--prepare-env-only)" in source
+    assert "validation_args=(--prepare-env-only)" not in source
+    assert "--env-integrity-only" in source
+    assert "--snapshot" in source
+    assert "mode: full_diagnostics" in source
     assert "run_analysis.py did not return a complete valid environment identity" in source
 
 
@@ -491,7 +555,7 @@ def test_run3_full_rejects_stale_environment_before_state_mutation(tmp_path):
     )
 
     assert result.returncode != 0
-    assert "could not resolve a strict current environment archive" in result.stderr
+    assert "pinned to the required frozen snapshot archive" in result.stderr
     assert not output_dir.exists()
     assert not (output_dir / STATE_FILENAME).exists()
 

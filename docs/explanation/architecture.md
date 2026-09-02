@@ -451,3 +451,17 @@ environment assumptions, and an input that predates the final `ptll` schema.
 It is not a maintained public wrapper or a second region/binning authority.
 This documentation may classify it, but moving, deleting, generalizing, or
 requalifying the runnable script is a separate source-control decision.
+
+## Portable production boundary
+
+`run_cr.sh` derives its repository root from the script location rather than a
+checkout-specific path. Its public profile matrix is `run2_full`, `run3_full`,
+`run2_full_CR`, `run3_full_CR`, `run2_run3_full`, and
+`run2_run3_full_CR`; the no-argument form is a legacy `run2_full` alias and
+`rebin_fine` remains specialist legacy machinery.
+
+The wrapper consumes a pinned environment identity rather than automatically
+building an environment. It validates the required archive and records its
+identity in campaign state. Combined profiles keep Run 2 and Run 3 in separate
+namespaces and failure domains: a safely classified component-local failure is
+distinct from a shared unsafe blocker, which fails closed.

@@ -1,6 +1,8 @@
 import pytest
+import correctionlib
 
 ak = pytest.importorskip("awkward")
+from topcoffea.modules.paths import topcoffea_path
 
 from topeft.modules.object_selection import (
     RUN2_VSMU_TIGHT_BIT,
@@ -85,3 +87,46 @@ def test_run3_muon_wp_threshold():
 
     pres_mask = selection.isPresTau(pt, eta, dxy, dz, vs_jet, vs_e, vs_mu, vsJetWP="Loose")
     assert ak.to_list(pres_mask) == [True, False]
+
+
+def test_run3_tight_vsmu_sf_is_nonunity_and_varied_independently():
+    taus = ak.Array(
+        [[
+            {
+                "pt": 35.0,
+                "eta": 0.35,
+                "mass": 1.2,
+                "decayMode": 0,
+                "genPartFlav": 2,
+                "isMedium": 1,
+                "iseTight": 1,
+                "ismTight": 1,
+                "idDeepTau2018v2p5VSjet": 5,
+                "idDeepTau2018v2p5VSe": 2,
+                "idDeepTau2018v2p5VSmu": RUN3_VSMU_TIGHT_THRESHOLD,
+            }
+        ]]
+    )
+    events = {}
+    weights = AttachTauSF(events, taus, year="2022", vsJetWP="Medium")
+    payload = correctionlib.CorrectionSet.from_file(
+        topcoffea_path("data/POG/TAU/2022_Summer22/tau.json.gz")
+    )["DeepTau2018v2p5VSmu"]
+    expected_nominal = payload.evaluate(0.35, 2, "Tight", "nom")
+    expected_up = payload.evaluate(0.35, 2, "Tight", "up")
+    expected_down = payload.evaluate(0.35, 2, "Tight", "down")
+    nuisance = "CMS_fake_t_DeepTau2018v2p5_VSmu_abseta0to0p4_2022"
+
+    assert expected_nominal != pytest.approx(1.0)
+    assert taus.sf_tau_fake[0, 0] == pytest.approx(expected_nominal)
+    assert weights["nominal_without_jet_fake"][0] == pytest.approx(expected_nominal)
+    assert weights["variations"][nuisance]["up"][0] == pytest.approx(
+        expected_up / expected_nominal
+    )
+    assert weights["variations"][nuisance]["down"][0] == pytest.approx(
+        expected_down / expected_nominal
+    )
+    vse_nuisances = [
+        name for name in weights["variations"] if "_VSe_" in name
+    ]
+    assert all(weights["variations"][name]["up"][0] == 1.0 for name in vse_nuisances)

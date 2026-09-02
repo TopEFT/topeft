@@ -22,6 +22,7 @@ checks important fail-before-execution paths.
 | Change surface | Start with |
 | --- | --- |
 | `run_cr.sh` production profiles/state | `test_run3_full_production_profile.py`, plus the profile-specific resume test |
+| `run_cr.sh` manual handoff and failure isolation | `test_run2_srplot009_manual_handoff.py` and `test_run3_full_production_profile.py` |
 | `fullR3_run.sh` forwarding | `test_fullr3_run_wrapper.py` |
 | `run_analysis.py` CLI/preflight | `test_run_analysis_cli_help.py`, `test_run_analysis_preflight.py` |
 | artifact/sidecar publication | `test_histogram_artifact_sidecars.py` and the affected producer/consumer test |

@@ -1,9 +1,9 @@
-import re
 from pathlib import Path
 
 import pytest
 
 from analysis.topeft_run2 import analysis_processor as ap
+from topeft.modules.corrections import get_tau_weight_variation_names
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -45,47 +45,31 @@ def test_should_apply_fake_tau_sf_rejects_unknown_active_mode():
         )
 
 
-def test_fake_tau_weight_insertions_are_guarded_by_policy_helper():
+def test_analysis_jet_fake_weight_is_the_only_tau_component_gated_by_mode():
     source = PROCESSOR_SOURCE.read_text()
-    helper_assignment = source.index("apply_fake_tau_sf = should_apply_fake_tau_sf(")
+    run2_standard = get_tau_weight_variation_names("2018", include_jet_fake=True)
+    run2_taufitter = get_tau_weight_variation_names("2018", include_jet_fake=False)
 
-    fake_syst = source.index('wgt_correction_syst_lst.append("lepSF_taus_fakeUp")')
-    assert source.rfind("if apply_fake_tau_sf:", helper_assignment, fake_syst) != -1
-
-    fake_weight_calls = [
-        match.start()
-        for match in re.finditer(
-            re.escape('weights_dict[ch_name].add("lepSF_taus_fake"'),
-            source,
-        )
-    ]
-    assert len(fake_weight_calls) == 3
-    for fake_weight_call in fake_weight_calls:
-        previous_real_tau = source.rfind(
-            'weights_dict[ch_name].add("lepSF_taus_real"',
-            0,
-            fake_weight_call,
-        )
-        previous_fake_guard = source.rfind(
-            "if apply_fake_tau_sf:",
-            0,
-            fake_weight_call,
-        )
-        assert previous_real_tau != -1
-        assert previous_fake_guard > previous_real_tau
-
-    assert source.count('weights_dict[ch_name].add("lepSF_taus_real"') == 3
+    assert set(run2_standard) - set(run2_taufitter) == {"lepSF_taus_fake_run2"}
+    assert all(name.startswith("CMS_") for name in run2_taufitter)
+    assert "include_jet_fake=apply_fake_tau_sf" in source
+    assert '"nominal" if apply_fake_tau_sf else "nominal_without_jet_fake"' in source
+    assert 'weights_dict[ch_name].add("tauSF_nominal", tau_nominal)' in source
+    assert 'weights_dict[ch_name].add("lepSF_taus_real"' not in source
+    assert 'weights_dict[ch_name].add("lepSF_taus_fake"' not in source
     assert source.count('weights_dict[ch_name].add("lepSF_muon"') == 4
     assert source.count('weights_dict[ch_name].add("lepSF_elec"') == 4
 
 
-def test_run3_vse_tau_sf_uses_tight_wp():
+def test_run3_vse_tau_sf_uses_selected_vvloose_wp():
     source = CORRECTIONS_SOURCE.read_text()
-    deep_tau_cuts = source.index("deep_tau_cuts = [")
-    loop_start = source.index("for idx, deep_tau_cut", deep_tau_cuts)
-    block = source[deep_tau_cuts:loop_start]
-
-    assert '"DeepTau2018v2p5VSe"' in block
-    assert '(flat_eta, flat_dm, flat_gen, "Tight")' in block
-    assert '(flat_eta, flat_dm, flat_gen, "VVLoose")' not in block
-    assert '(flat_pt, flat_dm, flat_gen, vsJetWP, "VVLoose")' in block
+    assert 'ceval[f"{tagger}VSe"]' in source
+    assert 'TAU_VSE_WORKING_POINT = "VVLoose"' in source
+    assert source.count(
+        "(flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT)"
+    ) == 3
+    assert '(flat_eta, flat_dm, flat_gen, "Tight")' not in source
+    assert (
+        "real_args = (flat_pt, flat_dm, flat_gen, vsJetWP, "
+        "TAU_VSE_WORKING_POINT)"
+    ) in source

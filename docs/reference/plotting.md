@@ -121,3 +121,12 @@ does not create an `invmass` observable or CR category.
 Use [run and extend CR/SR plotting](../how_to/plotting.md) to change a region,
 group, variable, binning view, or coverage gate. Source/artifact and physics-
 category changes remain at their owning pages.
+
+## View-bearing output contract
+
+Processing and fitting are distinct plot views. Their output plot paths and
+negative-report paths include `_processing` or `_fitting`; callers must keep
+those mode-bearing names in separate namespaces to avoid collisions. A plot
+skipped for `empty-mc-content` records a rendering condition only. It is a
+separate evidence surface from the underlying bin content and cannot be used
+as a bin-content or statistical-adequacy oracle.

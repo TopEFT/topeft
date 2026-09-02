@@ -487,3 +487,18 @@ following the operating links below.
   [explanation map](../README.md#explanation).
 - For the published predecessor rather than the current workflow, use the
   explicitly [historical TOP-22-006 guide](../how_to/historical/top_22_006.md).
+
+## Current production example
+
+For maintained source production, choose an explicit public profile such as
+`run3_full`, a fresh absolute output directory, and a campaign tag. The public
+matrix also includes `run2_full`, their `_CR` variants, and the two combined
+Run2/Run3 variants. The no-argument form is only the legacy `run2_full` alias;
+`rebin_fine` is a specialist legacy profile.
+
+Recover from observed state rather than applying a generic retry. A known
+component-local failure preserves its component evidence and may permit an
+independent component to continue. A shared blocker stops remaining work.
+After an ambiguous interruption, inspect durable campaign state, the output
+namespace, and native Work Queue logs before selecting any follow-up. This
+tutorial does not claim that a particular campaign has completed successfully.

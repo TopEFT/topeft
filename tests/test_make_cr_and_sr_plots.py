@@ -1,5 +1,7 @@
 import copy
+import concurrent.futures
 import csv
+import os
 import re
 import warnings
 from types import SimpleNamespace
@@ -448,6 +450,115 @@ def test_none_summary_reports_successful_plot_count_not_task_count(
     output = capsys.readouterr().out
     assert expected_summary in output
     assert expected_tasks in output
+
+
+def _parallel_test_region_context(variable_names):
+    return SimpleNamespace(
+        dict_of_hists={name: object() for name in variable_names},
+        name="SR",
+        apply_category_skips=False,
+        skip_variables=set(),
+        unblind_default=False,
+    )
+
+
+def _parallel_test_payload():
+    return {
+        "channel_dict": {},
+        "channel_transformations": {},
+        "is_sparse2d": False,
+    }
+
+
+def test_parallel_rendering_caps_worker_count_at_task_count(monkeypatch):
+    variable_names = ["met", "lt"]
+    captured = {"max_workers": None, "submitted": []}
+
+    class _FakeExecutor:
+        def __init__(self, *, max_workers, **_kwargs):
+            captured["max_workers"] = max_workers
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def submit(self, _function, task_id, payload):
+            captured["submitted"].append((task_id, payload))
+            future = concurrent.futures.Future()
+            future.set_result((task_id, 0, 0, set(), []))
+            return future
+
+    monkeypatch.setattr(
+        make_cr_and_sr_plots,
+        "_resolve_requested_variables",
+        lambda *_args, **_kwargs: variable_names,
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots,
+        "_prepare_variable_payload",
+        lambda *_args, **_kwargs: _parallel_test_payload(),
+    )
+    monkeypatch.setattr(concurrent.futures, "ProcessPoolExecutor", _FakeExecutor)
+
+    make_cr_and_sr_plots.produce_region_plots(
+        _parallel_test_region_context(variable_names),
+        None,
+        None,
+        "none",
+        False,
+        False,
+        workers=9,
+    )
+
+    assert captured["max_workers"] == 2
+    assert captured["submitted"] == [(1, "met"), (2, "lt")]
+
+
+def test_parallel_rendering_propagates_worker_failure(monkeypatch):
+    variable_names = ["met", "lt"]
+
+    class _FakeExecutor:
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def submit(self, _function, task_id, _payload):
+            future = concurrent.futures.Future()
+            if task_id == 1:
+                future.set_exception(RuntimeError("synthetic render failure"))
+            else:
+                future.set_result((task_id, 0, 0, set(), []))
+            return future
+
+    monkeypatch.setattr(
+        make_cr_and_sr_plots,
+        "_resolve_requested_variables",
+        lambda *_args, **_kwargs: variable_names,
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots,
+        "_prepare_variable_payload",
+        lambda *_args, **_kwargs: _parallel_test_payload(),
+    )
+    monkeypatch.setattr(concurrent.futures, "ProcessPoolExecutor", _FakeExecutor)
+
+    with pytest.raises(RuntimeError, match="synthetic render failure"):
+        make_cr_and_sr_plots.produce_region_plots(
+            _parallel_test_region_context(variable_names),
+            None,
+            None,
+            "none",
+            False,
+            False,
+            workers=2,
+        )
 
 
 @pytest.mark.parametrize("unblind", [False, True])
@@ -933,8 +1044,8 @@ def test_both_njets_preserves_variables_for_merged_output(tmp_path):
 
     plot_names = sorted(path.name for path in merged_dir.glob("*.png"))
     assert {
-        "2lss_CR_1j_met.png",
-        "2lss_CR_1j_njets.png",
+        "2lss_CR_1j_met_processing.png",
+        "2lss_CR_1j_njets_processing.png",
     }.issubset(set(plot_names)), plot_names
 
 
@@ -1375,7 +1486,7 @@ def test_sr_aggregate_blinded_renders_when_data_empty(tmp_path):
         unblind=False,
     )
 
-    plot_paths = list(tmp_path.rglob("*_njets.png"))
+    plot_paths = list(tmp_path.rglob("*_njets_processing.png"))
     assert plot_paths, "Expected SR blinded plot when MC is non-zero and data is empty"
 
 
@@ -1458,15 +1569,15 @@ def test_both_includes_split_channels_when_available(tmp_path):
     merged_dir = tmp_path / "cr_2los_Z"
     assert merged_dir.exists()
     merged_plots = {path.name for path in merged_dir.glob("*.png")}
-    assert {"2los_CRZ_met.png"}.issubset(merged_plots)
+    assert {"2los_CRZ_met_processing.png"}.issubset(merged_plots)
     split_ee = tmp_path / "cr_2los_Z_ee"
     split_mm = tmp_path / "cr_2los_Z_mm"
     assert split_ee.exists()
     assert split_mm.exists()
-    assert {"2los_CRZ_ee_met.png"}.issubset(
+    assert {"2los_CRZ_ee_met_processing.png"}.issubset(
         {path.name for path in split_ee.glob("*.png")}
     )
-    assert {"2los_CRZ_mm_met.png"}.issubset(
+    assert {"2los_CRZ_mm_met_processing.png"}.issubset(
         {path.name for path in split_mm.glob("*.png")}
     )
 
@@ -1552,8 +1663,14 @@ def test_cr_channel_output_folder_routing_semantics(
         ("both-njets", "cr_2lss_ee_1j", "2lss_CR_ee_1j_met.png"),
     ],
 )
+@pytest.mark.parametrize("binning_mode", ("processing", "fitting"))
 def test_png_stems_use_category_labels_not_folder_aliases(
-    tmp_path, channel_output, folder_name, expected_filename
+    tmp_path,
+    monkeypatch,
+    channel_output,
+    folder_name,
+    expected_filename,
+    binning_mode,
 ):
     h_met = _make_met_histogram_for_channels(
         (
@@ -1563,6 +1680,12 @@ def test_png_stems_use_category_labels_not_folder_aliases(
             "2lss_mm_CR_2j",
         )
     )
+    if binning_mode == "fitting":
+        monkeypatch.setattr(
+            make_cr_and_sr_plots,
+            "_apply_plot_binning_view",
+            lambda histogram, *_args, **_kwargs: histogram,
+        )
 
     make_cr_and_sr_plots.run_plots_for_region(
         "CR",
@@ -1573,13 +1696,17 @@ def test_png_stems_use_category_labels_not_folder_aliases(
         skip_syst_errs=True,
         workers=1,
         verbose=False,
+        binning_mode=binning_mode,
     )
 
     folder = tmp_path / folder_name
     assert folder.exists()
     plot_names = {path.name for path in folder.glob("*.png")}
-    assert expected_filename in plot_names
-    assert f"{folder_name}_met.png" not in plot_names
+    expected_mode_filename = expected_filename.replace(
+        ".png", f"_{binning_mode}.png"
+    )
+    assert expected_mode_filename in plot_names
+    assert f"{folder_name}_met_{binning_mode}.png" not in plot_names
 
 
 def test_split_warning_uses_cr_reference_bins_for_cr_region(monkeypatch, tmp_path):
@@ -1885,25 +2012,25 @@ def test_all_variables_render_for_merged_and_split_categories(
     merged_plots = {path.name for path in merged_dir.glob("*.png")}
     if channel_output.endswith("njets"):
         expected_merged = {
-            "2los_CRZ_2j_j0pt.png",
-            "2los_CRZ_2j_met.png",
+            "2los_CRZ_2j_j0pt_processing.png",
+            "2los_CRZ_2j_met_processing.png",
         }
     else:
         expected_merged = {
-            "2los_CRZ_j0pt.png",
-            "2los_CRZ_met.png",
+            "2los_CRZ_j0pt_processing.png",
+            "2los_CRZ_met_processing.png",
         }
     assert expected_merged.issubset(merged_plots)
 
     if channel_output.endswith("njets"):
         split_expectations = {
             "cr_2los_Z_ee_2j": {
-                "2los_CRZ_ee_2j_j0pt.png",
-                "2los_CRZ_ee_2j_met.png",
+                "2los_CRZ_ee_2j_j0pt_processing.png",
+                "2los_CRZ_ee_2j_met_processing.png",
             },
             "cr_2los_Z_mm_2j": {
-                "2los_CRZ_mm_2j_j0pt.png",
-                "2los_CRZ_mm_2j_met.png",
+                "2los_CRZ_mm_2j_j0pt_processing.png",
+                "2los_CRZ_mm_2j_met_processing.png",
             },
         }
         for dir_name, expected_plots in split_expectations.items():
@@ -1914,12 +2041,12 @@ def test_all_variables_render_for_merged_and_split_categories(
     else:
         split_expectations = {
             "cr_2los_Z_ee": {
-                "2los_CRZ_ee_j0pt.png",
-                "2los_CRZ_ee_met.png",
+                "2los_CRZ_ee_j0pt_processing.png",
+                "2los_CRZ_ee_met_processing.png",
             },
             "cr_2los_Z_mm": {
-                "2los_CRZ_mm_j0pt.png",
-                "2los_CRZ_mm_met.png",
+                "2los_CRZ_mm_j0pt_processing.png",
+                "2los_CRZ_mm_met_processing.png",
             },
         }
         for dir_name, expected_plots in split_expectations.items():
@@ -2428,10 +2555,16 @@ def test_write_negative_weight_report_creates_csv_and_markdown(tmp_path):
         group_map={"Singleboson": ["neg_proc"], "Other": ["pos_proc"]},
     )
 
-    paths = make_cr_and_sr_plots.write_negative_weight_report(rows, tmp_path)
+    paths = make_cr_and_sr_plots.write_negative_weight_report(
+        rows,
+        tmp_path,
+        binning_mode="processing",
+    )
 
     csv_path = paths["csv"]
     md_path = paths["markdown"]
+    assert os.path.basename(csv_path) == "negative_weight_contribution_report_processing.csv"
+    assert os.path.basename(md_path) == "negative_weight_contribution_summary_processing.md"
     with open(csv_path) as f:
         reader = csv.DictReader(f)
         written_rows = list(reader)
@@ -2443,6 +2576,59 @@ def test_write_negative_weight_report_creates_csv_and_markdown(tmp_path):
     assert "total negative process bins: 1" in summary_text
     assert "total negative group bins: 1" in summary_text
     assert "Top Negative Process Contributions" in summary_text
+
+
+def test_binning_mode_output_paths_are_collision_free(tmp_path):
+    logical_png = tmp_path / "category" / "stem.png"
+    logical_extensionless = tmp_path / "category" / "stem"
+
+    fitting_png = make_cr_and_sr_plots._mode_bearing_output_path(
+        logical_png,
+        "fitting",
+    )
+    processing_png = make_cr_and_sr_plots._mode_bearing_output_path(
+        logical_png,
+        "processing",
+    )
+    fitting_extensionless = make_cr_and_sr_plots._mode_bearing_output_path(
+        logical_extensionless,
+        "fitting",
+    )
+
+    assert fitting_png == os.fspath(tmp_path / "category" / "stem_fitting.png")
+    assert processing_png == os.fspath(
+        tmp_path / "category" / "stem_processing.png"
+    )
+    assert fitting_extensionless == os.fspath(
+        tmp_path / "category" / "stem_fitting"
+    )
+    assert os.path.dirname(fitting_png) == os.path.dirname(processing_png)
+    assert fitting_png != processing_png
+    assert os.fspath(logical_png) not in {fitting_png, processing_png}
+
+    with pytest.raises(ValueError, match="Unsupported binning mode"):
+        make_cr_and_sr_plots._mode_bearing_output_path(logical_png, "unknown")
+
+
+def test_negative_weight_reports_for_binning_modes_coexist(tmp_path):
+    fitting_paths = make_cr_and_sr_plots.write_negative_weight_report(
+        [],
+        tmp_path,
+        binning_mode="fitting",
+    )
+    processing_paths = make_cr_and_sr_plots.write_negative_weight_report(
+        [],
+        tmp_path,
+        binning_mode="processing",
+    )
+
+    assert set(fitting_paths.values()).isdisjoint(processing_paths.values())
+    assert {path.name for path in tmp_path.iterdir()} == {
+        "negative_weight_contribution_report_fitting.csv",
+        "negative_weight_contribution_report_processing.csv",
+        "negative_weight_contribution_summary_fitting.md",
+        "negative_weight_contribution_summary_processing.md",
+    }
 
 
 def test_plotter_parser_exposes_rebin_and_negative_report_switches():

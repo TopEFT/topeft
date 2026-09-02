@@ -246,3 +246,25 @@ The diboson and sum-of-weights CLIs are maintained specialist paths. Extend
 their own parser, processor/config authority, and focused tests without adding
 their defaults to the core wrapper chain. See
 [specialist interfaces](../reference/specialist_interfaces.md).
+
+## Maintained profile and recovery boundary
+
+Use one of the six public profiles: `run2_full`, `run3_full`, `run2_full_CR`,
+`run3_full_CR`, `run2_run3_full`, or `run2_run3_full_CR`. Supply a fresh
+absolute output directory and a campaign tag. The maintained profiles use the
+canonical frozen archive; capture its resolved path, SHA-256, environment
+fingerprint, and source identity from campaign state. `rebin_fine` is a
+specialist legacy profile that requires an explicit archive.
+
+The wrapper validates an explicit archive strictly and reuses the exact archive
+frozen in a valid resumable campaign state. It does not create a replacement
+archive during normal profile execution. The maintained profile uses chunksize
+`100000` and leaves stdout/stderr on the controlling terminal; do not add a
+`tee` collector as a substitute for native evidence paths.
+
+Each new campaign uses a fresh namespace. A known component-local failure may
+leave its evidence intact while an independent component proceeds; a shared
+unsafe blocker fails closed. An ambiguous interruption is neither success nor a
+safe retry signal: inspect saved state, the output namespace, and native logs
+before deciding on a follow-up. This describes procedure only, not production
+completion or artifact acceptance.

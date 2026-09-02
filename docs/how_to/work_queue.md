@@ -164,3 +164,19 @@ Additional fail-closed checks:
 The [entry-point reference](../reference/entrypoints.md) is authoritative for
 current options and defaults. The [architecture explanation](../explanation/architecture.md)
 places the executor inside the full production responsibility model.
+
+## Campaign-owned versus externally provisioned resources
+
+Worker provisioning remains external to the analysis CLI. The production
+wrapper does not own or forward a Work Queue worker-count option. Before a
+campaign, prepare one validated environment archive and reuse its exact frozen
+identity for the campaign rather than rebuilding it per task.
+
+The Work Queue executor uses `retries=15` with `resource_monitor=measure`.
+Those internal task retries are distinct from campaign-level recovery or a
+profile-specific resume decision. Native `debug.log`, `tr.log`, `stats.log`,
+and `tasks.log` are copied to the campaign evidence location, verified, bound
+to state, and only then removed from their native location. Keep stdout and
+stderr directly on the terminal; native logs and campaign state are the durable
+evidence surfaces. See [the production runbook](production.md) for profile and
+failure-domain rules.
