@@ -16,10 +16,9 @@ from analysis.topeft_run2.analysis_processor import ANALYSIS_MODE_EXCLUSIVE_ERRO
 _SAMPLE_JSON = Path("input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json")
 _SCRIPT_PATH = Path("analysis/topeft_run2/run_analysis.py")
 _EXPECTED_CR_BASE_HISTS = {
+    "ptz",
     "met",
-    "l0conept",
-    "l0eta",
-    "njets",
+    "lt",
 }
 
 
@@ -111,54 +110,32 @@ def _run_run_analysis(monkeypatch, tmp_path, extra_cli_args, outname):
         return cloudpickle.load(fin)
 
 
-def test_hist_list_cr_includes_sumw2(monkeypatch, tmp_path):
-    output = _run_run_analysis(monkeypatch, tmp_path, ["--hist-list", "cr"], "with-sumw2")
-
-    expected_output_keys = set()
-    for hist_name in _EXPECTED_CR_BASE_HISTS:
-        expected_output_keys.add(hist_name)
-        expected_output_keys.add(f"{hist_name}_sumw2")
-        assert hist_name in output
-        assert f"{hist_name}_sumw2" in output
-
-    assert set(output) == expected_output_keys
-
-
-def test_hist_list_cr_respects_no_sumw2(monkeypatch, tmp_path):
+def test_hist_list_cr_emits_only_base_histogram_keys(monkeypatch, tmp_path):
     output = _run_run_analysis(
         monkeypatch,
         tmp_path,
-        ["--hist-list", "cr", "--no-sumw2"],
-        "without-sumw2",
+        ["--hist-list", "cr"],
+        "cr-base-histograms",
     )
-
-    for hist_name in _EXPECTED_CR_BASE_HISTS:
-        assert hist_name in output
-        assert f"{hist_name}_sumw2" not in output
 
     assert set(output) == _EXPECTED_CR_BASE_HISTS
+    assert not any(name.endswith("_sumw2") for name in output)
 
 
-def test_custom_hist_list_accepts_fwd0eta(monkeypatch, tmp_path):
+@pytest.mark.parametrize("hist_name", ["fwd0eta", "fwd0pt"])
+def test_custom_hist_list_accepts_historical_forward_histograms(
+    monkeypatch,
+    tmp_path,
+    hist_name,
+):
     output = _run_run_analysis(
         monkeypatch,
         tmp_path,
-        ["--hist-list", "fwd0eta"],
-        "custom-fwd0eta",
+        ["--hist-list", hist_name],
+        f"custom-{hist_name}",
     )
 
-    assert set(output) == {"fwd0eta", "fwd0eta_sumw2"}
-
-
-def test_custom_hist_list_accepts_fwd0pt(monkeypatch, tmp_path):
-    output = _run_run_analysis(
-        monkeypatch,
-        tmp_path,
-        ["--hist-list", "fwd0pt"],
-        "custom-fwd0pt",
-    )
-
-    assert set(output) == {"fwd0pt", "fwd0pt_sumw2"}
+    assert set(output) == {hist_name}
 
 
 def test_np_postprocess_defer_creates_metadata(tmp_path):
