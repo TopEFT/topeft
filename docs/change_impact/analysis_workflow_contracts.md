@@ -1,5 +1,10 @@
 # Analysis workflow contract changes
 
+> Historical change-impact record. This page records a point-in-time accepted
+> change and is not the current operating runbook. For maintained interfaces,
+> use [production](../how_to/production.md), [Work Queue operation](../how_to/work_queue.md),
+> and [production configuration](../reference/production_configuration.md).
+
 ## Summary
 
 This branch is an intentionally broad integration update. Relative to

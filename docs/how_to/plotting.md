@@ -178,3 +178,15 @@ plot metadata. To change only region context, group membership, plotted
 variables, a supported binning view, or coverage validation, keep the change in
 this guide and the canonical
 [`cr_sr_plots_metadata.yml`](../../topeft/params/cr_sr_plots_metadata.yml).
+
+## Output names and diagnostic boundary
+
+Select the processing or fitting view explicitly. Plot outputs and negative
+reports carry the corresponding `_processing` or `_fitting` suffix, so the two
+views must not share an output namespace. The plotter's local `--workers`
+option controls local rendering work; it is unrelated to external Work Queue
+worker provisioning.
+
+An `empty-mc-content` skip is a rendering diagnostic for the selected plot
+input. It does not establish the content of a bin, a statistical conclusion, or
+the adequacy of a fitting view.

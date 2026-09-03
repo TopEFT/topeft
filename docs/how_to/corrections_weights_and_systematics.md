@@ -109,3 +109,14 @@ Validate the mechanism or payload schema, the `topeft` dispatch, processor
 propagation, and at least one downstream plot/card or category effect. Update
 the reference page with the concrete authority and applicability. Do not copy
 payload numbers into prose.
+
+## TAU change checklist
+
+For a tau change, update the owning selector or helper rather than payload
+registration alone. Keep the analysis jet-to-tau fake families
+`lepSF_taus_fake_run2` and `lepSF_taus_fake_run3` separate from genuine-tau
+POG `VSjet`, `VSe`, and `VSmu` weights and from source/decay-mode energy
+shifts. Preserve the standard versus taufitter and data/MC gates, then validate
+the exact systematic naming and processor routing. A packaged payload does not
+activate itself in the analysis. See the [TAU family reference](../reference/corrections_weights_and_systematics.md)
+for the bounded interface contract.

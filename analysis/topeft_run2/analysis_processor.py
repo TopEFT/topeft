@@ -33,7 +33,7 @@ from topeft.modules.nominal_schema import (
 )
 from topeft.modules.paths import topeft_path
 from topeft.modules.sumw2_policy import resolve_nominal_component_availability
-from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
+from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, get_tau_weight_variation_names, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topeft.modules.ttgamma_photon_history import (
@@ -119,6 +119,14 @@ def should_fill_jvm_eta_phi_diagnostic(is_run3, syst_var, wgt_fluct):
     """Keep reviewer diagnostics to the Run 3 nominal object/weight state."""
 
     return is_run3 and syst_var == "nominal" and wgt_fluct == "nominal"
+
+
+def apply_maintained_jet_systematic(year, cleaned_jets, syst_var, jet_systematics):
+    """Apply only variations advertised by the maintained jet authority."""
+
+    if syst_var != "nominal" and syst_var not in jet_systematics:
+        return cleaned_jets
+    return ApplyJetSystematics(year, cleaned_jets, syst_var)
 
 
 def validate_analysis_mode_flags(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
@@ -968,9 +976,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
 
         # Define the lists of systematics we include
-        obj_correction_syst_lst = get_supported_jet_systematics(
+        jet_correction_syst_lst = get_supported_jet_systematics(
             year, isData=isData, era=run_era
         )
+        obj_correction_syst_lst = list(jet_correction_syst_lst)
         obj_correction_syst_lst.extend(
             get_supported_met_systematics(year, isData=isData, era=run_era)
         )
@@ -986,12 +995,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
         ]
+        tau_weight_variation_names = []
         if self.enable_tau_blocks:
-            wgt_correction_syst_lst.append("lepSF_taus_realUp")
-            wgt_correction_syst_lst.append("lepSF_taus_realDown")
-        if apply_fake_tau_sf:
-            wgt_correction_syst_lst.append("lepSF_taus_fakeUp")
-            wgt_correction_syst_lst.append("lepSF_taus_fakeDown")
+            tau_weight_variation_names = get_tau_weight_variation_names(
+                year, include_jet_fake=apply_fake_tau_sf
+            )
+            for name in tau_weight_variation_names:
+                wgt_correction_syst_lst.extend((f"{name}Up", f"{name}Down"))
 
         data_syst_lst = [
             "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
@@ -1093,6 +1103,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         met_raw=met
         
         for syst_var in syst_var_list:
+            tau_sf_weights = None
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
             weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
@@ -1249,7 +1260,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 tau0 = tau0_T
 
                 if not isData:
-                    AttachTauSF(
+                    tau_sf_weights = AttachTauSF(
                         events,
                         tau_T,
                         year=year,
@@ -1286,7 +1297,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 run=run,
                 suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer,
             ).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
-            cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
+            cleanedJets = apply_maintained_jet_systematic(
+                year, cleanedJets, syst_var, jet_correction_syst_lst
+            )
 
             # Jet Veto Maps
             # Removes events that have ANY jet in a specific eta-phi space (not required for Run 2)
@@ -1550,29 +1563,32 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if ch_name.startswith("1l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
-                        if self.enable_tau_blocks:
-                            weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                        if apply_fake_tau_sf:
-                            weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("2l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
-                        if self.enable_tau_blocks:
-                            weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                        if apply_fake_tau_sf:
-                            weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("3l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
-                        if self.enable_tau_blocks:
-                            weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                        if apply_fake_tau_sf:
-                            weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("4l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
+                    if self.enable_tau_blocks and ch_name.startswith(("1l", "2l", "3l")):
+                        tau_nominal_key = (
+                            "nominal" if apply_fake_tau_sf else "nominal_without_jet_fake"
+                        )
+                        tau_nominal = tau_sf_weights[tau_nominal_key]
+                        weights_dict[ch_name].add("tauSF_nominal", tau_nominal)
+                        unit_weight = ak.ones_like(tau_nominal, dtype=np.float32)
+                        for name in tau_weight_variation_names:
+                            directions = tau_sf_weights["variations"][name]
+                            weights_dict[ch_name].add(
+                                name,
+                                unit_weight,
+                                copy.deepcopy(directions["up"]),
+                                copy.deepcopy(directions["down"]),
+                            )
 
             ######### Masks we need for the selection ##########
 

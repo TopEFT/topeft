@@ -85,3 +85,10 @@ default.
 Use [change categories or observables](../how_to/categories_and_observables.md)
 for categories, axes, wrapper matrices, and specialist registries; use
 [flexible binning](../how_to/flexible_binning.md) for processing/fitting views.
+
+## Accepted fitting-topology anchor
+
+The fitting authority is 129 SR category-distribution combinations and 555
+fitting bins per run. The separate 1677-row Run 3 processing inventory is
+descriptive processing evidence; it is not a fitting-bin count or a
+statistical-adequacy authority.

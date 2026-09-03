@@ -50,13 +50,38 @@ MUON_MOMENTUM_PT_FIELDS = {
         for variation in RUN3_MUON_MOMENTUM_SYSTEMATICS
     },
 }
-TAU_ENERGY_SYSTEMATICS = ("TESUp", "TESDown", "FESUp", "FESDown")
-TAU_ENERGY_FIELDS = {
-    "nominal": ("pt_nom", "mass_nom"),
-    **{
-        variation: (f"pt_{variation}", f"mass_{variation}")
-        for variation in TAU_ENERGY_SYSTEMATICS
-    },
+TAU_SELECTED_DMS = (0, 1, 10, 11)
+TAU_VSE_WORKING_POINT = "VVLoose"
+TAU_TAGGER_BY_RUN = {
+    "Run2": "DeepTau2017v2p1",
+    "Run3": "DeepTau2018v2p5",
+}
+TAU_VSE_ETA_BINS = {
+    "Run2": (
+        (0.0, 1.5, "abseta0to1p5"),
+        (1.5, 2.3, "abseta1p5to2p3"),
+    ),
+    "Run3": (
+        (0.0, 1.46, "abseta0to1p46"),
+        (1.46, 1.56, "abseta1p46to1p56"),
+        (1.56, 2.5, "abseta1p56to2p5"),
+    ),
+}
+TAU_VSMU_ETA_BINS = {
+    "Run2": (
+        (0.0, 0.4, "abseta0to0p4"),
+        (0.4, 0.8, "abseta0p4to0p8"),
+        (0.8, 1.2, "abseta0p8to1p2"),
+        (1.2, 1.7, "abseta1p2to1p7"),
+        (1.7, 2.3, "abseta1p7to2p3"),
+    ),
+    "Run3": (
+        (0.0, 0.4, "abseta0to0p4"),
+        (0.4, 0.8, "abseta0p4to0p8"),
+        (0.8, 1.2, "abseta0p8to1p2"),
+        (1.2, 1.7, "abseta1p2to1p7"),
+        (1.7, 2.4, "abseta1p7to2p4"),
+    ),
 }
 
 
@@ -76,16 +101,6 @@ def get_supported_muon_momentum_systematics(year, isData=False):
     if isData or str(year).startswith("201"):
         return []
     return list(RUN3_MUON_MOMENTUM_SYSTEMATICS)
-
-
-def is_tau_energy_systematic(syst_var):
-    return syst_var in TAU_ENERGY_SYSTEMATICS
-
-
-def get_supported_tau_energy_systematics(year, isData=False):
-    if isData:
-        return []
-    return list(TAU_ENERGY_SYSTEMATICS)
 
 
 def get_run2_tau_fake_sf_name(vsJetWP):
@@ -133,6 +148,131 @@ clib_year_map = {
     "2023": "2023_Summer23",
     "2023BPix": "2023_Summer23BPix",
 }
+
+tau_vsjet_payload_era = {
+    "2016APV": "2016_preVFP",
+    "2016preVFP": "2016_preVFP",
+    "2016": "2016_postVFP",
+    "2017": "2017",
+    "2018": "2018",
+    "2022": "2022_preEE",
+    "2022EE": "2022_postEE",
+    "2023": "2023_preBPix",
+    "2023BPix": "2023_postBPix",
+}
+
+
+def get_tau_run(year):
+    return "Run2" if str(year).startswith("201") else "Run3"
+
+
+def get_tau_tagger(year):
+    return TAU_TAGGER_BY_RUN[get_tau_run(year)]
+
+
+def get_tau_energy_variation_specs(year):
+    """Map final energy-scale nuisance bases to their source and decay mode."""
+    tagger = get_tau_tagger(year)
+    run = get_tau_run(year)
+    specs = OrderedDict()
+    for dm in TAU_SELECTED_DMS:
+        name = f"CMS_scale_t_{tagger}_DM{dm}_genTau_{year}"
+        specs[name] = ("genuine", dm)
+    electron_dms = (0, 1) if run == "Run2" else TAU_SELECTED_DMS
+    for dm in electron_dms:
+        name = f"CMS_scale_t_{tagger}_DM{dm}_genElectron_{year}"
+        specs[name] = ("electron", dm)
+    for dm in TAU_SELECTED_DMS:
+        name = f"CMS_scale_t_{tagger}_DM{dm}_genMuon_{run}"
+        specs[name] = ("muon", dm)
+    return specs
+
+
+def get_supported_tau_energy_systematics(year, isData=False):
+    if isData:
+        return []
+    return [
+        f"{name}{direction}"
+        for name in get_tau_energy_variation_specs(year)
+        for direction in ("Up", "Down")
+    ]
+
+
+def get_tau_energy_fields(variation):
+    if variation == "nominal":
+        return "pt_nom", "mass_nom"
+    return f"pt_{variation}", f"mass_{variation}"
+
+
+def get_tau_vsjet_variation_specs(year):
+    """Map final VSjet nuisance bases to exact payload component tokens."""
+    tagger = get_tau_tagger(year)
+    run = get_tau_run(year)
+    payload_era = tau_vsjet_payload_era[year]
+    specs = OrderedDict()
+    for stat_component in ("stat1", "stat2"):
+        for dm in TAU_SELECTED_DMS:
+            name = (
+                f"CMS_eff_t_{tagger}_VSjet_dm_{stat_component}_DM{dm}_{year}"
+            )
+            specs[name] = f"{stat_component}_dm{dm}_{{direction}}"
+    specs[f"CMS_eff_t_{tagger}_VSjet_dm_syst_{year}"] = (
+        f"syst_{payload_era}_{{direction}}"
+    )
+    payload_dm_prefix = "syst_TES" if run == "Run3" else "syst"
+    for dm in TAU_SELECTED_DMS:
+        name = f"CMS_eff_t_{tagger}_VSjet_dm_syst_DM{dm}_{year}"
+        specs[name] = (
+            f"{payload_dm_prefix}_{payload_era}_dm{dm}_{{direction}}"
+        )
+    specs[f"CMS_eff_t_{tagger}_VSjet_dm_syst_alleras_{run}"] = (
+        "syst_alleras_{direction}"
+    )
+    return specs
+
+
+def get_tau_eta_variation_specs(year):
+    """Return final VSe/VSmu nuisance names and their disjoint masks."""
+    run = get_tau_run(year)
+    tagger = get_tau_tagger(year)
+    period = year if run == "Run2" else str(year)[:4]
+    specs = OrderedDict()
+    for source, bins in (
+        ("VSe", TAU_VSE_ETA_BINS[run]),
+        ("VSmu", TAU_VSMU_ETA_BINS[run]),
+    ):
+        for index, (low, high, token) in enumerate(bins):
+            decay_modes = (
+                TAU_SELECTED_DMS
+                if run == "Run3" and source == "VSe"
+                else (None,)
+            )
+            for decay_mode in decay_modes:
+                if decay_mode is None:
+                    name = f"CMS_fake_t_{tagger}_{source}_{token}_{period}"
+                else:
+                    name = (
+                        f"CMS_fake_t_{tagger}_{source}_DM{decay_mode}_"
+                        f"{token}_{year}"
+                    )
+                spec = {
+                    "source": source,
+                    "low": low,
+                    "high": high,
+                    "include_high": index == len(bins) - 1,
+                }
+                if decay_mode is not None:
+                    spec["decay_mode"] = decay_mode
+                specs[name] = spec
+    return specs
+
+
+def get_tau_weight_variation_names(year, include_jet_fake=True):
+    names = list(get_tau_vsjet_variation_specs(year))
+    names.extend(get_tau_eta_variation_specs(year))
+    if include_jet_fake:
+        names.append(f"lepSF_taus_fake_{get_tau_run(year).lower()}")
+    return names
 
 egm_tag_map = {
     "2016preVFP_UL": "2016preVFP",
@@ -691,106 +831,109 @@ def _evaluate_tau_energy_components(
     isData,
     vsJetWP,
 ):
-    """Return raw-kinematics TES/FES component factors."""
+    """Return nominal and source/DM-specific complete tau energy factors."""
     ones = ak.ones_like(pt, dtype=np.float32)
     if isData:
-        return {
-            "tes_nom": ones,
-            "tes_up": ones,
-            "tes_down": ones,
-            "fes_nom": ones,
-            "fes_up": ones,
-            "fes_down": ones,
-        }
+        return {"nominal": ones, "variations": OrderedDict()}
 
-    if year.startswith("201"):
-        tes_where = (
-            (pt > 20)
-            & (pt < 205)
-            & (gen == 5)
-            & ((dm == 0) | (dm == 1) | (dm == 10) | (dm == 11))
-        )
-        fes_where = (
-            (pt > 20)
-            & (pt < 205)
-            & (gen >= 1)
-            & (gen <= 4)
-            & ((dm == 0) | (dm == 1))
-        )
+    in_range = (pt > 20) & (pt < 205)
+    selected_dm = ak.zeros_like(dm, dtype=bool)
+    for selected in TAU_SELECTED_DMS:
+        selected_dm = selected_dm | (dm == selected)
+    genuine_mask = in_range & selected_dm & (gen == 5)
+    electron_dms = (0, 1) if get_tau_run(year) == "Run2" else TAU_SELECTED_DMS
+    electron_dm_mask = ak.zeros_like(dm, dtype=bool)
+    for selected in electron_dms:
+        electron_dm_mask = electron_dm_mask | (dm == selected)
+    electron_mask = in_range & electron_dm_mask & ((gen == 1) | (gen == 3))
+    muon_mask = in_range & selected_dm & ((gen == 2) | (gen == 4))
+
+    if get_tau_run(year) == "Run2":
         abs_eta = abs(eta)
-        return {
-            "tes_nom": ak.where(
-                tes_where, SFevaluator[f"TauTES_{year}"](dm, pt), 1.0
-            ),
-            "tes_up": ak.where(
-                tes_where, SFevaluator[f"TauTES_{year}_up"](dm, pt), 1.0
-            ),
-            "tes_down": ak.where(
-                tes_where, SFevaluator[f"TauTES_{year}_down"](dm, pt), 1.0
-            ),
-            "fes_nom": ak.where(
-                fes_where, SFevaluator[f"TauFES_{year}"](abs_eta, dm), 1.0
-            ),
-            "fes_up": ak.where(
-                fes_where, SFevaluator[f"TauFES_{year}_up"](abs_eta, dm), 1.0
-            ),
-            "fes_down": ak.where(
-                fes_where, SFevaluator[f"TauFES_{year}_down"](abs_eta, dm), 1.0
-            ),
-        }
+        genuine_nominal = ak.where(
+            genuine_mask, SFevaluator[f"TauTES_{year}"](dm, pt), 1.0
+        )
+        electron_nominal = ak.where(
+            electron_mask, SFevaluator[f"TauFES_{year}"](abs_eta, dm), 1.0
+        )
 
-    clib_year = clib_year_map[year]
-    json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
-    corr = correctionlib.CorrectionSet.from_file(json_path)["tau_energy_scale"]
-
-    flat_pt = ak.flatten(ak.fill_none(pt, 0.0), axis=1)
-    flat_eta = ak.flatten(ak.fill_none(eta, 0.0), axis=1)
-    flat_dm = ak.flatten(ak.fill_none(dm, -1), axis=1)
-    flat_gen = ak.flatten(ak.fill_none(gen, 0), axis=1)
-    flat_pt_np = ak.to_numpy(flat_pt)
-    counts = ak.num(pt, axis=1)
-
-    in_range = (flat_pt > 20) & (flat_pt < 205)
-    tes_dm = (
-        (flat_dm == 0)
-        | (flat_dm == 1)
-        | (flat_dm == 10)
-        | (flat_dm == 11)
-    )
-    # The POG fake-tau branch defines DM2, while genuine TES does not.
-    fes_dm = tes_dm | (flat_dm == 2)
-    tes_where = in_range & tes_dm & (flat_gen == 5)
-    fes_where = (
-        in_range
-        & fes_dm
-        & (flat_gen >= 1)
-        & (flat_gen <= 4)
-    )
-
-    def evaluate(where, syst):
-        full = np.ones_like(flat_pt_np, dtype=np.float32)
-        indices = np.nonzero(ak.to_numpy(where))[0]
-        if len(indices) > 0:
-            full[indices] = corr.evaluate(
-                ak.to_numpy(flat_pt[where]),
-                ak.to_numpy(flat_eta[where]),
-                ak.to_numpy(flat_dm[where]),
-                ak.to_numpy(flat_gen[where]),
-                "DeepTau2018v2p5",
-                vsJetWP,
-                "VVLoose",
-                syst,
+        def evaluate_source(source, direction, target_mask):
+            if source == "genuine":
+                varied = SFevaluator[f"TauTES_{year}_{direction}"](dm, pt)
+                return ak.where(target_mask, varied, genuine_nominal)
+            if source == "electron":
+                varied = SFevaluator[f"TauFES_{year}_{direction}"](abs_eta, dm)
+                return ak.where(target_mask, varied, electron_nominal)
+            return ak.where(
+                target_mask, 1.01 if direction == "up" else 0.99, 1.0
             )
-        return ak.unflatten(full, counts)
 
-    return {
-        "tes_nom": evaluate(tes_where, "nom"),
-        "tes_up": evaluate(tes_where, "up"),
-        "tes_down": evaluate(tes_where, "down"),
-        "fes_nom": evaluate(fes_where, "nom"),
-        "fes_up": evaluate(fes_where, "up"),
-        "fes_down": evaluate(fes_where, "down"),
+    else:
+        clib_year = clib_year_map[year]
+        json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
+        corr = correctionlib.CorrectionSet.from_file(json_path)["tau_energy_scale"]
+        flat_pt = ak.flatten(ak.fill_none(pt, 0.0), axis=1)
+        flat_eta = ak.flatten(ak.fill_none(eta, 0.0), axis=1)
+        flat_dm = ak.flatten(ak.fill_none(dm, -1), axis=1)
+        flat_gen = ak.flatten(ak.fill_none(gen, 0), axis=1)
+        counts = ak.num(pt, axis=1)
+
+        def evaluate_payload(mask, syst):
+            flat_mask = ak.flatten(ak.fill_none(mask, False), axis=1)
+            values = np.ones(len(flat_pt), dtype=np.float32)
+            selected = ak.to_numpy(flat_mask)
+            if np.any(selected):
+                values[selected] = corr.evaluate(
+                    ak.to_numpy(flat_pt[selected]),
+                    ak.to_numpy(flat_eta[selected]),
+                    ak.to_numpy(flat_dm[selected]),
+                    ak.to_numpy(flat_gen[selected]),
+                    "DeepTau2018v2p5",
+                    vsJetWP,
+                    "VVLoose",
+                    syst,
+                )
+            return ak.unflatten(values, counts)
+
+        genuine_nominal = evaluate_payload(genuine_mask, "nom")
+        electron_nominal = evaluate_payload(electron_mask, "nom")
+
+        def evaluate_source(source, direction, target_mask):
+            if source == "genuine":
+                target_values = evaluate_payload(target_mask, direction)
+                return ak.where(target_mask, target_values, genuine_nominal)
+            if source == "electron":
+                target_values = evaluate_payload(target_mask, direction)
+                return ak.where(target_mask, target_values, electron_nominal)
+            return ak.where(
+                target_mask, 1.01 if direction == "up" else 0.99, 1.0
+            )
+
+    muon_nominal = ones
+    source_nominals = {
+        "genuine": genuine_nominal,
+        "electron": electron_nominal,
+        "muon": muon_nominal,
     }
+    nominal = genuine_nominal * electron_nominal * muon_nominal
+    source_masks = {
+        "genuine": genuine_mask,
+        "electron": electron_mask,
+        "muon": muon_mask,
+    }
+    variations = OrderedDict()
+    for name, (source, target_dm) in get_tau_energy_variation_specs(year).items():
+        target_mask = source_masks[source] & (dm == target_dm)
+        other_nominal = ones
+        for other_source, other_factor in source_nominals.items():
+            if other_source != source:
+                other_nominal = other_nominal * other_factor
+        variations[name] = {
+            direction: evaluate_source(source, direction, target_mask)
+            * other_nominal
+            for direction in ("up", "down")
+        }
+    return {"nominal": nominal, "variations": variations}
 
 
 def AttachTauEnergyCorrections(year, taus, isData, vsJetWP=None):
@@ -817,15 +960,12 @@ def AttachTauEnergyCorrections(year, taus, isData, vsJetWP=None):
             False,
             vsJetWP,
         )
-    complete_factors = {
-        "nominal": components["tes_nom"] * components["fes_nom"],
-        "TESUp": components["tes_up"] * components["fes_nom"],
-        "TESDown": components["tes_down"] * components["fes_nom"],
-        "FESUp": components["tes_nom"] * components["fes_up"],
-        "FESDown": components["tes_nom"] * components["fes_down"],
-    }
+    complete_factors = {"nominal": components["nominal"]}
+    for name, directions in components["variations"].items():
+        complete_factors[f"{name}Up"] = directions["up"]
+        complete_factors[f"{name}Down"] = directions["down"]
     for variation, factor in complete_factors.items():
-        pt_field, mass_field = TAU_ENERGY_FIELDS[variation]
+        pt_field, mass_field = get_tau_energy_fields(variation)
         taus = ak.with_field(taus, taus.pt_raw * factor, pt_field)
         taus = ak.with_field(taus, taus.mass_raw * factor, mass_field)
     return taus
@@ -833,8 +973,12 @@ def AttachTauEnergyCorrections(year, taus, isData, vsJetWP=None):
 
 def ApplyTauEnergySystematics(taus, syst_var):
     """Select active tau pt/mass from fields attached before the systematic loop."""
-    variation = syst_var if is_tau_energy_systematic(syst_var) else "nominal"
-    pt_field, mass_field = TAU_ENERGY_FIELDS[variation]
+    is_tau_variation = (
+        str(syst_var).startswith("CMS_scale_t_")
+        and str(syst_var).endswith(("Up", "Down"))
+    )
+    variation = syst_var if is_tau_variation else "nominal"
+    pt_field, mass_field = get_tau_energy_fields(variation)
     missing = [
         field for field in (pt_field, mass_field)
         if field not in ak.fields(taus)
@@ -854,26 +998,19 @@ def AttachTauSF(
     vsJetWP=None,
     run3_fake_split=False,
 ):
-    pt   = taus.pt
-    dm   = taus.decayMode
-    eta  = taus.eta
-    gen  = taus.genPartFlav
-    mass = taus.mass
-
-    is_run2 = year.startswith("201")
-    is_run3 = not is_run2
+    pt = taus.pt
+    dm = taus.decayMode
+    eta = taus.eta
+    gen = taus.genPartFlav
+    run = get_tau_run(year)
+    is_run2 = run == "Run2"
     if vsJetWP is None:
         vsJetWP = get_te_param("run2_tau_t_tag" if is_run2 else "run3_tau_t_tag")
-    run2_fake_sf_eval = None
-    if is_run2:
-        run2_fake_sf_eval = get_run2_tau_fake_sf_name(vsJetWP)
+    run2_fake_sf_eval = get_run2_tau_fake_sf_name(vsJetWP) if is_run2 else None
 
     stored_muon_mask = None
     if "ismTight" in ak.fields(taus):
         stored_muon_mask = ak.fill_none(taus["ismTight"] > 0, False)
-
-    muon_wp_expected = None
-    muon_wp_source = None
     tau_fields = ak.fields(taus)
     if is_run2 and "idDeepTau2017v2p1VSmu" in tau_fields:
         muon_wp_source = "DeepTau2017v2p1VSmu"
@@ -881,209 +1018,257 @@ def AttachTauSF(
             ((taus.idDeepTau2017v2p1VSmu >> RUN2_VSMU_TIGHT_BIT) & 1) > 0,
             False,
         )
-    elif is_run3 and "idDeepTau2018v2p5VSmu" in tau_fields:
+    elif (not is_run2) and "idDeepTau2018v2p5VSmu" in tau_fields:
         muon_wp_source = "DeepTau2018v2p5VSmu"
         muon_wp_expected = ak.fill_none(
             taus.idDeepTau2018v2p5VSmu >= RUN3_VSMU_TIGHT_THRESHOLD,
             False,
         )
-    elif is_run2:
+    else:
+        tagger = get_tau_tagger(year)
         raise AssertionError(
-            "Run 2 tau collection missing DeepTau2017v2p1VSmu for Tight VSμ validation."
+            f"{run} tau collection missing {tagger}VSmu for Tight VSμ validation."
         )
-    elif is_run3:
-        raise AssertionError(
-            "Run 3 tau collection missing DeepTau2018v2p5VSmu for Tight VSμ validation."
-        )
-
-    if (stored_muon_mask is not None) and (muon_wp_expected is not None):
+    if stored_muon_mask is not None:
         mismatch_mask = ak.flatten(stored_muon_mask != muon_wp_expected)
         if ak.any(mismatch_mask):
             raise AssertionError(
                 f"Tau ismTight mask does not match Tight VSμ definition from {muon_wp_source}."
             )
 
-    DT_sf_list = []
-    DT_up_list = []
-    DT_do_list = []
+    clib_year = clib_year_map[year]
+    json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
+    ceval = correctionlib.CorrectionSet.from_file(json_path)
+    tagger = get_tau_tagger(year)
+    corr_jet = ceval[f"{tagger}VSjet"]
+    counts = ak.num(pt)
+    flat_pt = ak.flatten(ak.fill_none(pt, 0.0))
+    flat_dm = ak.flatten(ak.fill_none(dm, 0))
+    flat_gen = ak.flatten(ak.fill_none(gen, 0))
+    flat_eta = ak.flatten(ak.fill_none(eta, 0.0))
+    pt_mask_flat = ak.flatten(ak.fill_none((pt > 20) & (pt < 205), False))
+    vsjet_flat_mask = ak.flatten(
+        ak.fill_none(taus[f"is{vsJetWP}"] > 0, False)
+    )
+    vse_flat_mask = ak.flatten(ak.fill_none(taus["iseTight"] > 0, False))
+    vsmu_flat_mask = ak.flatten(ak.fill_none(taus["ismTight"] > 0, False))
+    genuine_tau_mask = pt_mask_flat & (flat_gen == 5) & vsjet_flat_mask
+    if not is_run2:
+        genuine_tau_mask = genuine_tau_mask & vse_flat_mask
 
-    pt_mask_flat = ak.flatten((pt>20) & (pt<205))
+    def evaluate_selected(correction, mask, args, syst, flag=None):
+        selected = ak.to_numpy(ak.fill_none(mask, False))
+        values = np.ones(len(flat_pt), dtype=np.float32)
+        if np.any(selected):
+            selected_args = [
+                ak.to_numpy(arg[selected]) if isinstance(arg, ak.highlevel.Array) else arg
+                for arg in args
+            ]
+            selected_args.append(syst)
+            if flag is not None:
+                selected_args.append(flag)
+            values[selected] = correction.evaluate(*selected_args)
+        return ak.unflatten(values, counts)
 
-    flat_pt = ak.flatten(ak.fill_none(pt,0))
-    flat_dm = ak.flatten(ak.fill_none(dm,0))
-    flat_gen = ak.flatten(ak.fill_none(gen,0))
-    flat_eta = ak.flatten(ak.fill_none(eta,0))
-    # is_run2 and is_run3 defined above
+    real_args = (flat_pt, flat_dm, flat_gen, vsJetWP, TAU_VSE_WORKING_POINT)
+    real_sf = evaluate_selected(
+        corr_jet, genuine_tau_mask, real_args, "nom", flag="dm"
+    )
+    variation_ratios = OrderedDict()
+    for name, payload_pattern in get_tau_vsjet_variation_specs(year).items():
+        varied = {}
+        for direction in ("up", "down"):
+            varied[direction] = evaluate_selected(
+                corr_jet,
+                genuine_tau_mask,
+                real_args,
+                payload_pattern.format(direction=direction),
+                flag="dm",
+            )
+        variation_ratios[name] = {
+            direction: ak.where(real_sf != 0, varied[direction] / real_sf, 1.0)
+            for direction in ("up", "down")
+        }
 
-    ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
     if is_run2:
-        clib_year = clib_year_map[year]
-        json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
-        ceval = correctionlib.CorrectionSet.from_file(json_path)
- 
-        corr_jet = ceval["DeepTau2017v2p1VSjet"]
-        vsjet_flat_mask = ak.flatten(
-            ak.fill_none(taus[f"is{vsJetWP}"] > 0, False)
+        electron_mask = (
+            (pt > 20)
+            & (pt < 205)
+            & ((gen == 1) | (gen == 3))
+            & (taus["iseTight"] > 0)
         )
-        genuine_tau_mask = ak.fill_none(
-            pt_mask_flat & (flat_gen == 5) & vsjet_flat_mask,
-            False,
+        muon_mask = (
+            (pt > 20)
+            & (pt < 205)
+            & ((gen == 2) | (gen == 4))
+            & (taus["ismTight"] > 0)
+        )
+        abs_eta = abs(eta)
+        fake_elec_sf = ak.where(
+            electron_mask, SFevaluator[f"Tau_elecFakeSF_{year}"](abs_eta), 1.0
+        )
+        fake_elec_sf_up = ak.where(
+            electron_mask,
+            SFevaluator[f"Tau_elecFakeSF_{year}_up"](abs_eta),
+            1.0,
+        )
+        fake_elec_sf_down = ak.where(
+            electron_mask,
+            SFevaluator[f"Tau_elecFakeSF_{year}_down"](abs_eta),
+            1.0,
+        )
+        fake_muon_sf = ak.where(
+            muon_mask, SFevaluator[f"Tau_muonFakeSF_{year}"](abs_eta), 1.0
+        )
+        fake_muon_sf_up = ak.where(
+            muon_mask,
+            SFevaluator[f"Tau_muonFakeSF_{year}_up"](abs_eta),
+            1.0,
+        )
+        fake_muon_sf_down = ak.where(
+            muon_mask,
+            SFevaluator[f"Tau_muonFakeSF_{year}_down"](abs_eta),
+            1.0,
+        )
+        fake_sf_evaluators = _get_tau_fake_sf_evaluators(
+            SFevaluator, run2_fake_sf_eval
+        )
+        jet_fake_mask = (
+            (pt > 20)
+            & (pt < 205)
+            & (gen == 0)
+            & (taus[f"is{vsJetWP}"] > 0)
+        )
+        fake_sf_eval = run2_fake_sf_eval
+    else:
+        electron_flat_mask = (
+            pt_mask_flat
+            & ((flat_gen == 1) | (flat_gen == 3))
+            & vse_flat_mask
+        )
+        muon_flat_mask = (
+            pt_mask_flat
+            & ((flat_gen == 2) | (flat_gen == 4))
+            & vsmu_flat_mask
+        )
+        fake_elec_sf = evaluate_selected(
+            ceval[f"{tagger}VSe"],
+            electron_flat_mask,
+            (flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT),
+            "nom",
+        )
+        fake_elec_sf_up = evaluate_selected(
+            ceval[f"{tagger}VSe"],
+            electron_flat_mask,
+            (flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT),
+            "up",
+        )
+        fake_elec_sf_down = evaluate_selected(
+            ceval[f"{tagger}VSe"],
+            electron_flat_mask,
+            (flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT),
+            "down",
+        )
+        fake_muon_sf = evaluate_selected(
+            ceval[f"{tagger}VSmu"],
+            muon_flat_mask,
+            (flat_eta, flat_gen, "Tight"),
+            "nom",
+        )
+        fake_muon_sf_up = evaluate_selected(
+            ceval[f"{tagger}VSmu"],
+            muon_flat_mask,
+            (flat_eta, flat_gen, "Tight"),
+            "up",
+        )
+        fake_muon_sf_down = evaluate_selected(
+            ceval[f"{tagger}VSmu"],
+            muon_flat_mask,
+            (flat_eta, flat_gen, "Tight"),
+            "down",
+        )
+        jet_fake_mask = (
+            (pt > 20)
+            & (pt < 200)
+            & (gen == 0)
+            & (taus[f"is{vsJetWP}"] > 0)
+        )
+        fake_sf_eval = (
+            "TauFakeSF_Run3" if not run3_fake_split else f"TauFakeSF_{year[:4]}"
+        )
+        fake_sf_evaluators = _get_tau_fake_sf_evaluators(
+            SFevaluator, fake_sf_eval
         )
 
-        def evaluate_real_tau_sf(syst):
-            values = np.ones(len(flat_pt), dtype=np.float32)
-            selected = ak.to_numpy(genuine_tau_mask)
-            if np.any(selected):
-                values[selected] = corr_jet.evaluate(
-                    ak.to_numpy(flat_pt[selected]),
-                    ak.to_numpy(flat_dm[selected]),
-                    ak.to_numpy(flat_gen[selected]),
-                    vsJetWP,
-                    "VVLoose",
-                    syst,
-                    "dm",
-                )
-            return ak.unflatten(values, ak.num(pt))
+    new_fake_sf = ak.where(
+        jet_fake_mask, fake_sf_evaluators[fake_sf_eval](pt), 1.0
+    )
+    new_fake_sf_up = ak.where(
+        jet_fake_mask, fake_sf_evaluators[f"{fake_sf_eval}_up"](pt), 1.0
+    )
+    new_fake_sf_down = ak.where(
+        jet_fake_mask, fake_sf_evaluators[f"{fake_sf_eval}_down"](pt), 1.0
+    )
 
-        real_sf = evaluate_real_tau_sf("nom")
-        real_sf_up = evaluate_real_tau_sf("up")
-        real_sf_down = evaluate_real_tau_sf("down")
+    source_values = {
+        "VSe": (fake_elec_sf, fake_elec_sf_up, fake_elec_sf_down),
+        "VSmu": (fake_muon_sf, fake_muon_sf_up, fake_muon_sf_down),
+    }
+    abs_eta = abs(eta)
+    for name, spec in get_tau_eta_variation_specs(year).items():
+        nominal, up, down = source_values[spec["source"]]
+        eta_mask = (abs_eta >= spec["low"]) & (
+            (abs_eta <= spec["high"])
+            if spec["include_high"]
+            else (abs_eta < spec["high"])
+        )
+        if spec.get("decay_mode") is not None:
+            eta_mask = eta_mask & (dm == spec["decay_mode"])
+        variation_ratios[name] = {
+            "up": ak.where(eta_mask & (nominal != 0), up / nominal, 1.0),
+            "down": ak.where(eta_mask & (nominal != 0), down / nominal, 1.0),
+        }
+    jet_fake_name = f"lepSF_taus_fake_{run.lower()}"
+    variation_ratios[jet_fake_name] = {
+        "up": ak.where(new_fake_sf != 0, new_fake_sf_up / new_fake_sf, 1.0),
+        "down": ak.where(
+            new_fake_sf != 0, new_fake_sf_down / new_fake_sf, 1.0
+        ),
+    }
 
-        whereFlag = ((pt>20) & (pt<205) & ((gen==1)|(gen==3)) & (taus["iseTight"]>0))
-        fake_elec_sf = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}'](np.abs(eta)), 1)
-        fake_elec_sf_up = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}_up'](np.abs(eta)), 1)
-        fake_elec_sf_down = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}_down'](np.abs(eta)), 1)
-        # TauPOG muon fake SFs are provided for the Tight VSμ working point.
-        whereFlag = ((pt>20) & (pt<205) & ((gen==2)|(gen==4))  & (taus["ismTight"]>0))
-        fake_muon_sf = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}'](np.abs(eta)), 1)
-        fake_muon_sf_up = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_up'](np.abs(eta)), 1)
-        fake_muon_sf_down = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_down'](np.abs(eta)), 1)
-
-        fake_sf_evaluators = _get_tau_fake_sf_evaluators(SFevaluator, run2_fake_sf_eval)
-        whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
-        new_fake_sf = np.where(whereFlag, fake_sf_evaluators[run2_fake_sf_eval](pt), 1)
-        new_fake_sf_up = np.where(whereFlag, fake_sf_evaluators[f"{run2_fake_sf_eval}_up"](pt), 1)
-        new_fake_sf_down = np.where(whereFlag, fake_sf_evaluators[f"{run2_fake_sf_eval}_down"](pt), 1)
-
-    if is_run3:
-        clib_year = clib_year_map[year]
-        json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
-        ceval = correctionlib.CorrectionSet.from_file(json_path)
-        corr_jet = ceval["DeepTau2018v2p5VSjet"]
-        corr_e = ceval["DeepTau2018v2p5VSe"]
-
-        vsjet_raw_mask = taus[f"is{vsJetWP}"] > 0        
-        vsjet_mask     = ak.fill_none(vsjet_raw_mask, False)             
-        vsjet_flat_mask = ak.flatten(vsjet_mask)     
-
-        vse_raw_mask = taus[f"iseTight"] > 0        
-        vse_mask     = ak.fill_none(vse_raw_mask, False)             
-        vse_flat_mask = ak.flatten(vse_mask)            
-
-
-        deep_tau_cuts = [
-            (
-                "DeepTau2018v2p5VSjet",
-                (vsjet_flat_mask & vse_flat_mask),
-                (flat_pt, flat_dm, flat_gen, vsJetWP, "VVLoose"),
-                (flat_gen == 5),
-            ),
-            (
-                "DeepTau2018v2p5VSe",
-                vse_flat_mask,
-                (flat_eta, flat_dm, flat_gen, "Tight"),
-                ((flat_gen == 1) | (flat_gen == 3)),
-            ),
-        ]
-
-        for idx, deep_tau_cut in enumerate(deep_tau_cuts):
-            discr = deep_tau_cut[0]
-            id_mask_flat = ak.fill_none(deep_tau_cut[1], False)
-            arg_list = (deep_tau_cut[2])
-            gen_mask_flat = ak.fill_none(deep_tau_cut[3], False)
-            tau_mask_flat = ak.fill_none(id_mask_flat & pt_mask_flat & gen_mask_flat, False)
-
-            if "VSjet" in discr:
-                arg_sf = arg_list + ("nom", "dm")
-            else:
-                arg_sf = arg_list + ("nom",)
-
-            DT_sf_list.append(
-                ak.where(
-                    ~tau_mask_flat,
-                    1,
-                    _evaluate_correctionlib(ceval[discr], *arg_sf)
-                )
-            )
-
-            if "VSjet" in discr:
-                arg_up = arg_list + ("up", "dm")
-            else:
-                arg_up = arg_list + ("up",)
-            DT_up_list.append(
-                ak.where(
-                    ~tau_mask_flat,
-                    1,
-                    _evaluate_correctionlib(ceval[discr], *arg_up)
-                )
-            )
-            if "VSjet" in discr:
-                arg_down = arg_list + ("down", "dm")
-            else:
-                arg_down = arg_list + ("down",)
-            DT_do_list.append(
-                ak.where(
-                    ~tau_mask_flat,
-                    1,
-                    _evaluate_correctionlib(ceval[discr], *arg_down)
-                )
-            )
-
-        DT_sf_flat = None
-        DT_up_flat = None
-        DT_do_flat = None
-
-        for idr, DT_sf_discr in enumerate(DT_sf_list):
-            DT_sf_discr = ak.to_numpy(DT_sf_discr)
-            DT_up_discr = ak.to_numpy(DT_up_list[idr])
-            DT_do_discr = ak.to_numpy(DT_do_list[idr])
-
-            if idr == 0:
-                real_sf = ak.unflatten(DT_sf_discr, ak.num(pt))
-                real_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
-                real_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
-            if idr == 1:
-                fake_elec_sf = ak.unflatten(DT_sf_discr, ak.num(pt))
-                fake_elec_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
-                fake_elec_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
-
-        whereFlag = ((pt>20) & (pt<200) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
-
-        fake_sf_eval = "TauFakeSF_Run3" if not run3_fake_split else f'TauFakeSF_{year[:4]}'
-
-        new_fake_sf = np.where(whereFlag, SFevaluator[fake_sf_eval](pt), 1.0)
-        new_fake_sf_up = np.where(whereFlag, SFevaluator[f'{fake_sf_eval}_up'](pt), 1.0)
-        new_fake_sf_down = np.where(whereFlag, SFevaluator[f'{fake_sf_eval}_down'](pt), 1.0)
-
-        # Run3 tau muon SF may be needed in the future
-        fake_muon_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        fake_muon_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-        fake_muon_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
-
+    tau_fake_nominal = fake_elec_sf * fake_muon_sf * new_fake_sf
+    tau_nominal = real_sf * tau_fake_nominal
     taus["sf_tau_real"] = real_sf
-    taus["sf_tau_real_up"] = real_sf_up
-    taus["sf_tau_real_down"] = real_sf_down
-    taus["sf_tau_fake"] = fake_elec_sf*fake_muon_sf*new_fake_sf
-    taus["sf_tau_fake_up"] = fake_elec_sf_up*fake_muon_sf_up*new_fake_sf_up
-    taus["sf_tau_fake_down"] = fake_elec_sf_down*fake_muon_sf_down*new_fake_sf_down
+    taus["sf_tau_real_up"] = real_sf
+    taus["sf_tau_real_down"] = real_sf
+    taus["sf_tau_fake"] = tau_fake_nominal
+    taus["sf_tau_fake_up"] = tau_fake_nominal
+    taus["sf_tau_fake_down"] = tau_fake_nominal
 
     padded_taus = ak.pad_none(taus, 1)
-    events["sf_2l_taus_real"] = padded_taus.sf_tau_real[:,0]
-    events["sf_2l_taus_real_hi"] = padded_taus.sf_tau_real_up[:,0]
-    events["sf_2l_taus_real_lo"] = padded_taus.sf_tau_real_down[:,0]
-    events["sf_2l_taus_fake"] = padded_taus.sf_tau_fake[:,0]
-    events["sf_2l_taus_fake_hi"] = padded_taus.sf_tau_fake_up[:,0]
-    events["sf_2l_taus_fake_lo"] = padded_taus.sf_tau_fake_down[:,0]
+    events["sf_2l_taus_real"] = ak.fill_none(padded_taus.sf_tau_real[:, 0], 1.0)
+    events["sf_2l_taus_real_hi"] = events["sf_2l_taus_real"]
+    events["sf_2l_taus_real_lo"] = events["sf_2l_taus_real"]
+    events["sf_2l_taus_fake"] = ak.fill_none(padded_taus.sf_tau_fake[:, 0], 1.0)
+    events["sf_2l_taus_fake_hi"] = events["sf_2l_taus_fake"]
+    events["sf_2l_taus_fake_lo"] = events["sf_2l_taus_fake"]
+
+    event_variations = OrderedDict()
+    for name, directions in variation_ratios.items():
+        event_variations[name] = {
+            direction: ak.fill_none(
+                ak.pad_none(directions[direction], 1)[:, 0], 1.0
+            )
+            for direction in ("up", "down")
+        }
+    return {
+        "nominal": ak.fill_none(ak.pad_none(tau_nominal, 1)[:, 0], 1.0),
+        "nominal_without_jet_fake": ak.fill_none(
+            ak.pad_none(real_sf * fake_elec_sf * fake_muon_sf, 1)[:, 0],
+            1.0,
+        ),
+        "variations": event_variations,
+    }
 
 def AttachPerLeptonFR(leps, flavor, year):
     # Get the flip rates lookup object

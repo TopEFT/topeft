@@ -11,10 +11,11 @@
 | Direct options | `run_analysis.py` argparse | Own executor, resources, analysis toggles, output, policy, and provenance inputs |
 | YAML option overlay | `run_analysis.py --options FILE` | Supplies recognized runtime values through one top-level YAML mapping |
 
-`run_cr.sh` currently accepts `run3_full` and `rebin_fine`. `run3_full` is the
-complete maintained Run 3 SR production profile. `rebin_fine` is a specialized
-profile for its declared changed-binning family blocks; it is not a synonym for
-the canonical profile.
+The maintained public production interface is the six-profile `run_cr.sh`
+matrix described below. `run3_full` is the complete maintained Run 3 SR
+production profile. `rebin_fine` is a specialized legacy profile for its
+declared changed-binning family blocks; it is not a synonym for the public
+profile matrix.
 
 ## Current NDSkim cfg reachability
 
@@ -28,6 +29,15 @@ default selection for one invocation.
 
 Historical sample configs may remain in the repository for reproduction. Their
 presence does not make them reachable from the maintained wrappers.
+
+The six maintained public `run_cr.sh` profiles map to the exact 24-cfg Run 2
+and Run 3 SR+CR production surface. That surface is the validated Project01
+production contract: canonical sample-JSON entries remain `/store/...` paths,
+which resolve through `file:///project01/ndcms/apiccine` onto the accepted
+migrated input universe. Cfgs outside this maintained production surface are
+outside the validated Project01 production contract; this does not make a
+claim about the physical availability of individual inputs associated with
+other cfgs.
 
 ## Direct defaults
 
@@ -163,3 +173,18 @@ is its consumer and storage owner. Tests are in
 - `tests/test_run3_full_production_profile.py`
 - `tests/test_run_analysis_preflight.py`
 - `tests/test_production_sample_profile.py`
+
+## Current `run_cr.sh` profiles
+
+`run_cr.sh` exposes six maintained public profiles: `run2_full`, `run3_full`,
+`run2_full_CR`, `run3_full_CR`, `run2_run3_full`, and
+`run2_run3_full_CR`. The combined profiles place their Run 2 and Run 3
+components in separate child namespaces. The no-argument invocation remains a
+legacy alias for the fixed `run2_full` campaign. `rebin_fine` remains a
+specialist legacy profile for fitting families whose bins changed; it is not a
+replacement for the public profile matrix.
+
+The public profiles require a fresh absolute output directory and campaign tag,
+use the maintained frozen environment archive, and do not expose a profile-level
+Work Queue worker-count setting. See [the production runbook](../how_to/production.md)
+for the environment and recovery contract.

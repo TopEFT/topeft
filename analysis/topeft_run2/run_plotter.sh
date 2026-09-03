@@ -550,6 +550,7 @@ main() {
     else
         mkdir -p "${output_dir}"
         "${cmd[0]}" "${cmd[@]:1}"
+        return $?
     fi
 
     return 0

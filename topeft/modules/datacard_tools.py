@@ -51,6 +51,27 @@ from topeft.modules.missing_parton_contract import (
 
 PRECISION = 6   # Decimal point precision in the text datacard output
 SUMW2_SUFFIX = "_sumw2"
+FULLY_SPECIFIED_TAU_NUISANCE_PREFIXES = (
+    "CMS_eff_t_DeepTau",
+    "CMS_fake_t_DeepTau",
+    "CMS_scale_t_DeepTau",
+    "lepSF_taus_fake_run",
+)
+
+
+def resolve_shape_nuisance_identity(systematic, run_suffix, run_decorrelate):
+    """Return one final nuisance base and paired template name for a variation."""
+    direction = ""
+    for candidate in ("Up", "Down"):
+        if systematic.endswith(candidate):
+            direction = candidate
+            break
+    base = systematic[: -len(direction)] if direction else systematic
+    if base.startswith(FULLY_SPECIFIED_TAU_NUISANCE_PREFIXES):
+        return base, f"{base}{direction}"
+    if base in run_decorrelate:
+        base = f"{base}{run_suffix}"
+    return base, f"{base}{direction}"
 
 # These process rules control which DatacardMaker templates retain stored bin
 # variances in the ROOT output. All other templates are written with zero stored
@@ -1861,14 +1882,9 @@ class DatacardMaker():
                         syst = sp_key[0]
                         syst = sp_key.systematic
 
-                        syst_base = syst.replace("Up","").replace("Down","")
-
-                        if syst_base in self.run_decorrelate:
-                            syst_base += self.suffix
-                            if "Up" in syst:
-                                syst = syst_base + "Up"
-                            if "Down" in syst:
-                                syst = syst_base + "Down"
+                        syst_base, syst = resolve_shape_nuisance_identity(
+                            syst, self.suffix, self.run_decorrelate
+                        )
 
                         if syst_base == "JES_Total":
                             continue

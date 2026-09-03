@@ -36,6 +36,7 @@ from topeft.modules.axes import info as te_axes_info
 from topeft.modules.axes import info_2d as te_axes_info_2d
 from topeft.modules.axis_binning import (
     rebin_histogram,
+    resolve_axis_edges,
     resolve_common_axis_edges,
 )
 
@@ -58,6 +59,18 @@ _ORIGINAL_SPARSEHIST_READ_FROM_REDUCE = tc_sparseHist.SparseHist._read_from_redu
 _VALUES_METHOD_CAPS = {}
 _SYSTEMATICS_SUMMARY_EMITTED = set()
 RATIO_Y_RANGE = (0.0, 2.0)
+BINNING_OUTPUT_MODES = frozenset(("processing", "fitting"))
+
+
+def _mode_bearing_output_path(path, binning_mode):
+    """Return *path* with the resolved binning mode before its extension."""
+
+    if binning_mode not in BINNING_OUTPUT_MODES:
+        raise ValueError(
+            f"Unsupported binning mode {binning_mode!r}; expected processing or fitting."
+        )
+    path_root, path_extension = os.path.splitext(os.fspath(path))
+    return f"{path_root}_{binning_mode}{path_extension}"
 
 
 def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
@@ -2162,6 +2175,87 @@ def _apply_plot_binning_view(histogram, variable, exact_channels, binning_mode):
     return rebin_histogram(histogram, target_edges)
 
 
+def _format_fitting_partition_output_label(group_name, members):
+    """Return a deterministic output label that exposes one effective member set."""
+
+    member_tokens = []
+    prefix = f"{group_name}_"
+    for member in members:
+        member_text = str(member)
+        if member_text.startswith(prefix):
+            member_text = member_text[len(prefix):]
+        member_tokens.append(member_text)
+    return "{}__fitting_{}_members".format(
+        group_name,
+        "_".join(member_tokens),
+    )
+
+
+def _partition_fitting_compatible_channel_groups(channel_dict, variable):
+    """Partition semantic groups into maximal exact fitting-axis classes."""
+
+    partitioned = OrderedDict()
+    semantic_labels = {}
+    original_keys = set(channel_dict)
+
+    for group_name, members in channel_dict.items():
+        if members is None:
+            partitioned[group_name] = None
+            semantic_labels[group_name] = group_name
+            continue
+
+        axis_classes = OrderedDict()
+        for member in members:
+            try:
+                edges = resolve_axis_edges(
+                    variable,
+                    mode="fitting",
+                    channel=member,
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(
+                    "Unable to resolve fitting axis for variable '{}' member '{}' "
+                    "inside presentation group '{}': {}".format(
+                        variable,
+                        member,
+                        group_name,
+                        exc,
+                    )
+                ) from exc
+            axis_identity = (
+                tuple(float(edge) for edge in edges),
+                True,
+                True,
+            )
+            axis_classes.setdefault(axis_identity, []).append(member)
+
+        if len(axis_classes) <= 1:
+            partitioned[group_name] = list(members)
+            semantic_labels[group_name] = group_name
+            continue
+
+        for class_members in axis_classes.values():
+            output_label = _format_fitting_partition_output_label(
+                group_name,
+                class_members,
+            )
+            if output_label in partitioned or (
+                output_label in original_keys and output_label != group_name
+            ):
+                raise ValueError(
+                    "Fitting-axis partition output label collision for variable "
+                    "'{}' group '{}': '{}'".format(
+                        variable,
+                        group_name,
+                        output_label,
+                    )
+                )
+            partitioned[output_label] = list(class_members)
+            semantic_labels[output_label] = group_name
+
+    return partitioned, semantic_labels
+
+
 def parse_rebin_plot_vars(raw_value):
     """Parse a comma-separated variable-to-integer-factor rebin specification."""
 
@@ -2814,10 +2908,13 @@ def _render_variable_from_worker(task_id, payload):
         else:
             region_ctx = ctx["region_ctx"]
             channel_bins = variable_payload["channel_dict"].get(category)
+            semantic_category = variable_payload.get(
+                "semantic_category_labels", {}
+            ).get(category, category)
             if channel_bins is None or (
                 region_ctx.apply_category_skips
                 and _should_skip_category(
-                    region_ctx.category_skip_rules, category, var_name
+                    region_ctx.category_skip_rules, semantic_category, var_name
                 )
             ):
                 stat_only, stat_and_syst, html_set, negative_rows = 0, 0, set(), []
@@ -2841,6 +2938,7 @@ def _render_variable_from_worker(task_id, payload):
                     channel_display_labels=variable_payload.get(
                         "channel_display_labels", {}
                     ),
+                    semantic_category=semantic_category,
                     available_channels=variable_payload.get("available_channels"),
                     rebin_plot_vars=ctx["rebin_plot_vars"],
                     negative_weight_report=ctx["negative_weight_report"],
@@ -2872,6 +2970,9 @@ def _prepare_variable_payload(
                 "is_sparse2d": cached_payload["is_sparse2d"],
                 "channel_display_labels": cached_payload.get(
                     "channel_display_labels", {}
+                ),
+                "semantic_category_labels": cached_payload.get(
+                    "semantic_category_labels", {}
                 ),
                 "available_channels": cached_payload.get(
                     "available_channels", ()
@@ -2963,6 +3064,7 @@ def _prepare_variable_payload(
     channel_dict = _filter_channel_dict_for_mode(channel_dict, region_ctx)
     channel_dict = _prune_empty_channel_entries(channel_dict)
     channel_display_labels = {}
+    semantic_category_labels = {}
     if region_ctx.channel_mode == "per-channel":
         channel_dict, channel_display_labels = _group_channels_by_yearless_label(
             channel_dict,
@@ -2971,7 +3073,21 @@ def _prepare_variable_payload(
             region_name=region_ctx.name,
             is_lepton_flavor_in_pkl=region_ctx.is_lepton_flavor_in_pkl,
         )
+        semantic_category_labels = {key: key for key in channel_dict.keys()}
     else:
+        if (
+            region_ctx.channel_output_mode == "merged"
+            and region_ctx.binning_mode == "fitting"
+            and not is_sparse2d
+        ):
+            channel_dict, semantic_category_labels = (
+                _partition_fitting_compatible_channel_groups(
+                    channel_dict,
+                    var_name,
+                )
+            )
+        else:
+            semantic_category_labels = {key: key for key in channel_dict.keys()}
         channel_display_labels = {key: key for key in channel_dict.keys()}
 
 
@@ -2981,6 +3097,7 @@ def _prepare_variable_payload(
             "channel_transformations": channel_transformations,
             "is_sparse2d": is_sparse2d,
             "channel_display_labels": channel_display_labels,
+            "semantic_category_labels": semantic_category_labels,
             "available_channels": available_channels,
             "channel_fallback_resolution": fallback_resolution,
         }
@@ -3037,6 +3154,7 @@ def _prepare_variable_payload(
         "hist_mc_sumw2_orig": hist_mc_sumw2_orig,
         "is_sparse2d": is_sparse2d,
         "channel_display_labels": channel_display_labels,
+        "semantic_category_labels": semantic_category_labels,
         "available_channels": available_channels,
         "channel_fallback_resolution": fallback_resolution,
     }
@@ -3077,6 +3195,9 @@ def _render_variable(
 
     channel_dict = variable_payload["channel_dict"]
     channel_display_labels = variable_payload.get("channel_display_labels", {})
+    semantic_category_labels = variable_payload.get(
+        "semantic_category_labels", {}
+    )
 
     stat_only_plots = 0
     stat_and_syst_plots = 0
@@ -3095,8 +3216,9 @@ def _render_variable(
     for hist_cat, channel_bins in channel_items:
         if channel_bins is None:
             continue
+        semantic_category = semantic_category_labels.get(hist_cat, hist_cat)
         if region_ctx.apply_category_skips and _should_skip_category(
-            region_ctx.category_skip_rules, hist_cat, var_name
+            region_ctx.category_skip_rules, semantic_category, var_name
         ):
             continue
 
@@ -3117,6 +3239,7 @@ def _render_variable(
             unblind_flag=unblind_flag,
             verbose=verbose,
             channel_display_labels=channel_display_labels,
+            semantic_category=semantic_category,
             available_channels=variable_payload.get("available_channels"),
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
@@ -3147,6 +3270,7 @@ def _render_variable_category(
     unblind_flag,
     verbose=False,
     channel_display_labels=None,
+    semantic_category=None,
     available_channels=None,
     rebin_plot_vars=None,
     negative_weight_report=True,
@@ -3180,12 +3304,14 @@ def _render_variable_category(
     if not filtered_bins:
         return 0, 0, set(), negative_rows
 
+    semantic_category = semantic_category or hist_cat
+
     validate_channel_group(
         [hist_mc, hist_data],
         filtered_bins,
         channel_transformations,
         region=region_ctx.name,
-        subgroup=hist_cat,
+        subgroup=semantic_category,
         variable=var_name,
         available_channels=filtered_bins,
     )
@@ -3294,7 +3420,7 @@ def _render_variable_category(
             )
 
         samples_to_rm = _collect_samples_to_remove(
-            region_ctx.sample_removal_rules, hist_cat, region_ctx
+            region_ctx.sample_removal_rules, semantic_category, region_ctx
         )
         hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
         if hist_mc_sumw2_integrated is not None:
@@ -3557,7 +3683,10 @@ def _render_variable_category(
         if isinstance(fig, dict):
             combined_fig = fig["combined"]
             combined_fig.savefig(
-                os.path.join(save_dir_path_tmp, title),
+                _mode_bearing_output_path(
+                    os.path.join(save_dir_path_tmp, title),
+                    region_ctx.binning_mode,
+                ),
                 bbox_inches="tight",
                 pad_inches=0.05,
             )
@@ -3567,13 +3696,19 @@ def _render_variable_category(
                     continue
                 suffix = suffix_map.get(key, f"_{key}")
                 panel_fig.savefig(
-                    os.path.join(save_dir_path_tmp, f"{title}{suffix}"),
+                    _mode_bearing_output_path(
+                        os.path.join(save_dir_path_tmp, f"{title}{suffix}"),
+                        region_ctx.binning_mode,
+                    ),
                     bbox_inches="tight",
                     pad_inches=0.05,
                 )
         else:
             fig.savefig(
-                os.path.join(save_dir_path_tmp, title),
+                _mode_bearing_output_path(
+                    os.path.join(save_dir_path_tmp, title),
+                    region_ctx.binning_mode,
+                ),
                 bbox_inches="tight",
                 pad_inches=0.05,
             )
@@ -3592,7 +3727,7 @@ def _render_variable_category(
             return _empty_render_result()
         hist_mc_channel = hist_mc.integrate("channel", channels)[{"channel": sum}]
         samples_to_rm = _collect_samples_to_remove(
-            region_ctx.sample_removal_rules, hist_cat, region_ctx
+            region_ctx.sample_removal_rules, semantic_category, region_ctx
         )
         if samples_to_rm:
             hist_mc_channel = hist_mc_channel.remove("process", samples_to_rm)
@@ -3817,7 +3952,10 @@ def _render_variable_category(
                 data_empty=data_empty,
             )
             return _empty_render_result()
-        save_path = os.path.join(save_dir_path_tmp, f"{title}.png")
+        save_path = _mode_bearing_output_path(
+            os.path.join(save_dir_path_tmp, f"{title}.png"),
+            region_ctx.binning_mode,
+        )
         fig.savefig(save_path, bbox_inches="tight", pad_inches=0.05)
         _close_figure_payload(fig)
         has_syst_inputs = any(
@@ -4536,12 +4674,24 @@ def _format_report_float(value):
     return "{:.12g}".format(numeric)
 
 
-def write_negative_weight_report(rows, output_dir, summary_limit=20):
+def write_negative_weight_report(
+    rows,
+    output_dir,
+    *,
+    binning_mode,
+    summary_limit=20,
+):
     """Write negative MC contribution CSV and Markdown summary."""
 
     os.makedirs(output_dir, exist_ok=True)
-    csv_path = os.path.join(output_dir, "negative_weight_contribution_report.csv")
-    md_path = os.path.join(output_dir, "negative_weight_contribution_summary.md")
+    csv_path = _mode_bearing_output_path(
+        os.path.join(output_dir, "negative_weight_contribution_report.csv"),
+        binning_mode,
+    )
+    md_path = _mode_bearing_output_path(
+        os.path.join(output_dir, "negative_weight_contribution_summary.md"),
+        binning_mode,
+    )
 
     normalized_rows = list(rows or [])
     with open(csv_path, "w", newline="") as csv_file:
@@ -6781,6 +6931,9 @@ def produce_region_plots(
             "channel_dict": variable_payload["channel_dict"],
             "channel_transformations": variable_payload["channel_transformations"],
             "is_sparse2d": variable_payload["is_sparse2d"],
+            "semantic_category_labels": variable_payload.get(
+                "semantic_category_labels", {}
+            ),
         }
 
         eligible_variables.append(var_name)
@@ -6792,7 +6945,11 @@ def produce_region_plots(
             and not (
                 region_ctx.apply_category_skips
                 and _should_skip_category(
-                    region_ctx.category_skip_rules, hist_cat, var_name
+                    region_ctx.category_skip_rules,
+                    variable_metadata["semantic_category_labels"].get(
+                        hist_cat, hist_cat
+                    ),
+                    var_name,
                 )
             )
         ]
@@ -6901,6 +7058,9 @@ def produce_region_plots(
                     "channel_display_labels": payload.get(
                         "channel_display_labels", {}
                     ),
+                    "semantic_category_labels": payload.get(
+                        "semantic_category_labels", {}
+                    ),
                     "available_channels": payload.get("available_channels", ()),
                     "channel_fallback_resolution": payload.get(
                         "channel_fallback_resolution"
@@ -6988,10 +7148,15 @@ def produce_region_plots(
                         var_name, region_ctx, variable_payload
                     )
                     channel_bins = variable_payload["channel_dict"].get(hist_cat)
+                    semantic_category = variable_payload.get(
+                        "semantic_category_labels", {}
+                    ).get(hist_cat, hist_cat)
                     if channel_bins is None or (
                         region_ctx.apply_category_skips
                         and _should_skip_category(
-                            region_ctx.category_skip_rules, hist_cat, var_name
+                            region_ctx.category_skip_rules,
+                            semantic_category,
+                            var_name,
                         )
                     ):
                         stat_only, stat_and_syst, html_set, task_negative_rows = 0, 0, set(), []
@@ -7020,6 +7185,7 @@ def produce_region_plots(
                             channel_display_labels=variable_payload.get(
                                 "channel_display_labels", {}
                             ),
+                            semantic_category=semantic_category,
                             rebin_plot_vars=rebin_plot_vars,
                             negative_weight_report=negative_weight_report,
                         )
@@ -8887,6 +9053,7 @@ def run_plots_for_region(
         report_paths = write_negative_weight_report(
             all_negative_rows,
             save_dir_path,
+            binning_mode=binning_mode,
         )
         print(
             "Wrote negative MC contribution report: {csv}; summary: {markdown}".format(

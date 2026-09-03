@@ -9,8 +9,8 @@ import topeft.modules.corrections as corrections
 from topeft.modules.corrections import (
     ApplyTauEnergySystematics,
     AttachTauEnergyCorrections,
-    TAU_ENERGY_FIELDS,
-    TAU_ENERGY_SYSTEMATICS,
+    get_tau_energy_fields,
+    get_tau_energy_variation_specs,
     get_supported_tau_energy_systematics,
 )
 
@@ -31,6 +31,10 @@ def _assert_close(actual, expected):
         rtol=1e-6,
         atol=1e-7,
     )
+
+
+def _energy_variations(year):
+    return tuple(get_supported_tau_energy_systematics(year, isData=False))
 
 
 def _base_records():
@@ -66,7 +70,8 @@ def test_attaches_all_complete_tau_energy_fields_and_preserves_raw_fields():
     )
 
     expected_fields = {"pt_raw", "mass_raw"}
-    for pt_field, mass_field in TAU_ENERGY_FIELDS.values():
+    for variation in ("nominal",) + _energy_variations("2022"):
+        pt_field, mass_field = get_tau_energy_fields(variation)
         expected_fields.update((pt_field, mass_field))
     assert expected_fields <= set(ak.fields(attached))
     _assert_close(attached.pt_raw, tau.pt)
@@ -79,18 +84,21 @@ def test_complete_views_apply_only_the_targeted_category_variation():
         "2022", tau, False, vsJetWP="Medium"
     )
 
-    # Genuine tau: varied TES; fake tau: nominal FES; unmatched: raw.
-    assert attached.pt_TESUp[0, 0] != pytest.approx(attached.pt_nom[0, 0])
-    _assert_close(attached.pt_TESUp[:, 1], attached.pt_nom[:, 1])
-    _assert_close(attached.pt_TESUp[:, 2], attached.pt_raw[:, 2])
+    tes = "CMS_scale_t_DeepTau2018v2p5_DM0_genTau_2022Up"
+    fes = "CMS_scale_t_DeepTau2018v2p5_DM10_genElectron_2022Up"
+    tes_pt, _ = get_tau_energy_fields(tes)
+    fes_pt, _ = get_tau_energy_fields(fes)
 
-    # Genuine tau: nominal TES; fake tau: varied FES; unmatched: raw.
-    _assert_close(attached.pt_FESUp[:, 0], attached.pt_nom[:, 0])
-    assert attached.pt_FESUp[0, 1] != pytest.approx(attached.pt_nom[0, 1])
-    _assert_close(attached.pt_FESUp[:, 2], attached.pt_raw[:, 2])
+    assert attached[tes_pt][0, 0] != pytest.approx(attached.pt_nom[0, 0])
+    _assert_close(attached[tes_pt][:, 1], attached.pt_nom[:, 1])
+    _assert_close(attached[tes_pt][:, 2], attached.pt_raw[:, 2])
 
-    for variation in ("nominal",) + TAU_ENERGY_SYSTEMATICS:
-        pt_field, mass_field = TAU_ENERGY_FIELDS[variation]
+    _assert_close(attached[fes_pt][:, 0], attached.pt_nom[:, 0])
+    assert attached[fes_pt][0, 1] != pytest.approx(attached.pt_nom[0, 1])
+    _assert_close(attached[fes_pt][:, 2], attached.pt_raw[:, 2])
+
+    for variation in ("nominal",) + _energy_variations("2022"):
+        pt_field, mass_field = get_tau_energy_fields(variation)
         _assert_close(
             attached[mass_field] / attached.mass_raw,
             attached[pt_field] / attached.pt_raw,
@@ -108,12 +116,14 @@ def test_selector_uses_attached_views_and_resets_from_nominal():
         "2022", _taus(_base_records()), False, vsJetWP="Medium"
     )
     nominal = ApplyTauEnergySystematics(attached, "nominal")
-    varied_after_nominal = ApplyTauEnergySystematics(nominal, "TESUp")
+    variation = "CMS_scale_t_DeepTau2018v2p5_DM0_genTau_2022Up"
+    varied_after_nominal = ApplyTauEnergySystematics(nominal, variation)
+    varied_pt, varied_mass = get_tau_energy_fields(variation)
 
     _assert_close(nominal.pt, attached.pt_nom)
     _assert_close(nominal.mass, attached.mass_nom)
-    _assert_close(varied_after_nominal.pt, attached.pt_TESUp)
-    _assert_close(varied_after_nominal.mass, attached.mass_TESUp)
+    _assert_close(varied_after_nominal.pt, attached[varied_pt])
+    _assert_close(varied_after_nominal.mass, attached[varied_mass])
     _assert_close(varied_after_nominal.pt_raw, attached.pt_raw)
     _assert_close(varied_after_nominal.mass_raw, attached.mass_raw)
 
@@ -133,8 +143,9 @@ def test_selector_fails_loudly_when_requested_view_is_missing():
             }
         ]
     )
-    with pytest.raises(ValueError, match="pt_TESUp.*mass_TESUp"):
-        ApplyTauEnergySystematics(tau, "TESUp")
+    variation = "CMS_scale_t_DeepTau2018v2p5_DM0_genTau_2022Up"
+    with pytest.raises(ValueError, match="pt_CMS_scale_t_.*mass_CMS_scale_t_"):
+        ApplyTauEnergySystematics(tau, variation)
 
 
 def test_data_is_nominal_only_and_all_attached_views_are_raw():
@@ -151,22 +162,59 @@ def test_data_is_nominal_only_and_all_attached_views_are_raw():
     attached = AttachTauEnergyCorrections("2022", tau, True)
 
     assert get_supported_tau_energy_systematics("2022", isData=True) == []
-    for variation in ("nominal",) + TAU_ENERGY_SYSTEMATICS:
-        pt_field, mass_field = TAU_ENERGY_FIELDS[variation]
-        _assert_close(attached[pt_field], tau.pt)
-        _assert_close(attached[mass_field], tau.mass)
-        active = ApplyTauEnergySystematics(attached, variation)
-        _assert_close(active.pt, tau.pt)
-        _assert_close(active.mass, tau.mass)
+    assert set(ak.fields(attached)) == set(ak.fields(tau)) | {
+        "pt_raw",
+        "mass_raw",
+        "pt_nom",
+        "mass_nom",
+    }
+    active = ApplyTauEnergySystematics(attached, "nominal")
+    _assert_close(active.pt, tau.pt)
+    _assert_close(active.mass, tau.mass)
 
 
 def test_mc_tau_energy_systematics_are_advertised_for_run2_and_run3():
-    assert get_supported_tau_energy_systematics("2018", isData=False) == list(
-        TAU_ENERGY_SYSTEMATICS
-    )
-    assert get_supported_tau_energy_systematics("2022", isData=False) == list(
-        TAU_ENERGY_SYSTEMATICS
-    )
+    run2 = get_supported_tau_energy_systematics("2018", isData=False)
+    run3 = get_supported_tau_energy_systematics("2022", isData=False)
+    assert len(run2) == 2 * len(get_tau_energy_variation_specs("2018")) == 20
+    assert len(run3) == 2 * len(get_tau_energy_variation_specs("2022")) == 24
+    assert not {"TESUp", "TESDown", "FESUp", "FESDown"} & set(run2 + run3)
+
+
+@pytest.mark.parametrize(
+    ("year", "tagger", "run", "wp"),
+    [
+        ("2018", "DeepTau2017v2p1", "Run2", "Loose"),
+        ("2022", "DeepTau2018v2p5", "Run3", "Medium"),
+    ],
+)
+def test_muon_fake_energy_scale_is_dm_specific_and_shared_within_run(
+    year, tagger, run, wp
+):
+    records = [
+        {
+            "pt": 30.0,
+            "mass": 1.2,
+            "eta": 0.7,
+            "decayMode": dm,
+            "genPartFlav": gen,
+        }
+        for dm in (0, 1, 10, 11)
+        for gen in (2, 4)
+    ]
+    attached = AttachTauEnergyCorrections(year, _taus(records), False, vsJetWP=wp)
+    _assert_close(attached.pt_nom, attached.pt_raw)
+    for target_dm in (0, 1, 10, 11):
+        base = f"CMS_scale_t_{tagger}_DM{target_dm}_genMuon_{run}"
+        up_pt, _ = get_tau_energy_fields(f"{base}Up")
+        down_pt, _ = get_tau_energy_fields(f"{base}Down")
+        for index, record in enumerate(records):
+            expected_up = 1.01 if record["decayMode"] == target_dm else 1.0
+            expected_down = 0.99 if record["decayMode"] == target_dm else 1.0
+            assert attached[up_pt][0, index] == pytest.approx(30.0 * expected_up)
+            assert attached[down_pt][0, index] == pytest.approx(
+                30.0 * expected_down
+            )
 
 
 def test_run2_fes_uses_absolute_eta_for_nominal_and_variations():
@@ -192,8 +240,9 @@ def test_run2_fes_uses_absolute_eta_for_nominal_and_variations():
         "2018", tau, False, vsJetWP="Loose"
     )
 
-    for variation in ("nominal", "FESUp", "FESDown"):
-        pt_field, mass_field = TAU_ENERGY_FIELDS[variation]
+    base = "CMS_scale_t_DeepTau2017v2p1_DM0_genElectron_2018"
+    for variation in ("nominal", f"{base}Up", f"{base}Down"):
+        pt_field, mass_field = get_tau_energy_fields(variation)
         _assert_close(attached[pt_field][:, 0], attached[pt_field][:, 1])
         _assert_close(
             attached[mass_field][:, 0], attached[mass_field][:, 1]
@@ -201,7 +250,7 @@ def test_run2_fes_uses_absolute_eta_for_nominal_and_variations():
 
 
 @pytest.mark.parametrize("year", ["2022", "2022EE", "2023", "2023BPix"])
-def test_run3_fes_variations_cover_all_payload_supported_decay_modes(year):
+def test_run3_fes_variations_cover_all_reachable_selected_decay_modes(year):
     tau = _taus(
         [
             {
@@ -218,13 +267,17 @@ def test_run3_fes_variations_cover_all_payload_supported_decay_modes(year):
         year, tau, False, vsJetWP="Medium"
     )
 
-    for index in range(5):
-        assert attached.pt_FESUp[0, index] != pytest.approx(
-            attached.pt_nom[0, index]
-        )
-        assert attached.pt_FESDown[0, index] != pytest.approx(
-            attached.pt_nom[0, index]
-        )
+    for index, dm in enumerate((0, 1, 2, 10, 11)):
+        if dm == 2:
+            assert attached.pt_nom[0, index] == pytest.approx(
+                attached.pt_raw[0, index]
+            )
+            continue
+        base = f"CMS_scale_t_DeepTau2018v2p5_DM{dm}_genElectron_{year}"
+        up_pt, _ = get_tau_energy_fields(f"{base}Up")
+        down_pt, _ = get_tau_energy_fields(f"{base}Down")
+        assert attached[up_pt][0, index] != pytest.approx(attached.pt_nom[0, index])
+        assert attached[down_pt][0, index] != pytest.approx(attached.pt_nom[0, index])
 
 
 def test_raw_based_threshold_case_keeps_tes_up_independent_of_nominal():
@@ -243,10 +296,12 @@ def test_raw_based_threshold_case_keeps_tes_up_independent_of_nominal():
         "2022", tau, False, vsJetWP="Medium"
     )
 
+    variation = "CMS_scale_t_DeepTau2018v2p5_DM0_genTau_2022Up"
+    varied_pt, _ = get_tau_energy_fields(variation)
     assert attached.pt_nom[0, 0] < 20
-    assert attached.pt_TESUp[0, 0] > 20
+    assert attached[varied_pt][0, 0] > 20
     assert attached.pt_nom[0, 0] == pytest.approx(19.869549933075906)
-    assert attached.pt_TESUp[0, 0] == pytest.approx(20.170300841331482)
+    assert attached[varied_pt][0, 0] == pytest.approx(20.170300841331482)
 
 
 def test_correction_applicability_uses_strict_raw_pt_range():
@@ -278,8 +333,8 @@ def test_pt_and_mass_receive_identical_scale_for_every_view(year, wp):
     attached = AttachTauEnergyCorrections(
         year, _taus(_base_records()), False, vsJetWP=wp
     )
-    for variation in ("nominal",) + TAU_ENERGY_SYSTEMATICS:
-        pt_field, mass_field = TAU_ENERGY_FIELDS[variation]
+    for variation in ("nominal",) + _energy_variations(year):
+        pt_field, mass_field = get_tau_energy_fields(variation)
         pt_scale = attached[pt_field] / attached.pt_raw
         mass_scale = attached[mass_field] / attached.mass_raw
         _assert_close(pt_scale, mass_scale)
@@ -307,8 +362,8 @@ def test_synthetic_distribution_grid_is_finite_and_category_complete(year, wp):
     )
 
     assert len(records) == 960
-    for variation in ("nominal",) + TAU_ENERGY_SYSTEMATICS:
-        pt_field, mass_field = TAU_ENERGY_FIELDS[variation]
+    for variation in ("nominal",) + _energy_variations(year):
+        pt_field, mass_field = get_tau_energy_fields(variation)
         pt = ak.to_numpy(ak.flatten(attached[pt_field]))
         mass = ak.to_numpy(ak.flatten(attached[mass_field]))
         assert np.all(np.isfinite(pt))

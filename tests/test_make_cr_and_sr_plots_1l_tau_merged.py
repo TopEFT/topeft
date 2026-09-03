@@ -143,8 +143,8 @@ def test_merged_mode_renders_1l_tau_cr_alias_outputs(tmp_path, monkeypatch):
         unblind=False,
     )
 
-    assert (tmp_path / "cr_1l_1tau_tt" / "1l_1tau_CR_met.png").exists()
-    assert (tmp_path / "cr_dy_tautau" / "1l_dy_tautau_CR_met.png").exists()
+    assert (tmp_path / "cr_1l_1tau_tt" / "1l_1tau_CR_met_processing.png").exists()
+    assert (tmp_path / "cr_dy_tautau" / "1l_dy_tautau_CR_met_processing.png").exists()
 
 
 def test_merged_njets_preserves_empty_low_bins_for_1l_tau_cr(tmp_path, monkeypatch):
@@ -198,13 +198,13 @@ def test_merged_njets_preserves_empty_low_bins_for_1l_tau_cr(tmp_path, monkeypat
         unblind=False,
     )
 
-    assert not (tmp_path / "cr_1l_1tau_tt_0j" / "1l_1tau_CR_0j_met.png").exists()
-    assert not (tmp_path / "cr_1l_1tau_tt_1j" / "1l_1tau_CR_1j_met.png").exists()
-    assert (tmp_path / "cr_1l_1tau_tt_2j" / "1l_1tau_CR_2j_met.png").exists()
+    assert not (tmp_path / "cr_1l_1tau_tt_0j" / "1l_1tau_CR_0j_met_processing.png").exists()
+    assert not (tmp_path / "cr_1l_1tau_tt_1j" / "1l_1tau_CR_1j_met_processing.png").exists()
+    assert (tmp_path / "cr_1l_1tau_tt_2j" / "1l_1tau_CR_2j_met_processing.png").exists()
 
-    assert (tmp_path / "cr_dy_tautau_0j" / "1l_dy_tautau_CR_0j_met.png").exists()
-    assert (tmp_path / "cr_dy_tautau_1j" / "1l_dy_tautau_CR_1j_met.png").exists()
-    assert (tmp_path / "cr_dy_tautau_2j" / "1l_dy_tautau_CR_2j_met.png").exists()
+    assert (tmp_path / "cr_dy_tautau_0j" / "1l_dy_tautau_CR_0j_met_processing.png").exists()
+    assert (tmp_path / "cr_dy_tautau_1j" / "1l_dy_tautau_CR_1j_met_processing.png").exists()
+    assert (tmp_path / "cr_dy_tautau_2j" / "1l_dy_tautau_CR_2j_met_processing.png").exists()
 
 
 @pytest.mark.parametrize(
@@ -261,8 +261,8 @@ def test_aggregate_njets_modes_render_base_channel_outputs(
             unblind=False,
         )
 
-    assert (tmp_path / "cr_1l_1tau_tt" / "1l_1tau_CR_njets.png").exists()
-    assert (tmp_path / "cr_dy_tautau" / "1l_dy_tautau_CR_njets.png").exists()
+    assert (tmp_path / "cr_1l_1tau_tt" / "1l_1tau_CR_njets_processing.png").exists()
+    assert (tmp_path / "cr_dy_tautau" / "1l_dy_tautau_CR_njets_processing.png").exists()
     assert not (tmp_path / "cr_1l_1tau_tt_0j").exists()
     assert not (tmp_path / "cr_dy_tautau_0j").exists()
 
@@ -300,5 +300,5 @@ def test_merged_njets_skips_truly_empty_base_njets_categories(tmp_path, monkeypa
         unblind=False,
     )
 
-    assert not (tmp_path / "cr_1l_1tau_tt" / "1l_1tau_CR_njets.png").exists()
-    assert (tmp_path / "cr_dy_tautau" / "1l_dy_tautau_CR_njets.png").exists()
+    assert not (tmp_path / "cr_1l_1tau_tt" / "1l_1tau_CR_njets_processing.png").exists()
+    assert (tmp_path / "cr_dy_tautau" / "1l_dy_tautau_CR_njets_processing.png").exists()
