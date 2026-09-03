@@ -722,7 +722,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--no-sumw2",
         action="store_true",
-        help="Skip filling sum of weight-squared histograms",
+        help=(
+            "Disable filling embedded nominal sumw2 for 1D HistEFT histograms. "
+            "Two-dimensional Weight-storage histograms continue to track variance."
+        ),
     )
     parser.add_argument(
         "--do-systs",
@@ -969,6 +972,11 @@ if __name__ == "__main__":
         import yaml
         with open(args.options, 'r') as f:
             ops = yaml.load(f, Loader=yaml.Loader)
+        if "use_legacy_histeft" in ops:
+            raise SystemExit(
+                "YAML option 'use_legacy_histeft' is no longer supported; "
+                "MultiCell is now the only supported HistEFT backend."
+            )
         jsonFiles = ops.pop("jsonFiles", jsonFiles)
         prefix = ops.pop("prefix", prefix)
         executor_name = ops.pop("executor", executor_name)
@@ -984,9 +992,9 @@ if __name__ == "__main__":
         if no_sumw2_opt is not None:
             fill_sumw2 = not no_sumw2_opt
         else:
-            legacy_do_errors = ops.pop("do_errors", None)
-            if legacy_do_errors is not None:
-                fill_sumw2 = bool(legacy_do_errors)
+            do_errors_opt = ops.pop("do_errors", None)
+            if do_errors_opt is not None:
+                fill_sumw2 = bool(do_errors_opt)
         do_systs = ops.pop("do_systs", do_systs)
         suppress_forward_eta_stochastic_jer = ops.pop(
             "suppress_forward_eta_stochastic_jer",
@@ -1124,16 +1132,6 @@ if __name__ == "__main__":
         #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
         # if "l1_eta_vs_phi" not in hist_lst:
         #     hist_lst.append("l1_eta_vs_phi")
-        # if fill_sumw2 and "lepton_pt_vs_eta_sumw2" not in hist_lst:
-        #     hist_lst.append("lepton_pt_vs_eta_sumw2")
-        # if fill_sumw2 and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
-        #     hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        # if fill_sumw2 and "l0_eta_vs_phi_sumw2" not in hist_lst:
-        #     hist_lst.append("l0_eta_vs_phi_sumw2")
-        # if fill_sumw2 and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
-        #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        # if fill_sumw2 and "l1_eta_vs_phi_sumw2" not in hist_lst:
-        #     hist_lst.append("l1_eta_vs_phi_sumw2")
     elif hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
@@ -1194,11 +1192,15 @@ if __name__ == "__main__":
             # hist_lst.append("tau0Fpt")
             hist_lst.append("ptz_wtau")
     else:
-        # We want to specify a custom list
-        # If we don't specify this argument, it will be None, and the processor will fill all hists
+    # A custom list can be provided.
+    # If hist_list is None, the processor will fill all histograms.
         hist_lst = hist_list
 
-    print("Resolved histogram list: {}".format(", ".join(hist_lst)))
+    if hist_lst is None:
+        print("Resolved histogram list: ALL")
+    else:
+        print("Resolved histogram list: {}".format(", ".join(hist_lst)))
+
     print(
         "Resolved ttgamma sample-role policy: {}".format(
             ttgamma_sample_role_policy
@@ -1603,6 +1605,9 @@ if __name__ == "__main__":
         )
     else:
         environment_file = None
+
+
+    print("HistEFT backend: MultiCell")
 
     processor_instance = analysis_processor.AnalysisProcessor(
         samplesdict,
