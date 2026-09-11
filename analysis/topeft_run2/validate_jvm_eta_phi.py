@@ -28,6 +28,19 @@ period_config = {
     "2023": ("Summer23Prompt23_RunC_V1", "2023_Summer23"),
     "2023BPix": ("Summer23BPixPrompt23_RunD_V1", "2023_Summer23BPix"),
 }
+run2_period_config = {
+    "2016APV": ("Summer19UL16_V1", "2016preVFP_UL"),
+    "2016": ("Summer19UL16_V1", "2016postVFP_UL"),
+    "2017": ("Summer19UL17_V1", "2017_UL"),
+    "2018": ("Summer19UL18_V1", "2018_UL"),
+}
+run2_process_period_tokens = {
+    "2016APV": "UL16APV",
+    "2016": "UL16",
+    "2017": "UL17",
+    "2018": "UL18",
+}
+run_configs = {"run3": period_config, "run2": run2_period_config}
 histogram_keys = ("jet_eta_phi_before_veto", "jet_eta_phi_after_veto")
 selected_coordinates = {
     "channel": "2los_CRtt_2j",
@@ -41,6 +54,8 @@ def parse_arguments():
     parser.add_argument("--input-pkl", required=True, type=Path)
     parser.add_argument("--payload-root", type=Path, default=default_payload_root)
     parser.add_argument("--tolerance", type=float, default=1e-9)
+    parser.add_argument("--run", choices=tuple(run_configs), default="run3")
+    parser.add_argument("--sample-kind", choices=("both", "data", "mc"), default="both")
     return parser.parse_args()
 
 
@@ -65,6 +80,25 @@ def project_histogram(histogram, processes):
     return dense_values(selected)
 
 
+def process_period_token(period):
+    """Resolve a display period to its serialized process-label token."""
+
+    return run2_process_period_tokens.get(period, period)
+
+
+def period_processes(processes, period):
+    """Return exact data and MC process labels for one display period."""
+
+    process_token = process_period_token(period)
+    data_process = f"data{process_token}"
+    mc_processes = tuple(
+        process
+        for process in processes
+        if process.endswith(process_token) and not process.startswith("data")
+    )
+    return data_process, mc_processes
+
+
 def load_histograms(input_pkl):
     with gzip.open(input_pkl, "rb") as source:
         histogram_dict = pickle.load(source)
@@ -85,8 +119,8 @@ def load_histograms(input_pkl):
     return before, after, eta_edges, phi_edges
 
 
-def payload_data(payload_root, period):
-    correction_name, directory = period_config[period]
+def payload_data(payload_root, period, periods=period_config, payload_category="jetvetomap"):
+    correction_name, directory = periods[period]
     path = Path(payload_root) / directory / "jetvetomaps.json.gz"
     if not path.is_file():
         raise FileNotFoundError(path)
@@ -96,7 +130,9 @@ def payload_data(payload_root, period):
         item for item in payload["corrections"] if item["name"] == correction_name
     )
     map_item = next(
-        item for item in correction_item["data"]["content"] if item["key"] == "jetvetomap"
+        item
+        for item in correction_item["data"]["content"]
+        if item["key"] == payload_category
     )
     node = map_item["value"]
     correction = correctionlib.CorrectionSet.from_file(str(path))[correction_name]
@@ -107,7 +143,14 @@ def partition_edges(low, high, payload_edges):
     return np.asarray(sorted({low, high, *[edge for edge in payload_edges if low < edge < high]}))
 
 
-def classify_analysis_bins(correction, payload_eta_edges, payload_phi_edges, eta_edges, phi_edges):
+def classify_analysis_bins(
+    correction,
+    payload_eta_edges,
+    payload_phi_edges,
+    eta_edges,
+    phi_edges,
+    payload_category="jetvetomap",
+):
     """Classify bins using every sub-rectangle induced by payload edges."""
     labels = np.empty((len(eta_edges) - 1, len(phi_edges) - 1), dtype=object)
     fractions = np.zeros(labels.shape, dtype=float)
@@ -122,7 +165,7 @@ def classify_analysis_bins(correction, payload_eta_edges, payload_phi_edges, eta
                 for sub_phi_low, sub_phi_high in zip(phi_parts[:-1], phi_parts[1:]):
                     value = float(
                         correction.evaluate(
-                            "jetvetomap",
+                            payload_category,
                             (sub_eta_low + sub_eta_high) / 2,
                             (sub_phi_low + sub_phi_high) / 2,
                         )
@@ -150,18 +193,35 @@ def summarize(values, mask, tolerance):
     }
 
 
-def period_metrics(before_histogram, after_histogram, eta_edges, phi_edges, payload_root, period, tolerance):
-    correction, payload_eta_edges, payload_phi_edges = payload_data(payload_root, period)
+def period_metrics(
+    before_histogram,
+    after_histogram,
+    eta_edges,
+    phi_edges,
+    payload_root,
+    period,
+    tolerance,
+    periods=period_config,
+    payload_category="jetvetomap",
+    sample_kind="both",
+):
+    correction, payload_eta_edges, payload_phi_edges = payload_data(
+        payload_root, period, periods, payload_category
+    )
     labels, fractions = classify_analysis_bins(
-        correction, payload_eta_edges, payload_phi_edges, eta_edges, phi_edges
+        correction,
+        payload_eta_edges,
+        payload_phi_edges,
+        eta_edges,
+        phi_edges,
+        payload_category,
     )
     processes = tuple(str(value) for value in before_histogram.axes["process"])
-    data_process = f"data{period}"
-    mc_processes = tuple(
-        process for process in processes if process.endswith(period) and not process.startswith("data")
-    )
-    if data_process not in processes or not mc_processes:
-        raise KeyError(f"Missing period processes for {period}")
+    data_process, mc_processes = period_processes(processes, period)
+    if sample_kind in ("both", "data") and data_process not in processes:
+        raise KeyError(f"Missing data process for {period}")
+    if sample_kind in ("both", "mc") and not mc_processes:
+        raise KeyError(f"Missing MC processes for {period}")
     results = {
         "mask": {
             "fully_vetoed_bins": int(np.count_nonzero(labels == "fully_vetoed")),
@@ -172,7 +232,12 @@ def period_metrics(before_histogram, after_histogram, eta_edges, phi_edges, payl
         "samples": {},
     }
     masks = {label: labels == label for label in ("fully_vetoed", "boundary_mixed", "fully_nonvetoed")}
-    for sample_name, processes_to_sum in (("data", data_process), ("mc", mc_processes)):
+    sample_processes = []
+    if sample_kind in ("both", "data"):
+        sample_processes.append(("data", data_process))
+    if sample_kind in ("both", "mc"):
+        sample_processes.append(("mc", mc_processes))
+    for sample_name, processes_to_sum in sample_processes:
         before = project_histogram(before_histogram, processes_to_sum)
         after = project_histogram(after_histogram, processes_to_sum)
         sample_metrics = {}
@@ -191,6 +256,8 @@ def period_metrics(before_histogram, after_histogram, eta_edges, phi_edges, payl
 def main():
     arguments = parse_arguments()
     before_histogram, after_histogram, eta_edges, phi_edges = load_histograms(arguments.input_pkl)
+    periods = run_configs[arguments.run]
+    payload_category = "jetvetomap_all" if arguments.run == "run2" else "jetvetomap"
     results = {
         period: period_metrics(
             before_histogram,
@@ -200,8 +267,11 @@ def main():
             arguments.payload_root,
             period,
             arguments.tolerance,
+            periods,
+            payload_category,
+            arguments.sample_kind,
         )
-        for period in period_config
+        for period in periods
     }
     residuals = []
     for period, result in results.items():

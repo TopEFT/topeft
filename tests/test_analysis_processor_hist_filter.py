@@ -175,3 +175,91 @@ def test_sumw2_fill_gate_only_allows_nominal_path(
         )
         is expected
     )
+
+
+def test_public_histogram_applicability_query_preserves_fill_skip_decision():
+    processor = _make_processor(hist_lst=["lt", "ptz"])
+    processor._analysis_mode = "all"
+    cases = (
+        ("lt", "3l_onZ_1b_fwd_2j", "3l_onZ_1b_fwd", True),
+        ("lt", "3l_onZ_1b_2j", "3l_onZ_1b", False),
+        ("ptz", "3l_onZ_1b_2j", "3l_onZ_1b", True),
+        ("ptz", "3l_m_offZ_1b_2j", "3l_m_offZ_1b", False),
+    )
+    for family, channel, lepton_channel, expected in cases:
+        assert (
+            processor.histogram_fill_is_applicable(
+                family,
+                channel,
+                lepton_channel,
+            )
+            is expected
+        )
+        assert expected is not processor._should_skip_histogram_fill(
+            family,
+            channel,
+            lepton_channel,
+        )
+
+
+def test_histogram_applicability_builder_is_binary_and_lossless_for_mixed_scope():
+    selected_categories = (
+        {
+            "mixed": {
+                "lep_chan_lst": [
+                    ["3l_onZ_1b"],
+                    ["3l_onZ_1b_fwd"],
+                ],
+                "lep_flav_lst": ["eee"],
+                "appl_lst": ["isSR_3l"],
+                "jet_lst": ["=2"],
+            }
+        },
+        {},
+    )
+    declaration = analysis_processor.AnalysisProcessor.build_histogram_applicability(
+        analysis_mode="all",
+        runtime_families=("lt", "ptz"),
+        selected_category_dicts=selected_categories,
+    )
+
+    lt_states = set(declaration["families"]["lt"]["channels"].values())
+    ptz_states = set(declaration["families"]["ptz"]["channels"].values())
+    assert lt_states == {"applicable", "not_applicable"}
+    assert ptz_states == {"applicable"}
+    assert set().union(lt_states, ptz_states) == {
+        "applicable",
+        "not_applicable",
+    }
+    assert not any(
+        "content" in state or "zero" in state
+        for family in declaration["families"].values()
+        for state in family["channels"].values()
+    )
+
+
+def test_jvm_diagnostic_applicability_uses_the_same_producer_query():
+    processor = _make_processor(hist_lst=["jet_eta_phi_before_veto"])
+    processor._analysis_mode = "all"
+    family = "jet_eta_phi_before_veto"
+    assert processor.histogram_fill_is_applicable(
+        family,
+        "2los_CRtt_2j",
+        "2los_CRtt",
+        is_run3=False,
+        application_region="isSR_2lOS",
+    )
+    assert not processor.histogram_fill_is_applicable(
+        family,
+        "3l_onZ_1b_2j",
+        "3l_onZ_1b",
+        is_run3=False,
+        application_region="isSR_3l",
+    )
+    assert processor.histogram_fill_is_applicable(
+        family,
+        "3l_onZ_1b_2j",
+        "3l_onZ_1b",
+        is_run3=True,
+        application_region="isSR_3l",
+    )

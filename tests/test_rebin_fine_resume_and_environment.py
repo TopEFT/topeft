@@ -116,7 +116,7 @@ def _write_state(output_dir, campaign_tag, env_file, *, status="planned"):
         item for item in manifest["editable_packages"] if item["package_name"] == "topcoffea"
     )
     state = {
-        "schema_version": 3,
+        "schema_version": 4,
         "production_profile": "rebin_fine",
         "campaign_tag": campaign_tag,
         "output_dir": str(output_dir),
@@ -129,6 +129,8 @@ def _write_state(output_dir, campaign_tag, env_file, *, status="planned"):
         "ttgamma_sample_role_policy": "split",
         "do_systs": True,
         "do_np": True,
+        "region": "SR",
+        "nonprompt_mode": "separate",
         "created_at_utc": "2026-01-01T00:00:00Z",
         "updated_at_utc": "2026-01-01T00:00:00Z",
         "blocks": blocks,

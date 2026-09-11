@@ -335,6 +335,103 @@ def _process_labels(histogram: Any) -> frozenset[str]:
         return frozenset()
 
 
+def _channel_labels(histogram: Any) -> frozenset[str]:
+    try:
+        return frozenset(str(value) for value in histogram.axes["channel"])
+    except Exception:
+        return frozenset()
+
+
+def _family_channel_applicability(
+    histogram_applicability: Mapping[str, Any],
+    *,
+    runtime_families: Iterable[str],
+) -> dict[str, dict[str, str]]:
+    if not isinstance(histogram_applicability, Mapping):
+        raise TypeError("Histogram applicability must be a mapping.")
+    families = histogram_applicability.get("families")
+    if not isinstance(families, Mapping):
+        raise ValueError("Histogram applicability lacks a families mapping.")
+    runtime_families = tuple(runtime_families)
+    if list(families) != list(runtime_families):
+        raise ValueError(
+            "Histogram applicability family order must match runtime families: "
+            f"expected={list(runtime_families)} observed={list(families)}."
+        )
+    normalized = {}
+    for family, family_contract in families.items():
+        if not isinstance(family_contract, Mapping) or set(family_contract) != {
+            "channels"
+        }:
+            raise ValueError(
+                f"Histogram applicability family {family!r} must contain only channels."
+            )
+        channels = family_contract["channels"]
+        if not isinstance(channels, Mapping):
+            raise ValueError(
+                f"Histogram applicability channels for family {family!r} must be a mapping."
+            )
+        normalized_channels = {}
+        for channel, state in channels.items():
+            if not isinstance(channel, str) or not channel:
+                raise ValueError("Histogram applicability channel names must be nonempty strings.")
+            if state not in {"applicable", "not_applicable"}:
+                raise ValueError(
+                    "Histogram applicability states are binary; "
+                    f"family={family!r} channel={channel!r} state={state!r}."
+                )
+            normalized_channels[channel] = state
+        if list(normalized_channels) != sorted(normalized_channels):
+            raise ValueError(
+                f"Histogram applicability channels for family {family!r} must be sorted."
+            )
+        normalized[family] = normalized_channels
+    return normalized
+
+
+def validate_histogram_applicability_structure(
+    histograms: Mapping[str, Any],
+    *,
+    runtime_families: Iterable[str],
+    histogram_applicability: Mapping[str, Any],
+    schema_version: int | None = NOMINAL_CONTAINER_SCHEMA_VERSION,
+) -> None:
+    """Validate category-family structure without inspecting numerical content."""
+
+    runtime_families = tuple(runtime_families)
+    applicability = _family_channel_applicability(
+        histogram_applicability,
+        runtime_families=runtime_families,
+    )
+    for family in runtime_families:
+        components = get_nominal_components(
+            histograms,
+            family,
+            schema_version=schema_version,
+        )
+        observed_channels = frozenset().union(
+            *(_channel_labels(component) for component in components.values())
+        ) if components else frozenset()
+        expected_applicable = {
+            channel
+            for channel, state in applicability[family].items()
+            if state == "applicable"
+        }
+        expected_not_applicable = set(applicability[family]) - expected_applicable
+        missing = sorted(expected_applicable - observed_channels)
+        inconsistent = sorted(expected_not_applicable & observed_channels)
+        if missing:
+            raise ValueError(
+                f"Family {family!r} is structurally absent for applicable channel(s): "
+                + ", ".join(missing)
+            )
+        if inconsistent:
+            raise ValueError(
+                f"Family {family!r} is structurally present for not-applicable channel(s): "
+                + ", ".join(inconsistent)
+            )
+
+
 def _validate_sparse_double(histogram: SparseHist, key: str) -> None:
     storage_name = getattr(histogram, "_init_args", {}).get("storage")
     if storage_name != "Double":
@@ -521,9 +618,18 @@ def validate_nominal_mapping(
     runtime_families: Iterable[str],
     schema_version: int | None = NOMINAL_CONTAINER_SCHEMA_VERSION,
     policy: resolved_sumw2_policy | None = None,
+    histogram_applicability: Mapping[str, Any] | None = None,
 ) -> None:
     _require_histogram_mapping(histograms)
     runtime_families = tuple(runtime_families)
+    family_applicability = (
+        None
+        if histogram_applicability is None
+        else _family_channel_applicability(
+            histogram_applicability,
+            runtime_families=runtime_families,
+        )
+    )
     known_keys = set()
     for family in runtime_families:
         if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION and _dimensionality(family) == 1:
@@ -533,6 +639,19 @@ def validate_nominal_mapping(
         known_keys.add(sumw2_key(family))
         companion_selected = None if policy is None else policy.selects_family(family)
         selected_processes = () if policy is None else policy.selected_processes(family)
+        if family_applicability is not None:
+            components = get_nominal_components(
+                histograms,
+                family,
+                schema_version=schema_version,
+            )
+            companion = histograms.get(sumw2_key(family))
+            family_is_applicable = any(
+                state == "applicable"
+                for state in family_applicability[family].values()
+            )
+            if not components and companion is None and not family_is_applicable:
+                continue
         validate_nominal_family(
             histograms,
             family,
@@ -555,6 +674,13 @@ def validate_nominal_mapping(
         raise ValueError(
             "Histogram payload contains orphan or unresolved schema keys: "
             + ", ".join(unknown_components)
+        )
+    if histogram_applicability is not None:
+        validate_histogram_applicability_structure(
+            histograms,
+            runtime_families=runtime_families,
+            histogram_applicability=histogram_applicability,
+            schema_version=schema_version,
         )
 
 
@@ -671,7 +797,21 @@ def evaluate_eft_histogram_at_wc(
     )
     for categories, values in eft_histogram.eval(wc_values).items():
         output[tuple(categories)] = np.asarray(values)
+    if eft_histogram.track_raw_counts:
+        output.copy_raw_counts_from(eft_histogram)
     return output
+
+
+def mark_sparse_histogram_raw_counts_unrecorded(
+    histogram: SparseHist,
+) -> SparseHist:
+    """Copy generated content while classifying every raw-count cell unrecorded."""
+
+    if type(histogram) is not SparseHist:
+        raise TypeError("Raw-count reclassification requires an exact SparseHist object.")
+    if not histogram.track_raw_counts:
+        return histogram
+    return histogram.with_raw_counts_unrecorded()
 
 
 def _constant_histeft_from_sparse(

@@ -37,6 +37,7 @@ from topeft.modules.nominal_schema import (
     SCALAR_NOMINAL_SUFFIX,
     SUMW2_SUFFIX,
     evaluate_eft_histogram_at_wc,
+    mark_sparse_histogram_raw_counts_unrecorded,
 )
 
 
@@ -65,6 +66,7 @@ class DataDrivenProducer:
         iterator_mode=False,
         dd_report=False,
         artifact_kind="nonprompt_output",
+        input_artifact_validation=None,
     ):
         self._input_source = inputHist
         self.outputName=outputName
@@ -81,8 +83,10 @@ class DataDrivenProducer:
         self._dd_report_by_key = {} if dd_report else None
         self._input_artifact_validation = None
         if self._is_histogram_path(self._input_source):
-            self._input_artifact_validation = validate_histogram_artifact(
-                self._input_source
+            self._input_artifact_validation = (
+                input_artifact_validation
+                if input_artifact_validation is not None
+                else validate_histogram_artifact(self._input_source)
             )
             if self._input_artifact_validation["schema"] == "legacy_uniform":
                 warnings.warn(
@@ -119,11 +123,15 @@ class DataDrivenProducer:
     def _iter_input_histograms(self):
         source = self._input_source
         if self._is_histogram_path(source):
-            yield from iterate_hist_from_pkl(source, allow_empty=True)
+            for key, histogram in iterate_hist_from_pkl(source, allow_empty=True):
+                if self._histogram_key_is_applicable(key):
+                    yield key, histogram
             return
 
         if hasattr(source, 'items'):
-            yield from source.items()
+            for key, histogram in source.items():
+                if self._histogram_key_is_applicable(key):
+                    yield key, histogram
             return
 
         yield from source
@@ -136,12 +144,45 @@ class DataDrivenProducer:
                 for key, _histogram in iterate_hist_from_pkl(
                     source, allow_empty=True, materialize=False
                 )
+                if self._histogram_key_is_applicable(key)
             )
         if hasattr(source, "keys"):
-            return tuple(source.keys())
+            return tuple(
+                key for key in source.keys() if self._histogram_key_is_applicable(key)
+            )
         raise TypeError(
             "Streaming nonprompt input must be a histogram path or keyed mapping."
         )
+
+    def _histogram_key_is_applicable(self, key):
+        input_sidecar = self._resolved_input_sidecar
+        if input_sidecar is None:
+            return True
+        applicability = input_sidecar.get("histogram_applicability")
+        if applicability is None:
+            return True
+        family, _component = self._family_from_nominal_key(key)
+        if family is None:
+            return True
+        family_contract = applicability["families"].get(family)
+        if family_contract is None:
+            raise RuntimeError(
+                f"Missing validated histogram applicability for family {family!r}."
+            )
+        return any(
+            state == "applicable"
+            for state in family_contract["channels"].values()
+        )
+
+    def _histogram_key_has_validated_applicability(self, key):
+        input_sidecar = self._resolved_input_sidecar
+        if input_sidecar is None:
+            return False
+        applicability = input_sidecar.get("histogram_applicability")
+        if applicability is None:
+            return False
+        family, _component = self._family_from_nominal_key(key)
+        return family in applicability["families"]
 
     def _initialize_transformation_role_context(self):
         if self._input_artifact_validation is None:
@@ -153,6 +194,17 @@ class DataDrivenProducer:
         for family, manifest in input_sidecar["sumw2_content_manifest"][
             "families"
         ].items():
+            family_applicability = input_sidecar.get(
+                "histogram_applicability", {}
+            ).get("families", {}).get(family)
+            family_is_applicable = (
+                True
+                if family_applicability is None
+                else any(
+                    state == "applicable"
+                    for state in family_applicability["channels"].values()
+                )
+            )
             families[family] = {
                 "source_scalar_processes": list(
                     manifest["scalar_nominal_processes"]
@@ -162,8 +214,12 @@ class DataDrivenProducer:
                 "retained_eft_processes": [],
                 "generated_nonprompt_processes": [],
                 "generated_flips_processes": [],
-                "source_application_regions": None,
-                "applicable_products": None,
+                "source_application_regions": None if family_is_applicable else [],
+                "applicable_products": (
+                    None
+                    if family_is_applicable
+                    else {"nonprompt": False, "flips": False}
+                ),
             }
         return families
 
@@ -944,7 +1000,11 @@ class DataDrivenProducer:
             self._record_transformation_roles(key, output)
             return output
 
-        if histo.empty():  # histo is empty, so we just integrate over appl and keep an empty histo
+        if histo.empty() and not self._histogram_key_has_validated_applicability(key):
+            # The legacy shortcut is intentionally unavailable once structural
+            # applicability has been validated. An applicable zero histogram
+            # must execute the normal transformation and publish its zero-valued
+            # output roles rather than being reclassified from numerical content.
             if self._dd_report_enabled and not key.endswith("_sumw2"):
                 self._dd_report_by_key[key] = self._init_dd_report(key, histo, empty=True)
             print(f"[W]: Histogram {key} is empty, returning an empty histo")
@@ -1001,7 +1061,9 @@ class DataDrivenProducer:
                         if self.dataName == sampleName:
                             newNameDictData[flips_name].append(process_name)
                 generated_flips_processes.update(newNameDictData)
-                hFlips = hAR.group("process", newNameDictData)
+                hFlips = mark_sparse_histogram_raw_counts_unrecorded(
+                    hAR.group("process", newNameDictData)
+                )
                 hFlipsRaw = hFlips
 
                 # remove any up/down FF variations from the flip histo since we don't use that info
@@ -1106,9 +1168,13 @@ class DataDrivenProducer:
                     )
                 generated_nonprompt_processes.update(newNameDictData)
                 generated_nonprompt_processes.update(newNameDictNoData)
-                hFakes = hAR.group("process", newNameDictData)
+                hFakes = mark_sparse_histogram_raw_counts_unrecorded(
+                    hAR.group("process", newNameDictData)
+                )
                 # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
-                hPromptSub = hAR.group("process", newNameDictNoData)
+                hPromptSub = mark_sparse_histogram_raw_counts_unrecorded(
+                    hAR.group("process", newNameDictNoData)
+                )
                 prompt_source_hist = hAR
                 projection = self._eft_prompt_projections.get(family)
                 if projection is not None and not key.endswith("_sumw2"):
@@ -1138,8 +1204,8 @@ class DataDrivenProducer:
                             else None
                         ),
                     )
-                    projected_prompt = projected_ar.group(
-                        "process", projection_groups
+                    projected_prompt = mark_sparse_histogram_raw_counts_unrecorded(
+                        projected_ar.group("process", projection_groups)
                     )
                     try:
                         hPromptSub += projected_prompt

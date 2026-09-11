@@ -57,8 +57,9 @@ def test_analysis_jet_fake_weight_is_the_only_tau_component_gated_by_mode():
     assert 'weights_dict[ch_name].add("tauSF_nominal", tau_nominal)' in source
     assert 'weights_dict[ch_name].add("lepSF_taus_real"' not in source
     assert 'weights_dict[ch_name].add("lepSF_taus_fake"' not in source
-    assert source.count('weights_dict[ch_name].add("lepSF_muon"') == 4
-    assert source.count('weights_dict[ch_name].add("lepSF_elec"') == 4
+    assert source.count("add_lepton_sf_weights(weights_dict[ch_name], events, ") == 4
+    assert 'weights_dict[ch_name].add("lepSF_muon"' not in source
+    assert 'weights_dict[ch_name].add("lepSF_elec"' not in source
 
 
 def test_run3_vse_tau_sf_uses_selected_vvloose_wp():

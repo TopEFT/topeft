@@ -5,6 +5,7 @@ from analysis.topeft_run2.analysis_processor import (
     AnalysisProcessor,
     flatten_jagged_jet_eta_phi_weights,
     get_jvm_eta_phi_event_mask,
+    get_run2_jvm_eta_phi_jets,
     should_include_jet_veto_in_histogram_selection,
     should_fill_jvm_eta_phi_diagnostic,
 )
@@ -137,3 +138,44 @@ def test_jvm_eta_phi_unit_weights_and_nominal_guard():
     assert should_include_jet_veto_in_histogram_selection("njets")
     assert not should_include_jet_veto_in_histogram_selection(BEFORE)
     assert not should_include_jet_veto_in_histogram_selection(AFTER)
+
+
+def test_run2_jvm_eta_phi_uses_per_jet_removal_on_the_same_event_set():
+    jets = ak.Array(
+        [[
+            {
+                "pt": 45.0,
+                "eta": -2.0,
+                "phi": -1.2,
+                "jetId": 2,
+                "chEmEF": 0.1,
+                "neEmEF": 0.1,
+                "puId": 4,
+            },
+            {
+                "pt": 50.0,
+                "eta": 0.5,
+                "phi": 0.7,
+                "jetId": 2,
+                "chEmEF": 0.1,
+                "neEmEF": 0.1,
+                "puId": 4,
+            },
+        ]]
+    )
+    pf_muons = ak.Array([[{"eta": 4.0, "phi": 0.0}]])
+
+    def map_evaluator(input_jets, year):
+        assert year == "2018"
+        return ak.Array([[1.0, 0.0]])
+
+    before = get_run2_jvm_eta_phi_jets(
+        jets, pf_muons, "2018", BEFORE, map_evaluator
+    )
+    after = get_run2_jvm_eta_phi_jets(
+        jets, pf_muons, "2018", AFTER, map_evaluator
+    )
+
+    assert ak.to_list(before.eta) == [[-2.0, 0.5]]
+    assert ak.to_list(after.eta) == [[0.5]]
+    assert len(before) == len(after) == 1

@@ -285,7 +285,7 @@ fi
 
 matrix_parse_args "$@"
 case "${matrix_profile}" in
-  run2_full|run3_full|run2_full_CR|run3_full_CR|run2_run3_full|run2_run3_full_CR)
+  run2_full|run3_full|run2_full_CR|run3_full_CR|run2_run3_full|run2_run3_full_CR|t0_sr_statonly|t0_cr_statonly)
     if (( ${#matrix_parse_errors[@]} > 0 )); then
       printf 'ERROR: %s.\n' "${matrix_parse_errors[@]}" >&2
       exit 1
@@ -298,12 +298,13 @@ case "${matrix_profile}" in
       echo "ERROR: ${matrix_profile} --env-file must be an absolute path: ${matrix_env_file}" >&2
       exit 1
     fi
-    if [[ -n "${matrix_env_file}" && "${matrix_env_file}" != "/users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_9d72aad444117c28.tar.gz" ]]; then
-      echo "ERROR: requested profiles are pinned to the required frozen snapshot archive." >&2
-      exit 1
+    matrix_required_env_file=/users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_9d72aad444117c28.tar.gz
+    if [[ "${matrix_profile}" == "t0_sr_statonly" \
+      || "${matrix_profile}" == "t0_cr_statonly" ]]; then
+      matrix_required_env_file=/users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_d2b557628143725b.tar.gz
     fi
-    if [[ "${matrix_resume}" == "true" && "${matrix_profile}" != "run3_full" ]]; then
-      echo "ERROR: ${matrix_profile} has no automatic resume; inspect interrupted state first." >&2
+    if [[ -n "${matrix_env_file}" && "${matrix_env_file}" != "${matrix_required_env_file}" ]]; then
+      echo "ERROR: requested profiles are pinned to the required frozen snapshot archive." >&2
       exit 1
     fi
     ;;
@@ -311,8 +312,12 @@ esac
 
 case "${matrix_profile}" in
   run2_run3_full|run2_run3_full_CR)
-    if [[ -e "${matrix_output_dir}" ]]; then
+    if [[ "${matrix_resume}" == "false" && -e "${matrix_output_dir}" ]]; then
       echo "ERROR: combined output namespace already exists: ${matrix_output_dir}" >&2
+      exit 1
+    fi
+    if [[ "${matrix_resume}" == "true" && ! -d "${matrix_output_dir}" ]]; then
+      echo "ERROR: ${matrix_profile} --resume requires an existing combined output namespace: ${matrix_output_dir}" >&2
       exit 1
     fi
     combined_suffix=""
@@ -323,11 +328,12 @@ case "${matrix_profile}" in
       first_profile=run2_full_CR
       second_profile=run3_full_CR
     fi
-    if [[ "${matrix_dry_run}" == "false" ]]; then
+    if [[ "${matrix_dry_run}" == "false" && "${matrix_resume}" == "false" ]]; then
       mkdir -- "${matrix_output_dir}"
     fi
     component_common=(--env-file /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_9d72aad444117c28.tar.gz)
     [[ "${matrix_dry_run}" == "true" ]] && component_common+=(--dry-run)
+    [[ "${matrix_resume}" == "true" ]] && component_common+=(--resume)
     if "$0" --production-profile "${first_profile}" \
       --output-dir "${matrix_output_dir}/run2${combined_suffix}" \
       --campaign-tag "${matrix_campaign_tag}_run2" "${component_common[@]}"; then
@@ -392,16 +398,20 @@ Usage: ./run_cr.sh [--dry-run]
 Public PROFILE values:
   run2_full, run3_full, run2_run3_full
   run2_full_CR, run3_full_CR, run2_run3_full_CR
+  t0_sr_statonly, t0_cr_statonly
 
 With no arguments, run_cr.sh remains a backward-compatible alias for the fixed
 five-block run2_full campaign. Combined profiles run Run 2 then Run 3 in
 separate child namespaces. A safely classified Run-2-local failure or blocker
 does not suppress the independent Run-3 component; a shared unsafe state does.
 
-All six public profiles use the exact maintained frozen archive in snapshot
-mode, Work Queue without a profile-level worker count, and explicit
-full_diagnostics sumw2 storage. Explicit component and combined profiles
-require a fresh absolute output directory and campaign tag.
+All public profiles use a profile-pinned exact maintained frozen archive in
+snapshot mode, Work Queue without a profile-level worker count, and explicit
+full_diagnostics sumw2 storage. Explicit component and combined profiles require
+a fresh absolute output directory and campaign tag. t0_sr_statonly covers the
+maintained Run-2 and early-Run-3 SR mapping with nominal weights and raw counts.
+t0_cr_statonly reuses the complete Run-2/Run-3 CR mapping with nominal weights,
+raw counts, and separate native nonprompt/charge-flip postprocessing.
 
 run3_full is the canonical complete Run-3 SR source-production profile.
 rebin_fine is the specialized six-block Run-2/Run-3 source-production profile
@@ -479,12 +489,17 @@ if [[ -z "${production_profile}" ]]; then
 fi
 
 case "${production_profile}" in
-  run2_full|run3_full|run2_full_CR|run3_full_CR|rebin_fine) ;;
+  run2_full|run3_full|run2_full_CR|run3_full_CR|rebin_fine|t0_sr_statonly|t0_cr_statonly) ;;
   *)
     echo "ERROR: unsupported production profile '${production_profile}'." >&2
     exit 1
     ;;
 esac
+
+is_t0_statonly_profile() {
+  [[ "${production_profile}" == "t0_sr_statonly" \
+    || "${production_profile}" == "t0_cr_statonly" ]]
+}
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repository_root=$(git -C "${script_dir}" rev-parse --show-toplevel)
@@ -534,6 +549,8 @@ production_sumw2_options_path=""
 production_sumw2_temporary_options=""
 production_state_path=""
 production_git_commit=""
+production_postprocessor_topeft_git_commit=""
+production_postprocessor_topcoffea_git_commit=""
 
 run_cr=false
 run_sr=true
@@ -604,6 +621,20 @@ case "${production_profile}" in
     production_np_mode="separate"
     production_component="run3"
     ;;
+  t0_sr_statonly)
+    run_cr=false
+    run_sr=true
+    production_region="SR"
+    production_np_mode="separate"
+    production_component="t0_sr_statonly"
+    ;;
+  t0_cr_statonly)
+    run_cr=true
+    run_sr=false
+    production_region="CR"
+    production_np_mode="separate"
+    production_component="t0_cr_statonly"
+    ;;
   run2_full_CR)
     run_cr=true
     run_sr=false
@@ -626,6 +657,9 @@ dry_run="${profile_dry_run}"
 # Shared CR/SR production switches.
 do_systs=true
 do_np=true
+if is_t0_statonly_profile; then
+  do_systs=false
+fi
 
 # Enable only when lepton-flavour-split outputs are explicitly required.
 split_lep_flavor=false
@@ -771,11 +805,25 @@ elif [[ "${production_profile}" == "run3_full" ]]; then
   sr_year_category_var_set_names=(
     "run3_full_category_var_set_names"
   )
+elif [[ "${production_profile}" == "t0_sr_statonly" ]]; then
+  sr_year_sets=(
+    "2016APV 2016 2017 2018"
+    "2022 2022EE 2023 2023BPix"
+  )
+  sr_year_category_set_names=(
+    "run3_full_category_sets"
+    "run3_full_category_sets"
+  )
+  sr_year_category_var_set_names=(
+    "run3_full_category_var_set_names"
+    "run3_full_category_var_set_names"
+  )
 fi
 
 case "${production_profile}" in
   run2_full_CR) cr_year_sets=("2016APV 2016 2017 2018") ;;
   run3_full_CR) cr_year_sets=("2022 2022EE" "2023 2023BPix") ;;
+  t0_cr_statonly) cr_year_sets=("2016APV 2016 2017 2018" "2022 2022EE" "2023 2023BPix") ;;
 esac
 
 production_state_filename=".${production_profile}_campaign_state.json"
@@ -819,11 +867,34 @@ case "${production_profile}" in
       unset -n profile_var_set_ref
     done
     ;;
-  run2_full_CR|run3_full_CR)
+  t0_sr_statonly)
+    profile_block_suffixes=(a b c d e)
+    profile_era_labels=(run2 run3)
+    for profile_era_index in "${!sr_year_sets[@]}"; do
+      profile_year_expr="${sr_year_sets[profile_era_index]}"
+      profile_era_label="${profile_era_labels[profile_era_index]}"
+      for profile_index in "${!run3_full_category_sets[@]}"; do
+        profile_var_set_name="${run3_full_category_var_set_names[profile_index]}"
+        declare -n profile_var_set_ref="${profile_var_set_name}"
+        production_block_ids+=("t0_sr_statonly_${profile_era_label}_${profile_block_suffixes[profile_index]}")
+        production_plan_year_exprs+=("${profile_year_expr}")
+        production_plan_category_sets+=("${run3_full_category_sets[profile_index]}")
+        production_plan_var_sets+=("${profile_var_set_ref[0]}")
+        unset -n profile_var_set_ref
+      done
+    done
+    ;;
+  run2_full_CR|run3_full_CR|t0_cr_statonly)
     if [[ "${production_profile}" == "run2_full_CR" ]]; then
       profile_cr_year_sets=("2016APV 2016 2017 2018")
-    else
+    elif [[ "${production_profile}" == "run3_full_CR" ]]; then
       profile_cr_year_sets=("2022 2022EE" "2023 2023BPix")
+    else
+      profile_cr_year_sets=(
+        "2016APV 2016 2017 2018"
+        "2022 2022EE"
+        "2023 2023BPix"
+      )
     fi
     profile_block_index=0
     for profile_year_expr in "${profile_cr_year_sets[@]}"; do
@@ -954,7 +1025,9 @@ write_production_plan() {
     read -r -a vars <<< "${var_set}"
     cat_tag=$(join_by - "${cats[@]}")
     var_tag=$(join_by - "${vars[@]}")
-    if [[ "${production_profile}" == "run2_full" || "${production_profile}" == *_CR ]]; then
+    if [[ "${production_profile}" == "run2_full" \
+      || "${production_profile}" == *_CR \
+      || "${production_profile}" == "t0_cr_statonly" ]]; then
       pkl_tag="${campaign_tag}-block$((index + 1))"
     else
       pkl_tag="${campaign_tag}_${cat_tag}_${var_tag}"
@@ -978,6 +1051,7 @@ production_state_tool() {
 import datetime
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -1081,7 +1155,7 @@ def desired_state(arguments):
     }
 
 
-def validate_state(state, desired):
+def validate_state(state, desired, allow_historical_source_commit=False):
     for key in (
         "schema_version",
         "production_profile",
@@ -1099,6 +1173,13 @@ def validate_state(state, desired):
         "region",
         "nonprompt_mode",
     ):
+        if key == "topeft_git_commit" and allow_historical_source_commit:
+            recorded_source_commit = state.get(key)
+            if not isinstance(recorded_source_commit, str) or re.fullmatch(
+                r"[0-9a-f]{40}", recorded_source_commit
+            ) is None:
+                fail("campaign state does not contain a valid historical topeft source commit")
+            continue
         if state.get(key) != desired[key]:
             fail(f"campaign state mismatch for {key}: recorded={state.get(key)!r} requested={desired[key]!r}")
     recorded_blocks = state.get("blocks")
@@ -1135,6 +1216,7 @@ state_path = Path(sys.argv[2])
 if mode in {"initialize", "validate"}:
     desired = desired_state(sys.argv[3:19])
     readonly = len(sys.argv) > 19 and sys.argv[19] == "true"
+    allow_historical_source_commit = len(sys.argv) > 20 and sys.argv[20] == "true"
     if mode == "initialize":
         if state_path.exists():
             fail(f"refusing to overwrite existing {desired['production_profile']} campaign state: {state_path}")
@@ -1179,7 +1261,11 @@ if mode in {"initialize", "validate"}:
         atomic_write(state_path, state)
     else:
         state = load(state_path)
-        validate_state(state, desired)
+        validate_state(
+            state,
+            desired,
+            allow_historical_source_commit=allow_historical_source_commit,
+        )
         for block in state["blocks"]:
             if block["source_status"] == "running":
                 fail(f"block {block['id']} has an ambiguous interrupted source stage; state was not rewritten")
@@ -1206,6 +1292,85 @@ if mode == "env_file":
     print(env_file)
     raise SystemExit(0)
 
+if mode == "historical_source_commit":
+    expected_profile, expected_tag, expected_output_dir = sys.argv[3:6]
+    for key, expected in (
+        ("production_profile", expected_profile),
+        ("campaign_tag", expected_tag),
+        ("output_dir", expected_output_dir),
+    ):
+        if state.get(key) != expected:
+            fail(
+                f"campaign state mismatch for {key}: "
+                f"recorded={state.get(key)!r} requested={expected!r}"
+            )
+    source_commit = state.get("topeft_git_commit")
+    if not isinstance(source_commit, str) or re.fullmatch(
+        r"[0-9a-f]{40}", source_commit
+    ) is None:
+        fail("campaign state does not contain a valid historical topeft source commit")
+    print(source_commit)
+    raise SystemExit(0)
+
+if mode == "legacy_context_summary":
+    block_id = sys.argv[3]
+    matching = [block for block in state.get("blocks", []) if block.get("id") == block_id]
+    if len(matching) != 1:
+        fail(f"campaign state must contain exactly one block {block_id!r}")
+    block = matching[0]
+    if block.get("source_status") != "ready":
+        fail(f"campaign block {block_id!r} does not contain a reusable ready source")
+    source_command = block.get("source_command_argv")
+    if not isinstance(source_command, list) or any(
+        not isinstance(value, str) for value in source_command
+    ):
+        fail(f"campaign block {block_id!r} lacks source command provenance")
+
+    def option_values(option):
+        positions = [index for index, value in enumerate(source_command) if value == option]
+        if len(positions) != 1:
+            fail(f"source command must contain exactly one {option}")
+        values = []
+        for value in source_command[positions[0] + 1:]:
+            if value.startswith("-"):
+                break
+            values.append(value)
+        if not values:
+            fail(f"source command has no values for {option}")
+        return values
+
+    selected_modes = [
+        mode_name
+        for flag, mode_name in (
+            ("--all-analysis", "all"),
+            ("--offZ-3l-split", "offz"),
+            ("--tau-h-analysis", "tau"),
+            ("--fwd-analysis", "fwd"),
+        )
+        if flag in source_command
+    ]
+    if len(selected_modes) > 1:
+        fail("source command contains conflicting analysis modes")
+    source_path = Path(block.get("expected_nominal_path", ""))
+    sidecar_path = Path(str(source_path) + ".metadata.json")
+    try:
+        sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        source_identity = sidecar["artifact"]["pkl_sha256"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        fail(f"cannot resolve source identity from {sidecar_path}: {exc}")
+    summary = {
+        "analysis_mode": selected_modes[0] if selected_modes else "default",
+        "campaign_block": block_id,
+        "category_groups": option_values("--category-groups"),
+        "histogram_families": option_values("--hist-vars"),
+        "producer_topeft_commit": state.get("topeft_git_commit"),
+        "region": state.get("region"),
+        "source_pkl_sha256": source_identity,
+        "years": option_values("-y"),
+    }
+    print(json.dumps(summary, sort_keys=True, separators=(",", ":")))
+    raise SystemExit(0)
+
 if mode == "status":
     block_id = sys.argv[3]
     for block in state.get("blocks", []):
@@ -1225,12 +1390,38 @@ if mode == "status":
 if mode == "mark":
     block_id, stage, stage_status, exit_code, detail = sys.argv[3:8]
     extra = sys.argv[8:]
+    postprocessor_provenance = None
     if stage == "source" and stage_status not in VALID_SOURCE_STATUSES:
         fail(f"invalid requested source status {stage_status!r}")
     if stage == "nonprompt" and stage_status not in VALID_NONPROMPT_STATUSES:
         fail(f"invalid requested nonprompt status {stage_status!r}")
     if stage not in {"source", "nonprompt"}:
         fail(f"invalid requested stage {stage!r}")
+    if (
+        stage == "nonprompt"
+        and stage_status == "running"
+        and extra[:1] == ["--postprocessor-provenance"]
+    ):
+        if len(extra) < 5 or extra[3] != "--":
+            fail("invalid postprocessor provenance arguments")
+        postprocessor_topeft_commit, postprocessor_topcoffea_commit = extra[1:3]
+        for label, value in (
+            ("topeft", postprocessor_topeft_commit),
+            ("topcoffea", postprocessor_topcoffea_commit),
+        ):
+            if re.fullmatch(r"[0-9a-f]{40}", value) is None:
+                fail(f"invalid {label} postprocessor commit")
+        postprocessor_provenance = {
+            "topeft_git_commit": postprocessor_topeft_commit,
+            "topcoffea_git_commit": postprocessor_topcoffea_commit,
+        }
+        extra = extra[4:]
+    elif (
+        stage == "nonprompt"
+        and stage_status == "running"
+        and state.get("production_profile") in {"t0_sr_statonly", "t0_cr_statonly"}
+    ):
+        fail("T0 stat-only nonprompt recovery requires postprocessor provenance")
     for block in state.get("blocks", []):
         if block.get("id") == block_id:
             parsed_exit_code = None if exit_code == "none" else int(exit_code)
@@ -1287,17 +1478,22 @@ if mode == "mark":
             block["expected_output_readback"] = output_readback
             block["last_transition_utc"] = timestamp
             block["last_transition_detail"] = detail
-            block.setdefault("transitions", []).append(
-                {
-                    "timestamp_utc": block["last_transition_utc"],
-                    "stage": stage,
-                    "status": stage_status,
-                    "exit_code": parsed_exit_code,
-                    "signal": block[f"{stage}_signal"],
-                    "duration_seconds": block.get(f"{stage}_duration_seconds"),
-                    "detail": detail,
-                }
-            )
+            if postprocessor_provenance is not None:
+                block["nonprompt_postprocessor_provenance"] = postprocessor_provenance
+            transition = {
+                "timestamp_utc": block["last_transition_utc"],
+                "stage": stage,
+                "status": stage_status,
+                "exit_code": parsed_exit_code,
+                "signal": block[f"{stage}_signal"],
+                "duration_seconds": block.get(f"{stage}_duration_seconds"),
+                "detail": detail,
+            }
+            if stage == "nonprompt" and block.get("nonprompt_postprocessor_provenance"):
+                transition["postprocessor_provenance"] = block[
+                    "nonprompt_postprocessor_provenance"
+                ]
+            block.setdefault("transitions", []).append(transition)
             state["updated_at_utc"] = now_utc()
             atomic_write(state_path, state)
             raise SystemExit(0)
@@ -1447,6 +1643,11 @@ resolve_production_environment() {
   local direct_sha256=""
   local validation_status=""
   local validation_args=()
+
+  if is_t0_statonly_profile; then
+    matrix_env_file=/users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_d2b557628143725b.tar.gz
+    matrix_env_sha256=c9c2cf2a8697c722291a5e5bfc492afafd367e1a2274289d5d37f9b8cfa8a292
+  fi
 
   production_state_path="${output_dir}/${production_state_filename}"
 
@@ -1605,6 +1806,8 @@ production_assert_live_plan() {
   local expected_count
   case "${production_profile}" in
     run2_full|run3_full) expected_count=5 ;;
+    t0_sr_statonly) expected_count=10 ;;
+    t0_cr_statonly) expected_count=18 ;;
     run2_full_CR) expected_count=6 ;;
     run3_full_CR) expected_count=12 ;;
     rebin_fine) expected_count=6 ;;
@@ -1618,12 +1821,51 @@ production_assert_live_plan() {
   fi
 }
 
+resolve_t0_postprocessor_provenance() {
+  local topcoffea_repository_root="${repository_root}/../topcoffea"
+  local topeft_postprocessor_status
+  local topcoffea_postprocessor_status
+
+  is_t0_statonly_profile || return 0
+
+  if [[ ! -d "${topcoffea_repository_root}/.git" ]]; then
+    echo "ERROR: T0 stat-only postprocessor provenance requires the sibling topcoffea repository." >&2
+    exit 1
+  fi
+  production_postprocessor_topeft_git_commit=$(git -C "${repository_root}" rev-parse HEAD)
+  production_postprocessor_topcoffea_git_commit=$(git -C "${topcoffea_repository_root}" rev-parse HEAD)
+
+  topeft_postprocessor_status=$(git -C "${repository_root}" status --porcelain --untracked-files=all -- \
+    analysis/topeft_run2/run_data_driven.py \
+    topeft/modules/dataDrivenEstimation.py \
+    topeft/modules/data_driven_products.py \
+    topeft/modules/histogram_artifact.py \
+    topeft/modules/nominal_schema.py \
+    topeft/modules/sumw2_policy.py)
+  topcoffea_postprocessor_status=$(git -C "${topcoffea_repository_root}" status --porcelain --untracked-files=all -- \
+    topcoffea/modules/sparseHist.py \
+    topcoffea/modules/utils.py)
+  if [[ -n "${topeft_postprocessor_status}" || -n "${topcoffea_postprocessor_status}" ]]; then
+    if [[ "${dry_run}" == "true" ]]; then
+      echo "Dry-run note: postprocessor source surfaces are dirty; no production child or provenance record will be created."
+    elif [[ -n "${SRPLOT009_VALIDATION_BACKEND:-}" ]]; then
+      echo "Validation-backend note: postprocessor source surfaces are dirty; the synthetic backend creates no production artifact."
+    else
+      echo "ERROR: T0 stat-only postprocessor source surfaces are dirty; commit provenance would be ambiguous." >&2
+      exit 1
+    fi
+  fi
+}
+
 prepare_production_campaign() {
   local plan_directory
   local schema_version=4
+  local allow_historical_source_commit=false
+  local historical_source_commit=""
 
   production_assert_live_plan
   production_git_commit=$(git -C "${repository_root}" rev-parse HEAD)
+  resolve_t0_postprocessor_provenance
   production_state_path="${output_dir}/${production_state_filename}"
   if [[ "${dry_run}" == "true" ]]; then
     production_plan_file=$(mktemp "/tmp/${production_profile}_plan.XXXXXX")
@@ -1640,6 +1882,15 @@ prepare_production_campaign() {
     if [[ ! -f "${production_state_path}" ]]; then
       echo "ERROR: ${production_profile} --resume requires campaign state: ${production_state_path}" >&2
       exit 1
+    fi
+    if [[ "${production_profile}" == "t0_sr_statonly" ]]; then
+      allow_historical_source_commit=true
+      historical_source_commit=$(production_state_tool historical_source_commit \
+        "${production_state_path}" "${production_profile}" "${campaign_tag}" "${output_dir}")
+      if ! git -C "${repository_root}" cat-file -e "${historical_source_commit}^{commit}"; then
+        echo "ERROR: t0_sr_statonly historical source commit is not reachable in the local topeft repository." >&2
+        exit 1
+      fi
     fi
     production_state_tool validate \
       "${production_state_path}" \
@@ -1659,7 +1910,8 @@ prepare_production_campaign() {
       "${do_np}" \
       "${production_region}" \
       "${production_np_mode}" \
-      "${dry_run}"
+      "${dry_run}" \
+      "${allow_historical_source_commit}"
   elif [[ "${dry_run}" == "false" ]]; then
     production_state_tool initialize \
       "${production_state_path}" \
@@ -1880,6 +2132,10 @@ build_common_command_options() {
     cmd_ref+=(--do-systs)
   fi
 
+  if is_t0_statonly_profile; then
+    cmd_ref+=(--record-raw-count)
+  fi
+
   if [[ "${do_np}" == "true" ]]; then
     # --do-np configures and certifies the current nonprompt/sumw2 contract;
     # --defer-np prevents run_analysis.py from materializing the _np artifact
@@ -1963,13 +2219,15 @@ run_production_nonprompt_child() {
 archive_native_wq_logs() {
   local block_id="$1"
   local stage="$2"
-  local archive_dir="${output_dir}/work_queue_logs/${production_component}/${block_id}/${stage}"
+  local archive_base="${output_dir}/work_queue_logs/${production_component}/${block_id}/${stage}"
+  local archive_dir="${archive_base}"
+  local retry_index=1
   local name source_path destination_path source_size destination_size
 
-  if [[ -e "${archive_dir}" ]]; then
-    echo "ERROR: native Work Queue archive destination already exists: ${archive_dir}" >&2
-    return 1
-  fi
+  while [[ -e "${archive_dir}" ]]; do
+    archive_dir="${archive_base}_resume_${retry_index}"
+    retry_index=$((retry_index + 1))
+  done
   mkdir -p -- "$(dirname -- "${archive_dir}")"
   mkdir -- "${archive_dir}"
 
@@ -2036,11 +2294,19 @@ run_cr_block() {
   local start_epoch
   local end_epoch
   local duration_seconds
-  local exit_code
+  local source_exit_code=0
+  local nonprompt_exit_code=0
   local production_block
   local source_path
   local nonprompt_path
+  local source_sidecar_path
+  local nonprompt_sidecar_path
   local plan_output_tag
+  local production_status=""
+  local source_status=""
+  local nonprompt_status=""
+  local source_reusable=false
+  local nonprompt_mark_args=()
 
   read -r -a years <<< "${year_expr}"
   read -r -a vars <<< "${var_set}"
@@ -2053,6 +2319,121 @@ run_cr_block() {
     awk -F '\t' -v block_id="${production_block}" '$1 == block_id {print; exit}' "${production_plan_file}"
   )
   pkl_tag="${plan_output_tag}"
+  if [[ -z "${source_path}" || -z "${nonprompt_path}" ]]; then
+    echo "ERROR: unable to resolve expected output paths for ${production_block}." >&2
+    exit 1
+  fi
+  source_sidecar_path="${source_path}.metadata.json"
+  nonprompt_sidecar_path="${nonprompt_path}.metadata.json"
+
+  if [[ "${dry_run}" == "true" && "${profile_resume}" == "false" ]]; then
+    production_status="planned"
+    source_status="planned"
+    nonprompt_status="blocked"
+  else
+    IFS=$'\t' read -r production_status source_status nonprompt_status < <(
+      production_state_tool status "${production_state_path}" "${production_block}"
+    )
+  fi
+
+  if [[ "${production_status}" == "success" ]]; then
+    if production_outputs_present "${production_block}" "${production_plan_file}" \
+      && { [[ "${production_np_mode}" != "separate" ]] \
+        || { [[ -s "${source_sidecar_path}" ]] && [[ -s "${nonprompt_sidecar_path}" ]]; }; }; then
+      echo "----------------------------------------"
+      echo "Skipping validated ${production_profile} block: ${production_block}"
+      if [[ "${production_np_mode}" == "separate" ]]; then
+        echo "Campaign state, source artifact, and separate data-driven artifact are complete."
+      else
+        echo "Campaign state and inline nonprompt artifacts are complete."
+      fi
+      echo "----------------------------------------"
+      record_block_result \
+        "SKIPPED" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
+        "${pkl_tag}" "0" "0"
+      return 0
+    fi
+    if [[ ! -s "${source_path}" ]] \
+      || { [[ "${production_np_mode}" == "separate" ]] && [[ ! -s "${source_sidecar_path}" ]]; }; then
+      production_state_tool mark \
+        "${production_state_path}" "${production_block}" \
+        "source" "failed" "none" "success_state_missing_expected_source"
+    else
+      production_state_tool mark \
+        "${production_state_path}" "${production_block}" \
+        "nonprompt" "failed" "none" "success_state_missing_expected_nonprompt"
+    fi
+    echo "ERROR: ${production_profile} state marks ${production_block} successful, but an expected artifact is missing or empty." >&2
+    exit 1
+  fi
+
+  case "${source_status}" in
+    ready)
+      if [[ "${production_np_mode}" == "inline" ]]; then
+        if [[ "${production_status}" == "source_ready" \
+          && "${nonprompt_status}" == "planned" \
+          && -s "${source_path}" \
+          && -s "${nonprompt_path}" ]]; then
+          production_state_tool mark \
+            "${production_state_path}" "${production_block}" \
+            "nonprompt" "success" "none" "resume_inline_outputs_complete"
+          echo "----------------------------------------"
+          echo "Skipping recovered ${production_profile} block: ${production_block}"
+          echo "Campaign state source stage and inline nonprompt artifacts are complete."
+          echo "----------------------------------------"
+          record_block_result \
+            "SKIPPED" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
+            "${pkl_tag}" "0" "0"
+          return 0
+        fi
+        if [[ "${production_status}" != "source_ready" ]] \
+          || [[ "${nonprompt_status}" != "planned" ]]; then
+          echo "ERROR: ${production_block} has an unrecoverable inline nonprompt state; state was not resumed." >&2
+          exit 1
+        fi
+        if [[ ! -s "${source_path}" ]]; then
+          production_state_tool mark \
+            "${production_state_path}" "${production_block}" \
+            "source" "failed" "none" "source_ready_state_missing_expected_source"
+        else
+          production_state_tool mark \
+            "${production_state_path}" "${production_block}" \
+            "nonprompt" "failed" "none" "source_ready_state_missing_expected_inline_nonprompt"
+        fi
+        echo "ERROR: ${production_block} records an incomplete inline CR stage; state was not resumed." >&2
+        exit 1
+      else
+        if [[ ! -s "${source_path}" || ! -s "${source_sidecar_path}" ]]; then
+          production_state_tool mark \
+            "${production_state_path}" "${production_block}" \
+            "source" "failed" "none" "source_ready_state_missing_expected_source"
+          echo "ERROR: ${production_block} records a reusable source, but it or its sidecar is missing or empty." >&2
+          exit 1
+        fi
+        source_reusable=true
+      fi
+      ;;
+    planned|failed)
+      if production_any_output_exists "${production_block}" "${production_plan_file}"; then
+        echo "ERROR: ${production_profile} block ${production_block} is ${production_status}, but an expected output path already exists. Refusing ambiguous overwrite." >&2
+        exit 1
+      fi
+      ;;
+    running)
+      echo "ERROR: ${production_block} has an ambiguous interrupted source stage; state was not resumed." >&2
+      exit 1
+      ;;
+    *)
+      echo "ERROR: ${production_block} has invalid source status '${source_status}'." >&2
+      exit 1
+      ;;
+  esac
+
+  if [[ "${production_np_mode}" == "separate" ]] \
+    && { [[ -e "${nonprompt_path}" ]] || [[ -e "${nonprompt_sidecar_path}" ]]; }; then
+    echo "ERROR: ${production_block} is not successful, but its expected data-driven output path already exists. Refusing ambiguous overwrite." >&2
+    exit 1
+  fi
 
   echo "----------------------------------------"
   echo "Mode: CR"
@@ -2063,6 +2444,8 @@ run_cr_block() {
   echo "Campaign tag: ${campaign_tag}"
   echo "Output tag: ${pkl_tag}"
   echo "Output dir: ${output_dir}"
+  echo "Source stage status: ${source_status}"
+  echo "Data-driven stage status: ${nonprompt_status}"
   echo "Dry run: ${dry_run}"
   echo "----------------------------------------"
 
@@ -2078,13 +2461,66 @@ run_cr_block() {
 
   build_common_command_options cmd
 
-  print_command "${cmd[@]}"
+  local nonprompt_cmd=(
+    python ./run_data_driven.py
+    --input-pkl "${source_path}"
+    --output-pkl "${nonprompt_path}"
+  )
+
   start_epoch=$(date +%s)
 
+  if [[ "${source_reusable}" == "false" ]]; then
+    print_command "${cmd[@]}"
+    if [[ "${dry_run}" == "true" ]]; then
+      if [[ "${production_np_mode}" == "inline" ]]; then
+        "${cmd[@]}"
+        source_exit_code=0
+      elif "${cmd[@]}"; then
+        source_exit_code=0
+      else
+        source_exit_code=$?
+      fi
+    else
+      if production_any_output_exists "${production_block}" "${production_plan_file}" \
+        || [[ -e "${source_sidecar_path}" ]] \
+        || [[ -e "${nonprompt_sidecar_path}" ]]; then
+        echo "ERROR: ${production_block} expected output path already exists; refusing ambiguous overwrite." >&2
+        exit 1
+      fi
+      assert_native_wq_logs_clean
+      production_state_tool mark \
+        "${production_state_path}" "${production_block}" \
+        source running none source_child_started "${cmd[@]}"
+
+      # Keep child stdout/stderr attached directly to the caller. The
+      # conditional invocation captures only the exit status.
+      if run_production_source_child \
+        "${production_block}" "${source_path}" "${nonprompt_path}" "${cmd[@]}"; then
+        source_exit_code=0
+      else
+        source_exit_code=$?
+      fi
+    fi
+  else
+    echo "Reusing validated completed source for ${production_block}: ${source_path}"
+  fi
+
+  end_epoch=$(date +%s)
+  duration_seconds=$((end_epoch - start_epoch))
+
   if [[ "${dry_run}" == "true" ]]; then
-    "${cmd[@]}"
-    end_epoch=$(date +%s)
-    duration_seconds=$((end_epoch - start_epoch))
+    if (( source_exit_code != 0 )); then
+      record_block_result \
+        "FAILED" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
+        "${pkl_tag}" "${source_exit_code}" "${duration_seconds}"
+      echo "ERROR: ${production_block} source dry-run resolution failed with exit code ${source_exit_code}." >&2
+      return 0
+    fi
+    if [[ "${production_np_mode}" == "separate" ]]; then
+      echo "Separate nonprompt/charge-flip command (not executed by dry-run):"
+      printf ' %q' "${nonprompt_cmd[@]}"
+      echo
+    fi
     record_block_result \
       "DRY_RUN" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
       "${pkl_tag}" "0" "${duration_seconds}"
@@ -2092,61 +2528,104 @@ run_cr_block() {
     return 0
   fi
 
-  if production_any_output_exists "${production_block}" "${production_plan_file}"; then
-    echo "ERROR: ${production_block} expected output path already exists; refusing ambiguous overwrite." >&2
-    exit 1
+  if [[ "${source_reusable}" == "false" ]] && (( source_exit_code != 0 )); then
+    production_state_tool mark \
+      "${production_state_path}" "${production_block}" \
+      source failed "${source_exit_code}" source_child_exit_nonzero "${duration_seconds}"
+    archive_native_wq_logs "${production_block}" source
+    write_failure_snapshot "${production_block}" source
+    record_block_result \
+      "FAILED" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
+      "${pkl_tag}" "${source_exit_code}" "${duration_seconds}"
+    echo \
+      "ERROR: ${year_expr} CR failed for ${cat_tag} / ${var_tag} with exit code ${source_exit_code}; continuing with the next block." \
+      >&2
+    return 0
   fi
-  assert_native_wq_logs_clean
+
+  if [[ "${source_reusable}" == "false" ]] \
+    && { [[ ! -s "${source_path}" ]] \
+      || { [[ "${production_np_mode}" == "separate" ]] \
+        && { [[ ! -s "${source_sidecar_path}" ]] \
+          || [[ -e "${nonprompt_path}" ]] \
+          || [[ -e "${nonprompt_sidecar_path}" ]]; }; } \
+      || { [[ "${production_np_mode}" == "inline" ]] && [[ ! -s "${nonprompt_path}" ]]; }; }; then
+    production_state_tool mark \
+      "${production_state_path}" "${production_block}" \
+      source failed "${source_exit_code}" source_exit_zero_invalid_stage_outputs "${duration_seconds}"
+    archive_native_wq_logs "${production_block}" source
+    write_failure_snapshot "${production_block}" source
+    record_block_result \
+      "FAILED" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
+      "${pkl_tag}" "${source_exit_code}" "${duration_seconds}"
+    echo "ERROR: ${production_block} returned zero without the exact expected stage outputs; continuing with the next block." >&2
+    return 0
+  fi
+
+  if [[ "${source_reusable}" == "false" ]]; then
+    production_state_tool mark \
+      "${production_state_path}" "${production_block}" \
+      source ready "${source_exit_code}" source_child_exit_zero_expected_source_present "${duration_seconds}"
+    archive_native_wq_logs "${production_block}" source
+  fi
+
+  if [[ "${production_np_mode}" == "inline" ]]; then
+    production_state_tool mark \
+      "${production_state_path}" "${production_block}" \
+      nonprompt success "${source_exit_code}" inline_nonprompt_exit_zero_expected_output_present "${duration_seconds}"
+    record_block_result \
+      "SUCCESS" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
+      "${pkl_tag}" "${source_exit_code}" "${duration_seconds}"
+    echo "${year_expr} CR done for ${cat_tag} / ${var_tag}"
+    echo "----------------------------------------"
+    echo
+    return 0
+  fi
+
+  if is_t0_statonly_profile; then
+    nonprompt_mark_args=(
+      --postprocessor-provenance
+      "${production_postprocessor_topeft_git_commit}"
+      "${production_postprocessor_topcoffea_git_commit}"
+      --
+    )
+  fi
+  nonprompt_mark_args+=("${nonprompt_cmd[@]}")
   production_state_tool mark \
     "${production_state_path}" "${production_block}" \
-    source running none source_child_started "${cmd[@]}"
-
-  # Keep child stdout/stderr attached directly to the caller. The conditional
-  # invocation only captures the exit status so set -e does not terminate the
-  # campaign when one production block fails or its Python child is killed.
-  if run_production_source_child "${production_block}" "${source_path}" "${nonprompt_path}" "${cmd[@]}"; then
-    exit_code=0
+    "nonprompt" "running" "none" "separate_data_driven_child_started_after_source_exit" "${nonprompt_mark_args[@]}"
+  print_command "${nonprompt_cmd[@]}"
+  if run_production_nonprompt_child \
+    "${production_block}" "${source_path}" "${nonprompt_path}" "${nonprompt_cmd[@]}"; then
+    nonprompt_exit_code=0
   else
-    exit_code=$?
+    nonprompt_exit_code=$?
   fi
 
   end_epoch=$(date +%s)
   duration_seconds=$((end_epoch - start_epoch))
 
-  if (( exit_code != 0 )); then
+  if (( nonprompt_exit_code == 0 )) \
+    && [[ -s "${nonprompt_path}" ]] \
+    && [[ -s "${nonprompt_sidecar_path}" ]]; then
     production_state_tool mark \
       "${production_state_path}" "${production_block}" \
-      source failed "${exit_code}" source_child_exit_nonzero "${duration_seconds}"
-    archive_native_wq_logs "${production_block}" source
-    write_failure_snapshot "${production_block}" source
+      "nonprompt" "success" "${nonprompt_exit_code}" "separate_data_driven_exit_zero_expected_output_present" "${duration_seconds}"
     record_block_result \
-      "FAILED" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
-      "${pkl_tag}" "${exit_code}" "${duration_seconds}"
-    echo \
-      "ERROR: ${year_expr} CR failed for ${cat_tag} / ${var_tag} with exit code ${exit_code}; continuing with the next block." \
-      >&2
-  elif [[ ! -s "${source_path}" || ! -s "${nonprompt_path}" ]]; then
-    production_state_tool mark \
-      "${production_state_path}" "${production_block}" \
-      source failed "${exit_code}" source_exit_zero_invalid_stage_outputs "${duration_seconds}"
-    archive_native_wq_logs "${production_block}" source
-    write_failure_snapshot "${production_block}" source
-    record_block_result \
-      "FAILED" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
-      "${pkl_tag}" "${exit_code}" "${duration_seconds}"
-    echo "ERROR: ${production_block} returned zero without both expected outputs; continuing with the next block." >&2
+      "SUCCESS" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
+      "${pkl_tag}" "${nonprompt_exit_code}" "${duration_seconds}"
+    echo "${year_expr} CR source and separate nonprompt/charge-flip stages done for ${cat_tag} / ${var_tag}"
   else
     production_state_tool mark \
       "${production_state_path}" "${production_block}" \
-      source ready "${exit_code}" source_child_exit_zero_expected_source_present "${duration_seconds}"
-    production_state_tool mark \
-      "${production_state_path}" "${production_block}" \
-      nonprompt success "${exit_code}" inline_nonprompt_exit_zero_expected_output_present "${duration_seconds}"
-    archive_native_wq_logs "${production_block}" source
+      "nonprompt" "failed" "${nonprompt_exit_code}" "separate_data_driven_failed_or_missing_output" "${duration_seconds}"
+    write_failure_snapshot "${production_block}" nonprompt
     record_block_result \
-      "SUCCESS" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
-      "${pkl_tag}" "${exit_code}" "${duration_seconds}"
-    echo "${year_expr} CR done for ${cat_tag} / ${var_tag}"
+      "FAILED" "CR" "${year_expr}" "${cats[*]}" "${vars[*]}" \
+      "${pkl_tag}" "${nonprompt_exit_code}" "${duration_seconds}"
+    echo \
+      "ERROR: ${production_block} separate nonprompt/charge-flip stage failed or its output is missing/empty; continuing with the next block." \
+      >&2
   fi
 
   echo "----------------------------------------"
@@ -2168,6 +2647,8 @@ run_sr_block() {
   local pkl_tag
   local source_path
   local nonprompt_path
+  local source_sidecar_path
+  local nonprompt_sidecar_path
   local plan_output_tag
   local start_epoch
   local end_epoch
@@ -2179,6 +2660,7 @@ run_sr_block() {
   local source_status=""
   local nonprompt_status=""
   local source_reusable=false
+  local nonprompt_mark_args=()
 
   read -r -a years <<< "${year_expr}"
   read -r -a vars <<< "${var_set}"
@@ -2196,6 +2678,8 @@ run_sr_block() {
     echo "ERROR: unable to resolve expected output paths for ${production_block}." >&2
     exit 1
   fi
+  source_sidecar_path="${source_path}.metadata.json"
+  nonprompt_sidecar_path="${nonprompt_path}.metadata.json"
 
   if [[ "${dry_run}" == "true" && "${profile_resume}" == "false" ]]; then
     production_status="planned"
@@ -2208,7 +2692,9 @@ run_sr_block() {
   fi
 
   if [[ "${production_status}" == "success" ]]; then
-    if [[ -s "${source_path}" && -s "${nonprompt_path}" ]]; then
+    if [[ -s "${source_path}" && -s "${nonprompt_path}" ]] \
+      && { [[ "${production_profile}" != "t0_sr_statonly" ]] \
+        || { [[ -s "${source_sidecar_path}" ]] && [[ -s "${nonprompt_sidecar_path}" ]]; }; }; then
       echo "----------------------------------------"
       echo "Skipping validated ${production_profile} block: ${production_block}"
       echo "Campaign state, source artifact, and separate nonprompt artifact are complete."
@@ -2218,7 +2704,8 @@ run_sr_block() {
         "${pkl_tag}" "0" "0"
       return 0
     fi
-    if [[ ! -s "${source_path}" ]]; then
+    if [[ ! -s "${source_path}" ]] \
+      || { [[ "${production_profile}" == "t0_sr_statonly" ]] && [[ ! -s "${source_sidecar_path}" ]]; }; then
       production_state_tool mark \
         "${production_state_path}" "${production_block}" \
         "source" "failed" "none" "success_state_missing_expected_source"
@@ -2233,7 +2720,8 @@ run_sr_block() {
 
   case "${source_status}" in
     ready)
-      if [[ ! -s "${source_path}" ]]; then
+      if [[ ! -s "${source_path}" ]] \
+        || { [[ "${production_profile}" == "t0_sr_statonly" ]] && [[ ! -s "${source_sidecar_path}" ]]; }; then
         production_state_tool mark \
           "${production_state_path}" "${production_block}" \
           "source" "failed" "none" "source_ready_state_missing_expected_source"
@@ -2243,7 +2731,9 @@ run_sr_block() {
       source_reusable=true
       ;;
     planned|failed)
-      if [[ -e "${source_path}" || -e "${nonprompt_path}" ]]; then
+      if [[ -e "${source_path}" || -e "${nonprompt_path}" ]] \
+        || { [[ "${production_profile}" == "t0_sr_statonly" ]] \
+          && { [[ -e "${source_sidecar_path}" ]] || [[ -e "${nonprompt_sidecar_path}" ]]; }; }; then
         echo "ERROR: ${production_profile} block ${production_block} is ${production_status}, but an expected output path already exists. Refusing ambiguous overwrite." >&2
         exit 1
       fi
@@ -2258,7 +2748,8 @@ run_sr_block() {
       ;;
   esac
 
-  if [[ -e "${nonprompt_path}" ]]; then
+  if [[ -e "${nonprompt_path}" ]] \
+    || { [[ "${production_profile}" == "t0_sr_statonly" ]] && [[ -e "${nonprompt_sidecar_path}" ]]; }; then
     echo "ERROR: ${production_block} is not successful, but its expected _np path already exists. Refusing ambiguous overwrite." >&2
     exit 1
   fi
@@ -2293,6 +2784,18 @@ run_sr_block() {
     --input-pkl "${source_path}"
     --output-pkl "${nonprompt_path}"
   )
+  if [[ "${production_profile}" == "t0_sr_statonly" \
+    && "${source_reusable}" == "true" \
+    && -s "${source_sidecar_path}" ]] \
+    && ! grep -Fq '"histogram_applicability"' "${source_sidecar_path}"; then
+    nonprompt_cmd+=(
+      --legacy-campaign-state "${production_state_path}"
+      --legacy-campaign-block "${production_block}"
+    )
+    echo "Legacy context transported (no applicability verdict):"
+    production_state_tool legacy_context_summary \
+      "${production_state_path}" "${production_block}"
+  fi
 
   start_epoch=$(date +%s)
 
@@ -2363,7 +2866,10 @@ run_sr_block() {
       return 0
     fi
     if [[ ! -s "${source_path}" ]] \
+      || { [[ "${production_profile}" == "t0_sr_statonly" ]] && [[ ! -s "${source_sidecar_path}" ]]; } \
       || { [[ "${production_np_mode}" == "separate" ]] && [[ -e "${nonprompt_path}" ]]; } \
+      || { [[ "${production_profile}" == "t0_sr_statonly" ]] \
+        && [[ "${production_np_mode}" == "separate" ]] && [[ -e "${nonprompt_sidecar_path}" ]]; } \
       || { [[ "${production_np_mode}" == "inline" ]] && [[ ! -s "${nonprompt_path}" ]]; }; then
       production_state_tool mark \
         "${production_state_path}" "${production_block}" \
@@ -2395,9 +2901,18 @@ run_sr_block() {
     return 0
   fi
 
+  if [[ "${production_profile}" == "t0_sr_statonly" ]]; then
+    nonprompt_mark_args=(
+      --postprocessor-provenance
+      "${production_postprocessor_topeft_git_commit}"
+      "${production_postprocessor_topcoffea_git_commit}"
+      --
+    )
+  fi
+  nonprompt_mark_args+=("${nonprompt_cmd[@]}")
   production_state_tool mark \
     "${production_state_path}" "${production_block}" \
-    "nonprompt" "running" "none" "separate_nonprompt_child_started_after_source_exit" "${nonprompt_cmd[@]}"
+    "nonprompt" "running" "none" "separate_nonprompt_child_started_after_source_exit" "${nonprompt_mark_args[@]}"
   print_command "${nonprompt_cmd[@]}"
   if run_production_nonprompt_child \
     "${production_block}" "${source_path}" "${nonprompt_path}" "${nonprompt_cmd[@]}"; then
@@ -2409,7 +2924,8 @@ run_sr_block() {
   end_epoch=$(date +%s)
   duration_seconds=$((end_epoch - start_epoch))
 
-  if (( nonprompt_exit_code == 0 )) && [[ -s "${nonprompt_path}" ]]; then
+  if (( nonprompt_exit_code == 0 )) && [[ -s "${nonprompt_path}" ]] \
+    && { [[ "${production_profile}" != "t0_sr_statonly" ]] || [[ -s "${nonprompt_sidecar_path}" ]]; }; then
     production_state_tool mark \
       "${production_state_path}" "${production_block}" \
       "nonprompt" "success" "${nonprompt_exit_code}" "separate_nonprompt_exit_zero_expected_output_present" "${duration_seconds}"
@@ -2637,6 +3153,10 @@ echo "output_dir: ${output_dir}"
 
 if [[ "${dry_run}" == "true" && "${production_profile}" == "run2_full" ]]; then
   echo "dry_run_complete: five commands resolved; no environment, output root, scheduler, or production action was created"
+elif [[ "${dry_run}" == "true" && "${production_profile}" == "t0_sr_statonly" ]]; then
+  echo "dry_run_complete: ten commands resolved; no environment, output root, scheduler, or production action was created"
+elif [[ "${dry_run}" == "true" && "${production_profile}" == "t0_cr_statonly" ]]; then
+  echo "dry_run_complete: eighteen source commands and eighteen separate data-driven commands resolved; no environment, output root, scheduler, or production action was created"
 fi
 
 final_process_exit_code=0

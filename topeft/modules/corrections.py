@@ -782,7 +782,9 @@ extLepSF.add_weight_sets(["TauFakeSF_2023_up TauSF/pt_up %s"%topcoffea_path('dat
 extLepSF.add_weight_sets(["TauFakeSF_2023_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2023.json')])
 
 # Jet Veto Maps
-def ApplyJetVetoMaps(jets, year):
+def _get_jet_veto_map_scores(jets, year, category):
+    """Evaluate one veto-map category and preserve the input jet structure."""
+
     jme_year = clib_year_map[year]
     key = jet_veto_dict[year]
     json_path = topcoffea_path(f"data/POG/JME/{jme_year}/jetvetomaps.json.gz")
@@ -800,11 +802,23 @@ def ApplyJetVetoMaps(jets, year):
 
     #Get pass/fail values for each jet (0 is pass and >0 is fail)
     jet_vetomap_flat = _evaluate_correctionlib(
-        ceval[key], 'jetvetomap', eta_flat_bound, phi_flat_bound
+        ceval[key], category, eta_flat_bound, phi_flat_bound
     )
-    
+
     #Unflatten the array
-    jet_vetomap_score = ak.unflatten(jet_vetomap_flat,ak.num(jets.phi))
+    return ak.unflatten(jet_vetomap_flat, ak.num(jets.phi))
+
+
+def get_run2_jet_veto_map_scores(jets, year):
+    """Return aligned Run-2 ``jetvetomap_all`` scores for analysis jets."""
+
+    if year not in jet_veto_dict or year.startswith("202"):
+        raise ValueError(f"Run-2 jet veto maps are not defined for year {year!r}")
+    return _get_jet_veto_map_scores(jets, year, "jetvetomap_all")
+
+
+def ApplyJetVetoMaps(jets, year):
+    jet_vetomap_score = _get_jet_veto_map_scores(jets, year, "jetvetomap")
 
     #Sum the outputs for each event (if the sum is >0, the event will fail)
     veto_map_event = ak.sum(jet_vetomap_score, axis=-1)
@@ -1676,15 +1690,35 @@ def AttachMuonSF(muons, year, useRun3MVA=True):
     muons['sf_nom_2l_muon'] = new_sf * reco_loose_sf * iso_sf
     muons['sf_hi_2l_muon']  = new_up * reco_loose_up * iso_up
     muons['sf_lo_2l_muon']  = new_do * reco_loose_do * iso_do
-    muons['sf_nom_3l_muon'] = new_sf * reco_loose_sf
+    muons['sf_nom_3l_muon'] = new_sf * reco_loose_sf * iso_sf
     muons['sf_hi_3l_muon']  = new_up * reco_loose_up * iso_up
     muons['sf_lo_3l_muon']  = new_do * reco_loose_do * iso_do
+    muons['sf_nom_2l_muon_mva'] = new_sf
+    muons['sf_hi_2l_muon_mva'] = new_up
+    muons['sf_lo_2l_muon_mva'] = new_do
+    muons['sf_nom_3l_muon_mva'] = new_sf
+    muons['sf_hi_3l_muon_mva'] = new_up
+    muons['sf_lo_3l_muon_mva'] = new_do
+    muons['sf_nom_2l_muon_non_mva'] = reco_loose_sf * iso_sf
+    muons['sf_hi_2l_muon_non_mva'] = reco_loose_up * iso_up
+    muons['sf_lo_2l_muon_non_mva'] = reco_loose_do * iso_do
+    muons['sf_nom_3l_muon_non_mva'] = reco_loose_sf * iso_sf
+    muons['sf_hi_3l_muon_non_mva'] = reco_loose_up * iso_up
+    muons['sf_lo_3l_muon_non_mva'] = reco_loose_do * iso_do
     muons['sf_nom_2l_elec'] = ak.ones_like(new_sf)
     muons['sf_hi_2l_elec']  = ak.ones_like(new_sf)
     muons['sf_lo_2l_elec']  = ak.ones_like(new_sf)
     muons['sf_nom_3l_elec'] = ak.ones_like(new_sf)
     muons['sf_hi_3l_elec']  = ak.ones_like(new_sf)
     muons['sf_lo_3l_elec']  = ak.ones_like(new_sf)
+    for field in (
+        'sf_nom_2l_elec_mva', 'sf_hi_2l_elec_mva', 'sf_lo_2l_elec_mva',
+        'sf_nom_3l_elec_mva', 'sf_hi_3l_elec_mva', 'sf_lo_3l_elec_mva',
+        'sf_nom_2l_elec_non_mva', 'sf_hi_2l_elec_non_mva',
+        'sf_lo_2l_elec_non_mva', 'sf_nom_3l_elec_non_mva',
+        'sf_hi_3l_elec_non_mva', 'sf_lo_3l_elec_non_mva',
+    ):
+        muons[field] = ak.ones_like(new_sf)
 
 def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
     '''
@@ -1919,15 +1953,35 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
     electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf * iso_sf
     electrons['sf_hi_2l_elec']  = (reco_up) * new_up_2l * loose_up * iso_up
     electrons['sf_lo_2l_elec']  = (reco_do) * new_do_2l * loose_do * iso_do
-    electrons['sf_nom_3l_elec'] = reco_sf * new_sf_3l * loose_sf
+    electrons['sf_nom_3l_elec'] = reco_sf * new_sf_3l * loose_sf * iso_sf
     electrons['sf_hi_3l_elec']  = (reco_up) * new_up_3l * loose_up * iso_up
     electrons['sf_lo_3l_elec']  = (reco_do) * new_do_3l * loose_do * iso_do
+    electrons['sf_nom_2l_elec_mva'] = new_sf_2l
+    electrons['sf_hi_2l_elec_mva'] = new_up_2l
+    electrons['sf_lo_2l_elec_mva'] = new_do_2l
+    electrons['sf_nom_3l_elec_mva'] = new_sf_3l
+    electrons['sf_hi_3l_elec_mva'] = new_up_3l
+    electrons['sf_lo_3l_elec_mva'] = new_do_3l
+    electrons['sf_nom_2l_elec_non_mva'] = reco_sf * loose_sf * iso_sf
+    electrons['sf_hi_2l_elec_non_mva'] = reco_up * loose_up * iso_up
+    electrons['sf_lo_2l_elec_non_mva'] = reco_do * loose_do * iso_do
+    electrons['sf_nom_3l_elec_non_mva'] = reco_sf * loose_sf * iso_sf
+    electrons['sf_hi_3l_elec_non_mva'] = reco_up * loose_up * iso_up
+    electrons['sf_lo_3l_elec_non_mva'] = reco_do * loose_do * iso_do
     electrons['sf_nom_2l_muon'] = ak.ones_like(reco_sf)
     electrons['sf_hi_2l_muon']  = ak.ones_like(reco_sf)
     electrons['sf_lo_2l_muon']  = ak.ones_like(reco_sf)
     electrons['sf_nom_3l_muon'] = ak.ones_like(reco_sf)
     electrons['sf_hi_3l_muon']  = ak.ones_like(reco_sf)
     electrons['sf_lo_3l_muon']  = ak.ones_like(reco_sf)
+    for field in (
+        'sf_nom_2l_muon_mva', 'sf_hi_2l_muon_mva', 'sf_lo_2l_muon_mva',
+        'sf_nom_3l_muon_mva', 'sf_hi_3l_muon_mva', 'sf_lo_3l_muon_mva',
+        'sf_nom_2l_muon_non_mva', 'sf_hi_2l_muon_non_mva',
+        'sf_lo_2l_muon_non_mva', 'sf_nom_3l_muon_non_mva',
+        'sf_hi_3l_muon_non_mva', 'sf_lo_3l_muon_non_mva',
+    ):
+        electrons[field] = ak.ones_like(reco_sf)
 
 def AttachElectronCorrections(electrons, run, year, isData=False):
     """

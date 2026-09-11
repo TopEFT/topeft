@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+from datetime import datetime, timezone
 import json
 import time
 import os
@@ -9,6 +10,9 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import traceback
+import uuid
+import resource
 from collections.abc import Mapping
 
 from coffea import processor
@@ -129,6 +133,103 @@ def _format_worker_exception(exception_obj):
         return str(exception_obj)
     except Exception:
         return repr(exception_obj)
+
+
+_POST_RUNNER_PHASES = (
+    "runner_execution",
+    "runner_result_inspection",
+    "nominal_mapping_validation",
+    "nominal_key_canonicalization",
+    "event_summary",
+    "nominal_artifact_publication",
+    "inline_data_driven_estimation",
+)
+
+
+def _bounded_text(value, limit):
+    text = str(value)
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}\n...[truncated after {limit} characters]"
+
+
+def _manager_resource_snapshot():
+    """Return bounded manager-only resource values; never worker metrics."""
+
+    snapshot = {"pid": os.getpid()}
+    try:
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+    except (AttributeError, OSError):
+        return snapshot
+
+    snapshot.update(
+        {
+            "user_cpu_seconds": usage.ru_utime,
+            "system_cpu_seconds": usage.ru_stime,
+            "max_rss_kib": usage.ru_maxrss,
+        }
+    )
+    try:
+        with open("/proc/self/status", encoding="utf-8") as status_file:
+            for line in status_file:
+                key, separator, value = line.partition(":")
+                if separator and key in {"VmRSS", "VmHWM", "VmSize", "VmPeak", "Threads"}:
+                    snapshot[key] = value.strip()
+    except OSError:
+        pass
+    return snapshot
+
+
+def _write_post_runner_failure_diagnostic(
+    *,
+    outpath,
+    outname,
+    executor_name,
+    phase,
+    error,
+):
+    """Persist bounded manager evidence without masking the active exception."""
+
+    invocation_id = uuid.uuid4().hex
+    diagnostic_name = f"{outname}.manager_failure.{invocation_id}.json"
+    diagnostic_path = os.path.join(outpath, diagnostic_name)
+    temporary_path = f"{diagnostic_path}.{uuid.uuid4().hex}.tmp"
+    payload = {
+        "schema_version": 1,
+        "invocation_id": invocation_id,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "phase": phase,
+        "phase_vocabulary": _POST_RUNNER_PHASES,
+        "run": {
+            "executor": executor_name,
+            "outname": outname,
+            "outpath": os.path.abspath(outpath),
+        },
+        "exception": {
+            "type": type(error).__name__,
+            "message": _bounded_text(error, 4096),
+            "traceback": _bounded_text(traceback.format_exc(), 16384),
+        },
+        "manager_resources": _manager_resource_snapshot(),
+    }
+    try:
+        os.makedirs(outpath, exist_ok=True)
+        with open(temporary_path, "w", encoding="utf-8") as diagnostic_file:
+            json.dump(payload, diagnostic_file, indent=2, sort_keys=True)
+            diagnostic_file.write("\n")
+        os.replace(temporary_path, diagnostic_path)
+    except OSError as diagnostic_error:
+        print(
+            "Warning: failed to persist manager failure diagnostic "
+            f"for phase {phase}: {diagnostic_error}"
+        )
+        return None
+    finally:
+        try:
+            os.unlink(temporary_path)
+        except FileNotFoundError:
+            pass
+    return diagnostic_path
 
 
 def _dedupe_preserve_order(values):
@@ -860,6 +961,14 @@ if __name__ == "__main__":
         help="Skip filling sum of weight-squared histograms",
     )
     parser.add_argument(
+        "--record-raw-count",
+        action="store_true",
+        help=(
+            "Record per-bin selected nominal-MC event counts for fitting-family "
+            "histograms."
+        ),
+    )
+    parser.add_argument(
         "--do-systs",
         action="store_true",
         help="Compute systematic variations",
@@ -1155,6 +1264,7 @@ if __name__ == "__main__":
     pretend = args.pretend
     treename = args.treename
     fill_sumw2 = not args.no_sumw2
+    record_raw_count = args.record_raw_count
     legacy_no_sumw2_present = bool(args.no_sumw2)
     legacy_no_sumw2_value = bool(args.no_sumw2)
     sumw2_storage_present = False
@@ -1231,6 +1341,9 @@ if __name__ == "__main__":
             legacy_no_sumw2_present = True
             legacy_no_sumw2_value = not legacy_do_errors
         fill_sumw2 = not legacy_no_sumw2_value
+        record_raw_count = ops.pop("record_raw_count", record_raw_count)
+        if not isinstance(record_raw_count, bool):
+            raise ValueError("record_raw_count must be a boolean.")
         do_systs = ops.pop("do_systs", do_systs)
         suppress_forward_eta_stochastic_jer = ops.pop(
             "suppress_forward_eta_stochastic_jer",
@@ -2005,6 +2118,22 @@ if __name__ == "__main__":
         fwd_eta_band_pt_apply=fwd_eta_band_pt_apply,
         ttgamma_sample_role_policy=ttgamma_sample_role_policy,
         sumw2_policy=sumw2_policy,
+        record_raw_count=record_raw_count,
+    )
+    histogram_applicability = processor_instance.build_histogram_applicability(
+        analysis_mode=processor_instance._analysis_mode,
+        runtime_families=runtime_histogram_families,
+        selected_category_dicts=(
+            category_group_selection["sr_category_dict"],
+            category_group_selection["cr_category_dict"],
+        ),
+        split_by_lepton_flavor=split_lep_flavor,
+        is_run3_values=tuple(
+            dict.fromkeys(
+                sample["year"].startswith("202")
+                for sample in samplesdict.values()
+            )
+        ),
     )
 
     if executor_name in ["work_queue", "taskvine"]:
@@ -2124,6 +2253,7 @@ if __name__ == "__main__":
         )
 
     run_succeeded = False
+    diagnostic_phase = "runner_execution"
     try:
         try:
             output = runner(flist, treename, processor_instance)
@@ -2133,6 +2263,7 @@ if __name__ == "__main__":
                 "one chunk and that the executor handled submissions correctly."
             ) from exc
 
+        diagnostic_phase = "runner_result_inspection"
         worker_exception = None
         if isinstance(output, dict):
             worker_exception = _format_worker_exception(output.get("exception"))
@@ -2151,18 +2282,22 @@ if __name__ == "__main__":
 
         print("Finished running the processor...")
 
+        diagnostic_phase = "nominal_mapping_validation"
         validate_nominal_mapping(
             output,
             runtime_families=runtime_histogram_families,
             schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
             policy=sumw2_policy,
+            histogram_applicability=histogram_applicability,
         )
+        diagnostic_phase = "nominal_key_canonicalization"
         output = canonicalize_nominal_keys(
             output,
             runtime_families=runtime_histogram_families,
             schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
         )
 
+        diagnostic_phase = "event_summary"
         dt = time.time() - tstart
 
         if executor_name in ["work_queue", "taskvine"]:
@@ -2183,6 +2318,7 @@ if __name__ == "__main__":
             )
 
         # Save the output
+        diagnostic_phase = "nominal_artifact_publication"
         os.makedirs(outpath, exist_ok=True)
         print(f"\nSaving output in {out_pkl_file}...")
         processor_sidecar = write_histogram_artifact(
@@ -2193,12 +2329,14 @@ if __name__ == "__main__":
             production_sample_contract=production_sample_contract,
             requested_data_driven_products=requested_data_driven_products,
             resolved_data_driven_contract=resolved_data_driven_contract,
+            histogram_applicability=histogram_applicability,
         )
         print("Done!")
 
         # Run the data driven estimation, save the output
         if do_np:
             if np_postprocess_mode == "inline":
+                diagnostic_phase = "inline_data_driven_estimation"
                 print("\nDoing the nonprompt estimation...")
                 ddp = DataDrivenProducer(
                     out_pkl_file,
@@ -2227,6 +2365,24 @@ if __name__ == "__main__":
             run_succeeded = True
         else:
             run_succeeded = True
+    except Exception as error:
+        try:
+            diagnostic_path = _write_post_runner_failure_diagnostic(
+                outpath=outpath,
+                outname=outname,
+                executor_name=executor_name,
+                phase=diagnostic_phase,
+                error=error,
+            )
+        except Exception as diagnostic_error:
+            print(
+                "Warning: failed to collect manager failure diagnostic "
+                f"for phase {diagnostic_phase}: {diagnostic_error}"
+            )
+        else:
+            if diagnostic_path is not None:
+                print(f"Manager failure diagnostic written to {diagnostic_path}")
+        raise
     finally:
         if run_succeeded and wq_cleanup_after:
             _cleanup_work_queue_staging_directory(wq_staging_dir, wq_cleanup_after)

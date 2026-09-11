@@ -188,6 +188,28 @@ def aggregate_array(values, aggregation_map, *, axis=0):
     return output
 
 
+def _aggregate_raw_count_array(histogram, values, aggregation_map):
+    """Aggregate one flow-inclusive uint64 raw-count array without wraparound."""
+
+    array = np.asarray(values)
+    mapping = np.asarray(aggregation_map, dtype=int)
+    if array.dtype != np.dtype(np.uint64):
+        raise TypeError(f"Raw-count array must have dtype uint64, got {array.dtype}.")
+    if array.ndim != 1 or array.shape[0] != mapping.size:
+        raise ValueError(
+            "Raw-count aggregation requires one flow-inclusive physical-bin array "
+            f"with length {mapping.size}, got shape {array.shape}."
+        )
+    output = np.zeros(int(mapping.max()) + 1, dtype=np.uint64)
+    for source_index, target_index in enumerate(mapping):
+        histogram._checked_add_raw_count_arrays(
+            output[target_index : target_index + 1],
+            array[source_index : source_index + 1],
+            context="Semantic raw-count rebin",
+        )
+    return output
+
+
 def _axis_edges(axis):
     edges = axis.edges
     if callable(edges):
@@ -253,6 +275,11 @@ def rebin_histogram(histogram, target_edges):
         overflow=traits.overflow,
     )
     rebinned = histogram.empty_from_axes(dense_axes=[target_axis])
+    raw_states = (
+        histogram._validated_raw_count_states()
+        if histogram.track_raw_counts
+        else None
+    )
     for source_index, source_dense in histogram._dense_hists.items():
         categories = histogram.index_to_categories(source_index)
         target_index = rebinned._fill_bookkeep(*categories)
@@ -260,6 +287,22 @@ def rebin_histogram(histogram, target_edges):
         source_values = source_dense.view(flow=True)
         target_values = aggregate_array(source_values, aggregation_map, axis=0)
         target_dense.view(flow=True)[...] = target_values
+        if rebinned.track_raw_counts:
+            source_raw = raw_states[source_index]
+            target_raw = (
+                None
+                if source_raw is None
+                else _aggregate_raw_count_array(
+                    histogram,
+                    source_raw,
+                    aggregation_map,
+                )
+            )
+            rebinned._merge_raw_count_state(
+                target_index,
+                target_raw,
+                context="Semantic raw-count rebin",
+            )
     return rebinned
 
 
