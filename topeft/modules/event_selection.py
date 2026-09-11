@@ -258,6 +258,33 @@ exclude_dict_top22006 = {
 }
 
 
+def _add_lepton_sf_component_fields(
+    events, padded_fos, event_lepton_count, per_lepton_category
+):
+    """Aggregate prompt-MVA and non-MVA SF components without changing masks."""
+    event_prefix = f"sf_{event_lepton_count}l"
+    per_lepton_prefix = f"{per_lepton_category}l"
+    for flavor in ("muon", "elec"):
+        for component in ("mva", "non_mva"):
+            for event_direction, per_lepton_direction in (
+                ("", "nom"),
+                ("_hi", "hi"),
+                ("_lo", "lo"),
+            ):
+                per_lepton_field = (
+                    f"sf_{per_lepton_direction}_{per_lepton_prefix}_"
+                    f"{flavor}_{component}"
+                )
+                event_weight = getattr(padded_fos[:, 0], per_lepton_field)
+                for index in range(1, event_lepton_count):
+                    event_weight = event_weight * getattr(
+                        padded_fos[:, index], per_lepton_field
+                    )
+                events[f"{event_prefix}{event_direction}_{flavor}_{component}"] = (
+                    event_weight
+                )
+
+
 # 1l selections
 # STILL IN DEVELOPMENT!!!
 def add1lMaskAndSFs(events, year, isData, sampleType):
@@ -312,6 +339,7 @@ def add1lMaskAndSFs(events, year, isData, sampleType):
     events['sf_1l_hi_elec'] = padded_FOs[:,0].sf_hi_2l_elec
     events['sf_1l_lo_muon'] = padded_FOs[:,0].sf_lo_2l_muon
     events['sf_1l_lo_elec'] = padded_FOs[:,0].sf_lo_2l_elec
+    _add_lepton_sf_component_fields(events, padded_FOs, 1, 2)
 
     # SR:
     events['is1l_SR'] = (padded_FOs[:,0].isTightLep)
@@ -382,6 +410,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['sf_2l_hi_elec'] = padded_FOs[:,0].sf_hi_2l_elec*padded_FOs[:,1].sf_hi_2l_elec
     events['sf_2l_lo_muon'] = padded_FOs[:,0].sf_lo_2l_muon*padded_FOs[:,1].sf_lo_2l_muon
     events['sf_2l_lo_elec'] = padded_FOs[:,0].sf_lo_2l_elec*padded_FOs[:,1].sf_lo_2l_elec
+    _add_lepton_sf_component_fields(events, padded_FOs, 2, 2)
 
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
@@ -451,6 +480,7 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     events['sf_3l_hi_elec'] = padded_FOs[:,0].sf_hi_3l_elec*padded_FOs[:,1].sf_hi_3l_elec*padded_FOs[:,2].sf_hi_3l_elec
     events['sf_3l_lo_muon'] = padded_FOs[:,0].sf_lo_3l_muon*padded_FOs[:,1].sf_lo_3l_muon*padded_FOs[:,2].sf_lo_3l_muon
     events['sf_3l_lo_elec'] = padded_FOs[:,0].sf_lo_3l_elec*padded_FOs[:,1].sf_lo_3l_elec*padded_FOs[:,2].sf_lo_3l_elec
+    _add_lepton_sf_component_fields(events, padded_FOs, 3, 3)
 
     # SR:
     events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
@@ -499,6 +529,7 @@ def add4lMaskAndSFs(events, year, isData):
     events['sf_4l_hi_elec'] = padded_FOs[:,0].sf_hi_3l_elec*padded_FOs[:,1].sf_hi_3l_elec*padded_FOs[:,2].sf_hi_3l_elec*padded_FOs[:,3].sf_hi_3l_elec
     events['sf_4l_lo_muon'] = padded_FOs[:,0].sf_lo_3l_muon*padded_FOs[:,1].sf_lo_3l_muon*padded_FOs[:,2].sf_lo_3l_muon*padded_FOs[:,3].sf_lo_3l_muon
     events['sf_4l_lo_elec'] = padded_FOs[:,0].sf_lo_3l_elec*padded_FOs[:,1].sf_lo_3l_elec*padded_FOs[:,2].sf_lo_3l_elec*padded_FOs[:,3].sf_lo_3l_elec
+    _add_lepton_sf_component_fields(events, padded_FOs, 4, 3)
 
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps

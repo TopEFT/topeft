@@ -140,6 +140,34 @@ def _fill_eft(entries, *, channel="3l"):
     return output
 
 
+def _structurally_absent_processor_payload():
+    def axes(dense_name, processes):
+        return (
+            hist.axis.StrCategory(processes, name="process", growth=True),
+            hist.axis.StrCategory([], name="channel", growth=True),
+            hist.axis.StrCategory([], name="systematic", growth=True),
+            hist.axis.StrCategory([], name="appl", growth=True),
+            hist.axis.Regular(1, 0.0, 1.0, name=dense_name),
+        )
+
+    scalar_processes = ["dataUL18", "TTTo2L2Nu_centralUL18"]
+    signal_processes = ["WWTo2L2Nu_centralUL18"]
+    companion_processes = scalar_processes + signal_processes
+    return {
+        scalar_nominal_key("njets"): SparseHist(
+            *axes("njets", scalar_processes), storage="Double"
+        ),
+        eft_nominal_key("njets"): HistEFT(
+            *axes("njets", signal_processes),
+            wc_names=["ctG"],
+            label="Events",
+        ),
+        "njets_sumw2": SparseHist(
+            *axes("njets_sumw2", companion_processes), storage="Double"
+        ),
+    }
+
+
 @pytest.fixture
 def policy():
     return resolve_sumw2_storage_policy(
@@ -228,7 +256,16 @@ def _processor_payload_for_regions(
     }
 
 
-def _write_processor(path, policy, products_block=None, source_payload=None):
+_DEFAULT_HISTOGRAM_APPLICABILITY = object()
+
+
+def _write_processor(
+    path,
+    policy,
+    products_block=None,
+    source_payload=None,
+    histogram_applicability=_DEFAULT_HISTOGRAM_APPLICABILITY,
+):
     samples = {
         "data_dataset": {
             "histAxisName": "dataUL18",
@@ -272,6 +309,12 @@ def _write_processor(path, policy, products_block=None, source_payload=None):
         metadata_path="test_options.yml",
     )
     requested, contract = certify_data_driven_preflight(products, policy)
+    if histogram_applicability is _DEFAULT_HISTOGRAM_APPLICABILITY:
+        effective_payload = source_payload or _processor_payload()
+        histogram_applicability = _histogram_applicability_for_payload(
+            effective_payload,
+            policy.runtime_histogram_families,
+        )
     return write_histogram_artifact(
         path,
         histograms=source_payload or _processor_payload(),
@@ -280,7 +323,56 @@ def _write_processor(path, policy, products_block=None, source_payload=None):
         production_sample_contract=_certify_profile(policy, samples, products),
         requested_data_driven_products=requested,
         resolved_data_driven_contract=contract,
+        histogram_applicability=histogram_applicability,
     )
+
+
+def _histogram_applicability(channel_states, *, family="njets"):
+    return {
+        "contract_version": 1,
+        "producer_query": "AnalysisProcessor.histogram_fill_is_applicable",
+        "producer_semantics_sha256": (
+            run_data_driven.analysis_processor.histogram_applicability_semantics_sha256()
+        ),
+        "analysis_mode": "all",
+        "families": {
+            family: {
+                "channels": {
+                    channel: channel_states[channel]
+                    for channel in sorted(channel_states)
+                }
+            }
+        },
+    }
+
+
+def _histogram_applicability_for_payload(payload, runtime_families):
+    families = {}
+    for family in runtime_families:
+        channels = set()
+        for key in (family, scalar_nominal_key(family), eft_nominal_key(family)):
+            histogram = payload.get(key)
+            if histogram is None:
+                continue
+            try:
+                channels.update(str(channel) for channel in histogram.axes["channel"])
+            except Exception:
+                pass
+        families[family] = {
+            "channels": {
+                channel: "applicable"
+                for channel in sorted(channels)
+            }
+        }
+    return {
+        "contract_version": 1,
+        "producer_query": "AnalysisProcessor.histogram_fill_is_applicable",
+        "producer_semantics_sha256": (
+            run_data_driven.analysis_processor.histogram_applicability_semantics_sha256()
+        ),
+        "analysis_mode": "all",
+        "families": families,
+    }
 
 
 def _legacy_v3_contract_from_current(contract, *, signal_processes):
@@ -383,6 +475,10 @@ def _write_disjoint_source_processor(
         production_sample_contract=_certify_profile(policy, samples, products),
         requested_data_driven_products=requested,
         resolved_data_driven_contract=contract,
+        histogram_applicability=_histogram_applicability_for_payload(
+            payload,
+            runtime_families,
+        ),
     )
     return sidecar
 
@@ -1379,17 +1475,22 @@ def test_nonprompt_transformation_uses_certified_multi_year_output_map(
     )
     input_path = tmp_path / "multi_year_processor.pkl.gz"
     output_path = tmp_path / "multi_year_nonprompt.pkl.gz"
+    source_payload = {
+        scalar_nominal_key("njets"): _fill_sparse("njets", scalar_entries),
+        "njets_sumw2": _fill_sparse("njets_sumw2", companion_entries),
+    }
     write_histogram_artifact(
         input_path,
-        histograms={
-            scalar_nominal_key("njets"): _fill_sparse("njets", scalar_entries),
-            "njets_sumw2": _fill_sparse("njets_sumw2", companion_entries),
-        },
+        histograms=source_payload,
         artifact_kind="processor_output",
         sumw2_storage_provenance=local_policy.to_provenance(),
         production_sample_contract=_certify_profile(local_policy, samples, products),
         requested_data_driven_products=requested,
         resolved_data_driven_contract=contract,
+        histogram_applicability=_histogram_applicability_for_payload(
+            source_payload,
+            ("njets",),
+        ),
     )
     run_data_driven.main(
         [
@@ -2004,6 +2105,10 @@ def test_compatible_stage_merges_regenerate_deterministic_sidecar(
                 source_payload=_processor_payload(channel=channel),
             )
         else:
+            channel_source_sidecar = copy.deepcopy(source_sidecar)
+            channel_source_sidecar["histogram_applicability"] = (
+                _histogram_applicability({channel: "applicable"})
+            )
             write_histogram_artifact(
                 path,
                 histograms=_transformed_payload(
@@ -2011,10 +2116,10 @@ def test_compatible_stage_merges_regenerate_deterministic_sidecar(
                 ),
                 artifact_kind=artifact_kind,
                 sumw2_storage_provenance=policy.to_provenance(),
-                lineage_inputs=[lineage_input_from_sidecar(source_sidecar)],
-                input_sidecar=source_sidecar,
+                lineage_inputs=[lineage_input_from_sidecar(channel_source_sidecar)],
+                input_sidecar=channel_source_sidecar,
                 transformation_context=_transformed_context(
-                    source_sidecar, artifact_kind
+                    channel_source_sidecar, artifact_kind
                 ),
             )
         paths.append(str(path))
@@ -2545,6 +2650,10 @@ def test_flips_contract_requires_every_generated_year_label(tmp_path):
         ),
         requested_data_driven_products=requested,
         resolved_data_driven_contract=contract,
+        histogram_applicability=_histogram_applicability_for_payload(
+            source_payload,
+            ("njets",),
+        ),
     )
     run_data_driven.main(
         [
@@ -2857,3 +2966,305 @@ def test_no_user_facing_sidecar_cli_option_and_shared_discovery_source():
     assert "metadata_sidecar_path" in (
         repository_root / "topeft/modules/histogram_artifact.py"
     ).read_text(encoding="utf-8")
+
+
+def test_processor_applicability_round_trip_is_binary_and_content_free(
+    tmp_path,
+    policy,
+):
+    path = tmp_path / "declared_processor.pkl.gz"
+    declaration = _histogram_applicability(
+        {
+            "3l": "applicable",
+            "3l_intentionally_absent": "not_applicable",
+        }
+    )
+    written = _write_processor(
+        path,
+        policy,
+        histogram_applicability=declaration,
+    )
+    reopened = validate_histogram_artifact(path)
+
+    assert written["histogram_applicability"] == declaration
+    assert reopened["histogram_applicability_source"] == "serialized"
+    assert reopened["metadata"]["histogram_applicability"] == declaration
+    serialized = json.dumps(declaration, sort_keys=True)
+    assert "with_content" not in serialized
+    assert "but_zero" not in serialized
+
+
+def test_processor_applicability_rejects_declaration_structure_contradiction(
+    tmp_path,
+    policy,
+):
+    path = tmp_path / "contradictory_processor.pkl.gz"
+    with pytest.raises(ValueError, match="structurally present"):
+        _write_processor(
+            path,
+            policy,
+            histogram_applicability=_histogram_applicability(
+                {"3l": "not_applicable"}
+            ),
+        )
+
+
+def test_declaration_free_schema_v2_artifact_remains_unknown_legacy(
+    tmp_path,
+    policy,
+):
+    path = tmp_path / "declaration_free_processor.pkl.gz"
+    _write_processor(path, policy, histogram_applicability=None)
+
+    reopened = validate_histogram_artifact(path)
+
+    assert reopened["histogram_applicability_source"] == "unknown_legacy"
+    assert "histogram_applicability" not in reopened["metadata"]
+
+
+def test_declaration_free_filename_and_content_do_not_replace_legacy_context(
+    tmp_path,
+    policy,
+):
+    path = tmp_path / "3l_onZ_tau_lt_numerically_empty_hint.pkl.gz"
+    zero_payload = {
+        key: histogram * 0.0
+        for key, histogram in _processor_payload().items()
+    }
+    _write_processor(
+        path,
+        policy,
+        source_payload=zero_payload,
+        histogram_applicability=None,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="requires qualified legacy campaign context",
+    ):
+        run_data_driven.main(
+            [
+                "--input-pkl",
+                str(path),
+                "--output-pkl",
+                str(tmp_path / "must_not_exist.pkl.gz"),
+                "--quiet",
+            ]
+        )
+
+
+def test_validated_not_applicable_family_produces_no_data_driven_histogram(
+    tmp_path,
+    policy,
+):
+    input_path = tmp_path / "not_applicable_processor.pkl.gz"
+    output_path = tmp_path / "not_applicable_nonprompt.pkl.gz"
+    _write_processor(
+        input_path,
+        policy,
+        source_payload=_structurally_absent_processor_payload(),
+        histogram_applicability=_histogram_applicability(
+            {"3l": "not_applicable"}
+        ),
+    )
+
+    run_data_driven.main(
+        [
+            "--input-pkl",
+            str(input_path),
+            "--output-pkl",
+            str(output_path),
+            "--quiet",
+        ]
+    )
+
+    assert get_hist_from_pkl(str(output_path), allow_empty=True) == {}
+    reopened = validate_histogram_artifact(output_path)
+    assert reopened["metadata"]["histogram_applicability"] == (
+        _histogram_applicability({"3l": "not_applicable"})
+    )
+
+
+def test_validated_applicable_zero_source_runs_normal_transformation(
+    tmp_path,
+    policy,
+):
+    input_path = tmp_path / "applicable_zero_processor.pkl.gz"
+    output_path = tmp_path / "applicable_zero_nonprompt.pkl.gz"
+    zero_payload = {
+        key: histogram * 0.0
+        for key, histogram in _processor_payload().items()
+    }
+    _write_processor(
+        input_path,
+        policy,
+        source_payload=zero_payload,
+        histogram_applicability=_histogram_applicability(
+            {"3l": "applicable"}
+        ),
+    )
+
+    run_data_driven.main(
+        [
+            "--input-pkl",
+            str(input_path),
+            "--output-pkl",
+            str(output_path),
+            "--quiet",
+        ]
+    )
+
+    output = get_hist_from_pkl(str(output_path), allow_empty=True)
+    assert scalar_nominal_key("njets") in output
+    assert all(
+        np.asarray(values).sum() == pytest.approx(0.0)
+        for values in output[scalar_nominal_key("njets")].view(
+            flow=True,
+            as_dict=True,
+        ).values()
+    )
+
+
+def test_applicable_structural_absence_fails_before_transformation(
+    tmp_path,
+    policy,
+    monkeypatch,
+):
+    input_path = tmp_path / "applicable_missing_processor.pkl.gz"
+    _write_processor(
+        input_path,
+        policy,
+        source_payload=_structurally_absent_processor_payload(),
+        histogram_applicability=None,
+    )
+    sidecar_path = metadata_sidecar_path(input_path)
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    sidecar["histogram_applicability"] = _histogram_applicability(
+        {"3l": "applicable"}
+    )
+    sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+
+    monkeypatch.setattr(
+        run_data_driven,
+        "DataDrivenProducer",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("transformation must not begin")
+        ),
+    )
+    with pytest.raises(ValueError, match="structurally absent"):
+        run_data_driven.main(
+            [
+                "--input-pkl",
+                str(input_path),
+                "--output-pkl",
+                str(tmp_path / "must_not_exist.pkl.gz"),
+                "--quiet",
+            ]
+        )
+
+
+def test_validated_applicability_does_not_mask_later_unrelated_exception(
+    tmp_path,
+    policy,
+    monkeypatch,
+):
+    input_path = tmp_path / "valid_processor.pkl.gz"
+    _write_processor(
+        input_path,
+        policy,
+        histogram_applicability=_histogram_applicability(
+            {"3l": "applicable"}
+        ),
+    )
+
+    class LaterFailure:
+        def __init__(self, *_args, **_kwargs):
+            raise RuntimeError("later unrelated failure")
+
+    monkeypatch.setattr(run_data_driven, "DataDrivenProducer", LaterFailure)
+    with pytest.raises(RuntimeError, match="later unrelated failure"):
+        run_data_driven.main(
+            [
+                "--input-pkl",
+                str(input_path),
+                "--output-pkl",
+                str(tmp_path / "must_not_exist.pkl.gz"),
+                "--quiet",
+            ]
+        )
+
+
+def test_self_describing_artifact_uses_declaration_not_current_producer_semantics(
+    tmp_path,
+    policy,
+    monkeypatch,
+):
+    input_path = tmp_path / "incompatible_producer_processor.pkl.gz"
+    _write_processor(input_path, policy)
+    sidecar_path = metadata_sidecar_path(input_path)
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    sidecar["histogram_applicability"]["producer_semantics_sha256"] = "b" * 64
+    sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+
+    monkeypatch.setattr(
+        run_data_driven.analysis_processor,
+        "histogram_applicability_semantics_sha256",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("current producer query must not be consulted")
+        ),
+    )
+    monkeypatch.setattr(
+        run_data_driven.analysis_processor,
+        "load_category_config",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("current category config must not be consulted")
+        ),
+    )
+    monkeypatch.setattr(
+        run_data_driven,
+        "_git_show_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("producer commit/config provenance must not be consulted")
+        ),
+    )
+
+    output_path = tmp_path / "accepted_historical_producer.pkl.gz"
+    run_data_driven.main(
+        [
+            "--input-pkl",
+            str(input_path),
+            "--output-pkl",
+            str(output_path),
+            "--quiet",
+        ]
+    )
+
+    assert output_path.is_file()
+
+
+def test_self_describing_artifact_rejects_malformed_binary_declaration(
+    tmp_path,
+    policy,
+):
+    input_path = tmp_path / "malformed_applicability_processor.pkl.gz"
+    _write_processor(input_path, policy)
+    sidecar_path = metadata_sidecar_path(input_path)
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    family = next(iter(sidecar["histogram_applicability"]["families"].values()))
+    channel = next(iter(family["channels"]))
+    family["channels"][channel] = "unknown"
+    sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+
+    output_path = tmp_path / "must_not_exist.pkl.gz"
+    with pytest.raises(RuntimeError, match="states are binary"):
+        run_data_driven.main(
+            [
+                "--input-pkl",
+                str(input_path),
+                "--output-pkl",
+                str(output_path),
+                "--quiet",
+            ]
+        )
+
+    assert not output_path.exists()

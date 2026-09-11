@@ -54,8 +54,12 @@ def _axes(dense_name, *, bins=1):
     )
 
 
-def _fill_sparse(dense_name, entries):
-    output = SparseHist(*_axes(dense_name), storage="Double")
+def _fill_sparse(dense_name, entries, *, track_raw_counts=False):
+    output = SparseHist(
+        *_axes(dense_name),
+        storage="Double",
+        track_raw_counts=track_raw_counts,
+    )
     for process, appl, value in entries:
         output.fill(
             process=process,
@@ -64,15 +68,19 @@ def _fill_sparse(dense_name, entries):
             appl=appl,
             **{dense_name: np.asarray([0.5])},
             weight=np.asarray([value]),
+            record_raw_count=(
+                not str(process).startswith("data") if track_raw_counts else None
+            ),
         )
     return output
 
 
-def _fill_eft(entries, *, bins=1):
+def _fill_eft(entries, *, bins=1, track_raw_counts=False):
     output = HistEFT(
         *_axes("njets", bins=bins),
         wc_names=["ctW"],
         label="Events",
+        track_raw_counts=track_raw_counts,
     )
     for process, appl, weight, coefficients in entries:
         output.fill(
@@ -83,6 +91,7 @@ def _fill_eft(entries, *, bins=1):
             njets=np.asarray([0.5]),
             weight=np.asarray([weight]),
             eft_coeff=np.asarray([coefficients]),
+            record_raw_count=True if track_raw_counts else None,
         )
     return output
 
@@ -181,7 +190,7 @@ def _contracts(prompt_process, *, private):
     return policy, requested, resolved, profile
 
 
-def _payload(*, private=True):
+def _payload(*, private=True, track_raw_counts=False):
     prompt_process = PRIVATE_PROCESS if private else CENTRAL_EQUIVALENT_PROCESS
     scalar_entries = [
         ("dataUL18", "isAR_3l", 10.0),
@@ -217,8 +226,12 @@ def _payload(*, private=True):
     if private:
         companion_entries.append((prompt_process, "isSR_3l", 56.25))
     return {
-        scalar_nominal_key("njets"): _fill_sparse("njets", scalar_entries),
-        eft_nominal_key("njets"): _fill_eft(eft_entries),
+        scalar_nominal_key("njets"): _fill_sparse(
+            "njets", scalar_entries, track_raw_counts=track_raw_counts
+        ),
+        eft_nominal_key("njets"): _fill_eft(
+            eft_entries, track_raw_counts=track_raw_counts
+        ),
         "njets_sumw2": _fill_sparse("njets_sumw2", companion_entries),
     }
 
@@ -580,6 +593,37 @@ def test_private_eft_and_equivalent_central_scalar_agree_at_sm(tmp_path):
         str(value)
         for value in central[eft_nominal_key("njets")].axes["process"]
     ]
+
+
+def test_tracked_private_eft_nonprompt_preserves_physics_and_raw_semantics():
+    tracked = DataDrivenProducer(
+        _payload(private=True, track_raw_counts=True), ""
+    ).getDataDrivenHistogram()
+    reference = DataDrivenProducer(
+        _payload(private=True, track_raw_counts=False), ""
+    ).getDataDrivenHistogram()
+
+    for key in tracked:
+        tracked_values = tracked[key].view(flow=True, as_dict=True)
+        reference_values = reference[key].view(flow=True, as_dict=True)
+        assert set(tracked_values) == set(reference_values)
+        for sparse_key, values in tracked_values.items():
+            np.testing.assert_array_equal(values, reference_values[sparse_key])
+
+    scalar = tracked[scalar_nominal_key("njets")]
+    assert scalar.track_raw_counts is True
+    generated_keys = [
+        categories
+        for categories in scalar.categorical_keys
+        if str(categories.process).startswith("nonprompt")
+    ]
+    recorded_keys = set(scalar.raw_counts(flow=True))
+    assert generated_keys
+    assert all(categories not in recorded_keys for categories in generated_keys)
+
+    retained_eft = tracked[eft_nominal_key("njets")]
+    assert retained_eft.track_raw_counts is True
+    assert retained_eft.raw_counts(flow=True)
 
 
 def test_private_eft_projection_streaming_roundtrip(tmp_path):

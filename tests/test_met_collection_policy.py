@@ -232,8 +232,11 @@ def test_processor_type1_met_build_policy_is_not_run3_only():
 def test_processor_keeps_cleaned_analysis_jets_separate():
     source = _processor_source()
 
-    assert "cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]" in source
-    assert "cleanedJets = ApplyJetCorrections(" in source
+    assert "analysis_raw_jets = get_analysis_cleaned_jets(" in source
+    assert "analysis_corrected_jets, jet_pt_name = build_corrected_jet_view(" in source
+    assert "correction_factory = ApplyJetCorrections(" in source
+    assert "hem_corrected_jets = analysis_corrected_jets" in source
+    assert "cleanedJets, hem_corrected_jets, jetptname" in source
     assert "goodJets = cleanedJets[cleanedJets.isGood]" in source
     assert "fwdJets  = cleanedJets[cleanedJets.isFwd]" in source
 

@@ -229,6 +229,40 @@ def test_low_mass_wc_metadata_keeps_eft_nominal_storage():
     }
 
 
+def test_plain_run3_ttbar_survives_filtering_and_groups_into_ttll(monkeypatch):
+    monkeypatch.setattr(DatacardMaker, "load_systematics", lambda *args: {})
+    maker = DatacardMaker(hists={}, do_nuisance=False, verbose=False)
+    processes = ("TTto2L2Nu", "TTtoLNu2Q")
+
+    for process in processes:
+        assert process not in maker.ignore
+        assert f"{process}_" in maker.GROUP["ttll_"]
+
+    assert "TTTo2L2Nu_" in maker.GROUP["ttll_"]
+    assert "TTToSemiLeptonic_" in maker.GROUP["ttll_"]
+
+    histogram = mock.Mock()
+    histogram.axes = {
+        "process": [
+            "TTto2L2Nu_2022",
+            "TTtoLNu2Q_2022",
+            "TTTo2L2Nu_UL18",
+            "TTToSemiLeptonic_UL18",
+        ]
+    }
+    histogram.group.return_value = histogram
+    assert maker.group_processes(histogram) is histogram
+    grouping = histogram.group.call_args.args[1]
+    assert set(grouping["ttll_2022"]) == {
+        "TTto2L2Nu_2022",
+        "TTtoLNu2Q_2022",
+    }
+    assert set(grouping["ttll_UL18"]) == {
+        "TTTo2L2Nu_UL18",
+        "TTToSemiLeptonic_UL18",
+    }
+
+
 def test_same_process_accumulation_preserves_ordinary_eft_dependence():
     ordinary = HistEFT(*_axes(), wc_names=["ctW"], label="Events")
     low_mass = HistEFT(*_axes(), wc_names=["ctW"], label="Events")

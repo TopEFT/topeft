@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import re
@@ -15,9 +16,27 @@ RUN_CR = RUN_DIRECTORY / "run_cr.sh"
 RUN_ANALYSIS = RUN_DIRECTORY / "run_analysis.py"
 FROZEN_ENV = RUN_DIRECTORY / "topeft-envs" / "env_spec_9d72aad444117c28.tar.gz"
 FROZEN_SHA256 = "8245afe4b3c28f4948039d383ad2176f1ee3ebb5e61bcdf1b49289452b025332"
+T0_FROZEN_ENV = RUN_DIRECTORY / "topeft-envs" / "env_spec_d2b557628143725b.tar.gz"
+T0_FROZEN_SHA256 = "c9c2cf2a8697c722291a5e5bfc492afafd367e1a2274289d5d37f9b8cfa8a292"
+T0_HISTORICAL_LAUNCHER_COMMIT = "5e7a7b4cdfa5babddab922650e5c35bb0a2c2ea2"
 PUBLIC_PROFILES = {
     "run2_full", "run3_full", "run2_run3_full",
     "run2_full_CR", "run3_full_CR", "run2_run3_full_CR",
+    "t0_sr_statonly", "t0_cr_statonly",
+}
+PROFILE_BLOCK_IDS = {
+    "run2_full": [f"run2_full_{suffix}" for suffix in "abcde"],
+    "run3_full": [f"run3_full_{suffix}" for suffix in "abcde"],
+    "t0_sr_statonly": [
+        f"t0_sr_statonly_{era}_{suffix}"
+        for era in ("run2", "run3")
+        for suffix in "abcde"
+    ],
+    "t0_cr_statonly": [
+        f"t0_cr_statonly_block{index}" for index in range(1, 19)
+    ],
+    "run2_full_CR": [f"run2_full_CR_block{index}" for index in range(1, 7)],
+    "run3_full_CR": [f"run3_full_CR_block{index}" for index in range(1, 13)],
 }
 MATRIX_EARLY_PROFILES = (
     "run2_full",
@@ -25,6 +44,8 @@ MATRIX_EARLY_PROFILES = (
     "run3_full_CR",
     "run2_run3_full",
     "run2_run3_full_CR",
+    "t0_sr_statonly",
+    "t0_cr_statonly",
 )
 RUN2_SR_BLOCKS = [
     (("UL16", "UL16APV", "UL17", "UL18"), ("2l", "2lss_1tau", "2los_1tau", "4l"), ("njets", "lj0pt", "ptz", "ptz_wtau", "lt")),
@@ -35,6 +56,10 @@ RUN2_SR_BLOCKS = [
 ]
 RUN3_SR_BLOCKS = [
     (("2022", "2022EE", "2023", "2023BPix"), categories, histograms)
+    for _, categories, histograms in RUN2_SR_BLOCKS
+]
+T0_RUN2_SR_BLOCKS = [
+    (("2016APV", "2016", "2017", "2018"), categories, histograms)
     for _, categories, histograms in RUN2_SR_BLOCKS
 ]
 
@@ -87,15 +112,22 @@ def _clean_environment():
     return environment
 
 
-def _run(profile, output_dir, campaign_tag, *, dry_run=True, environment=None):
+def _run(profile, output_dir, campaign_tag, *, dry_run=True, resume=False, environment=None):
+    env_file = (
+        T0_FROZEN_ENV
+        if profile in {"t0_sr_statonly", "t0_cr_statonly"}
+        else FROZEN_ENV
+    )
     command = [
         str(RUN_CR), "--production-profile", profile,
         "--output-dir", str(output_dir),
         "--campaign-tag", campaign_tag,
-        "--env-file", str(FROZEN_ENV),
+        "--env-file", str(env_file),
     ]
     if dry_run:
         command.append("--dry-run")
+    if resume:
+        command.append("--resume")
     return subprocess.run(
         command,
         cwd=RUN_DIRECTORY,
@@ -149,8 +181,12 @@ case "$action" in
           "${{SRPLOT009_VALIDATION_ROOT}}/output/run2_CR"
       fi
     fi
+    archive_sha256="{FROZEN_SHA256}"
+    if [[ "$archive" == "{T0_FROZEN_ENV}" ]]; then
+      archive_sha256="{T0_FROZEN_SHA256}"
+    fi
     printf 'env_file: %s\\n' "$archive"
-    printf 'env_file_sha256: {FROZEN_SHA256}\\n'
+    printf 'env_file_sha256: %s\\n' "$archive_sha256"
     printf 'env_manifest: %s.manifest.json\\n' "$archive"
     printf 'environment_fingerprint: %064d\\n' 9
     printf 'environment_validation_status: valid\\n'
@@ -182,8 +218,10 @@ case "$action" in
     fi
     mkdir -p -- "$(dirname -- "$source_path")"
     printf 'synthetic source\\n' > "$source_path"
+    printf '{{"artifact": {{"pkl_sha256": "%064d"}}, "synthetic": true}}\\n' 6 > "$source_path.metadata.json"
     if [[ " $* " != *" --defer-np "* ]]; then
       printf 'synthetic nonprompt\\n' > "$nonprompt_path"
+      printf '{{"synthetic": true}}\\n' > "$nonprompt_path.metadata.json"
     fi
     if [[ "$scenario" == run2_state_contradiction && "$block_id" == run2_full_a ]]; then
       rm -f -- "$native_log_dir/debug.log" "$native_log_dir/tr.log" \
@@ -202,6 +240,7 @@ case "$action" in
     [[ "$scenario" != nonprompt_failure_2 || "$block_id" != *_b ]] || exit 25
     [[ -s "$source_path" ]] || exit 26
     printf 'synthetic nonprompt\\n' > "$nonprompt_path"
+    printf '{{"synthetic": true}}\\n' > "$nonprompt_path.metadata.json"
     ;;
   *) exit 90 ;;
 esac
@@ -241,6 +280,90 @@ def _campaign_state(output_root, profile):
             encoding="utf-8"
         )
     )
+
+
+def _prepare_t0_recovery_fixture(tmp_path, retry_indices=range(10)):
+    result, output_root, validation_root = _stubbed_run(
+        tmp_path, "t0_sr_statonly", "success"
+    )
+    assert result.returncode == 0, result.stdout
+    state_path = output_root / ".t0_sr_statonly_campaign_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["topeft_git_commit"] = T0_HISTORICAL_LAUNCHER_COMMIT
+    preserved_transitions = {}
+    retry_indices = set(retry_indices)
+    for index, block in enumerate(state["blocks"]):
+        if index not in retry_indices:
+            continue
+        Path(block["expected_np_path"]).unlink()
+        Path(f'{block["expected_np_path"]}.metadata.json').unlink()
+        block["status"] = "nonprompt_failed"
+        block["source_status"] = "ready"
+        block["source_exit_code"] = 0
+        block["nonprompt_status"] = "failed"
+        block["nonprompt_exit_code"] = 1
+        block["exit_code"] = 1
+        block.pop("nonprompt_postprocessor_provenance", None)
+        for transition in block["transitions"]:
+            transition.pop("postprocessor_provenance", None)
+        block["transitions"].append(
+            {
+                "timestamp_utc": "2026-01-02T00:00:00Z",
+                "stage": "nonprompt",
+                "status": "failed",
+                "exit_code": 1,
+                "signal": None,
+                "duration_seconds": 1,
+                "detail": "synthetic_historical_nonprompt_failure",
+            }
+        )
+        block["expected_output_readback"] = [
+            {
+                "path": block["expected_nominal_path"],
+                "exists": True,
+                "regular_file": True,
+                "size_bytes": Path(block["expected_nominal_path"]).stat().st_size,
+                "nonempty": True,
+            },
+            {
+                "path": block["expected_np_path"],
+                "exists": False,
+                "regular_file": False,
+                "size_bytes": None,
+                "nonempty": False,
+            },
+        ]
+        preserved_transitions[block["id"]] = copy.deepcopy(block["transitions"])
+    state["campaign_status"] = "complete_with_known_failures"
+    state["successful_block_count"] = 10 - len(retry_indices)
+    state["known_failed_block_count"] = len(retry_indices)
+    state["attempted_block_count"] = 10
+    state["not_attempted_block_count"] = 0
+    state["final_process_exit_code"] = 1
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    (validation_root / "block_calls.tsv").write_text("", encoding="utf-8")
+    (validation_root / "nonprompt_calls.tsv").write_text("", encoding="utf-8")
+    return state_path, output_root, validation_root, preserved_transitions
+
+
+def _resume_components(profile):
+    if profile == "run2_run3_full":
+        return ("run2_full", "run3_full")
+    if profile == "run2_run3_full_CR":
+        return ("run2_full_CR", "run3_full_CR")
+    return (profile,)
+
+
+def _resume_environment(validation_root, scenario="success"):
+    environment = _clean_environment()
+    environment.update(
+        {
+            "SRPLOT009_VALIDATION_BACKEND": str(validation_root / "backend.sh"),
+            "SRPLOT009_VALIDATION_ROOT": str(validation_root),
+            "SRPLOT009_VALIDATION_SCENARIO": scenario,
+        }
+    )
+    return environment
 
 
 def _combined_summary_tool(tmp_path):
@@ -335,6 +458,367 @@ def test_four_component_profiles_resolve_authoritative_contracts(tmp_path):
     assert {tuple(_option_values(a, "--years")) for a in observed["run3_full_CR"]} == {("2022", "2022EE"), ("2023", "2023BPix")}
     assert all("--skip-cr" in a for a in observed["run2_full"] + observed["run3_full"])
     assert all("--skip-sr" in a for a in observed["run2_full_CR"] + observed["run3_full_CR"])
+
+
+def test_t0_sr_statonly_resolves_exact_nominal_raw_count_contract(tmp_path):
+    output_dir = tmp_path / "t0_sr_statonly"
+    result = subprocess.run(
+        [
+            str(RUN_CR),
+            "--production-profile", "t0_sr_statonly",
+            "--dry-run",
+            "--output-dir", str(output_dir),
+            "--campaign-tag", "t0_sr_statonly_test",
+            "--env-file", str(T0_FROZEN_ENV),
+        ],
+        cwd=RUN_DIRECTORY,
+        env=_clean_environment(),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout
+    commands = _commands(result.stdout)
+    assert [signature[:3] for signature in map(_scientific_signature, commands)] == (
+        T0_RUN2_SR_BLOCKS + RUN3_SR_BLOCKS
+    )
+    assert len(commands) == 10
+    for argv in commands:
+        assert argv[:2] == ["python", "run_analysis.py"]
+        assert "--snapshot" in argv
+        assert _option_values(argv, "--env-file", 1) == [str(T0_FROZEN_ENV)]
+        assert _option_values(argv, "-s", 1) == ["100000"]
+        assert _option_values(argv, "-x", 1) == ["work_queue"]
+        assert "--workers" not in argv
+        assert "--nworkers" not in argv
+        assert "--do-systs" not in argv
+        assert "--record-raw-count" in argv
+        assert "--do-np" in argv
+        assert "--np-postprocess=defer" in argv
+        assert "--options" in argv
+        assert "--rebuild-env" not in argv
+        assert "--prepare-env-only" not in argv
+    assert result.stdout.count("sumw2_storage_mode: full_diagnostics") == 1
+    assert f"env_file_sha256: {T0_FROZEN_SHA256}" in result.stdout
+    assert "environment_policy: exact_frozen_archive_integrity_plus_snapshot" in result.stdout
+    assert "dry_run_complete: ten commands resolved" in result.stdout
+    assert "--legacy-campaign-state" not in result.stdout
+    assert "--legacy-campaign-block" not in result.stdout
+    assert "2024" not in result.stdout
+    assert not output_dir.exists()
+
+    wrong_archive = subprocess.run(
+        [
+            str(RUN_CR),
+            "--production-profile", "t0_sr_statonly",
+            "--dry-run",
+            "--output-dir", str(tmp_path / "wrong_archive"),
+            "--campaign-tag", "t0_sr_statonly_wrong_archive",
+            "--env-file", str(FROZEN_ENV),
+        ],
+        cwd=RUN_DIRECTORY,
+        env=_clean_environment(),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert wrong_archive.returncode != 0
+    assert "pinned to the required frozen snapshot archive" in wrong_archive.stdout
+    assert not (tmp_path / "wrong_archive").exists()
+
+
+def test_t0_cr_statonly_composes_full_cr_with_native_data_driven_contract(tmp_path):
+    run2 = _run("run2_full_CR", tmp_path / "run2", "t0-cr-run2-authority")
+    run3 = _run("run3_full_CR", tmp_path / "run3", "t0-cr-run3-authority")
+    output_dir = tmp_path / "t0_cr_statonly"
+    result = _run("t0_cr_statonly", output_dir, "t0-cr-statonly-test")
+
+    assert run2.returncode == run3.returncode == result.returncode == 0
+    authority_commands = _commands(run2.stdout) + _commands(run3.stdout)
+    commands = _commands(result.stdout)
+    assert len(commands) == 18
+    assert [
+        _scientific_signature(command)[:5] for command in commands
+    ] == [
+        _scientific_signature(command)[:5] for command in authority_commands
+    ]
+    for argv in commands:
+        assert argv[:2] == ["python", "run_analysis.py"]
+        assert "--snapshot" in argv
+        assert _option_values(argv, "--env-file", 1) == [str(T0_FROZEN_ENV)]
+        assert _option_values(argv, "-s", 1) == ["100000"]
+        assert _option_values(argv, "-x", 1) == ["work_queue"]
+        assert "--workers" not in argv
+        assert "--nworkers" not in argv
+        assert "--do-systs" not in argv
+        assert "--record-raw-count" in argv
+        assert "--do-np" in argv
+        assert "--np-postprocess=defer" in argv
+        assert "--options" in argv
+        assert "--skip-sr" in argv
+        assert "--skip-cr" not in argv
+        assert _option_values(argv, "--sample-universe-wrapper", 3) == [
+            "run_cr.sh", "->", "fullR3_run.sh"
+        ]
+
+    data_driven_commands = [
+        shlex.split(text)
+        for text in re.findall(
+            r"Separate nonprompt/charge-flip command "
+            r"\(not executed by dry-run\):\n([^\n]+)",
+            result.stdout,
+        )
+    ]
+    assert len(data_driven_commands) == 18
+    for source_argv, data_driven_argv in zip(commands, data_driven_commands):
+        assert data_driven_argv[:2] == ["python", "./run_data_driven.py"]
+        assert "--only-flips" not in data_driven_argv
+        source_path = Path(_option_values(source_argv, "-p", 1)[0]) / (
+            f'{_option_values(source_argv, "-o", 1)[0]}.pkl.gz'
+        )
+        assert _option_values(data_driven_argv, "--input-pkl", 1) == [
+            str(source_path)
+        ]
+        assert _option_values(data_driven_argv, "--output-pkl", 1) == [
+            str(source_path).removesuffix(".pkl.gz") + "_np.pkl.gz"
+        ]
+
+    assert result.stdout.count("sumw2_storage_mode: full_diagnostics") == 1
+    assert f"env_file_sha256: {T0_FROZEN_SHA256}" in result.stdout
+    assert "do_systs: false" in result.stdout
+    assert "do_np: true" in result.stdout
+    assert "run_cr: true" in result.stdout
+    assert "run_sr: false" in result.stdout
+    assert "eighteen source commands and eighteen separate data-driven commands" in result.stdout
+    assert not output_dir.exists()
+
+    rejected = subprocess.run(
+        [
+            str(RUN_CR),
+            "--production-profile", "t0_cr_statonly",
+            "--dry-run",
+            "--output-dir", str(tmp_path / "rejected_archive"),
+            "--campaign-tag", "t0-cr-statonly-rejected-archive",
+            "--env-file", str(FROZEN_ENV),
+        ],
+        cwd=RUN_DIRECTORY,
+        env=_clean_environment(),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert rejected.returncode != 0
+    assert "pinned to the required frozen snapshot archive" in rejected.stdout
+    assert not (tmp_path / "rejected_archive").exists()
+
+
+def test_t0_cr_statonly_state_tracks_source_and_data_driven_children(tmp_path):
+    result, output_root, validation_root = _stubbed_run(
+        tmp_path, "t0_cr_statonly", "success"
+    )
+
+    assert result.returncode == 0, result.stdout
+    state = _campaign_state(output_root, "t0_cr_statonly")
+    assert state["region"] == "CR"
+    assert state["nonprompt_mode"] == "separate"
+    assert state["do_systs"] is False
+    assert state["successful_block_count"] == 18
+    assert state["known_failed_block_count"] == 0
+    assert [block["id"] for block in state["blocks"]] == (
+        PROFILE_BLOCK_IDS["t0_cr_statonly"]
+    )
+    assert all(block["source_status"] == "ready" for block in state["blocks"])
+    assert all(block["nonprompt_status"] == "success" for block in state["blocks"])
+    assert all(
+        block["nonprompt_postprocessor_provenance"]
+        for block in state["blocks"]
+    )
+    block_calls = (validation_root / "block_calls.tsv").read_text().splitlines()
+    assert len(block_calls) == 18
+    assert all("--defer-np" in line for line in block_calls)
+    assert (
+        validation_root / "nonprompt_calls.tsv"
+    ).read_text().splitlines() == PROFILE_BLOCK_IDS["t0_cr_statonly"]
+    for block in state["blocks"]:
+        assert Path(block["expected_nominal_path"]).is_file()
+        assert Path(f'{block["expected_nominal_path"]}.metadata.json').is_file()
+        assert Path(block["expected_np_path"]).is_file()
+        assert Path(f'{block["expected_np_path"]}.metadata.json').is_file()
+
+
+def test_t0_resume_reuses_all_sources_and_appends_postprocessor_provenance(tmp_path):
+    state_path, output_root, validation_root, preserved_transitions = (
+        _prepare_t0_recovery_fixture(tmp_path)
+    )
+
+    result = _run(
+        "t0_sr_statonly",
+        output_root,
+        "stub-t0_sr_statonly",
+        dry_run=False,
+        resume=True,
+        environment=_resume_environment(validation_root),
+    )
+
+    assert result.returncode == 0, result.stdout
+    assert result.stdout.count("Reusing validated completed source") == 10
+    assert (validation_root / "block_calls.tsv").read_text() == ""
+    nonprompt_calls = (
+        validation_root / "nonprompt_calls.tsv"
+    ).read_text().splitlines()
+    assert nonprompt_calls == PROFILE_BLOCK_IDS["t0_sr_statonly"]
+    recovered = json.loads(state_path.read_text(encoding="utf-8"))
+    assert recovered["topeft_git_commit"] == T0_HISTORICAL_LAUNCHER_COMMIT
+    assert recovered["campaign_status"] == "success"
+    assert recovered["successful_block_count"] == 10
+    assert recovered["known_failed_block_count"] == 0
+    assert recovered["final_process_exit_code"] == 0
+    topcoffea_commit = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPOSITORY_ROOT.parent / "topcoffea",
+        text=True,
+    ).strip()
+    expected_provenance = {
+        "topeft_git_commit": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=REPOSITORY_ROOT, text=True
+        ).strip(),
+        "topcoffea_git_commit": topcoffea_commit,
+    }
+    for block in recovered["blocks"]:
+        historical = preserved_transitions[block["id"]]
+        assert block["transitions"][: len(historical)] == historical
+        recovery = block["transitions"][len(historical) :]
+        assert [item["status"] for item in recovery] == ["running", "success"]
+        assert all(
+            item["postprocessor_provenance"] == expected_provenance
+            for item in recovery
+        )
+        assert block["nonprompt_postprocessor_provenance"] == expected_provenance
+        assert Path(block["expected_np_path"]).is_file()
+        assert Path(block["expected_np_path"]).stat().st_size > 0
+    summary = (output_root / "campaign_summary.md").read_text(encoding="utf-8")
+    assert "successful: 10" in summary
+    assert "known_failed: 0" in summary
+    assert "final_classification: `success`" in summary
+
+
+def test_t0_resume_retries_only_failed_nonprompt_subset(tmp_path):
+    _, output_root, validation_root, _ = _prepare_t0_recovery_fixture(
+        tmp_path, retry_indices=range(4, 10)
+    )
+
+    result = _run(
+        "t0_sr_statonly",
+        output_root,
+        "stub-t0_sr_statonly",
+        dry_run=False,
+        resume=True,
+        environment=_resume_environment(validation_root),
+    )
+
+    assert result.returncode == 0, result.stdout
+    assert (validation_root / "block_calls.tsv").read_text() == ""
+    assert (
+        validation_root / "nonprompt_calls.tsv"
+    ).read_text().splitlines() == PROFILE_BLOCK_IDS["t0_sr_statonly"][4:]
+    assert result.stdout.count("Skipping validated t0_sr_statonly block") == 4
+    assert result.stdout.count("Reusing validated completed source") == 6
+
+
+def test_t0_resume_dry_run_transports_legacy_context_without_verdict(tmp_path):
+    _, output_root, validation_root, _ = _prepare_t0_recovery_fixture(
+        tmp_path,
+        retry_indices=range(4, 10),
+    )
+
+    result = _run(
+        "t0_sr_statonly",
+        output_root,
+        "stub-t0_sr_statonly",
+        dry_run=True,
+        resume=True,
+        environment=_resume_environment(validation_root),
+    )
+
+    assert result.returncode == 0, result.stdout
+    assert result.stdout.count("Legacy context transported (no applicability verdict)") == 6
+    assert result.stdout.count("--legacy-campaign-state") == 6
+    assert result.stdout.count("--legacy-campaign-block") == 6
+    assert result.stdout.count('"analysis_mode":"all"') == 6
+    assert result.stdout.count('"producer_topeft_commit"') == 6
+    assert result.stdout.count('"source_pkl_sha256"') == 6
+    assert result.stdout.count('"category_groups"') == 6
+    assert result.stdout.count('"histogram_families"') == 6
+    assert "not_applicable" not in result.stdout
+    assert "applicable\"" not in result.stdout
+    assert (validation_root / "block_calls.tsv").read_text() == ""
+    assert (validation_root / "nonprompt_calls.tsv").read_text() == ""
+
+
+def test_t0_resume_fails_closed_when_ready_source_is_missing(tmp_path):
+    _, output_root, validation_root, _ = _prepare_t0_recovery_fixture(tmp_path)
+    state = _campaign_state(output_root, "t0_sr_statonly")
+    Path(state["blocks"][0]["expected_nominal_path"]).unlink()
+
+    result = _run(
+        "t0_sr_statonly",
+        output_root,
+        "stub-t0_sr_statonly",
+        dry_run=False,
+        resume=True,
+        environment=_resume_environment(validation_root),
+    )
+
+    assert result.returncode != 0
+    assert "records a reusable source, but it is missing or empty" in result.stdout
+    assert (validation_root / "block_calls.tsv").read_text() == ""
+    assert (validation_root / "nonprompt_calls.tsv").read_text() == ""
+
+
+def test_t0_resume_fails_closed_on_np_collision_or_running_state(tmp_path):
+    _, output_root, validation_root, _ = _prepare_t0_recovery_fixture(tmp_path)
+    state = _campaign_state(output_root, "t0_sr_statonly")
+    Path(f'{state["blocks"][0]["expected_np_path"]}.metadata.json').write_text(
+        '{"unexpected": "sidecar collision"}\n', encoding="utf-8"
+    )
+    collision = _run(
+        "t0_sr_statonly",
+        output_root,
+        "stub-t0_sr_statonly",
+        dry_run=False,
+        resume=True,
+        environment=_resume_environment(validation_root),
+    )
+    assert collision.returncode != 0
+    assert "expected _np path already exists" in collision.stdout
+    assert (validation_root / "block_calls.tsv").read_text() == ""
+    assert (validation_root / "nonprompt_calls.tsv").read_text() == ""
+
+    running_root = tmp_path / "running"
+    running_root.mkdir()
+    state_path, running_output, running_validation, _ = _prepare_t0_recovery_fixture(
+        running_root
+    )
+    running_state = json.loads(state_path.read_text(encoding="utf-8"))
+    running_state["blocks"][0]["status"] = "nonprompt_running"
+    running_state["blocks"][0]["nonprompt_status"] = "running"
+    state_path.write_text(json.dumps(running_state), encoding="utf-8")
+    running = _run(
+        "t0_sr_statonly",
+        running_output,
+        "stub-t0_sr_statonly",
+        dry_run=False,
+        resume=True,
+        environment=_resume_environment(running_validation),
+    )
+    assert running.returncode != 0
+    assert "ambiguous interrupted nonprompt stage" in running.stdout
+    assert (running_validation / "block_calls.tsv").read_text() == ""
+    assert (running_validation / "nonprompt_calls.tsv").read_text() == ""
 
 
 def test_combined_profiles_reuse_components_and_separate_namespaces(tmp_path):
@@ -936,3 +1420,160 @@ def test_matrix_value_options_reject_another_option_as_value_before_side_effects
     assert result.returncode != 0
     assert f"{value_option} requires a value" in result.stdout
     assert not output_root.exists()
+
+
+@pytest.mark.parametrize("profile", sorted(PUBLIC_PROFILES))
+def test_all_public_profiles_resume_validated_campaign_state(tmp_path, profile):
+    initial, output_root, validation_root = _stubbed_run(tmp_path, profile, "success")
+    assert initial.returncode == 0, initial.stdout
+    block_calls = validation_root / "block_calls.tsv"
+    calls_before_resume = block_calls.read_text(encoding="utf-8")
+
+    resumed = _run(
+        profile,
+        output_root,
+        f"stub-{profile}",
+        dry_run=True,
+        resume=True,
+        environment=_resume_environment(validation_root),
+    )
+
+    assert resumed.returncode == 0, resumed.stdout
+    assert "has no automatic resume" not in resumed.stdout
+    if profile.startswith("run2_run3"):
+        assert "combined output namespace already exists" not in resumed.stdout
+    for component in _resume_components(profile):
+        for block_id in PROFILE_BLOCK_IDS[component]:
+            assert f"Skipping validated {component} block: {block_id}" in resumed.stdout
+    assert "Running the following command:" not in resumed.stdout
+    assert block_calls.read_text(encoding="utf-8") == calls_before_resume
+
+
+@pytest.mark.parametrize(
+    "profile",
+    ("run2_full_CR", "run3_full_CR", "run2_run3_full_CR"),
+)
+def test_cr_non_resume_still_rejects_existing_namespace(tmp_path, profile):
+    _, output_root, _ = _stubbed_run(tmp_path, profile, "success")
+
+    result = _run(profile, output_root, f"stub-{profile}")
+
+    assert result.returncode != 0
+    if profile == "run2_run3_full_CR":
+        assert "combined output namespace already exists" in result.stdout
+    else:
+        assert "output directory already exists" in result.stdout
+
+
+def test_cr_resume_recovers_only_the_existing_inline_completion_transition(tmp_path):
+    _, output_root, validation_root = _stubbed_run(tmp_path, "run2_full_CR", "success")
+    state_path = output_root / ".run2_full_CR_campaign_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    block = state["blocks"][0]
+    block["status"] = "source_ready"
+    block["source_status"] = "ready"
+    block["nonprompt_status"] = "planned"
+    block["nonprompt_exit_code"] = None
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    calls_before_resume = (validation_root / "block_calls.tsv").read_text(encoding="utf-8")
+
+    resumed = _run(
+        "run2_full_CR", output_root, "stub-run2_full_CR", dry_run=True,
+        resume=True, environment=_resume_environment(validation_root),
+    )
+
+    assert resumed.returncode == 0, resumed.stdout
+    assert "Skipping recovered run2_full_CR block: run2_full_CR_block1" in resumed.stdout
+    assert "Running the following command:" not in resumed.stdout
+    assert (validation_root / "block_calls.tsv").read_text(encoding="utf-8") == calls_before_resume
+    assert _campaign_state(output_root, "run2_full_CR")["blocks"][0]["status"] == "success"
+
+
+def test_cr_resume_fails_closed_for_invalid_or_ambiguous_state(tmp_path):
+    _, output_root, validation_root = _stubbed_run(tmp_path, "run2_full_CR", "success")
+    state_path = output_root / ".run2_full_CR_campaign_state.json"
+    original_state = state_path.read_text(encoding="utf-8")
+    original = json.loads(original_state)
+    source_path, nonprompt_path = original["blocks"][0]["expected_outputs"]
+    calls_before_resume = (validation_root / "block_calls.tsv").read_text(encoding="utf-8")
+
+    Path(nonprompt_path).unlink()
+    missing_output = _run(
+        "run2_full_CR", output_root, "stub-run2_full_CR", dry_run=True,
+        resume=True, environment=_resume_environment(validation_root),
+    )
+    assert missing_output.returncode != 0
+    assert "marks run2_full_CR_block1 successful" in missing_output.stdout
+    assert (validation_root / "block_calls.tsv").read_text(encoding="utf-8") == calls_before_resume
+    Path(nonprompt_path).write_text("synthetic nonprompt\n", encoding="utf-8")
+
+    for status, source_status, nonprompt_status, expected in (
+        ("source_running", "running", "blocked", "ambiguous interrupted source stage"),
+        ("nonprompt_running", "ready", "running", "ambiguous interrupted nonprompt stage"),
+        ("nonprompt_failed", "ready", "failed", "unrecoverable inline nonprompt state"),
+    ):
+        state = json.loads(original_state)
+        block = state["blocks"][0]
+        block["status"] = status
+        block["source_status"] = source_status
+        block["nonprompt_status"] = nonprompt_status
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        result = _run(
+            "run2_full_CR", output_root, "stub-run2_full_CR", dry_run=True,
+            resume=True, environment=_resume_environment(validation_root),
+        )
+        assert result.returncode != 0
+        assert expected in result.stdout
+        assert (validation_root / "block_calls.tsv").read_text(encoding="utf-8") == calls_before_resume
+
+    state = json.loads(original_state)
+    state["campaign_tag"] = "incompatible-plan"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    plan_mismatch = _run(
+        "run2_full_CR", output_root, "stub-run2_full_CR", dry_run=True,
+        resume=True, environment=_resume_environment(validation_root),
+    )
+    assert plan_mismatch.returncode != 0
+    assert "mismatch for campaign_tag" in plan_mismatch.stdout
+
+    state_path.write_text("{malformed\n", encoding="utf-8")
+    malformed = _run(
+        "run2_full_CR", output_root, "stub-run2_full_CR", dry_run=True,
+        resume=True, environment=_resume_environment(validation_root),
+    )
+    assert malformed.returncode != 0
+
+    state_path.unlink()
+    missing_state = _run(
+        "run2_full_CR", output_root, "stub-run2_full_CR", dry_run=True,
+        resume=True, environment=_resume_environment(validation_root),
+    )
+    assert missing_state.returncode != 0
+    assert "requires campaign state" in missing_state.stdout
+
+
+@pytest.mark.parametrize("status", ("planned", "source_failed"))
+def test_cr_resume_runs_only_a_planned_or_failed_block(tmp_path, status):
+    _, output_root, validation_root = _stubbed_run(tmp_path, "run2_full_CR", "success")
+    state_path = output_root / ".run2_full_CR_campaign_state.json"
+    state = _campaign_state(output_root, "run2_full_CR")
+    block = state["blocks"][0]
+    block["status"] = status
+    block["source_status"] = "planned" if status == "planned" else "failed"
+    block["nonprompt_status"] = "blocked"
+    block["source_exit_code"] = None
+    block["nonprompt_exit_code"] = None
+    for output in block["expected_outputs"]:
+        Path(output).unlink()
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    calls_before_resume = (validation_root / "block_calls.tsv").read_text(encoding="utf-8")
+
+    resumed = _run(
+        "run2_full_CR", output_root, "stub-run2_full_CR", dry_run=False,
+        resume=True, environment=_resume_environment(validation_root),
+    )
+
+    assert resumed.returncode == 0, resumed.stdout
+    calls_after_resume = (validation_root / "block_calls.tsv").read_text(encoding="utf-8")
+    assert calls_after_resume.count("run2_full_CR_block1\t") == calls_before_resume.count("run2_full_CR_block1\t") + 1
+    assert _campaign_state(output_root, "run2_full_CR")["blocks"][0]["status"] == "success"

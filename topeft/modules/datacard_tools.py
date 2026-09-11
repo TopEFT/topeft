@@ -58,6 +58,185 @@ FULLY_SPECIFIED_TAU_NUISANCE_PREFIXES = (
     "lepSF_taus_fake_run",
 )
 
+run2_luminosity_shape_factors = {
+    "lumi_13TeV_1516_l": {
+        "UL16APV": 1.0118,
+        "UL16": 1.0118,
+        "UL17": 1.0,
+        "UL18": 1.0,
+    },
+    "lumi_13TeV_151617_l": {
+        "UL16APV": 1.0004,
+        "UL16": 1.0004,
+        "UL17": 1.0055,
+        "UL18": 1.0,
+    },
+    "lumi_13TeV_15161718_l": {
+        "UL16APV": 1.0035,
+        "UL16": 1.0035,
+        "UL17": 1.0061,
+        "UL18": 1.0084,
+    },
+}
+
+run3_luminosity_shape_factors = {
+    "lumi_1": {
+        "2022": 1.0138,
+        "2022EE": 1.0138,
+        "2023": 1.0017,
+        "2023BPix": 1.0017,
+    },
+    "lumi_2": {
+        "2022": 1.0,
+        "2022EE": 1.0,
+        "2023": 1.0127,
+        "2023BPix": 1.0127,
+    },
+}
+
+run2_luminosity_excluded_processes = frozenset(
+    {
+        "data",
+        "data_obs",
+        "charge_flips",
+        "flips",
+        "fakes",
+        "nonprompt",
+    }
+)
+
+
+def _luminosity_shape_factor(
+    luminosity_shape_factors,
+    nuisance_name,
+    year,
+    direction,
+    run_label,
+):
+    try:
+        kappa = luminosity_shape_factors[nuisance_name][year]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unknown {run_label} luminosity nuisance/year pair: "
+            f"{nuisance_name!r}, {year!r}."
+        ) from exc
+    if direction == "Up":
+        return kappa
+    if direction == "Down":
+        return 1.0 / kappa
+    raise ValueError(f"Unknown {run_label} luminosity shape direction {direction!r}.")
+
+
+def run2_luminosity_shape_factor(nuisance_name, year, direction):
+    """Return the accepted annual Run-2 luminosity shape anchor factor."""
+    return _luminosity_shape_factor(
+        run2_luminosity_shape_factors,
+        nuisance_name,
+        year,
+        direction,
+        "Run-2",
+    )
+
+
+def run3_luminosity_shape_factor(nuisance_name, year, direction):
+    """Return the authoritative annual Run-3 luminosity shape anchor factor."""
+    return _luminosity_shape_factor(
+        run3_luminosity_shape_factors,
+        nuisance_name,
+        year,
+        direction,
+        "Run-3",
+    )
+
+
+def _add_luminosity_shape_nuisances(
+    histogram,
+    luminosity_shape_factors,
+    run_label,
+):
+    """Derive transient luminosity templates from year-resolved nominal cells."""
+    required_axes = {"process", "systematic"}
+    if not required_axes.issubset(histogram.categorical_axes.name):
+        raise ValueError(
+            f"{run_label} luminosity template construction requires process and "
+            "systematic categorical axes."
+        )
+    grouped_nominal_cells = defaultdict(list)
+    existing_cells = set(tuple(key) for key in histogram.categorical_keys)
+    luminosity_years = next(iter(luminosity_shape_factors.values()))
+    for sparse_key in tuple(histogram.categorical_keys):
+        categories = sparse_key._asdict()
+        if categories["systematic"] != "nominal":
+            continue
+        process = str(categories["process"])
+        year = canonical_process_year(process)
+        if year not in luminosity_years:
+            continue
+        logical_process = year_independent_process(process)
+        if logical_process in run2_luminosity_excluded_processes:
+            continue
+        group_identity = tuple(
+            (axis_name, str(category))
+            for axis_name, category in categories.items()
+            if axis_name not in {"process", "systematic"}
+        ) + (("logical_process", logical_process),)
+        grouped_nominal_cells[group_identity].append((sparse_key, year))
+
+    for nominal_cells in grouped_nominal_cells.values():
+        present_years = {year for _sparse_key, year in nominal_cells}
+        for nuisance_name, year_factors in luminosity_shape_factors.items():
+            if all(year_factors[year] == 1.0 for year in present_years):
+                continue
+            for sparse_key, year in nominal_cells:
+                source_index = histogram.categories_to_index(sparse_key)
+                for direction in ("Up", "Down"):
+                    target_key = sparse_key._replace(
+                        systematic=f"{nuisance_name}{direction}"
+                    )
+                    if tuple(target_key) in existing_cells:
+                        raise RuntimeError(
+                            f"{run_label} luminosity shape template already exists for "
+                            f"{tuple(target_key)!r}; producer-side persistence is "
+                            "not part of the card-side contract."
+                        )
+                    target_index = histogram._fill_bookkeep(*target_key)
+                    if histogram.track_raw_counts:
+                        histogram._merge_raw_count_state(
+                            target_index,
+                            None,
+                            context=f"{run_label} luminosity shape template",
+                        )
+                    factor = _luminosity_shape_factor(
+                        luminosity_shape_factors,
+                        nuisance_name,
+                        year,
+                        direction,
+                        run_label,
+                    )
+                    histogram._dense_hists[target_index] += (
+                        histogram._dense_hists[source_index] * factor
+                    )
+                    existing_cells.add(tuple(target_key))
+    return histogram
+
+
+def add_run2_luminosity_shape_nuisances(histogram):
+    """Derive transient Run-2 luminosity templates before year merging."""
+    return _add_luminosity_shape_nuisances(
+        histogram,
+        run2_luminosity_shape_factors,
+        "Run-2",
+    )
+
+
+def add_run3_luminosity_shape_nuisances(histogram):
+    """Derive transient Run-3 luminosity templates before year merging."""
+    return _add_luminosity_shape_nuisances(
+        histogram,
+        run3_luminosity_shape_factors,
+        "Run-3",
+    )
+
 
 def resolve_shape_nuisance_identity(systematic, run_suffix, run_decorrelate):
     """Return one final nuisance base and paired template name for a variation."""
@@ -783,6 +962,8 @@ class DatacardMaker():
             "TTZToLL_M1to10_",
             "TTToSemiLeptonic_",
             "TTTo2L2Nu_",
+            "TTtoLNu2Q_",
+            "TTto2L2Nu_",
         ],
         "ttlnu_": [
             "ttlnuJet_",
@@ -1178,8 +1359,6 @@ class DatacardMaker():
             # from run3
             "ST_tbarW_Leptonic",
             "ST_tbarW_Semileptonic",
-            "TTtoLNu2Q",
-            "TTto2L2Nu",
             "ST_tW_Leptonic",
             "ST_tW_Semileptonic",
             "ZG_MLL-50_PTG-200to400", # -->check to see if should put in GROUP
@@ -1405,7 +1584,10 @@ class DatacardMaker():
             h = h.group("process", grp_map)
 
             h = self.group_processes(h)
-            h = self.correlate_years(h)
+            h = self.correlate_years(
+                h,
+                add_luminosity_shapes=not _is_sumw2_key(km_dist),
+            )
 
             num_systs = len(h.axes["systematic"])
             print(f"Num. Systematics: {num_systs}")
@@ -1571,7 +1753,7 @@ class DatacardMaker():
         return h
 
     # TODO: Can be a static member function
-    def correlate_years(self,h):
+    def correlate_years(self,h,add_luminosity_shapes=True):
         """
             Merges together different run years, taking care to treat year-specific systematics as
             uncorrelated from one another
@@ -1584,6 +1766,11 @@ class DatacardMaker():
                 grp_map[p].append(x)
             h = h.group("process", grp_map)
             return h
+        if add_luminosity_shapes:
+            if self.use_run3_systs:
+                h = add_run3_luminosity_shape_nuisances(h)
+            else:
+                h = add_run2_luminosity_shape_nuisances(h)
         # This requires some fancy footwork to make work
         print("Correlating years")
 

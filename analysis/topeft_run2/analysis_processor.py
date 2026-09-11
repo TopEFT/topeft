@@ -1,9 +1,12 @@
 #!/usr/bin/env python
+import ast
 import copy
 import coffea
+import hashlib
 import numpy as np
 import awkward as ak
 import json
+from pathlib import Path
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -33,7 +36,7 @@ from topeft.modules.nominal_schema import (
 )
 from topeft.modules.paths import topeft_path
 from topeft.modules.sumw2_policy import resolve_nominal_component_availability
-from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, get_tau_weight_variation_names, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
+from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, get_tau_weight_variation_names, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_run2_jet_veto_map_scores, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topeft.modules.ttgamma_photon_history import (
@@ -85,6 +88,18 @@ JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS = frozenset(
     }
 )
 
+hem2018_affected_lumi_fraction = 0.647871555639
+hem2018_affected_hash_threshold = int(
+    hem2018_affected_lumi_fraction * (1 << 64)
+)
+
+run2_jvm_loose_pu_id_bits = {
+    "2016APV": 1,
+    "2016": 1,
+    "2017": 4,
+    "2018": 4,
+}
+
 
 def flatten_jagged_jet_eta_phi_weights(jets, event_mask, event_weights):
     """Return aligned flattened eta, phi, and per-jet event weights."""
@@ -116,9 +131,27 @@ def should_include_jet_veto_in_histogram_selection(histogram_name):
 
 
 def should_fill_jvm_eta_phi_diagnostic(is_run3, syst_var, wgt_fluct):
-    """Keep reviewer diagnostics to the Run 3 nominal object/weight state."""
+    """Keep reviewer diagnostics to a supported nominal object/weight state."""
 
     return is_run3 and syst_var == "nominal" and wgt_fluct == "nominal"
+
+
+def get_run2_jvm_eta_phi_jets(
+    jets,
+    pf_muons,
+    year,
+    histogram_name,
+    map_evaluator=get_run2_jet_veto_map_scores,
+):
+    """Return qualifying Run-2 jets before or after per-jet JVM removal."""
+
+    qualifying = get_run2_jvm_qualifying_jet_mask(jets, pf_muons, year)
+    if histogram_name == "jet_eta_phi_before_veto":
+        return jets[qualifying]
+    if histogram_name == "jet_eta_phi_after_veto":
+        keep = get_run2_jvm_keep_mask(jets, pf_muons, year, map_evaluator)
+        return jets[qualifying & keep]
+    raise ValueError(f"Unknown JVM eta-phi diagnostic '{histogram_name}'")
 
 
 def apply_maintained_jet_systematic(year, cleaned_jets, syst_var, jet_systematics):
@@ -311,6 +344,52 @@ def should_apply_fake_tau_sf(tau_run_mode, *, enable_tau_blocks, is_data):
     raise ValueError(f"Unknown tau_run_mode '{tau_run_mode}'")
 
 
+LEPTON_SF_WEIGHT_VARIATIONS = (
+    "lepSF_elec_mvaUp",
+    "lepSF_elec_mvaDown",
+    "lepSF_elec_non_mvaUp",
+    "lepSF_elec_non_mvaDown",
+    "lepSF_muon_mvaUp",
+    "lepSF_muon_mvaDown",
+    "lepSF_muon_non_mvaUp",
+    "lepSF_muon_non_mvaDown",
+)
+
+
+def add_lepton_sf_weights(weights, events, lepton_count):
+    """Register independently routable prompt-MVA and non-MVA SF factors."""
+    event_prefix = f"sf_{lepton_count}l"
+    for flavor in ("elec", "muon"):
+        for component in ("mva", "non_mva"):
+            weights.add(
+                f"lepSF_{flavor}_{component}",
+                getattr(events, f"{event_prefix}_{flavor}_{component}"),
+                copy.deepcopy(
+                    getattr(events, f"{event_prefix}_hi_{flavor}_{component}")
+                ),
+                copy.deepcopy(
+                    getattr(events, f"{event_prefix}_lo_{flavor}_{component}")
+                ),
+            )
+
+
+def select_histogram_weight_variations(
+    do_systematics,
+    is_data,
+    syst_var,
+    weight_correction_variations,
+    data_variations,
+):
+    """Resolve the weight labels that the primary histogram loop will fill."""
+    if not do_systematics:
+        return ["nominal"]
+    if is_data:
+        return ["nominal", *data_variations]
+    if syst_var != "nominal":
+        return [syst_var]
+    return ["nominal", *weight_correction_variations, *data_variations]
+
+
 def get_veto_map_input_jets(cleaned_jets, year, is_run3):
     if not is_run3:
         return cleaned_jets
@@ -326,6 +405,236 @@ def get_veto_map_input_jets(cleaned_jets, year, is_run3):
         & jet_id_mask
         & em_fraction_mask
     ]
+
+
+def get_analysis_cleaned_jets(full_jets, leptons, cleaning_taus=None):
+    """Apply the established TOP-26-006 lepton and optional tau jet cleaning."""
+
+    jet_lepton_indices = ak.cartesian(
+        [ak.local_index(full_jets.pt), leptons.jetIdx], nested=True
+    )
+    cleaned_jets = full_jets[
+        ~ak.any(jet_lepton_indices.slot0 == jet_lepton_indices.slot1, axis=-1)
+    ]
+    if cleaning_taus is not None:
+        cleaned_jets["isTauClean"] = te_os.isClean(
+            cleaned_jets, cleaning_taus, drmin=0.5
+        )
+        cleaned_jets = cleaned_jets[cleaned_jets.isTauClean]
+    return cleaned_jets
+
+
+def build_corrected_jet_view(
+    jets,
+    jets_rho,
+    *,
+    year,
+    is_data,
+    correction_factory,
+    syst_var,
+    jet_systematics,
+    lazy_cache,
+):
+    """Build one corrected jet view from its own explicit input collection."""
+
+    jet_pt_name = "pt_nom" if hasattr(jets, "pt_nom") else "pt"
+    jets["pt_raw"] = (1 - jets.rawFactor) * jets.pt
+    jets["mass_raw"] = (1 - jets.rawFactor) * jets.mass
+    jets["rho"] = ak.broadcast_arrays(jets_rho, jets.pt)[0]
+    if not is_data:
+        jets["pt_gen"] = ak.values_astype(
+            ak.fill_none(jets.matched_gen.pt, 0), np.float32
+        )
+
+    corrected_jets = correction_factory.build(jets, lazy_cache=lazy_cache)
+    corrected_jets = apply_maintained_jet_systematic(
+        year, corrected_jets, syst_var, jet_systematics
+    )
+    return corrected_jets, jet_pt_name
+
+
+def build_analysis_and_hem_jet_views(
+    full_jets,
+    leptons,
+    cleaning_taus,
+    jets_rho,
+    *,
+    year,
+    is_data,
+    run_era,
+    run,
+    suppress_forward_eta_stochastic_jer,
+    syst_var,
+    jet_systematics,
+    analysis_lazy_cache,
+):
+    """Build analysis-cleaned and independent full-jet HEM correction views."""
+
+    analysis_raw_jets = get_analysis_cleaned_jets(
+        full_jets, leptons, cleaning_taus
+    )
+    correction_factory = ApplyJetCorrections(
+        year,
+        corr_type="jets",
+        isData=is_data,
+        era=run_era,
+        run=run,
+        suppress_forward_eta_stochastic_jer=(
+            suppress_forward_eta_stochastic_jer
+        ),
+    )
+    analysis_corrected_jets, jet_pt_name = build_corrected_jet_view(
+        analysis_raw_jets,
+        jets_rho,
+        year=year,
+        is_data=is_data,
+        correction_factory=correction_factory,
+        syst_var=syst_var,
+        jet_systematics=jet_systematics,
+        lazy_cache=analysis_lazy_cache,
+    )
+
+    if year == "2018":
+        # Keep HEM lazy products isolated from the historical analysis cache.
+        hem_corrected_jets, _ = build_corrected_jet_view(
+            full_jets,
+            jets_rho,
+            year=year,
+            is_data=is_data,
+            correction_factory=correction_factory,
+            syst_var=syst_var,
+            jet_systematics=jet_systematics,
+            lazy_cache={},
+        )
+    else:
+        hem_corrected_jets = analysis_corrected_jets
+
+    return analysis_corrected_jets, hem_corrected_jets, jet_pt_name
+
+
+def is_in_hem2018_region(jets):
+    """Return the strict HEM15/16 eta-phi predicate for each jet."""
+
+    return (
+        (jets.eta > -3.0)
+        & (jets.eta < -1.3)
+        & (jets.phi > -1.57)
+        & (jets.phi < -0.87)
+    )
+
+
+def has_no_pf_muon_overlap(jets, pf_muons):
+    """Return whether each jet has no PF muon strictly within delta-R 0.2."""
+
+    jet_muon_pairs = ak.cartesian([jets, pf_muons], axis=1, nested=True)
+    delta_eta = jet_muon_pairs.slot0.eta - jet_muon_pairs.slot1.eta
+    delta_phi = abs(jet_muon_pairs.slot0.phi - jet_muon_pairs.slot1.phi)
+    delta_phi = np.pi - abs(np.pi - delta_phi)
+    has_overlap = ak.any(
+        (delta_eta * delta_eta + delta_phi * delta_phi) < (0.2 * 0.2),
+        axis=-1,
+    )
+    return ~has_overlap
+
+
+def is_run2_jvm_year(year):
+    """Return whether the runtime year has an approved Run-2 veto map."""
+
+    return year in run2_jvm_loose_pu_id_bits
+
+
+def get_run2_jvm_qualifying_jet_mask(jets, pf_muons, year):
+    """Return the approved Run-2 per-jet veto-map eligibility mask."""
+
+    try:
+        loose_pu_id_bit = run2_jvm_loose_pu_id_bits[year]
+    except KeyError as exc:
+        raise ValueError(f"Run-2 JVM is not defined for year {year!r}") from exc
+
+    tight_id = (jets.jetId & 2) != 0
+    em_fraction = (jets.chEmEF + jets.neEmEF) < 0.9
+    loose_pu_id = (jets.puId & loose_pu_id_bit) != 0
+    return (
+        (jets.pt > 15.0)
+        & tight_id
+        & em_fraction
+        & has_no_pf_muon_overlap(jets, pf_muons)
+        & loose_pu_id
+    )
+
+
+def get_run2_jvm_keep_mask(
+    jets,
+    pf_muons,
+    year,
+    map_evaluator=get_run2_jet_veto_map_scores,
+):
+    """Return an aligned mask that removes only qualifying map-vetoed jets."""
+
+    qualifying_jets = get_run2_jvm_qualifying_jet_mask(jets, pf_muons, year)
+    map_vetoed_jets = map_evaluator(jets, year) > 0
+    return ~(qualifying_jets & map_vetoed_jets)
+
+
+def apply_run2_jvm_to_analysis_jets(
+    jets,
+    pf_muons,
+    year,
+    map_evaluator=get_run2_jet_veto_map_scores,
+):
+    """Remove qualifying Run-2 veto-map jets without rejecting their events."""
+
+    return jets[get_run2_jvm_keep_mask(jets, pf_muons, year, map_evaluator)]
+
+
+def get_hem2018_qualifying_jet_mask(jets, pf_muons):
+    """Return the frozen 2018 HEM-cleaning quality decision for each jet."""
+
+    tight_lepton_veto_id = (jets.jetId & 4) != 0
+    tight_id = (jets.jetId & 2) != 0
+    alternate_tight_id = (
+        tight_id
+        & ((jets.chEmEF + jets.neEmEF) < 0.9)
+        & has_no_pf_muon_overlap(jets, pf_muons)
+    )
+    loose_pu_id = (jets.puId & 4) != 0
+    return (
+        (jets.pt > 15.0)
+        & (tight_lepton_veto_id | alternate_tight_id)
+        & ((jets.pt >= 50.0) | loose_pu_id)
+    )
+
+
+def get_hem2018_affected_mc_mask(event_numbers):
+    """Assign event identities reproducibly to the affected 2018 luminosity."""
+
+    mixed = np.asarray(event_numbers, dtype=np.uint64)
+    mixed = mixed + np.uint64(0x9E3779B97F4A7C15)
+    mixed = (mixed ^ (mixed >> np.uint64(30))) * np.uint64(
+        0xBF58476D1CE4E5B9
+    )
+    mixed = (mixed ^ (mixed >> np.uint64(27))) * np.uint64(
+        0x94D049BB133111EB
+    )
+    mixed = mixed ^ (mixed >> np.uint64(31))
+    return mixed < np.uint64(hem2018_affected_hash_threshold)
+
+
+def get_hem2018_event_mask(jets, pf_muons, event_numbers, runs, year, is_data):
+    """Return the event-passing mask for the mandatory 2018 HEM cleaning."""
+
+    if year != "2018":
+        return ak.ones_like(event_numbers, dtype=np.bool_)
+
+    qualifying_hem_jet = get_hem2018_qualifying_jet_mask(
+        jets, pf_muons
+    ) & is_in_hem2018_region(jets)
+    has_qualifying_hem_jet = ak.any(qualifying_hem_jet, axis=1)
+    if is_data:
+        affected_period = runs >= 319077
+    else:
+        affected_period = get_hem2018_affected_mc_mask(event_numbers)
+    return ~(affected_period & has_qualifying_hem_jet)
 
 
 def resolve_category_dict_names(offz_3l_split, tau_h_analysis, fwd_analysis, all_analysis):
@@ -352,6 +661,70 @@ def load_category_config(category_config_path=None):
     )
     with open(config_path, "r", encoding="utf-8") as ch_json_stream:
         return json.load(ch_json_stream)
+
+
+HISTOGRAM_APPLICABILITY_CONTRACT_VERSION = 1
+HISTOGRAM_APPLICABILITY_STATES = frozenset({"applicable", "not_applicable"})
+_HISTOGRAM_APPLICABILITY_LEGACY_METHODS = (
+    "_should_fill_ptz_wtau_channel",
+    "_should_fill_plain_ptz_channel",
+    "_should_fill_plain_ptll_channel",
+    "_should_skip_histogram_fill",
+)
+_HISTOGRAM_APPLICABILITY_METHODS = (
+    *_HISTOGRAM_APPLICABILITY_LEGACY_METHODS,
+    "histogram_fill_is_applicable",
+)
+
+
+def _histogram_applicability_methods_sha256(source_text, method_names):
+    if source_text is None:
+        source_text = Path(__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source_text)
+    analysis_class = next(
+        (
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "AnalysisProcessor"
+        ),
+        None,
+    )
+    if analysis_class is None:
+        raise ValueError("AnalysisProcessor is absent from producer source.")
+    methods = {
+        node.name: node
+        for node in analysis_class.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name in method_names
+    }
+    missing = sorted(set(method_names) - set(methods))
+    if missing:
+        raise ValueError(
+            "Producer source lacks applicability method(s): " + ", ".join(missing)
+        )
+    semantic_ast = "\n".join(
+        ast.dump(methods[name], annotate_fields=True, include_attributes=False)
+        for name in method_names
+    )
+    return hashlib.sha256(semantic_ast.encode("utf-8")).hexdigest()
+
+
+def histogram_applicability_semantics_sha256(source_text=None):
+    """Hash the complete current producer applicability query."""
+
+    return _histogram_applicability_methods_sha256(
+        source_text,
+        _HISTOGRAM_APPLICABILITY_METHODS,
+    )
+
+
+def legacy_histogram_applicability_semantics_sha256(source_text=None):
+    """Hash the legacy-compatible producer veto surface used for qualification."""
+
+    return _histogram_applicability_methods_sha256(
+        source_text,
+        _HISTOGRAM_APPLICABILITY_LEGACY_METHODS,
+    )
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -409,11 +782,22 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return bool(fill_sumw2_hist) and wgt_fluct == "nominal"
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None):
+    @staticmethod
+    def _raw_count_fill_classification(histogram, *, is_data, wgt_fluct):
+        """Classify every fill of a raw-count-enabled nominal container."""
+
+        if not histogram.track_raw_counts:
+            return None
+        return (not is_data) and wgt_fluct == "nominal"
+
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None, record_raw_count=False):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
+        if not isinstance(record_raw_count, (bool, np.bool_)):
+            raise TypeError("record_raw_count must be a boolean.")
+        self._record_raw_count = bool(record_raw_count)
         validated_mode_flags = validate_analysis_mode_flags(
             offZ_split,
             tau_h_analysis,
@@ -565,6 +949,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     appl_axis,
                     dense_axis,
                     storage="Double",
+                    track_raw_counts=(
+                        self._record_raw_count and "fitting" in info
+                    ),
                 )
                 self._hist_axis_map[scalar_key] = [dense_axis.name]
                 self._hist_requires_eft[scalar_key] = False
@@ -578,6 +965,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     dense_axis,
                     wc_names=wc_names_lst,
                     label=r"Events",
+                    track_raw_counts=(
+                        self._record_raw_count and "fitting" in info
+                    ),
                 )
                 self._hist_axis_map[eft_key] = [dense_axis.name]
                 self._hist_requires_eft[eft_key] = True
@@ -757,6 +1147,134 @@ class AnalysisProcessor(processor.ProcessorABC):
             skip_hist = True
 
         return skip_hist
+
+    def histogram_fill_is_applicable(
+        self,
+        dense_axis_name,
+        ch_name,
+        lep_chan,
+        *,
+        is_run3=None,
+        application_region=None,
+    ):
+        """Return the producer's binary category-family fill decision."""
+
+        if dense_axis_name in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS:
+            if is_run3 is None or application_region is None:
+                raise ValueError(
+                    "JVM diagnostic applicability requires run-period and "
+                    "application-region context."
+                )
+            if not is_run3 and (
+                ch_name != "2los_CRtt_2j"
+                or application_region != "isSR_2lOS"
+            ):
+                return False
+        return not self._should_skip_histogram_fill(
+            dense_axis_name,
+            ch_name,
+            lep_chan,
+        )
+
+    @classmethod
+    def build_histogram_applicability(
+        cls,
+        *,
+        analysis_mode,
+        runtime_families,
+        selected_category_dicts,
+        split_by_lepton_flavor=False,
+        is_run3_values=(False, True),
+        producer_proxy=None,
+    ):
+        """Serialize the exact producer decision for selected output channels."""
+
+        supported_modes = {"all", "offz", "tau", "fwd", "default"}
+        if analysis_mode not in supported_modes:
+            raise ValueError(
+                f"Unsupported producer analysis mode {analysis_mode!r}; "
+                f"expected one of {sorted(supported_modes)}."
+            )
+        proxy = object.__new__(cls) if producer_proxy is None else producer_proxy
+        proxy._analysis_mode = analysis_mode
+        is_run3_values = tuple(dict.fromkeys(bool(value) for value in is_run3_values))
+        if not is_run3_values:
+            raise ValueError("Producer applicability requires at least one run period.")
+        families = {}
+        for family in dict.fromkeys(str(value) for value in runtime_families):
+            channel_states = {}
+            for category_dict in selected_category_dicts:
+                for category in category_dict.values():
+                    jet_labels = (
+                        (None,)
+                        if family == "njets"
+                        else tuple(category["jet_lst"])
+                    )
+                    flavor_labels = (
+                        tuple(category["lep_flav_lst"])
+                        if split_by_lepton_flavor
+                        else (None,)
+                    )
+                    application_regions = tuple(
+                        dict.fromkeys(
+                            tuple(category.get("appl_lst", ()))
+                            + tuple(category.get("appl_lst_data", ()))
+                        )
+                    )
+                    if not application_regions:
+                        raise ValueError(
+                            "Producer category lacks application-region context."
+                        )
+                    for lepton_channel_definition in category["lep_chan_lst"]:
+                        lepton_channel = lepton_channel_definition[0]
+                        for jet_label in jet_labels:
+                            if jet_label is None:
+                                output_jet_label = None
+                            else:
+                                jet_mode, jet_threshold, _ = parse_analysis_njet_token(
+                                    jet_label
+                                )
+                                output_jet_label = f"{jet_mode}_{jet_threshold}j"
+                            for flavor_label in flavor_labels:
+                                output_channel = construct_cat_name(
+                                    lepton_channel,
+                                    njet_str=output_jet_label,
+                                    flav_str=flavor_label,
+                                )
+                                applicable = any(
+                                    proxy.histogram_fill_is_applicable(
+                                        family,
+                                        output_channel,
+                                        lepton_channel,
+                                        is_run3=is_run3,
+                                        application_region=application_region,
+                                    )
+                                    for is_run3 in is_run3_values
+                                    for application_region in application_regions
+                                )
+                                state = "applicable" if applicable else "not_applicable"
+                                previous = channel_states.setdefault(
+                                    output_channel,
+                                    state,
+                                )
+                                if previous != state:
+                                    raise ValueError(
+                                        "Producer applicability is inconsistent for "
+                                        f"family={family!r} channel={output_channel!r}."
+                                    )
+            families[family] = {
+                "channels": {
+                    channel: channel_states[channel]
+                    for channel in sorted(channel_states)
+                }
+            }
+        return {
+            "contract_version": HISTOGRAM_APPLICABILITY_CONTRACT_VERSION,
+            "producer_query": "AnalysisProcessor.histogram_fill_is_applicable",
+            "producer_semantics_sha256": histogram_applicability_semantics_sha256(),
+            "analysis_mode": analysis_mode,
+            "families": families,
+        }
 
 
     @property
@@ -992,7 +1510,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
 
         wgt_correction_syst_lst = [
-            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
+            *LEPTON_SF_WEIGHT_VARIATIONS,f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
         ]
         tau_weight_variation_names = []
@@ -1269,36 +1787,38 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             #################### Jets ####################
 
-            # Jet cleaning, before any jet selection
             vetos_tocleanjets = ak.with_name(l_fo, "PtEtaPhiMCandidate")
-            tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
-            cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
-            
-            if self.enable_tau_blocks:
-                cleanedJets["isTauClean"] = te_os.isClean(cleanedJets, cleaning_taus, drmin=0.5)
-                cleanedJets = cleanedJets[cleanedJets.isTauClean]
+            analysis_cleaning_taus = (
+                cleaning_taus if self.enable_tau_blocks else None
+            )
+            cleanedJets, hem_corrected_jets, jetptname = (
+                build_analysis_and_hem_jet_views(
+                    jets,
+                    vetos_tocleanjets,
+                    analysis_cleaning_taus,
+                    jetsRho,
+                    year=year,
+                    is_data=isData,
+                    run_era=run_era,
+                    run=run,
+                    suppress_forward_eta_stochastic_jer=(
+                        effective_suppress_forward_eta_stochastic_jer
+                    ),
+                    syst_var=syst_var,
+                    jet_systematics=jet_correction_syst_lst,
+                    analysis_lazy_cache=events_cache,
+                )
+            )
 
-            # Selecting jets and cleaning them
-            jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
-
-            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
-            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
-            cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
-
-            # Jet energy corrections
-            if not isData:
-                cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-
-            cleanedJets = ApplyJetCorrections(
+            # Mandatory 2018 HEM15/16 event cleaning follows the active full
+            # corrected/smeared jet view for every JES/JER variation.
+            hem2018_mask = get_hem2018_event_mask(
+                hem_corrected_jets,
+                mu[mu.isPFcand],
+                events.event,
+                run,
                 year,
-                corr_type='jets',
-                isData=isData,
-                era=run_era,
-                run=run,
-                suppress_forward_eta_stochastic_jer=effective_suppress_forward_eta_stochastic_jer,
-            ).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
-            cleanedJets = apply_maintained_jet_systematic(
-                year, cleanedJets, syst_var, jet_correction_syst_lst
+                isData,
             )
 
             # Jet Veto Maps
@@ -1314,6 +1834,46 @@ class AnalysisProcessor(processor.ProcessorABC):
                 met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era, run=run).build(met_raw, cleanedJets, lazy_cache=events_cache)
                 if is_met_unclustered_systematic(syst_var):
                     met = ApplyMETSystematics(met, syst_var)
+
+            run2_jvm_diagnostic_jets = None
+            run2_jvm_pre_njets = None
+            run2_jvm_pre_nbtagsm = None
+            if is_run2_jvm_year(year):
+                run2_jvm_input_jets = cleanedJets
+                run2_jvm_diagnostic_jets = {
+                    histogram_name: get_run2_jvm_eta_phi_jets(
+                        run2_jvm_input_jets,
+                        mu[mu.isPFcand],
+                        year,
+                        histogram_name,
+                    )
+                    for histogram_name in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS
+                }
+                run2_jvm_pre_good_jets = run2_jvm_input_jets[
+                    tc_os.is_tight_jet(
+                        getattr(run2_jvm_input_jets, jetptname),
+                        run2_jvm_input_jets.eta,
+                        run2_jvm_input_jets.jetId,
+                        pt_cut=30.,
+                        eta_cut=get_te_param("eta_j_cut"),
+                        id_cut=get_te_param("jet_id_cut"),
+                    )
+                ]
+                run2_jvm_pre_njets = ak.num(run2_jvm_pre_good_jets)
+                run2_medium_tag = (
+                    "btag_wp_medium_" + year.replace("201", "UL1")
+                )
+                run2_medium_wp = get_tc_param(run2_medium_tag)
+                run2_jvm_pre_nbtagsm = ak.num(
+                    run2_jvm_pre_good_jets[
+                        run2_jvm_pre_good_jets[btagAlgo] > run2_medium_wp
+                    ]
+                )
+                cleanedJets = apply_run2_jvm_to_analysis_jets(
+                    cleanedJets,
+                    mu[mu.isPFcand],
+                    year,
+                )
 
             if is_run3:
                 jet_id_mask = tc_os.run3_nanoV12_ak4puppi_jet_id(cleanedJets, year, working_point="tight")
@@ -1561,17 +2121,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # For MC only
                 if not isData:
                     if ch_name.startswith("1l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
+                        add_lepton_sf_weights(weights_dict[ch_name], events, 1)
                     elif ch_name.startswith("2l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                        add_lepton_sf_weights(weights_dict[ch_name], events, 2)
                     elif ch_name.startswith("3l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
+                        add_lepton_sf_weights(weights_dict[ch_name], events, 3)
                     elif ch_name.startswith("4l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
+                        add_lepton_sf_weights(weights_dict[ch_name], events, 4)
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
                     if self.enable_tau_blocks and ch_name.startswith(("1l", "2l", "3l")):
@@ -1624,6 +2180,17 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
+            run2_jvm_frozen_cr_mask = None
+            if is_run2_jvm_year(year):
+                run2_jvm_frozen_cr_mask = (
+                    events.is2l_nozeeveto
+                    & pass_trg
+                    & charge2l_0
+                    & events.is_em
+                    & (run2_jvm_pre_njets == 2)
+                    & (run2_jvm_pre_nbtagsm == 2)
+                )
+
             ######### Store boolean masks with PackedSelection ##########
 
             selections = PackedSelection(dtype='uint64')
@@ -1635,6 +2202,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Jet veto mask (for Run 3)
             selections.add("jet_veto", veto_map_mask)
             preselections.add("jet_veto", veto_map_mask)
+
+            # Separate from the Run-2/Run-3 jet-veto-map policy.
+            selections.add("hem2018", hem2018_mask)
 
             # 2lss selection
             preselections.add("chargedl0", (chargel0_p | chargel0_m))
@@ -1894,6 +2464,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             if is_run3:
                 varnames["jet_eta_phi_before_veto"] = veto_map_input_jets
                 varnames["jet_eta_phi_after_veto"] = veto_map_input_jets
+            elif run2_jvm_diagnostic_jets is not None:
+                varnames.update(run2_jvm_diagnostic_jets)
             lepton0_pt_raw = l0.pt_raw 
             lepton0_abseta = abs(l0.eta) 
 
@@ -2119,19 +2691,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                     )
 
                 # Set up the list of syst wgt variations to loop over
-                wgt_var_lst = ["nominal"]
-                if self._do_systematics:
-                    if not isData:
-                        if (syst_var != "nominal"):
-                            # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES)
-                            # So we don't want to loop over up/down weight variations here
-                            wgt_var_lst = [syst_var]
-                        else:
-                            # Otherwise we want to loop over the up/down weight variations
-                            wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst + data_syst_lst
-                    else:
-                        # This is data, so we want to loop over just up/down variations relevant for data (i.e. FF up and down)
-                        wgt_var_lst = wgt_var_lst + data_syst_lst
+                wgt_var_lst = select_histogram_weight_variations(
+                    self._do_systematics,
+                    isData,
+                    syst_var,
+                    wgt_correction_syst_lst,
+                    data_syst_lst,
+                )
 
                 # Loop over the systematics
 
@@ -2194,6 +2760,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             dense_axis_name
                                         ):
                                             cuts_lst.append("jet_veto")
+                                        cuts_lst.append("hem2018")
 
                                         if self._split_by_lepton_flavor:
                                             flav_ch = lep_flav
@@ -2203,11 +2770,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             cuts_lst.append(njet_val)
                                         ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
 
+                                        if not self.histogram_fill_is_applicable(
+                                            dense_axis_name,
+                                            ch_name,
+                                            lep_chan,
+                                            is_run3=is_run3,
+                                            application_region=appl,
+                                        ):
+                                            continue
+
                                         # Get the cuts mask for all selections
                                         if dense_axis_name == "njets":
                                             all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
                                         else:
                                             all_cuts_mask = selections.all(*cuts_lst)
+                                        if is_jvm_eta_phi_diagnostic and not is_run3:
+                                            all_cuts_mask = (
+                                                run2_jvm_frozen_cr_mask
+                                                & selections.all("isSR_2lOS")
+                                            )
+                                            if isData:
+                                                all_cuts_mask = (
+                                                    all_cuts_mask
+                                                    & selections.all("is_good_lumi")
+                                                )
                                         all_cuts_mask = (
                                             all_cuts_mask
                                             & events[
@@ -2221,19 +2807,22 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         if is_jvm_eta_phi_diagnostic:
                                             if not should_fill_jvm_eta_phi_diagnostic(
-                                                is_run3,
+                                                is_run3 or is_run2_jvm_year(year),
                                                 syst_var,
                                                 wgt_fluct,
                                             ):
                                                 continue
-                                            diagnostic_event_mask = get_jvm_eta_phi_event_mask(
-                                                all_cuts_mask,
-                                                veto_map_mask,
-                                                dense_axis_name,
-                                            )
+                                            if is_run3:
+                                                diagnostic_event_mask = get_jvm_eta_phi_event_mask(
+                                                    all_cuts_mask,
+                                                    veto_map_mask,
+                                                    dense_axis_name,
+                                                )
+                                            else:
+                                                diagnostic_event_mask = all_cuts_mask
                                             eta_flat, phi_flat, weights_flat = (
                                                 flatten_jagged_jet_eta_phi_weights(
-                                                    veto_map_input_jets,
+                                                    varnames[dense_axis_name],
                                                     diagnostic_event_mask,
                                                     weight,
                                                 )
@@ -2329,15 +2918,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                     sumw2_values_cut_map[sumw2_axis_name] = base_values
 
                                         # Fill the histos
-                                        skip_hist = self._should_skip_histogram_fill(
-                                            dense_axis_name,
-                                            ch_name,
-                                            lep_chan,
-                                        )
-
-                                        if skip_hist:
-                                            continue
-
                                         if fill_base_hist:
                                             axes_fill_info_dict = {
                                                 **values_cut_map,
@@ -2349,7 +2929,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             }
                                             if self._hist_requires_eft.get(nominal_histogram_key, False):
                                                 axes_fill_info_dict["eft_coeff"] = eft_coeffs_cut
-                                            hout[nominal_histogram_key].fill(**axes_fill_info_dict)
+                                            nominal_histogram = hout[nominal_histogram_key]
+                                            raw_count_classification = (
+                                                self._raw_count_fill_classification(
+                                                    nominal_histogram,
+                                                    is_data=isData,
+                                                    wgt_fluct=wgt_fluct,
+                                                )
+                                            )
+                                            if raw_count_classification is not None:
+                                                axes_fill_info_dict["record_raw_count"] = (
+                                                    raw_count_classification
+                                                )
+                                            nominal_histogram.fill(**axes_fill_info_dict)
                                                                                     
                                         if fill_nominal_sumw2_hist:
                                             # The companion is an SM-only statistical moment.

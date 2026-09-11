@@ -1,6 +1,5 @@
 {
     "rate_uncertainties" : {
-        "lumi": 1.016,
         "charge_flips": {
             "charge_flips_sm": 1.3
         },

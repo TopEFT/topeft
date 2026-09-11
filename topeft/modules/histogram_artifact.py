@@ -68,6 +68,8 @@ FLIPS_APPLICATION_REGION = "isAR_2lSS_OS"
 SUPPORTED_DATA_DRIVEN_PRODUCTS = ("nonprompt", "flips")
 _PRODUCER_CONTEXT_TOKEN = object()
 NOMINAL_REFERENCE_CONTRACT_VERSION = 1
+HISTOGRAM_APPLICABILITY_CONTRACT_VERSION = 1
+HISTOGRAM_APPLICABILITY_STATES = frozenset({"applicable", "not_applicable"})
 
 
 def derive_data_driven_applicability(
@@ -156,6 +158,95 @@ def _normalize_required_processes(
     for family, processes in (required_sumw2_processes or {}).items():
         output[str(family)] = sorted({str(process) for process in processes})
     return output
+
+
+def _normalize_histogram_applicability(
+    value: Mapping[str, Any],
+    *,
+    runtime_families: Iterable[str],
+) -> dict[str, Any]:
+    """Normalize the binary producer-derived category-family declaration."""
+
+    if not isinstance(value, Mapping):
+        raise histogram_sidecar_error("histogram_applicability must be an object.")
+    _require_exact_keys(
+        value,
+        {
+            "contract_version",
+            "producer_query",
+            "producer_semantics_sha256",
+            "analysis_mode",
+            "families",
+        },
+        label="histogram_applicability",
+    )
+    if value["contract_version"] != HISTOGRAM_APPLICABILITY_CONTRACT_VERSION:
+        raise histogram_sidecar_error(
+            "Unsupported histogram applicability contract version."
+        )
+    if value["producer_query"] != "AnalysisProcessor.histogram_fill_is_applicable":
+        raise histogram_sidecar_error(
+            "Histogram applicability must name the maintained producer query."
+        )
+    semantics_sha256 = value["producer_semantics_sha256"]
+    if (
+        not isinstance(semantics_sha256, str)
+        or len(semantics_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in semantics_sha256)
+    ):
+        raise histogram_sidecar_error(
+            "histogram_applicability.producer_semantics_sha256 must be a SHA-256 digest."
+        )
+    if value["analysis_mode"] not in {"all", "offz", "tau", "fwd", "default"}:
+        raise histogram_sidecar_error(
+            "histogram_applicability.analysis_mode is unsupported."
+        )
+    runtime_families = tuple(str(family) for family in runtime_families)
+    families = value["families"]
+    if not isinstance(families, Mapping) or list(families) != list(runtime_families):
+        raise histogram_sidecar_error(
+            "Histogram applicability family order must match runtime histogram families."
+        )
+    normalized_families = {}
+    for family, family_contract in families.items():
+        if not isinstance(family_contract, Mapping):
+            raise histogram_sidecar_error(
+                f"Histogram applicability family {family!r} must be an object."
+            )
+        _require_exact_keys(
+            family_contract,
+            {"channels"},
+            label=f"histogram applicability family {family!r}",
+        )
+        channels = family_contract["channels"]
+        if not isinstance(channels, Mapping):
+            raise histogram_sidecar_error(
+                f"Histogram applicability channels for family {family!r} must be an object."
+            )
+        normalized_channels = {}
+        for channel, state in channels.items():
+            if not isinstance(channel, str) or not channel:
+                raise histogram_sidecar_error(
+                    "Histogram applicability channel names must be nonempty strings."
+                )
+            if state not in HISTOGRAM_APPLICABILITY_STATES:
+                raise histogram_sidecar_error(
+                    "Histogram applicability states are binary; "
+                    f"family={family!r} channel={channel!r} state={state!r}."
+                )
+            normalized_channels[channel] = state
+        if list(normalized_channels) != sorted(normalized_channels):
+            raise histogram_sidecar_error(
+                f"Histogram applicability channels for family {family!r} must be sorted."
+            )
+        normalized_families[family] = {"channels": normalized_channels}
+    return {
+        "contract_version": HISTOGRAM_APPLICABILITY_CONTRACT_VERSION,
+        "producer_query": value["producer_query"],
+        "producer_semantics_sha256": semantics_sha256,
+        "analysis_mode": value["analysis_mode"],
+        "families": normalized_families,
+    }
 
 
 def build_sumw2_content_manifest(
@@ -262,6 +353,7 @@ def _build_sidecar_payload(
     resolved_data_driven_contract: Mapping[str, Any] | None,
     production_sample_contract: Mapping[str, Any] | None,
     nominal_reference_contract: Mapping[str, Any] | None,
+    histogram_applicability: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     identity = _file_identity(identity_path, pkl_basename=pkl_path.name)
     if artifact_kind == "processor_output":
@@ -299,6 +391,7 @@ def _build_sidecar_payload(
                 )
         required_sumw2_processes = derived_required
 
+    policy = resolved_policy_from_provenance(sumw2_storage_provenance)
     payload = {
         "metadata_schema_version": METADATA_SCHEMA_VERSION,
         "artifact": {
@@ -319,7 +412,11 @@ def _build_sidecar_payload(
         ),
         "lineage": {"inputs": _normalize_lineage_inputs(lineage_inputs)},
     }
-    policy = resolved_policy_from_provenance(sumw2_storage_provenance)
+    if histogram_applicability is not None:
+        payload["histogram_applicability"] = _normalize_histogram_applicability(
+            histogram_applicability,
+            runtime_families=policy.runtime_histogram_families,
+        )
     if policy.schema_version == SUMW2_PROVENANCE_SCHEMA_VERSION:
         if production_sample_contract is None:
             raise histogram_sidecar_error(
@@ -1388,6 +1485,12 @@ def _validate_sidecar_structure(
 
     policy = resolved_policy_from_provenance(sidecar["sumw2_storage_provenance"])
     expected_sidecar_fields = set(common_fields)
+    if "histogram_applicability" in sidecar:
+        expected_sidecar_fields.add("histogram_applicability")
+        sidecar["histogram_applicability"] = _normalize_histogram_applicability(
+            sidecar["histogram_applicability"],
+            runtime_families=policy.runtime_histogram_families,
+        )
     has_production_contract = "production_sample_contract" in sidecar
     if policy.schema_version == SUMW2_PROVENANCE_SCHEMA_VERSION:
         if not has_production_contract:
@@ -1700,6 +1803,7 @@ def validate_processor_output(
         runtime_families=policy.runtime_histogram_families,
         schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
         policy=policy,
+        histogram_applicability=sidecar.get("histogram_applicability"),
     )
     expected_manifest = build_sumw2_content_manifest(
         histograms,
@@ -1758,6 +1862,7 @@ def _validate_transformed_output(
         runtime_families=policy.runtime_histogram_families,
         schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
         policy=None,
+        histogram_applicability=sidecar.get("histogram_applicability"),
     )
     manifest_families = sidecar["sumw2_content_manifest"]["families"]
     transformation_contract = _normalize_transformation_contract(
@@ -1859,10 +1964,10 @@ def validate_flips_output(
     )
 
 
-def _load_histograms(pkl_path: Path) -> dict[str, Any]:
+def _load_histograms(pkl_path: Path, *, allow_empty: bool = True) -> dict[str, Any]:
     from topcoffea.modules.utils import get_hist_from_pkl
 
-    loaded = get_hist_from_pkl(str(pkl_path), allow_empty=False)
+    loaded = get_hist_from_pkl(str(pkl_path), allow_empty=allow_empty)
     if not isinstance(loaded, dict):
         raise histogram_content_error(
             f"Histogram PKL '{pkl_path}' did not contain a dictionary."
@@ -1887,6 +1992,8 @@ def _recognized_legacy_metadata(payload: Any) -> bool:
 def validate_histogram_artifact(
     pkl_path: str | os.PathLike[str],
     histograms: Mapping[str, Any] | None = None,
+    *,
+    histogram_applicability: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validate a split artifact or classify an explicit legacy uniform payload."""
 
@@ -1934,6 +2041,21 @@ def validate_histogram_artifact(
             "legacy_metadata_present": True,
         }
     sidecar = _validate_sidecar_structure(raw_payload, pkl_path=pkl_path)
+    declared_applicability = sidecar.get("histogram_applicability")
+    if histogram_applicability is not None:
+        policy = resolved_policy_from_provenance(sidecar["sumw2_storage_provenance"])
+        resolved_applicability = _normalize_histogram_applicability(
+            histogram_applicability,
+            runtime_families=policy.runtime_histogram_families,
+        )
+        if (
+            declared_applicability is not None
+            and declared_applicability != resolved_applicability
+        ):
+            raise histogram_sidecar_error(
+                "Explicit histogram applicability disagrees with the qualified override."
+            )
+        sidecar["histogram_applicability"] = resolved_applicability
     _validate_content_manifest(pkl_path, loaded, sidecar)
     artifact_kind = sidecar["artifact"]["artifact_kind"]
     if artifact_kind == "processor_output":
@@ -1951,6 +2073,13 @@ def validate_histogram_artifact(
         "schema": NOMINAL_CONTAINER_LAYOUT,
         "metadata": sidecar,
         "legacy_metadata_present": False,
+        "histogram_applicability_source": (
+            "serialized"
+            if declared_applicability is not None
+            else "qualified_legacy_context"
+            if histogram_applicability is not None
+            else "unknown_legacy"
+        ),
     }
 
 
@@ -2407,6 +2536,69 @@ def merge_histogram_sidecars(
         resolved_data_driven_contract,
     ) = _compose_merged_contract_set(sidecars)
     family_order = tuple(provenance["runtime_histogram_families"])
+    applicability_declarations = [
+        sidecar.get("histogram_applicability") for sidecar in sidecars
+    ]
+    if any(value is None for value in applicability_declarations) and any(
+        value is not None for value in applicability_declarations
+    ):
+        raise histogram_merge_error(
+            "Cannot merge a mixture of declared and declaration-free histogram applicability."
+        )
+    merged_applicability = None
+    if all(value is not None for value in applicability_declarations):
+        normalized_applicability = [
+            _normalize_histogram_applicability(
+                value,
+                runtime_families=sidecar["sumw2_storage_provenance"][
+                    "runtime_histogram_families"
+                ],
+            )
+            for sidecar, value in zip(sidecars, applicability_declarations)
+        ]
+        identity_fields = (
+            "contract_version",
+            "producer_query",
+            "producer_semantics_sha256",
+            "analysis_mode",
+        )
+        if any(
+            any(
+                declaration[field] != normalized_applicability[0][field]
+                for field in identity_fields
+            )
+            for declaration in normalized_applicability[1:]
+        ):
+            raise histogram_merge_error(
+                "Cannot merge incompatible producer applicability authorities."
+            )
+        merged_families = {}
+        for family in family_order:
+            channel_states = {}
+            for declaration in normalized_applicability:
+                family_contract = declaration["families"].get(family)
+                if family_contract is None:
+                    continue
+                for channel, state in family_contract["channels"].items():
+                    previous = channel_states.setdefault(channel, state)
+                    if previous != state:
+                        raise histogram_merge_error(
+                            "Cannot merge contradictory histogram applicability for "
+                            f"family={family!r} channel={channel!r}."
+                        )
+            merged_families[family] = {
+                "channels": {
+                    channel: channel_states[channel]
+                    for channel in sorted(channel_states)
+                }
+            }
+        merged_applicability = {
+            **{
+                field: normalized_applicability[0][field]
+                for field in identity_fields
+            },
+            "families": merged_families,
+        }
     for sidecar in sidecars:
         manifest_order = tuple(sidecar["sumw2_content_manifest"]["families"])
         provenance_order = tuple(
@@ -2567,6 +2759,7 @@ def merge_histogram_sidecars(
         "transformation_contract": merged_contract,
         "requested_data_driven_products": requested_data_driven_products,
         "resolved_data_driven_contract": resolved_data_driven_contract,
+        "histogram_applicability": merged_applicability,
         "lineage_inputs": [lineage_input_from_sidecar(sidecar) for sidecar in sidecars],
     }
 
@@ -2594,6 +2787,7 @@ def write_histogram_sidecar(
     resolved_data_driven_contract: Mapping[str, Any] | None = None,
     production_sample_contract: Mapping[str, Any] | None = None,
     nominal_reference_contract: Mapping[str, Any] | None = None,
+    histogram_applicability: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Write one automatic sidecar for an already finalized PKL."""
 
@@ -2679,6 +2873,15 @@ def write_histogram_sidecar(
                 "Transformed output must preserve nominal_reference_contract unchanged."
             )
         nominal_reference_contract = input_reference_contract
+        input_applicability = input_sidecar.get("histogram_applicability")
+        if (
+            histogram_applicability is not None
+            and dict(histogram_applicability) != input_applicability
+        ):
+            raise histogram_sidecar_error(
+                "Transformed output must preserve histogram_applicability unchanged."
+            )
+        histogram_applicability = input_applicability
     payload = _build_sidecar_payload(
         pkl_path,
         histograms,
@@ -2693,6 +2896,7 @@ def write_histogram_sidecar(
         resolved_data_driven_contract=resolved_data_driven_contract,
         production_sample_contract=production_sample_contract,
         nominal_reference_contract=nominal_reference_contract,
+        histogram_applicability=histogram_applicability,
     )
     _validate_sidecar_structure(payload, pkl_path=pkl_path)
     temporary_path = metadata_sidecar_path(pkl_path).with_name(
@@ -2728,6 +2932,7 @@ def write_histogram_artifact(
     resolved_data_driven_contract: Mapping[str, Any] | None = None,
     production_sample_contract: Mapping[str, Any] | None = None,
     nominal_reference_contract: Mapping[str, Any] | None = None,
+    histogram_applicability: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Stage, validate, and publish a PKL/sidecar pair as one logical output."""
 
@@ -2846,6 +3051,15 @@ def write_histogram_artifact(
                     "Transformed output must preserve nominal_reference_contract unchanged."
                 )
             nominal_reference_contract = input_reference_contract
+            input_applicability = input_sidecar.get("histogram_applicability")
+            if (
+                histogram_applicability is not None
+                and dict(histogram_applicability) != input_applicability
+            ):
+                raise histogram_sidecar_error(
+                    "Transformed output must preserve histogram_applicability unchanged."
+                )
+            histogram_applicability = input_applicability
         sidecar = _build_sidecar_payload(
             pkl_path,
             manifest_histograms,
@@ -2860,6 +3074,7 @@ def write_histogram_artifact(
             resolved_data_driven_contract=resolved_data_driven_contract,
             production_sample_contract=production_sample_contract,
             nominal_reference_contract=nominal_reference_contract,
+            histogram_applicability=histogram_applicability,
         )
         _validate_sidecar_structure(sidecar, pkl_path=pkl_path)
         _validate_content_manifest(pkl_path, manifest_histograms, sidecar)

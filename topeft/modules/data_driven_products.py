@@ -1509,12 +1509,16 @@ def reresolve_nonprompt_policy_from_sidecar(
         resolved_products,
         migration=migration,
     )
-    required_processes = set(data_processes)
+    eligible_processes = set(data_processes)
     if requested_products["nonprompt"]["enabled"]:
-        required_processes.update(current_prompt_processes)
+        eligible_processes.update(current_prompt_processes)
     missing_sumw2 = {}
     missing_policy_selection = {}
     for family, family_manifest in manifest.items():
+        nominal_processes = set(
+            family_manifest["scalar_nominal_processes"]
+        ) | set(family_manifest["eft_nominal_processes"])
+        required_processes = eligible_processes & nominal_processes
         missing = sorted(
             required_processes - set(family_manifest["sumw2_processes"])
         )
@@ -1702,15 +1706,14 @@ def validate_requested_product_input(
             )
         nominal = scalar_nominal | eft_nominal
         companions = set(manifest["sumw2_processes"])
-        missing_nominal = sorted(required - nominal)
-        missing_companions = sorted(required - companions)
-        if missing_nominal or (
+        required_processes = required & nominal
+        missing_companions = sorted(required_processes - companions)
+        if (
             missing_companions
             and artifact_kind != NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND
         ):
             raise data_driven_product_error(
                 f"Cannot build requested product {product_name!r}: family={family!r} "
-                f"missing_source_nominal={missing_nominal} "
                 f"missing_source_sumw2={missing_companions}. Regenerate the processor "
                 "artifact after correcting sumw2_storage and data_driven_products."
             )

@@ -5,13 +5,17 @@ import runpy
 import sys
 import types
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import cloudpickle
 import coffea.processor as processor
+import hist
 import numpy as np
 import pytest
+from coffea.analysis_tools import Weights
 
+from analysis.topeft_run2 import analysis_processor as ap
 from analysis.topeft_run2.analysis_processor import ANALYSIS_MODE_EXCLUSIVE_ERROR
 from topeft.modules.data_driven_products import data_driven_product_error
 
@@ -22,6 +26,118 @@ _EXPECTED_CR_BASE_HISTS = {
     "met",
     "lt",
 }
+
+
+def _lepton_component_events():
+    components = {
+        "elec_mva": np.asarray([2.0, 3.0]),
+        "elec_non_mva": np.asarray([5.0, 7.0]),
+        "muon_mva": np.asarray([11.0, 13.0]),
+        "muon_non_mva": np.asarray([17.0, 19.0]),
+    }
+    fields = {}
+    for name, nominal in components.items():
+        fields[f"sf_2l_{name}"] = nominal
+        fields[f"sf_2l_hi_{name}"] = nominal * 1.10
+        fields[f"sf_2l_lo_{name}"] = nominal * 0.90
+    return SimpleNamespace(**fields), components
+
+
+def _fill_lepton_component_histogram(weights, do_systematics):
+    output = hist.Hist(
+        hist.axis.StrCategory([], growth=True, name="systematic"),
+        hist.axis.Regular(1, 0.0, 1.0, name="value"),
+        storage=hist.storage.Weight(),
+    )
+    variation_names = ap.select_histogram_weight_variations(
+        do_systematics,
+        False,
+        "nominal",
+        list(ap.LEPTON_SF_WEIGHT_VARIATIONS),
+        [],
+    )
+    for variation_name in variation_names:
+        modifier = None if variation_name == "nominal" else variation_name
+        output.fill(
+            systematic=variation_name,
+            value=np.full(len(weights.weight()), 0.5),
+            weight=weights.weight(modifier),
+        )
+    return output
+
+
+def test_primary_lepton_sf_weight_and_histogram_output_contract():
+    events, components = _lepton_component_events()
+    weights = Weights(2, storeIndividual=True)
+    ap.add_lepton_sf_weights(weights, events, 2)
+
+    observed_labels = weights.variations
+    assert observed_labels == set(ap.LEPTON_SF_WEIGHT_VARIATIONS)
+    assert observed_labels == {
+        "lepSF_elec_mvaUp",
+        "lepSF_elec_mvaDown",
+        "lepSF_elec_non_mvaUp",
+        "lepSF_elec_non_mvaDown",
+        "lepSF_muon_mvaUp",
+        "lepSF_muon_mvaDown",
+        "lepSF_muon_non_mvaUp",
+        "lepSF_muon_non_mvaDown",
+    }
+    assert observed_labels.isdisjoint(
+        {
+            "lepSF_elecUp",
+            "lepSF_elecDown",
+            "lepSF_muonUp",
+            "lepSF_muonDown",
+        }
+    )
+
+    nominal = np.prod(np.stack(list(components.values())), axis=0)
+    np.testing.assert_allclose(weights.weight(), nominal)
+    np.testing.assert_allclose(
+        weights.weight("lepSF_elec_mvaUp"),
+        components["elec_mva"]
+        * 1.10
+        * components["elec_non_mva"]
+        * components["muon_mva"]
+        * components["muon_non_mva"],
+    )
+    np.testing.assert_allclose(
+        weights.weight("lepSF_elec_non_mvaUp"),
+        components["elec_mva"]
+        * components["elec_non_mva"]
+        * 1.10
+        * components["muon_mva"]
+        * components["muon_non_mva"],
+    )
+    np.testing.assert_allclose(
+        weights.weight("lepSF_muon_mvaDown"),
+        components["elec_mva"]
+        * components["elec_non_mva"]
+        * components["muon_mva"]
+        * 0.90
+        * components["muon_non_mva"],
+    )
+    np.testing.assert_allclose(
+        weights.weight("lepSF_muon_non_mvaDown"),
+        components["elec_mva"]
+        * components["elec_non_mva"]
+        * components["muon_mva"]
+        * components["muon_non_mva"]
+        * 0.90,
+    )
+
+    nominal_only = _fill_lepton_component_histogram(weights, False)
+    full_systematics = _fill_lepton_component_histogram(weights, True)
+    assert set(nominal_only.axes["systematic"]) == {"nominal"}
+    assert set(full_systematics.axes["systematic"]) == {
+        "nominal",
+        *observed_labels,
+    }
+    nominal_only_values = nominal_only[{"systematic": "nominal"}].values()
+    full_nominal_values = full_systematics[{"systematic": "nominal"}].values()
+    np.testing.assert_allclose(nominal_only_values, full_nominal_values)
+    np.testing.assert_allclose(nominal_only_values.sum(), nominal.sum())
 
 
 def _mock_data_driven(monkeypatch):

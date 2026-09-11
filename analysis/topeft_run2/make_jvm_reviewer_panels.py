@@ -18,6 +18,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize, TwoSlopeNorm
 import numpy as np
@@ -48,6 +49,43 @@ period_config = {
         "payload_directory": "2023_Summer23BPix",
     },
 }
+run2_period_config = {
+    "2016APV": {
+        "correction": "Summer19UL16_V1",
+        "payload_directory": "2016preVFP_UL",
+        "payload_category": "jetvetomap_all",
+        "display": "2016 preVFP",
+    },
+    "2016": {
+        "correction": "Summer19UL16_V1",
+        "payload_directory": "2016postVFP_UL",
+        "payload_category": "jetvetomap_all",
+        "display": "2016 postVFP",
+    },
+    "2017": {
+        "correction": "Summer19UL17_V1",
+        "payload_directory": "2017_UL",
+        "payload_category": "jetvetomap_all",
+        "display": "2017",
+    },
+    "2018": {
+        "correction": "Summer19UL18_V1",
+        "payload_directory": "2018_UL",
+        "payload_category": "jetvetomap_all",
+        "display": "2018",
+    },
+}
+run2_process_period_tokens = {
+    "2016APV": "UL16APV",
+    "2016": "UL16",
+    "2017": "UL17",
+    "2018": "UL18",
+}
+for configuration in period_config.values():
+    configuration.setdefault("payload_category", "jetvetomap")
+    configuration.setdefault("display", None)
+
+run_configs = {"run3": period_config, "run2": run2_period_config}
 
 histogram_keys = ("jet_eta_phi_before_veto", "jet_eta_phi_after_veto")
 selected_coordinates = {
@@ -71,15 +109,27 @@ def parse_arguments():
         default=default_payload_root,
         help="Root containing the period-specific JME payload directories.",
     )
+    parser.add_argument("--run", choices=tuple(run_configs), default="run3")
+    parser.add_argument(
+        "--sample-kind",
+        choices=("both", "data", "mc"),
+        default="both",
+        help="Select the sample page(s) available in the input PKL.",
+    )
+    parser.add_argument(
+        "--output-pdf",
+        type=Path,
+        help="Write one PDF, using one page per requested sample kind.",
+    )
     return parser.parse_args()
 
 
-def load_period_luminosities(path=metadata_path):
-    """Read Run-3 luminosity labels from the live plotting metadata."""
+def load_period_luminosities(periods=period_config, path=metadata_path):
+    """Read period luminosity labels from the live plotting metadata."""
     with Path(path).open(encoding="utf-8") as source:
         metadata = yaml.safe_load(source)
     pairs = metadata["LUMI_COM_PAIRS"]
-    return {period: tuple(pairs[period]) for period in period_config}
+    return {period: tuple(pairs[period]) for period in periods}
 
 
 def dense_values(histogram):
@@ -103,13 +153,20 @@ def project_histogram(histogram, processes):
     return dense_values(selected)
 
 
+def process_period_token(period):
+    """Resolve a display period to its serialized process-label token."""
+
+    return run2_process_period_tokens.get(period, period)
+
+
 def period_processes(processes, period):
     """Return exact data and MC process labels for one period token."""
-    data_process = f"data{period}"
+    process_token = process_period_token(period)
+    data_process = f"data{process_token}"
     mc_processes = tuple(
         process
         for process in processes
-        if process.endswith(period) and not process.startswith("data")
+        if process.endswith(process_token) and not process.startswith("data")
     )
     if data_process not in processes:
         raise KeyError(f"Missing data process {data_process}")
@@ -151,39 +208,42 @@ def load_histograms(input_pkl):
     return before_histogram, after_histogram, eta_edges, phi_edges
 
 
-def select_period_arrays(before_histogram, after_histogram):
+def select_period_arrays(before_histogram, after_histogram, periods, sample_kind):
     processes = tuple(str(value) for value in before_histogram.axes["process"])
     selected = {}
-    for period in period_config:
+    for period in periods:
         data_process, mc_processes = period_processes(processes, period)
+        processes_to_sum = data_process if sample_kind == "data" else mc_processes
+        if sample_kind == "data" and data_process not in processes:
+            raise KeyError(f"Missing data process {data_process}")
+        if sample_kind == "mc" and not mc_processes:
+            raise KeyError(f"Missing MC processes for {period}")
         selected[period] = {
-            "data_before": project_histogram(before_histogram, data_process),
-            "data_after": project_histogram(after_histogram, data_process),
-            "mc_before": project_histogram(before_histogram, mc_processes),
-            "mc_after": project_histogram(after_histogram, mc_processes),
+            "before": project_histogram(before_histogram, processes_to_sum),
+            "after": project_histogram(after_histogram, processes_to_sum),
         }
     return selected
 
 
-def payload_path(payload_root, period):
-    return Path(payload_root) / period_config[period]["payload_directory"] / "jetvetomaps.json.gz"
+def payload_path(payload_root, period, periods=period_config):
+    return Path(payload_root) / periods[period]["payload_directory"] / "jetvetomaps.json.gz"
 
 
-def load_payload_boundary(payload_root, period):
+def load_payload_boundary(payload_root, period, periods=period_config):
     """Return exact exposed nonzero-cell boundaries for one JVM payload."""
-    path = payload_path(payload_root, period)
+    path = payload_path(payload_root, period, periods)
     if not path.is_file():
         raise FileNotFoundError(path)
     with gzip.open(path, "rt", encoding="utf-8") as source:
         payload = json.load(source)
-    correction_name = period_config[period]["correction"]
+    correction_name = periods[period]["correction"]
     correction_item = next(
         item for item in payload["corrections"] if item["name"] == correction_name
     )
     map_item = next(
         item
         for item in correction_item["data"]["content"]
-        if item["key"] == "jetvetomap"
+        if item["key"] == periods[period]["payload_category"]
     )
     node = map_item["value"]
     eta_edges = np.asarray(node["edges"][0], dtype=float)
@@ -194,7 +254,7 @@ def load_payload_boundary(payload_root, period):
         for phi_index, (phi_low, phi_high) in enumerate(zip(phi_edges[:-1], phi_edges[1:])):
             active[eta_index, phi_index] = (
                 correction.evaluate(
-                    "jetvetomap",
+                    periods[period]["payload_category"],
                     float((eta_low + eta_high) / 2),
                     float((phi_low + phi_high) / 2),
                 )
@@ -297,8 +357,11 @@ def render_figure(
     payload_root,
     luminosities,
     output_dir,
+    periods=period_config,
+    pdf_pages=None,
 ):
-    figure, axes = plt.subplots(4, 2, figsize=(14, 20), constrained_layout=True)
+    figure, axes = plt.subplots(len(periods), 2, figsize=(14, 5 * len(periods)), constrained_layout=True)
+    axes = np.atleast_2d(axes)
     figure.suptitle(
         f"CMS  {'Data' if sample_kind == 'data' else 'Simulation'}\n"
         r"$2\ell_{OS}$ $t\bar{t}$ control region ($e\mu$, exactly 2 jets)",
@@ -308,14 +371,15 @@ def render_figure(
     axes[0, 0].set_title("Before jet veto", fontsize=14)
     axes[0, 1].set_title("After jet veto", fontsize=14)
     normalization_records = {}
-    for row_index, period in enumerate(period_config):
-        before = selected_arrays[period][f"{sample_kind}_before"]
-        after = selected_arrays[period][f"{sample_kind}_after"]
+    for row_index, period in enumerate(periods):
+        before = selected_arrays[period]["before"]
+        after = selected_arrays[period]["after"]
         normalization, lower, upper, mode = build_normalization(before, after, sample_kind)
-        eta_payload, phi_payload, active = load_payload_boundary(payload_root, period)
+        eta_payload, phi_payload, active = load_payload_boundary(payload_root, period, periods)
         segments = boundary_segments(eta_payload, phi_payload, active)
         lumi, energy = luminosities[period]
-        row_label = f"{period}  ({lumi} fb$^{{-1}}$, {energy} TeV)"
+        display = periods[period].get("display") or period
+        row_label = f"{display}  ({lumi} fb$^{{-1}}$, {energy} TeV)"
         before_image = draw_panel(
             axes[row_index, 0], before, eta_edges, phi_edges, normalization, segments, row_label
         )
@@ -330,37 +394,61 @@ def render_figure(
             "mode": mode,
             "segment_count": len(segments),
         }
-    basename = output_names[sample_kind]
-    png_path = output_dir / f"{basename}.png"
-    pdf_path = output_dir / f"{basename}.pdf"
-    figure.savefig(png_path, dpi=180)
-    figure.savefig(pdf_path)
+    png_path = None
+    pdf_path = None
+    if output_dir is not None:
+        basename = output_names[sample_kind]
+        png_path = output_dir / f"{basename}.png"
+        pdf_path = output_dir / f"{basename}.pdf"
+        figure.savefig(png_path, dpi=180)
+        figure.savefig(pdf_path)
+    if pdf_pages is not None:
+        pdf_pages.savefig(figure)
     plt.close(figure)
     return normalization_records, png_path, pdf_path
 
 
 def main():
     arguments = parse_arguments()
-    output_dir = ensure_empty_output_directory(arguments.output_dir)
-    luminosities = load_period_luminosities()
+    if arguments.output_pdf is not None and arguments.run != "run2":
+        raise ValueError("--output-pdf is reserved for the Run-2 reviewer workflow")
+    if arguments.output_pdf is not None and arguments.output_pdf.exists():
+        raise FileExistsError(arguments.output_pdf)
+    output_dir = (
+        None
+        if arguments.output_pdf is not None
+        else ensure_empty_output_directory(arguments.output_dir)
+    )
+    periods = run_configs[arguments.run]
+    luminosities = load_period_luminosities(periods)
     before_histogram, after_histogram, eta_edges, phi_edges = load_histograms(arguments.input_pkl)
-    selected_arrays = select_period_arrays(before_histogram, after_histogram)
+    sample_kinds = ("data", "mc") if arguments.sample_kind == "both" else (arguments.sample_kind,)
     results = {}
-    for sample_kind in ("data", "mc"):
-        records, png_path, pdf_path = render_figure(
-            sample_kind,
-            selected_arrays,
-            eta_edges,
-            phi_edges,
-            arguments.payload_root,
-            luminosities,
-            output_dir,
-        )
-        results[sample_kind] = {
-            "normalization": records,
-            "png": str(png_path),
-            "pdf": str(pdf_path),
-        }
+    pdf_context = PdfPages(arguments.output_pdf) if arguments.output_pdf is not None else None
+    try:
+        for sample_kind in sample_kinds:
+            selected_arrays = select_period_arrays(
+                before_histogram, after_histogram, periods, sample_kind
+            )
+            records, png_path, pdf_path = render_figure(
+                sample_kind,
+                selected_arrays,
+                eta_edges,
+                phi_edges,
+                arguments.payload_root,
+                luminosities,
+                output_dir,
+                periods,
+                pdf_context,
+            )
+            results[sample_kind] = {
+                "normalization": records,
+                "png": str(png_path) if png_path is not None else None,
+                "pdf": str(pdf_path) if pdf_path is not None else str(arguments.output_pdf),
+            }
+    finally:
+        if pdf_context is not None:
+            pdf_context.close()
     print(json.dumps(results, indent=2, sort_keys=True))
 
 
