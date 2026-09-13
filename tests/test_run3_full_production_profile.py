@@ -1,7 +1,9 @@
 import hashlib
 import io
 import json
+import os
 import re
+import shlex
 import subprocess
 import sys
 import tarfile
@@ -35,10 +37,11 @@ REBIN_FINE_BLOCKS = [
 ]
 
 
-def _run(*args):
+def _run(*args, environment=None):
     return subprocess.run(
         [str(RUN_CR), *args],
         cwd=ANALYSIS_DIR,
+        env=environment,
         check=False,
         capture_output=True,
         text=True,
@@ -60,9 +63,8 @@ def _current_environment_request():
 
 
 def _write_env(tmp_path, content=b"synthetic current environment", *, current=True):
-    if current:
-        return FROZEN_ENV
-    path = tmp_path / "verified_env.tar.gz"
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    path = tmp_path / ("current_env.tar.gz" if current else "stale_env.tar.gz")
     with tarfile.open(path, "w:gz") as archive:
         entry = tarfile.TarInfo("environment.txt")
         entry.size = len(content)
@@ -83,6 +85,56 @@ def _write_env(tmp_path, content=b"synthetic current environment", *, current=Tr
     }
     remote_environment.write_archive_manifest(str(path), request)
     return path
+
+
+def _current_environment_backend(tmp_path, env_file):
+    manifest = json.loads(
+        env_file.with_name(f"{env_file.name}.manifest.json").read_text(encoding="utf-8")
+    )
+    topcoffea = next(
+        package
+        for package in manifest["editable_packages"]
+        if package["package_name"] == "topcoffea"
+    )
+    backend = tmp_path / "current_environment_backend.sh"
+    backend.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1" == "prepare_environment" ]]
+printf 'env_file: %s\\n' {env_file!r}
+printf 'env_file_sha256: %s\\n' {archive_sha256!r}
+printf 'env_manifest: %s\\n' {manifest_path!r}
+printf 'environment_fingerprint: %s\\n' {environment_fingerprint!r}
+printf 'environment_validation_status: valid\\n'
+printf 'topcoffea_git_commit: %s\\n' {topcoffea_git_commit!r}
+printf 'topcoffea_relevant_source_fingerprint: %s\\n' {topcoffea_source_fingerprint!r}
+""".format(
+            env_file=str(env_file.resolve()),
+            archive_sha256=hashlib.sha256(env_file.read_bytes()).hexdigest(),
+            manifest_path=str(env_file.with_name(f"{env_file.name}.manifest.json")),
+            environment_fingerprint=manifest["environment_fingerprint"],
+            topcoffea_git_commit=topcoffea["git_commit"],
+            topcoffea_source_fingerprint=topcoffea["watched_source_fingerprint"],
+        ),
+        encoding="utf-8",
+    )
+    backend.chmod(0o755)
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "SRPLOT009_VALIDATION_BACKEND": str(backend),
+            "SRPLOT009_VALIDATION_ROOT": str(tmp_path),
+            "SRPLOT009_VALIDATION_SCENARIO": "success",
+        }
+    )
+    return environment
+
+
+def _resolved_commands(stdout):
+    return [
+        shlex.split(command)
+        for command in re.findall(r"Running the following command:\n([^\n]+)", stdout)
+    ]
 
 
 def _planned_blocks(output_dir, campaign_tag):
@@ -124,7 +176,14 @@ def _planned_blocks(output_dir, campaign_tag):
     return blocks
 
 
-def _write_state(output_dir, campaign_tag, env_file, *, status="planned"):
+def _write_state(
+    output_dir,
+    campaign_tag,
+    env_file,
+    *,
+    status="planned",
+    environment_mode="explicit_snapshot",
+):
     blocks = _planned_blocks(output_dir, campaign_tag)
     source_status = "ready" if status == "success" else "planned"
     nonprompt_status = "success" if status == "success" else "blocked"
@@ -142,7 +201,7 @@ def _write_state(output_dir, campaign_tag, env_file, *, status="planned"):
         item for item in manifest["editable_packages"] if item["package_name"] == "topcoffea"
     )
     state = {
-        "schema_version": 4,
+        "schema_version": 5,
         "production_profile": "run3_full",
         "campaign_tag": campaign_tag,
         "output_dir": str(output_dir),
@@ -150,6 +209,7 @@ def _write_state(output_dir, campaign_tag, env_file, *, status="planned"):
         "env_file": str(env_file.resolve()),
         "env_file_sha256": hashlib.sha256(env_file.read_bytes()).hexdigest(),
         "environment_fingerprint": manifest["environment_fingerprint"],
+        "environment_mode": environment_mode,
         "topcoffea_git_commit": topcoffea["git_commit"],
         "topcoffea_relevant_source_fingerprint": topcoffea["watched_source_fingerprint"],
         "ttgamma_sample_role_policy": "split",
@@ -253,13 +313,14 @@ def test_fresh_run3_full_state_materializes_plan_before_first_block_update(tmp_p
         str(state_path),
         str(plan_path),
         "run3_full",
-        "4",
+        "5",
         "run3_complete",
         str(output_dir),
         "topeft-test-commit",
         "/tmp/current_environment.tar.gz",
         "environment-sha256",
         "environment-fingerprint",
+        "current_resolved",
         "topcoffea-test-commit",
         "topcoffea-source-fingerprint",
         "split",
@@ -288,6 +349,7 @@ def test_fresh_run3_full_state_materializes_plan_before_first_block_update(tmp_p
     assert all(block["status"] == "planned" for block in state["blocks"])
     assert all(block["source_status"] == "planned" for block in state["blocks"])
     assert all(block["nonprompt_status"] == "blocked" for block in state["blocks"])
+    assert state["environment_mode"] == "current_resolved"
 
     first_status = _run_state_tool(tmp_path, "status", str(state_path), "run3_full_a")
     assert first_status.returncode == 0, first_status.stderr
@@ -325,13 +387,14 @@ def test_fresh_rebin_fine_state_preserves_six_block_stage_model(tmp_path):
         str(state_path),
         str(plan_path),
         "rebin_fine",
-        "4",
+        "5",
         "fine_complete",
         str(output_dir),
         "topeft-test-commit",
         "/tmp/current_environment.tar.gz",
         "environment-sha256",
         "environment-fingerprint",
+        "rebin_fine_current_compatible",
         "topcoffea-test-commit",
         "topcoffea-source-fingerprint",
         "split",
@@ -386,13 +449,14 @@ def test_running_stage_remains_ambiguous_and_is_not_rewritten_on_validation(tmp_
         str(state_path),
         str(plan_path),
         "run3_full",
-        "4",
+        "5",
         "ambiguous",
         str(output_dir),
         "topeft-test-commit",
         "/tmp/current_environment.tar.gz",
         "environment-sha256",
         "environment-fingerprint",
+        "current_resolved",
         "topcoffea-test-commit",
         "topcoffea-source-fingerprint",
         "split",
@@ -426,11 +490,16 @@ def test_running_stage_remains_ambiguous_and_is_not_rewritten_on_validation(tmp_
     assert state["blocks"][0]["source_exit_code"] is None
 
 
-def test_baseline_is_retired_and_no_argument_invocation_aliases_run2_full():
-    no_arguments = _run("--dry-run")
+def test_baseline_is_retired_and_no_argument_invocation_aliases_run2_full(tmp_path):
+    env_file = _write_env(tmp_path)
+    no_arguments = _run(
+        "--dry-run", environment=_current_environment_backend(tmp_path, env_file)
+    )
     assert no_arguments.returncode == 0, no_arguments.stderr
     assert no_arguments.stdout.count("SRPLOT009_BLOCK_COMMAND\t") == 5
     assert "dry_run_complete:" in no_arguments.stdout
+    assert "environment_mode: current_resolved" in no_arguments.stdout
+    assert all("--snapshot" not in command for command in _resolved_commands(no_arguments.stdout))
 
     baseline = _run("--production-profile", "baseline")
     assert baseline.returncode != 0
@@ -472,12 +541,15 @@ def test_run3_full_dry_run_resolves_exact_complete_five_block_plan(tmp_path):
     assert result.stdout.count("--np-postprocess=defer") >= 5
     assert result.stdout.count("run_data_driven.py") >= 5
     assert "--split-lep-flavor" not in result.stdout
+    assert "environment_policy: explicit_snapshot" in result.stdout
+    assert "environment_mode: explicit_snapshot" in result.stdout
+    assert "--snapshot" in result.stdout
     assert not output_dir.exists()
 
 
 def test_run_cr_derives_checkout_paths_and_runs_from_unrelated_cwd(tmp_path):
     source = RUN_CR.read_text(encoding="utf-8")
-    assert str(FROZEN_ENV) in source
+    assert str(FROZEN_ENV) not in source
     assert 'dirname -- "${BASH_SOURCE[0]}"' in source
     assert 'git -C "${script_dir}" rev-parse --show-toplevel' in source
 
@@ -509,7 +581,7 @@ def test_run_cr_derives_checkout_paths_and_runs_from_unrelated_cwd(tmp_path):
     assert not output_dir.exists()
 
 
-def test_run3_full_requires_explicit_output_identity_and_pins_explicit_archives(tmp_path):
+def test_run3_full_requires_output_identity_and_absolute_explicit_archives(tmp_path):
     env_file = _write_env(tmp_path)
     output_dir = tmp_path / "fresh"
     missing_output_identity = _run(
@@ -533,19 +605,20 @@ def test_run3_full_requires_explicit_output_identity_and_pins_explicit_archives(
     assert "must be an absolute path" in relative_env.stderr
 
     source = RUN_CR.read_text(encoding="utf-8")
-    assert "validation_args=(--prepare-env-only)" not in source
+    assert "validation_args=(--prepare-env-only)" in source
     assert "--env-integrity-only" in source
     assert "--snapshot" in source
     assert "mode: full_diagnostics" in source
     assert "run_analysis.py did not return a complete valid environment identity" in source
 
 
-def test_run3_full_rejects_stale_environment_before_state_mutation(tmp_path):
+def test_run3_full_accepts_stale_explicit_environment_as_snapshot(tmp_path):
     env_file = _write_env(tmp_path, current=False)
     output_dir = tmp_path / "must_not_be_created"
     result = _run(
         "--production-profile",
         "run3_full",
+        "--dry-run",
         "--output-dir",
         str(output_dir),
         "--campaign-tag",
@@ -554,10 +627,95 @@ def test_run3_full_rejects_stale_environment_before_state_mutation(tmp_path):
         str(env_file),
     )
 
-    assert result.returncode != 0
-    assert "pinned to the required frozen snapshot archive" in result.stderr
+    assert result.returncode == 0, result.stderr
+    assert "environment_mode: explicit_snapshot" in result.stdout
+    for command in _resolved_commands(result.stdout):
+        assert "--snapshot" in command
+        assert command[command.index("--env-file") + 1] == str(env_file.resolve())
     assert not output_dir.exists()
     assert not (output_dir / STATE_FILENAME).exists()
+
+
+def test_shared_explicit_snapshot_reaches_t0_cr_and_both_full_sr_components(tmp_path):
+    env_file = _write_env(tmp_path)
+    cr_output = tmp_path / "t0_cr"
+    full_sr_output = tmp_path / "full_sr"
+
+    cr = _run(
+        "--production-profile",
+        "t0_cr_statonly",
+        "--dry-run",
+        "--output-dir",
+        str(cr_output),
+        "--campaign-tag",
+        "t0_cr_shared_env",
+        "--env-file",
+        str(env_file),
+    )
+    full_sr = _run(
+        "--production-profile",
+        "run2_run3_full",
+        "--dry-run",
+        "--output-dir",
+        str(full_sr_output),
+        "--campaign-tag",
+        "full_sr_shared_env",
+        "--env-file",
+        str(env_file),
+    )
+
+    assert cr.returncode == 0, cr.stderr
+    assert full_sr.returncode == 0, full_sr.stderr
+    cr_commands = _resolved_commands(cr.stdout)
+    full_sr_commands = _resolved_commands(full_sr.stdout)
+    assert len(cr_commands) == 18
+    assert len(full_sr_commands) == 10
+    for command in cr_commands + full_sr_commands:
+        index = command.index("--env-file")
+        assert command[index + 1] == str(env_file.resolve())
+        assert "--snapshot" in command
+    assert full_sr.stdout.count("environment_policy: explicit_snapshot") == 2
+    assert not cr_output.exists()
+    assert not full_sr_output.exists()
+
+
+def test_resume_cli_environment_must_match_frozen_state_path(tmp_path):
+    env_file = _write_env(tmp_path)
+    other_env_file = _write_env(tmp_path / "other")
+    output_dir = tmp_path / "resume_exact_env"
+    output_dir.mkdir()
+    _write_state(output_dir, "run3_complete", env_file)
+
+    result = _run(*_resume_args(output_dir, other_env_file))
+
+    assert result.returncode != 0
+    assert "resume --env-file does not match the exact archive frozen in campaign state" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("environment_mode", "snapshot_expected"),
+    (("current_resolved", False), ("explicit_snapshot", True)),
+)
+def test_resume_preserves_frozen_environment_mode(
+    tmp_path, environment_mode, snapshot_expected
+):
+    env_file = _write_env(tmp_path)
+    output_dir = tmp_path / environment_mode
+    output_dir.mkdir()
+    _write_state(
+        output_dir,
+        "run3_complete",
+        env_file,
+        environment_mode=environment_mode,
+    )
+
+    result = _run(*_resume_args(output_dir, env_file))
+
+    assert result.returncode == 0, result.stderr
+    assert f"environment_mode: {environment_mode}" in result.stdout
+    commands = _resolved_commands(result.stdout)
+    assert len(commands) == 5
+    assert all(("--snapshot" in command) is snapshot_expected for command in commands)
 
 
 def test_run3_full_fresh_namespace_and_historical_v3_are_rejected(tmp_path):

@@ -279,7 +279,6 @@ if (( $# == 0 )) || { (( $# == 1 )) && [[ "$1" == "--dry-run" ]]; }; then
     --production-profile run2_full \
     --output-dir /groups/klannon/apiccine/run2_srplot009_current_branch \
     --campaign-tag current-branch-srplot009 \
-    --env-file /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_9d72aad444117c28.tar.gz \
     "${default_dry_run[@]}"
 fi
 
@@ -296,15 +295,6 @@ case "${matrix_profile}" in
     fi
     if [[ -n "${matrix_env_file}" && "${matrix_env_file}" != /* ]]; then
       echo "ERROR: ${matrix_profile} --env-file must be an absolute path: ${matrix_env_file}" >&2
-      exit 1
-    fi
-    matrix_required_env_file=/users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_9d72aad444117c28.tar.gz
-    if [[ "${matrix_profile}" == "t0_sr_statonly" \
-      || "${matrix_profile}" == "t0_cr_statonly" ]]; then
-      matrix_required_env_file=/users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_d2b557628143725b.tar.gz
-    fi
-    if [[ -n "${matrix_env_file}" && "${matrix_env_file}" != "${matrix_required_env_file}" ]]; then
-      echo "ERROR: requested profiles are pinned to the required frozen snapshot archive." >&2
       exit 1
     fi
     ;;
@@ -331,7 +321,8 @@ case "${matrix_profile}" in
     if [[ "${matrix_dry_run}" == "false" && "${matrix_resume}" == "false" ]]; then
       mkdir -- "${matrix_output_dir}"
     fi
-    component_common=(--env-file /users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_9d72aad444117c28.tar.gz)
+    component_common=()
+    [[ -n "${matrix_env_file}" ]] && component_common+=(--env-file "${matrix_env_file}")
     [[ "${matrix_dry_run}" == "true" ]] && component_common+=(--dry-run)
     [[ "${matrix_resume}" == "true" ]] && component_common+=(--resume)
     if "$0" --production-profile "${first_profile}" \
@@ -405,13 +396,15 @@ five-block run2_full campaign. Combined profiles run Run 2 then Run 3 in
 separate child namespaces. A safely classified Run-2-local failure or blocker
 does not suppress the independent Run-3 component; a shared unsafe state does.
 
-All public profiles use a profile-pinned exact maintained frozen archive in
-snapshot mode, Work Queue without a profile-level worker count, and explicit
-full_diagnostics sumw2 storage. Explicit component and combined profiles require
-a fresh absolute output directory and campaign tag. t0_sr_statonly covers the
-maintained Run-2 and early-Run-3 SR mapping with nominal weights and raw counts.
-t0_cr_statonly reuses the complete Run-2/Run-3 CR mapping with nominal weights,
-raw counts, and separate native nonprompt/charge-flip postprocessing.
+For maintained profiles, omitting --env-file resolves the current worker
+environment, while --env-file PATH selects that absolute archive explicitly as
+a frozen snapshot. Work Queue has no profile-level worker count, and maintained
+profiles use explicit full_diagnostics sumw2 storage. Explicit component and
+combined profiles require a fresh absolute output directory and campaign tag.
+t0_sr_statonly covers the maintained Run-2 and early-Run-3 SR mapping with
+nominal weights and raw counts. t0_cr_statonly reuses the complete Run-2/Run-3
+CR mapping with nominal weights, raw counts, and separate native
+nonprompt/charge-flip postprocessing.
 
 run3_full is the canonical complete Run-3 SR source-production profile.
 rebin_fine is the specialized six-block Run-2/Run-3 source-production profile
@@ -543,6 +536,8 @@ campaign_tag=""
 production_env_file=""
 production_env_file_sha256=""
 production_environment_fingerprint=""
+production_environment_mode=""
+production_environment_snapshot=false
 production_topcoffea_git_commit=""
 production_topcoffea_source_fingerprint=""
 production_sumw2_options_path=""
@@ -1134,7 +1129,7 @@ def read_plan(path, production_profile):
 
 def desired_state(arguments):
     plan_path = Path(arguments[0])
-    production_profile, schema_version, tag, output_dir, commit, env_file, env_sha256, env_fingerprint, topcoffea_commit, topcoffea_source, ttgamma, do_systs, do_np, region, nonprompt_mode = arguments[1:]
+    production_profile, schema_version, tag, output_dir, commit, env_file, env_sha256, env_fingerprint, environment_mode, topcoffea_commit, topcoffea_source, ttgamma, do_systs, do_np, region, nonprompt_mode = arguments[1:]
     return {
         "schema_version": int(schema_version),
         "production_profile": production_profile,
@@ -1144,6 +1139,7 @@ def desired_state(arguments):
         "env_file": env_file,
         "env_file_sha256": env_sha256,
         "environment_fingerprint": env_fingerprint,
+        "environment_mode": environment_mode,
         "topcoffea_git_commit": topcoffea_commit,
         "topcoffea_relevant_source_fingerprint": topcoffea_source,
         "ttgamma_sample_role_policy": ttgamma,
@@ -1165,6 +1161,7 @@ def validate_state(state, desired, allow_historical_source_commit=False):
         "env_file",
         "env_file_sha256",
         "environment_fingerprint",
+        "environment_mode",
         "topcoffea_git_commit",
         "topcoffea_relevant_source_fingerprint",
         "ttgamma_sample_role_policy",
@@ -1214,9 +1211,9 @@ mode = sys.argv[1]
 state_path = Path(sys.argv[2])
 
 if mode in {"initialize", "validate"}:
-    desired = desired_state(sys.argv[3:19])
-    readonly = len(sys.argv) > 19 and sys.argv[19] == "true"
-    allow_historical_source_commit = len(sys.argv) > 20 and sys.argv[20] == "true"
+    desired = desired_state(sys.argv[3:20])
+    readonly = len(sys.argv) > 20 and sys.argv[20] == "true"
+    allow_historical_source_commit = len(sys.argv) > 21 and sys.argv[21] == "true"
     if mode == "initialize":
         if state_path.exists():
             fail(f"refusing to overwrite existing {desired['production_profile']} campaign state: {state_path}")
@@ -1274,7 +1271,7 @@ if mode in {"initialize", "validate"}:
     raise SystemExit(0)
 
 state = load(state_path)
-if mode == "env_file":
+if mode in {"env_file", "environment_mode"}:
     expected_profile, expected_tag, expected_output_dir = sys.argv[3:6]
     for key, expected in (
         ("production_profile", expected_profile),
@@ -1286,10 +1283,20 @@ if mode == "env_file":
                 f"campaign state mismatch for {key}: "
                 f"recorded={state.get(key)!r} requested={expected!r}"
             )
-    env_file = state.get("env_file")
-    if not isinstance(env_file, str) or not env_file.startswith("/"):
-        fail("campaign state does not contain an absolute frozen env_file")
-    print(env_file)
+    if mode == "env_file":
+        env_file = state.get("env_file")
+        if not isinstance(env_file, str) or not env_file.startswith("/"):
+            fail("campaign state does not contain an absolute frozen env_file")
+        print(env_file)
+    else:
+        environment_mode = state.get("environment_mode")
+        if environment_mode not in {
+            "current_resolved",
+            "explicit_snapshot",
+            "rebin_fine_current_compatible",
+        }:
+            fail("campaign state does not contain a valid frozen environment_mode")
+        print(environment_mode)
     raise SystemExit(0)
 
 if mode == "historical_source_commit":
@@ -1636,18 +1643,10 @@ PY
 
 resolve_production_environment() {
   local requested_env_file="${profile_env_file}"
-  local matrix_env_file=/users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_9d72aad444117c28.tar.gz
-  local matrix_env_sha256=8245afe4b3c28f4948039d383ad2176f1ee3ebb5e61bcdf1b49289452b025332
   local frozen_env_file=""
   local canonical_requested_env_file=""
-  local direct_sha256=""
   local validation_status=""
   local validation_args=()
-
-  if is_t0_statonly_profile; then
-    matrix_env_file=/users/apiccine/work/correction-lib/topeft/analysis/topeft_run2/topeft-envs/env_spec_d2b557628143725b.tar.gz
-    matrix_env_sha256=c9c2cf2a8697c722291a5e5bfc492afafd367e1a2274289d5d37f9b8cfa8a292
-  fi
 
   production_state_path="${output_dir}/${production_state_filename}"
 
@@ -1657,6 +1656,8 @@ resolve_production_environment() {
       exit 1
     fi
     frozen_env_file=$(production_state_tool env_file \
+      "${production_state_path}" "${production_profile}" "${campaign_tag}" "${output_dir}")
+    production_environment_mode=$(production_state_tool environment_mode \
       "${production_state_path}" "${production_profile}" "${campaign_tag}" "${output_dir}")
     if [[ -n "${requested_env_file}" ]]; then
       if [[ "${requested_env_file}" != /* ]]; then
@@ -1670,14 +1671,15 @@ resolve_production_environment() {
       fi
     fi
     requested_env_file="${frozen_env_file}"
-    if [[ "${production_profile}" != "rebin_fine" && "${requested_env_file}" != "${matrix_env_file}" ]]; then
-      echo "ERROR: ${production_profile} resume state does not use the required frozen snapshot archive." >&2
-      exit 1
-    fi
-    if [[ "${production_profile}" != "rebin_fine" ]]; then
+    if [[ "${production_environment_mode}" == "explicit_snapshot" ]]; then
       validation_args=(--validate-env-file --env-integrity-only --env-file "${requested_env_file}")
-    else
+      production_environment_snapshot=true
+    elif [[ "${production_environment_mode}" == "current_resolved" \
+      || "${production_environment_mode}" == "rebin_fine_current_compatible" ]]; then
       validation_args=(--validate-env-file --env-file "${requested_env_file}")
+    else
+      echo "ERROR: ${production_profile} resume state has an unsupported environment mode." >&2
+      exit 1
     fi
   elif [[ -n "${requested_env_file}" ]]; then
     if [[ "${requested_env_file}" != /* ]]; then
@@ -1685,39 +1687,29 @@ resolve_production_environment() {
       exit 1
     fi
     canonical_requested_env_file=$(readlink -f -- "${requested_env_file}" || true)
-    if [[ "${production_profile}" != "rebin_fine" && "${canonical_requested_env_file}" != "${matrix_env_file}" ]]; then
-      echo "ERROR: ${production_profile} is pinned to the required frozen snapshot archive." >&2
-      exit 1
-    fi
-    if [[ "${production_profile}" != "rebin_fine" ]]; then
-      validation_args=(--validate-env-file --env-integrity-only --env-file "${requested_env_file}")
-    else
+    if [[ "${production_profile}" == "rebin_fine" ]]; then
+      production_environment_mode=rebin_fine_current_compatible
       validation_args=(--validate-env-file --env-file "${requested_env_file}")
+    else
+      production_environment_mode=explicit_snapshot
+      production_environment_snapshot=true
+      validation_args=(--validate-env-file --env-integrity-only --env-file "${requested_env_file}")
     fi
   elif [[ "${production_profile}" != "rebin_fine" ]]; then
-    requested_env_file="${matrix_env_file}"
-    canonical_requested_env_file="${matrix_env_file}"
-    validation_args=(--validate-env-file --env-integrity-only --env-file "${requested_env_file}")
+    production_environment_mode=current_resolved
+    validation_args=(--prepare-env-only)
   else
     echo "ERROR: rebin_fine requires an explicit --env-file; no environment was built." >&2
     exit 1
   fi
 
-  if [[ "${production_profile}" != "rebin_fine" ]]; then
-    if [[ -n "${validation_backend}" ]]; then
-      direct_sha256="${matrix_env_sha256}"
-    else
-      direct_sha256=$(sha256sum "${matrix_env_file}")
-      direct_sha256="${direct_sha256%% *}"
-    fi
-    if [[ "${direct_sha256}" != "${matrix_env_sha256}" ]]; then
-      echo "ERROR: ${production_profile} frozen snapshot archive SHA-256 mismatch." >&2
-      exit 1
-    fi
-  fi
-
   if [[ -n "${validation_backend}" ]]; then
-    if ! production_environment_validation=$("${validation_backend}" validate_environment "${validation_scenario}" "${requested_env_file}"); then
+    if [[ "${production_environment_mode}" == "current_resolved" ]]; then
+      if ! production_environment_validation=$("${validation_backend}" prepare_environment "${validation_scenario}"); then
+        echo "ERROR: ${production_profile} could not resolve its current environment archive; no campaign state was changed." >&2
+        exit 1
+      fi
+    elif ! production_environment_validation=$("${validation_backend}" validate_environment "${validation_scenario}" "${requested_env_file}"); then
       echo "ERROR: ${production_profile} validation backend rejected the environment; no campaign state was changed." >&2
       exit 1
     fi
@@ -1751,10 +1743,6 @@ resolve_production_environment() {
   fi
   if [[ -n "${canonical_requested_env_file}" && "${production_env_file}" != "${canonical_requested_env_file}" ]]; then
     echo "ERROR: --env-file validation returned a different archive path." >&2
-    exit 1
-  fi
-  if [[ "${production_profile}" != "rebin_fine" && "${production_env_file_sha256}" != "${matrix_env_sha256}" ]]; then
-    echo "ERROR: maintained validator SHA-256 differs from the required frozen archive identity." >&2
     exit 1
   fi
 }
@@ -1859,7 +1847,7 @@ resolve_t0_postprocessor_provenance() {
 
 prepare_production_campaign() {
   local plan_directory
-  local schema_version=4
+  local schema_version=5
   local allow_historical_source_commit=false
   local historical_source_commit=""
 
@@ -1903,6 +1891,7 @@ prepare_production_campaign() {
       "${production_env_file}" \
       "${production_env_file_sha256}" \
       "${production_environment_fingerprint}" \
+      "${production_environment_mode}" \
       "${production_topcoffea_git_commit}" \
       "${production_topcoffea_source_fingerprint}" \
       "${ttgamma_sample_role_policy}" \
@@ -1924,6 +1913,7 @@ prepare_production_campaign() {
       "${production_env_file}" \
       "${production_env_file_sha256}" \
       "${production_environment_fingerprint}" \
+      "${production_environment_mode}" \
       "${production_topcoffea_git_commit}" \
       "${production_topcoffea_source_fingerprint}" \
       "${ttgamma_sample_role_policy}" \
@@ -2155,9 +2145,13 @@ build_common_command_options() {
 
   cmd_ref+=(--env-file "${production_env_file}")
 
-  if [[ "${production_profile}" != "rebin_fine" ]]; then
+  if [[ "${production_environment_snapshot}" == "true" ]]; then
     cmd_ref+=(
       --snapshot
+    )
+  fi
+  if [[ "${production_profile}" != "rebin_fine" ]]; then
+    cmd_ref+=(
       --options "${production_sumw2_options_path}"
       -x work_queue
     )
@@ -3020,19 +3014,8 @@ echo "split_lep_flavor: ${split_lep_flavor}"
 echo "resume: ${profile_resume}"
 echo "env_file: ${production_env_file}"
 echo "env_file_sha256: ${production_env_file_sha256}"
-if [[ "${profile_resume}" == "true" ]]; then
-  if [[ "${production_profile}" != "rebin_fine" ]]; then
-    echo "environment_policy: state_frozen_exact_archive_integrity_plus_snapshot"
-  else
-    echo "environment_policy: state_frozen_strict_single_archive"
-  fi
-elif [[ "${production_profile}" != "rebin_fine" ]]; then
-  echo "environment_policy: exact_frozen_archive_integrity_plus_snapshot"
-elif [[ -n "${profile_env_file}" ]]; then
-  echo "environment_policy: explicit_single_archive"
-else
-  echo "environment_policy: legacy_profile_policy"
-fi
+echo "environment_mode: ${production_environment_mode}"
+echo "environment_policy: ${production_environment_mode}"
 if [[ "${production_profile}" != "rebin_fine" ]]; then
   echo "sumw2_storage_mode: full_diagnostics"
 fi

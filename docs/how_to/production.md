@@ -60,12 +60,16 @@ inputs, outputs, and environment archive. Resume only that frozen plan:
 separately. Do not point a fresh campaign at an existing output directory, and
 do not edit the state file to force a resume.
 
-For `run3_full`, omission of `--env-file` asks the wrapper to resolve and
-validate one current remote environment archive before campaign state is
-created. `rebin_fine` requires an explicit absolute `--env-file`. A resume uses
-the exact environment path, hash, fingerprint, repository commits, block plan,
-and output identities frozen in the existing state; a command-line environment
-that disagrees with state is rejected.
+For maintained profiles, omit `--env-file` to resolve or create the current
+worker environment for the checkout. Supply an absolute `--env-file` to use
+exactly that archive as an intentional frozen snapshot; snapshot integrity and
+provenance remain validated, but compatibility with the current checkout is not
+required. Combined profiles forward the same explicit snapshot to both child
+components. `rebin_fine` retains its specialist requirement for an explicit
+current-compatible archive. A resume uses the exact environment mode, path,
+hash, fingerprint, repository commits, block plan, and output identities frozen
+in the existing state; a command-line environment that disagrees with state is
+rejected.
 
 After the dry run, inspect the five `run3_full` block rows, especially their
 category groups, histogram families, source paths, and `_np` destinations. The
@@ -249,16 +253,23 @@ their defaults to the core wrapper chain. See
 
 ## Maintained profile and recovery boundary
 
-Use one of the six public profiles: `run2_full`, `run3_full`, `run2_full_CR`,
-`run3_full_CR`, `run2_run3_full`, or `run2_run3_full_CR`. Supply a fresh
-absolute output directory and a campaign tag. The maintained profiles use the
-canonical frozen archive; capture its resolved path, SHA-256, environment
+Use one of the eight public profiles: `run2_full`, `run3_full`, `run2_full_CR`,
+`run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `t0_sr_statonly`, or
+`t0_cr_statonly`. Supply a fresh absolute output directory and a campaign tag.
+The control-plane full-SR label maps to the maintained `run2_run3_full` route;
+it is not another CLI profile. With no `--env-file`, the wrapper resolves or
+creates the current worker environment. With `--env-file X`, it validates and
+uses exactly `X` as an intentional snapshot without requiring current-checkout
+compatibility, and both children of a combined profile receive that same
+archive. Capture the environment mode, resolved path, SHA-256, environment
 fingerprint, and source identity from campaign state. `rebin_fine` is a
-specialist legacy profile that requires an explicit archive.
+specialist legacy profile that retains its explicit current-compatible archive
+requirement.
 
 The wrapper validates an explicit archive strictly and reuses the exact archive
-frozen in a valid resumable campaign state. It does not create a replacement
-archive during normal profile execution. The maintained profile uses chunksize
+frozen in a valid resumable campaign state. When no archive is supplied for a
+fresh maintained campaign, it delegates current archive creation or reuse to
+`run_analysis.py --prepare-env-only`. The maintained profile uses chunksize
 `100000` and leaves stdout/stderr on the controlling terminal; do not add a
 `tee` collector as a substitute for native evidence paths.
 

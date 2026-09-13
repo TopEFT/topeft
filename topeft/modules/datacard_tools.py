@@ -918,11 +918,13 @@ class DatacardMaker():
             "WWTo2L2Nu_",
             "ZZTo4L_",
             "ggToZZTo2e2mu_",
+            "ggToZZTo2e2nu_",
             "ggToZZTo4e_",
             "ggToZZTo2e2tau_",
             "ggToZZTo4tau_",
             "ggToZZTo4mu_",
             "ggToZZTo2mu2tau_",
+            "ggToZZTo2mu2nu_",
         ],
         "Triboson_": [
             "WWW_",
