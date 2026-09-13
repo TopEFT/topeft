@@ -8,7 +8,7 @@ layer retains. It is a lookup page, not a production recipe. See the
 
 | Component | Kind and status | Inputs | Defaults and outputs | Failure boundary |
 | --- | --- | --- | --- | --- |
-| `analysis/topeft_run2/run_cr.sh` | Maintained production-profile wrapper | `--production-profile`, a fresh absolute `--output-dir`, and `--campaign-tag`; optional `--env-file`, `--resume`, and `--dry-run` | Six public Run 2/Run 3 SR+CR profiles; campaign state plus source/transformed PKLs and sidecars | Rejects missing or mismatched state, a reused fresh namespace, invalid archives, ambiguous interruption, and incomplete outputs |
+| `analysis/topeft_run2/run_cr.sh` | Maintained production-profile wrapper | `--production-profile`, a fresh absolute `--output-dir`, and `--campaign-tag`; optional `--env-file`, `--resume`, and `--dry-run` | Eight public Run 2/Run 3 SR+CR profiles; campaign state plus source/transformed PKLs and sidecars | Rejects missing or mismatched state, a reused fresh namespace, invalid archives, ambiguous interruption, and incomplete outputs |
 | `analysis/topeft_run2/fullR3_run.sh` | Maintained command/configuration wrapper | Years, exactly one of `--cr` or `--sr`, optional histogram/input/output overrides, and forwarded analysis options | Year/config-dependent `run_analysis.py` command | Rejects conflicting input overrides, missing cfg/JSON inputs, and unsupported region/year combinations |
 | `analysis/topeft_run2/run_analysis.py` | Direct developer CLI | Sample JSON/cfg expression and CLI or YAML options | Executor `work_queue`; 8 workers; chunksize 100000; `histos/plotsTopEFT.pkl.gz` | Validates executor, active sample universe, categories, environment, policies, and artifact contracts at their owning boundaries |
 | `analysis/topeft_run2/run_data_driven.py` | Direct transformed-artifact CLI | A validated source PKL/sidecar and requested data-driven product | Streaming input; output name derived from the input when omitted | Rejects missing/incompatible sidecars, uncertified input policy, invalid product requests, and incomplete transformed companions |
@@ -31,12 +31,12 @@ state to resume without confusing partial, stale, or mismatched output.
 
 | Input | Type/requirement/default | Semantics |
 | --- | --- | --- |
-| `--production-profile` | Required public profile: `run2_full`, `run3_full`, `run2_full_CR`, `run3_full_CR`, `run2_run3_full`, or `run2_run3_full_CR` | Selects the hard-coded maintained block plan. It is not a free-form config path. `rebin_fine` remains a specialist legacy profile with its own explicit environment requirement. |
+| `--production-profile` | Required public profile: `run2_full`, `run3_full`, `run2_full_CR`, `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `t0_sr_statonly`, or `t0_cr_statonly` | Selects the hard-coded maintained block plan. It is not a free-form config path. `rebin_fine` remains a specialist legacy profile with its own explicit environment requirement. |
 | `--output-dir` | Required fresh absolute path for a new campaign | Owns state, logs, and produced artifacts. Existing state is accepted only through compatible resume behavior. |
 | `--campaign-tag` | Required non-empty string | Portable campaign identity recorded with state. |
-| `--env-file` | Optional path | Forwarded environment archive; validated according to the child environment contract. |
+| `--env-file` | Optional absolute path | When omitted, resolves or creates the current worker environment. When supplied, selects exactly that archive as an intentional snapshot: integrity/provenance validation remains required, but current-checkout compatibility does not. The wrapper freezes the mode, resolved path, hash, fingerprint, and source identity; combined profiles forward the same explicit snapshot to both components. |
 | `--resume` | Boolean, default false | Reopens compatible campaign state and mechanically selects incomplete blocks/stages. |
-| `--dry-run` | Boolean, default false | Skips campaign-block execution, but is not side-effect-free: the wrapper first resolves and validates the environment, and `run3_full` without `--env-file` may prepare an environment archive. It then prints the resolved plan without running the campaign blocks. |
+| `--dry-run` | Boolean, default false | Skips campaign-block execution, but first resolves or validates the selected current environment or explicit snapshot. It then prints the resolved plan without running campaign blocks or creating the campaign namespace. |
 
 The wrapper derives full `fullR3_run.sh` invocations, records profile/block
 state, and, for the maintained deferred path, invokes `run_data_driven.py` only
@@ -247,14 +247,20 @@ derived values in the implemented path.
 ## `run_cr.sh` production interface
 
 The public production profiles are `run2_full`, `run3_full`, `run2_full_CR`,
-`run3_full_CR`, `run2_run3_full`, and `run2_run3_full_CR`; no arguments retain
-the legacy `run2_full` alias. `rebin_fine` is a specialist legacy profile and
-requires an explicit environment archive. Public profiles require fresh output
-namespaces, an absolute output directory, and a campaign tag.
+`run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `t0_sr_statonly`, and
+`t0_cr_statonly`; no arguments retain the legacy `run2_full` alias.
+`rebin_fine` is a specialist legacy profile and requires an explicit
+environment archive. Public profiles require fresh output namespaces, an
+absolute output directory, and a campaign tag.
 
-For the maintained profiles, `run_cr.sh` validates the exact pinned archive and
-records the resolved archive identity rather than constructing an archive on
-behalf of the campaign. Resume is profile-specific: it is not a generic retry
-operation, and an interrupted state must be inspected before a resume is
-requested. Worker provisioning remains an external Work Queue concern; this
-wrapper does not forward a worker-count option.
+For a fresh maintained campaign, no `--env-file` means resolve or create the
+current worker environment for the checkout. An explicit absolute
+`--env-file X` means use exactly `X` as a frozen snapshot: archive integrity and
+provenance are validated, but current-checkout compatibility is deliberately
+not required. The wrapper records the exact environment mode and resolved
+identity, and combined profiles forward the same explicit snapshot to both
+components. Resume is profile-specific and reuses the exact mode and archive
+frozen in state; it is not a generic retry operation, and an interrupted state
+must be inspected before a resume is requested. Worker provisioning remains an
+external Work Queue concern; this wrapper does not forward a worker-count
+option.

@@ -1,23 +1,24 @@
 import copy
+import hashlib
+import io
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 import pytest
+from topcoffea.modules import remote_environment
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 RUN_DIRECTORY = REPOSITORY_ROOT / "analysis" / "topeft_run2"
 RUN_CR = RUN_DIRECTORY / "run_cr.sh"
 RUN_ANALYSIS = RUN_DIRECTORY / "run_analysis.py"
-FROZEN_ENV = RUN_DIRECTORY / "topeft-envs" / "env_spec_9d72aad444117c28.tar.gz"
-FROZEN_SHA256 = "8245afe4b3c28f4948039d383ad2176f1ee3ebb5e61bcdf1b49289452b025332"
-T0_FROZEN_ENV = RUN_DIRECTORY / "topeft-envs" / "env_spec_d2b557628143725b.tar.gz"
-T0_FROZEN_SHA256 = "c9c2cf2a8697c722291a5e5bfc492afafd367e1a2274289d5d37f9b8cfa8a292"
+TEST_ENV_NAME = "run_cr_test_environment.tar.gz"
 T0_HISTORICAL_LAUNCHER_COMMIT = "5e7a7b4cdfa5babddab922650e5c35bb0a2c2ea2"
 PUBLIC_PROFILES = {
     "run2_full", "run3_full", "run2_run3_full",
@@ -112,18 +113,51 @@ def _clean_environment():
     return environment
 
 
-def _run(profile, output_dir, campaign_tag, *, dry_run=True, resume=False, environment=None):
-    env_file = (
-        T0_FROZEN_ENV
-        if profile in {"t0_sr_statonly", "t0_cr_statonly"}
-        else FROZEN_ENV
-    )
+def _write_test_environment(directory):
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / TEST_ENV_NAME
+    if path.is_file() and path.with_name(f"{path.name}.manifest.json").is_file():
+        return path
+    content = b"synthetic snapshot environment"
+    with tarfile.open(path, "w:gz") as archive:
+        entry = tarfile.TarInfo("environment.txt")
+        entry.size = len(content)
+        archive.addfile(entry, io.BytesIO(content))
+    request = {
+        "environment_fingerprint": "synthetic-environment-fingerprint",
+        "python_version": "3.9.23",
+        "resolved_environment_spec": {"conda": {"packages": []}, "pip": []},
+        "resolved_environment_spec_fingerprint": "synthetic-spec-fingerprint",
+        "editable_packages": [
+            {
+                "package_name": "topcoffea",
+                "git_commit": "8" * 40,
+                "watched_source_fingerprint": "7" * 64,
+            }
+        ],
+    }
+    remote_environment.write_archive_manifest(str(path), request)
+    return path
+
+
+def _run(
+    profile,
+    output_dir,
+    campaign_tag,
+    *,
+    dry_run=True,
+    resume=False,
+    environment=None,
+    supply_env_file=True,
+):
+    env_file = _write_test_environment(Path(output_dir).parent)
     command = [
         str(RUN_CR), "--production-profile", profile,
         "--output-dir", str(output_dir),
         "--campaign-tag", campaign_tag,
-        "--env-file", str(env_file),
     ]
+    if supply_env_file:
+        command.extend(("--env-file", str(env_file)))
     if dry_run:
         command.append("--dry-run")
     if resume:
@@ -142,7 +176,9 @@ def _run(profile, output_dir, campaign_tag, *, dry_run=True, resume=False, envir
 def _assert_common(argv):
     assert argv[:2] == ["python", "run_analysis.py"]
     assert "--snapshot" in argv
-    assert _option_values(argv, "--env-file", 1) == [str(FROZEN_ENV)]
+    env_file = Path(_option_values(argv, "--env-file", 1)[0])
+    assert env_file.is_absolute()
+    assert env_file.name == TEST_ENV_NAME
     assert _option_values(argv, "-s", 1) == ["100000"]
     assert _option_values(argv, "-x", 1) == ["work_queue"]
     assert "--workers" not in argv
@@ -153,6 +189,8 @@ def _assert_common(argv):
 
 
 def _write_backend(path):
+    archive = _write_test_environment(path.parent)
+    archive_sha256 = hashlib.sha256(archive.read_bytes()).hexdigest()
     path.write_text(
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -161,6 +199,17 @@ scenario="$2"
 shift 2
 printf '%s\\t%s\\n' "$action" "$scenario" >> "${{SRPLOT009_VALIDATION_ROOT}}/backend_actions.tsv"
 case "$action" in
+  prepare_environment)
+    archive="{archive}"
+    archive_sha256="{archive_sha256}"
+    printf 'env_file: %s\n' "$archive"
+    printf 'env_file_sha256: %s\n' "$archive_sha256"
+    printf 'env_manifest: %s.manifest.json\n' "$archive"
+    printf 'environment_fingerprint: %064d\n' 9
+    printf 'environment_validation_status: valid\n'
+    printf 'topcoffea_git_commit: %040d\n' 8
+    printf 'topcoffea_relevant_source_fingerprint: %064d\n' 7
+    ;;
   validate_environment)
     archive="$1"
     if [[ "$scenario" == run2_validation_failure ]]; then
@@ -181,10 +230,8 @@ case "$action" in
           "${{SRPLOT009_VALIDATION_ROOT}}/output/run2_CR"
       fi
     fi
-    archive_sha256="{FROZEN_SHA256}"
-    if [[ "$archive" == "{T0_FROZEN_ENV}" ]]; then
-      archive_sha256="{T0_FROZEN_SHA256}"
-    fi
+    archive_sha256=$(sha256sum "$archive")
+    archive_sha256="${{archive_sha256%% *}}"
     printf 'env_file: %s\\n' "$archive"
     printf 'env_file_sha256: %s\\n' "$archive_sha256"
     printf 'env_manifest: %s.manifest.json\\n' "$archive"
@@ -250,7 +297,7 @@ esac
     path.chmod(0o755)
 
 
-def _stubbed_run(tmp_path, profile, scenario, *, name=None):
+def _stubbed_run(tmp_path, profile, scenario, *, name=None, supply_env_file=True):
     validation_root = tmp_path / (name or f"{profile}-{scenario}")
     validation_root.mkdir()
     backend = validation_root / "backend.sh"
@@ -270,6 +317,7 @@ def _stubbed_run(tmp_path, profile, scenario, *, name=None):
         f"stub-{profile}",
         dry_run=False,
         environment=environment,
+        supply_env_file=supply_env_file,
     )
     return result, output_root, validation_root
 
@@ -462,6 +510,20 @@ def test_four_component_profiles_resolve_authoritative_contracts(tmp_path):
 
 def test_t0_sr_statonly_resolves_exact_nominal_raw_count_contract(tmp_path):
     output_dir = tmp_path / "t0_sr_statonly"
+    validation_root = tmp_path / "t0_sr_statonly_validation"
+    validation_root.mkdir()
+    backend = validation_root / "backend.sh"
+    _write_backend(backend)
+    env_file = validation_root / TEST_ENV_NAME
+    env_sha256 = hashlib.sha256(env_file.read_bytes()).hexdigest()
+    environment = _clean_environment()
+    environment.update(
+        {
+            "SRPLOT009_VALIDATION_BACKEND": str(backend),
+            "SRPLOT009_VALIDATION_ROOT": str(validation_root),
+            "SRPLOT009_VALIDATION_SCENARIO": "success",
+        }
+    )
     result = subprocess.run(
         [
             str(RUN_CR),
@@ -469,10 +531,9 @@ def test_t0_sr_statonly_resolves_exact_nominal_raw_count_contract(tmp_path):
             "--dry-run",
             "--output-dir", str(output_dir),
             "--campaign-tag", "t0_sr_statonly_test",
-            "--env-file", str(T0_FROZEN_ENV),
         ],
         cwd=RUN_DIRECTORY,
-        env=_clean_environment(),
+        env=environment,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -487,8 +548,8 @@ def test_t0_sr_statonly_resolves_exact_nominal_raw_count_contract(tmp_path):
     assert len(commands) == 10
     for argv in commands:
         assert argv[:2] == ["python", "run_analysis.py"]
-        assert "--snapshot" in argv
-        assert _option_values(argv, "--env-file", 1) == [str(T0_FROZEN_ENV)]
+        assert "--snapshot" not in argv
+        assert _option_values(argv, "--env-file", 1) == [str(env_file)]
         assert _option_values(argv, "-s", 1) == ["100000"]
         assert _option_values(argv, "-x", 1) == ["work_queue"]
         assert "--workers" not in argv
@@ -501,22 +562,22 @@ def test_t0_sr_statonly_resolves_exact_nominal_raw_count_contract(tmp_path):
         assert "--rebuild-env" not in argv
         assert "--prepare-env-only" not in argv
     assert result.stdout.count("sumw2_storage_mode: full_diagnostics") == 1
-    assert f"env_file_sha256: {T0_FROZEN_SHA256}" in result.stdout
-    assert "environment_policy: exact_frozen_archive_integrity_plus_snapshot" in result.stdout
+    assert f"env_file_sha256: {env_sha256}" in result.stdout
+    assert "environment_policy: current_resolved" in result.stdout
     assert "dry_run_complete: ten commands resolved" in result.stdout
     assert "--legacy-campaign-state" not in result.stdout
     assert "--legacy-campaign-block" not in result.stdout
     assert "2024" not in result.stdout
     assert not output_dir.exists()
 
-    wrong_archive = subprocess.run(
+    explicit_snapshot = subprocess.run(
         [
             str(RUN_CR),
             "--production-profile", "t0_sr_statonly",
             "--dry-run",
             "--output-dir", str(tmp_path / "wrong_archive"),
             "--campaign-tag", "t0_sr_statonly_wrong_archive",
-            "--env-file", str(FROZEN_ENV),
+            "--env-file", str(env_file),
         ],
         cwd=RUN_DIRECTORY,
         env=_clean_environment(),
@@ -525,8 +586,9 @@ def test_t0_sr_statonly_resolves_exact_nominal_raw_count_contract(tmp_path):
         stderr=subprocess.STDOUT,
         check=False,
     )
-    assert wrong_archive.returncode != 0
-    assert "pinned to the required frozen snapshot archive" in wrong_archive.stdout
+    assert explicit_snapshot.returncode == 0, explicit_snapshot.stdout
+    assert "environment_policy: explicit_snapshot" in explicit_snapshot.stdout
+    assert all("--snapshot" in argv for argv in _commands(explicit_snapshot.stdout))
     assert not (tmp_path / "wrong_archive").exists()
 
 
@@ -534,11 +596,31 @@ def test_t0_cr_statonly_composes_full_cr_with_native_data_driven_contract(tmp_pa
     run2 = _run("run2_full_CR", tmp_path / "run2", "t0-cr-run2-authority")
     run3 = _run("run3_full_CR", tmp_path / "run3", "t0-cr-run3-authority")
     output_dir = tmp_path / "t0_cr_statonly"
-    result = _run("t0_cr_statonly", output_dir, "t0-cr-statonly-test")
+    validation_root = tmp_path / "t0_cr_current_resolved"
+    validation_root.mkdir()
+    backend = validation_root / "backend.sh"
+    _write_backend(backend)
+    environment = _clean_environment()
+    environment.update(
+        {
+            "SRPLOT009_VALIDATION_BACKEND": str(backend),
+            "SRPLOT009_VALIDATION_ROOT": str(validation_root),
+            "SRPLOT009_VALIDATION_SCENARIO": "success",
+        }
+    )
+    result = _run(
+        "t0_cr_statonly",
+        output_dir,
+        "t0-cr-statonly-test",
+        environment=environment,
+        supply_env_file=False,
+    )
 
     assert run2.returncode == run3.returncode == result.returncode == 0
     authority_commands = _commands(run2.stdout) + _commands(run3.stdout)
     commands = _commands(result.stdout)
+    current_env_file = validation_root / TEST_ENV_NAME
+    current_env_sha256 = hashlib.sha256(current_env_file.read_bytes()).hexdigest()
     assert len(commands) == 18
     assert [
         _scientific_signature(command)[:5] for command in commands
@@ -547,8 +629,8 @@ def test_t0_cr_statonly_composes_full_cr_with_native_data_driven_contract(tmp_pa
     ]
     for argv in commands:
         assert argv[:2] == ["python", "run_analysis.py"]
-        assert "--snapshot" in argv
-        assert _option_values(argv, "--env-file", 1) == [str(T0_FROZEN_ENV)]
+        assert "--snapshot" not in argv
+        assert _option_values(argv, "--env-file", 1) == [str(current_env_file)]
         assert _option_values(argv, "-s", 1) == ["100000"]
         assert _option_values(argv, "-x", 1) == ["work_queue"]
         assert "--workers" not in argv
@@ -587,7 +669,8 @@ def test_t0_cr_statonly_composes_full_cr_with_native_data_driven_contract(tmp_pa
         ]
 
     assert result.stdout.count("sumw2_storage_mode: full_diagnostics") == 1
-    assert f"env_file_sha256: {T0_FROZEN_SHA256}" in result.stdout
+    assert f"env_file_sha256: {current_env_sha256}" in result.stdout
+    assert "environment_policy: current_resolved" in result.stdout
     assert "do_systs: false" in result.stdout
     assert "do_np: true" in result.stdout
     assert "run_cr: true" in result.stdout
@@ -595,14 +678,14 @@ def test_t0_cr_statonly_composes_full_cr_with_native_data_driven_contract(tmp_pa
     assert "eighteen source commands and eighteen separate data-driven commands" in result.stdout
     assert not output_dir.exists()
 
-    rejected = subprocess.run(
+    explicit_snapshot = subprocess.run(
         [
             str(RUN_CR),
             "--production-profile", "t0_cr_statonly",
             "--dry-run",
             "--output-dir", str(tmp_path / "rejected_archive"),
             "--campaign-tag", "t0-cr-statonly-rejected-archive",
-            "--env-file", str(FROZEN_ENV),
+            "--env-file", str(current_env_file),
         ],
         cwd=RUN_DIRECTORY,
         env=_clean_environment(),
@@ -611,8 +694,9 @@ def test_t0_cr_statonly_composes_full_cr_with_native_data_driven_contract(tmp_pa
         stderr=subprocess.STDOUT,
         check=False,
     )
-    assert rejected.returncode != 0
-    assert "pinned to the required frozen snapshot archive" in rejected.stdout
+    assert explicit_snapshot.returncode == 0, explicit_snapshot.stdout
+    assert "environment_policy: explicit_snapshot" in explicit_snapshot.stdout
+    assert all("--snapshot" in argv for argv in _commands(explicit_snapshot.stdout))
     assert not (tmp_path / "rejected_archive").exists()
 
 
@@ -1304,7 +1388,7 @@ def test_native_work_queue_executor_policy_is_unchanged():
         assert expected in source
 
 
-def test_collision_and_frozen_archive_override_fail_closed(tmp_path):
+def test_collision_and_invalid_explicit_archive_fail_closed(tmp_path):
     collision = tmp_path / "collision"
     collision.mkdir()
     result = _run("run2_full_CR", collision, "collision")
@@ -1325,7 +1409,8 @@ def test_collision_and_frozen_archive_override_fail_closed(tmp_path):
         check=False,
     )
     assert result.returncode != 0
-    assert "pinned to the required frozen snapshot archive" in result.stdout
+    assert "could not validate its environment archive" in result.stdout
+    assert "archive must be a readable non-empty regular file" in result.stdout
 
 
 @pytest.mark.parametrize("profile", MATRIX_EARLY_PROFILES)
@@ -1399,7 +1484,7 @@ def test_matrix_value_options_reject_another_option_as_value_before_side_effects
         "--campaign-tag",
         "malformed-value",
         "--env-file",
-        str(FROZEN_ENV),
+        "/tmp/parser-only-environment.tar.gz",
     ]
     if value_option == "--campaign-tag":
         del command[5:7]
@@ -1565,6 +1650,7 @@ def test_cr_resume_runs_only_a_planned_or_failed_block(tmp_path, status):
     block["nonprompt_exit_code"] = None
     for output in block["expected_outputs"]:
         Path(output).unlink()
+        Path(f"{output}.metadata.json").unlink()
     state_path.write_text(json.dumps(state), encoding="utf-8")
     calls_before_resume = (validation_root / "block_calls.tsv").read_text(encoding="utf-8")
 
