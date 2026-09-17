@@ -22,6 +22,9 @@ from topeft.modules.data_driven_products import (
     parse_process_name,
 )
 from topeft.modules.sumw2_policy import resolved_sumw2_policy
+from topeft.modules.embedded_sumw2 import (
+    COVERAGE_KEY, EMBEDDED_SCHEMA_VERSION, validate_coverage,
+)
 
 
 NOMINAL_CONTAINER_SCHEMA_VERSION = 2
@@ -452,7 +455,7 @@ def get_nominal_components(
     eft_key = eft_nominal_key(family)
     components = OrderedDict()
 
-    if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION:
+    if schema_version in (NOMINAL_CONTAINER_SCHEMA_VERSION, EMBEDDED_SCHEMA_VERSION):
         if _dimensionality(family) == 2:
             if scalar_key in histograms or eft_key in histograms:
                 raise ValueError(f"2D family '{family}' cannot contain split siblings.")
@@ -465,7 +468,7 @@ def get_nominal_components(
             )
         if family in histograms:
             raise ValueError(
-                f"Original 1D family key '{family}' is forbidden in schema version 2."
+                f"Original 1D family key '{family}' is forbidden in schema version {schema_version}."
             )
         if scalar_key in histograms:
             components["scalar_nominal"] = histograms[scalar_key]
@@ -539,7 +542,7 @@ def validate_nominal_family(
             raise ValueError(f"Family '{family}' has an orphan statistical companion.")
         raise ValueError(f"Family '{family}' has no nominal component.")
 
-    if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION:
+    if schema_version in (NOMINAL_CONTAINER_SCHEMA_VERSION, EMBEDDED_SCHEMA_VERSION):
         if _dimensionality(family) == 2:
             scalar = components["scalar_nominal"]
             if type(scalar) is not SparseHist:
@@ -548,11 +551,19 @@ def validate_nominal_family(
         else:
             scalar = components.get("scalar_nominal")
             eft = components.get("eft_nominal")
-            if scalar is not None and type(scalar) is not SparseHist:
+            if schema_version == EMBEDDED_SCHEMA_VERSION:
+                for component in components.values():
+                    if (type(component) is not HistEFT
+                            or not component._use_multicell or not component.store_sumw2):
+                        raise TypeError("Embedded 1D components require MultiCell HistEFT with sumw2.")
+                if companion is not None:
+                    raise ValueError("Embedded 1D families cannot have physical sumw2 companions.")
+            if (scalar is not None and schema_version != EMBEDDED_SCHEMA_VERSION
+                    and type(scalar) is not SparseHist):
                 raise TypeError(
                     f"Scalar sibling '{scalar_nominal_key(family)}' must be an exact SparseHist."
                 )
-            if scalar is not None:
+            if scalar is not None and schema_version != EMBEDDED_SCHEMA_VERSION:
                 _validate_sparse_double(scalar, scalar_nominal_key(family))
             if eft is not None and type(eft) is not HistEFT:
                 raise TypeError(
@@ -579,6 +590,9 @@ def validate_nominal_family(
                         f"Nominal siblings for '{family}' duplicate process labels: "
                         + ", ".join(sorted(overlap))
                     )
+
+    if schema_version == EMBEDDED_SCHEMA_VERSION and _dimensionality(family) == 1:
+        return
 
     if companion_selected is False and companion is not None:
         raise ValueError(f"Family '{family}' has a policy-unselected companion.")
@@ -622,6 +636,8 @@ def validate_nominal_mapping(
 ) -> None:
     _require_histogram_mapping(histograms)
     runtime_families = tuple(runtime_families)
+    if schema_version != EMBEDDED_SCHEMA_VERSION and COVERAGE_KEY in histograms:
+        raise ValueError("Embedded coverage requires nominal schema version 3.")
     family_applicability = (
         None
         if histogram_applicability is None
@@ -632,7 +648,7 @@ def validate_nominal_mapping(
     )
     known_keys = set()
     for family in runtime_families:
-        if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION and _dimensionality(family) == 1:
+        if schema_version in (NOMINAL_CONTAINER_SCHEMA_VERSION, EMBEDDED_SCHEMA_VERSION) and _dimensionality(family) == 1:
             known_keys.update({scalar_nominal_key(family), eft_nominal_key(family)})
         else:
             known_keys.add(family)
@@ -659,6 +675,9 @@ def validate_nominal_mapping(
             companion_selected=companion_selected,
             selected_processes=selected_processes,
         )
+
+    if schema_version == EMBEDDED_SCHEMA_VERSION:
+        validate_coverage(histograms, runtime_families=runtime_families, policy=policy)
 
     unknown_components = sorted(
         key
@@ -697,7 +716,7 @@ def canonicalize_nominal_keys(
     output = {}
     consumed = set()
     for family in runtime_families:
-        if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION and _dimensionality(family) == 1:
+        if schema_version in (NOMINAL_CONTAINER_SCHEMA_VERSION, EMBEDDED_SCHEMA_VERSION) and _dimensionality(family) == 1:
             ordered_keys = (
                 scalar_nominal_key(family),
                 eft_nominal_key(family),
@@ -725,7 +744,7 @@ def _materialized_runtime_families(
 
     materialized = []
     for family in runtime_families:
-        if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION and _dimensionality(family) == 1:
+        if schema_version in (NOMINAL_CONTAINER_SCHEMA_VERSION, EMBEDDED_SCHEMA_VERSION) and _dimensionality(family) == 1:
             family_keys = (
                 scalar_nominal_key(family),
                 eft_nominal_key(family),
@@ -783,6 +802,9 @@ def merge_nominal_mappings(
         for key, incoming in mapping.items():
             if key not in merged:
                 merged[key] = copy.deepcopy(incoming)
+                continue
+            if key == COVERAGE_KEY:
+                merged[key].update(incoming)
                 continue
             validate_histogram_compatibility(merged[key], incoming, key=key)
             merged[key] += incoming

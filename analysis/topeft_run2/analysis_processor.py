@@ -26,10 +26,11 @@ from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.axis_binning import make_processing_axis
 from topeft.modules.missing_parton_contract import parse_analysis_njet_token
+from topeft.modules.embedded_sumw2 import (
+    COVERAGE_KEY, EMBEDDED_SCHEMA_VERSION, EMBEDDED_LAYOUT, fill_embedded_nominal,
+)
 from topeft.modules.nominal_schema import (
     EFT_NOMINAL_SUFFIX,
-    NOMINAL_CONTAINER_LAYOUT,
-    NOMINAL_CONTAINER_SCHEMA_VERSION,
     SCALAR_NOMINAL_SUFFIX,
     eft_nominal_key,
     scalar_nominal_key,
@@ -778,7 +779,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
     @staticmethod
     def _should_fill_sumw2_histogram(fill_sumw2_hist, *, wgt_fluct):
-        """Keep separate *_sumw2 keys, but only fill them for the nominal producer path."""
+        """Allow statistical second moments only on the nominal producer path."""
 
         return bool(fill_sumw2_hist) and wgt_fluct == "nominal"
 
@@ -854,8 +855,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._hist_axis_map = {}
         self._hist_sumw2_axis_mapping = {}
         self._hist_requires_eft = {}
-        self.nominal_container_schema_version = NOMINAL_CONTAINER_SCHEMA_VERSION
-        self.nominal_container_layout = NOMINAL_CONTAINER_LAYOUT
+        self.nominal_container_schema_version = EMBEDDED_SCHEMA_VERSION
+        self.nominal_container_layout = EMBEDDED_LAYOUT
 
         ordered_base_hist_names = list(axes_info.keys()) + list(axes_info_2d.keys())
         base_hist_names_ordered, _ = self._resolve_histogram_names(
@@ -888,7 +889,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             hist_lst,
             ordered_base_hist_names=ordered_base_hist_names,
             fill_sumw2_hist=self._fill_sumw2_hist,
-            selected_sumw2_families=self._selected_sumw2_families,
+            selected_sumw2_families=self._selected_sumw2_families & set(axes_info_2d),
         )
 
         self._base_hist_name_set = set(base_hist_names_ordered)
@@ -914,7 +915,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
         appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
 
-        histograms = {}
+        histograms = {COVERAGE_KEY: set()}
         def _build_axis(axis_cfg, *, suffix="", label_suffix=""):
             return make_processing_axis(
                 axis_cfg,
@@ -924,31 +925,24 @@ class AnalysisProcessor(processor.ProcessorABC):
                 label_suffix=label_suffix,
             )
         for name, info in axes_info.items():
-            sumw2_name = f"{name}{sumw2_suffix}"
             build_base_hist = name in self._base_hist_name_set
-            build_sumw2_hist = name in self._selected_sumw2_families
-            if not (build_base_hist or build_sumw2_hist):
+            if not build_base_hist:
                 continue
 
             dense_axis = make_processing_axis(
                 info, name=name, label=info["label"]
             )
-            sumw2_axis = make_processing_axis(
-                info,
-                name=name,
-                label=info["label"],
-                suffix="_sumw2",
-                label_suffix=" sum of w^2",
-            )
             if build_base_hist and component_availability["scalar"]:
                 scalar_key = scalar_nominal_key(name)
-                histograms[scalar_key] = SparseHist(
+                histograms[scalar_key] = HistEFT(
                     proc_axis,
                     chan_axis,
                     syst_axis,
                     appl_axis,
                     dense_axis,
-                    storage="Double",
+                    wc_names=[],
+                    use_multicell=True,
+                    store_sumw2=True,
                     track_raw_counts=(
                         self._record_raw_count and "fitting" in info
                     ),
@@ -964,6 +958,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     appl_axis,
                     dense_axis,
                     wc_names=wc_names_lst,
+                    use_multicell=True,
+                    store_sumw2=True,
                     label=r"Events",
                     track_raw_counts=(
                         self._record_raw_count and "fitting" in info
@@ -973,18 +969,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 self._hist_requires_eft[eft_key] = True
             if build_base_hist:
                 self._hist_axis_map[name] = [dense_axis.name]
-            if build_sumw2_hist:
-                histograms[sumw2_name] = SparseHist(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    sumw2_axis,
-                    storage="Double",
-                )
-                self._hist_axis_map[sumw2_name] = [sumw2_axis.name]
-                self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
-                self._hist_requires_eft[sumw2_name] = False
         for name, axes_cfg in axes_info_2d.items():
             sumw2_name = f"{name}{sumw2_suffix}"
             build_base_hist = name in self._base_hist_name_set
@@ -1042,7 +1026,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # absent (for example when a filtered ``hist_lst`` omits most
         # histograms).  Restricting the list here keeps the book-keeping
         # consistent with the constructed accumulator contents.
-        self._hist_lst = list(self._accumulator.keys())
+        self._hist_lst = [key for key in self._accumulator if key != COVERAGE_KEY]
 
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
@@ -2666,7 +2650,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                         histAxisName,
                         dense_axis_name,
                     )
-                if target_selected_for_sumw2 and not companion_axis_mapping:
+                if (target_selected_for_sumw2 and dense_axis_name in axes_info_2d
+                        and not companion_axis_mapping):
                     raise RuntimeError(
                         "Resolved sumw2 target has no allocated companion for "
                         f"dataset='{dataset_key}', process='{histAxisName}', "
@@ -2941,7 +2926,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                 axes_fill_info_dict["record_raw_count"] = (
                                                     raw_count_classification
                                                 )
-                                            nominal_histogram.fill(**axes_fill_info_dict)
+                                            if dense_axis_name in axes_info_2d:
+                                                nominal_histogram.fill(**axes_fill_info_dict)
+                                            else:
+                                                fill_embedded_nominal(
+                                                    nominal_histogram,
+                                                    hout[COVERAGE_KEY],
+                                                    family=dense_axis_name,
+                                                    component=("eft_nominal" if isEFT else "scalar_nominal"),
+                                                    dataset=dataset_key,
+                                                    selected=target_selected_for_sumw2,
+                                                    **axes_fill_info_dict,
+                                                )
                                                                                     
                                         if fill_nominal_sumw2_hist:
                                             # The companion is an SM-only statistical moment.
