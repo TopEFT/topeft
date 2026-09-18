@@ -16,7 +16,7 @@ from analysis.topeft_run2.analysis_processor import (
 from topeft.modules.axes import info, info_2d
 from topeft.modules.embedded_sumw2 import (
     COVERAGE_KEY, EMBEDDED_SCHEMA_VERSION, EMBEDDED_LAYOUT,
-    fill_embedded_nominal, coverage_manifest,
+    fill_embedded_nominal, coverage_manifest, embedded_sumw2_view, scale_embedded_family,
 )
 from topeft.modules.nominal_schema import (
     scalar_nominal_key, eft_nominal_key, validate_nominal_mapping,
@@ -234,16 +234,16 @@ def test_artifact_rejects_tampered_coverage_and_missing_sidecar(tmp_path):
         validate_histogram_artifact(path)
 
 
-def test_main_producer_storage_and_unchanged_2d():
+def test_main_producer_storage_includes_embedded_2d():
     processor = AnalysisProcessor(samples=SAMPLES, wc_names_lst=["ctG"],
                                   hist_lst=["njets", "lepton_pt_vs_eta"])
     for key in (scalar_nominal_key("njets"), eft_nominal_key("njets")):
         histogram = processor.accumulator[key]
         assert type(histogram) is HistEFT and histogram._use_multicell and histogram.store_sumw2
     assert "njets_sumw2" not in processor.accumulator
-    for key in ("lepton_pt_vs_eta", "lepton_pt_vs_eta_sumw2"):
-        assert type(processor.accumulator[key]) is SparseHist
-        assert processor.accumulator[key]._init_args["storage"] == "Double"
+    assert type(processor.accumulator["lepton_pt_vs_eta"]) is SparseHist
+    assert processor.accumulator["lepton_pt_vs_eta"]._init_args["storage"] == "Weight"
+    assert "lepton_pt_vs_eta_sumw2" not in processor.accumulator
 
 
 @pytest.mark.parametrize("legacy_backend", [True, False])
@@ -295,3 +295,17 @@ def test_producer_fill_with_upstream_raw_count_contract(record_raw_count):
     if record_raw_count:
         restored = pickle.loads(pickle.dumps(histogram))
         assert sum(np.sum(v) for v in restored.raw_counts(flow=True).values()) == 2
+
+
+def test_shared_adapter_preserves_1d_values_variance_and_zero_scaling():
+    output = payload()
+    fill(output, "eft", [-2], np.array([[3., 1, 2]]))
+    fill(output, "unselected", [7])
+    view = embedded_sumw2_view(output, "njets", provenance=policy().to_provenance(), flow=False)
+    cell = view["components"]["eft_nominal"]
+    key = ("signal", "3l", "nominal", "isSR")
+    np.testing.assert_array_equal(cell["values"][key], [-6, 0])
+    np.testing.assert_array_equal(cell["variances"][key], [36, 0])
+    scale_embedded_family(output, "njets", 0)
+    validate(output)
+    assert {r[2]: r[-1] for r in output[COVERAGE_KEY]} == {"eft": "selected_zero", "unselected": "unavailable"}

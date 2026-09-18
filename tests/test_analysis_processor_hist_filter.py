@@ -31,9 +31,6 @@ def test_accumulator_keys_without_hist_filter():
     }
     expected_keys = {f"{name}__scalar_nominal" for name in one_dimensional}
     expected_keys.update(two_dimensional)
-    expected_keys.update(
-        f"{name}_sumw2" for name in two_dimensional - jvm_diagnostic_families
-    )
 
     assert set(processor.accumulator.keys()) == expected_keys | {COVERAGE_KEY}
     assert not any(
@@ -71,8 +68,6 @@ def test_filtered_hist_construction(requested_hists):
             expected_accumulator_keys.add(base_name)
         else:
             expected_accumulator_keys.add(f"{base_name}__scalar_nominal")
-        if fill_sumw2_hist and base_name in axes_info_2d:
-            expected_accumulator_keys.add(f"{base_name}{sumw2_suffix}")
 
     assert set(processor.accumulator.keys()) == expected_accumulator_keys | {COVERAGE_KEY}
     assert set(processor._hist_lst) == expected_accumulator_keys
@@ -85,12 +80,7 @@ def test_filtered_hist_construction(requested_hists):
     restored = cloudpickle.loads(serialized)
     assert set(restored.keys()) == expected_accumulator_keys | {COVERAGE_KEY}
 
-    # The mapping is stored with the base histogram name so that the filling
-    # logic can look up the dense axis associated with the sumw2 histogram.
-    if fill_sumw2_hist:
-        assert set(processor._hist_sumw2_axis_mapping.keys()) == base_names & set(axes_info_2d)
-    else:
-        assert not processor._hist_sumw2_axis_mapping
+    assert not processor._hist_sumw2_axis_mapping
 
 
 def test_sample_metadata_preallocates_both_siblings_and_preserves_two_dimensional_sparse():
