@@ -11,6 +11,7 @@ from itertools import product
 from typing import Any
 
 import numpy as np
+import hist
 
 from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
@@ -547,7 +548,18 @@ def validate_nominal_family(
             scalar = components["scalar_nominal"]
             if type(scalar) is not SparseHist:
                 raise TypeError(f"2D family '{family}' must be an exact SparseHist.")
-            _validate_sparse_double(scalar, family)
+            if schema_version == EMBEDDED_SCHEMA_VERSION:
+                if len(scalar.dense_axes) != 2:
+                    raise ValueError("Embedded 2D families require two dense axes.")
+                dense = scalar.make_dense(*scalar.dense_axes)
+                if (dense.storage_type is not hist.storage.Weight
+                        or any(h.storage_type is not hist.storage.Weight
+                               for h in scalar._dense_hists.values())):
+                    raise TypeError("Embedded 2D families require Weight storage.")
+                if companion is not None:
+                    raise ValueError("Embedded 2D families cannot have physical sumw2 companions.")
+            else:
+                _validate_sparse_double(scalar, family)
         else:
             scalar = components.get("scalar_nominal")
             eft = components.get("eft_nominal")
@@ -591,7 +603,7 @@ def validate_nominal_family(
                         + ", ".join(sorted(overlap))
                     )
 
-    if schema_version == EMBEDDED_SCHEMA_VERSION and _dimensionality(family) == 1:
+    if schema_version == EMBEDDED_SCHEMA_VERSION:
         return
 
     if companion_selected is False and companion is not None:

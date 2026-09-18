@@ -154,7 +154,7 @@ def _family_process_content(
             sorted({record[3] for record in histograms[COVERAGE_KEY]
                     if record[0] == family and record[6] == "nominal"
                     and record[7] != "unavailable"})
-            if COVERAGE_KEY in histograms and dimensionality == 1
+            if COVERAGE_KEY in histograms
             else _process_labels(companion)
         ),
     }
@@ -291,7 +291,7 @@ def build_sumw2_content_manifest(
             nominal_processes = set(content["scalar_nominal_processes"]) | set(
                 content["eft_nominal_processes"]
             )
-            if COVERAGE_KEY in histograms and family not in axes_info_2d:
+            if COVERAGE_KEY in histograms:
                 required = sorted({record[3] for record in histograms[COVERAGE_KEY]
                                    if record[0] == family and record[6] == "nominal"
                                    and policy.selects(record[2], record[3], family)})
@@ -1646,7 +1646,8 @@ def _validate_sidecar_structure(
             raise histogram_sidecar_error("Embedded coverage manifest is not canonical.")
         for family, component, dataset, process, channel, appl, systematic, state in records:
             selected = systematic == "nominal" and policy.selects(dataset, process, family)
-            if (family not in policy.runtime_histogram_families or family in axes_info_2d
+            if (family not in policy.runtime_histogram_families
+                    or (family in axes_info_2d and component != "scalar_nominal")
                     or component not in {"scalar_nominal", "eft_nominal"}
                     or dataset not in policy.resolved_datasets
                     or process not in policy.resolved_processes
