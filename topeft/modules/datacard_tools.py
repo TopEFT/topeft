@@ -14,6 +14,7 @@ import warnings
 from collections import defaultdict
 
 from topcoffea.modules.utils import regex_match, get_hist_from_pkl
+from topcoffea.modules.sparseHist import SparseHist
 from topeft.modules.paths import topeft_path
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
@@ -626,6 +627,7 @@ def load_and_merge_histogram_pkls(
                 policy=(
                     input_policy if artifact_kind == "processor_output" else None
                 ),
+                histogram_applicability=metadata.get("histogram_applicability"),
             )
             keys = set(hist_dict)
             report["files"].append(
@@ -641,6 +643,11 @@ def load_and_merge_histogram_pkls(
             runtime_families=runtime_families,
             schema_version=schema_version,
             policy=policy if artifact_kind == "processor_output" else None,
+            histogram_applicabilities=(
+                metadata.get("histogram_applicability")
+                for metadata in input_metadata
+            ),
+            histogram_applicability=merged_sidecar.get("histogram_applicability"),
         )
         report["sumw2_storage_provenance"] = policy.to_provenance()
         report["production_sample_contract"] = merged_sidecar[
@@ -662,6 +669,9 @@ def load_and_merge_histogram_pkls(
             "resolved_data_driven_contract"
         ]
         report["lineage_inputs"] = merged_sidecar["lineage_inputs"]
+        report["histogram_applicability"] = merged_sidecar.get(
+            "histogram_applicability"
+        )
     elif schema_version is None:
         report["artifact_kind"] = "legacy_uniform"
         report["artifact_merged"] = len(pkl_paths) > 1
@@ -714,6 +724,21 @@ def load_and_merge_histogram_pkls(
     )
 
     return merged_hists, report
+
+def _card_numerical_split_view(histograms):
+    """Copy split inputs into the card-only view without raw-count bookkeeping."""
+
+    numerical_view = {}
+    for key, histogram in histograms.items():
+        if not isinstance(histogram, SparseHist) or not histogram.track_raw_counts:
+            numerical_view[key] = histogram
+            continue
+        numerical_histogram = copy.deepcopy(histogram)
+        del numerical_histogram._raw_counts
+        numerical_histogram._track_raw_counts = False
+        numerical_view[key] = numerical_histogram
+    return numerical_view
+
 
 def to_hist(arr,name,zero_wgts=False):
     """
@@ -1508,6 +1533,7 @@ class DatacardMaker():
             raise ValueError("Need either fpath or hists for read().")
 
         if is_split_nominal_mapping(self.hists):
+            self.hists = _card_numerical_split_view(self.hists)
             if merge_report is not None and merge_report.get(
                 "runtime_histogram_families"
             ):

@@ -24,6 +24,7 @@ from topeft.modules.nominal_schema import (
 )
 from topeft.modules.sumw2_policy import resolve_sumw2_storage_policy
 from analysis.topeft_run2 import make_cards
+from analysis.topeft_run2 import make_cr_and_sr_plots
 from tests.sumw2_profile_test_helpers import certify_test_profile
 
 
@@ -58,9 +59,12 @@ def _scalar(
     family="njets",
     companion=False,
     channel="3l",
+    track_raw_counts=False,
 ):
     dense_name = f"{family}_sumw2" if companion else family
-    output = SparseHist(*_axes(dense_name), storage="Double")
+    output = SparseHist(
+        *_axes(dense_name), storage="Double", track_raw_counts=track_raw_counts
+    )
     output.fill(
         process=process,
         channel=channel,
@@ -68,12 +72,18 @@ def _scalar(
         appl="isSR",
         **{dense_name: np.asarray([0.5])},
         weight=np.asarray([weight]),
+        **({"record_raw_count": True} if track_raw_counts else {}),
     )
     return output
 
 
-def _eft(process, weight, *, channel="3l"):
-    output = HistEFT(*_axes("njets"), wc_names=["ctG"], label="Events")
+def _eft(process, weight, *, channel="3l", track_raw_counts=False):
+    output = HistEFT(
+        *_axes("njets"),
+        wc_names=["ctG"],
+        label="Events",
+        track_raw_counts=track_raw_counts,
+    )
     output.fill(
         process=process,
         channel=channel,
@@ -82,6 +92,7 @@ def _eft(process, weight, *, channel="3l"):
         njets=np.asarray([0.5]),
         weight=np.asarray([weight]),
         eft_coeff=np.asarray([[1.25, 2.0, 3.0]]),
+        **({"record_raw_count": True} if track_raw_counts else {}),
     )
     return output
 
@@ -102,14 +113,39 @@ def _policy_for_families(families, samples=_SAMPLES):
     )
 
 
-def _write_versioned(path, payload, policy, samples=_SAMPLES):
+def _write_versioned(
+    path,
+    payload,
+    policy,
+    samples=_SAMPLES,
+    histogram_applicability=None,
+):
     write_histogram_artifact(
         path,
         histograms=payload,
         artifact_kind="processor_output",
         sumw2_storage_provenance=policy.to_provenance(),
         production_sample_contract=certify_test_profile(policy, samples),
+        histogram_applicability=histogram_applicability,
     )
+
+
+def _applicability(families, channel_states):
+    return {
+        "contract_version": 1,
+        "producer_query": "AnalysisProcessor.histogram_fill_is_applicable",
+        "producer_semantics_sha256": "0" * 64,
+        "analysis_mode": "all",
+        "families": {
+            family: {
+                "channels": {
+                    channel: channel_states[family][channel]
+                    for channel in sorted(channel_states[family])
+                }
+            }
+            for family in families
+        },
+    }
 
 
 def _replace_payload(path, payload):
@@ -202,6 +238,100 @@ def test_split_roundtrip_same_policy_optional_components_and_post_reopen_merge(t
     reopened, reopened_report = load_and_merge_histogram_pkls([cached_path])
     assert reopened_report["schema"] == "split_sibling_v1"
     assert tuple(reopened) == tuple(merged)
+
+
+def test_loader_and_cache_preserve_fully_not_applicable_absence(tmp_path, policy):
+    path = tmp_path / "not_applicable.pkl.gz"
+    applicability = _applicability(
+        ("njets",), {"njets": {"3l": "not_applicable"}}
+    )
+    _write_versioned(
+        path,
+        {},
+        policy,
+        histogram_applicability=applicability,
+    )
+
+    merged, report = load_and_merge_histogram_pkls([str(path)])
+
+    assert merged == {}
+    assert report["histogram_applicability"] == applicability
+    cached_path = make_cards._cache_merged_histograms(
+        merged, "cached_not_applicable", str(tmp_path), report
+    )
+    reopened, reopened_report = load_and_merge_histogram_pkls([cached_path])
+    assert reopened == {}
+    assert reopened_report["histogram_applicability"] == applicability
+    plot_cached_path = make_cr_and_sr_plots._cache_merged_histograms(
+        merged, "plot_cached_not_applicable", str(tmp_path), report
+    )
+    plot_reopened, plot_reopened_report = load_and_merge_histogram_pkls(
+        [plot_cached_path]
+    )
+    assert plot_reopened == {}
+    assert plot_reopened_report["histogram_applicability"] == applicability
+
+
+def test_datacard_maker_uses_raw_count_free_split_numerical_view(tmp_path):
+    channel = "3l_onZ_1b"
+    scalar = _scalar(
+        "tZqUL18", 2.0, channel=channel, track_raw_counts=True
+    )
+    eft = _eft("tZqUL18", 3.0, channel=channel, track_raw_counts=True)
+    sumw2 = _scalar(
+        "tZqUL18", 13.0, companion=True, channel=channel, track_raw_counts=True
+    )
+    source_raw_counts = {
+        key: value.raw_counts(flow=True)
+        for key, value in {
+            "scalar": scalar,
+            "eft": eft,
+            "sumw2": sumw2,
+        }.items()
+    }
+    source_values = {
+        key: value.view(flow=True, as_dict=True)
+        for key, value in {
+            "scalar": scalar,
+            "eft": eft,
+            "sumw2": sumw2,
+        }.items()
+    }
+
+    card_maker = DatacardMaker(
+        hists={
+            scalar_nominal_key("njets"): scalar,
+            eft_nominal_key("njets"): eft,
+            "njets_sumw2": sumw2,
+        },
+        out_dir=str(tmp_path),
+        var_lst=["njets"],
+        do_nuisance=False,
+        verbose=False,
+    )
+
+    for key, source in (("scalar", scalar), ("eft", eft), ("sumw2", sumw2)):
+        actual_raw_counts = source.raw_counts(flow=True)
+        assert actual_raw_counts.keys() == source_raw_counts[key].keys()
+        for categories in actual_raw_counts:
+            assert np.array_equal(
+                actual_raw_counts[categories], source_raw_counts[key][categories]
+            )
+    for key, source in (("scalar", scalar), ("eft", eft), ("sumw2", sumw2)):
+        actual_values = source.view(flow=True, as_dict=True)
+        assert actual_values.keys() == source_values[key].keys()
+        for categories in actual_values:
+            assert np.array_equal(actual_values[categories], source_values[key][categories])
+    assert not card_maker.hists["njets"].track_raw_counts
+    assert not card_maker.hists["njets_sumw2"].track_raw_counts
+    assert sum(
+        float(np.asarray(values).sum())
+        for values in card_maker.hists["njets"].eval({}).values()
+    ) == pytest.approx(5.75)
+    assert sum(
+        float(np.asarray(values).sum())
+        for values in card_maker.hists["njets_sumw2"].eval({}).values()
+    ) == pytest.approx(13.0)
 
 
 def test_same_run_mixed_and_reduced_family_fragments_are_transparent(tmp_path):

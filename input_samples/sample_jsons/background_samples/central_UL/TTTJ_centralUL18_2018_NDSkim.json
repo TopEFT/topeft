@@ -1,0 +1,26 @@
+{
+  "xsec": 0.0007,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "TTTJ_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "//store/user/apiccine/skimmed_CR/background/NAOD_ULv9_lepMVA-run2/v260914/TTTJ_centralUL18_2018/output_70.root"
+  ],
+  "nEvents": 500000,
+  "nGenEvents": 500000,
+  "nSumOfWeights": 500000.0,
+  "isData": false,
+  "path": "/TTTJ_TuneCP5_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 499988.81861848384,
+  "nSumOfWeights_ISRDown": 499911.6111013463,
+  "nSumOfWeights_FSRUp": 499962.704706192,
+  "nSumOfWeights_FSRDown": 500220.27971839905,
+  "nSumOfWeights_renormUp": 421804.2117614746,
+  "nSumOfWeights_renormDown": 602848.3063964844,
+  "nSumOfWeights_factUp": 487164.19607543945,
+  "nSumOfWeights_factDown": 510001.88321352005,
+  "nSumOfWeights_renormDown_factUp": 587476.158416748,
+  "nSumOfWeights_renormUp_factDown": 430322.74938595295
+}
