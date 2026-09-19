@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 
 import pytest
 
@@ -21,6 +22,34 @@ def test_single_run_plot_year_scopes_remain_supported(year_scope):
 
     assert make_cr_and_sr_plots._validate_supported_plot_years(normalized) == tuple(
         normalized
+    )
+
+
+def _format_three_significant_figures(value):
+    exponent = value.adjusted() - 2
+    result = value.quantize(Decimal(f"1e{exponent}"))
+    text = format(result, "f")
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+@pytest.mark.parametrize("scope", ("run2", "run3"))
+def test_full_run_lumi_labels_sum_metadata_before_three_sig_rounding(scope):
+    years = make_cr_and_sr_plots._normalize_year_tokens([scope])
+    metadata_pairs = [make_cr_and_sr_plots.LUMI_COM_PAIRS[year] for year in years]
+    exact_sum = sum((Decimal(pair[0]) for pair in metadata_pairs), Decimal("0"))
+
+    assert make_cr_and_sr_plots._resolve_lumi_components(years) == (
+        (_format_three_significant_figures(exact_sum), metadata_pairs[0][1]),
+    )
+    assert make_cr_and_sr_plots._resolve_lumi_pair(years) == (
+        _format_three_significant_figures(exact_sum),
+        metadata_pairs[0][1],
+    )
+
+
+def test_single_year_lumi_label_preserves_metadata_formatting():
+    assert make_cr_and_sr_plots._resolve_lumi_pair(["2018"]) == tuple(
+        make_cr_and_sr_plots.LUMI_COM_PAIRS["2018"]
     )
 
 

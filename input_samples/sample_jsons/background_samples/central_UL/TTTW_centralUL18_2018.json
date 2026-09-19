@@ -1,0 +1,29 @@
+{
+  "xsec": 0.0013,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "TTTW_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL18NanoAODv9/TTTW_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/260000/ECACC29E-698C-EE42-A460-BAD444727AFA.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TTTW_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2530000/07E85166-4C72-3B4E-9572-2D070F2EF385.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TTTW_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/260000/07350478-4397-054C-B6F8-9F6979FF7357.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TTTW_TuneCP5_13TeV-madgraph-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2520000/9660E5EF-E305-7546-B26E-9A759DBC1976.root"
+  ],
+  "nEvents": 494000,
+  "nGenEvents": 494000,
+  "nSumOfWeights": 494000.0,
+  "isData": false,
+  "path": "/TTTW_TuneCP5_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 493829.1642358545,
+  "nSumOfWeights_ISRDown": 494224.83053971245,
+  "nSumOfWeights_FSRUp": 494156.1388530731,
+  "nSumOfWeights_FSRDown": 495221.97657227516,
+  "nSumOfWeights_renormUp": 381326.02236938477,
+  "nSumOfWeights_renormDown": 656707.7872924805,
+  "nSumOfWeights_factUp": 473563.4509277344,
+  "nSumOfWeights_factDown": 509972.7673339844,
+  "nSumOfWeights_renormDown_factUp": 629671.4945983887,
+  "nSumOfWeights_renormUp_factDown": 393743.6612548828
+}

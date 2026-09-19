@@ -202,6 +202,7 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=Non
             resolved_data_driven_contract=merge_report[
                 "resolved_data_driven_contract"
             ],
+            histogram_applicability=merge_report.get("histogram_applicability"),
         )
     else:
         with gzip.open(out_fpath, "wb") as fout:

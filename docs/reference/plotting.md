@@ -24,11 +24,11 @@ files, optional merge caches/reports, and negative-contribution reports.
 | Group | Type/default/accepted values | Contract |
 | --- | --- | --- |
 | Inputs | Repeatable `-f/--pkl-file-path` or list file; at least one resolved path | Every PKL requires compatible sidecar/schema/provenance. Inputs are merged through `load_and_merge_histogram_pkls(require_sumw2=True)`. |
-| Output | Path/name strings; optional timestamp | Creates or reuses the resolved directory. Condor can enable timestamp tagging to reduce collisions. |
+| Output | Path/name strings; optional timestamp; `--output-formats` accepts `png`, `pdf`, and `svg`, default `png` | Creates or reuses the resolved directory and writes every requested format for each logical figure. This is renderer capability, not qualification of campaign-wide multi-format staging or promotion. |
 | Years | Individual supported years or `run2`/`run3` aliases | Tokens normalize before region context. Mixed Run 2/Run 3 plotting is rejected. |
 | Region/blinding | Filename inference or explicit CR/SR; CR unblinded and SR blinded by default | Ambiguous filenames default to CR with a warning unless overridden. Explicit blind/unblind wins. |
-| Channel output | `merged`, `split`, `both`, or `-njets` variants; default `merged` | `-njets` preserves metadata-defined jet bins rather than changing histogram binning. |
-| Binning | `processing` or `fitting`; default `processing` | Fitting uses exact family/channel aggregation. `--rebin-plot-vars` is separate integer-factor presentation rebinning. |
+| Channel output | `merged`, `split`, `both`, or `-njets` variants; default `merged` | `merged` is aggregate presentation; `merged-njets` preserves metadata-defined jet/category subdivisions. These are presentation modes, not likelihood-bin counts. |
+| Binning | `processing` or `fitting`; default `processing` | Fitting uses the exact maintained category-aware aggregation when the variable has a fitting definition and otherwise keeps the identity view; it does not invent fitting edges. `--rebin-plot-vars` is separate integer-factor presentation rebinning. |
 | Variables/workers | Optional variable list; workers integer default 1 | Invalid variables and channel coverage fail at context/coverage validation. |
 | Uncertainties/reports | Supported uncertainty switches; year coverage `warn`; negative report enabled | Controls presentation/reporting, never source artifact content. |
 | Merge/cache | Merge report/cache and merge-only controls | Merge-only stops after successful validation; cached output receives derived provenance. |
@@ -98,8 +98,29 @@ displayed aggregation; it does not redefine the processor observable.
 
 Systematic and validation views expose stored variations and coverage. They do
 not create missing templates or assign new nuisance meaning. Negative-weight
-and effective-entry diagnostics report properties of the selected content
-without changing the histogram stack.
+and effective-entry diagnostics report properties of the selected content;
+they do not mutate the source artifact.
+
+For the nominal SM stack, the renderer clips each negative displayed process
+bin to zero after maintained grouping and the selected binning view. Positive
+displayed process bins are not redistributed or rescaled, and the original
+grouped statistical variance remains attached to the display. This clipping is
+plot-view only: it does not modify histogram artifacts, templates, datacards,
+or workspaces. The Data/MC ratio denominator is the resulting displayed,
+clipped MC total; bins with a zero displayed denominator are masked.
+
+Data markers use exact central Neyman/Garwood intervals at 68.27% confidence.
+On a logarithmic axis, a zero Data count is represented by its Garwood upper
+limit rather than by a fake epsilon-valued point.
+
+The total uncertainty display is a total-prefit band: it combines retained MC
+statistical variance in quadrature with the configured prefit shape/rate
+systematic variance. Systematic excursions are measured from the signed raw
+nominal total and recentered on the displayed clipped nominal without changing
+their magnitude. It is not a post-fit or profiled covariance band. A shape
+mismatch between the raw systematic reference and displayed MC total raises an
+explicit error; the renderer does not truncate, copy, or zero-pad either array
+to manufacture agreement.
 
 Physics-facing region, grouping, observable, and binning policy is distinct
 from scheduling, file paths, rendering mechanics, and presentation styling.

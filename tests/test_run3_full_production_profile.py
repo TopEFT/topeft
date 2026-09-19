@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from topcoffea.modules import remote_environment
+from topeft.modules.sumw2_policy import resolve_sumw2_storage_mode
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -183,6 +184,7 @@ def _write_state(
     *,
     status="planned",
     environment_mode="explicit_snapshot",
+    legacy_full_diagnostics=False,
 ):
     blocks = _planned_blocks(output_dir, campaign_tag)
     source_status = "ready" if status == "success" else "planned"
@@ -223,9 +225,10 @@ def _write_state(
     }
     state_path = output_dir / STATE_FILENAME
     state_path.write_text(json.dumps(state), encoding="utf-8")
-    (output_dir / "sumw2_full_diagnostics.yml").write_text(
-        "sumw2_storage:\n  mode: full_diagnostics\n", encoding="utf-8"
-    )
+    if legacy_full_diagnostics:
+        (output_dir / "sumw2_full_diagnostics.yml").write_text(
+            "sumw2_storage:\n  mode: full_diagnostics\n", encoding="utf-8"
+        )
     return state_path, state
 
 
@@ -547,6 +550,85 @@ def test_run3_full_dry_run_resolves_exact_complete_five_block_plan(tmp_path):
     assert not output_dir.exists()
 
 
+@pytest.mark.parametrize(
+    ("production_profile", "expected_command_count"),
+    [
+        ("run2_full", 5),
+        ("run3_full", 5),
+        ("run2_full_CR", 6),
+        ("run3_full_CR", 12),
+        ("run2_run3_full", 10),
+        ("run2_run3_full_CR", 18),
+    ],
+)
+def test_full_profiles_use_implicit_production_sumw2_without_raw_counts(
+    tmp_path, production_profile, expected_command_count
+):
+    env_file = _write_env(tmp_path)
+    output_dir = tmp_path / production_profile
+    result = _run(
+        "--production-profile",
+        production_profile,
+        "--dry-run",
+        "--output-dir",
+        str(output_dir),
+        "--campaign-tag",
+        f"{production_profile}_sumw2",
+        "--env-file",
+        str(env_file),
+    )
+
+    assert result.returncode == 0, result.stderr
+    commands = _resolved_commands(result.stdout)
+    assert len(commands) == expected_command_count
+    assert all("--options" not in command for command in commands)
+    assert all("--record-raw-count" not in command for command in commands)
+    assert "sumw2_storage_mode: production (implicit)" in result.stdout
+    assert not output_dir.exists()
+
+
+def test_absent_sumw2_options_resolve_to_maintained_production_default():
+    resolution = resolve_sumw2_storage_mode(
+        None,
+        sumw2_storage_present=False,
+    )
+
+    assert resolution.source == "implicit_production_default"
+    assert resolution.requested_mode == "production"
+    assert resolution.resolved_mode == "production"
+    assert any("production default" in warning for warning in resolution.warnings)
+
+
+@pytest.mark.parametrize(
+    ("production_profile", "expected_command_count"),
+    [("t0_sr_statonly", 10), ("t0_cr_statonly", 18)],
+)
+def test_t0_statonly_profiles_keep_full_diagnostics_and_raw_counts(
+    tmp_path, production_profile, expected_command_count
+):
+    env_file = _write_env(tmp_path)
+    output_dir = tmp_path / production_profile
+    result = _run(
+        "--production-profile",
+        production_profile,
+        "--dry-run",
+        "--output-dir",
+        str(output_dir),
+        "--campaign-tag",
+        f"{production_profile}_sumw2",
+        "--env-file",
+        str(env_file),
+    )
+
+    assert result.returncode == 0, result.stderr
+    commands = _resolved_commands(result.stdout)
+    assert len(commands) == expected_command_count
+    assert all("--record-raw-count" in command for command in commands)
+    assert all("--options" in command for command in commands)
+    assert "sumw2_storage_mode: full_diagnostics" in result.stdout
+    assert not output_dir.exists()
+
+
 def test_run_cr_derives_checkout_paths_and_runs_from_unrelated_cwd(tmp_path):
     source = RUN_CR.read_text(encoding="utf-8")
     assert str(FROZEN_ENV) not in source
@@ -749,6 +831,23 @@ def test_run3_full_fresh_namespace_and_historical_v3_are_rejected(tmp_path):
     )
     assert historical.returncode != 0
     assert "historical baseline or v3 campaign" in historical.stderr
+
+
+def test_run3_full_resume_rejects_legacy_full_diagnostics_override(tmp_path):
+    env_file = _write_env(tmp_path)
+    output_dir = tmp_path / "legacy_full_diagnostics"
+    output_dir.mkdir()
+    _write_state(
+        output_dir,
+        "run3_complete",
+        env_file,
+        legacy_full_diagnostics=True,
+    )
+
+    result = _run(*_resume_args(output_dir, env_file))
+
+    assert result.returncode != 0
+    assert "legacy full_diagnostics sumw2 override" in result.stderr
 
 
 @pytest.mark.parametrize(

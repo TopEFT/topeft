@@ -2092,6 +2092,18 @@ wjets_2018_bkg_dict = {
         "xsecName":     "WJetsToLNu"
     },
 }
+tttx_2018_bkg_dict = {
+    "TTTW_centralUL18": {
+        "path": "/TTTW_TuneCP5_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
+        "histAxisName": "TTTW_centralUL18",
+        "xsecName":     "TTTW_13TeV"
+    },
+    "TTTJ_centralUL18": {
+        "path": "/TTTJ_TuneCP5_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
+        "histAxisName": "TTTJ_centralUL18",
+        "xsecName":     "TTTJ_13TeV"
+    }
+}
 ########### Data ##############
 from collections import defaultdict
 
@@ -2415,10 +2427,11 @@ def main():
     # make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2023BPix",out_dir_central_bkg_2023BPix,on_das=True)
 
 
-    make_jsons_for_dict_of_samples(wjets_2016APV_bkg_dict,"root://cms-xrd-global.cern.ch/","2016APV",out_dir_central_bkg_UL,on_das=True)
+    # make_jsons_for_dict_of_samples(wjets_2016APV_bkg_dict,"root://cms-xrd-global.cern.ch/","2016APV",out_dir_central_bkg_UL,on_das=True)
     # make_jsons_for_dict_of_samples(wjets_2016_bkg_dict,"root://cms-xrd-global.cern.ch/","2016",out_dir_central_bkg_UL,on_das=True)
     # make_jsons_for_dict_of_samples(wjets_2017_bkg_dict,"root://cms-xrd-global.cern.ch/","2017",out_dir_central_bkg_UL,on_das=True)
     # make_jsons_for_dict_of_samples(wjets_2018_bkg_dict,"root://cms-xrd-global.cern.ch/","2018",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(tttx_2018_bkg_dict,"root://cms-xrd-global.cern.ch/","2018",out_dir_central_bkg_UL,on_das=True)
 
     # make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022, "/cms/cephfs/data","2022", out_dir_ND_bkg_2022, on_das=False)
     # make_jsons_for_dict_of_samples(add_tau_bug_fix_dict_2022EE, "/cms/cephfs/data","2022EE", out_dir_ND_bkg_2022EE, on_das=False)
