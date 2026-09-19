@@ -29,7 +29,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import mplhep as hep
 import hist
-from scipy.stats import chi2
 from matplotlib.transforms import Bbox
 import topcoffea.modules.histEFT as tc_histEFT
 import topcoffea.modules.sparseHist as tc_sparseHist
@@ -61,20 +60,6 @@ _VALUES_METHOD_CAPS = {}
 _SYSTEMATICS_SUMMARY_EMITTED = set()
 RATIO_Y_RANGE = (0.0, 2.0)
 BINNING_OUTPUT_MODES = frozenset(("processing", "fitting"))
-SUPPORTED_OUTPUT_FORMATS = ("png", "pdf", "svg")
-DATA_POISSON_CONFIDENCE_LEVEL = 0.6827
-DATA_INTEGER_ABSOLUTE_TOLERANCE = 8 * np.finfo(float).eps
-
-
-def _plotting_numeric_view(histogram):
-    """Return a plotting-only view that does not consume raw-count state."""
-
-    if (
-        isinstance(histogram, tc_sparseHist.SparseHist)
-        and histogram.track_raw_counts
-    ):
-        return histogram.with_raw_counts_unrecorded()
-    return histogram
 
 
 def _mode_bearing_output_path(path, binning_mode):
@@ -86,48 +71,6 @@ def _mode_bearing_output_path(path, binning_mode):
         )
     path_root, path_extension = os.path.splitext(os.fspath(path))
     return f"{path_root}_{binning_mode}{path_extension}"
-
-
-def _normalize_output_formats(output_formats):
-    """Return a unique, ordered tuple of supported figure formats."""
-
-    if output_formats is None:
-        output_formats = ("png",)
-    elif isinstance(output_formats, str):
-        output_formats = (output_formats,)
-
-    normalized_formats = []
-    for output_format in output_formats:
-        normalized_format = str(output_format).lower().lstrip(".")
-        if normalized_format not in SUPPORTED_OUTPUT_FORMATS:
-            raise ValueError(
-                "Unsupported output format {!r}; expected one of: {}.".format(
-                    output_format, ", ".join(SUPPORTED_OUTPUT_FORMATS)
-                )
-            )
-        if normalized_format not in normalized_formats:
-            normalized_formats.append(normalized_format)
-    if not normalized_formats:
-        raise ValueError("At least one output format must be selected.")
-    return tuple(normalized_formats)
-
-
-def _save_figure_formats(
-    fig,
-    path,
-    binning_mode,
-    output_formats=("png",),
-    **savefig_kwargs,
-):
-    """Save one logical figure in each requested format and return its paths."""
-
-    output_root = _mode_bearing_output_path(path, binning_mode)
-    output_paths = []
-    for output_format in _normalize_output_formats(output_formats):
-        output_path = f"{output_root}.{output_format}"
-        fig.savefig(output_path, format=output_format, **savefig_kwargs)
-        output_paths.append(output_path)
-    return tuple(output_paths)
 
 
 def _fast_sparsehist_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
@@ -2224,8 +2167,6 @@ def _apply_plot_binning_view(histogram, variable, exact_channels, binning_mode):
 
     if histogram is None or binning_mode == "processing":
         return histogram
-    if "fitting" not in te_axes_info[variable]:
-        return histogram
     target_edges = resolve_common_axis_edges(
         variable,
         mode=binning_mode,
@@ -2871,7 +2812,6 @@ def _initialize_render_worker(
     verbose,
     rebin_plot_vars=None,
     negative_weight_report=True,
-    output_formats=("png",),
     prepared_payloads=None,
     shared_region_ctx=None,
 ):
@@ -2902,7 +2842,6 @@ def _initialize_render_worker(
         "verbose": bool(verbose),
         "rebin_plot_vars": dict(rebin_plot_vars or {}),
         "negative_weight_report": bool(negative_weight_report),
-        "output_formats": _normalize_output_formats(output_formats),
         "prepared_variables": prepared_variables,
     }
 
@@ -2962,7 +2901,6 @@ def _render_variable_from_worker(task_id, payload):
             variable_payload=variable_payload,
             rebin_plot_vars=ctx["rebin_plot_vars"],
             negative_weight_report=ctx["negative_weight_report"],
-            output_formats=ctx["output_formats"],
         )
     else:
         if not variable_payload:
@@ -3004,7 +2942,6 @@ def _render_variable_from_worker(task_id, payload):
                     available_channels=variable_payload.get("available_channels"),
                     rebin_plot_vars=ctx["rebin_plot_vars"],
                     negative_weight_report=ctx["negative_weight_report"],
-                    output_formats=ctx["output_formats"],
                 )
     return task_id, stat_only, stat_and_syst, html_set, negative_rows
 
@@ -3237,7 +3174,6 @@ def _render_variable(
     variable_payload=None,
     rebin_plot_vars=None,
     negative_weight_report=True,
-    output_formats=("png",),
 ):
     """Render plots for *var_name* and return summary accounting."""
 
@@ -3307,7 +3243,6 @@ def _render_variable(
             available_channels=variable_payload.get("available_channels"),
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
-            output_formats=output_formats,
         )
         stat_only_plots += stat_only
         stat_and_syst_plots += stat_and_syst
@@ -3339,7 +3274,6 @@ def _render_variable_category(
     available_channels=None,
     rebin_plot_vars=None,
     negative_weight_report=True,
-    output_formats=("png",),
 ):
     """Render a single (variable, category) pair and return bookkeeping totals."""
 
@@ -3399,37 +3333,6 @@ def _render_variable_category(
     stat_only_plots = 0
     stat_and_syst_plots = 0
     html_dirs = set()
-
-    years = getattr(region_ctx, "years", None) or ()
-    plot_diagnostic_context = {
-        "region": region_ctx.name,
-        "year_or_run": "-".join(str(year) for year in years),
-        "presentation_mode": region_ctx.channel_output_mode,
-        "binning_mode": region_ctx.binning_mode,
-        "category": category_label,
-        "variable": var_name,
-    }
-
-    def _record_plot_view_diagnostics(figure):
-        for diagnostic in getattr(figure, "_topeft_plot_diagnostics", ()):
-            legacy_row = _make_negative_contribution_row(
-                variable=diagnostic["variable"],
-                channel_or_region=diagnostic["region"],
-                category_if_available=diagnostic["category"],
-                stage="display_clipped_nominal_sm",
-                level="group",
-                process="",
-                group=diagnostic["display_process"],
-                bin_index=diagnostic["bin_index"],
-                bin_low=diagnostic["bin_low"],
-                bin_high=diagnostic["bin_high"],
-                yield_value=diagnostic["raw_signed_yield"],
-                sumw2_value=diagnostic["variance"],
-                total_mc_yield=diagnostic["displayed_total_after_clip"],
-                data_yield=np.nan,
-            )
-            legacy_row.update(diagnostic)
-            negative_rows.append(legacy_row)
 
     def _warn_undrawable_plot(
         *,
@@ -3727,7 +3630,6 @@ def _render_variable_category(
                 "log_scale": stacked_log_y,
                 "style": region_ctx.stacked_ratio_style,
                 "uncertainty_mode": uncertainty_mode,
-                "diagnostic_context": plot_diagnostic_context,
             }
             rebin_report = _prepare_plot_rebin_and_negative_rows(
                 variable=var_name,
@@ -3766,7 +3668,6 @@ def _render_variable_category(
                     data_empty=data_empty,
                 )
                 return _empty_render_result()
-            _record_plot_view_diagnostics(fig)
         title = category_label + "_" + var_name
         if unit_norm_bool:
             title = title + "_unitnorm"
@@ -3781,11 +3682,11 @@ def _render_variable_category(
         )
         if isinstance(fig, dict):
             combined_fig = fig["combined"]
-            _save_figure_formats(
-                combined_fig,
-                os.path.join(save_dir_path_tmp, title),
-                region_ctx.binning_mode,
-                output_formats,
+            combined_fig.savefig(
+                _mode_bearing_output_path(
+                    os.path.join(save_dir_path_tmp, title),
+                    region_ctx.binning_mode,
+                ),
                 bbox_inches="tight",
                 pad_inches=0.05,
             )
@@ -3794,20 +3695,20 @@ def _render_variable_category(
                 if key == "combined":
                     continue
                 suffix = suffix_map.get(key, f"_{key}")
-                _save_figure_formats(
-                    panel_fig,
-                    os.path.join(save_dir_path_tmp, f"{title}{suffix}"),
-                    region_ctx.binning_mode,
-                    output_formats,
+                panel_fig.savefig(
+                    _mode_bearing_output_path(
+                        os.path.join(save_dir_path_tmp, f"{title}{suffix}"),
+                        region_ctx.binning_mode,
+                    ),
                     bbox_inches="tight",
                     pad_inches=0.05,
                 )
         else:
-            _save_figure_formats(
-                fig,
-                os.path.join(save_dir_path_tmp, title),
-                region_ctx.binning_mode,
-                output_formats,
+            fig.savefig(
+                _mode_bearing_output_path(
+                    os.path.join(save_dir_path_tmp, title),
+                    region_ctx.binning_mode,
+                ),
                 bbox_inches="tight",
                 pad_inches=0.05,
             )
@@ -4018,7 +3919,6 @@ def _render_variable_category(
             "log_scale": stacked_log_y,
             "style": region_ctx.stacked_ratio_style,
             "uncertainty_mode": uncertainty_mode,
-            "diagnostic_context": plot_diagnostic_context,
         }
         rebin_report = _prepare_plot_rebin_and_negative_rows(
             variable=var_name,
@@ -4052,15 +3952,11 @@ def _render_variable_category(
                 data_empty=data_empty,
             )
             return _empty_render_result()
-        _record_plot_view_diagnostics(fig)
-        _save_figure_formats(
-            fig,
-            os.path.join(save_dir_path_tmp, title),
+        save_path = _mode_bearing_output_path(
+            os.path.join(save_dir_path_tmp, f"{title}.png"),
             region_ctx.binning_mode,
-            output_formats,
-            bbox_inches="tight",
-            pad_inches=0.05,
         )
+        fig.savefig(save_path, bbox_inches="tight", pad_inches=0.05)
         _close_figure_payload(fig)
         has_syst_inputs = any(
             err is not None
@@ -4965,340 +4861,127 @@ def _normalize_histograms(
     }
 
 
-def _prepare_nominal_sm_plot_view(
-    grouped_centrals,
-    *,
-    grouped_variances=None,
-    process_names=None,
-    bin_edges=None,
-    diagnostic_context=None,
+def _prepare_log_scaled_stacks(
+    plot_arrays,
+    stacked_arrays,
+    var,
+    log_scale_requested,
 ):
-    """Build the transient nominal-SM stack view without mutating its inputs."""
+    """Adjust stacked MC arrays to support log scaling while preserving warnings and fallbacks."""
 
-    raw_matrix = np.asarray(grouped_centrals, dtype=float)
-    if raw_matrix.ndim == 1:
-        raw_matrix = raw_matrix[np.newaxis, :]
-    if raw_matrix.ndim != 2:
-        raise ValueError(
-            "Grouped nominal central values must form a process-by-bin matrix."
-        )
-    raw_matrix = raw_matrix.copy()
+    log_axis_enabled = False
+    log_y_baseline = None
+    adjusted_mc_totals = None
 
-    n_processes, n_bins = raw_matrix.shape
-    if process_names is None:
-        process_names = tuple(str(index) for index in range(n_processes))
+    stacked_matrix = np.asarray(plot_arrays, dtype=float)
+    if stacked_matrix.ndim == 1:
+        if plot_arrays:
+            stacked_matrix = stacked_matrix[np.newaxis, :]
+        else:
+            stacked_matrix = stacked_matrix.reshape(0, 0)
+
+    if stacked_matrix.size:
+        totals_for_plot = np.sum(stacked_matrix, axis=0)
     else:
-        process_names = tuple(process_names)
-    if len(process_names) != n_processes:
-        raise ValueError("The displayed-process labels do not match the central matrix.")
-
-    if grouped_variances is None:
-        variance_matrix = None
-        total_variance = None
-    else:
-        variance_matrix = np.asarray(grouped_variances, dtype=float).copy()
-        if variance_matrix.ndim == 1:
-            variance_matrix = variance_matrix[np.newaxis, :]
-        if variance_matrix.shape != raw_matrix.shape:
-            raise ValueError("The grouped sumw2 matrix does not match the central matrix.")
-        total_variance = np.sum(variance_matrix, axis=0)
-
-    if bin_edges is None:
-        edges = np.arange(n_bins + 1, dtype=float)
-    else:
-        edges = np.asarray(bin_edges, dtype=float)
-        if edges.size != n_bins + 1:
-            raise ValueError("The plot bin edges do not match the grouped central matrix.")
-
-    plot_matrix = np.maximum(raw_matrix, 0.0)
-    displayed_total = np.sum(plot_matrix, axis=0)
-    context = dict(diagnostic_context or {})
-    context.setdefault("variable", "")
-    context.setdefault("binning_mode", "")
-    diagnostics = []
-    for process_index, bin_index in np.argwhere(raw_matrix < 0):
-        variance = (
-            np.nan
-            if variance_matrix is None
-            else float(variance_matrix[process_index, bin_index])
-        )
-        diagnostics.append(
-            {
-                "region": context.get("region", ""),
-                "year_or_run": context.get("year_or_run", ""),
-                "presentation_mode": context.get("presentation_mode", ""),
-                "binning_mode": context.get("binning_mode", ""),
-                "category": context.get("category", ""),
-                "variable": context.get("variable", ""),
-                "bin_index": int(bin_index),
-                "bin_low": float(edges[bin_index]),
-                "bin_high": float(edges[bin_index + 1]),
-                "display_process": process_names[process_index],
-                "raw_signed_yield": float(raw_matrix[process_index, bin_index]),
-                "plotted_yield": 0.0,
-                "variance": variance,
-                "displayed_total_after_clip": float(displayed_total[bin_index]),
-                "ratio_denominator": float(displayed_total[bin_index]),
-            }
+        totals_for_plot = (
+            np.zeros_like(stacked_arrays[0], dtype=float)
+            if stacked_arrays
+            else np.zeros(0, dtype=float)
         )
 
-    return {
-        "raw_grouped_centrals": OrderedDict(
-            (name, raw_matrix[index].copy())
-            for index, name in enumerate(process_names)
-        ),
-        "plot_grouped_centrals": OrderedDict(
-            (name, plot_matrix[index].copy())
-            for index, name in enumerate(process_names)
-        ),
-        "grouped_variances": None
-        if variance_matrix is None
-        else OrderedDict(
-            (name, variance_matrix[index].copy())
-            for index, name in enumerate(process_names)
-        ),
-        "displayed_total": displayed_total,
-        "total_variance": total_variance,
-        "clipped_negative_diagnostics": diagnostics,
-        "zero_total_mask": displayed_total == 0,
-    }
-
-
-def _prepare_log_scaled_stacks(plot_arrays, var, log_scale_requested):
-    """Resolve log eligibility without changing displayed central values."""
-
-    plot_arrays = [np.asarray(values, dtype=float).copy() for values in plot_arrays]
-    if not log_scale_requested:
-        return plot_arrays, False, False, None, None
-
-    if plot_arrays:
-        displayed_total = np.sum(np.asarray(plot_arrays, dtype=float), axis=0)
-    else:
-        displayed_total = np.zeros(0, dtype=float)
-    positive_totals = displayed_total[displayed_total > 0]
+    positive_totals = totals_for_plot[totals_for_plot > 0]
+    epsilon = max(np.min(positive_totals) * 0.01, 1e-6) if positive_totals.size else 1e-6
+    nonpositive_mask = totals_for_plot <= 0
+    if np.any(nonpositive_mask) and stacked_matrix.size:
+        warnings.warn(
+            "Stacked MC totals for '%s' contain non-positive bins; "
+            "lifting them slightly to enable log scaling." % var,
+            RuntimeWarning,
+        )
+        divisor = max(stacked_matrix.shape[0], 1)
+        stacked_matrix[:, nonpositive_mask] = np.where(
+            stacked_matrix[:, nonpositive_mask] > 0,
+            stacked_matrix[:, nonpositive_mask],
+            epsilon / divisor,
+        )
+        totals_for_plot = np.sum(stacked_matrix, axis=0)
+    positive_totals = totals_for_plot[totals_for_plot > 0]
+    if positive_totals.size:
+        epsilon = max(np.min(positive_totals) * 0.01, epsilon)
     if positive_totals.size == 0:
         logger.warning(
-            "Unable to apply log scaling to '%s' stacked panel: the displayed clipped MC total is zero in every bin; falling back to linear scale.",
+            "Unable to apply log scaling to '%s' stacked panel: no positive MC totals remain after adjustment.",
             var,
         )
-        return plot_arrays, False, False, None, displayed_total
-
-    renderer_epsilon = max(float(np.min(positive_totals)) * 0.01, 1e-6)
-    return plot_arrays, True, True, renderer_epsilon, displayed_total
-
-
-def _configure_main_y_formatter(
-    ax,
-    *,
-    log_axis_enabled,
-    scientific_threshold=100.0,
-    formatter_config=None,
-):
-    """Apply the accepted final-visible-scale formatter to the main y axis."""
-
-    if log_axis_enabled:
-        ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext())
-        return {
-            "scientific_formatter_used": False,
-            "scientific_exponent": None,
-            "final_visible_magnitude": None,
-        }
-
-    ymin, ymax = ax.get_ylim()
-    final_visible_magnitude = max(abs(float(ymin)), abs(float(ymax)))
-    use_math_text = True
-    if isinstance(formatter_config, Mapping):
-        use_math_text = bool(formatter_config.get("useMathText", True))
-    formatter = ticker.ScalarFormatter(useMathText=use_math_text)
-    formatter.set_useOffset(False)
-    use_scientific = final_visible_magnitude >= float(scientific_threshold)
-    scientific_exponent = None
-    if use_scientific:
-        scientific_exponent = int(math.floor(math.log10(final_visible_magnitude)))
-        formatter.set_scientific(True)
-        formatter.set_powerlimits((scientific_exponent, scientific_exponent))
+        log_scale_requested = False
+        plot_arrays = [arr.copy() for arr in stacked_arrays]
     else:
-        formatter.set_scientific(False)
-    ax.yaxis.set_major_formatter(formatter)
-    return {
-        "scientific_formatter_used": use_scientific,
-        "scientific_exponent": scientific_exponent,
-        "final_visible_magnitude": final_visible_magnitude,
-    }
-
-
-def _configure_ratio_y_formatter(rax):
-    """Keep the ratio panel in ordinary decimal notation."""
-
-    formatter = ticker.ScalarFormatter(useMathText=False)
-    formatter.set_scientific(False)
-    formatter.set_useOffset(False)
-    rax.yaxis.set_major_formatter(formatter)
-    return formatter
-
-
-def _garwood_data_intervals(
-    data_counts,
-    *,
-    confidence_level=DATA_POISSON_CONFIDENCE_LEVEL,
-):
-    """Return exact central Neyman/Garwood intervals for Data counts."""
-
-    counts = np.asarray(data_counts, dtype=float)
-    if not np.all(np.isfinite(counts)):
-        raise ValueError("Data counts must be finite for Poisson intervals.")
-    if np.any(counts < 0):
-        raise ValueError("Data counts must be nonnegative for Poisson intervals.")
-
-    nearest_integers = np.rint(counts)
-    integer_valued = np.isclose(
-        counts,
-        nearest_integers,
-        rtol=0.0,
-        atol=DATA_INTEGER_ABSOLUTE_TOLERANCE,
-    )
-    if not np.all(integer_valued):
-        invalid = counts[~integer_valued]
-        raise ValueError(
-            "Data counts must be integer-valued for Poisson intervals; "
-            f"observed noninteger values {invalid.tolist()}."
-        )
-    if not 0.0 < confidence_level < 1.0:
-        raise ValueError("The Poisson confidence level must lie strictly between 0 and 1.")
-
-    integer_counts = nearest_integers.astype(np.int64)
-    alpha = 1.0 - float(confidence_level)
-    lower_endpoints = np.zeros_like(counts, dtype=float)
-    positive_mask = integer_counts > 0
-    lower_endpoints[positive_mask] = 0.5 * chi2.ppf(
-        alpha / 2.0,
-        2 * integer_counts[positive_mask],
-    )
-    upper_endpoints = 0.5 * chi2.ppf(
-        1.0 - alpha / 2.0,
-        2 * (integer_counts + 1),
-    )
-    return {
-        "central_counts": counts.copy(),
-        "lower_endpoints": lower_endpoints,
-        "upper_endpoints": upper_endpoints,
-        "lower_errors": counts - lower_endpoints,
-        "upper_errors": upper_endpoints - counts,
-        "zero_count_mask": integer_counts == 0,
-        "confidence_level": float(confidence_level),
-    }
-
-
-def _draw_data_main_panel(
-    ax,
-    data_counts,
-    bins,
-    *,
-    log_axis_enabled,
-    renderer_epsilon,
-    show_data_errors,
-    density,
-):
-    """Draw Data with Garwood errors and log-safe zero-count upper limits."""
-
-    intervals = _garwood_data_intervals(data_counts)
-    data_error_kwargs = dict(DATA_ERR_OPS)
-    zero_count_mask = intervals["zero_count_mask"]
-    upper_limit_artists = []
-    upper_limit_anchors = np.asarray([], dtype=float)
-    upper_limit_render_floor = None
-
-    if not show_data_errors:
-        hep.histplot(
-            intervals["central_counts"],
-            ax=ax,
-            bins=bins,
-            stack=False,
-            density=density,
-            label="Data",
-            histtype="errorbar",
-            yerr=False,
-            **data_error_kwargs,
-        )
-    elif not log_axis_enabled:
-        hep.histplot(
-            intervals["central_counts"],
-            ax=ax,
-            bins=bins,
-            stack=False,
-            density=density,
-            label="Data",
-            histtype="errorbar",
-            yerr=np.vstack(
-                (intervals["lower_errors"], intervals["upper_errors"])
-            ),
-            **data_error_kwargs,
-        )
-    else:
-        positive_counts = intervals["central_counts"].copy()
-        positive_counts[zero_count_mask] = np.nan
-        positive_errors = np.vstack(
-            (intervals["lower_errors"], intervals["upper_errors"])
-        )
-        positive_errors[:, zero_count_mask] = np.nan
-        hep.histplot(
-            positive_counts,
-            ax=ax,
-            bins=bins,
-            stack=False,
-            density=density,
-            label="Data",
-            histtype="errorbar",
-            yerr=positive_errors,
-            **data_error_kwargs,
-        )
-
-        if np.any(zero_count_mask):
-            upper_limit_anchors = intervals["upper_endpoints"][zero_count_mask]
-            minimum_anchor = float(np.min(upper_limit_anchors))
-            candidate_floor = minimum_anchor * 0.25
-            if renderer_epsilon is None:
-                upper_limit_render_floor = candidate_floor
+        divisor = max(stacked_matrix.shape[0], 1)
+        per_group_floor = epsilon / divisor
+        for idx in range(stacked_matrix.shape[1]):
+            column = stacked_matrix[:, idx]
+            neg_mask = column <= 0
+            if not np.any(neg_mask):
+                continue
+            pos_mask = column > 0
+            if not np.any(pos_mask):
+                logger.warning(
+                    "Unable to apply log scaling to '%s' stacked panel: bin %d has no positive MC contributions after adjustment.",
+                    var,
+                    idx,
+                )
+                log_scale_requested = False
+                break
+            lifted_negatives = np.full(np.count_nonzero(neg_mask), per_group_floor)
+            difference = np.sum(lifted_negatives - column[neg_mask])
+            positive_sum = np.sum(column[pos_mask])
+            if positive_sum <= difference:
+                logger.warning(
+                    "Unable to apply log scaling to '%s' stacked panel: insufficient positive yield to offset negative contributions in bin %d.",
+                    var,
+                    idx,
+                )
+                log_scale_requested = False
+                break
+            scale = (positive_sum - difference) / positive_sum
+            adjusted_column = column.copy()
+            adjusted_column[neg_mask] = per_group_floor
+            adjusted_column[pos_mask] = column[pos_mask] * scale
+            if np.any(adjusted_column[pos_mask] <= 0):
+                logger.warning(
+                    "Unable to apply log scaling to '%s' stacked panel: rescaled positive contributions became non-positivein bin %d.",
+                    var,
+                    idx,
+                )
+                log_scale_requested = False
+                break
+            stacked_matrix[:, idx] = adjusted_column
+        if log_scale_requested:
+            plot_arrays = [stacked_matrix[i, :] for i in range(stacked_matrix.shape[0])]
+            totals_after_adjustment = np.sum(stacked_matrix, axis=0)
+            positive_totals_after = totals_after_adjustment[totals_after_adjustment > 0]
+            if positive_totals_after.size == 0:
+                logger.warning(
+                    "Unable to apply log scaling to '%s' stacked panel: adjustments removed all positive totals.",
+                    var,
+                )
+                log_scale_requested = False
+                plot_arrays = [arr.copy() for arr in stacked_arrays]
             else:
-                upper_limit_render_floor = min(
-                    float(renderer_epsilon), candidate_floor
-                )
-            upper_limit_render_floor = max(
-                upper_limit_render_floor, np.nextafter(0.0, 1.0)
-            )
-            current_bottom = ax.get_ylim()[0]
-            if current_bottom > upper_limit_render_floor:
-                ax.set_ylim(bottom=upper_limit_render_floor)
+                min_positive = np.min(positive_totals_after)
+                log_y_baseline = max(min_positive * 0.5, 1e-6)
+                adjusted_mc_totals = totals_after_adjustment
+                log_axis_enabled = True
+    if not log_scale_requested:
+        plot_arrays = [arr.copy() for arr in stacked_arrays]
 
-            centers = 0.5 * (np.asarray(bins[:-1]) + np.asarray(bins[1:]))
-            zero_centers = centers[zero_count_mask]
-            downward_extent = upper_limit_anchors - upper_limit_render_floor
-            error_kwargs = {
-                "color": data_error_kwargs.get("color", "k"),
-                "elinewidth": data_error_kwargs.get("elinewidth", 1),
-                "linestyle": "none",
-                "fmt": "none",
-                "uplims": True,
-                "capsize": 2.5,
-                "zorder": 4,
-            }
-            upper_limit_artists.append(
-                ax.errorbar(
-                    zero_centers,
-                    upper_limit_anchors,
-                    yerr=np.vstack(
-                        (downward_extent, np.zeros_like(downward_extent))
-                    ),
-                    **error_kwargs,
-                )
-            )
-
-    return {
-        "intervals": intervals,
-        "upper_limit_artists": upper_limit_artists,
-        "upper_limit_anchors": upper_limit_anchors,
-        "upper_limit_render_floor": upper_limit_render_floor,
-    }
+    return (
+        plot_arrays,
+        log_scale_requested,
+        log_axis_enabled,
+        log_y_baseline,
+        adjusted_mc_totals,
+    )
 
 
 def _draw_stacked_panel(
@@ -5322,7 +5005,6 @@ def _draw_stacked_panel(
     show_data_errors=True,
     lumi_components=None,
     scope_label=None,
-    diagnostic_context=None,
 ):
     """Render stacked MC content, optionally with data and ratio subpanels."""
 
@@ -5352,7 +5034,9 @@ def _draw_stacked_panel(
     plt.sca(ax)
     cms_style = _style_get(style, ("cms",), {})
     cms_fontsize = cms_style.get("fontsize", 18.0)
-    cms_label = None
+    cms_label = _draw_cms_label(
+        ax, lumitag, comtag, lumi_components, fontsize=cms_fontsize
+    )
     _draw_mixed_energy_label(
         ax, lumi_components, scope_label, fontsize=cms_fontsize
     )
@@ -5518,6 +5202,7 @@ def _draw_stacked_panel(
 
     mc_vals = _get_grouped_vals(h_mc, grouping)
     stacked_arrays = [np.asarray(values, dtype=float) for values in mc_vals.values()]
+    plot_arrays = [arr.copy() for arr in stacked_arrays]
     mc_sumw2_vals = {}
     if h_mc_sumw2 is not None:
         try:
@@ -5559,21 +5244,9 @@ def _draw_stacked_panel(
 
             mc_sumw2_vals[proc_name] = grouped_vals + fallback_vals
 
-    grouped_variances = None
-    if h_mc_sumw2 is not None:
-        grouped_variances = [mc_sumw2_vals[name] for name in mc_vals]
-    plot_view = _prepare_nominal_sm_plot_view(
-        stacked_arrays,
-        grouped_variances=grouped_variances,
-        process_names=tuple(mc_vals),
-        bin_edges=bins,
-        diagnostic_context=diagnostic_context,
-    )
-    plot_arrays = list(plot_view["plot_grouped_centrals"].values())
-    displayed_mc_totals = plot_view["displayed_total"]
-
     log_scale_requested = bool(log_scale)
     log_y_baseline = None
+    adjusted_mc_totals = None
     log_axis_enabled = False
     if log_scale_requested and plot_arrays:
         (
@@ -5581,9 +5254,10 @@ def _draw_stacked_panel(
             log_scale_requested,
             log_axis_enabled,
             log_y_baseline,
-            displayed_mc_totals,
+            adjusted_mc_totals,
         ) = _prepare_log_scaled_stacks(
             plot_arrays,
+            stacked_arrays,
             var,
             log_scale_requested,
         )
@@ -5593,6 +5267,11 @@ def _draw_stacked_panel(
             var,
         )
         log_scale_requested = False
+
+    if log_scale_requested and plot_arrays:
+        log_axis_enabled = True
+        if adjusted_mc_totals is None:
+            adjusted_mc_totals = np.sum(plot_arrays, axis=0)
 
     if log_axis_enabled:
         ax.set_yscale("log", nonpositive="clip")
@@ -5612,61 +5291,48 @@ def _draw_stacked_panel(
 
     ratio_vals = None
     ratio_yerr = None
-    ratio_interval_endpoints = None
-    data_rendering = None
-    mc_totals = displayed_mc_totals
+    mc_totals = summed_mc_values
     if include_ratio_panel:
-        data_rendering = _draw_data_main_panel(
-            ax,
-            summed_data_values,
-            bins,
-            log_axis_enabled=log_axis_enabled,
-            renderer_epsilon=log_y_baseline,
-            show_data_errors=show_data_errors,
-            density=unit_norm_bool,
+        data_error_kwargs = dict(DATA_ERR_OPS)
+        if not show_data_errors:
+            data_error_kwargs["yerr"] = False
+        hep.histplot(
+           summed_data_values,
+           ax=ax,
+           bins=bins,
+           stack=False,
+           density=unit_norm_bool,
+           label="Data",
+           histtype="errorbar",
+           **data_error_kwargs,
         )
 
-        data_intervals = data_rendering["intervals"]
-        data_vals = data_intervals["central_counts"]
-        mc_vals_total = displayed_mc_totals
+        data_vals = summed_data_values
+        mc_vals_total = summed_mc_values
 
         ratio_vals = _safe_divide(
             data_vals,
             mc_vals_total,
             default=np.nan,
+            zero_over_zero=1.0,
         )
         if show_data_errors:
-            ratio_lower_endpoints = _safe_divide(
-                data_intervals["lower_endpoints"],
+            ratio_yerr = _safe_divide(
+                np.sqrt(data_vals),
                 mc_vals_total,
-                default=np.nan,
+                default=0.0,
             )
-            ratio_upper_endpoints = _safe_divide(
-                data_intervals["upper_endpoints"],
-                mc_vals_total,
-                default=np.nan,
-            )
-            ratio_yerr = np.vstack(
-                (
-                    ratio_vals - ratio_lower_endpoints,
-                    ratio_upper_endpoints - ratio_vals,
-                )
-            )
-            ratio_interval_endpoints = {
-                "lower": ratio_lower_endpoints,
-                "upper": ratio_upper_endpoints,
-            }
+            ratio_yerr[mc_vals_total == 0] = np.nan
 
-        zero_denominator_mask = mc_vals_total == 0
-        if np.any(zero_denominator_mask):
+        mc_nonpositive_mask = mc_vals_total <= 0
+        zero_over_zero_mask = (mc_vals_total == 0) & (data_vals == 0)
+        mask_for_nan = mc_nonpositive_mask & ~zero_over_zero_mask
+        if np.any(mask_for_nan):
             ratio_vals = ratio_vals.astype(float, copy=True)
-            ratio_vals[zero_denominator_mask] = np.nan
+            ratio_vals[mask_for_nan] = np.nan
             if ratio_yerr is not None:
                 ratio_yerr = ratio_yerr.astype(float, copy=True)
-                ratio_yerr[:, zero_denominator_mask] = np.nan
-            if ratio_interval_endpoints is not None:
-                ratio_interval_endpoints["lower"][zero_denominator_mask] = np.nan
-                ratio_interval_endpoints["upper"][zero_denominator_mask] = np.nan
+                ratio_yerr[mask_for_nan] = np.nan
 
         ratio_error_kwargs = dict(DATA_ERR_OPS)
         hep.histplot(
@@ -5690,15 +5356,11 @@ def _draw_stacked_panel(
         "cms_label": cms_label,
         "mc_sumw2_vals": mc_sumw2_vals,
         "mc_totals": mc_totals,
-        "adjusted_mc_totals": displayed_mc_totals,
-        "plot_view": plot_view,
+        "adjusted_mc_totals": adjusted_mc_totals,
         "log_axis_enabled": log_axis_enabled,
         "log_y_baseline": log_y_baseline,
-        "renderer_epsilon": log_y_baseline,
-        "data_rendering": data_rendering,
         "ratio_values": ratio_vals,
         "ratio_errors": ratio_yerr,
-        "ratio_interval_endpoints": ratio_interval_endpoints,
     }
 
 
@@ -5721,7 +5383,6 @@ def _draw_stacked_panel_only(
     style=None,
     lumi_components=None,
     scope_label=None,
-    diagnostic_context=None,
 ):
     return _draw_stacked_panel(
         h_mc,
@@ -5742,7 +5403,6 @@ def _draw_stacked_panel_only(
         include_ratio_panel=False,
         lumi_components=lumi_components,
         scope_label=scope_label,
-        diagnostic_context=diagnostic_context,
     )
 
 
@@ -5762,7 +5422,7 @@ def _compute_uncertainty_bands(
     err_ratio_m_syst,
     syst_err,
     *,
-    raw_mc_totals=None,
+    display_mc_totals=None,
     log_axis_enabled=False,
     log_y_baseline=None,
     style=None,
@@ -5824,8 +5484,8 @@ def _compute_uncertainty_bands(
         return np.append(arr, arr[-1])
 
     mc_stat_up = mc_totals + mc_stat_unc
-    mc_stat_down = mc_totals - mc_stat_unc
-    stat_fraction = _safe_divide(mc_stat_unc, mc_totals, default=np.nan)
+    mc_stat_down = np.clip(mc_totals - mc_stat_unc, a_min=0, a_max=None)
+    stat_fraction = _safe_divide(mc_stat_unc, mc_totals, default=0.0)
     ratio_stat_up = 1 + stat_fraction
     ratio_stat_down = 1 - stat_fraction
 
@@ -5864,57 +5524,8 @@ def _compute_uncertainty_bands(
         ratio_syst_up = _trim_overflow(ratio_syst_up)
         ratio_syst_down = _trim_overflow(ratio_syst_down)
 
-        def _match_ratio_length(arr):
-            if arr is None or np.ndim(arr) == 0 or arr.shape[0] == mc_totals.shape[0]:
-                return arr
-            matched = np.full(mc_totals.shape, np.nan, dtype=float)
-            copy_size = min(arr.shape[0], matched.shape[0])
-            matched[:copy_size] = arr[:copy_size]
-            return matched
-
-        ratio_syst_up = _match_ratio_length(ratio_syst_up)
-        ratio_syst_down = _match_ratio_length(ratio_syst_down)
-        if has_ratio_axis and ratio_syst_up is not None:
-            ratio_syst_up = np.where(mc_totals == 0, np.nan, ratio_syst_up)
-        if has_ratio_axis and ratio_syst_down is not None:
-            ratio_syst_down = np.where(mc_totals == 0, np.nan, ratio_syst_down)
-
-        if raw_mc_totals is None:
-            systematic_reference_total = np.asarray(mc_totals, dtype=float)
-        else:
-            systematic_reference_total = _trim_overflow(raw_mc_totals)
-            systematic_reference_total = np.asarray(
-                systematic_reference_total, dtype=float
-            )
-            if systematic_reference_total.shape != mc_totals.shape:
-                raise ValueError(
-                    "Uncertainty-band systematic reference and displayed MC total "
-                    "shapes differ: "
-                    f"systematic_reference_total.shape="
-                    f"{systematic_reference_total.shape}, "
-                    f"mc_totals.shape={mc_totals.shape}. "
-                    "Silent truncation/padding is forbidden."
-                )
-
-        # Systematic endpoints are produced around the signed nominal total.
-        # Preserve their excursions, then recenter those excursions on the
-        # plot-only total after negative process-bin clipping.
-        syst_up_diff = np.clip(
-            syst_up - systematic_reference_total, a_min=0, a_max=None
-        )
-        syst_down_diff = np.clip(
-            systematic_reference_total - syst_down, a_min=0, a_max=None
-        )
-        displayed_syst_up = mc_totals + syst_up_diff
-        displayed_syst_down = np.clip(
-            mc_totals - syst_down_diff, a_min=0, a_max=None
-        )
-        ratio_syst_up = 1 + _safe_divide(
-            syst_up_diff, mc_totals, default=np.nan
-        )
-        ratio_syst_down = 1 - _safe_divide(
-            syst_down_diff, mc_totals, default=np.nan
-        )
+        syst_up_diff = np.clip(syst_up - mc_totals, a_min=0, a_max=None)
+        syst_down_diff = np.clip(mc_totals - syst_down, a_min=0, a_max=None)
 
         total_unc_up = np.sqrt(mc_stat_unc**2 + syst_up_diff**2)
         total_unc_down = np.sqrt(mc_stat_unc**2 + syst_down_diff**2)
@@ -5924,8 +5535,8 @@ def _compute_uncertainty_bands(
             np.clip(mc_totals - total_unc_down, a_min=0, a_max=None)
         )
 
-        total_up_fraction = _safe_divide(total_unc_up, mc_totals, default=np.nan)
-        total_down_fraction = _safe_divide(total_unc_down, mc_totals, default=np.nan)
+        total_up_fraction = _safe_divide(total_unc_up, mc_totals, default=0.0)
+        total_down_fraction = _safe_divide(total_unc_down, mc_totals, default=0.0)
         ratio_total_up = 1 + total_up_fraction
         ratio_total_down = 1 - total_down_fraction
         ratio_total_band_up = _append_last(
@@ -5937,8 +5548,8 @@ def _compute_uncertainty_bands(
 
         ratio_syst_band_up = _append_last(ratio_syst_up)
         ratio_syst_band_down = _append_last(ratio_syst_down)
-        mc_syst_band_up = _append_last(displayed_syst_up)
-        mc_syst_band_down = _append_last(displayed_syst_down)
+        mc_syst_band_up = _append_last(np.clip(syst_up, a_min=0, a_max=None))
+        mc_syst_band_down = _append_last(np.clip(syst_down, a_min=0, a_max=None))
     else:
         ratio_syst_band_up = ratio_syst_band_down = None
         mc_syst_band_up = mc_syst_band_down = None
@@ -5950,12 +5561,19 @@ def _compute_uncertainty_bands(
     ratio_band_handles = []
     main_band_handles = []
 
+    if display_mc_totals is None:
+        display_mc_totals = mc_totals
+
+    display_mc_totals_appended = _append_last(display_mc_totals)
+
     def _ensure_log_safe(arr):
         if arr is None or not log_axis_enabled:
             return arr
         baseline = log_y_baseline if log_y_baseline is not None else 1e-6
         safe = np.asarray(arr, dtype=float)
-        return np.clip(safe, a_min=baseline, a_max=None)
+        safe = np.clip(safe, a_min=baseline, a_max=None)
+        reference = np.clip(display_mc_totals_appended, a_min=baseline, a_max=None)
+        return np.maximum(safe, reference)
 
     if band_mode == "syst" and has_syst_arrays:
         if mc_syst_band_up is not None and mc_syst_band_down is not None:
@@ -6074,18 +5692,6 @@ def _compute_uncertainty_bands(
         "ratio_syst_band_down": ratio_syst_band_down,
         "ratio_total_band_up": ratio_total_band_up,
         "ratio_total_band_down": ratio_total_band_down,
-        "mc_stat_uncertainty": mc_stat_unc,
-        "mc_stat_band_up_physical": mc_stat_up,
-        "mc_stat_band_down_physical": mc_stat_down,
-        "mc_total_band_up_physical": None
-        if mc_total_band_up is None
-        else mc_total_band_up[:-1],
-        "mc_total_band_down_physical": None
-        if mc_total_band_down is None
-        else mc_total_band_down[:-1],
-        "systematic_reference_total": None
-        if not has_main_syst_arrays
-        else systematic_reference_total,
     }
 
 
@@ -6787,12 +6393,8 @@ class RegionContext(object):
         self.channel_output_mode = str(channel_output_mode or "merged")
 
 
-def _format_decimal_string(value, *, significant_figures=None):
-    """Format a Decimal without scientific notation for a plot label."""
+def _format_decimal_string(value):
     normalized = value.normalize()
-    if significant_figures is not None and normalized:
-        quantize_exponent = normalized.adjusted() - int(significant_figures) + 1
-        normalized = normalized.quantize(Decimal(f"1e{quantize_exponent}"))
     # Decimal.normalize() may produce scientific notation for integers; format
     # explicitly to keep plain strings such as "101.3".
     formatted = format(normalized, "f")
@@ -6827,15 +6429,8 @@ def _resolve_lumi_components(year_tokens):
             + ", ".join(sorted(set(missing_metadata)))
         )
 
-    aggregate_scope = _resolve_year_scope_label(year_tokens)
-    significant_figures = 3 if aggregate_scope is not None else None
     return tuple(
-        (
-            _format_decimal_string(
-                lumi, significant_figures=significant_figures
-            ),
-            comtag,
-        )
+        (_format_decimal_string(lumi), comtag)
         for comtag, lumi in lumi_by_com.items()
     )
 
@@ -6888,67 +6483,11 @@ def _draw_mixed_energy_label(ax, lumi_components, scope_label, *, fontsize):
     )
 
 
-def _draw_cms_label(
-    ax,
-    lumitag,
-    comtag,
-    lumi_components,
-    *,
-    fontsize,
-):
+def _draw_cms_label(ax, lumitag, comtag, lumi_components, *, fontsize):
     """Draw the standard CMS label without a misleading default energy tag."""
-    status_kwargs = {"data": True, "label": "Preliminary"}
     if len(lumi_components or ()) > 1:
-        return hep.cms.label(
-            ax=ax, rlabel="", fontsize=fontsize, **status_kwargs
-        )
-    return hep.cms.label(
-        ax=ax,
-        lumi=lumitag,
-        com=comtag,
-        fontsize=fontsize,
-        **status_kwargs,
-    )
-
-
-def _separate_cms_label_from_y_offset(
-    ax, cms_label, *, minimum_gap_points=4.0
-):
-    """Shift CMS text right only when it overlaps the y-axis multiplier."""
-    offset_text = ax.yaxis.offsetText
-    if not offset_text.get_text() or cms_label is None:
-        return False
-
-    cms_artists = (
-        cms_label if isinstance(cms_label, (list, tuple)) else (cms_label,)
-    )
-    fig = ax.figure
-    renderer = fig.canvas.get_renderer()
-    cms_bboxes = [
-        artist.get_window_extent(renderer)
-        for artist in cms_artists
-        if artist.get_visible() and artist.get_text()
-    ]
-    if not cms_bboxes:
-        return False
-
-    cms_bbox = Bbox.union(cms_bboxes)
-    offset_bbox = offset_text.get_window_extent(renderer)
-    minimum_gap_pixels = minimum_gap_points * fig.dpi / 72.0
-    required_shift_pixels = offset_bbox.x1 + minimum_gap_pixels - cms_bbox.x0
-    if required_shift_pixels <= 0:
-        return False
-
-    for artist in cms_artists:
-        artist.set_transform(
-            mpl.transforms.offset_copy(
-                artist.get_transform(),
-                fig=fig,
-                x=required_shift_pixels / fig.dpi,
-                units="inches",
-            )
-        )
-    return True
+        return hep.cms.label(ax=ax, rlabel="", fontsize=fontsize)
+    return hep.cms.label(ax=ax, lumi=lumitag, com=comtag, fontsize=fontsize)
 
 
 def build_region_context(
@@ -7334,7 +6873,6 @@ def produce_region_plots(
     verbose=False,
     rebin_plot_vars=None,
     negative_weight_report=True,
-    output_formats=("png",),
 ):
     """Render requested variables and return negative-report rows from the sweep."""
 
@@ -7553,7 +7091,6 @@ def produce_region_plots(
                     verbose,
                     rebin_plot_vars,
                     negative_weight_report,
-                    output_formats,
                     prepared_payloads,
                     shared_region_ctx,
                 ),
@@ -7602,7 +7139,6 @@ def produce_region_plots(
                     variable_payload=variable_payload,
                     rebin_plot_vars=rebin_plot_vars,
                     negative_weight_report=negative_weight_report,
-                    output_formats=output_formats,
                 )
             else:
                 if not variable_payload:
@@ -7652,7 +7188,6 @@ def produce_region_plots(
                             semantic_category=semantic_category,
                             rebin_plot_vars=rebin_plot_vars,
                             negative_weight_report=negative_weight_report,
-                            output_formats=output_formats,
                         )
             stat_only_plots += stat_only
             stat_and_syst_plots += stat_and_syst
@@ -8588,13 +8123,7 @@ def make_sparse2d_fig(
         fig = plt.figure(figsize=(10, 9))
         hep.style.use("CMS")
         ax = fig.add_subplot(111)
-        _draw_cms_label(
-            ax,
-            lumitag,
-            comtag,
-            lumi_components,
-            fontsize=20.0,
-        )
+        _draw_cms_label(ax, lumitag, comtag, lumi_components, fontsize=20.0)
         _draw_mixed_energy_label(
             ax, lumi_components, scope_label, fontsize=20.0
         )
@@ -8643,13 +8172,7 @@ def make_sparse2d_fig(
 
     axes_top = [ax_mc, ax_data]
 
-    _draw_cms_label(
-        ax_mc,
-        lumitag,
-        comtag,
-        lumi_components,
-        fontsize=20.0,
-    )
+    _draw_cms_label(ax_mc, lumitag, comtag, lumi_components, fontsize=20.0)
     _draw_mixed_energy_label(
         ax_mc, lumi_components, scope_label, fontsize=20.0
     )
@@ -8746,7 +8269,6 @@ def make_region_stacked_ratio_fig(
     uncertainty_mode="total",
     lumi_components=None,
     scope_label=None,
-    diagnostic_context=None,
 ):
     if uncertainty_mode not in {"total", "stat", "none"}:
         raise ValueError(
@@ -8754,11 +8276,6 @@ def make_region_stacked_ratio_fig(
                 uncertainty_mode
             )
         )
-
-    h_mc = _plotting_numeric_view(h_mc)
-    h_data = _plotting_numeric_view(h_data)
-    h_mc_sumw2 = _plotting_numeric_view(h_mc_sumw2)
-
     if bins is None:
         bins = []
     else:
@@ -8866,8 +8383,6 @@ def make_region_stacked_ratio_fig(
     if style is None:
         style = {}
     axes_style = _style_get(style, ("axes",), {})
-    cms_style = _style_get(style, ("cms",), {})
-    cms_fontsize = cms_style.get("fontsize", 18.0)
     legend_style = _style_get(style, ("legend",), {})
     uncertainty_legend_style = _style_get(style, ("uncertainty_legend",), {})
     legend_top_margin_min = legend_style.get("top_margin_min", 0.01)
@@ -9023,7 +8538,6 @@ def make_region_stacked_ratio_fig(
             show_data_errors=uncertainty_mode != "none",
             lumi_components=lumi_components,
             scope_label=scope_label,
-            diagnostic_context=diagnostic_context,
         )
     else:
         panel_info = _draw_stacked_panel_only(
@@ -9044,7 +8558,6 @@ def make_region_stacked_ratio_fig(
             style=style,
             lumi_components=lumi_components,
             scope_label=scope_label,
-            diagnostic_context=diagnostic_context,
         )
 
     fig = panel_info["fig"]
@@ -9054,15 +8567,7 @@ def make_region_stacked_ratio_fig(
     cms_label = panel_info["cms_label"]
     mc_sumw2_vals = panel_info["mc_sumw2_vals"]
     mc_totals = panel_info["mc_totals"]
-    plot_view = panel_info.get("plot_view", {})
-    raw_grouped_centrals = plot_view.get("raw_grouped_centrals", {})
-    if raw_grouped_centrals:
-        raw_mc_totals = np.sum(
-            [np.asarray(values, dtype=float) for values in raw_grouped_centrals.values()],
-            axis=0,
-        )
-    else:
-        raw_mc_totals = np.asarray(mc_totals, dtype=float)
+    adjusted_mc_totals = panel_info.get("adjusted_mc_totals")
     log_axis_enabled = panel_info.get("log_axis_enabled", False)
     has_ratio_axis = rax is not None
     use_log_y = log_axis_enabled
@@ -9091,13 +8596,13 @@ def make_region_stacked_ratio_fig(
                 err_ratio_p_syst = np.where(
                     mc_totals_array > 0,
                     err_p_syst / mc_totals_array,
-                    np.nan,
+                    1.0,
                 )
             if err_m_syst is not None:
                 err_ratio_m_syst = np.where(
                     mc_totals_array > 0,
                     err_m_syst / mc_totals_array,
-                    np.nan,
+                    1.0,
                 )
 
     if uncertainty_mode == "none":
@@ -9126,7 +8631,7 @@ def make_region_stacked_ratio_fig(
             err_ratio_p_syst,
             err_ratio_m_syst,
             "stat" if uncertainty_mode == "stat" else syst_err,
-            raw_mc_totals=raw_mc_totals,
+            display_mc_totals=adjusted_mc_totals,
             log_axis_enabled=log_axis_enabled,
             log_y_baseline=log_y_baseline,
             style=style,
@@ -9139,30 +8644,24 @@ def make_region_stacked_ratio_fig(
     ax.tick_params(axis="both", which="minor", width=tick_width, length=minor_tick_length)
     for spine in ax.spines.values():
         spine.set_linewidth(spine_width)
-    formatter_info = _configure_main_y_formatter(
-        ax,
-        log_axis_enabled=use_log_y,
-        scientific_threshold=100.0,
-        formatter_config=ticklabel_format_cfg,
-    )
+    if not use_log_y:
+        if isinstance(ticklabel_format_cfg, Mapping):
+            format_kwargs = dict(ticklabel_format_cfg)
+            scilimits = format_kwargs.get("scilimits")
+            if isinstance(scilimits, (list, tuple)):
+                format_kwargs["scilimits"] = tuple(scilimits)
+            format_kwargs.setdefault("axis", "y")
+            ax.ticklabel_format(**format_kwargs)
+        else:
+            ax.ticklabel_format(
+                axis="y", style="scientific", scilimits=(0, 6), useMathText=True
+            )
+    else:
+        ax.yaxis.set_major_formatter(ticker.LogFormatterMathtext())
     ax.yaxis.set_offset_position("left")
     if y_offset is not None:
         ax.yaxis.offsetText.set_x(y_offset)
     ax.yaxis.offsetText.set_fontsize(offset_fontsize)
-
-    # Materialize the ScalarFormatter offset before asking mplhep to place the
-    # CMS label.  mplhep then applies its built-in horizontal clearance for a
-    # visible scientific-notation multiplier.
-    fig.canvas.draw()
-    cms_label = _draw_cms_label(
-        ax,
-        lumitag,
-        comtag,
-        lumi_components,
-        fontsize=cms_fontsize,
-    )
-    fig.canvas.draw()
-    _separate_cms_label_from_y_offset(ax, cms_label)
 
     apply_minor_x = bool(secondary_ticks_cfg.get("x", True))
     apply_minor_y = bool(secondary_ticks_cfg.get("y", True))
@@ -9177,21 +8676,12 @@ def make_region_stacked_ratio_fig(
             ratio_arrays.append(np.asarray(ratio_values, dtype=float))
             data_ratio_arrays.append(np.asarray(ratio_values, dtype=float))
             if ratio_errors is not None:
-                ratio_error_array = np.asarray(ratio_errors, dtype=float)
-                if ratio_error_array.ndim == 2:
-                    ratio_lower = (
-                        np.asarray(ratio_values, dtype=float) - ratio_error_array[0]
-                    )
-                    ratio_upper = (
-                        np.asarray(ratio_values, dtype=float) + ratio_error_array[1]
-                    )
-                else:
-                    ratio_lower = (
-                        np.asarray(ratio_values, dtype=float) - ratio_error_array
-                    )
-                    ratio_upper = (
-                        np.asarray(ratio_values, dtype=float) + ratio_error_array
-                    )
+                ratio_lower = np.asarray(ratio_values, dtype=float) - np.asarray(
+                    ratio_errors, dtype=float
+                )
+                ratio_upper = np.asarray(ratio_values, dtype=float) + np.asarray(
+                    ratio_errors, dtype=float
+                )
                 ratio_arrays.extend([ratio_lower, ratio_upper])
                 data_ratio_arrays.extend([ratio_lower, ratio_upper])
 
@@ -9235,6 +8725,7 @@ def make_region_stacked_ratio_fig(
         # Ensure the ratio axis always includes a unity tick while preserving the
         # spacing chosen by the existing locator and enforcing ticks at the bounds.
         ratio_major_locator = rax.yaxis.get_major_locator()
+        ratio_major_formatter = rax.yaxis.get_major_formatter()
         ratio_low, ratio_high = rax.get_ylim()
         include_unity = ratio_low <= 1.0 <= ratio_high
 
@@ -9266,7 +8757,8 @@ def make_region_stacked_ratio_fig(
             ticks = np.unique(ticks)
             ticks.sort()
             rax.yaxis.set_major_locator(FixedLocator(ticks.tolist()))
-            _configure_ratio_y_formatter(rax)
+            if ratio_major_formatter is not None:
+                rax.yaxis.set_major_formatter(ratio_major_formatter)
 
         fig.canvas.draw()
         xticks = rax.get_xticks()
@@ -9406,63 +8898,6 @@ def make_region_stacked_ratio_fig(
             style=style,
         )
 
-    fig.canvas.draw()
-    plot_diagnostics = list(plot_view.get("clipped_negative_diagnostics", ()))
-    zero_total_mask = np.asarray(
-        plot_view.get("zero_total_mask", np.zeros(0, dtype=bool)), dtype=bool
-    )
-    fig._topeft_plot_diagnostics = plot_diagnostics
-    fig._topeft_plot_view = plot_view
-    fig._topeft_uncertainty_bands = band_info
-    fig._topeft_ratio_values = (
-        None
-        if panel_info.get("ratio_values") is None
-        else np.asarray(panel_info["ratio_values"], dtype=float).copy()
-    )
-    fig._topeft_ratio_errors = (
-        None
-        if panel_info.get("ratio_errors") is None
-        else np.asarray(panel_info["ratio_errors"], dtype=float).copy()
-    )
-    data_rendering = panel_info.get("data_rendering") or {}
-    data_intervals = data_rendering.get("intervals") or {}
-    fig._topeft_data_intervals = {
-        key: value.copy() if isinstance(value, np.ndarray) else value
-        for key, value in data_intervals.items()
-    }
-    ratio_interval_endpoints = panel_info.get("ratio_interval_endpoints") or {}
-    fig._topeft_ratio_interval_endpoints = {
-        key: np.asarray(value, dtype=float).copy()
-        for key, value in ratio_interval_endpoints.items()
-    }
-    fig._topeft_data_upper_limit_artists = list(
-        data_rendering.get("upper_limit_artists", ())
-    )
-    fig._topeft_plot_summary = {
-        "requested_scale": "log" if log_scale else "linear",
-        "resolved_scale": "log" if use_log_y else "linear",
-        "scientific_formatter_used": formatter_info[
-            "scientific_formatter_used"
-        ],
-        "scientific_exponent": formatter_info["scientific_exponent"],
-        "renderer_epsilon": log_y_baseline,
-        "Data_zero_bin_count": int(
-            np.count_nonzero(data_intervals.get("zero_count_mask", ()))
-        ),
-        "Garwood_upper_limit_count": int(
-            np.size(data_rendering.get("upper_limit_anchors", ()))
-        ),
-        "Garwood_upper_limit_anchors": np.asarray(
-            data_rendering.get("upper_limit_anchors", ()), dtype=float
-        ).copy(),
-        "Garwood_upper_limit_render_floor": data_rendering.get(
-            "upper_limit_render_floor"
-        ),
-        "zero_total_bin_count": int(np.count_nonzero(zero_total_mask)),
-        "negative_process_bin_count": len(plot_diagnostics),
-        "ratio_denominator": np.asarray(mc_totals, dtype=float).copy(),
-    }
-
     return fig
 
 ###################### Region plotting entry point ######################
@@ -9489,7 +8924,6 @@ def run_plots_for_region(
     negative_weight_report=True,
     show_ratio_legend=False,
     binning_mode="processing",
-    output_formats=("png",),
 ):
     """Run one CR/SR plotting pass and write optional zero/negative reports."""
 
@@ -9599,7 +9033,6 @@ def run_plots_for_region(
             verbose=verbose,
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
-            output_formats=output_formats,
         )
         if negative_rows:
             all_negative_rows.extend(negative_rows)
@@ -9799,16 +9232,6 @@ def build_arg_parser():
         ),
     )
     parser.add_argument(
-        "--output-formats",
-        nargs="+",
-        choices=SUPPORTED_OUTPUT_FORMATS,
-        default=["png"],
-        help=(
-            "One or more figure formats to emit for every logical plot "
-            "(default: png)."
-        ),
-    )
-    parser.add_argument(
         "--workers",
         type=int,
         default=1,
@@ -9944,7 +9367,6 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=Non
             resolved_data_driven_contract=merge_report[
                 "resolved_data_driven_contract"
             ],
-            histogram_applicability=merge_report.get("histogram_applicability"),
         )
     else:
         with gzip.open(out_fpath, "wb") as fout:
@@ -10001,7 +9423,6 @@ def run_with_args(args, parser):
     print(f"Channel output selection: {args.channel_output}")
     print(f"Binning view: {args.binning}")
     print(f"Resolved uncertainty mode: {uncertainty_mode}")
-    print("Output formats: {}".format(", ".join(args.output_formats)))
 
     try:
         rebin_plot_vars = parse_rebin_plot_vars(args.rebin_plot_vars)
@@ -10125,7 +9546,6 @@ def run_with_args(args, parser):
         negative_weight_report=args.negative_weight_report,
         show_ratio_legend=args.show_ratio_legend,
         binning_mode=args.binning,
-        output_formats=args.output_formats,
     )
     return 0
 

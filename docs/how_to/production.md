@@ -60,18 +60,6 @@ inputs, outputs, and environment archive. Resume only that frozen plan:
 separately. Do not point a fresh campaign at an existing output directory, and
 do not edit the state file to force a resume.
 
-During a resume, `run_cr.sh` compares the `topeft` and `topcoffea` commits
-stored in campaign state with the commits currently checked out. If the
-differences are limited to files that do not directly configure or control the
-campaign, the comparison can pass. If a changed file is used directly by the
-campaign workflow, resume stops and requires an explicit review of the current
-checkout. After that review, provide the full current SHA for the corresponding
-repository with `--reviewed-topeft-manager-head SHA` and/or
-`--reviewed-topcoffea-manager-head SHA`. Each supplied SHA must equal the
-current HEAD of that repository. These options acknowledge a reviewed code
-difference; they do not bypass the other consistency checks performed during
-resume. Missing, malformed, or stale values are rejected.
-
 For maintained profiles, omit `--env-file` to resolve or create the current
 worker environment for the checkout. Supply an absolute `--env-file` to use
 exactly that archive as an intentional frozen snapshot; snapshot integrity and
@@ -268,8 +256,8 @@ their defaults to the core wrapper chain. See
 Use one of the eight public profiles: `run2_full`, `run3_full`, `run2_full_CR`,
 `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `t0_sr_statonly`, or
 `t0_cr_statonly`. Supply a fresh absolute output directory and a campaign tag.
-The combined Run 2/Run 3 full-SR route is `run2_run3_full`; it is not another
-CLI profile. With no `--env-file`, the wrapper resolves or
+The control-plane full-SR label maps to the maintained `run2_run3_full` route;
+it is not another CLI profile. With no `--env-file`, the wrapper resolves or
 creates the current worker environment. With `--env-file X`, it validates and
 uses exactly `X` as an intentional snapshot without requiring current-checkout
 compatibility, and both children of a combined profile receive that same

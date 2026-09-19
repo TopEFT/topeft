@@ -744,26 +744,13 @@ def merge_nominal_mappings(
     runtime_families: Iterable[str],
     schema_version: int | None = NOMINAL_CONTAINER_SCHEMA_VERSION,
     policy: resolved_sumw2_policy | None = None,
-    histogram_applicabilities: Iterable[Mapping[str, Any] | None] | None = None,
-    histogram_applicability: Mapping[str, Any] | None = None,
 ) -> OrderedDict[str, Any]:
     histogram_mappings = tuple(histogram_mappings)
     if not histogram_mappings:
         raise ValueError("No histogram mappings were provided for merge.")
     runtime_families = tuple(runtime_families)
-    if histogram_applicabilities is None:
-        histogram_applicabilities = (None,) * len(histogram_mappings)
-    else:
-        histogram_applicabilities = tuple(histogram_applicabilities)
-        if len(histogram_applicabilities) != len(histogram_mappings):
-            raise ValueError(
-                "Histogram applicability declarations must align one-to-one with "
-                "histogram mappings."
-            )
     merged = OrderedDict()
-    for mapping, input_applicability in zip(
-        histogram_mappings, histogram_applicabilities
-    ):
+    for mapping in histogram_mappings:
         input_families = _materialized_runtime_families(
             mapping,
             runtime_families=runtime_families,
@@ -771,14 +758,9 @@ def merge_nominal_mappings(
         )
         validate_nominal_mapping(
             mapping,
-            runtime_families=(
-                runtime_families
-                if input_applicability is not None
-                else input_families
-            ),
+            runtime_families=input_families,
             schema_version=schema_version,
             policy=policy,
-            histogram_applicability=input_applicability,
         )
         for key, incoming in mapping.items():
             if key not in merged:
@@ -796,7 +778,6 @@ def merge_nominal_mappings(
         runtime_families=runtime_families,
         schema_version=schema_version,
         policy=policy,
-        histogram_applicability=histogram_applicability,
     )
     return merged
 
