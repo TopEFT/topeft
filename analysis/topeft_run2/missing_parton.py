@@ -223,7 +223,7 @@ class ResolvedConfig:
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Derive a registry-selected missing-parton ROOT payload from "
+            "Derive a layout-selected missing-parton ROOT payload from "
             "central tZq and private tllq njet card directories."
         )
     )
@@ -238,10 +238,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--sr-registry",
+        "--missing-parton-layout-key",
+        dest="missing_parton_layout_key",
         choices=SUPPORTED_SR_REGISTRIES,
         default=DEFAULT_SR_REGISTRY,
-        help=f"SR registry for payload provenance (default: {DEFAULT_SR_REGISTRY}).",
+        help=(
+            "Maintained channel/layout definition for payload construction "
+            f"(default: {DEFAULT_SR_REGISTRY})."
+        ),
     )
     parser.add_argument(
         "--private-card-dir",
@@ -330,10 +334,12 @@ def resolve_config(args: argparse.Namespace) -> ResolvedConfig:
         if explicit_private
         else LEGACY_PRIVATE_CARD_DIR
     )
-    sr_registry = normalize_sr_registry(args.sr_registry)
+    sr_registry = normalize_sr_registry(args.missing_parton_layout_key)
     load_or_validate_selected_registry(sr_registry)
     if sr_registry != DEFAULT_SR_REGISTRY and args.output_file is None:
-        raise ConfigError("A nondefault --sr-registry requires an explicit --output-file.")
+        raise ConfigError(
+            "A nondefault --missing-parton-layout-key requires an explicit --output-file."
+        )
     output_file = (
         Path(args.output_file) if args.output_file else LEGACY_OUTPUT_FILE
     )

@@ -1,0 +1,794 @@
+{
+  "analysis": "TOP-26-006",
+  "era": "run2",
+  "fixture_schema": "top26006_datacard_golden_v1",
+  "payload": {
+    "root": {
+      "ttx_multileptons-2los_onZ_1tau_3j_ptz.root": "fdcf85db90c3e7c35338ec35234d15990cfd1d61576e07a6e0bba1982ad17a56",
+      "ttx_multileptons-2lss_4t_m_4j_lj0pt.root": "fd578c795262551882f7ecfb20306f1cc674b14b691140374db74a3350a08266",
+      "ttx_multileptons-2lss_4t_m_5j_lj0pt.root": "685a280e3370404b06fb8e8e02db1362da708df2ccad1d8579f35c17cd81d35d",
+      "ttx_multileptons-2lss_4t_m_6j_lj0pt.root": "6d3e41f51bc1023c40a9eddf455757d380666b30611c5d39adf8fdafcadac8a0",
+      "ttx_multileptons-2lss_4t_m_7j_lj0pt.root": "19cdc1e6140217031bcdd3e6f9a1eb7f91edd8af88e811f41fba71a11e363acd",
+      "ttx_multileptons-2lss_4t_p_4j_lj0pt.root": "8d7e88dfef63cb544a85906adc813e78947d9b337060b09df2cea969ed8c61dd",
+      "ttx_multileptons-2lss_4t_p_5j_lj0pt.root": "e64c0a7970a1be3ed6d40ef83aaa4fdf66423b19dffd9b5ec25583fb9422419b",
+      "ttx_multileptons-2lss_4t_p_6j_lj0pt.root": "a00f76a8b3419d8e2072638ee251346ee9576e21cdb94c3917666ddca2801929",
+      "ttx_multileptons-2lss_4t_p_7j_lj0pt.root": "a6fad526896e5cae17de693d393738ca88ec86cc07060e9c82166fa7d7baa225",
+      "ttx_multileptons-2lss_fwd_m_4j_lt.root": "059c03fb5da5ce6eca9144edb3ad30c2668ed5b8e9b341cef458515c560b431c",
+      "ttx_multileptons-2lss_fwd_m_5j_lt.root": "24eecf9bdf1ec48d439f4a23afff19d7b1687a7885616f59959186fe73ffa2e7",
+      "ttx_multileptons-2lss_fwd_m_6j_lt.root": "f1bd2db7fcd52b3c7e07bea7b5d33d5eaa686534a1f093b1ebf6a009602fa625",
+      "ttx_multileptons-2lss_fwd_m_7j_lt.root": "9fd41b415486ff7981584a12ec3147b374a03f23862d19b2c4aa473dbd4a77f8",
+      "ttx_multileptons-2lss_fwd_p_4j_lt.root": "60242390246fa57659f939eb2ec2a473e552dc3561e5e79380d9008701f0828a",
+      "ttx_multileptons-2lss_fwd_p_5j_lt.root": "5450fc16cf4a230bdacd5774a0cbd304de25faba8cddeb58d7485a77f631a6a7",
+      "ttx_multileptons-2lss_fwd_p_6j_lt.root": "321446127a7f5c97d60847914e2e58f6154cbad123e7b2c256d69b5dda43efec",
+      "ttx_multileptons-2lss_fwd_p_7j_lt.root": "5706d87286a6233e7cfa19248e2bc3226d4b64997eb0677e8eea2050e7123ea3",
+      "ttx_multileptons-2lss_m_1tau_offZ_3j_lj0pt.root": "402cc6306c855703ed164f7518b61eff751f3c1531403f9caebd4efd21356384",
+      "ttx_multileptons-2lss_m_1tau_offZ_4j_lj0pt.root": "748e07884bf714228c4becc38c3387564befc0ff011e9b1851870436a78f6120",
+      "ttx_multileptons-2lss_m_1tau_offZ_5j_lj0pt.root": "18d84b0ea311c7fca7104a78bc04a4421b1b713017354aaed041b7efbf0c7219",
+      "ttx_multileptons-2lss_m_1tau_offZ_6j_lj0pt.root": "d39fb75320cfde8fb154fd223605ac7c0ba3b48b478746afa9a82ab48d45f7b2",
+      "ttx_multileptons-2lss_m_1tau_onZ_3j_ptz_wtau.root": "7cd478fe628947904aa515cdafe1c5f55c8bf684aec2b0e43afeb817b2a7beb7",
+      "ttx_multileptons-2lss_m_1tau_onZ_4j_ptz_wtau.root": "c43a936b29903a81e1bb43e4f1124211315fe3afb092c21f3876d84019f9de8b",
+      "ttx_multileptons-2lss_m_1tau_onZ_5j_ptz_wtau.root": "b8225226d10d375c91752425bc89e1abe7da503f6a4428c925862dbf8a71aeab",
+      "ttx_multileptons-2lss_m_1tau_onZ_6j_ptz_wtau.root": "1978c1b986a8ccf4286dffe407d1201f6c7437816799e4ef0bba7c2dbf460c70",
+      "ttx_multileptons-2lss_m_4j_lj0pt.root": "149077f3ba4f61d2ecd68cbf3b428f0cff9b281ad2f7c980954c698db1cea31e",
+      "ttx_multileptons-2lss_m_5j_lj0pt.root": "d093d95b48f9dca04bbc73ba1554d7fdd3b1af2843093822fd8d1d250476510c",
+      "ttx_multileptons-2lss_m_6j_lj0pt.root": "103f0019691429757f0fd446ffc177b72b43aba18768db3a61029bed91ee4627",
+      "ttx_multileptons-2lss_m_7j_lj0pt.root": "d860a4134de0568e6c8f2084975c2c1d8bd621375567f83093415479c5a989de",
+      "ttx_multileptons-2lss_p_1tau_offZ_3j_lj0pt.root": "3b6df5fbd3a952def73bf2ec6f32488966c1e71d8c77bf60c6aa44153295b180",
+      "ttx_multileptons-2lss_p_1tau_offZ_4j_lj0pt.root": "78cb41049b64b4d234c445d05e4d7ca97e7a9e4437142988fb0f74140031533b",
+      "ttx_multileptons-2lss_p_1tau_offZ_5j_lj0pt.root": "1e20d8a46f03ccdb5bfd340523c133a0d9186b4b288f4e548b8bb75c46ae1268",
+      "ttx_multileptons-2lss_p_1tau_offZ_6j_lj0pt.root": "8816d21dcf442a09839928d2fa9a2dabc42d22b9c9b31aec483c9fe979f7914e",
+      "ttx_multileptons-2lss_p_1tau_onZ_3j_ptz_wtau.root": "6013da882ebc1c65044aa11a1e7fbff5e663307cfa00f56af01ae8ce865792d0",
+      "ttx_multileptons-2lss_p_1tau_onZ_4j_ptz_wtau.root": "ebc376d1331b4776642778de2c6d39bfd3ccc86912f10cc8e710f953aa2348fc",
+      "ttx_multileptons-2lss_p_1tau_onZ_5j_ptz_wtau.root": "b9d9b223677b5d12a826b46c3b2c7b298b6a536c1fa4f7d2b224f8107c470aca",
+      "ttx_multileptons-2lss_p_1tau_onZ_6j_ptz_wtau.root": "2bcc38fa0e03f1953aa5efeeb3a5a7a387a2c7f618c10f52d67274ecf59bd007",
+      "ttx_multileptons-2lss_p_4j_lj0pt.root": "7757bc3805c335b32cabc31f254c78de18d20bcc23e9da04da4a1fd8ce17ce6d",
+      "ttx_multileptons-2lss_p_5j_lj0pt.root": "46f4fe7124dca632ee0b2314dbd118dd4473224c15e42e08c3d2a4d238e9aa37",
+      "ttx_multileptons-2lss_p_6j_lj0pt.root": "ce7b137ecc4507fb06d0974e92b483a1aaf7aaa58110afa16b865a4bb5c3d90f",
+      "ttx_multileptons-2lss_p_7j_lj0pt.root": "14790a0ae1a535f8ec0afbf0ef96d31e8ce7b46411c13d1069f4b6eaa784d002",
+      "ttx_multileptons-3l_1tau_1b_2j_lj0pt.root": "cdd4416a0891e22d883b945eb455577be501dd675ef35595362a7838fd147c22",
+      "ttx_multileptons-3l_1tau_1b_3j_lj0pt.root": "373c0904a0952862680b6f7e05f8a9dd9f53d4bc6101a2318a81e1abb815e61e",
+      "ttx_multileptons-3l_1tau_1b_4j_lj0pt.root": "c9dc52bc4c139dcccd4f497cda5e2d068ddb4d2704bfc28c10033f2f4007be1c",
+      "ttx_multileptons-3l_1tau_1b_5j_lj0pt.root": "31d5cdc0e43e4341b834039f580306d491211bb6d1f5b9a644ed2aee656f9b02",
+      "ttx_multileptons-3l_1tau_2b_2j_lj0pt.root": "ec24f2ed215bf06ae2de54883b6d99b4af9d86a4165d1c05c3e3e0ea90afd646",
+      "ttx_multileptons-3l_1tau_2b_3j_lj0pt.root": "e5157f574cbaf08005cf462bb071a8a899e2e2f7abbef717e39090bdefb6c01b",
+      "ttx_multileptons-3l_1tau_2b_4j_lj0pt.root": "802f36e0166aef93833086e8821332e587a38a6960548893e19fc5092cb9b4e6",
+      "ttx_multileptons-3l_1tau_2b_5j_lj0pt.root": "2becc974c907aa60894a6d4db4b1220a77c97913eb08135ffaaa4a1af249184d",
+      "ttx_multileptons-3l_m_offZ_1b_fwd_1j_lt.root": "b316d073d09ceee83edb447e479de9dee9530c4c5f713f8d03cd15d6e7c82127",
+      "ttx_multileptons-3l_m_offZ_1b_fwd_2j_lt.root": "1d93e5139dd0d2d2a60292df2bd73f9a995d4b0edbf47359f0205fd7b5a4fc58",
+      "ttx_multileptons-3l_m_offZ_1b_fwd_3j_lt.root": "b5b2f6a6fd239a4b155f231d7a3efe0709736adfcd4ffccf1a2dff90625729c6",
+      "ttx_multileptons-3l_m_offZ_1b_fwd_4j_lt.root": "ba181f6c0ec20369a923d4a73822498ae802ab2357ad8a7cecbf6131fef0c20c",
+      "ttx_multileptons-3l_m_offZ_2b_fwd_2j_lt.root": "727d0c7731d0434c6e4f2b5387c70970ee9cf85d2d1b66e91842672a0bd8c66c",
+      "ttx_multileptons-3l_m_offZ_2b_fwd_3j_lt.root": "0038a1eb3334f5b90a0fbbb9fd1b69d95e17b3f6dd897300bbc37c3508833a95",
+      "ttx_multileptons-3l_m_offZ_2b_fwd_4j_lt.root": "144169059a1729745beb36ffec8c69f468c0f92bd56baf55d06bf71bc5c360cd",
+      "ttx_multileptons-3l_m_offZ_high_1b_2j_ptll.root": "ae648405143e70a15cebbf224bf26a40b16e3414448f0a5fcaf75a74b9c66a57",
+      "ttx_multileptons-3l_m_offZ_high_1b_3j_ptll.root": "1e6113cc918745c7baf9e28e1fffd04cf045e648b16c6ced19f9db09c954fd57",
+      "ttx_multileptons-3l_m_offZ_high_1b_4j_ptll.root": "ccfc76ac8fca87cb81b748457851c021a5313bcb8fce79fa158cea2c16a1d6ee",
+      "ttx_multileptons-3l_m_offZ_high_1b_5j_ptll.root": "6b79f4a97f881f4b52310988647d158318630ec0d4fce8a9677625ccd488d6a0",
+      "ttx_multileptons-3l_m_offZ_high_2b_2j_ptll.root": "f8921d92496ede50be6eea19c4ce23599f83cd8b584c84a4bd1e330033cbb2f0",
+      "ttx_multileptons-3l_m_offZ_high_2b_3j_ptll.root": "dccd09c15d5ed2c60710d98276fef06673c58fc52529899b6d08782a869f3fa8",
+      "ttx_multileptons-3l_m_offZ_high_2b_4j_ptll.root": "136010b046dc272e494e0d14523ac31928447e0cce6ea866c8331c82a52bf944",
+      "ttx_multileptons-3l_m_offZ_high_2b_5j_ptll.root": "e1e7833b795b3565c5323bcd09c11616e341ca0ca5f16d55e4f1c6b6c34a7aaa",
+      "ttx_multileptons-3l_m_offZ_low_1b_2j_ptll.root": "464ec8c522aa40f8599fe5b1564e15d826af73badb97cc0ffb693883eaed4e69",
+      "ttx_multileptons-3l_m_offZ_low_1b_3j_ptll.root": "3c77af8db7bf34b909654cea32a26262d08792ae9cf5b2972761755219a2af5f",
+      "ttx_multileptons-3l_m_offZ_low_1b_4j_ptll.root": "b9a33498d4a82d5a82766fd13d0b71a81683830c73d09394b70268116c09a443",
+      "ttx_multileptons-3l_m_offZ_low_1b_5j_ptll.root": "91dad142356d3d4d3a03ff134e88d3ebc78b8bf7ee48502e11f983ca9ee2f45d",
+      "ttx_multileptons-3l_m_offZ_low_2b_2j_ptll.root": "9ef8796eeff3c9655e458d8fb9f2e119b403d80ed8b168570336db2771ace579",
+      "ttx_multileptons-3l_m_offZ_low_2b_3j_ptll.root": "88ee22cd602f490de0702cf2415800901379a6978b7f8ab05d1f0cdee4c1ff5f",
+      "ttx_multileptons-3l_m_offZ_low_2b_4j_ptll.root": "e2d1588a78e41b63ee9ee6a9203e2bc019fdb385c72cb3ff1efe534501709d34",
+      "ttx_multileptons-3l_m_offZ_low_2b_5j_ptll.root": "34b3e360856dfedb600ce665a4ab90e5fa3dd917d5f6be40c2817f058ad14717",
+      "ttx_multileptons-3l_m_offZ_none_1b_2j_lj0pt.root": "82366e08ff431ff4272c493b0e68724eecb84c6091987de8413a5abd3c645875",
+      "ttx_multileptons-3l_m_offZ_none_1b_3j_lj0pt.root": "101dbe7ee63a7c9de97d186b238b940edaad888be55f00551adc8b51d30e3c8e",
+      "ttx_multileptons-3l_m_offZ_none_1b_4j_lj0pt.root": "bccb32a97b0ba413555eb56ee0581e20cf2dd436ae69be92e70756829c4f5370",
+      "ttx_multileptons-3l_m_offZ_none_1b_5j_lj0pt.root": "55665c5cdf53c2a6e345d002a498b09511c31fc6e4228e74b652da8bf3977f1a",
+      "ttx_multileptons-3l_m_offZ_none_2b_2j_lj0pt.root": "980123d2b8a5a0c22e36b2b3b3b2d87a41cc9c03ac705343cd721e5e7b216236",
+      "ttx_multileptons-3l_m_offZ_none_2b_3j_lj0pt.root": "73dff19e2b828825ddb64dfc18ac1273b3d7bf086922be5e220f7f32aaed4693",
+      "ttx_multileptons-3l_m_offZ_none_2b_4j_lj0pt.root": "a59d6c0e034000b338da06c3185cc4d71d5df0006371eb652ec66c42d2bd4bc3",
+      "ttx_multileptons-3l_m_offZ_none_2b_5j_lj0pt.root": "c8a8f9448dba1046368efc823f44f310236decd09a3fb270428e7cd35c52f81d",
+      "ttx_multileptons-3l_onZ_1b_2j_ptz.root": "c99e7983551b52bc5bcc8a04e954a9031779fd1ab957b6b9225e8a1270193fd1",
+      "ttx_multileptons-3l_onZ_1b_3j_ptz.root": "995acc8763f9f1ac15934220b0bfa9327637771846901e72ccc3c183cd0328f4",
+      "ttx_multileptons-3l_onZ_1b_4j_ptz.root": "7e80766437fb38605f7c66926abeb79a7a9f0421596d9a0d568069df30b89f8f",
+      "ttx_multileptons-3l_onZ_1b_5j_ptz.root": "d5256c35517c2b3229c865981ce83a817cdfee704dc7306834e1ea9fddb302a2",
+      "ttx_multileptons-3l_onZ_1b_fwd_1j_lt.root": "9ed25db50225b92ed6d771c273754153f7d33abebedeb064859eb42d28fa4545",
+      "ttx_multileptons-3l_onZ_1b_fwd_2j_lt.root": "c9e5a9b4c8299be2f21f75789f1ff24244a47c8fe81627228849b16363032295",
+      "ttx_multileptons-3l_onZ_1b_fwd_3j_lt.root": "bbdd4d7ee75fbeb4544946a6cc28e43b10008b2f068c129631f9db259df3e2da",
+      "ttx_multileptons-3l_onZ_1b_fwd_4j_lt.root": "61cd5b8f954e4602e65354e1137fe8cb70e21a3d0efd4be0a716e3b42334c088",
+      "ttx_multileptons-3l_onZ_2b_2j_lj0pt.root": "24beff83e8269b94061dce958e64fc7c269811683957327614851cc3461afef5",
+      "ttx_multileptons-3l_onZ_2b_3j_lj0pt.root": "06a14f6478f3bfc6f5b88a8943f199605664b75e5aed77d7f620e47597f05191",
+      "ttx_multileptons-3l_onZ_2b_4j_ptz.root": "efc4326f3a2222bfbc15a6e82ead9d8fc2f4c2742b4af1f048d5db19dea56661",
+      "ttx_multileptons-3l_onZ_2b_5j_ptz.root": "2ffc4edc69699fb75ddc5e78b7351b940fb79dd1479b6369b625b9fbb909690d",
+      "ttx_multileptons-3l_onZ_2b_fwd_2j_lt.root": "933beb643808e48452234f9234b673fa6cd739fca4274b4e9741cc922d3c1353",
+      "ttx_multileptons-3l_onZ_2b_fwd_3j_lt.root": "1732d17e0bf061e52b0396a6178f3dd1a93c3e3ba22d191694cac4485376f431",
+      "ttx_multileptons-3l_onZ_2b_fwd_4j_lt.root": "fa83b6eb0fffe4dc3b4a3e449c85f36c42c6bd64e01ff3553f858c38fe8fd3c6",
+      "ttx_multileptons-3l_p_offZ_1b_fwd_1j_lt.root": "b5eefe38f15ded346e0a7a56049dc7cffca04581782a34f5c0e8e411973b8751",
+      "ttx_multileptons-3l_p_offZ_1b_fwd_2j_lt.root": "470791948e518fba0d6a680445e00e52c431be7cf6407c36153f50507e75bc51",
+      "ttx_multileptons-3l_p_offZ_1b_fwd_3j_lt.root": "6a3a3b828a0edfeabd99ea8f6c9ca9a1008b8fd91880c25eea008a13e3e7ead9",
+      "ttx_multileptons-3l_p_offZ_1b_fwd_4j_lt.root": "b070686991fa54df5ad9777c2faa11bd3e7b685ec74b9e2901eb404c1c4711d0",
+      "ttx_multileptons-3l_p_offZ_2b_fwd_2j_lt.root": "18e31947b8536e2367fed8645dc1513c8b5c375516ed8f39dc1c8c6877d5598b",
+      "ttx_multileptons-3l_p_offZ_2b_fwd_3j_lt.root": "97d88cc6fd3ff37e9986a017544e19a791f4ad4ee6776a68cf416e76ebb0c071",
+      "ttx_multileptons-3l_p_offZ_2b_fwd_4j_lt.root": "24fb75c37f86a3dc504ef93e94dd2d57adc87595a46a8ff9dde7a130ffe97ba1",
+      "ttx_multileptons-3l_p_offZ_high_1b_2j_ptll.root": "1374e8cbdfebbf9c58cc88b4fb73a80b9ea41a240c617ee2089103cd80cf7232",
+      "ttx_multileptons-3l_p_offZ_high_1b_3j_ptll.root": "207599ea56a32f879a6b7ee0b1bd1a2178f72feeeeb36049586c064c2fdc88d0",
+      "ttx_multileptons-3l_p_offZ_high_1b_4j_ptll.root": "a019b0fb92c7286eddff871e9fc8d46bd5f5d6ee3a44ecdd99fa30749c03d5a1",
+      "ttx_multileptons-3l_p_offZ_high_1b_5j_ptll.root": "e77d884c56bb490a5bdef8cbaf569c6156cb5e75b6ac231f5352f4dc93f2f9a9",
+      "ttx_multileptons-3l_p_offZ_high_2b_2j_ptll.root": "2f2914789ebd748135104b44fa904ee1ea23c3b7804def52a74cfb53e2a933ef",
+      "ttx_multileptons-3l_p_offZ_high_2b_3j_ptll.root": "27c284d2079890f3d90f7d217d3b79a98b9c8512ca24af86deafc7194b0d8639",
+      "ttx_multileptons-3l_p_offZ_high_2b_4j_ptll.root": "094590886966bbbe5e4940aee8142394792554f228bca109c6fb8ef9cc016d71",
+      "ttx_multileptons-3l_p_offZ_high_2b_5j_ptll.root": "d48e07873b80ad12a29fcb511c84bff830c1c59beb401815b92faf0792a46995",
+      "ttx_multileptons-3l_p_offZ_low_1b_2j_ptll.root": "494253d2ccfa769e9e500ca0bea55b41dcca3a130b6492f7e877fb51465ddd08",
+      "ttx_multileptons-3l_p_offZ_low_1b_3j_ptll.root": "cdf6b78cddfab7409b1c88a26b08541d0397bb51b800cec4d54adcfd8594a6ec",
+      "ttx_multileptons-3l_p_offZ_low_1b_4j_ptll.root": "9c138e625a48371a06c4933e6a0aa48a96099eb9d5fc80f3871451003964ba0e",
+      "ttx_multileptons-3l_p_offZ_low_1b_5j_ptll.root": "1b0cd5ca14de25e3b30ba0a9d2966efc82d1b489b9ea6e2568975d715d5a5338",
+      "ttx_multileptons-3l_p_offZ_low_2b_2j_ptll.root": "7482b00da848f64a3e87f88b7a39558951adf9577825c4750a01a052af0ef9d1",
+      "ttx_multileptons-3l_p_offZ_low_2b_3j_ptll.root": "6ed0f23494ddbe00cef5da4160c56889bed4e290b9d923337207274ac39447ef",
+      "ttx_multileptons-3l_p_offZ_low_2b_4j_ptll.root": "12834b6a79d5f92951d9bdc00d70c4c4973bd5a8baa65de8bb685e8223141c6e",
+      "ttx_multileptons-3l_p_offZ_low_2b_5j_ptll.root": "fef2f72c4f6f50dcf7c76d7abe30efc5e89a2bbad44d2051a35fe10a2aa041c2",
+      "ttx_multileptons-3l_p_offZ_none_1b_2j_lj0pt.root": "be837f6e0f04bfa0a80ad2ef773c99773215cab87a20658a004c402b5e4e3f0b",
+      "ttx_multileptons-3l_p_offZ_none_1b_3j_lj0pt.root": "ae242cc9a65ead8ec9db889e621bd538730263d228ff68e60e4d2220009fa319",
+      "ttx_multileptons-3l_p_offZ_none_1b_4j_lj0pt.root": "c52a943d0dd79ba0a9af8386e5befff705f3b624261ef6d7287b54da5fe388e9",
+      "ttx_multileptons-3l_p_offZ_none_1b_5j_lj0pt.root": "7173850cff3567cba208270a9444a04239733d4acdfed6b585c61894dd58d062",
+      "ttx_multileptons-3l_p_offZ_none_2b_2j_lj0pt.root": "38a18f42c8f41d861c003ee8344e2e6d1545188bcb9ab15f419bbf4ae70b2839",
+      "ttx_multileptons-3l_p_offZ_none_2b_3j_lj0pt.root": "34cb15daee9f140f51a8f4a5e433c5e1aad12184881fca703bc9cbf8e445b488",
+      "ttx_multileptons-3l_p_offZ_none_2b_4j_lj0pt.root": "9118b51fe2cf6225102f68765bd5e120752773872ae41d693732b406b97dc26d",
+      "ttx_multileptons-3l_p_offZ_none_2b_5j_lj0pt.root": "894418c109910a9c7a32234581e3dd8d2615ef25bbe2f931d0071ed758b7128e",
+      "ttx_multileptons-4l_2j_lj0pt.root": "de12a9fe4a5be2276ccd7833ddf614ed94df06d768de526a6a79fb5cd2087070",
+      "ttx_multileptons-4l_3j_lj0pt.root": "345dcddccb259a86ed8aa38395a23bb65bcd8f74e7327ce19c3b736e4fde3490",
+      "ttx_multileptons-4l_4j_lj0pt.root": "9d1a15f151ab09a7fbbface22edb498b6346719df20e385f76ddd63e80cdff15"
+    },
+    "txt": {
+      "ttx_multileptons-2los_onZ_1tau_3j_ptz.txt": "4bee9aaa40b932a9ca7a6c24c2dc259c4dbc046ceaa2f21ce771d6157a9b3b9f",
+      "ttx_multileptons-2lss_4t_m_4j_lj0pt.txt": "11735ad1958ba685e2ef86c88d12200c9811a030397eed620e0f93651e14a033",
+      "ttx_multileptons-2lss_4t_m_5j_lj0pt.txt": "786c1bab6e170cd87e5bdf6e38bbd9b43f969ca71ac207e915307dc58bd2963a",
+      "ttx_multileptons-2lss_4t_m_6j_lj0pt.txt": "cd1c357020823601d69758f52ede052476935d2e8f3c74351ab1ef812b528696",
+      "ttx_multileptons-2lss_4t_m_7j_lj0pt.txt": "45428684a140906c5c5a5497428573771c31487ffc02a68fd29123bcd5809a91",
+      "ttx_multileptons-2lss_4t_p_4j_lj0pt.txt": "31dc087805b0659058ce38e1cdd68abd2d0aa1cee465ecb038843719a00ef15d",
+      "ttx_multileptons-2lss_4t_p_5j_lj0pt.txt": "db499fe6ab9517640540091ff81a47bb744a0de862e1e5080c3d0e23010de13a",
+      "ttx_multileptons-2lss_4t_p_6j_lj0pt.txt": "95bf3730566e8e0a9a57c8c1bf73c602ce235181058cbdc8437d2ef474f71352",
+      "ttx_multileptons-2lss_4t_p_7j_lj0pt.txt": "d9bd50f6b8f19789d5b111754edfe00e3841a2b2f220a527a7e3f6cdb7322f47",
+      "ttx_multileptons-2lss_fwd_m_4j_lt.txt": "60f945cf882b85533fd56b2238b1fdf13d2941d510a88709e3bc26a1dd299a92",
+      "ttx_multileptons-2lss_fwd_m_5j_lt.txt": "46102743e115ede5679d2087ffac9d25e607877888a215f5e031a22e1dda5a59",
+      "ttx_multileptons-2lss_fwd_m_6j_lt.txt": "8b9930c85af6169e4385bb915f8c7aa68c4aaaac8fb80d78433ca71503d75038",
+      "ttx_multileptons-2lss_fwd_m_7j_lt.txt": "1282ce33ca25634144551445e0cc70fa1f040762dfc736803f3559f93b6f04e8",
+      "ttx_multileptons-2lss_fwd_p_4j_lt.txt": "1470b2a3fffe4a04e6120fd1aab1787c45509bfb183c98d443e10c2c7d3596ff",
+      "ttx_multileptons-2lss_fwd_p_5j_lt.txt": "dee50dc2271561075664e7e43f2ae5cc3519267568eed1fab8abe6b5caf3ceb0",
+      "ttx_multileptons-2lss_fwd_p_6j_lt.txt": "e59ddd31e42cc408147b1d5ca90a69782e7e26c03b10714ce9ba0d737bbaac26",
+      "ttx_multileptons-2lss_fwd_p_7j_lt.txt": "01acbba18512c6f876e4e52d859da03aaf7d2b43e5e39ec5c26e71cc86b016a3",
+      "ttx_multileptons-2lss_m_1tau_offZ_3j_lj0pt.txt": "c8c8c7ebd3a8915a2476963c45f1b63e9dcfb7ba0af40bd95b5fb958701f20c3",
+      "ttx_multileptons-2lss_m_1tau_offZ_4j_lj0pt.txt": "f17ada2f7ab04a605f58a7948a0e1228b0de1ba5110f63446310c5050d8ab651",
+      "ttx_multileptons-2lss_m_1tau_offZ_5j_lj0pt.txt": "e252eee37ad1d92b3da0622dc54a42bcf126a71e4ea29cb46f3bfcc4210e187e",
+      "ttx_multileptons-2lss_m_1tau_offZ_6j_lj0pt.txt": "0414c60bbfc686e8b9431a29fe5407e763bb091a9e3d26a865665461f62bab63",
+      "ttx_multileptons-2lss_m_1tau_onZ_3j_ptz_wtau.txt": "44bd99b51c5e6c8ac028a2398fc3c6fd0df3ef6f07d8536930cb8f3b4d8b9978",
+      "ttx_multileptons-2lss_m_1tau_onZ_4j_ptz_wtau.txt": "f94df661bfeffae8b6e91f36854206e73962e94531a575f09ae6473e0d403622",
+      "ttx_multileptons-2lss_m_1tau_onZ_5j_ptz_wtau.txt": "f141d4bfd140476a986ba804aa875d80069ac86e0adedf38bdce3396bd255bde",
+      "ttx_multileptons-2lss_m_1tau_onZ_6j_ptz_wtau.txt": "dd34ed12f4f1fd9b693d106c34033054c02e32b121e8d5031cc585358990a3a8",
+      "ttx_multileptons-2lss_m_4j_lj0pt.txt": "d0664c32947b409d892009f8031cdb8598dcd51cdab0c9d050b68cc1037b39cc",
+      "ttx_multileptons-2lss_m_5j_lj0pt.txt": "12e2b343847934080defbf78afc645e39bf6b634ee23d0f4404f9f4dae963a2b",
+      "ttx_multileptons-2lss_m_6j_lj0pt.txt": "fdda3f3291bfdcf37f48b632e6d4196d3c97f8a0a2a601e3c8800ec0cc081239",
+      "ttx_multileptons-2lss_m_7j_lj0pt.txt": "1f73720e1855aca3916a853d6a422eb01b8de36d4e116fa90d72a4e558c69e33",
+      "ttx_multileptons-2lss_p_1tau_offZ_3j_lj0pt.txt": "d5581b563c5dd4c38078c33ac24b02b8c74ecd3c0420de3003b5b8263f4028cc",
+      "ttx_multileptons-2lss_p_1tau_offZ_4j_lj0pt.txt": "ecc8c0cde2e11e25bc164e055b7649a23844d0e01253a4bb56875ea1563921f0",
+      "ttx_multileptons-2lss_p_1tau_offZ_5j_lj0pt.txt": "e3bb6d17cf48d68cfdca3d6146b3e989dd82ff535d5d37ecdcfe4c6dc2002e33",
+      "ttx_multileptons-2lss_p_1tau_offZ_6j_lj0pt.txt": "71059f9590256ee6e0b07bb97e2a43df317df050b1ee6f21e65d6f335ffa337c",
+      "ttx_multileptons-2lss_p_1tau_onZ_3j_ptz_wtau.txt": "4e5a3925249a67053d5ab0654ab4deac94ba2a5b6c5e1133034b31da4292c7e1",
+      "ttx_multileptons-2lss_p_1tau_onZ_4j_ptz_wtau.txt": "09c15a38cae4bcf44b416952ad0447402444ab18c4d05d143ba8e503f20605d9",
+      "ttx_multileptons-2lss_p_1tau_onZ_5j_ptz_wtau.txt": "33fafca5b106eeda9803e8d21eda949e477b0f9f6c57b10678a0a4c92e72f512",
+      "ttx_multileptons-2lss_p_1tau_onZ_6j_ptz_wtau.txt": "83323c38f4b8a2bf1c66a61785aec9f6be418a7ea4c6faa04b6764cec232d2c4",
+      "ttx_multileptons-2lss_p_4j_lj0pt.txt": "f724be698b79693c5580f75ef54ac782bdab47f0749954bbf501cf3539309966",
+      "ttx_multileptons-2lss_p_5j_lj0pt.txt": "fbfbfd3ba738450db3627b325805b2303c0769820a0a89c98ed61a52facee40b",
+      "ttx_multileptons-2lss_p_6j_lj0pt.txt": "b8bc6bab1a7585346fc0776e6b9cd96843c874bc0f26ff0054e27ce58a2dbf4d",
+      "ttx_multileptons-2lss_p_7j_lj0pt.txt": "4a6bf8b9a7d11801ff5a17744ecb437fcc6b72056f9c0790c502f92044575398",
+      "ttx_multileptons-3l_1tau_1b_2j_lj0pt.txt": "fb4047c9f33dc7d722c00050c3497058fbb06f4f1efbd7be6525d60e1247d58b",
+      "ttx_multileptons-3l_1tau_1b_3j_lj0pt.txt": "4f3e1d432208671fd04cd11dce58db152288ef05c68894b77732ff1fb381ccd9",
+      "ttx_multileptons-3l_1tau_1b_4j_lj0pt.txt": "f28f3183d90bb1cf2e0391af8a06dfef6f1c600ffe9b4c0035a6dcce18abbff6",
+      "ttx_multileptons-3l_1tau_1b_5j_lj0pt.txt": "2f5f5af1debee158a632a84a203035805e7b03fbdce8b7de210c090173b016d0",
+      "ttx_multileptons-3l_1tau_2b_2j_lj0pt.txt": "cacb533f371e704ef225cfa4e813d9b3ec18c1f1e4561524d71111c589ba2b1e",
+      "ttx_multileptons-3l_1tau_2b_3j_lj0pt.txt": "481665456e5a24b28186d7dc498ab7d152726ca798edb67cc7a32b911603178d",
+      "ttx_multileptons-3l_1tau_2b_4j_lj0pt.txt": "5889eee0c0587c58cda9cb7321a6bb3e40e328d9e925f8176a7695902369a795",
+      "ttx_multileptons-3l_1tau_2b_5j_lj0pt.txt": "3c50df0d1eff8846b2b6fb8ef428faf13cda8dd782a5d95070b973d5d9ce6f6e",
+      "ttx_multileptons-3l_m_offZ_1b_fwd_1j_lt.txt": "2575a604c35156bac6acfc749a9bec592a63b72f0867bd82e72d9263158f9698",
+      "ttx_multileptons-3l_m_offZ_1b_fwd_2j_lt.txt": "25548f57db462d818d18a1cef23d82944bc2c9ab38cec7658e078678769e8b46",
+      "ttx_multileptons-3l_m_offZ_1b_fwd_3j_lt.txt": "0e0c2fcf0becb69d8b8eb4502a9afd2c5c3b4000461954e725a5909ca01a5f4b",
+      "ttx_multileptons-3l_m_offZ_1b_fwd_4j_lt.txt": "604ae0aa6cedd54addfcd1faf7dd4dda4243064e30724e0244f10559ff6d1248",
+      "ttx_multileptons-3l_m_offZ_2b_fwd_2j_lt.txt": "0976f49adc372ffddfeca9a603c35891bb7379bf6facf40bae3fe6c636ae582c",
+      "ttx_multileptons-3l_m_offZ_2b_fwd_3j_lt.txt": "f17b841777920f4afd56628c3f2b87df5949f5bf7da23713d14b122abe788436",
+      "ttx_multileptons-3l_m_offZ_2b_fwd_4j_lt.txt": "c3fec3d2ea5ea7118f476954ee0414f039d95e07e30494b22a9446d4c96b4e89",
+      "ttx_multileptons-3l_m_offZ_high_1b_2j_ptll.txt": "71ebef10e8ce702705a0ef76e7f2d696b3fa1e1f86694a552a7a24b41d6ad286",
+      "ttx_multileptons-3l_m_offZ_high_1b_3j_ptll.txt": "ed34a012902075c26bd165fc95d41fef95f3e2ab4ec460e163afb1b85e7effae",
+      "ttx_multileptons-3l_m_offZ_high_1b_4j_ptll.txt": "9abe9fde9a288096e61a488f0fb70d12ce405b85c66605002280e51f1862d0f3",
+      "ttx_multileptons-3l_m_offZ_high_1b_5j_ptll.txt": "6783ead4a4dde7b7525a738789a3874379904683b80bb342ab183794d6ff311d",
+      "ttx_multileptons-3l_m_offZ_high_2b_2j_ptll.txt": "ae798db2deb89ccbf3fdee3703cab470c59df8ca0fc0ed88d63267295f544aae",
+      "ttx_multileptons-3l_m_offZ_high_2b_3j_ptll.txt": "688fa099b2712419d5f17c22f8157c084a4b6b7bbfa8800217f767ec7c70a7ce",
+      "ttx_multileptons-3l_m_offZ_high_2b_4j_ptll.txt": "8d6a1739d3724f05a48e3ce9c3b1b8bf8f139c891eb7de1fa6b6131f99fa6ef7",
+      "ttx_multileptons-3l_m_offZ_high_2b_5j_ptll.txt": "f47b9eb5481c3ff3954e6ebc71de2cba5d6023b5a6174fe0eb2fe51447542fcf",
+      "ttx_multileptons-3l_m_offZ_low_1b_2j_ptll.txt": "de5091f43b21e034bc4672283a571a88c45a42cdf239badb5fa6693b7289823c",
+      "ttx_multileptons-3l_m_offZ_low_1b_3j_ptll.txt": "0288cd3147349670a5b43e8b315b63aadafc5fde04c6af9798e6137ba8415ff0",
+      "ttx_multileptons-3l_m_offZ_low_1b_4j_ptll.txt": "71f06478045725b624ca2dea13da7e3d7c69e3e39dbb3eede08d8778c750606b",
+      "ttx_multileptons-3l_m_offZ_low_1b_5j_ptll.txt": "4c0638c68feb552d9c5b7308cc50fe2472a28d27b002a5833916b2e756d0e0fd",
+      "ttx_multileptons-3l_m_offZ_low_2b_2j_ptll.txt": "a857574eae5deadd7038dd1575f2b5196c4c6fcd4106bf190f322081d00e36c0",
+      "ttx_multileptons-3l_m_offZ_low_2b_3j_ptll.txt": "bd84ac95ef4cbe3217c90d9b4eef0a6d725188c0cada4634d7684aa05409db9d",
+      "ttx_multileptons-3l_m_offZ_low_2b_4j_ptll.txt": "c68b34ddce3f1baf5bf32046cb43ab164d3214686e5d6000a1e85838b18c1bd3",
+      "ttx_multileptons-3l_m_offZ_low_2b_5j_ptll.txt": "eaed89430d9aedd16afd62cdd5039a18f537a4460b9ff5b02b7b1e28b07fcde9",
+      "ttx_multileptons-3l_m_offZ_none_1b_2j_lj0pt.txt": "6593744cdb38c924c23db1602065838ebff7b6f6815d20a77455ba20968447ef",
+      "ttx_multileptons-3l_m_offZ_none_1b_3j_lj0pt.txt": "deb503ced74262ab67d8daa1100d24a80f800cc66cd72f4f2bcefcc095ab298c",
+      "ttx_multileptons-3l_m_offZ_none_1b_4j_lj0pt.txt": "a592d7957e15e5cfb1ee8618399acbaf688bd3a35dcf964d7a904b3a569cd5c9",
+      "ttx_multileptons-3l_m_offZ_none_1b_5j_lj0pt.txt": "2df2b272e505aa631b2ae4266d3a7ceb60895f3eb758d4bafc2bf16dc54d244c",
+      "ttx_multileptons-3l_m_offZ_none_2b_2j_lj0pt.txt": "df7ba11b6fb752d954467dd64a2e1be181eb51fff264d380b2f9e8a1ff5b87f6",
+      "ttx_multileptons-3l_m_offZ_none_2b_3j_lj0pt.txt": "59c9d59c1d1f0b514beedc954e6a18c33d5d9ff3f9905e5f0cb799675c279a38",
+      "ttx_multileptons-3l_m_offZ_none_2b_4j_lj0pt.txt": "a23c0c9fffdcc85f02f6e0f3b64a4c954280f79873d1b9817bb050e6f3bb5e7c",
+      "ttx_multileptons-3l_m_offZ_none_2b_5j_lj0pt.txt": "e7553a1619f88bc93c046d3cbd3f0692b7548b563ec486c929d0d3363876ba9a",
+      "ttx_multileptons-3l_onZ_1b_2j_ptz.txt": "8b3501e82093977f5a2c84c03af852d28b92bd1da9b262eb994de08729345851",
+      "ttx_multileptons-3l_onZ_1b_3j_ptz.txt": "7e48062673e63b1c306b7137a7e1b0f21b94ccb84b63294072f4974a94a1cb82",
+      "ttx_multileptons-3l_onZ_1b_4j_ptz.txt": "fca574aed1daf619f3de3f19db48bb924ac80a2d2dd14a5477ad7854e987f0d3",
+      "ttx_multileptons-3l_onZ_1b_5j_ptz.txt": "870c64fe9cdb3f94235e45fb76d24fac2c3c088f104ba67b000642d801cd557d",
+      "ttx_multileptons-3l_onZ_1b_fwd_1j_lt.txt": "4068e61dae5d2ca1bd0aa7e63c7ec6807fe97de53ccefc7793cac0f5ce1e44f2",
+      "ttx_multileptons-3l_onZ_1b_fwd_2j_lt.txt": "2a36e6b51c78ca5d8ae2f3de8ccd8edc7bd920ff234295eb2ed0fc609bd8e828",
+      "ttx_multileptons-3l_onZ_1b_fwd_3j_lt.txt": "66573cdd715f6e150970d5f0ebd3bee3c06ef36d5e82badf6d09597d0a2250c7",
+      "ttx_multileptons-3l_onZ_1b_fwd_4j_lt.txt": "f8fc12cbdf7caec9d6fb790eda8b93834d1ca023976a95c1430089c15f52d0f4",
+      "ttx_multileptons-3l_onZ_2b_2j_lj0pt.txt": "d8aa6801eb1344faf3067fc6e981dc60277cae7640b7b6d44519825f36baf0d9",
+      "ttx_multileptons-3l_onZ_2b_3j_lj0pt.txt": "01f2cab2bbdec7f220e34a35ddaf78b39194f9ff3b2b5b6aad61929b7e46451c",
+      "ttx_multileptons-3l_onZ_2b_4j_ptz.txt": "6d5fc3b8fb1086ca91940512d412d700559b799e89d91ac5891089e4914e6b59",
+      "ttx_multileptons-3l_onZ_2b_5j_ptz.txt": "726f4dc6f1505e30b315409a091a6751f8df31d910d0eea329cd10f2d90227a5",
+      "ttx_multileptons-3l_onZ_2b_fwd_2j_lt.txt": "750d4eb42ae937678acc892b56da692f104dff73294f259734dc62ca6c2af381",
+      "ttx_multileptons-3l_onZ_2b_fwd_3j_lt.txt": "02782c0739f5a8df6e63e3639a5e3e32fed60c0005e487accfe7f042fdd7dbb8",
+      "ttx_multileptons-3l_onZ_2b_fwd_4j_lt.txt": "8f24afa63a64502823ce2c53036a942444ec867fb65e09bde461a2620d2dccb9",
+      "ttx_multileptons-3l_p_offZ_1b_fwd_1j_lt.txt": "3a2fc2f20dc91a02a3dfa689cc23fb498115e3ff4b82fba11abda63e4ec7aa78",
+      "ttx_multileptons-3l_p_offZ_1b_fwd_2j_lt.txt": "9298066b66de20f9cbfd9972a47de646f5e00aa25ca85387315e6aedfd0844b0",
+      "ttx_multileptons-3l_p_offZ_1b_fwd_3j_lt.txt": "66f2261d15e514f12c5b6eae99aec5b4210a51977931c5508537a2166c81421f",
+      "ttx_multileptons-3l_p_offZ_1b_fwd_4j_lt.txt": "d6a2fad9251268655d14c85a728daf80ea1fc507fd8b1ee8e578afa6109da335",
+      "ttx_multileptons-3l_p_offZ_2b_fwd_2j_lt.txt": "012d8716e4256920d241a45281a89f709798a71f5a43b8127699ac657e511c52",
+      "ttx_multileptons-3l_p_offZ_2b_fwd_3j_lt.txt": "5b373fa738e2076e579baf3a99f275a24a214d06608a4aa221d5dd3750be8c3b",
+      "ttx_multileptons-3l_p_offZ_2b_fwd_4j_lt.txt": "c12770e9807c5a9e88b8e94b33cefb2c6aa315427c8b9a1233c17d0aa2134a3f",
+      "ttx_multileptons-3l_p_offZ_high_1b_2j_ptll.txt": "f3fbd46e70ca438dca39e16bf1e13c09208ac133923dedbc2942d0608edead8e",
+      "ttx_multileptons-3l_p_offZ_high_1b_3j_ptll.txt": "7aad53bc7deaf6f577a96d4e4274d9aec3321212376e4e2c692bbd264c236894",
+      "ttx_multileptons-3l_p_offZ_high_1b_4j_ptll.txt": "195857a0dccf012de684486ca8fdc7b940f84cc5d16d5daa17d9a538e2eb4366",
+      "ttx_multileptons-3l_p_offZ_high_1b_5j_ptll.txt": "5b3d0c8ef3d43955d24da0c8ec25b2f0d4f55d02e3e8f0c7f85f99a2c3371d7c",
+      "ttx_multileptons-3l_p_offZ_high_2b_2j_ptll.txt": "e4da6ebd0e41137c7ccaf714d18dba6e7f2821d6f7afdb1371634c2471f3af91",
+      "ttx_multileptons-3l_p_offZ_high_2b_3j_ptll.txt": "3a1be04699cf3aa978b2ef7483a06e32bb423fc31ef1fa7829a4091693f82c4d",
+      "ttx_multileptons-3l_p_offZ_high_2b_4j_ptll.txt": "8510077ff9b6a90ec01ff8d5588dc178fb55f6b5d8ea282972eaa3b6ecab1c12",
+      "ttx_multileptons-3l_p_offZ_high_2b_5j_ptll.txt": "7c9884d589c27282e2b01726680d7e080bb7fec4689b073c0b6e235f6fd38b2a",
+      "ttx_multileptons-3l_p_offZ_low_1b_2j_ptll.txt": "116e40781412cfaac7b3c7fa42ae5b70ddf1764e3208d1f03a78067b485ec10d",
+      "ttx_multileptons-3l_p_offZ_low_1b_3j_ptll.txt": "3d5525da14ce0c49188f726d2ce2a7ee0cd3f1dd533f3a55e0697601818aa321",
+      "ttx_multileptons-3l_p_offZ_low_1b_4j_ptll.txt": "3c7a41693de1efdde86a176f8b8f4e1fdad6fda1f5331e6474853e2ec5e557a9",
+      "ttx_multileptons-3l_p_offZ_low_1b_5j_ptll.txt": "8e983a45b42aece3733374b70dccb9fe05700230e915f67741580439b416403d",
+      "ttx_multileptons-3l_p_offZ_low_2b_2j_ptll.txt": "a27b5a4de4010c77224b29b2a959eff46fe8329a6c19af107a73e91760ba30e8",
+      "ttx_multileptons-3l_p_offZ_low_2b_3j_ptll.txt": "d86fc3b11729ac32e7b73aaa638ae7f99f1d165781136521286a9f020fc48c19",
+      "ttx_multileptons-3l_p_offZ_low_2b_4j_ptll.txt": "48485c4185ebad75d3b86aef942c4d13cdec63520d782e06b3795e052be75e88",
+      "ttx_multileptons-3l_p_offZ_low_2b_5j_ptll.txt": "c38da57b0910a24c2e1c72f4f8f077c9a6a3b2e3edcd7271343684c6b07996b3",
+      "ttx_multileptons-3l_p_offZ_none_1b_2j_lj0pt.txt": "e63da3e7e912342662499de1551d14fc07e576e9a8c090667321aa55162bd2d1",
+      "ttx_multileptons-3l_p_offZ_none_1b_3j_lj0pt.txt": "f427786fe8af06c36a4cc2122663f0b0318dc3e352bb73809b70a496f24a8614",
+      "ttx_multileptons-3l_p_offZ_none_1b_4j_lj0pt.txt": "a42a47c496a375cd8f8eb7b946415dfd8e99960001dae1e6f808805a196f1e40",
+      "ttx_multileptons-3l_p_offZ_none_1b_5j_lj0pt.txt": "489c1b95dac1078b74761b0265b521aaf66f8ff20c9ca82711bd0d5a78fc611b",
+      "ttx_multileptons-3l_p_offZ_none_2b_2j_lj0pt.txt": "49253e183432b0402910fb4a9051c5f686ead386d39bf51cfe6b625c9b175861",
+      "ttx_multileptons-3l_p_offZ_none_2b_3j_lj0pt.txt": "8429bf9f7ddfa262add9d91c5855bda07800bd158b1888b09ca1ebcc323b1d9b",
+      "ttx_multileptons-3l_p_offZ_none_2b_4j_lj0pt.txt": "2569f8909243d6a2224e47494d5ccfeb622ac4d83b497a19a0101e3b6327ab59",
+      "ttx_multileptons-3l_p_offZ_none_2b_5j_lj0pt.txt": "371093a7127be9b539d0c2e7dc1f553939f6185a1c0278299dbfde8424b4ba82",
+      "ttx_multileptons-4l_2j_lj0pt.txt": "d844829c6665740c319f6eb3221441b3fcc5df1a7b023457cc984a63aca42ea7",
+      "ttx_multileptons-4l_3j_lj0pt.txt": "05a06737a1f53757dd3595c2628f018be860e54bc1dcbc2be3df4b134a419ec7",
+      "ttx_multileptons-4l_4j_lj0pt.txt": "90c0582cb5beed8b08b31875f78b6443346256bf96a5ce4d4da0039fb75d10cb"
+    }
+  },
+  "physical_to_chN": [
+    {
+      "per_era_chN": "ch1",
+      "physical_name": "2los_onZ_1tau_3j_ptz"
+    },
+    {
+      "per_era_chN": "ch2",
+      "physical_name": "2lss_4t_m_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch3",
+      "physical_name": "2lss_4t_m_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch4",
+      "physical_name": "2lss_4t_m_6j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch5",
+      "physical_name": "2lss_4t_m_7j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch6",
+      "physical_name": "2lss_4t_p_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch7",
+      "physical_name": "2lss_4t_p_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch8",
+      "physical_name": "2lss_4t_p_6j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch9",
+      "physical_name": "2lss_4t_p_7j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch10",
+      "physical_name": "2lss_fwd_m_4j_lt"
+    },
+    {
+      "per_era_chN": "ch11",
+      "physical_name": "2lss_fwd_m_5j_lt"
+    },
+    {
+      "per_era_chN": "ch12",
+      "physical_name": "2lss_fwd_m_6j_lt"
+    },
+    {
+      "per_era_chN": "ch13",
+      "physical_name": "2lss_fwd_m_7j_lt"
+    },
+    {
+      "per_era_chN": "ch14",
+      "physical_name": "2lss_fwd_p_4j_lt"
+    },
+    {
+      "per_era_chN": "ch15",
+      "physical_name": "2lss_fwd_p_5j_lt"
+    },
+    {
+      "per_era_chN": "ch16",
+      "physical_name": "2lss_fwd_p_6j_lt"
+    },
+    {
+      "per_era_chN": "ch17",
+      "physical_name": "2lss_fwd_p_7j_lt"
+    },
+    {
+      "per_era_chN": "ch18",
+      "physical_name": "2lss_m_1tau_offZ_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch19",
+      "physical_name": "2lss_m_1tau_offZ_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch20",
+      "physical_name": "2lss_m_1tau_offZ_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch21",
+      "physical_name": "2lss_m_1tau_offZ_6j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch22",
+      "physical_name": "2lss_m_1tau_onZ_3j_ptz_wtau"
+    },
+    {
+      "per_era_chN": "ch23",
+      "physical_name": "2lss_m_1tau_onZ_4j_ptz_wtau"
+    },
+    {
+      "per_era_chN": "ch24",
+      "physical_name": "2lss_m_1tau_onZ_5j_ptz_wtau"
+    },
+    {
+      "per_era_chN": "ch25",
+      "physical_name": "2lss_m_1tau_onZ_6j_ptz_wtau"
+    },
+    {
+      "per_era_chN": "ch26",
+      "physical_name": "2lss_m_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch27",
+      "physical_name": "2lss_m_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch28",
+      "physical_name": "2lss_m_6j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch29",
+      "physical_name": "2lss_m_7j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch30",
+      "physical_name": "2lss_p_1tau_offZ_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch31",
+      "physical_name": "2lss_p_1tau_offZ_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch32",
+      "physical_name": "2lss_p_1tau_offZ_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch33",
+      "physical_name": "2lss_p_1tau_offZ_6j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch34",
+      "physical_name": "2lss_p_1tau_onZ_3j_ptz_wtau"
+    },
+    {
+      "per_era_chN": "ch35",
+      "physical_name": "2lss_p_1tau_onZ_4j_ptz_wtau"
+    },
+    {
+      "per_era_chN": "ch36",
+      "physical_name": "2lss_p_1tau_onZ_5j_ptz_wtau"
+    },
+    {
+      "per_era_chN": "ch37",
+      "physical_name": "2lss_p_1tau_onZ_6j_ptz_wtau"
+    },
+    {
+      "per_era_chN": "ch38",
+      "physical_name": "2lss_p_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch39",
+      "physical_name": "2lss_p_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch40",
+      "physical_name": "2lss_p_6j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch41",
+      "physical_name": "2lss_p_7j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch42",
+      "physical_name": "3l_1tau_1b_2j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch43",
+      "physical_name": "3l_1tau_1b_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch44",
+      "physical_name": "3l_1tau_1b_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch45",
+      "physical_name": "3l_1tau_1b_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch46",
+      "physical_name": "3l_1tau_2b_2j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch47",
+      "physical_name": "3l_1tau_2b_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch48",
+      "physical_name": "3l_1tau_2b_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch49",
+      "physical_name": "3l_1tau_2b_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch50",
+      "physical_name": "3l_m_offZ_1b_fwd_1j_lt"
+    },
+    {
+      "per_era_chN": "ch51",
+      "physical_name": "3l_m_offZ_1b_fwd_2j_lt"
+    },
+    {
+      "per_era_chN": "ch52",
+      "physical_name": "3l_m_offZ_1b_fwd_3j_lt"
+    },
+    {
+      "per_era_chN": "ch53",
+      "physical_name": "3l_m_offZ_1b_fwd_4j_lt"
+    },
+    {
+      "per_era_chN": "ch54",
+      "physical_name": "3l_m_offZ_2b_fwd_2j_lt"
+    },
+    {
+      "per_era_chN": "ch55",
+      "physical_name": "3l_m_offZ_2b_fwd_3j_lt"
+    },
+    {
+      "per_era_chN": "ch56",
+      "physical_name": "3l_m_offZ_2b_fwd_4j_lt"
+    },
+    {
+      "per_era_chN": "ch57",
+      "physical_name": "3l_m_offZ_high_1b_2j_ptll"
+    },
+    {
+      "per_era_chN": "ch58",
+      "physical_name": "3l_m_offZ_high_1b_3j_ptll"
+    },
+    {
+      "per_era_chN": "ch59",
+      "physical_name": "3l_m_offZ_high_1b_4j_ptll"
+    },
+    {
+      "per_era_chN": "ch60",
+      "physical_name": "3l_m_offZ_high_1b_5j_ptll"
+    },
+    {
+      "per_era_chN": "ch61",
+      "physical_name": "3l_m_offZ_high_2b_2j_ptll"
+    },
+    {
+      "per_era_chN": "ch62",
+      "physical_name": "3l_m_offZ_high_2b_3j_ptll"
+    },
+    {
+      "per_era_chN": "ch63",
+      "physical_name": "3l_m_offZ_high_2b_4j_ptll"
+    },
+    {
+      "per_era_chN": "ch64",
+      "physical_name": "3l_m_offZ_high_2b_5j_ptll"
+    },
+    {
+      "per_era_chN": "ch65",
+      "physical_name": "3l_m_offZ_low_1b_2j_ptll"
+    },
+    {
+      "per_era_chN": "ch66",
+      "physical_name": "3l_m_offZ_low_1b_3j_ptll"
+    },
+    {
+      "per_era_chN": "ch67",
+      "physical_name": "3l_m_offZ_low_1b_4j_ptll"
+    },
+    {
+      "per_era_chN": "ch68",
+      "physical_name": "3l_m_offZ_low_1b_5j_ptll"
+    },
+    {
+      "per_era_chN": "ch69",
+      "physical_name": "3l_m_offZ_low_2b_2j_ptll"
+    },
+    {
+      "per_era_chN": "ch70",
+      "physical_name": "3l_m_offZ_low_2b_3j_ptll"
+    },
+    {
+      "per_era_chN": "ch71",
+      "physical_name": "3l_m_offZ_low_2b_4j_ptll"
+    },
+    {
+      "per_era_chN": "ch72",
+      "physical_name": "3l_m_offZ_low_2b_5j_ptll"
+    },
+    {
+      "per_era_chN": "ch73",
+      "physical_name": "3l_m_offZ_none_1b_2j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch74",
+      "physical_name": "3l_m_offZ_none_1b_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch75",
+      "physical_name": "3l_m_offZ_none_1b_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch76",
+      "physical_name": "3l_m_offZ_none_1b_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch77",
+      "physical_name": "3l_m_offZ_none_2b_2j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch78",
+      "physical_name": "3l_m_offZ_none_2b_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch79",
+      "physical_name": "3l_m_offZ_none_2b_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch80",
+      "physical_name": "3l_m_offZ_none_2b_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch81",
+      "physical_name": "3l_onZ_1b_2j_ptz"
+    },
+    {
+      "per_era_chN": "ch82",
+      "physical_name": "3l_onZ_1b_3j_ptz"
+    },
+    {
+      "per_era_chN": "ch83",
+      "physical_name": "3l_onZ_1b_4j_ptz"
+    },
+    {
+      "per_era_chN": "ch84",
+      "physical_name": "3l_onZ_1b_5j_ptz"
+    },
+    {
+      "per_era_chN": "ch85",
+      "physical_name": "3l_onZ_1b_fwd_1j_lt"
+    },
+    {
+      "per_era_chN": "ch86",
+      "physical_name": "3l_onZ_1b_fwd_2j_lt"
+    },
+    {
+      "per_era_chN": "ch87",
+      "physical_name": "3l_onZ_1b_fwd_3j_lt"
+    },
+    {
+      "per_era_chN": "ch88",
+      "physical_name": "3l_onZ_1b_fwd_4j_lt"
+    },
+    {
+      "per_era_chN": "ch89",
+      "physical_name": "3l_onZ_2b_2j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch90",
+      "physical_name": "3l_onZ_2b_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch91",
+      "physical_name": "3l_onZ_2b_4j_ptz"
+    },
+    {
+      "per_era_chN": "ch92",
+      "physical_name": "3l_onZ_2b_5j_ptz"
+    },
+    {
+      "per_era_chN": "ch93",
+      "physical_name": "3l_onZ_2b_fwd_2j_lt"
+    },
+    {
+      "per_era_chN": "ch94",
+      "physical_name": "3l_onZ_2b_fwd_3j_lt"
+    },
+    {
+      "per_era_chN": "ch95",
+      "physical_name": "3l_onZ_2b_fwd_4j_lt"
+    },
+    {
+      "per_era_chN": "ch96",
+      "physical_name": "3l_p_offZ_1b_fwd_1j_lt"
+    },
+    {
+      "per_era_chN": "ch97",
+      "physical_name": "3l_p_offZ_1b_fwd_2j_lt"
+    },
+    {
+      "per_era_chN": "ch98",
+      "physical_name": "3l_p_offZ_1b_fwd_3j_lt"
+    },
+    {
+      "per_era_chN": "ch99",
+      "physical_name": "3l_p_offZ_1b_fwd_4j_lt"
+    },
+    {
+      "per_era_chN": "ch100",
+      "physical_name": "3l_p_offZ_2b_fwd_2j_lt"
+    },
+    {
+      "per_era_chN": "ch101",
+      "physical_name": "3l_p_offZ_2b_fwd_3j_lt"
+    },
+    {
+      "per_era_chN": "ch102",
+      "physical_name": "3l_p_offZ_2b_fwd_4j_lt"
+    },
+    {
+      "per_era_chN": "ch103",
+      "physical_name": "3l_p_offZ_high_1b_2j_ptll"
+    },
+    {
+      "per_era_chN": "ch104",
+      "physical_name": "3l_p_offZ_high_1b_3j_ptll"
+    },
+    {
+      "per_era_chN": "ch105",
+      "physical_name": "3l_p_offZ_high_1b_4j_ptll"
+    },
+    {
+      "per_era_chN": "ch106",
+      "physical_name": "3l_p_offZ_high_1b_5j_ptll"
+    },
+    {
+      "per_era_chN": "ch107",
+      "physical_name": "3l_p_offZ_high_2b_2j_ptll"
+    },
+    {
+      "per_era_chN": "ch108",
+      "physical_name": "3l_p_offZ_high_2b_3j_ptll"
+    },
+    {
+      "per_era_chN": "ch109",
+      "physical_name": "3l_p_offZ_high_2b_4j_ptll"
+    },
+    {
+      "per_era_chN": "ch110",
+      "physical_name": "3l_p_offZ_high_2b_5j_ptll"
+    },
+    {
+      "per_era_chN": "ch111",
+      "physical_name": "3l_p_offZ_low_1b_2j_ptll"
+    },
+    {
+      "per_era_chN": "ch112",
+      "physical_name": "3l_p_offZ_low_1b_3j_ptll"
+    },
+    {
+      "per_era_chN": "ch113",
+      "physical_name": "3l_p_offZ_low_1b_4j_ptll"
+    },
+    {
+      "per_era_chN": "ch114",
+      "physical_name": "3l_p_offZ_low_1b_5j_ptll"
+    },
+    {
+      "per_era_chN": "ch115",
+      "physical_name": "3l_p_offZ_low_2b_2j_ptll"
+    },
+    {
+      "per_era_chN": "ch116",
+      "physical_name": "3l_p_offZ_low_2b_3j_ptll"
+    },
+    {
+      "per_era_chN": "ch117",
+      "physical_name": "3l_p_offZ_low_2b_4j_ptll"
+    },
+    {
+      "per_era_chN": "ch118",
+      "physical_name": "3l_p_offZ_low_2b_5j_ptll"
+    },
+    {
+      "per_era_chN": "ch119",
+      "physical_name": "3l_p_offZ_none_1b_2j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch120",
+      "physical_name": "3l_p_offZ_none_1b_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch121",
+      "physical_name": "3l_p_offZ_none_1b_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch122",
+      "physical_name": "3l_p_offZ_none_1b_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch123",
+      "physical_name": "3l_p_offZ_none_2b_2j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch124",
+      "physical_name": "3l_p_offZ_none_2b_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch125",
+      "physical_name": "3l_p_offZ_none_2b_4j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch126",
+      "physical_name": "3l_p_offZ_none_2b_5j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch127",
+      "physical_name": "4l_2j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch128",
+      "physical_name": "4l_3j_lj0pt"
+    },
+    {
+      "per_era_chN": "ch129",
+      "physical_name": "4l_4j_lj0pt"
+    }
+  ],
+  "reference_role": "development_regression",
+  "scalings_sha256": "789c115afd9838488fcdd2e96705c31c51843e0a45cf2790cc0ecc917d575d47",
+  "selected_wcs_sha256": "3e9e03d375e9d20d1cb7249f3ffcce32a3784675cb8ab9edf9a2ea748e887a07",
+  "target_layout_contract": {
+    "payload_subdirectory": "cards"
+  },
+  "target_package_naming_contract": "top26006_run2_package_<date>_vN"
+}

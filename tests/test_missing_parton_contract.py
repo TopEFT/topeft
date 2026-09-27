@@ -6,10 +6,54 @@ import pytest
 
 from analysis.topeft_run2.analysis_processor import construct_cat_name
 from topeft.modules.missing_parton_contract import (
+    SUPPORTED_SR_REGISTRIES,
     build_channel_appl_contract,
+    infer_legacy_missing_parton_layout,
     load_missing_parton_channel_contract,
+    load_registry_payload_layout,
 )
 from topeft.modules.paths import topeft_path
+
+
+def _write_synthetic_payload(path, layout):
+    import numpy as np
+    import uproot
+
+    with uproot.recreate(path) as output:
+        for category in layout.categories:
+            tree = output.mktree(category.base_sr_category, {"tllq": "float64"})
+            tree.extend({"tllq": np.zeros(category.public_array_length)})
+
+
+def test_all_maintained_layouts_have_unique_inference_signatures_and_resolve(tmp_path):
+    layouts = [load_registry_payload_layout(name) for name in SUPPORTED_SR_REGISTRIES]
+    signatures = [tuple((category.base_sr_category, category.public_array_length)
+                        for category in layout.categories) for layout in layouts]
+    assert len(set(signatures)) == len(SUPPORTED_SR_REGISTRIES)
+    for layout in layouts:
+        path = tmp_path / f"{layout.registry}.root"
+        _write_synthetic_payload(path, layout)
+        assert infer_legacy_missing_parton_layout(path).registry == layout.registry
+
+
+def test_layout_inference_rejects_no_match_and_ambiguity(tmp_path, monkeypatch):
+    import numpy as np
+    import uproot
+    from topeft.modules import missing_parton_contract as contract
+
+    unmatched = tmp_path / "unmatched.root"
+    with uproot.recreate(unmatched) as output:
+        tree = output.mktree("unknown_category", {"tllq": "float64"})
+        tree.extend({"tllq": np.zeros(1)})
+    with pytest.raises(ValueError, match="No maintained missing-parton payload layout matches"):
+        infer_legacy_missing_parton_layout(unmatched)
+
+    layout = load_registry_payload_layout(SUPPORTED_SR_REGISTRIES[0])
+    ambiguous = tmp_path / "ambiguous.root"
+    _write_synthetic_payload(ambiguous, layout)
+    monkeypatch.setattr(contract, "SUPPORTED_SR_REGISTRIES", (layout.registry, layout.registry))
+    with pytest.raises(ValueError, match="Ambiguous missing-parton payload layout"):
+        infer_legacy_missing_parton_layout(ambiguous)
 
 
 EXPECTED_CHANNELS_BY_APPL = {

@@ -43,7 +43,8 @@ At card production:
 
 1. `make_cards.py` selects a coherent histogram family and exact fitting view.
 2. `DatacardMaker` resolves the appropriate missing-parton payload for the
-   artifact era.
+   artifact era and infers its maintained layout from the stored tree order
+   and array lengths. No matching layout or an ambiguous match fails.
 3. The consumer evaluates the payload for the selected signal process,
    category, and physical bin.
 4. The resulting up/down factors are written into the corresponding card
@@ -157,7 +158,9 @@ family because partial replacement could make runtime selection inconsistent.
 
 `topeft.modules.datacard_tools.MissingParton` and `DatacardMaker` own payload
 selection, evaluation on selected fitting bins, template construction, and
-fail-closed behavior. They do not own the source derivation or installation.
+fail-closed behavior. The card consumer has no `--sr-registry` option; the
+separate payload producer retains that option to select its output layout.
+They do not own the source derivation or installation.
 
 ## Provenance and reproducibility
 

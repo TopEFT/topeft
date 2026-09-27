@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 import shlex
+import yaml
 
 import hist
 import numpy as np
@@ -27,7 +28,7 @@ POSTPROCESSOR_PATH = (
     REPOSITORY_ROOT / "analysis/topeft_run2/datacards_post_processing.py"
 )
 RUN_CR_PATH = REPOSITORY_ROOT / "analysis/topeft_run2/run_cr.sh"
-CARD_MATRIX_PATH = REPOSITORY_ROOT / "run_make_cards_run3_yawen_matrix.sh"
+MATRIX_PROFILE_PATH = REPOSITORY_ROOT / "analysis/topeft_run2/datacard_matrix_profiles.yml"
 CHANNEL_REGISTRY_PATH = REPOSITORY_ROOT / "topeft/channels/ch_lst.json"
 
 
@@ -57,21 +58,10 @@ EXPECTED_OFFZ_NONE_CATEGORIES = {
 
 def _card_matrix_mapping():
     mapping = {}
-    for raw_line in CARD_MATRIX_PATH.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line.startswith("run_job "):
-            continue
-        fields = shlex.split(line)
-        distribution = fields[5]
-        expected_count = int(fields[6])
-        patterns = fields[7:]
-        assert len(patterns) == expected_count
-        for pattern in patterns:
-            category = pattern.removeprefix("^")
-            if category.endswith("\\$"):
-                category = category[:-2]
-            else:
-                category = category.removesuffix("$")
+    profile = yaml.safe_load(MATRIX_PROFILE_PATH.read_text(encoding="utf-8"))
+    for row in profile["rows"]:
+        distribution = row["distribution"]
+        for category in row["physical_channels"]:
             assert category not in mapping
             mapping[category] = distribution
     return mapping

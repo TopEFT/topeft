@@ -56,6 +56,7 @@ def test_historical_flags_remain_accepted_and_resolve_legacy_paths():
     assert config.time is True
     assert config.output_path == Path("/tmp/diagnostics")
     assert config.var == "njets"
+    assert config.sr_registry == module.DEFAULT_SR_REGISTRY
 
 
 def test_explicit_card_directories_override_legacy_resolution(tmp_path):
@@ -299,7 +300,7 @@ def test_sr_registry_choices_resolve_and_are_recorded(
 
     config = parse_config(
         module,
-        "--sr-registry",
+        "--missing-parton-layout-key",
         sr_registry,
         "--output-file",
         str(output),
@@ -309,6 +310,9 @@ def test_sr_registry_choices_resolve_and_are_recorded(
     printable = config.to_printable_dict()
     assert config.sr_registry == sr_registry
     assert printable["sr_registry"] == sr_registry
+    assert printable["registry_layout"] == (
+        module.load_registry_payload_layout(sr_registry).to_printable_dict()
+    )
     assert Path(printable["ch_lst_json"]).name == "ch_lst.json"
     assert printable["ch_lst_sha256"] == hashlib.sha256(
         Path(printable["ch_lst_json"]).read_bytes()
@@ -319,11 +323,11 @@ def test_nondefault_registry_requires_explicit_output(tmp_path):
     module = load_module()
 
     with pytest.raises(module.ConfigError, match="requires an explicit --output-file"):
-        parse_config(module, "--sr-registry", "FWD_CH_LST_SR", "--dry-run")
+        parse_config(module, "--missing-parton-layout-key", "FWD_CH_LST_SR", "--dry-run")
 
     config = parse_config(
         module,
-        "--sr-registry",
+        "--missing-parton-layout-key",
         "FWD_CH_LST_SR",
         "--output-file",
         str(tmp_path / "fwd.root"),
@@ -337,7 +341,7 @@ def test_producer_parser_rejects_unknown_registry():
 
     with pytest.raises(SystemExit):
         module.build_arg_parser().parse_args(
-            ["--sr-registry", "UNKNOWN_SR_REGISTRY"]
+            ["--missing-parton-layout-key", "UNKNOWN_SR_REGISTRY"]
         )
 
 
@@ -345,7 +349,7 @@ def test_nondefault_dry_run_is_allowed_and_never_writes(monkeypatch, tmp_path):
     module = load_module()
     config = parse_config(
         module,
-        "--sr-registry",
+        "--missing-parton-layout-key",
         "FWD_CH_LST_SR",
         "--output-file",
         str(tmp_path / "fwd.root"),
@@ -375,7 +379,7 @@ def test_nondefault_generation_reaches_plan_and_registry_bound_writer(
     module = load_module()
     config = parse_config(
         module,
-        "--sr-registry",
+        "--missing-parton-layout-key",
         "FWD_CH_LST_SR",
         "--output-file",
         str(tmp_path / "fwd.root"),
@@ -425,7 +429,7 @@ def test_selected_registry_builds_only_selected_plan_and_reports_unused_inputs(
     module = load_module()
     config = parse_config(
         module,
-        "--sr-registry",
+        "--missing-parton-layout-key",
         sr_registry,
         "--output-file",
         str(tmp_path / f"{sr_registry}.root"),
@@ -550,8 +554,18 @@ def test_help_documents_legacy_and_explicit_modes_deterministically():
         "--output-file",
         "--dry-run",
         "--overwrite",
-        "--sr-registry",
+        "--missing-parton-layout-key",
     ):
         assert option in help_text
-    assert "registry-selected missing-parton ROOT payload" in help_text
+    assert "--sr-registry" not in help_text
+    assert "layout-selected missing-parton ROOT payload" in help_text
     assert "default: ALL_CH_LST_SR" in " ".join(help_text.split())
+
+
+def test_producer_parser_rejects_old_registry_option():
+    module = load_module()
+
+    with pytest.raises(SystemExit):
+        module.build_arg_parser().parse_args(
+            ["--sr-registry", "ALL_CH_LST_SR"]
+        )

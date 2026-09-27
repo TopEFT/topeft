@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 import pickle
-import shlex
+import yaml
 
 import cloudpickle
 import hist
@@ -23,26 +23,15 @@ from topeft.modules.nominal_schema import scalar_nominal_key
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-CARD_MATRIX_PATH = REPOSITORY_ROOT / "run_make_cards_run3_yawen_matrix.sh"
+MATRIX_PROFILE_PATH = REPOSITORY_ROOT / "analysis/topeft_run2/datacard_matrix_profiles.yml"
 
 
 def _maintained_fitting_matrix():
     mapping = {}
-    for raw_line in CARD_MATRIX_PATH.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line.startswith("run_job "):
-            continue
-        fields = shlex.split(line)
-        family = fields[5]
-        category_patterns = fields[7:]
-        assert len(category_patterns) == int(fields[6])
-        for pattern in category_patterns:
-            category = pattern.removeprefix("^")
-            category = (
-                category[:-2]
-                if category.endswith("\\$")
-                else category.removesuffix("$")
-            )
+    profile = yaml.safe_load(MATRIX_PROFILE_PATH.read_text(encoding="utf-8"))
+    for row in profile["rows"]:
+        family = row["distribution"]
+        for category in row["physical_channels"]:
             assert category not in mapping
             mapping[category] = family
     return mapping
