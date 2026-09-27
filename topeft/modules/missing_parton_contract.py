@@ -552,6 +552,36 @@ def legacy_missing_parton_payload_lengths(
     ).public_lengths
 
 
+def infer_legacy_missing_parton_layout(
+    payload_path: str | Path,
+    *,
+    config_path: str | Path | None = None,
+) -> registry_payload_layout:
+    """Identify the one maintained layout matching stored tree order and lengths."""
+    import uproot
+
+    with uproot.open(payload_path) as payload_file:
+        observed_keys = tuple(payload_file.keys(recursive=False, cycle=False))
+        observed_lengths = {
+            key: payload_file[key][LEGACY_MISSING_PARTON_BRANCH].num_entries
+            for key in observed_keys
+        }
+    matches = []
+    for registry in SUPPORTED_SR_REGISTRIES:
+        layout = load_registry_payload_layout(registry, config_path=config_path)
+        if (observed_keys == layout.ordered_base_categories
+                and observed_lengths == dict(layout.public_lengths)):
+            matches.append(layout)
+    if not matches:
+        raise ValueError(f"No maintained missing-parton payload layout matches {payload_path}.")
+    if len(matches) != 1:
+        raise ValueError(
+            f"Ambiguous missing-parton payload layout for {payload_path}: "
+            f"matches {[layout.registry for layout in matches]!r}."
+        )
+    return matches[0]
+
+
 def validate_legacy_missing_parton_values(
     values,
     *,

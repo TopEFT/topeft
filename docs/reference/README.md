@@ -1,9 +1,9 @@
 # Software reference
 
-This reference describes the maintained analysis interfaces, configuration
-schemas, and artifact contracts. Use it when you need an exact default, field,
-accepted value, failure condition, or source owner. The source paths named on
-each page remain authoritative for callable signatures and executable behavior.
+This reference describes analysis interfaces, configuration schemas, and
+artifacts. Use it to look up defaults, fields, accepted values, failure
+conditions, and the source that implements an interface. For exact callable
+signatures and executable behavior, check the source paths named on each page.
 
 For a guided analysis, start from the [documentation index](../README.md). For
 instructions that change or run something, use the linked how-to guide rather
@@ -27,7 +27,7 @@ than treating an option table as a recipe.
 | [Sumw2 policy](sumw2.md) | Modes, default, selectors, resolved policy, companion naming, provenance, and failure conditions |
 | [Flexible binning](flexible_binning.md) | Processing and fitting schemas, family defaults, exact channel-name overrides, and exact aggregation |
 | [Plotting](plotting.md) | Wrapper/direct-CLI defaults, configuration owners, binning views, and output controls |
-| [Datacards and scalings](datacards_and_scalings.md) | Card CLI, `DatacardMaker`, card/template pairs, selected WCs, scaling records, and final channel mapping |
+| [Datacards and scalings](datacards_and_scalings.md) | Manifest-free direct card CLI; input-role matrix profiles, runner, per-era and combined package interfaces, outputs, and channel mappings |
 | [Specialist interfaces](specialist_interfaces.md) | Artifact inspection and developer-facing interfaces that support focused maintenance work |
 | [B-tag scale-factor payloads](btag_scale_factor_payloads.md) | Packaged UL files, current consumers, and provenance limits |
 | [Missing-parton payloads](missing_parton_payloads.md) | Installed Run 2/Run 3 payload schema, selection, overrides, compatibility, and test authority |
@@ -44,9 +44,13 @@ than treating an option table as a recipe.
   [histogram artifacts](histogram_artifacts.md).
 - Plotting: `run_plotter.sh` and `make_cr_and_sr_plots.py` in
   [plotting](plotting.md).
-- Cards and scaling finalization: `make_cards.py` and
-  `datacards_post_processing.py` in
-  [datacards and scalings](datacards_and_scalings.md).
+- Cards and scaling packages: `make_cards.py`,
+  `make_datacard_matrix_manifest.py`, `run_datacard_matrix_resumable.sh`,
+  `build_per_era_datacard_package.py`, and
+  `build_combined_datacard_package.py` in
+  [datacards and scalings](datacards_and_scalings.md). Direct `make_cards.py`
+  production needs no manifest; matrix manifests select the per-era package
+  surface, and combined packages require the same physical surface in both eras.
 - Inspection: `inspect_histeft_pkl.py` in
   [specialist interfaces](specialist_interfaces.md).
 
@@ -100,14 +104,12 @@ extension` for implementation seams useful only within their owner, and
 `archival operator record` for executable historical evidence that is not a
 supported current interface.
 
-## Authority convention
+## Using this reference
 
-The curated pages explain stable semantics so a reader does not have to infer
-them from implementation details. They do not mechanically duplicate every
-Python or shell signature. For exact callable parameters, read the named
-function, class, parser, or wrapper help block in the checked-out source. When a
-curated statement and current executable source differ, stop and resolve the
-contradiction before production.
+These pages explain behavior without reproducing every Python or shell
+signature. For exact callable parameters, read the named function, class,
+parser, or wrapper help block in the checked-out source. Resolve any difference
+between the reference and executable source before production.
 
 ## API publication
 

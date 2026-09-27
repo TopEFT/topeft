@@ -1,27 +1,32 @@
-# Create cards and finalize EFT scalings
+# Create cards and build datacard packages
 
-`analysis/topeft_run2/make_cards.py` is the maintained direct card-production
-interface. It consumes one or more compatible histogram PKLs—normally the
-nonprompt-transformed products—and writes individual text cards, ROOT template
-files, a generated `selectedWCs.txt` unless `--use-selected` is active, and
-`scalings-preselect.json`. There is no maintained general card wrapper; tracked
-matrix scripts can be campaign/operator records without becoming a second
-interface authority.
+`analysis/topeft_run2/make_cards.py` produces cards directly from one or more
+compatible histogram PKLs—normally the nonprompt-transformed products—and
+writes individual text cards, ROOT template files, `selectedWCs.txt`, and
+`scalings-preselect.json`. For multiple production rows, generate a matrix
+manifest and use `analysis/topeft_run2/run_datacard_matrix_resumable.sh` to
+run and resume it.
 
-| Interface | Owns | Defaults/derived state | Delegates or does not own |
+| Interface | Purpose | Inputs and defaults | Outputs and checks |
 | --- | --- | --- | --- |
-| `make_cards.py` | input merge validation, WC selection, channel/variable selection, `DatacardMaker` construction, local or generated Condor execution | fitting binning, year coverage `warn`, Asimov data, no nuisances or MC-stat opt-in | `DatacardMaker` owns card/template/scaling construction; registries, rate payloads, binning and histogram artifacts remain external authorities |
-| `datacards_post_processing.py` | one topology selection, deterministic physical-channel ordering, file selection/copy, `chN` relabeling | exact one-of selector; `-a` chooses `ALL_CH_LST_SR`; destination is fixed to `ptz-lj0pt_withSys` | does not make individual cards, fit them, combine them, or recalculate producer scaling payloads |
-| EFTFit/Combine | individual-card combination and statistical fit | external workflow | creates `combinedcard.txt` later; does not redefine topeft's channel/topology selection |
+| `make_cards.py` | Merge histogram inputs and select WCs, channels, and variables | Fitting binning, year coverage `warn`, Asimov data, no nuisances or MC-stat opt-in | `DatacardMaker` writes TXT cards, ROOT templates, and scaling records; local or Condor execution |
+| `make_datacard_matrix_manifest.py` | Prepare standard Run 2 or Run 3 execution units | Era, `--input-pkl ROLE=PATH` bindings, runtime paths, and fresh manifest path | Writes a `topeft_datacard_matrix_v3` manifest; does not produce cards |
+| `build_per_era_datacard_package.py build` | Build one Run 2 or Run 3 package | Era, one or more matrix manifests with completed rows, and a fresh absolute output | Requires exactly the targets declared by the manifest rows, checks recorded source files, and writes cards, WCs, scalings, and per-era `chN` |
+| `build_combined_datacard_package.py build` | Build a cards-only Run 2 + Run 3 package | Two per-era packages with the same physical target set, fresh absolute output, analysis, package date, and version | Writes the combined mapping, ordered card list, and scalings; checks the package against its inputs; does not run Combine |
+| EFTFit/Combine | Combine cards and construct the statistical model | Packaged cards and scalings plus fit configuration | Creates `combinedcard.txt` and the workspace after package construction |
 
-The region -> distribution -> binning mapping is shared source authority:
-physical regions and jet populations come from `topeft/channels/ch_lst.json`;
-the finalizer chooses each region's card distribution (`lj0pt`, `ptz`, `ptll`,
-`ptz_wtau`, or `lt`); `topeft/modules/axes.py` supplies processing/fitting
-edges. An operator matrix may record a campaign selection but must not become a
-second copy of that map.
+The region → distribution → binning choices come from repository configuration:
+physical regions and jet populations are defined in `topeft/channels/ch_lst.json`;
+the standard matrix profile assigns each region's card distribution (`lj0pt`,
+`ptz`, `ptll`, `ptz_wtau`, or `lt`); `topeft/modules/axes.py` supplies processing/fitting
+edges. A matrix manifest records the selected production rows; it does not
+redefine the region or binning configuration.
 
-## Create individual cards and templates
+## Path 1: create cards and templates directly
+
+This path needs PKLs and `make_cards.py`, with no matrix manifest. It suits
+individual or interactive card production. Per-era packaging uses the matrix
+workflow described below.
 
 From `analysis/topeft_run2`:
 
@@ -63,18 +68,16 @@ exist as histogram families in the merged input.
   physical channel definitions in `topeft/channels/ch_lst.json`.
 - Choose processing or fitting edges through `--binning`; change definitions at
   `topeft/modules/axes.py`, following the [binning guide](flexible_binning.md).
-- Use `--miss-parton-file` and `--sr-registry` to select existing supported
-  configuration. Do not duplicate payload or registry data in an operator
-  wrapper.
-- Do not rely on `--rate-syst-json` in the current implementation. The parser
-  accepts it, but `make_cards.py` passes the value as `rate_syst_path` while
-  `DatacardMaker` consumes `rate_systs_path`; the supplied path is therefore
-  ignored and the maker selects its Run 2 or Run 3 default rate-systematics
-  file. Correcting that keyword boundary is an executable change.
-- `--use-selected FILE` reads the reviewed JSON for card construction, but it
-  does not copy `FILE` to `<out_dir>/selectedWCs.txt`. Before finalization,
-  place and independently verify the exact reviewed `selectedWCs.txt` in the
-  card output directory; otherwise the finalizer has no file to copy.
+- Use `--miss-parton-file` for an exact missing-parton payload override. The
+  card consumer infers its maintained layout from the payload; it has no
+  `--sr-registry` option. The separate payload producer selects its output
+  layout with `--missing-parton-layout-key`.
+- `--rate-syst-json` overrides the run-era rate-systematics JSON path. An
+  explicit value is forwarded to `DatacardMaker` as `rate_systs_path`; when it
+  is omitted, `DatacardMaker` selects its maintained Run 2 or Run 3 default.
+- `--use-selected FILE` reads the reviewed JSON for card construction,
+  canonicalizes its signal-only representation, and materializes that
+  representation as `<out_dir>/selectedWCs.txt` without modifying `FILE`.
 - When extending the CLI, update parsing, Condor forwarding if applicable,
   `DatacardMaker` construction, output/provenance behavior, and focused tests.
 
@@ -89,9 +92,10 @@ To add a supported selection/configuration control:
 
 1. Identify its existing owner: physical channels in `ch_lst.json`, axes in
    `axes.py`, currently default-selected rate-systematic JSON in
-   `DatacardMaker`, missing-parton payload/registry through their dedicated
-   options, or WC selection through selected-WC inputs. Treat the ineffective
-   `--rate-syst-json` keyword path as a source defect, not an extension model.
+   `DatacardMaker`, missing-parton payload through its exact-path option,
+   or WC selection through selected-WC inputs. Use
+   `--rate-syst-json` only to select an existing supported rate-systematics
+   JSON.
 2. Add a CLI selector only when choosing among existing supported authorities;
    do not copy the configuration into `make_cards.py`.
 3. Validate choices before output creation and thread the resolved value to
@@ -106,66 +110,210 @@ Card changes can affect template shapes, nuisance content, WC selection, the
 preselected scaling records, and every later EFT fit. Validate the card/template
 pair together rather than checking the text card alone.
 
-The normal generated-selection output set contains one text-card/ROOT-template
-pair per selected physical channel and distribution, `selectedWCs.txt`, and
-`scalings-preselect.json`. With `--use-selected`, the operator must supply the
-reviewed `selectedWCs.txt` in the output directory separately. The preselect
-file records producer-owned EFT polynomial payloads under physical
-channel/distribution labels. `make_cards.py` does not assign final `chN` labels
-or create `combinedcard.txt`.
+## Path 2: run a datacard matrix resumably
 
-The tracked `run_make_cards_run3_yawen_matrix.sh` is classified as an archival
-operator record: its site/user paths, campaign inputs/hashes, environment and
-branch assumptions, and DATACARD023-qualified provenance make it useful for
-that campaign but not a supported wrapper. It remains tracked in its runnable
-location; moving, removing, or generalizing it requires a separate executable
-source-control decision. Use `make_cards.py` directly for maintained work.
-
-## Finalize the current full topology
-
-The card directory must already contain the individual card/template pairs,
-`selectedWCs.txt`, and `scalings-preselect.json`. Then run:
+For standard multi-row production and packaging, bind each input role in the
+selected era's profile to a new PKL. Run 2 uses `block1` through `block5`;
+Run 3 uses `2l_mixed`, `3l_m_offz`, `3l_p_offz`, `3l_onz_tau`, and `3l_fwd`.
+These roles reflect the PKL blocks supplied to the standard rows. From the
+repository root, a Run 3 invocation is:
 
 ```bash
-python datacards_post_processing.py /absolute/path/to/cards -a
+python analysis/topeft_run2/make_datacard_matrix_manifest.py \
+  --era run3 \
+  --input-pkl 2l_mixed=/absolute/path/to/2l-mixed.pkl.gz \
+  --input-pkl 3l_m_offz=/absolute/path/to/3l-m-offz.pkl.gz \
+  --input-pkl 3l_p_offz=/absolute/path/to/3l-p-offz.pkl.gz \
+  --input-pkl 3l_onz_tau=/absolute/path/to/3l-onz-tau.pkl.gz \
+  --input-pkl 3l_fwd=/absolute/path/to/3l-fwd.pkl.gz \
+  --python-executable /absolute/path/to/python \
+  --missing-parton-file /absolute/path/to/missing-parton.root \
+  --runtime-contract-id run3-cards-001 \
+  --output-root /absolute/path/to/row-outputs \
+  --control-root /absolute/path/to/runner-control \
+  --manifest-output /absolute/path/to/run3-matrix.json
 ```
 
-Exactly one topology selector is required. `-a`/`--all-analysis` selects the
-full current topology from `ch_lst.json`. The script deterministically orders
-the physical channel names, maps them to `ch1`, `ch2`, and so on, copies the
-selected card/template/WC inputs, and writes final `scalings.json`. A matching
-scaling record retains its producer-owned payload while only its channel label
-is replaced by the deterministic `chN` label.
+For Run 2, use `--era run2`, five `--input-pkl` bindings named `block1` through
+`block5`, and the Run 2 missing-parton file. The helper combines the maintained
+channel registry with the human-authored
+`analysis/topeft_run2/datacard_matrix_profiles.yml`, selects the era's years,
+and writes a `topeft_datacard_matrix_v3` JSON manifest. The full profile has 11
+logical rows in either era. Its maintained execution partition produces 11
+Run 2 units and 34 Run 3 units. A logical row may map to several execution
+units; each keeps its input role and distribution, and their physical channels
+have exactly the logical row's union. The generated units select channels in
+`make_cards.py` with `--ch-lst` and use year coverage `error`.
+It records the selected Python interpreter and hashes `make_cards.py`; repeat
+`--runtime-file` for other files to include in the runner's runtime check.
+The manifest path must be new. For a maintained restricted fit, use
+`--channel-set-key OFFZ_SPLIT_CH_LST_SR`. For a one-off subset, repeat
+`--physical-target <channel>_<distribution>` as an advanced generator option.
+These manifest filters choose production targets; the generated `--ch-lst`
+arguments select channels in `make_cards.py`, while
+`--missing-parton-layout-key` selects only the separate payload producer's
+output layout.
+Only PKL roles used by the selected rows are required. Make the same physical
+subset in the Run 2 and Run 3 manifests before running either matrix: Run 2
+manifest X and Run 3 manifest X produce packages with the same surface X.
 
-Use a card directory whose `ptz-lj0pt_withSys` destination does not already
-exist; the finalizer creates it and does not implement resume/overwrite. It
-has incomplete selector-dependent count guards: `-s`, `-z`, and `-t` check both
-text and ROOT totals; `-a` checks only the ROOT total; and `-f` checks neither.
-The printed "root templates copied" line also reports the text counter. Do not
-use that line or a successful exit as completeness evidence. Independently
-list and count the copied `.txt` and `.root` files, pair them by the expected
-physical `<channel>_<distribution>` stem, and compare the pairs with the
-selected topology before handing the directory onward.
+The current manifest uses the `topeft_datacard_matrix_v3` schema. Each
+execution-unit row records its logical row ID, input PKL, literal channel
+arguments, distribution, years, output paths,
+`make_cards.py` arguments, and log/snapshot locations. The runner checks the
+declared runtime files before execution and writes successful row JSON receipts;
+the analyst does not create receipt files. Direct `make_cards.py` use does not
+require a matrix manifest.
 
-The mapping procedure is deterministic: load the chosen registry block,
-expand its physical jet populations, choose the source-owned distribution for
-each category, sort the resulting physical channel/distribution names, and map
-their one-based positions to `ch1`, `ch2`, .... Only scaling records whose
-physical label is selected are retained. A record's coefficients/WC order are
-not recalculated during relabeling.
+`topeft_datacard_matrix_v2` is a historical schema, not a corrupt manifest.
+The current datacard workflow does not accept it. Generate a new v3 manifest
+with `make_datacard_matrix_manifest.py`; there is no migration or conversion
+path.
 
-`combinedcard.txt` is neither an input nor an output of
-`datacards_post_processing.py`. EFTFit later combines the individual cards and
-creates `combinedcard.txt` before the Combine handoff. If the final scaling
-file has no record for an exact channel/process pair, that pair has no external
-EFT morph; do not fabricate one during finalization.
+A minimal invocation is:
 
-Validate this boundary with `tests/test_split_datacard_boundary.py`,
-`tests/test_ptll_semantic_contract.py`,
-`tests/test_datacard_late_rebin.py`, and the relevant card-option tests. A
-binning change can alter template bin counts and `scalings-preselect.json`, so
-reproduce cards and final scalings together even when existing PKLs remain
-exactly aggregatable.
+```bash
+analysis/topeft_run2/run_datacard_matrix_resumable.sh --plan-only /path/to/manifest.json
+analysis/topeft_run2/run_datacard_matrix_resumable.sh --status /path/to/manifest.json
+analysis/topeft_run2/run_datacard_matrix_resumable.sh /path/to/manifest.json
+```
+
+The public wrapper locates its companion Python engine relative to its own
+absolute directory, so it does not depend on the checkout location or the
+caller's current working directory. It prefers `python` and falls back to
+`python3` for the runner engine bootstrap.
+
+Tip: A persistent terminal session such as `tmux` can be useful for
+long-running jobs that should continue after the terminal disconnects.
+Inspect `--plan-only` and
+`--status` first, and keep the manifest unchanged during an
+attempt. The runner validates the schema and runtime fingerprints before plan
+or execution, holds one OS advisory lock for a mutating run, and directly runs
+the declared Python argv with no shell intermediary. It stops on the first
+command or output-check failure.
+
+After a successful row command, the runner checks the declared outputs, retains
+the row-specific merge report, snapshots `selectedWCs.txt`,
+`scalings-preselect.json`, and the merge report, hashes the primary TXT/ROOT
+outputs and every row-local control artifact (merge report, snapshots, and log),
+and atomically publishes an execution receipt. Receipt validation rechecks both
+size and SHA256; these checks do not assess the physics content.
+
+On restart, a row is skipped only when its receipt matches the current manifest,
+argv, paths, runtime contract, and byte-bound artifacts. A valid immutable
+receipt permits that skip even if the row's historical input PKL or
+missing-parton file is no longer available. Rows that are about to execute
+still require the current runtime contract, a readable regular input PKL, and
+a readable regular missing-parton file. The manifest binds
+`missing_parton_path` to exactly one matching `--miss-parton-file` producer
+argument, so the checked file is the file passed to `make_cards.py`.
+
+`--plan-only` does not mutate or execute. For each `not_started` row it reports
+runtime and execution-input availability and marks the overall plan not
+launch-ready when a required input is unavailable; completed rows are not
+penalized for unavailable historical execution inputs.
+
+Owner metadata is updated atomically under the OS lock before each row.
+`started_at` records when this runner acquired execution ownership and remains
+stable for that runner's lifetime; `current_row_started_at` records the start
+of the current row and changes with each row. `--status` reports
+`active` only when evidence has no receipt *and* the lock plus owner metadata
+identify that exact row/attempt; evidence with a free lock is
+`interrupted_requires_external_reconciliation`, even if stale owner JSON
+remains. `invalid_receipt` means recorded bytes no longer match.
+
+Before each row launch, the held runner rechecks the runtime contract and
+freshly classifies the row. Only `not_started` launches; valid receipts skip,
+and `active`, interrupted, unreceipted, or invalid state blocks. External
+reconciliation must decide whether a new attempt is safe and, if so, supply a
+new attempt ID and non-overwriting paths. There is no automatic retry or
+output-existence shortcut. A runtime fingerprint change blocks before the next
+row.
+
+The steps are:
+
+1. Run the producer rows and retain their logs, snapshots, and receipts.
+2. Review the completed v3 manifests and source artifacts.
+3. Build each per-era package with `build_per_era_datacard_package.py build`.
+   The runner does not launch either package builder.
+
+## Build per-era packages
+
+The resumable runner produces individual TXT/ROOT pairs
+and row-local `selectedWCs.txt` and `scalings-preselect.json`. The last row's
+shared metadata files are not a complete era package. Supply the completed
+v3 manifests to the per-era builder; repeat
+`--matrix-manifest` for each contributing manifest. Run the following
+builder command from the repository root:
+
+```bash
+python analysis/topeft_run2/build_per_era_datacard_package.py build \
+  --era run2 \
+  --matrix-manifest /absolute/path/to/run2-matrix.json \
+  --output /absolute/path/to/new-run2-package \
+  --analysis TOP-26-006
+```
+
+Repeat with `--era run3`, its completed manifest(s), and a distinct fresh
+output. The builder takes its requested physical targets from the supplied
+manifest rows. It rechecks receipt-bound source files and exact card/template
+pairs, assigns deterministic
+per-era `chN` labels, consolidates selected WCs and scaling records, and
+publishes `cards/`, `selectedWCs.txt`, `scalings.json`,
+`physical_to_chN.json`, and `package-provenance.json`. Duplicate scaling
+identities are rejected. `combinedcard.txt` is not built here.
+
+For a restricted fit, select the same physical subset in each era's manifest.
+Run the two manifests, then build each package without repeating the selection.
+The builder requires the completed rows to provide exactly the manifest-declared
+set. On a mismatch it lists missing and extra targets separately. For a missing target present in a
+supplied manifest, it names the manifest and row and prints the runner's
+`--status` and resume commands. Check status before deciding whether to resume;
+the builder never runs producer rows.
+The combined builder accepts X with X and rejects X with a different subset Y.
+
+## Build and consume a combined Run 2 + Run 3 package
+
+Use the Run 2 and Run 3 per-era package directories as inputs. They must
+contain the same set of physical channel/distribution targets; matching
+restricted subsets are allowed. A mismatch reports the targets missing from
+each era before publishing a combined package. Run the
+combined builder from the repository root. It derives the mapping and card
+order from their mappings, copies ROOT templates, updates only the card
+template reference, and relabels scaling channels. It checks the staged and
+published cards-only package against the input packages. It requires a fresh
+absolute output path:
+
+```bash
+python analysis/topeft_run2/build_combined_datacard_package.py build \
+  --run2-package /absolute/path/to/run2-package \
+  --run3-package /absolute/path/to/run3-package \
+  --output /absolute/path/to/new-combined-package \
+  --analysis TOP-26-006 \
+  --package-date YYMMDD \
+  --package-version v1
+```
+
+The package contains `cards/`, `scalings.json`,
+`combined_mapping_manifest.json`, `ordered_card_inputs.txt`,
+`package-provenance.json`, and a README. It does not contain a
+combined `selectedWCs.txt` or `combinedcard.txt`. The `certify` subcommand can
+check an existing package against the same Run 2 and Run 3 inputs. Fit
+configuration determines the Wilson coefficients used when building the
+workspace.
+
+`ordered_card_inputs.txt` lists cards in combination order. From the combined
+package directory, follow its generated README:
+
+```bash
+cd <combined-package-root>
+mapfile -t cards < ordered_card_inputs.txt
+combineCards.py "${cards[@]}" > combinedcard.txt
+```
+
+The list follows the packaged channel mapping; do not use shell-glob order.
+This command combines the individual cards. Workspace construction and fitting
+follow in EFTFit/Combine.
 
 ## Diagnose card/finalization failures
 
@@ -173,20 +321,18 @@ exactly aggregatable.
 | --- | --- |
 | merge policy/schema/companion mismatch | fix or reproduce the upstream artifact; do not concatenate dictionaries manually |
 | selected variable/channel absent | inspect the merged histogram axes and source registry; a regex cannot create missing content |
-| fitting edges not exactly representable | correct the canonical fitting view or produce compatible processing-binned PKLs |
-| selected-WC mismatch | review the new selection and reference; do not skip the check without an explicit validated reason |
-| finalizer missing card/template | reproduce that physical channel/distribution pair; do not let relabeling hide an incomplete set |
+| fitting edges not exactly representable | correct the fitting-bin definition or produce compatible processing-binned PKLs |
+| selected-WC mismatch | review the new selection and reference before rerunning |
+| per-era builder missing physical target | inspect the reported manifest row with the displayed runner `--status` command; resume through the runner when appropriate, or supply a manifest defining the target |
+| per-era builder unexpected physical target | use the matching requested target set or correct the supplied manifests before packaging |
+| combined builder unequal physical targets | select or rebuild both era packages with the same physical channel/distribution set |
 | preselect scaling has no selected physical label | determine whether the process intentionally has no external EFT morph or the producer output is incomplete |
-| destination already exists | choose a fresh card-finalization directory; there is no supported resume/merge behavior |
-
-The selectors `-s`, `-z`, `-t`, and `-f` describe narrower or historical
-topologies. In particular, `-s` is the historical TOP-22-006 selection, not the
-current default. See the [historical TOP-22-006 page](historical/top_22_006.md).
+| destination already exists | choose a fresh package directory; there is no supported resume/merge behavior |
 
 Exact schemas and option contracts are in the
 [datacards/scalings reference](../reference/datacards_and_scalings.md). The
 [EFTFit boundary explanation](../explanation/datacards_and_eftfit.md) describes
-why finalization and card combination remain separate responsibilities.
+why package construction and card combination remain separate responsibilities.
 
 Use [categories and observables](categories_and_observables.md) before changing
 the physical category or distribution that a card consumes, and use

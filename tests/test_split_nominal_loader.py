@@ -411,6 +411,102 @@ def test_same_run_mixed_and_reduced_family_fragments_are_transparent(tmp_path):
     )
 
 
+def test_same_run_applicability_aware_reduced_family_fragments_merge(tmp_path):
+    samples = {
+        "background_dataset": {
+            "histAxisName": "backgroundUL18",
+            "isData": False,
+            "WCnames": [],
+        }
+    }
+    mixed_families = ("njets", "ptz_wtau")
+    reduced_families = ("njets",)
+    mixed_channel = "3l_onZ_2b_4j"
+    reduced_channel = "2lss_m_4j"
+    mixed_path = tmp_path / "mixed_applicable.pkl.gz"
+    reduced_path = tmp_path / "reduced_applicable.pkl.gz"
+    mixed_applicability = _applicability(
+        mixed_families,
+        {
+            "njets": {mixed_channel: "applicable"},
+            "ptz_wtau": {mixed_channel: "applicable"},
+        },
+    )
+    reduced_applicability = _applicability(
+        reduced_families,
+        {"njets": {reduced_channel: "applicable"}},
+    )
+    _write_versioned(
+        mixed_path,
+        {
+            scalar_nominal_key("njets"): _scalar(
+                "backgroundUL18", 2.0, channel=mixed_channel
+            ),
+            "njets_sumw2": _scalar(
+                "backgroundUL18", 4.0, companion=True, channel=mixed_channel
+            ),
+            scalar_nominal_key("ptz_wtau"): _scalar(
+                "backgroundUL18", 5.0, family="ptz_wtau", channel=mixed_channel
+            ),
+            "ptz_wtau_sumw2": _scalar(
+                "backgroundUL18",
+                25.0,
+                family="ptz_wtau",
+                companion=True,
+                channel=mixed_channel,
+            ),
+        },
+        _policy_for_families(mixed_families, samples),
+        samples,
+        histogram_applicability=mixed_applicability,
+    )
+    _write_versioned(
+        reduced_path,
+        {
+            scalar_nominal_key("njets"): _scalar(
+                "backgroundUL18", 3.0, channel=reduced_channel
+            ),
+            "njets_sumw2": _scalar(
+                "backgroundUL18", 9.0, companion=True, channel=reduced_channel
+            ),
+        },
+        _policy_for_families(reduced_families, samples),
+        samples,
+        histogram_applicability=reduced_applicability,
+    )
+
+    merged, report = load_and_merge_histogram_pkls(
+        [str(mixed_path), str(reduced_path)],
+        consumer_required_families=mixed_families,
+    )
+
+    assert report["runtime_histogram_families"] == list(mixed_families)
+    assert report["histogram_applicability"] == _applicability(
+        mixed_families,
+        {
+            "njets": {
+                mixed_channel: "applicable",
+                reduced_channel: "applicable",
+            },
+            "ptz_wtau": {mixed_channel: "applicable"},
+        },
+    )
+    assert _channel_total(
+        evaluate_nominal_at_wc(merged, "njets", {}), mixed_channel
+    ) == pytest.approx(2.0)
+    assert _channel_total(
+        evaluate_nominal_at_wc(merged, "njets", {}), reduced_channel
+    ) == pytest.approx(3.0)
+    assert _channel_total(merged["njets_sumw2"], mixed_channel) == pytest.approx(4.0)
+    assert _channel_total(merged["njets_sumw2"], reduced_channel) == pytest.approx(9.0)
+    assert _channel_total(
+        evaluate_nominal_at_wc(merged, "ptz_wtau", {}), mixed_channel
+    ) == pytest.approx(5.0)
+    assert _channel_total(merged["ptz_wtau_sumw2"], mixed_channel) == pytest.approx(
+        25.0
+    )
+
+
 def test_plotter_variable_chunks_allow_overlapping_channel_support(tmp_path):
     samples = {
         "background_dataset": {

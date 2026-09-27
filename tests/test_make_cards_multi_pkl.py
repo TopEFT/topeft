@@ -502,7 +502,9 @@ def test_make_cards_main_propagates_resolved_year_coverage_policy(
         captured.update(kwargs)
         return {}, {"num_inputs": len(pkl_paths)}
 
-    monkeypatch.setattr(make_cards, "load_and_merge_histogram_pkls", _fake_load)
+    monkeypatch.setattr(
+        make_cards.datacard_tools, "load_and_merge_histogram_pkls", _fake_load
+    )
     monkeypatch.setattr(
         sys,
         "argv",
@@ -594,12 +596,14 @@ def test_use_selected_materializes_signal_only_output_without_mutating_source(
         captured_selected_wcs.update(selected_wcs)
 
     monkeypatch.setattr(
-        make_cards,
+        make_cards.datacard_tools,
         "load_and_merge_histogram_pkls",
         lambda *args, **kwargs: ({}, {}),
     )
     monkeypatch.setattr(make_cards, "_emit_merge_report", lambda *args: None)
-    monkeypatch.setattr(make_cards, "DatacardMaker", fake_datacard_maker)
+    monkeypatch.setattr(
+        make_cards.datacard_tools, "DatacardMaker", fake_datacard_maker
+    )
     monkeypatch.setattr(make_cards, "run_local", capture_run_local)
     monkeypatch.setattr(
         sys,

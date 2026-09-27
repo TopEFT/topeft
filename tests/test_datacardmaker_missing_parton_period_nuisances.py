@@ -5,10 +5,7 @@ import pytest
 
 from topeft.modules import datacard_tools
 from topeft.modules.datacard_tools import DatacardMaker
-from topeft.modules.missing_parton_contract import (
-    DEFAULT_SR_REGISTRY,
-    SUPPORTED_SR_REGISTRIES,
-)
+from topeft.modules.missing_parton_contract import DEFAULT_SR_REGISTRY
 
 
 RUN2_DEFAULT_PAYLOAD = "data/missing_parton/missing_parton_run2.root"
@@ -20,13 +17,11 @@ def _systematics_loader(
     years,
     do_nuisance=True,
     skip=False,
-    sr_registry=DEFAULT_SR_REGISTRY,
 ):
     maker = object.__new__(DatacardMaker)
     maker.do_nuisance = do_nuisance
     maker.skip_missing_parton_rate_syst = skip
     maker.year_lst = list(years)
-    maker.sr_registry = sr_registry
     return maker
 
 
@@ -43,6 +38,10 @@ def _mock_payload_validator(monkeypatch, values_by_path):
         datacard_tools,
         "validate_legacy_missing_parton_payload",
         validate,
+    )
+    monkeypatch.setattr(
+        datacard_tools, "infer_legacy_missing_parton_layout",
+        lambda _path: type("layout", (), {"registry": DEFAULT_SR_REGISTRY})(),
     )
     return calls
 
@@ -84,81 +83,23 @@ def test_empty_explicit_payload_path_is_rejected():
         DatacardMaker.resolve_missing_parton_payload_path(("UL18",), "")
 
 
-@pytest.mark.parametrize("sr_registry", SUPPORTED_SR_REGISTRIES)
-def test_direct_constructor_accepts_and_stores_canonical_registry(
-    monkeypatch,
-    sr_registry,
-):
-    monkeypatch.setattr(DatacardMaker, "load_systematics", lambda *args: {})
-
-    maker = DatacardMaker(
-        hists={},
-        do_nuisance=False,
-        sr_registry=sr_registry,
-        verbose=False,
-    )
-
-    assert maker.sr_registry == sr_registry
-    assert maker.missing_parton_payload_path is None
-
-
-def test_direct_constructor_defaults_to_all_registry(monkeypatch):
+def test_direct_constructor_needs_no_registry(monkeypatch):
     monkeypatch.setattr(DatacardMaker, "load_systematics", lambda *args: {})
 
     maker = DatacardMaker(hists={}, do_nuisance=False, verbose=False)
 
-    assert maker.sr_registry == DEFAULT_SR_REGISTRY
+    assert not hasattr(maker, "sr_registry")
 
 
-def test_direct_constructor_rejects_unknown_registry(monkeypatch):
-    monkeypatch.setattr(DatacardMaker, "load_systematics", lambda *args: {})
-
-    with pytest.raises(ValueError, match="Unsupported SR registry"):
-        DatacardMaker(
-            hists={},
-            do_nuisance=False,
-            sr_registry="UNKNOWN_SR",
-            verbose=False,
-        )
-
-
-def test_direct_constructor_validates_registry_against_channel_config(monkeypatch):
-    observed = []
-
-    def validate(sr_registry):
-        observed.append(sr_registry)
-        return sr_registry, {"selected": True}
-
-    monkeypatch.setattr(datacard_tools, "load_or_validate_selected_registry", validate)
-    monkeypatch.setattr(DatacardMaker, "load_systematics", lambda *args: {})
-
-    maker = DatacardMaker(
-        hists={},
-        do_nuisance=False,
-        sr_registry="TAU_CH_LST_SR",
-        verbose=False,
-    )
-
-    assert maker.sr_registry == "TAU_CH_LST_SR"
-    assert observed == ["TAU_CH_LST_SR"]
-
-
-def test_nondefault_registry_requires_explicit_payload_and_preserves_override():
-    with pytest.raises(ValueError, match="no canonical implicit"):
-        DatacardMaker.resolve_missing_parton_payload_path(
-            ("UL18",),
-            sr_registry="FWD_CH_LST_SR",
-        )
-
+def test_explicit_payload_preserves_override():
     arbitrary_path = "arbitrary/not-inferred-from-name.root"
     assert DatacardMaker.resolve_missing_parton_payload_path(
         ("UL18",),
         arbitrary_path,
-        sr_registry="FWD_CH_LST_SR",
     ) == arbitrary_path
 
 
-def test_nondefault_constructor_preserves_exact_explicit_payload(monkeypatch):
+def test_constructor_preserves_exact_explicit_payload(monkeypatch):
     captured_paths = []
 
     def capture_systematics(self, rate_syst_path, missing_parton_path):
@@ -170,12 +111,11 @@ def test_nondefault_constructor_preserves_exact_explicit_payload(monkeypatch):
         hists={},
         do_nuisance=True,
         year_lst=["UL18"],
-        sr_registry="FWD_CH_LST_SR",
         missing_parton_path="names/do-not-select-the-registry.root",
         verbose=False,
     )
 
-    assert maker.sr_registry == "FWD_CH_LST_SR"
+    assert not hasattr(maker, "sr_registry")
     assert maker.missing_parton_payload_path == (
         "names/do-not-select-the-registry.root"
     )
@@ -289,12 +229,10 @@ def test_consumer_boundary_accepts_packaged_current_payload(year, payload_path):
 
 
 @pytest.mark.parametrize("do_nuisance, skip", ((False, False), (True, True)))
-@pytest.mark.parametrize("sr_registry", (DEFAULT_SR_REGISTRY, "FWD_CH_LST_SR"))
 def test_constructor_skip_and_disabled_modes_bypass_default_resolution(
     monkeypatch,
     do_nuisance,
     skip,
-    sr_registry,
 ):
     def fail_if_resolved(*args, **kwargs):
         raise AssertionError("missing-parton default was resolved despite suppression")
@@ -310,7 +248,6 @@ def test_constructor_skip_and_disabled_modes_bypass_default_resolution(
         hists={},
         do_nuisance=do_nuisance,
         skip_missing_parton_rate_syst=skip,
-        sr_registry=sr_registry,
         year_lst=["UL18", "2022"],
         verbose=False,
     )
@@ -407,35 +344,19 @@ def test_disabled_nuisances_bypass_payload_loading_and_era_resolution(monkeypatc
     assert maker.load_systematics("params/rate_systs_run3.json", "does-not-exist.root") == {}
 
 
-def test_consumer_boundary_passes_the_exact_selected_registry(monkeypatch):
+def test_consumer_boundary_uses_inferred_layout(monkeypatch):
     calls = _mock_payload_validator(monkeypatch, {"selected.root": (0.2, 0.3)})
-    maker = _systematics_loader(
-        years=("UL18",),
-        sr_registry="FWD_CH_LST_SR",
-    )
+    maker = _systematics_loader(years=("UL18",))
 
     systematics = maker.load_systematics(
         "params/rate_systs_run2.json",
         "selected.root",
     )
 
-    assert calls[0][1] == "FWD_CH_LST_SR"
+    assert calls[0][1] == DEFAULT_SR_REGISTRY
     assert systematics["missing_parton"].get_process("tllq") == {
         "3l_onZ_1b": pytest.approx(np.asarray((1.2, 1.3)))
     }
-
-
-def test_consumer_boundary_rejects_payload_for_a_different_registry():
-    maker = _systematics_loader(
-        years=("UL18",),
-        sr_registry="FWD_CH_LST_SR",
-    )
-
-    with pytest.raises(ValueError, match="Invalid legacy missing-parton key set"):
-        maker.load_systematics(
-            "params/rate_systs_run2.json",
-            RUN2_DEFAULT_PAYLOAD,
-        )
 
 
 def test_consumer_boundary_rejects_obsolete_payload_without_fallback(monkeypatch):
@@ -448,6 +369,10 @@ def test_consumer_boundary_rejects_obsolete_payload_without_fallback(monkeypatch
         datacard_tools,
         "validate_legacy_missing_parton_payload",
         reject_obsolete,
+    )
+    monkeypatch.setattr(
+        datacard_tools, "infer_legacy_missing_parton_layout",
+        lambda _path: type("layout", (), {"registry": DEFAULT_SR_REGISTRY})(),
     )
     maker = _systematics_loader(years=("UL18",))
 

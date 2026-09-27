@@ -10,8 +10,10 @@ The datacard consumer selects:
   `2023`, and `2023BPix`.
 
 `make_cards.py --miss-parton-file PATH` supplies an exact replacement. The
-consumer does not search for another layout or silently fall back to a
-different era. `--skip-missing-parton-rate-syst` disables only this nuisance;
+consumer infers its layout from the payload's ordered top-level trees and array
+lengths against the five maintained layouts. No match or multiple matches
+fail; there is no fallback. The card CLI has no `--sr-registry` option.
+`--skip-missing-parton-rate-syst` disables only this nuisance;
 disabling all nuisances also avoids opening the payload.
 
 The consumer methods in `DatacardMaker` are developer-facing:
@@ -21,15 +23,17 @@ The consumer methods in `DatacardMaker` are developer-facing:
 | `DatacardMaker.missing_parton_run_era` | One canonical year/period → `run2` or `run3` | Rejects missing and unsupported labels. |
 | `DatacardMaker.missing_parton_run_era_for_years` | String or iterable; optional payload path for diagnostics → one era | Rejects empty or mixed Run 2/Run 3 selections. |
 | `DatacardMaker.missing_parton_nuisance_name_for_years` | Same year inputs → `missing_parton` | Validates era before returning the single correlated nuisance name. |
-| `DatacardMaker.resolve_missing_parton_payload_path` | Years, optional exact path, registry default current → path | Explicit non-empty path wins. Implicit defaults are allowed only for the current registry; a custom registry requires a matching explicit payload. |
+| `DatacardMaker.resolve_missing_parton_payload_path` | Years, optional exact path → path | Explicit non-empty path wins; otherwise the run-era default is selected. Empty paths and mixed eras fail. |
 | `DatacardMaker.load_systematics` | Rate JSON path and resolved missing-parton path → systematic mapping | Reads payload only when nuisances are enabled and missing-parton is not skipped; parsing/schema/lookup errors fail card construction. |
+| `missing_parton_contract.infer_legacy_missing_parton_layout` | Payload path → one maintained layout | Matches ordered tree names and stored lengths; no match and ambiguity fail. |
 
 These consumers read but never modify the installed ROOT files.
 
 ## Current schema
 
-Each payload has exactly one top-level `TTree` per `ALL_CH_LST_SR` base
-category, in registry order. Each tree contains one `tllq`
+The installed default payloads use `ALL_CH_LST_SR`: one top-level `TTree` per
+base category, in registry order. Other maintained layouts are accepted when
+their stored tree order and lengths match exactly. Each tree contains one `tllq`
 `double`/`float64` array branch. Array indices are physical jet
 multiplicities. For a terminal registry category `>N`, index `N` represents the
 complete `njet >= N` population and no index above `N` is stored. Values must
@@ -41,10 +45,10 @@ Current semantic digests, using the serialization defined by
 - Run 2: `936a7316894257a5dcac31c345c60ea273d27cb672c71fbce6382fe5df534a24`
 - Run 3: `8ddf59420ed47828551803ef7b168ae1dec02e1402418801ab5ec2efc90de332`
 
-The only supported legacy layout is the schema introduced by immutable
-`run3_test_mmerged` commit
-`2469053a8d7ab0b42c86c68000f51b6e7f6dafff`. It is a bounded read/test
-compatibility contract, not a current production output format.
+The payload producer is a separate workflow. Its
+`--missing-parton-layout-key` option selects the output layout during
+generation; the datacard consumer infers the layout when reading an existing
+file.
 
 ## Source provenance and maintenance boundary
 

@@ -1,0 +1,70 @@
+analysis: TOP_26_006
+
+wc_population:
+  scientific:
+    - cpt
+    - ctW
+    - ctZ
+    - ctp
+    - cpQM
+    - ctG
+    - cbW
+    - cpQ3
+    - cptb
+    - cQl3i
+    - cQlMi
+    - cQei
+    - ctli
+    - ctei
+    - ctlSi
+    - ctlTi
+    - cQq13
+    - cQq83
+    - cQq11
+    - ctq1
+    - cQq81
+    - ctq8
+    - ctt1
+    - cQQ1
+    - cQt8
+    - cQt1
+
+  fixed_zero:
+    - ctu1
+    - ctu8
+    - ctd1
+    - ctd8
+    - cQu1
+    - cQu8
+    - cQd1
+    - cQd8
+    - ctb8
+    - cQb8
+
+wc_ranges:
+  cpt: [-25.0, 20.0]
+  ctW: [-4.0, 3.0]
+  ctZ: [-4.0, 4.0]
+  ctp: [-11.0, 35.0]
+  cpQM: [-11.0, 30.0]
+  ctG: [-1.5, 1.5]
+  cbW: [-5.0, 5.0]
+  cpQ3: [-10.0, 7.0]
+  cptb: [-17.0, 17.0]
+  cQl3i: [-10.0, 10.0]
+  cQlMi: [-8.0, 8.0]
+  cQei: [-7.0, 7.0]
+  ctli: [-8.0, 8.0]
+  ctei: [-8.0, 8.0]
+  ctlSi: [-8.0, 8.0]
+  ctlTi: [-1.4, 1.4]
+  cQq13: [-0.6, 0.6]
+  cQq83: [-1.2, 1.2]
+  cQq11: [-1.5, 1.5]
+  ctq1: [-1.4, 1.4]
+  cQq81: [-4.0, 3.0]
+  ctq8: [-3.0, 3.0]
+  ctt1: [-3.0, 3.0]
+  cQQ1: [-6.0, 6.0]
+  cQt8: [-10.0, 10.0]
+  cQt1: [-5.0, 5.0]

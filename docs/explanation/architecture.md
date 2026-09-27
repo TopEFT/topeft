@@ -329,15 +329,15 @@ Both use the same resolver so a copied bin table cannot drift. See
 
 ### `make_cards.py`
 
-**Why it exists.** This is the direct supported card-production CLI; there is
-no maintained general campaign card wrapper.
+**Why it exists.** This is the direct card-production CLI. The matrix runner
+uses it for resumable multi-row production.
 
 **Consumes and produces.** It consumes positional coherent PKLs or one list
 file, channel and variable selections, Wilson-coefficient choices, binning and
 coverage policy, and card options. It produces individual text/ROOT card-
 template pairs and `scalings-preselect.json`. In the normal selection path it
 also writes `selectedWCs.txt`. With `--use-selected`, it reads the supplied JSON
-but does not copy that file into the output directory, so the operator must
+but does not copy that file into the output directory, so the analyst must
 place the reviewed selection there before finalization.
 
 **Owns.** It owns CLI input resolution, merge validation, selection, card
@@ -345,6 +345,22 @@ configuration, and invocation of `DatacardMaker`.
 
 **Does not own.** It does not own campaign matrix provenance, final `chN`
 ordering, card combination, or workspace construction.
+
+### Standard matrix manifest and runner
+
+`make_datacard_matrix_manifest.py` derives standard Run 2 or Run 3 rows from
+the human-authored `datacard_matrix_profiles.yml`, `ch_lst.json`, and
+caller-supplied PKL role bindings and runtime paths. It selects any restricted
+physical surface here and writes a v3 JSON manifest without executing card
+production. The full profile has 11 logical rows per era. Its maintained
+execution partition yields 11 Run 2 units and 34 Run 3 units. One logical row
+may produce several units; each retains its input role and distribution, and
+together they preserve its exact physical-channel union. Restricted selection
+filters those units at manifest
+generation without regrouping them. The resumable matrix runner reads the
+manifest, checks its runtime and unit outputs, and writes successful unit
+receipts. It provides status and resume commands; the package builder does not
+manage row execution state. Direct `make_cards.py` use bypasses the matrix.
 
 ### `datacard_tools` and `DatacardMaker`
 
@@ -384,39 +400,46 @@ topology selection. Multiple records for a physical channel/process may be
 valid. Their process, parameters, and coefficient payload remain producer-
 owned through finalization.
 
-### `datacards_post_processing.py`
+### Per-era package builder
 
-**Why it exists.** The finalizer selects one declared topology and establishes
-the deterministic namespace shared with the later EFTFit/Combine card order.
+**Why it exists.** `build_per_era_datacard_package.py build` assembles the
+completed matrix rows into one Run 2 or Run 3 package.
 
-**Consumes and produces.** It consumes a datacard directory already containing
-individual cards/templates, `selectedWCs.txt`, and `scalings-preselect.json`,
-plus exactly one topology selector. With `-a` it uses the full current topology
-from `ch_lst.json`. It creates the selected output subdirectory and writes
-`scalings.json`.
+**Consumes and produces.** It rechecks receipt-bound card/template pairs and
+metadata snapshots, then publishes `cards/`, `selectedWCs.txt`,
+`scalings.json`, `physical_to_chN.json`, and provenance. The manifest-declared
+physical names determine the sorted per-era `chN` mapping. Scaling rows keep
+their producer-owned payload while their channel label follows that mapping.
+Restricted manifests permit restricted packages without another target
+selector. Missing and extra targets prevent publication; missing targets are mapped to supplied manifest
+rows and the runner's status and resume commands are shown for recovery.
 
-**Owns.** It owns physical category-to-distribution predicates, sorted physical
-channel ordering, `ch1`, `ch2`, … assignment, selected-file copying, scaling-
-row filtering, and channel relabeling.
+**Does not produce.** It does not combine eras, build `combinedcard.txt`, or
+construct a workspace.
 
-**Does not own.** It neither reads nor creates `combinedcard.txt`; it does not
-combine cards or build a workspace.
+### Combined package builder
 
-### Physical channel to `chN` mapping and `scalings.json`
-
-The finalizer sorts selected physical channel names and maps the item at index
-`i` to `ch{i+1}`. Every matching scaling record keeps all producer-owned fields
-except `channel`, which is relabeled. A missing final record means no external
-EFT morph for that exact channel/process.
+`build_combined_datacard_package.py build` reads the Run 2 and Run 3
+packages. Their physical target sets must match, including when both use a
+restricted subset. The builder compares physical names rather than era-local
+`chN` labels and rejects a mismatch before publication. It derives the
+cross-era mapping, copies card/template pairs, relabels scaling channels, and checks the cards-only combined
+package. `combined_mapping_manifest.json` records the mapping;
+`ordered_card_inputs.txt` lists cards in combination order. The generated
+README loads that list with `mapfile -t cards < ordered_card_inputs.txt`
+before `combineCards.py "${cards[@]}" > combinedcard.txt` from the package
+directory. A missing exact channel/process scaling record means no external
+EFT morph for that pair.
 
 ### EFTFit and Combine
 
-**Why they exist.** EFTFit and Combine own the statistical-model boundary after
-`topeft` has produced and finalized its individual inputs.
+**Why they exist.** EFTFit and Combine combine the packaged cards and construct
+the statistical model after `topeft` has built the combined package.
 
-**Consumes and produces.** They consume the selected individual cards and
-templates, `selectedWCs.txt`, and compatible ordered `scalings.json`; they later
-combine cards, create `combinedcard.txt`, and construct the workspace.
+**Consumes and produces.** They consume the combined package's ordered cards
+and templates and compatible `scalings.json`; fit configuration determines the
+WC population. They combine cards, create `combinedcard.txt`, and
+construct the workspace.
 
 **Owns and does not own.** They own card combination and workspace/likelihood
 construction. `topeft` does not define a current copy-paste external command,
@@ -438,19 +461,6 @@ making `topcoffea` the owner of `topeft` cards, axes, or workflows.
 This documentation describes the current `topeft` side of that boundary. It
 does not change or restate `topcoffea` APIs and it does not introduce a second
 registry for cross-repository state.
-
-## Current and historical automation
-
-Current TOP-26-006 workflows use the supported entrypoints described above.
-Historical TOP-22-006 procedures live only under
-[`docs/how_to/historical`](../how_to/historical/README.md).
-
-`run_make_cards_run3_yawen_matrix.sh` is a DATACARD023 archival operator
-record: it binds site/user paths, an exact campaign matrix, hashes, branch and
-environment assumptions, and an input that predates the final `ptll` schema.
-It is not a maintained public wrapper or a second region/binning authority.
-This documentation may classify it, but moving, deleting, generalizing, or
-requalifying the runnable script is a separate source-control decision.
 
 ## Portable production boundary
 

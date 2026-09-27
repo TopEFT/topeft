@@ -14,8 +14,11 @@ layer retains. It is a lookup page, not a production recipe. See the
 | `analysis/topeft_run2/run_data_driven.py` | Direct transformed-artifact CLI | A validated source PKL/sidecar and requested data-driven product | Streaming input; output name derived from the input when omitted | Rejects missing/incompatible sidecars, uncertified input policy, invalid product requests, and incomplete transformed companions |
 | `analysis/topeft_run2/run_plotter.sh` | Maintained plotting wrapper | Readable PKL, output directory, and years | Forwards to the direct plotter; can infer CR/SR from the filename; dry-run prints the resolved command without creating the output directory | Rejects missing inputs/years; the direct plotter owns artifact and metadata validation |
 | `analysis/topeft_run2/make_cr_and_sr_plots.py` | Direct plotting CLI | Repeatable `-f` inputs or a list file, output, years, and plot controls | Processing binning; merged channels; one worker; year coverage `warn` | Rejects incoherent artifacts, ambiguous channel authority, invalid binning, and mixed Run 2/Run 3 inputs |
-| `analysis/topeft_run2/make_cards.py` | Direct card CLI | Positional PKLs or a list file, variables/channels, and card controls | Fitting binning; year coverage `warn`; Asimov data | Rejects incoherent artifacts, invalid exact aggregation, incomplete shape pairs, and selected-WC/coverage failures according to options |
-| `analysis/topeft_run2/datacards_post_processing.py` | Direct topology/scaling finalizer | Datacard directory plus exactly one topology selector | Selected copy directory and final `scalings.json` | Rejects selector count, missing inputs, output collisions, text/ROOT asymmetry, and source-grounded exact counts; `-f` has no hard-coded exact count |
+| `analysis/topeft_run2/make_cards.py` | Direct card CLI; no manifest required | Positional PKLs or a list file, variables/channels, and card controls | Fitting binning; year coverage `warn`; Asimov data | Rejects incoherent artifacts, invalid exact aggregation, incomplete shape pairs, and selected-WC/coverage failures according to options |
+| `analysis/topeft_run2/make_datacard_matrix_manifest.py` | Standard matrix manifest generator | Era, repeatable `--input-pkl ROLE=PATH`, Python and missing-parton paths, runtime ID, output/control roots, and fresh manifest path; optional `--channel-set-key` or advanced `--physical-target` subset | `topeft_datacard_matrix_v3`; 11 logical full-profile rows in each era become 11 Run 2 or 34 Run 3 execution units | Rejects missing runtime inputs, unknown targets, incomplete PKL roles, and manifest collisions |
+| `analysis/topeft_run2/run_datacard_matrix_resumable.sh` | Resumable matrix runner | Matrix manifest; optional `--plan-only` or `--status` | Runs eligible rows and writes receipts; status is read-only | Rejects invalid manifests, changed runtime files, failed rows, and invalid receipts |
+| `analysis/topeft_run2/build_per_era_datacard_package.py` | Per-era package builder | `build` with era, repeatable matrix manifests, fresh absolute output, and analysis; requested targets come from manifest rows | Cards, selected WCs, scalings, physical-to-`chN` mapping, and provenance | Reports missing/extra targets and relevant manifest rows plus runner commands; rejects invalid receipts, duplicate scalings, and output collisions |
+| `analysis/topeft_run2/build_combined_datacard_package.py` | Combined package builder and checker | `build` with Run 2/Run 3 package directories, fresh absolute output, analysis, date, and version; `certify` checks an existing package | Cards-only package with mapping, scalings, ordered card inputs, provenance, and README | Rejects unequal physical target sets with both directional differences before publication; also rejects invalid inputs and failed checks |
 
 All rows above are `public_supported`. The executable file and its usage/parser
 block are signature authority. Normal success is exit status 0; parser,
@@ -123,25 +126,19 @@ silently reconstruct the higher-level campaign record.
 Dry-run validates and prints the resolved Python command without creating the
 requested output directory; normal execution creates it immediately before
 launching the plotter.
-`make_cards.py` is already the direct supported card interface and delegates
+`make_cards.py` is the manifest-free direct card interface and delegates
 card/template construction to `topeft.modules.datacard_tools.DatacardMaker`.
-`datacards_post_processing.py` finalizes selected scaling records after the
-individual cards and templates exist; it is not a card producer.
+`make_datacard_matrix_manifest.py` writes standard Run 2 or Run 3 production
+rows from caller-supplied PKLs bound to the profile's input roles;
+`run_datacard_matrix_resumable.sh` executes
+and resumes those rows and records their receipts.
+`build_per_era_datacard_package.py` checks and packages completed producer
+rows for one era; `build_combined_datacard_package.py` builds the combined
+package from the two per-era directories and checks it against those inputs.
 
 See [production configuration](production_configuration.md),
 [plotting](plotting.md), and
 [datacards and scalings](datacards_and_scalings.md) for exact owned contracts.
-
-## Operator records
-
-Scripts with campaign, date, site, user, or immutable evidence identifiers in
-their names are not supported merely because they are executable. In
-particular, `run_make_cards_run3_yawen_matrix.sh` is a DATACARD023-qualified
-operator record with fixed local paths, branch and input hashes, and a recorded
-off-Z input that predates the required `ptll` schema. It is useful archival
-evidence, but it is not a reusable current card entrypoint. The durable
-region-to-distribution contract belongs to [flexible binning](flexible_binning.md)
-and its source/test authorities.
 
 ## Signature and validation authority
 

@@ -764,18 +764,18 @@ def merge_nominal_mappings(
     for mapping, input_applicability in zip(
         histogram_mappings, histogram_applicabilities
     ):
-        input_families = _materialized_runtime_families(
-            mapping,
-            runtime_families=runtime_families,
-            schema_version=schema_version,
+        input_families = (
+            tuple(input_applicability["families"])
+            if input_applicability is not None
+            else _materialized_runtime_families(
+                mapping,
+                runtime_families=runtime_families,
+                schema_version=schema_version,
+            )
         )
         validate_nominal_mapping(
             mapping,
-            runtime_families=(
-                runtime_families
-                if input_applicability is not None
-                else input_families
-            ),
+            runtime_families=input_families,
             schema_version=schema_version,
             policy=policy,
             histogram_applicability=input_applicability,
