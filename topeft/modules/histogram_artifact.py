@@ -33,6 +33,9 @@ from topeft.modules.nonprompt_policy import (
     nonprompt_policy_error,
 )
 from topeft.modules.axes import info_2d as axes_info_2d
+from topeft.modules.embedded_sumw2 import (
+    COVERAGE_KEY, EMBEDDED_SCHEMA_VERSION, EMBEDDED_LAYOUT, coverage_manifest,
+)
 from topeft.modules.nominal_schema import (
     NOMINAL_CONTAINER_LAYOUT,
     NOMINAL_CONTAINER_SCHEMA_VERSION,
@@ -147,7 +150,13 @@ def _family_process_content(
         "dimensionality": dimensionality,
         "scalar_nominal_processes": _process_labels(scalar),
         "eft_nominal_processes": _process_labels(eft),
-        "sumw2_processes": _process_labels(companion),
+        "sumw2_processes": (
+            sorted({record[3] for record in histograms[COVERAGE_KEY]
+                    if record[0] == family and record[6] == "nominal"
+                    and record[7] != "unavailable"})
+            if COVERAGE_KEY in histograms
+            else _process_labels(companion)
+        ),
     }
 
 
@@ -282,9 +291,14 @@ def build_sumw2_content_manifest(
             nominal_processes = set(content["scalar_nominal_processes"]) | set(
                 content["eft_nominal_processes"]
             )
-            required = sorted(
-                nominal_processes & set(policy.selected_processes(family))
-            )
+            if COVERAGE_KEY in histograms:
+                required = sorted({record[3] for record in histograms[COVERAGE_KEY]
+                                   if record[0] == family and record[6] == "nominal"
+                                   and policy.selects(record[2], record[3], family)})
+            else:
+                required = sorted(
+                    nominal_processes & set(policy.selected_processes(family))
+                )
         else:
             raise histogram_sidecar_error(
                 f"{artifact_kind} requires independently derived "
@@ -295,10 +309,16 @@ def build_sumw2_content_manifest(
             **content,
             "required_sumw2_processes": required,
         }
-    return {
+    manifest = {
         "manifest_version": SUMW2_CONTENT_MANIFEST_VERSION,
         "families": families,
     }
+    if COVERAGE_KEY in histograms:
+        if artifact_kind != "processor_output":
+            raise histogram_sidecar_error("Embedded layout is supported only for processor_output.")
+        manifest["manifest_version"] = 2
+        manifest["embedded_coverage"] = coverage_manifest(histograms[COVERAGE_KEY])
+    return manifest
 
 
 def _normalize_lineage_inputs(
@@ -398,8 +418,8 @@ def _build_sidecar_payload(
             **identity,
             "artifact_kind": artifact_kind,
             "merged": bool(merged),
-            "nominal_container_schema_version": NOMINAL_CONTAINER_SCHEMA_VERSION,
-            "nominal_container_layout": NOMINAL_CONTAINER_LAYOUT,
+            "nominal_container_schema_version": (EMBEDDED_SCHEMA_VERSION if COVERAGE_KEY in histograms else NOMINAL_CONTAINER_SCHEMA_VERSION),
+            "nominal_container_layout": (EMBEDDED_LAYOUT if COVERAGE_KEY in histograms else NOMINAL_CONTAINER_LAYOUT),
         },
         "sumw2_storage_provenance": copy.deepcopy(
             dict(sumw2_storage_provenance)
@@ -1478,10 +1498,14 @@ def _validate_sidecar_structure(
         )
     if not isinstance(artifact["merged"], bool):
         raise histogram_sidecar_error("artifact.merged must be a boolean.")
-    if artifact["nominal_container_schema_version"] != NOMINAL_CONTAINER_SCHEMA_VERSION:
+    embedded = artifact["nominal_container_schema_version"] == EMBEDDED_SCHEMA_VERSION
+    expected_layout = EMBEDDED_LAYOUT if embedded else NOMINAL_CONTAINER_LAYOUT
+    if artifact["nominal_container_schema_version"] not in (NOMINAL_CONTAINER_SCHEMA_VERSION, EMBEDDED_SCHEMA_VERSION):
         raise histogram_sidecar_error("Artifact nominal schema version is incompatible.")
-    if artifact["nominal_container_layout"] != NOMINAL_CONTAINER_LAYOUT:
+    if artifact["nominal_container_layout"] != expected_layout:
         raise histogram_sidecar_error("Artifact nominal container layout is incompatible.")
+    if embedded and artifact["artifact_kind"] != "processor_output":
+        raise histogram_sidecar_error("Embedded layout is supported only for processor_output.")
 
     policy = resolved_policy_from_provenance(sidecar["sumw2_storage_provenance"])
     expected_sidecar_fields = set(common_fields)
@@ -1602,11 +1626,34 @@ def _validate_sidecar_structure(
         raise histogram_sidecar_error("sumw2_content_manifest must be an object.")
     _require_exact_keys(
         manifest,
-        {"manifest_version", "families"},
+        {"manifest_version", "families", "embedded_coverage"} if embedded else {"manifest_version", "families"},
         label="sumw2_content_manifest",
     )
-    if manifest["manifest_version"] != SUMW2_CONTENT_MANIFEST_VERSION:
+    if manifest["manifest_version"] != (2 if embedded else SUMW2_CONTENT_MANIFEST_VERSION):
         raise histogram_sidecar_error("Unsupported sumw2 content manifest version.")
+    if embedded:
+        records = manifest["embedded_coverage"]
+        if (not isinstance(records, list)
+                or any(not isinstance(record, list) or len(record) != 8
+                       or any(not isinstance(value, str) for value in record)
+                       for record in records)):
+            raise histogram_sidecar_error("Malformed embedded coverage manifest.")
+        try:
+            canonical = coverage_manifest({tuple(record) for record in records})
+        except ValueError as error:
+            raise histogram_sidecar_error(str(error)) from error
+        if records != canonical:
+            raise histogram_sidecar_error("Embedded coverage manifest is not canonical.")
+        for family, component, dataset, process, channel, appl, systematic, state in records:
+            selected = systematic == "nominal" and policy.selects(dataset, process, family)
+            if (family not in policy.runtime_histogram_families
+                    or (family in axes_info_2d and component != "scalar_nominal")
+                    or component not in {"scalar_nominal", "eft_nominal"}
+                    or dataset not in policy.resolved_datasets
+                    or process not in policy.resolved_processes
+                    or state not in {"selected_zero", "selected_nonzero", "unavailable"}
+                    or selected != (state != "unavailable")):
+                raise histogram_sidecar_error("Embedded coverage manifest disagrees with policy.")
     families = manifest["families"]
     if not isinstance(families, Mapping):
         raise histogram_sidecar_error("sumw2_content_manifest.families must be an object.")
@@ -1735,6 +1782,9 @@ def _validate_content_manifest(
             for family, family_manifest in expected_manifest["families"].items()
         },
     )
+    if (expected_manifest.get("embedded_coverage") != actual_manifest.get("embedded_coverage")
+            or expected_manifest["manifest_version"] != actual_manifest["manifest_version"]):
+        raise histogram_content_error("Embedded coverage content disagrees with manifest.")
     for family, expected in expected_manifest["families"].items():
         observed = actual_manifest["families"][family]
         for field_name in (
@@ -1801,7 +1851,7 @@ def validate_processor_output(
     validate_nominal_mapping(
         histograms,
         runtime_families=policy.runtime_histogram_families,
-        schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
+        schema_version=sidecar["artifact"]["nominal_container_schema_version"],
         policy=policy,
         histogram_applicability=sidecar.get("histogram_applicability"),
     )
@@ -1999,7 +2049,7 @@ def validate_histogram_artifact(
 
     pkl_path = Path(pkl_path)
     loaded = dict(histograms) if histograms is not None else _load_histograms(pkl_path)
-    split_payload = is_split_nominal_mapping(loaded)
+    split_payload = is_split_nominal_mapping(loaded) or COVERAGE_KEY in loaded
     sidecar_path = metadata_sidecar_path(pkl_path)
     if not sidecar_path.is_file():
         if split_payload:
@@ -2070,7 +2120,7 @@ def validate_histogram_artifact(
         raise histogram_sidecar_error(f"Unknown artifact kind {artifact_kind!r}.")
     _validate_artifact_identity(pkl_path, sidecar)
     return {
-        "schema": NOMINAL_CONTAINER_LAYOUT,
+        "schema": sidecar["artifact"]["nominal_container_layout"],
         "metadata": sidecar,
         "legacy_metadata_present": False,
         "histogram_applicability_source": (
