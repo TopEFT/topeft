@@ -60,7 +60,8 @@ def _physical_name(channel, distribution):
     return name
 
 
-def _resolve_v3_manifest_units(manifest_paths, era, *, verify_source_files=True, allow_empty=False):
+def _resolve_v3_manifest_units(manifest_paths, era, *, verify_source_files=True, allow_empty=False,
+                               selected_unit_keys=None):
     """Resolve completed matrix rows and their successful row receipts."""
     _require(era in {"run2", "run3"}, "invalid requested era")
     _require(bool(manifest_paths), "at least one matrix manifest is required")
@@ -68,16 +69,24 @@ def _resolve_v3_manifest_units(manifest_paths, era, *, verify_source_files=True,
     hashes = []
     unit_ids = set()
     covered = set()
+    found_unit_keys = set()
     for manifest_path in manifest_paths:
         manifest, manifest_sha256 = matrix_runner.load_manifest(Path(manifest_path))
         _require(manifest_sha256 not in hashes, f"duplicate manifest identity: {manifest_sha256}")
         hashes.append(manifest_sha256)
+        selected_in_manifest = 0
         for row in manifest["rows"]:
             if row["era"] != era:
                 continue
+            unit_key = (manifest_sha256, row["row_id"], row["attempt_id"])
+            if selected_unit_keys is not None and unit_key not in selected_unit_keys:
+                continue
+            selected_in_manifest += 1
+            found_unit_keys.add(unit_key)
             unit_id = row["row_id"]
             receipt_path = matrix_runner.receipt_path(manifest, row)
             if not receipt_path.exists():
+                _require(selected_unit_keys is None, f"selected unit has no receipt: {unit_key}")
                 continue
             try:
                 receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
@@ -151,8 +160,29 @@ def _resolve_v3_manifest_units(manifest_paths, era, *, verify_source_files=True,
             })
             unit_ids.add(unit_id)
             covered.update(names)
+        _require(selected_unit_keys is None or selected_in_manifest,
+                 f"manifest has no selected {era} units: {manifest_sha256}")
+    if selected_unit_keys is not None:
+        _require(found_unit_keys == selected_unit_keys,
+                 f"selected units are absent from supplied manifests: {sorted(selected_unit_keys - found_unit_keys)}")
     _require(bool(units) or allow_empty, f"no selected complete {era} units")
     return units, hashes
+
+
+def _parse_selected_unit_keys(values):
+    if not values:
+        return None
+    keys = set()
+    for value in values:
+        parts = value.split(":")
+        _require(len(parts) == 3 and _sha_pattern.fullmatch(parts[0])
+                 and matrix_runner.IDENTIFIER_RE.fullmatch(parts[1])
+                 and matrix_runner.IDENTIFIER_RE.fullmatch(parts[2]),
+                 f"invalid selected unit identity: {value}")
+        key = tuple(parts)
+        _require(key not in keys, f"duplicate selected unit identity: {value}")
+        keys.add(key)
+    return keys
 
 
 def _canonical_physical_names(channel_registry, channel_set_key):
@@ -204,12 +234,15 @@ def _selected_physical_names(channel_registry, channel_set_key, selected_targets
     return sorted(requested)
 
 
-def _declared_manifest_surface(manifest_paths, era):
+def _declared_manifest_surface(manifest_paths, era, selected_unit_keys=None):
     declared = set()
     for path in manifest_paths:
-        manifest, _ = matrix_runner.load_manifest(Path(path))
+        manifest, manifest_sha256 = matrix_runner.load_manifest(Path(path))
         for row in manifest["rows"]:
             if row["era"] != era:
+                continue
+            if (selected_unit_keys is not None
+                    and (manifest_sha256, row["row_id"], row["attempt_id"]) not in selected_unit_keys):
                 continue
             for channel in row["physical_channels"]:
                 target = _physical_name(channel, row["distribution"])
@@ -390,11 +423,23 @@ def main(argv=None):
     build.add_argument("--matrix-manifest", type=Path, action="append", required=True)
     build.add_argument("--output", type=Path, required=True)
     build.add_argument("--analysis", required=True)
+    build.add_argument("--selected-unit", action="append", default=[],
+                       metavar="MANIFEST_SHA256:ROW_ID:ATTEMPT_ID",
+                       help="Repeat for every authoritative completed unit across overlapping manifests; requires the full per-era target set")
     args = parser.parse_args(argv)
-    units, manifest_hashes = _resolve_v3_manifest_units(args.matrix_manifest, args.era, allow_empty=True)
-    physical_names = _declared_manifest_surface(args.matrix_manifest, args.era)
+    selected_unit_keys = _parse_selected_unit_keys(args.selected_unit)
+    units, manifest_hashes = _resolve_v3_manifest_units(
+        args.matrix_manifest, args.era, allow_empty=True, selected_unit_keys=selected_unit_keys)
+    physical_names = _declared_manifest_surface(args.matrix_manifest, args.era, selected_unit_keys)
     coverage_message = _target_coverage_message(args.matrix_manifest, args.era, physical_names, units)
     _require(coverage_message is None, coverage_message)
+    if selected_unit_keys is not None:
+        registry = Path(__file__).resolve().parents[2] / "topeft/channels/ch_lst.json"
+        canonical_names = _canonical_physical_names(registry, "ALL_CH_LST_SR")
+        _require(physical_names == canonical_names,
+                 f"selected units do not cover the full {args.era} target set: "
+                 f"missing={sorted(set(canonical_names) - set(physical_names))}, "
+                 f"extra={sorted(set(physical_names) - set(canonical_names))}")
     build_per_era_package_from_units(args.era, args.analysis, physical_names, units,
                                      args.output, manifest_hashes)
     return 0

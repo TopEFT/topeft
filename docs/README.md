@@ -36,6 +36,7 @@ and is not a substitute for these current tutorials.
 ### Production and artifacts
 
 - [Run or extend the production entrypoints](how_to/production.md)
+- [Produce and qualify SR-reco extension PKLs](how_to/sr_reco_pkl_campaign.md)
 - [Change sample roles or normalization inputs](how_to/sample_roles_and_normalization.md)
 - [Produce and recover data-driven nonprompt artifacts](how_to/nonprompt.md)
 - [Run with Work Queue](how_to/work_queue.md)
@@ -51,6 +52,7 @@ and is not a substitute for these current tutorials.
 
 - [Make and configure analysis plots](how_to/plotting.md)
 - [Create cards and finalize scalings](how_to/datacards_and_scalings.md)
+- [Build and use datacard packages](how_to/datacard_packages.md)
 - [Maintain missing-parton payloads](how_to/missing_parton_payloads.md)
 
 ### Histogram policy and binning
@@ -84,6 +86,7 @@ contract rather than a procedure. The corpus is divided by authority:
 - [Processing and fitting binning](reference/flexible_binning.md)
 - [Plotting interfaces and configuration](reference/plotting.md)
 - [Datacard and scaling interfaces and artifacts](reference/datacards_and_scalings.md)
+- [Generated exhaustive nuisance-policy and standardization catalog](reference/systematics_nuisance_catalog.md)
 - [Specialist analysis interfaces](reference/specialist_interfaces.md)
 - [Run 2 b-tag scale-factor payloads](reference/btag_scale_factor_payloads.md)
 - [Missing-parton payload schema](reference/missing_parton_payloads.md)

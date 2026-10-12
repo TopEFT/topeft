@@ -8,14 +8,15 @@ layer retains. It is a lookup page, not a production recipe. See the
 
 | Component | Kind and status | Inputs | Defaults and outputs | Failure boundary |
 | --- | --- | --- | --- | --- |
-| `analysis/topeft_run2/run_cr.sh` | Maintained production-profile wrapper | `--production-profile`, a fresh absolute `--output-dir`, and `--campaign-tag`; optional `--env-file`, `--resume`, and `--dry-run` | Eight public Run 2/Run 3 SR+CR profiles; campaign state plus source/transformed PKLs and sidecars | Rejects missing or mismatched state, a reused fresh namespace, invalid archives, ambiguous interruption, and incomplete outputs |
+| `analysis/topeft_run2/run_cr.sh` | Maintained production-profile wrapper | `--production-profile`, an absolute `--output-dir`, and `--campaign-tag`; optional `--env-file`, `--resume`, and `--dry-run` | Ten public Run 2/Run 3 SR+CR and SR-reco extension profiles; campaign state plus source/transformed PKLs and sidecars | Rejects missing or mismatched state, a reused fresh namespace, invalid archives, ambiguous interruption, and incomplete outputs |
 | `analysis/topeft_run2/fullR3_run.sh` | Maintained command/configuration wrapper | Years, exactly one of `--cr` or `--sr`, optional histogram/input/output overrides, and forwarded analysis options | Year/config-dependent `run_analysis.py` command | Rejects conflicting input overrides, missing cfg/JSON inputs, and unsupported region/year combinations |
 | `analysis/topeft_run2/run_analysis.py` | Direct developer CLI | Sample JSON/cfg expression and CLI or YAML options | Executor `work_queue`; 8 workers; chunksize 100000; `histos/plotsTopEFT.pkl.gz` | Validates executor, active sample universe, categories, environment, policies, and artifact contracts at their owning boundaries |
 | `analysis/topeft_run2/run_data_driven.py` | Direct transformed-artifact CLI | A validated source PKL/sidecar and requested data-driven product | Streaming input; output name derived from the input when omitted | Rejects missing/incompatible sidecars, uncertified input policy, invalid product requests, and incomplete transformed companions |
 | `analysis/topeft_run2/run_plotter.sh` | Maintained plotting wrapper | Readable PKL, output directory, and years | Forwards to the direct plotter; can infer CR/SR from the filename; dry-run prints the resolved command without creating the output directory | Rejects missing inputs/years; the direct plotter owns artifact and metadata validation |
 | `analysis/topeft_run2/make_cr_and_sr_plots.py` | Direct plotting CLI | Repeatable `-f` inputs or a list file, output, years, and plot controls | Processing binning; merged channels; one worker; year coverage `warn` | Rejects incoherent artifacts, ambiguous channel authority, invalid binning, and mixed Run 2/Run 3 inputs |
-| `analysis/topeft_run2/make_cards.py` | Direct card CLI; no manifest required | Positional PKLs or a list file, variables/channels, and card controls | Fitting binning; year coverage `warn`; Asimov data | Rejects incoherent artifacts, invalid exact aggregation, incomplete shape pairs, and selected-WC/coverage failures according to options |
-| `analysis/topeft_run2/make_datacard_matrix_manifest.py` | Standard matrix manifest generator | Era, repeatable `--input-pkl ROLE=PATH`, Python and missing-parton paths, runtime ID, output/control roots, and fresh manifest path; optional `--channel-set-key` or advanced `--physical-target` subset | `topeft_datacard_matrix_v3`; 11 logical full-profile rows in each era become 11 Run 2 or 34 Run 3 execution units | Rejects missing runtime inputs, unknown targets, incomplete PKL roles, and manifest collisions |
+| `analysis/topeft_run2/make_cards.py` | Direct card CLI; no manifest required | Positional PKLs or a list file, variables/channels, card controls, optional `--lepton-mva-correlation {per-run,cross-run}`, and optional `--unblind` | Fitting binning; year coverage `warn`; per-run MVA identities; Asimov data. With an actual selected `data` input, unblind writes ROOT `data_obs` and TXT observation output; the flag alone does not establish genuine counts. | Rejects incoherent artifacts, invalid exact aggregation, incomplete shape pairs, and selected-WC/coverage failures according to options |
+| `analysis/topeft_run2/validate_datacard_correlation.py` | Read-only card correlation validator | Source PKL, final TXT/ROOT pair, variable, channel, source periods, explicit groups, nuisance prefix, and exact card process | Writes one JSON report; returns nonzero on mismatch | Independently sums source-period nominal and directional arrays; rejects missing, extra, duplicate, or numerically mismatched final identities |
+| `analysis/topeft_run2/make_datacard_matrix_manifest.py` | Standard matrix manifest generator | Era, repeatable `--input-pkl ROLE=PATH`, Python and missing-parton paths, runtime ID, output/control roots, and fresh manifest path; optional MVA correlation, `--channel-set-key`, or advanced `--physical-target` subset | `topeft_datacard_matrix_v3`; 11 logical full-profile rows in each era become 11 Run 2 or 34 Run 3 execution units. Rows carry the MVA choice; this interface has no unblind option. | Rejects missing runtime inputs, unknown targets, incomplete PKL roles, and manifest collisions |
 | `analysis/topeft_run2/run_datacard_matrix_resumable.sh` | Resumable matrix runner | Matrix manifest; optional `--plan-only` or `--status` | Runs eligible rows and writes receipts; status is read-only | Rejects invalid manifests, changed runtime files, failed rows, and invalid receipts |
 | `analysis/topeft_run2/build_per_era_datacard_package.py` | Per-era package builder | `build` with era, repeatable matrix manifests, fresh absolute output, and analysis; requested targets come from manifest rows | Cards, selected WCs, scalings, physical-to-`chN` mapping, and provenance | Reports missing/extra targets and relevant manifest rows plus runner commands; rejects invalid receipts, duplicate scalings, and output collisions |
 | `analysis/topeft_run2/build_combined_datacard_package.py` | Combined package builder and checker | `build` with Run 2/Run 3 package directories, fresh absolute output, analysis, date, and version; `certify` checks an existing package | Cards-only package with mapping, scalings, ordered card inputs, provenance, and README | Rejects unequal physical target sets with both directional differences before publication; also rejects invalid inputs and failed checks |
@@ -34,8 +35,8 @@ state to resume without confusing partial, stale, or mismatched output.
 
 | Input | Type/requirement/default | Semantics |
 | --- | --- | --- |
-| `--production-profile` | Required public profile: `run2_full`, `run3_full`, `run2_full_CR`, `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `t0_sr_statonly`, or `t0_cr_statonly` | Selects the hard-coded maintained block plan. It is not a free-form config path. `rebin_fine` remains a specialist legacy profile with its own explicit environment requirement. |
-| `--output-dir` | Required fresh absolute path for a new campaign | Owns state, logs, and produced artifacts. Existing state is accepted only through compatible resume behavior. |
+| `--production-profile` | Required public profile: `run2_full`, `run3_full`, `run2_full_CR`, `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`, `run3_sr_ext`, `t0_sr_statonly`, or `t0_cr_statonly` | Selects the maintained block plan. `run2_sr_ext` uses inline data-driven production; `run3_sr_ext` uses a deferred local stage. `rebin_fine` remains a specialist legacy profile with its own explicit environment requirement. |
+| `--output-dir` | Required absolute path; fresh for a new campaign root | Owns state, logs, and produced artifacts. The SR-reco Run 3 component follows successful Run 2 in the shared root established by Run 2; it does not repeat the initial root-absence gate. Existing state otherwise follows profile-specific compatibility and resume behavior. |
 | `--campaign-tag` | Required non-empty string | Portable campaign identity recorded with state. |
 | `--env-file` | Optional absolute path | When omitted, resolves or creates the current worker environment. When supplied, selects exactly that archive as an intentional snapshot: integrity/provenance validation remains required, but current-checkout compatibility does not. The wrapper freezes the mode, resolved path, hash, fingerprint, and source identity; combined profiles forward the same explicit snapshot to both components. |
 | `--resume` | Boolean, default false | Reopens compatible campaign state and mechanically selects incomplete blocks/stages. |
@@ -46,7 +47,8 @@ state, and, for the maintained deferred path, invokes `run_data_driven.py` only
 after the heavy processor child exits. It does not own selections, processor
 physics, bin edges, or artifact schemas. Extend a profile by changing its one
 block-plan owner and the production-profile tests; do not copy its defaults into
-another wrapper.
+another wrapper. The [SR-reco campaign guide](../how_to/sr_reco_pkl_campaign.md)
+specifies the conditional Run 2 then Run 3 operation and evidence review.
 
 ### `analysis/topeft_run2/fullR3_run.sh`
 
@@ -75,11 +77,12 @@ pair.
 | --- | --- | --- |
 | Positional `jsonFiles` | Optional path/expression, default empty string | Sample JSON or cfg authority. Higher wrappers normally supply it. |
 | Executor/resources | `--executor work_queue` by default; workers 8; chunksize 100000; optional chunks/prefix/tree | Executor names are validated later by the execution branch; parser acceptance alone is not support. |
+| Work Queue logs | Optional `--wq-log-dir PATH`; otherwise `<outpath>/work_queue_logs/<outname>/source_native/` | Owns native `debug.log`, `tr.log`, `stats.log`, and `tasks.log`; refuses existing owned log paths. Campaign profiles supply a component/block-specific directory and archive verified logs under `source/`. |
 | Output | `--outname plotsTopEFT`, `--outpath histos` | Publishes `<outpath>/<outname>.pkl.gz` and adjacent metadata. Existing/output safety is owned by the writer path. |
 | Scope | Optional years, histogram list, category groups, WC list | Filters the resolved input/processor family universe. Names are validated before or during processor construction. |
 | Analysis flags | Off-Z, tau, forward, or all-analysis; default none | Mutually exclusive mode selectors. `--analysis-mode` accepts `standard` or `taufitter`, default `standard`. |
 | Sumw2/systematics | Modern YAML `sumw2_storage`; deprecated `--no-sumw2`; `--do-systs` | Modern policy is resolved before processing. Legacy statistical inputs have explicit compatibility/conflict handling. |
-| Raw-count diagnostics | `--record-raw-count`; YAML `record_raw_count`; default false | Records per-bin selected nominal-MC event counts for histograms used by the fitting configuration. The six full-production profiles leave raw-count recording disabled. The two stat-only diagnostic profiles, `t0_sr_statonly` and `t0_cr_statonly`, enable it. |
+| Raw-count diagnostics | `--record-raw-count`; YAML `record_raw_count`; default false | Records per-bin selected nominal-MC event counts for histograms used by the fitting configuration. Ordinary full-production and SR-reco extension profiles leave raw-count recording disabled. The two stat-only diagnostic profiles, `t0_sr_statonly` and `t0_cr_statonly`, enable it. |
 | Nonprompt | `--do-np`; `--np-postprocess` in `inline`, `defer`, `skip`, default `inline` | Inline publishes a transformed artifact; defer prints a direct follow-up command; skip omits transformation. |
 | Environment | Optional archive/rebuild/prepare/snapshot/no-remote controls | Owns worker-environment preparation/validation, not package installation. |
 | YAML overlay | `--options FILE` | One mapping loaded after CLI-derived values; recognized YAML values replace corresponding CLI values. See the exact caveat in production configuration. |
@@ -128,6 +131,20 @@ requested output directory; normal execution creates it immediately before
 launching the plotter.
 `make_cards.py` is the manifest-free direct card interface and delegates
 card/template construction to `topeft.modules.datacard_tools.DatacardMaker`.
+Its MVA selector defaults to run-specific `13TeV`/`13p6TeV` nuisance
+identities; `cross-run` writes shared unsuffixed electron and muon MVA names in
+TXT and ROOT output. Direct `--unblind` uses the real-data branch when the
+selected input contains an actual `data` process; without one, the observation
+can remain zero. The canonical matrix generator propagates only the MVA
+selector at this version.
+These software paths do not by themselves establish a numerically validated
+observed-data card or a qualified package/fit campaign.
+For a focused correlation check, run
+`python analysis/topeft_run2/validate_datacard_correlation.py --source-pkl SOURCE.pkl.gz --card CARD.txt --root TEMPLATE.root --variable lj0pt --channel CHANNEL --period 2022 --period 2022EE --group 2022=2022,2022EE --prefix CMS_fake_t_DeepTau2018v2p5_VSmu_ --process Diboson --output validation.json`.
+The validator independently constructs final year-group sums. It reuses
+DatacardMaker's source preparation, process grouping, channel/SR selection,
+fitting binning, SM evaluation, and negative-bin sanitation. It produces no
+cards or production outputs.
 `make_datacard_matrix_manifest.py` writes standard Run 2 or Run 3 production
 rows from caller-supplied PKLs bound to the profile's input roles;
 `run_datacard_matrix_resumable.sh` executes
@@ -147,7 +164,9 @@ option authority. Focused ownership tests include
 `tests/test_run3_full_production_profile.py`,
 `tests/test_run_analysis_preflight.py`, `tests/test_run_data_driven.py`,
 `tests/test_make_cr_and_sr_plots.py`, and
-`tests/test_make_cards_multi_pkl.py`.
+`tests/test_make_cards_multi_pkl.py`. Card-policy ownership checks also include
+`tests/test_lepton_mva_correlation.py` and
+`tests/test_make_datacard_matrix_manifest.py`.
 
 ## Physics-policy control map
 
@@ -245,11 +264,13 @@ derived values in the implemented path.
 ## `run_cr.sh` production interface
 
 The public production profiles are `run2_full`, `run3_full`, `run2_full_CR`,
-`run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `t0_sr_statonly`, and
-`t0_cr_statonly`; no arguments retain the legacy `run2_full` alias.
+`run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`,
+`run3_sr_ext`, `t0_sr_statonly`, and `t0_cr_statonly`; no arguments retain the
+legacy `run2_full` alias.
 `rebin_fine` is a specialist legacy profile and requires an explicit
-environment archive. Public profiles require fresh output namespaces, an
-absolute output directory, and a campaign tag.
+environment archive. New campaign roots require fresh output namespaces, an
+absolute output directory, and a campaign tag; the SR-reco Run 3 component
+uses the root already established by Run 2.
 
 For a fresh maintained campaign, no `--env-file` means resolve or create the
 current worker environment for the checkout. An explicit absolute

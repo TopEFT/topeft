@@ -19,7 +19,7 @@ sumw2, or artifact contracts.
 | port | parser default `9164-9170`; the resolved first port is passed to Coffea unless configured otherwise |
 | worker environment | current archive is automatically built/resolved and validated, or an exact `--env-file` is validated |
 | executor mechanics | `run_analysis.py` constructs `WorkQueueExecutor` with retries 15, compression 1, automatic measured resources, split-on-exhaustion, and `/tmp` executor workspace |
-| manager logs | hard-coded `debug.log`, `tr.log`, `stats.log`, and `tasks.log` in the manager working context |
+| manager logs | `debug.log`, `tr.log`, `stats.log`, and `tasks.log` under an owned `source_native/` directory; campaign execution archives them under `source/` |
 | workers/site submission | operator or site factory; no wrapper launches them |
 | processor and artifact meaning | unchanged `AnalysisProcessor`, policy, and sidecar contracts |
 
@@ -44,6 +44,11 @@ python run_analysis.py \
 validates and resolves that setting before creating the executor. Read the
 printed manager name and port from this exact invocation rather than reusing a
 name from an older guide.
+
+For a direct Work Queue invocation, the default native log directory is
+`<outpath>/work_queue_logs/<outname>/source_native/`. `--wq-log-dir PATH`
+selects an explicit native log directory. The runner refuses to overwrite any
+of the four owned log filenames, including existing symlinks.
 
 Use `--prepare-env-only` to create/validate the current archive and exit before
 analysis setup. `--env-file` pins a prebuilt archive; `--snapshot` permits an
@@ -175,8 +180,12 @@ identity for the campaign rather than rebuilding it per task.
 The Work Queue executor uses `retries=15` with `resource_monitor=measure`.
 Those internal task retries are distinct from campaign-level recovery or a
 profile-specific resume decision. Native `debug.log`, `tr.log`, `stats.log`,
-and `tasks.log` are copied to the campaign evidence location, verified, bound
-to state, and only then removed from their native location. Keep stdout and
-stderr directly on the terminal; native logs and campaign state are the durable
-evidence surfaces. See [the production runbook](production.md) for profile and
-failure-domain rules.
+and `tasks.log` belong to
+`<output_root>/work_queue_logs/<production_component>/<block_id>/source_native/`
+for a campaign source stage. The runner copies them to the corresponding
+`source/` directory, verifies the copies, binds the archive to state, and only
+then removes the native files. A copy failure preserves the native files.
+Keep stdout and stderr directly on the terminal; native logs and campaign
+state are the durable evidence surfaces. See the
+[SR-reco campaign guide](sr_reco_pkl_campaign.md) for its launch and recovery
+sequence.

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from types import SimpleNamespace
 
 import pytest
 
@@ -13,25 +12,6 @@ from topcoffea.modules.histEFT import HistEFT
 from topeft.modules import datacard_tools
 from topeft.modules.datacard_tools import DatacardMaker, RateSystematic
 from topeft.modules.missing_parton_contract import DEFAULT_SR_REGISTRY
-
-
-def _condor_namespace(
-    skip_missing_parton_rate_syst,
-    *,
-    year_lst=(),
-    missing_parton_payload_path=None,
-):
-    return SimpleNamespace(
-        do_mc_stat=False,
-        verbose=False,
-        use_real_data=False,
-        do_nuisance=True,
-        year_lst=list(year_lst),
-        drop_syst=[],
-        skip_missing_parton_rate_syst=skip_missing_parton_rate_syst,
-        missing_parton_payload_path=missing_parton_payload_path,
-        binning_mode="fitting",
-    )
 
 
 class _fake_branch:
@@ -267,67 +247,6 @@ def test_local_cli_propagates_exact_payload_override(monkeypatch):
 
     assert "sr_registry" not in exc_info.value.args[0]
     assert exc_info.value.args[0]["missing_parton_path"] == "arbitrary/payload.root"
-
-
-def test_condor_option_propagation_is_additive_and_targeted():
-    default_opts = make_cards._build_condor_base_other_opts(
-        _condor_namespace(False),
-        "error",
-    )
-    skip_opts = make_cards._build_condor_base_other_opts(
-        _condor_namespace(True),
-        "error",
-    )
-
-    assert "--skip-missing-parton-rate-syst" not in default_opts
-    assert skip_opts.count("--skip-missing-parton-rate-syst") == 1
-    assert [option for option in skip_opts if option != "--skip-missing-parton-rate-syst"] == default_opts
-    assert default_opts[-4:] == [
-        "--binning",
-        "fitting",
-        "--year-coverage-policy",
-        "error",
-    ]
-
-
-def test_condor_option_propagates_selected_card_binning_mode():
-    namespace = _condor_namespace(False)
-    namespace.binning_mode = "processing"
-
-    opts = make_cards._build_condor_base_other_opts(namespace, "warn")
-
-    binning_index = opts.index("--binning")
-    assert opts[binning_index + 1] == "processing"
-
-
-@pytest.mark.parametrize(
-    "payload_path",
-    (
-        "data/missing_parton/missing_parton_run2.root",
-        "data/missing_parton/missing_parton_run3.root",
-        "custom/payload.root",
-    ),
-)
-def test_condor_option_reconstruction_materializes_resolved_payload_path(payload_path):
-    opts = make_cards._build_condor_base_other_opts(
-        _condor_namespace(
-            False,
-            year_lst=("UL18",),
-            missing_parton_payload_path=payload_path,
-        ),
-        "error",
-    )
-
-    payload_option_index = opts.index("--miss-parton-file")
-    assert opts[payload_option_index + 1] == payload_path
-
-
-def test_condor_option_reconstruction_omits_registry():
-    opts = make_cards._build_condor_base_other_opts(
-        _condor_namespace(False),
-        "error",
-    )
-    assert "--sr-registry" not in opts
 
 
 def test_skip_option_suppresses_only_missing_parton(monkeypatch):

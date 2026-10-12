@@ -1,5 +1,6 @@
 import copy
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -1294,13 +1295,38 @@ def test_stubbed_nonprompt_failure_preserves_source_and_continues(tmp_path):
     assert (validation_root / "run3_full_c.started").exists()
 
 
-def test_native_wq_logs_are_copy_verified_attributed_and_generic_sources_removed(tmp_path):
+@pytest.mark.parametrize(
+    ("profile", "component"),
+    (("run2_sr_ext", "run2"), ("run3_sr_ext", "run3")),
+)
+def test_native_wq_logs_are_campaign_owned_copy_verified_and_attributed(
+    tmp_path, profile, component
+):
     result, output_root, validation_root = _stubbed_run(
-        tmp_path, "run2_full", "success"
+        tmp_path, profile, "success"
     )
     assert result.returncode == 0, result.stdout
-    state = _campaign_state(output_root, "run2_full")
+    state = _campaign_state(output_root, profile)
+    resolved_log_dirs = set()
     for block in state["blocks"]:
+        command = block["source_command_argv"]
+        log_dir = Path(command[command.index("--wq-log-dir") + 1])
+        if profile == "run2_sr_ext":
+            assert "--np-postprocess=inline" in command
+            assert "--defer-np" not in command
+        else:
+            assert "--defer-np" in command
+            assert "--np-postprocess=inline" not in command
+        expected_log_dir = (
+            output_root
+            / "work_queue_logs"
+            / component
+            / block["id"]
+            / "source_native"
+        )
+        assert log_dir == expected_log_dir
+        assert log_dir.is_dir()
+        resolved_log_dirs.add(log_dir)
         metadata = block["native_work_queue_logs"]["source"]
         for key in (
             "wq_debug_log",
@@ -1315,10 +1341,15 @@ def test_native_wq_logs_are_copy_verified_attributed_and_generic_sources_removed
             archive = Path(item["path"])
             assert archive.is_file()
             assert block["id"] in archive.read_text()
-    assert not any(
-        (validation_root / "native_logs" / name).exists()
-        for name in ("debug.log", "tr.log", "stats.log", "tasks.log")
-    )
+        assert not any(
+            (log_dir / name).exists()
+            for name in ("debug.log", "tr.log", "stats.log", "tasks.log")
+        )
+    assert len(resolved_log_dirs) == len(state["blocks"])
+    if profile == "run3_sr_ext":
+        assert len((validation_root / "nonprompt_calls.tsv").read_text().splitlines()) == len(
+            state["blocks"]
+        )
 
 
 def test_native_wq_copy_verification_failure_preserves_originals_and_stops(tmp_path):
@@ -1326,14 +1357,22 @@ def test_native_wq_copy_verification_failure_preserves_originals_and_stops(tmp_p
         tmp_path, "run2_full", "archive_copy_failure"
     )
     assert result.returncode != 0
-    assert (validation_root / "native_logs" / "debug.log").is_file()
+    active_log = (
+        output_root
+        / "work_queue_logs"
+        / "run2"
+        / "run2_full_a"
+        / "source_native"
+        / "debug.log"
+    )
+    assert active_log.is_file()
     assert not (validation_root / "run2_full_b.started").exists()
     state = _campaign_state(output_root, "run2_full")
     assert state["blocks"][0]["status"] == "source_ready"
     assert state["blocks"][1]["status"] == "planned"
 
 
-def test_unexpected_generic_wq_log_fails_closed_before_child_launch(tmp_path):
+def test_stale_checkout_global_wq_log_does_not_block_campaign_invocation(tmp_path):
     validation_root = tmp_path / "preexisting-native-log"
     validation_root.mkdir()
     backend = validation_root / "backend.sh"
@@ -1354,11 +1393,43 @@ def test_unexpected_generic_wq_log_fails_closed_before_child_launch(tmp_path):
     result = _run(
         "run2_full", output_root, "preexisting", dry_run=False, environment=environment
     )
-    assert result.returncode != 0
+    assert result.returncode == 0, result.stdout
     assert stale_log.read_text() == "unowned prior invocation\n"
-    assert not (validation_root / "run2_full_a.started").exists()
+    assert (validation_root / "run2_full_a.started").exists()
     state = _campaign_state(output_root, "run2_full")
-    assert all(block["status"] == "planned" for block in state["blocks"])
+    assert state["blocks"][0]["status"] == "success"
+
+
+def test_exact_owned_wq_log_fails_closed_before_executor_construction(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(RUN_DIRECTORY))
+    spec = importlib.util.spec_from_file_location("run_analysis_log_path_test", RUN_ANALYSIS)
+    run_analysis = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(run_analysis)
+
+    output_root = tmp_path / "campaign"
+    unrelated_legacy_log = tmp_path / "checkout" / "debug.log"
+    unrelated_legacy_log.parent.mkdir()
+    unrelated_legacy_log.write_text("preserve unrelated generic log\n")
+    first_paths = run_analysis._prepare_work_queue_log_paths(
+        str(output_root), "fragment_a"
+    )
+    second_paths = run_analysis._prepare_work_queue_log_paths(
+        str(output_root), "fragment_b"
+    )
+    assert Path(first_paths["debug_log"]).parent == (
+        output_root / "work_queue_logs" / "fragment_a" / "source_native"
+    )
+    assert Path(second_paths["debug_log"]).parent == (
+        output_root / "work_queue_logs" / "fragment_b" / "source_native"
+    )
+    assert set(first_paths.values()).isdisjoint(second_paths.values())
+    assert unrelated_legacy_log.read_text() == "preserve unrelated generic log\n"
+
+    owned_log = Path(first_paths["debug_log"])
+    owned_log.write_text("preserve exact owned log\n")
+    with pytest.raises(SystemExit, match="Owned Work Queue log already exists"):
+        run_analysis._prepare_work_queue_log_paths(str(output_root), "fragment_a")
+    assert owned_log.read_text() == "preserve exact owned log\n"
 
 
 def test_production_child_stream_path_has_no_output_interposition():
@@ -1371,13 +1442,16 @@ def test_production_child_stream_path_has_no_output_interposition():
     assert '"${command[@]}"' in source
 
 
-def test_native_work_queue_executor_policy_is_unchanged():
+def test_native_work_queue_executor_policy_preserves_runtime_settings():
     source = RUN_ANALYSIS.read_text(encoding="utf-8")
     for expected in (
-        '"debug_log": "debug.log"',
-        '"transactions_log": "tr.log"',
-        '"stats_log": "stats.log"',
-        '"tasks_accum_log": "tasks.log"',
+        '"debug_log": os.path.join(log_dir, "debug.log")',
+        '"transactions_log": os.path.join(log_dir, "tr.log")',
+        '"stats_log": os.path.join(log_dir, "stats.log")',
+        '"tasks_accum_log": os.path.join(log_dir, "tasks.log")',
+        '"--wq-log-dir"',
+        "wq_log_paths = _prepare_work_queue_log_paths(outpath, outname, wq_log_dir)",
+        "**wq_log_paths",
         '"retries": 15',
         '"resources_mode": "auto"',
         '"resource_monitor": "measure"',

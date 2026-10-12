@@ -64,6 +64,12 @@ because a payload contains a similarly named field. The deprecated
 renormalization/factorization-envelope CLI entry has no active consumer and is
 not an alternative to the maintained scale-weight flow.
 
+A histogram's source variation label is not automatically its final statistical
+nuisance identity. [`DatacardMaker`](../../topeft/modules/datacard_tools.py)
+forms the card-level identity and year grouping; the
+[datacard reference](datacards_and_scalings.md) records the finalization and
+package naming boundaries.
+
 ## Applicability and failure boundaries
 
 Era, data/MC status, sample family, required branches, collection type, and

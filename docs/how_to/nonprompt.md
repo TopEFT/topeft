@@ -29,9 +29,11 @@ python run_analysis.py INPUT.cfg --do-np --np-postprocess=inline \
 ```
 
 `inline` is the default when `--do-np` is active. It publishes the source and
-transformed products in one invocation. For campaign production, use the
-deferred lifecycle so the transform runs in a fresh process and can be resumed
-independently:
+transformed products in one invocation. The maintained Run 2 SR profiles
+`run2_full` and `run2_sr_ext` use inline local `DataDrivenProducer` processing.
+The Run 3 SR profiles `run3_full` and `run3_sr_ext` defer the local
+`run_data_driven.py` stage until source publication succeeds. The direct
+deferred form is:
 
 ```bash
 python run_analysis.py INPUT.cfg --do-np --np-postprocess=defer \
@@ -44,7 +46,8 @@ python run_data_driven.py \
 
 `--np-postprocess=skip` creates no transformed artifact. Passing
 `--defer-np` to `fullR3_run.sh` without `--do-np` likewise does not enable the
-producer.
+producer. See the [SR-reco campaign guide](sr_reco_pkl_campaign.md) for its
+stage evidence and fail-closed recovery boundary.
 
 Do not pass a sidecar path manually. The helper rejects the removed
 `--metadata-json` interface and derives the canonical sidecar from the input
@@ -52,6 +55,11 @@ PKL. This prevents a metadata record from one artifact being paired with a
 different histogram dictionary.
 
 ## Recover after a post-processing failure
+
+For an SR-reco campaign, first classify the failure and establish process,
+artifact, and campaign ownership using the
+[campaign recovery contract](sr_reco_pkl_campaign.md#native-work-queue-logs-and-recovery).
+The presence of a source PKL does not authorize an automatic retry or resume.
 
 If event processing completed and the source PKL is valid, choose a fresh
 output path and rerun only `run_data_driven.py`. Do not rerun the processor or

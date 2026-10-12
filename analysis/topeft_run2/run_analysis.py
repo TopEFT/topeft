@@ -542,6 +542,37 @@ def _cleanup_work_queue_staging_directory(path, eligible_for_cleanup):
         )
 
 
+def _prepare_work_queue_log_paths(outpath, outname, filepath_override=None):
+    if filepath_override is None:
+        log_output_name = str(outname or "output")
+        if os.path.basename(log_output_name) != log_output_name:
+            raise SystemExit(
+                "Work Queue output name must be a single path component for default log ownership."
+            )
+        log_dir = os.path.join(
+            os.path.abspath(outpath or "."),
+            "work_queue_logs",
+            log_output_name,
+            "source_native",
+        )
+    else:
+        log_dir = os.path.abspath(os.path.expanduser(filepath_override))
+
+    log_paths = {
+        "debug_log": os.path.join(log_dir, "debug.log"),
+        "transactions_log": os.path.join(log_dir, "tr.log"),
+        "stats_log": os.path.join(log_dir, "stats.log"),
+        "tasks_accum_log": os.path.join(log_dir, "tasks.log"),
+    }
+    for log_path in log_paths.values():
+        if os.path.lexists(log_path):
+            raise SystemExit(
+                f"Owned Work Queue log already exists; refusing to overwrite: {log_path}"
+            )
+    os.makedirs(log_dir, exist_ok=True)
+    return log_paths
+
+
 _REQUIRED_JSON_KEYS = (
     "files",
     "year",
@@ -1111,6 +1142,14 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
+        "--wq-log-dir",
+        default=None,
+        help=(
+            "Override the manager-side directory for native Work Queue logs. "
+            "By default logs are placed under the output directory and output name."
+        ),
+    )
+    parser.add_argument(
         "--noRun3MVA",
         action='store_false',
         default=True,
@@ -1289,6 +1328,7 @@ if __name__ == "__main__":
     ecut = args.ecut
     port = args.port
     wq_filepath = args.wq_filepath
+    wq_log_dir = args.wq_log_dir
     hist_list = args.hist_list
     category_groups = args.category_groups
     ttgamma_sample_role_policy = args.ttgamma_sample_role_policy
@@ -1369,6 +1409,7 @@ if __name__ == "__main__":
         )
         port = ops.pop("port", port)
         wq_filepath = ops.pop("wq_filepath", wq_filepath)
+        wq_log_dir = ops.pop("wq_log_dir", wq_log_dir)
         ecut = ops.pop("ecut", ecut)
         analysis_mode = ops.pop("analysis_mode", analysis_mode)
         env_file_override = ops.pop("env_file", env_file_override)
@@ -2086,6 +2127,7 @@ if __name__ == "__main__":
     wq_staging_dir = None
     wq_cleanup_after = False
     if executor_name in ["work_queue", "taskvine"]:
+        wq_log_paths = _prepare_work_queue_log_paths(outpath, outname, wq_log_dir)
         environment_file = resolved_explicit_env_file or _resolve_environment_file(
             env_file_override,
             use_remote_env,
@@ -2127,6 +2169,7 @@ if __name__ == "__main__":
             category_group_selection["sr_category_dict"],
             category_group_selection["cr_category_dict"],
         ),
+        selected_category_regions=("SR", "CR"),
         split_by_lepton_flavor=split_lep_flavor,
         is_run3_values=tuple(
             dict.fromkeys(
@@ -2142,10 +2185,7 @@ if __name__ == "__main__":
             "manager_name": f"{os.environ['USER']}-workqueue-{outname}",
             # find a port to run work queue in this range:
             "port": port,
-            "debug_log": "debug.log",
-            "transactions_log": "tr.log",
-            "stats_log": "stats.log",
-            "tasks_accum_log": "tasks.log",
+            **wq_log_paths,
             "extra_input_files": ["analysis_processor.py"],
             "retries": 15,
             # use mid-range compression for chunks results.

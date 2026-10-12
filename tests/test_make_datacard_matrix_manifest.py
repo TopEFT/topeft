@@ -3,6 +3,7 @@
 import hashlib
 import json
 import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -76,9 +77,11 @@ def test_standard_manifest_matches_accepted_input_matrix(tmp_path, era, years):
         role = _role_order[era][_row_role_positions[int(parent[-2:]) - 1]]
         assert row["input_pkl"] == str(inputs[role])
         assert "sr_registry" not in row and "--sr-registry" not in row["producer_args"]
+        assert row["producer_args"].count("--enable-legacy-run3-vsmu-recovery") == 0
         assert runner.option_values(row["producer_args"], "--ch-lst") == row["physical_channels"]
         assert runner.option_values(row["producer_args"], "--year-coverage-policy") == ["error"]
         assert runner.option_values(row["producer_args"], "--binning") == ["fitting"]
+        assert runner.option_values(row["producer_args"], "--lepton-mva-correlation") == ["per-run"]
     crosswalk_lines = "".join(
         f"{era}|{row['row_id']}|{row['logical_row_id']}|"
         f"{_role_order[era][_row_role_positions[int(row['logical_row_id'][-2:]) - 1]]}|"
@@ -118,6 +121,39 @@ def test_invalid_execution_partition_rejected():
         generator._execution_channels(row, "run3")
 
 
+@pytest.mark.parametrize("era", ("run2", "run3"))
+def test_cross_run_mode_is_only_a_producer_argument(tmp_path, era):
+    argv, _, _ = _args(tmp_path, era)
+    assert generator.main(argv + ["--lepton-mva-correlation", "cross-run"]) == 0
+    manifest, _ = runner.load_manifest(tmp_path / "matrix.json")
+    assert manifest["schema"] == runner.MANIFEST_SCHEMA
+    for row in manifest["rows"]:
+        assert runner.option_values(row["producer_args"], "--lepton-mva-correlation") == ["cross-run"]
+        assert "lepton_mva_correlation" not in row
+        assert "--lepton-mva-correlation" in runner.resolved_argv(manifest, row)
+
+
+def test_invalid_mva_mode_leaves_manifest_absent(tmp_path):
+    argv, _, _ = _args(tmp_path, "run3")
+    with pytest.raises(SystemExit) as error:
+        generator.main(argv + ["--lepton-mva-correlation", "shared"])
+    assert error.value.code == 2
+    assert not (tmp_path / "matrix.json").exists()
+
+
+def test_v3_row_without_new_option_retains_structural_and_argv_contract(tmp_path):
+    argv, _, _ = _args(tmp_path, "run2")
+    assert generator.main(argv) == 0
+    manifest, _ = runner.load_manifest(tmp_path / "matrix.json")
+    row = json.loads(json.dumps(manifest["rows"][0]))
+    index = row["producer_args"].index("--lepton-mva-correlation")
+    del row["producer_args"][index:index + 2]
+    assert runner.validate_row(row, 0, Path(manifest["control_root"])) == row
+    assert "--lepton-mva-correlation" not in runner.resolved_argv(manifest, row)
+    assert manifest["schema"] == runner.MANIFEST_SCHEMA
+    assert runner.RECEIPT_SCHEMA == "topeft_datacard_execution_receipt_v2"
+
+
 def test_advanced_subset_needs_only_its_input_role_and_does_not_overwrite(tmp_path):
     argv, inputs, _ = _args(tmp_path, "run2", roles=["block1"])
     argv.extend(["--physical-target", "2lss_p_4j_lj0pt"])
@@ -143,6 +179,44 @@ def test_maintained_channel_set_selects_restricted_manifest(tmp_path):
     assert targets == generator.per_era._canonical_physical_names(
         generator._registry, "OFFZ_SPLIT_CH_LST_SR")
     assert all("sr_registry" not in row for row in parsed["rows"])
+
+
+@pytest.mark.parametrize("era,expected_count", [("run2", 0), ("run3", 1)])
+def test_legacy_run3_recovery_opt_in_applies_only_to_run3_rows(tmp_path, era, expected_count):
+    default_root = tmp_path / "default"
+    enabled_root = tmp_path / "enabled"
+    default_root.mkdir()
+    enabled_root.mkdir()
+    default_argv, _, _ = _args(default_root, era)
+    enabled_argv, _, _ = _args(enabled_root, era)
+    assert generator.main(default_argv) == 0
+    assert generator.main(enabled_argv + ["--enable-legacy-run3-vsmu-recovery"]) == 0
+    default_manifest, _ = runner.load_manifest(default_root / "matrix.json")
+    enabled_manifest, _ = runner.load_manifest(enabled_root / "matrix.json")
+    assert default_manifest["schema"] == enabled_manifest["schema"] == runner.MANIFEST_SCHEMA
+    default_rows = {row["row_id"]: row for row in default_manifest["rows"]}
+    enabled_rows = {row["row_id"]: row for row in enabled_manifest["rows"]}
+    assert default_rows.keys() == enabled_rows.keys()
+    assert len(enabled_rows) == {"run2": 11, "run3": 34}[era]
+    for row_id, row in enabled_rows.items():
+        producer_args = row["producer_args"]
+        assert row["era"] == era
+        assert producer_args.count("--enable-legacy-run3-vsmu-recovery") == expected_count
+        assert "--sr-registry" not in producer_args
+        default_args = default_rows[row_id]["producer_args"]
+        assert default_args.count("--enable-legacy-run3-vsmu-recovery") == 0
+        assert [arg for arg in producer_args if arg != "--enable-legacy-run3-vsmu-recovery"] == [
+            arg.replace(str(default_root), str(enabled_root)) for arg in default_args
+        ]
+
+
+@pytest.mark.parametrize("value", ["true", "false", "1", "0"])
+def test_legacy_run3_recovery_cli_rejects_string_boolean(tmp_path, value):
+    argv, _, _ = _args(tmp_path, "run3")
+    with pytest.raises(SystemExit) as error:
+        generator.main(argv + ["--enable-legacy-run3-vsmu-recovery", value])
+    assert error.value.code == 2
+    assert not (tmp_path / "matrix.json").exists()
 
 
 def test_missing_role_unknown_target_and_duplicate_binding_leave_manifest_absent(tmp_path):

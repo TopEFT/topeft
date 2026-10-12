@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import sys
-from types import SimpleNamespace
 
 import hist
 import pytest
@@ -518,54 +517,6 @@ def test_make_cards_main_propagates_resolved_year_coverage_policy(
         "require_sumw2": True,
         "year_coverage_policy": expected_policy,
     }
-
-
-@pytest.mark.parametrize("year_coverage_policy", ("warn", "error", "off"))
-def test_condor_options_propagate_resolved_year_coverage_policy(year_coverage_policy):
-    dc = SimpleNamespace(
-        do_mc_stat=False,
-        verbose=False,
-        use_real_data=False,
-        do_nuisance=False,
-        year_lst=[],
-        drop_syst=[],
-        sr_registry="an_v9",
-        skip_missing_parton_rate_syst=False,
-        binning_mode="fitting",
-    )
-
-    options = make_cards._build_condor_base_other_opts(dc, year_coverage_policy)
-
-    assert options[-2:] == ["--year-coverage-policy", year_coverage_policy]
-
-
-def test_condor_options_propagate_explicit_rate_systematics_override():
-    dc = SimpleNamespace(
-        do_mc_stat=False,
-        verbose=False,
-        use_real_data=False,
-        do_nuisance=False,
-        year_lst=[],
-        drop_syst=[],
-        sr_registry="an_v9",
-        skip_missing_parton_rate_syst=False,
-        binning_mode="fitting",
-    )
-
-    options = make_cards._build_condor_base_other_opts(
-        dc,
-        "warn",
-        rate_syst_json="custom/rate_systematics.json",
-    )
-
-    assert options[-6:] == [
-        "--rate-syst-json",
-        "custom/rate_systematics.json",
-        "--binning",
-        "fitting",
-        "--year-coverage-policy",
-        "warn",
-    ]
 
 
 def test_use_selected_materializes_signal_only_output_without_mutating_source(

@@ -1,5 +1,8 @@
 # Datacards and scalings
 
+For the end-to-end package procedure, artifact ladder, inspection checklist,
+and fit-input handoff, see [build and use datacard packages](../how_to/datacard_packages.md).
+
 ## Card-production interface
 
 `analysis/topeft_run2/make_cards.py` consumes one or more coherent histogram
@@ -34,19 +37,21 @@ are:
 | Years/coverage | Optional supported year list; coverage `warn`, `error`, or `off`, default `warn` | Mixed input identities and structural year gaps follow the selected fail/warn policy. |
 | Binning | `fitting` or `processing`, default `fitting` | Fitting performs exact late aggregation per selected physical channel. |
 | WCs | POI list, reference/selected-WC files, select-only/check controls, optional WC values/scaling order | WC selection uses the card-facing fitting view; selected files must match the producer's supported process/WC structure. `--use-selected` materializes canonical signal-only `selectedWCs.txt` in `--out-dir`. |
-| Nuisances | Nuisance and MC-stat switches, `--rate-syst-json`, `--miss-parton-file`, and `--skip-missing-parton-rate-syst` | Run era selects maintained defaults when the override is omitted. An explicit `--rate-syst-json` is forwarded as `rate_systs_path`, including to Condor child commands. The missing-parton consumer infers the maintained payload layout and has no `--sr-registry` option. |
-| Data/negative bins | Asimov by default; `--unblind` for observed data; crop negative bins by default | These choices affect card contents and must be recorded with production evidence. |
-| Execution | Local default or `--condor`; chunks default 1 | Condor mode prepares/submits per-channel jobs and has external side effects; it requires separately authorized execution. |
+| Nuisances | Nuisance and MC-stat switches, `--rate-syst-json`, `--miss-parton-file`, and `--skip-missing-parton-rate-syst` | Run era selects maintained defaults when the override is omitted. An explicit `--rate-syst-json` is forwarded as `rate_systs_path`; worker arguments come from the canonical manifest. The missing-parton consumer infers the maintained payload layout and has no `--sr-registry` option. |
+| Data/negative bins | Asimov by default; direct `--unblind` for observed data; crop negative bins by default | With an actual selected `data` process, unblind writes its contents to ROOT `data_obs` and TXT `observation`. Without that process, the observation can remain zero. The Asimov branch evaluates nominal processes at `--wc-vals`. The canonical matrix generator has no unblind option; the reviewed supported observed-data route at this revision is the direct CLI. Keep distinct output/provenance records and control access to observed-data artifacts. Numerical real-data validation is unestablished. |
+| Execution | Direct local default; `--condor` requires `--matrix-manifest`, `--condor-output`, explicit CPU/memory/disk requests, `--max-retries`, and `--max-starts`; optional `--max-runtime` and `--prepare-only` | Submits one queue item per manifest row after token reservation. Prepare-only emits ownership-free material and invokes no scheduler. |
 
-`make_cards.main()` resolves inputs, validates/merges them, constructs one
-`DatacardMaker`, selects or loads WCs, dispatches `run_local()` or
-`run_condor()`, and writes `scalings-preselect.json`. It writes
-canonical signal-only `selectedWCs.txt` for both derived and `--use-selected`
-selection paths.
+In direct mode, `make_cards.main()` resolves inputs, validates/merges them,
+constructs one `DatacardMaker`, selects or loads WCs, calls `run_local()`, and
+writes `scalings-preselect.json`. It writes canonical signal-only
+`selectedWCs.txt` for both derived and `--use-selected` selection paths.
 `run_local()` selects physical channels by regex and calls `analyze()` per
-channel/distribution. `run_condor()` materializes the job boundary and
-submission commands; it is a developer-facing execution interface, not a
-pure-return helper.
+channel/distribution. `--condor` dispatches before these producer operations to
+`datacard_matrix_condor.prepare_material()` and, unless `--prepare-only` was
+selected, `submit_material()`. The legacy `run_condor()` and
+`--chunks` partitioning interface have been removed. Supported worker producer
+options are recorded in canonical manifest rows, never reconstructed by the
+scheduler frontend.
 
 ## `topeft.modules.datacard_tools.DatacardMaker`
 
@@ -67,13 +72,14 @@ raises `TypeError`.
 | `year_lst` | Sequence, default empty/all | Supported values are `UL16`, `UL16APV`, `UL17`, `UL18`, `2022`, `2022EE`, `2023`, `2023BPix`. Determines Run 2/3 rate-systematic defaults and missing-parton era. |
 | `do_sm` | Boolean, default false | Selects SM-only card behavior where consumed. |
 | `do_nuisance` | Boolean, default false | Loads/writes supported nuisance contracts. |
+| `lepton_mva_correlation` | `per-run` default; also `cross-run` | Chooses run-specific `13TeV`/`13p6TeV` electron and muon MVA nuisance identities or shared unsuffixed identities. |
 | `drop_syst` | Sequence, default empty | Removes named template systematics after supported loading/selection. |
 | `skip_missing_parton_rate_syst` | Boolean, default false | Disables only the missing-parton nuisance. |
 | `out_dir` | Path string, default `.` | Destination for text/ROOT card artifacts. |
 | `var_lst` | Sequence, default empty | Kinematic family selection. |
 | `do_mc_stat` | Boolean, default false | Enables card `autoMCStats` behavior; stored template variances still follow process policy. |
 | `wcs` | Sequence, default empty | Restricts WC consideration during selection/decomposition. |
-| `unblind` | Boolean, default false | Keeps real data; otherwise data processes are removed and Asimov output is used. |
+| `unblind` | Boolean, default false | Keeps a selected `data` process and writes it through the shared `data_obs` array to ROOT and TXT observation output. A real-data input is required for genuine observed counts; the flag alone can leave a zero observation. Otherwise data processes are removed and Asimov output is built from nominal processes at the supplied WC truth point. |
 | `verbose` | Boolean, default true at class level | Controls progress diagnostics. The CLI resolves its own default. |
 | `use_AAC` | Boolean, default false | Enables the AAC template convention. |
 | `wc_scalings` | Sequence, default empty | Requested WC ordering/selection for scaling production. |
@@ -139,9 +145,266 @@ per-era builder does not reselect targets.
 
 `run_datacard_matrix_resumable.sh --plan-only MANIFEST` checks the plan;
 `--status MANIFEST` reports row state without running cards; passing
-`MANIFEST` runs or resumes eligible rows. The runner writes JSON receipts after
-checking declared outputs. Direct `make_cards.py` production has no manifest
-requirement.
+`MANIFEST` runs or reconciles eligible rows. There is no `--resume` flag.
+`attempt_id` in a v3 manifest remains the public successful-unit identity used
+by receipts and `--selected-unit MANIFEST_SHA256:ROW_ID:ATTEMPT_ID`. The runner
+derives a private numbered physical-attempt directory beside each row output
+directory; a failed physical attempt never acquires selected-unit authority.
+Already valid v2 receipts remain valid and are skipped without a new attempt.
+Direct `make_cards.py` production has no manifest requirement, but holds the
+output-domain lease and refuses logical reservations or H2-published roots.
+
+The runner redirects row-owned producer output, merge report, and log writes
+into that private directory. After a zero return code it checks the declared
+nonempty TXT/ROOT outputs and control artifacts, snapshots the selection,
+scalings, and merge report, records sizes and SHA-256 values, and writes an
+attempt-local completion intent. It then creates the absent canonical row
+directory, marks it with a hardlink to that intent, publishes files without
+overwriting existing destinations, checks canonical bytes against the intent,
+and finally writes the existing receipt format. Publication is a checked
+sequence, not an atomic directory rename on the deployed NFS filesystem.
+The intent and marker distinguish recoverable process-crash windows; an
+unmarked or mismatched canonical directory fails closed. The byte checks do
+not establish physics validity or power-loss durability.
+
+`--status` is the row-state authority. It distinguishes `complete`,
+`not_started`, `active`, `partial_staging_attempt`,
+`complete_validated_staging_not_promoted`, `promoted_incomplete`,
+`promoted_complete_without_receipt`, `stale_owner_free_lock`,
+`held_lock_active_or_unknown`, `invalid_receipt`, and
+`canonical_collision_or_ambiguous_state`. A later explicit invocation starts a
+new private attempt after incomplete staging, or reconciles a complete
+validated attempt without rerunning the producer. A valid receipt remains the
+only completion authority. The dashboard renders runner status and receipt
+counts plus live reservation observations; it does not independently validate
+completion, physics, resources, or topology suitability.
+
+### Execution-unit and dispatch interfaces
+
+| Maintained interface | Contract |
+| --- | --- |
+| `datacard_matrix_runner.derive_units(path)` | Loads the original global v3 workload and deterministically returns one descriptor per existing row, in manifest order. New execution requires disjoint canonical output roots. |
+| `resolve_unit(descriptor)` | Validates exact descriptor fields and parent integrity, returning the unchanged full parent, its byte hash and selected row. Unknown rows and changed parent bytes fail closed. |
+| `execute_unit(manifest, manifest_hash, row, backend=..., scheduler_id=..., reservation_token=...)` | Canonical execution primitive: acquire physical lease, check/reconcile logical ownership, then apply H2 skip/reconcile/execute. Condor checks shared row/token ownership against its local job ad without a scheduler query. |
+| `execute(manifest, manifest_hash, ...)` | Sequential orchestration over `execute_unit`; stops at a blocked/failed unit. No second completion state machine. |
+| Runner `--unit FILE` or `MANIFEST --row-id ID` | Selects one unit without rewriting its parent or public identity. `--plan-only` and `--status` remain read-only. `--derive-units MANIFEST` prints descriptors only. |
+| Runner `--reconcile-reservations MANIFEST [--row-id ID]` | Optional proactive reconciliation under each physical lease. Every new ownership attempt also reconciles automatically. Never runs a producer. |
+| `datacard_matrix_condor.prepare_material(manifest_path, destination, request_cpus=..., request_memory=..., request_disk=..., max_retries=..., max_starts=..., query_executable=..., max_runtime=...)` | Fresh-only shared-filesystem material with no row reservations. Resources and budgets are required; runtime is optional. Absolute query executable defaults to resolved `condor_q`; scheduler domains are discovered from current/observed context. No producer, submission or package builder. |
+| `datacard_matrix_condor.submission_transaction(manifest_path, destination, scheduler)` | Context manager: validate prepared descriptors, reconcile target rows, create reservations and bind itemdata under all row leases. Yields transaction state; never invokes a submitter. |
+| `datacard_matrix_condor.submit_material(manifest_path, destination, scheduler)` | Internal process adapter used by `make_cards.py --condor`; invokes installed `condor_submit` with argv and inherited row lease descriptors, and classifies command outcomes. Operators do not call it directly. |
+| `datacard_matrix_runner.reserve_condor(manifest, manifest_hash, rows, scheduler)` | Maintained reservation transaction context underlying dispatch. Reconciles stale ownership/H2 before claims; rolls back only definite no-start outcomes. |
+
+Descriptor fields are exactly `schema` (`topeft_datacard_execution_unit_v1`),
+`parent_manifest` (absolute path), `parent_integrity` (SHA-256 of those current
+bytes), and `row_id`. Descriptors are generated dispatch artifacts. Workload
+semantics remain in the global v3 manifest and its profile/channel owners.
+Receipt validation continues to use the original parent hash, public row and
+attempt, exact runtime/argv and recorded artifacts. Existing receipt and
+selected-unit interfaces are unchanged; historical manifest loading is not
+restricted by the new execution-layout check.
+
+The canonical output root determines a persistent sibling
+`.<output_name>.datacard.lock` and `.<output_name>.datacard.owner.json`.
+Hash, backend and row-name aliases cannot create another lease for that root.
+A short `.datacard_lease_setup.lock` at the nearest existing parent serializes
+path initialization and is released before execution. This prevents a nested
+request from creating an active owner's absent canonical directory. Ancestor
+ownership is checked before any directory creation and again under setup.
+Lock inodes persist and must never be unlinked while the workflow may run.
+The legacy manifest lock is held shared to exclude an older exclusive runner;
+unit execution and completion state remain entirely row-owned. Producers
+inherit both lifetime lock descriptors, so manager death alone cannot authorize
+a duplicate producer. Unknown/held ownership fails closed.
+
+`.<output_name>.datacard.reservation.json` is an atomic per-domain logical
+reservation, not a global registry or completion record. Its existing schema
+remains `topeft_datacard_reservation_v1`; fields are `schema`, `row_id`,
+`output_root`, `backend`, `owner_id`, `created_at`, `scheduler`, and
+`scheduler_id`. The last two are null for local/manual ownership. Condor's
+initial scheduler object records the absolute `query_executable` and dispatch
+directory; later observations may add `pool` and `schedd` hints.
+`scheduler_id` caches only the last observed locator; it is
+never a query fallback or equality gate. `owner_id` is fresh UUID-style hex:
+exactly 32 lowercase hex digits, checked before constraint interpolation.
+It is current operational correlation, not historical workload authority.
+Submitted ads carry `DatacardReservation`, `DatacardUnit` and
+`DatacardParentIntegrity`; canonical workload and H2 receipt identity remain
+unchanged. Native counters do not become another completion record.
+
+Material generation is not submission ownership. `prepare_material()` does not
+reserve or reconcile rows and writes `unreserved` itemdata placeholders.
+`submission_transaction()` replaces these with newly allocated tokens under
+`reserve_condor()`'s physical row leases. It validates prepared descriptors and
+retains all leases through the caller's submission boundary, preventing another
+claimant from observing zero jobs before submission and reclaiming a row.
+
+The yielded transaction exposes `reservations`, `lease_fds`, and
+`mark_submission_started()`. The internal adapter calls that marker immediately
+before process creation, passes `lease_fds` to its subprocess, and awaits
+subprocess termination before leaving the context. A zero command exit
+and ambiguous timeout/nonzero/interruption preserve reservations. Exiting
+without possible effects rolls back newly created reservations, including
+partial acquisition/material-binding failure. If process creation itself
+raises `OSError` and no submit executable started, the adapter uses
+`record_definite_spawn_failure(error)` to restore rollback eligibility. Its
+proof obligation excludes later I/O/status errors, terminal nonzero exits and
+timeouts. `submission_transaction()` itself never runs `condor_submit`;
+`submit_material()` owns that process. Prepared itemdata must not be replayed
+outside this transaction. Command stdout, including ClusterId.ProcId, is
+operator metadata only. A later frontend invocation automatically reconciles
+an ambiguous reservation by its token.
+
+All reservation mutation is serialized under the output-domain lease. Worker
+activations acquire the same lease. An unusually early worker may encounter
+the still-active submission lease and fail within the bounded start/retry
+policy; live qualification must check this ordering. Logical ownership remains
+while a job is live, including Held pending removal. Canonical row/output,
+reservation token, scheduler locator, physical lease, physical attempt and
+valid receipt remain distinct. Neither ProcId order nor a historical manifest
+hash defines the row; changed scheduler locators do not invalidate ownership.
+
+Submit-side queries use `-allusers`, an exact
+`DatacardReservation == "<safe token>"` constraint, JSON projection and a
+30-second timeout. They try an observed endpoint hint when present, then the
+current default and global domains. One matching row/token has
+`ownership: ACTIVE`; multiple matches raise
+`DUPLICATE_SCHEDULER_OWNERSHIP` with all locators. A zero-result query yields
+`GONE` only when its domain covers the observed scheduler identity. Otherwise
+failed, malformed, or non-covering observations raise
+`SCHEDULER_OBSERVABILITY_INCOMPLETE` or
+`SCHEDULER_OBSERVABILITY_INSUFFICIENT` and preserve ownership. An exact remove
+event or matching terminal history record can supply terminal proof; history
+is not live authority. Live and terminal evidence together raise
+`SCHEDULER_EVIDENCE_CONTRADICTION`.
+
+Workers never invoke `condor_q` or contact a schedd for identity. They require
+`_CONDOR_JOB_AD` and parse only literal `DatacardUnit`, `DatacardReservation`,
+`ClusterId`, and `ProcId`, with case-insensitive attribute names. Row/token must
+match submitted itemdata and the shared reservation. Other ClassAd expressions
+are not evaluated. Missing context, malformed/missing/duplicate literals and
+row/token conflicts have distinct diagnostics. The local job-ad Cluster/Proc
+is recorded as scheduler metadata; differences from submitted/cached locators
+are not blockers. The installed HTCondor distribution supports the local ad
+path; synthetic fixtures validate parsing, while execute-node availability
+remains a live qualification obligation.
+
+After a coverage-qualified zero result or exact terminal proof establishes
+disappearance, existing H2 classification and reconciliation run automatically
+under the lease before reservation retirement.
+Local direct-unit execution, full orchestration, Condor reservation and explicit
+maintenance all use this gate; the manual reconciliation CLI is optional for
+backend switching. Valid receipts mean complete; partial staging can become
+eligible and validated staging can publish without another producer. Invalid
+receipts, collisions, ambiguity or an unavailable physical lease block. Local
+stale ownership also uses H2 and the inherited lease, never cross-host PID
+inference. Raw producer calls without a manifest cannot reconcile H2 records
+and refuse reserved or H2-marked roots; H2 workers use private staging domains.
+
+Status rows carry unit `lock_path`, `lock_held`, `lock_probe_error` and
+`owner_metadata`; aggregate `lock_held` means any unit is held, or unknown if
+none is held and a probe failed. The legacy top-level `owner_metadata` may be
+null. Consumers must use row metadata for multiple active units. Owner backend
+and scheduler ID are observations, not receipt fields.
+Rows with logical ownership additionally expose `reservation`, including
+backend, observed scheduler locator/state and observation time. `HELD`,
+`UNKNOWN` and `GONE` remain visible independently of H2 completion. Error codes
+and exact query diagnostics are displayed, as are available live hold fields.
+Read-only status does not retire reservations or persist locator observations.
+
+`--scheduler-status FILE` on runner status or dashboard accepts an externally
+collected observation with exactly these keys:
+
+```json
+{
+  "schema": "topeft_datacard_scheduler_status_v1",
+  "parent_integrity": "<current parent manifest SHA-256>",
+  "observed_at": "<observation timestamp>",
+  "units": [{"row_id": "<existing row>", "scheduler_id": "<cluster.proc>", "state": "<observed scheduler state>"}]
+}
+```
+
+Unknown/duplicate rows, duplicate job IDs or a mismatched parent fail. The runner attaches
+`scheduler_metadata` with `completion_authority: false` and preserves its own
+row status. Observations may cover a subset; with `--row-id`, supply only that
+row. This supplied overlay cannot replace live reservation queries or authorize
+execution. Exit zero alone provides no producer completion authority.
+
+Generated material consists of `units/*.json`, `items.txt`, `worker.sh`,
+`datacards.sub`, and `logs/`. Queue items bind row IDs to descriptor byte hashes
+and initially invalid `unreserved` placeholders; the submission transaction
+binds fresh reservation tokens. Scheduler logs use
+`logs/$(row_id)__$(Cluster).$(Process).out`, `.err`, and `.events.log`;
+each row/current job has distinct paths. H2 physical-attempt logs remain separate.
+The worker checks descriptor/parent/runner integrity and enters the same unit
+executor, with the producer's recorded arguments and no recursive Condor mode.
+The submit file is published last using the existing no-overwrite copy helper.
+Existing destinations and invalid resource quantities are rejected. Generated
+paths have the restricted character set documented in the operator guide.
+
+This is TopEFT producer orchestration; EFTFit/Combine runtime and fit scheduling
+remain outside this interface. `getenv = false` disables wholesale submitter
+inheritance. Absolute manifest interpreter/runner paths construct the TopEFT
+worker runtime without serializing shell state, secrets or credentials. A
+sanitized import/CLI probe verifies the submit-host installation; execute-node
+packages, site wrapper environment, local job-ad availability and shared mounts
+still require qualification. Submit-side reconciliation requires scheduler query
+access; worker execution does not. Qualify shared absolute interpreter paths
+first; if insufficient with common Conda paths visible, evaluate explicit
+bootstrap before considering an environment archive. No additional
+`environment` variables are currently required or emitted.
+
+`should_transfer_files = NO` preserves shared-filesystem H2 private staging,
+validation, no-overwrite publication and receipt-last authority. Absolute paths
+must be available on workers. No authoritative `transfer_output_files`, wrapper
+copy or post-producer publication path is introduced. Native scheduler logs are
+operational evidence only.
+
+`request_cpus` is a positive integer; memory/disk accept positive integer
+quantities and optional unit suffixes. Optional positive `max_runtime` maps to
+native `allowed_execute_duration`, parsed by HTCondor 25.0.1. Its seconds limit
+one activation, exclude transfer time and reset for a later activation after
+eviction/restart. `21600` is representable exactly and is the minimum for the
+first successful lifecycle canary. It is not cumulative `RemoteWallClockTime`; native timeout
+causes a Held transition followed by periodic removal.
+
+For explicit terminal retry budget R >= 0 and total-start budget N > 0, the
+adapter emits:
+
+```text
+max_retries = R
+success_exit_code = 0
+requirements = MY.NumJobStarts < N
+on_exit_remove = NumJobStarts >= N
+periodic_remove = (JobStatus == 5) || (JobStatus == 1 && NumJobStarts >= N)
+```
+
+Native HTCondor combines the removal condition with
+`NumJobCompletions > JobMaxRetries || ExitCode =?= JobSuccessExitCode` and
+retains its ordinary resource requirements. No unconditional `on_exit_hold`
+intercepts failed terminal exits. Native retry exhaustion removes the job.
+Evictions count toward starts separately from terminal retries: the match guard
+prevents another activation at N, the last Running activation can finish, its
+terminal exit removes the job, and capped Idle jobs leave the queue at the next
+periodic evaluation. The guard alone would strand an Idle job; periodic removal
+alone would permit starts before evaluation. Every Held state is terminal for
+the current TopEFT scheduler job, independent of HoldReasonCode: native duration,
+resource, process creation, I/O, site/policy and manual holds all satisfy removal.
+There is no automatic release or automatic replacement job. Removal waits for
+scheduler periodic evaluation and does not delete the reservation.
+
+The unique scheduler event log is the primary durable hold record, including
+reason information, with execution/eviction/removal/termination events as
+applicable. Live query projection includes `HoldReason`, `HoldReasonCode` and
+`HoldReasonSubCode`. Optional history lookup by token/locator may retain these
+and `RemoveReason`/terminal status; history availability is not an H2 safety
+gate. The live fault canary must prove hold evidence persists through removal
+and that the next ownership attempt only reuses the row after safe H2
+reconciliation.
+
+There are no production resource/retry defaults or jobs-in-flight caps. One
+common configuration covers the existing rows, including valid-receipt skips.
+Real eviction, removal, start-limit enforcement, resources and worker runtime
+remain separate live validation; this interface never submits a job.
 
 ## Per-era package interface
 
@@ -156,6 +419,20 @@ recorded source files, requires the completed rows to provide exactly the
 requested physical targets, rejects duplicate scaling identities, and assigns
 deterministic per-era `chN` labels.
 
+For a recovered full-era campaign whose source manifests declare overlapping
+targets, repeat `--selected-unit MANIFEST_SHA256:ROW_ID:ATTEMPT_ID` for every
+authoritative successful unit. The manifest SHA is the hash of the original
+manifest bytes under which that unit's receipt was written. Supply each
+original manifest with `--matrix-manifest`; do not regenerate a restricted
+manifest from completed rows, because receipts bind to the original manifest
+SHA. The selected-unit route requires one valid current receipt for every
+listed unit, rejects duplicate selected targets and units, and requires exact
+coverage of the maintained `ALL_CH_LST_SR` full-era target set. Omitted or
+unknown selected units fail. Without `--selected-unit`, the original manifest
+surface behavior remains in effect and overlapping declarations are an error.
+The package provenance retains the actual source manifest hashes and selected
+unit count; the explicit invocation identifies the selected row/attempt receipts.
+
 For missing manifest-declared targets, the error identifies each applicable
 manifest and row ID and prints the runner's read-only `--status` and normal
 resume commands as guidance. Extra completed targets are listed separately.
@@ -164,8 +441,12 @@ coverage mismatch, and the builder does not execute the runner.
 
 The published package contains only `cards/`, `selectedWCs.txt`,
 `scalings.json`, `physical_to_chN.json`, and
-`package-provenance.json`. The provenance records the source manifest hashes,
-builder identity, and output hashes. The package does not contain
+`package-provenance.json`. Its provenance records source manifest hashes,
+source unit count, builder identity, card/template counts, and hashes of the
+three metadata files; it does not record per-card/template hashes or exact
+selected receipt keys. Preserve original manifests, successful receipts, and
+the selected-unit invocation/build report for receipt-level lineage; see the
+[package procedure](../how_to/datacard_packages.md). The package does not contain
 `scalings-preselect.json` or `combinedcard.txt`. The builder writes and
 verifies a private sibling staging tree, then publishes to a previously absent
 output directory. The per-era scaling payload preserves producer-owned fields
@@ -235,6 +516,9 @@ See [flexible binning](flexible_binning.md) and
 - `analysis/topeft_run2/make_datacard_matrix_manifest.py`
 - `analysis/topeft_run2/datacard_matrix_profiles.yml`
 - `analysis/topeft_run2/datacard_matrix_runner.py`
+- `analysis/topeft_run2/datacard_matrix_condor.py`
+- `tests/test_datacard_matrix_execution_units.py`
+- `tests/test_datacard_matrix_condor.py`
 - `analysis/topeft_run2/build_per_era_datacard_package.py`
 - `analysis/topeft_run2/build_combined_datacard_package.py`
 - `topeft/modules/datacard_tools.py`
@@ -254,6 +538,71 @@ Rate-systematic files own configured values and applicability; correction
 variation labels own the candidate shape inputs; the missing-parton contract
 owns its category/payload layout; sumw2 owns statistical companions; and the
 binning resolver owns the exact processing-to-fitting view.
+
+### Final nuisance identities
+
+The [generated exhaustive nuisance-policy and standardization catalog](systematics_nuisance_catalog.md)
+lists the current static DatacardMaker policy and every standardizer mapping row.
+The explanation below gives the interpretation and ownership boundary.
+
+The source variation label is an input, not necessarily the final card nuisance
+identity. `DatacardMaker` applies `syst_year_corr` in `correlate_years(...)`
+while merging periods, then writes the final TXT nuisance rows and paired ROOT
+templates. For Run 3 DeepTau2018v2p5 `VSmu`, its source/period check rejects
+ambiguous or mismatched legacy labels; the maintained final groups are
+2022 with 2022EE and 2023 with 2023BPix, separately for each eta bin. Run 3
+electron-fake tau energy scales (`genElectron`, decay modes 0, 1, 10, 11)
+use the same two year groups. Run 2 DeepTau2017v2p1 `VSe`, `VSmu`, genuine-tau
+energy scales, and electron-fake tau energy scales for decay modes 0 and 1
+group 2016 with 2016APV; 2017 and 2018 retain separate year identities.
+Other tau families have their own final identities; inspect the focused test
+before inferring a shared year domain from a family name.
+
+The default `--lepton-mva-correlation per-run` gives `lepSF_elec_mva` and
+`lepSF_muon_mva` separate `13TeV` Run 2 and `13p6TeV` Run 3 identities.
+`--lepton-mva-correlation cross-run` instead gives them the unsuffixed shared
+identities `lepSF_elec_mva` and `lepSF_muon_mva` in both original and
+standardized TXT/ROOT cards. Electron and muon remain
+separate nuisances. `lepSF_elec_non_mva` and `lepSF_muon_non_mva` remain
+run-specific in either mode. The [generated nuisance catalog](systematics_nuisance_catalog.md)
+lists both modes from the card writer's naming resolver. `PU` becomes `CMS_pileup_13TeV` or
+`CMS_pileup_13p6TeV`; `MET_UnclusteredEnergy` becomes
+`CMS_scale_met_Unclustred_energy_13TeV` or
+`CMS_scale_met_Unclustred_energy_13p6TeV` (the spelling is maintained).
+`PreFiring` maps to `CMS_l1_ecal_prefiring` in the naming map; this identity
+does not assert a nonzero effect in every era or package. The luminosity
+identities include Run 2 `lumi_13TeV_1516_l`, `lumi_13TeV_151617_l`, and
+`lumi_13TeV_15161718_l`, and Run 3 `lumi_1` and `lumi_2`. Theory rate and
+shape aliases are specified by the era entries in `SYST_NAMING_MAP`; their
+names alone do not establish a blanket process or year correlation rule.
+
+These are current implementation contracts in
+[`datacard_tools.py`](../../topeft/modules/datacard_tools.py) and
+[`standardize_systematics.py`](../../analysis/topeft_run2/standardize_systematics.py),
+with focused checks in
+[`test_tau_datacard_correlation.py`](../../tests/test_tau_datacard_correlation.py),
+[`test_standardize_systematics_tau_year_correlation.py`](../../tests/test_standardize_systematics_tau_year_correlation.py),
+and [`test_standardize_systematics_release_contract.py`](../../tests/test_standardize_systematics_release_contract.py).
+
+### Package standardizer
+
+`standardize_systematics.py` accepts a certified `TOP26006_v1` combined
+datacard package through `--input-package` and a distinct, absent destination
+through `--output-package`. Its `SYST_NAMING_MAP` selects final names from each
+mapping row's `run2` or `run3` era. It renames TXT shape and rate nuisance rows
+and matching ROOT systematic keys, rejecting nuisance and ROOT-key collisions.
+It copies card order and EFT scalings, preserves logical mapping rows, and
+writes a fresh package with updated provenance. It does not reconstruct
+correlations from PKLs, choose scientific year groups, or construct a workspace.
+The card maker has already realized the correlation topology before this
+rename. The standardizer infers MVA topology from the source identities:
+unsuffixed names remain shared and run-appropriate energy suffixes remain
+per-run. It rejects mixed identities for either flavor and wrong-run or
+retired double-energy aliases before creating the output package.
+The package schemas are unchanged; full package and fit comparison of the new
+mode requires a separate qualification. The [package procedure](../how_to/datacard_packages.md) and
+[artifact boundary](../explanation/datacards_and_eftfit.md) give the operating
+context.
 
 The ineffective legacy rate/envelope override is not an active default.
 Current era-selected rate-systematic files and the implemented consumer remain

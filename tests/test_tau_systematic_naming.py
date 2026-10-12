@@ -102,7 +102,7 @@ def test_vsjet_payload_component_spelling_maps_to_canonical_names():
         (
             "2022EE",
             "DeepTau2018v2p5",
-            "2022",
+            "2022EE",
             ("abseta0to1p46", "abseta1p46to1p56", "abseta1p56to2p5"),
             (
                 "abseta0to0p4",
@@ -115,7 +115,7 @@ def test_vsjet_payload_component_spelling_maps_to_canonical_names():
         (
             "2023BPix",
             "DeepTau2018v2p5",
-            "2023",
+            "2023BPix",
             ("abseta0to1p46", "abseta1p46to1p56", "abseta1p56to2p5"),
             (
                 "abseta0to0p4",

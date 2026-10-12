@@ -1,5 +1,9 @@
 # Create cards and build datacard packages
 
+For the complete package lifecycle and fit-input handoff, use
+[build and use datacard packages](datacard_packages.md). This page covers card
+production and matrix execution in detail.
+
 `analysis/topeft_run2/make_cards.py` produces cards directly from one or more
 compatible histogram PKLs—normally the nonprompt-transformed products—and
 writes individual text cards, ROOT template files, `selectedWCs.txt`, and
@@ -9,7 +13,7 @@ run and resume it.
 
 | Interface | Purpose | Inputs and defaults | Outputs and checks |
 | --- | --- | --- | --- |
-| `make_cards.py` | Merge histogram inputs and select WCs, channels, and variables | Fitting binning, year coverage `warn`, Asimov data, no nuisances or MC-stat opt-in | `DatacardMaker` writes TXT cards, ROOT templates, and scaling records; local or Condor execution |
+| `make_cards.py` | Merge histogram inputs and select WCs, channels, and variables | Fitting binning, year coverage `warn`, Asimov data, no nuisances or MC-stat opt-in | Direct mode writes TXT/ROOT and scaling records; `--condor` submits matrix dispatch; `--condor --prepare-only` writes material without submission |
 | `make_datacard_matrix_manifest.py` | Prepare standard Run 2 or Run 3 execution units | Era, `--input-pkl ROLE=PATH` bindings, runtime paths, and fresh manifest path | Writes a `topeft_datacard_matrix_v3` manifest; does not produce cards |
 | `build_per_era_datacard_package.py build` | Build one Run 2 or Run 3 package | Era, one or more matrix manifests with completed rows, and a fresh absolute output | Requires exactly the targets declared by the manifest rows, checks recorded source files, and writes cards, WCs, scalings, and per-era `chN` |
 | `build_combined_datacard_package.py build` | Build a cards-only Run 2 + Run 3 package | Two per-era packages with the same physical target set, fresh absolute output, analysis, package date, and version | Writes the combined mapping, ordered card list, and scalings; checks the package against its inputs; does not run Combine |
@@ -44,6 +48,30 @@ no nuisance insertion, and warning-only year coverage. `--unblind`,
 `--do-nuisance`, `--do-mc-stat`, and `--keep-negative-bins` are explicit
 choices. `--merge-only` stops after load/merge validation, and
 `--merge-report PATH` retains the diagnostic report.
+The optional `--lepton-mva-correlation {per-run,cross-run}` defaults to
+`per-run`. It changes only the final electron and muon MVA nuisance identities
+in the TXT card and ROOT keys; see the [nuisance reference](../reference/datacards_and_scalings.md).
+`cross-run` writes unsuffixed `lepSF_elec_mva` and `lepSF_muon_mva` names in
+both runs; `per-run` writes the corresponding run-energy suffixes.
+For matrix work, select the same option when generating each canonical manifest;
+its rows carry the choice in `producer_args`, including the explicit default.
+Older v3 rows without this option still mean `per-run` under their historical
+producer; replay also remains subject to the existing runtime fingerprint checks.
+
+`--unblind` is a direct `make_cards.py` option. When the selected input contains
+an actual `data` process for the requested channel and variable, it keeps that
+process and writes its selected contents to the ROOT `data_obs` object and the
+TXT `observation` value. The flag does not supply data: without a selected
+`data` process, the observed-data array can remain zero. Without `--unblind`,
+`DatacardMaker` removes real data and builds Asimov `data_obs` from the nominal
+processes at the truth point supplied by `--wc-vals` (the empty/default value
+is the SM point). The canonical matrix manifest generator carries the
+MVA-correlation choice but has no unblind option. At this revision, the
+reviewed supported route for observed-data cards is the direct `make_cards.py`
+CLI. Use a fresh, separately named output directory and retain the input,
+command, and data-access provenance; restrict access to observed-data artifacts
+according to the applicable data policy. Source support for this route is not
+evidence that a real-data card has been produced or numerically validated.
 
 Before card production, confirm that every input belongs to one compatible
 production family and has the nominal/sumw2 companions required by the selected
@@ -78,15 +106,18 @@ exist as histogram families in the merged input.
 - `--use-selected FILE` reads the reviewed JSON for card construction,
   canonicalizes its signal-only representation, and materializes that
   representation as `<out_dir>/selectedWCs.txt` without modifying `FILE`.
-- When extending the CLI, update parsing, Condor forwarding if applicable,
-  `DatacardMaker` construction, output/provenance behavior, and focused tests.
+- When extending the CLI, update parsing, canonical manifest arguments where
+  applicable, `DatacardMaker` construction, output/provenance behavior, and
+  focused tests.
 
-The `--condor` implementation is not transparent forwarding. It generates a
-worker script and submit files with a curated option list, one CPU, 20000 MB
-memory, 4096 MB disk, transferred `make_cards.py`/`selectedWCs.txt`/PKL list,
-and a shared output-directory assumption. When a supported card option must
-work under Condor, add it to `_build_condor_base_other_opts` and test both local
-and generated-worker commands. Do not assume a new parser option reaches jobs.
+`make_cards.py --condor` submits execution units from an existing canonical
+v3 manifest before any PKL loading or producer setup. Put producer options in
+that workload; the frontend accepts only manifest, dispatch destination and
+resource options. Add `--prepare-only` for material inspection without
+reservation or submission. Local and worker execution pass the same recorded producer
+arguments through the matrix runner. The former Condor option reconstruction
+and `--chunks` interface have been retired; execution partitioning remains
+owned by the profile and manifest generator.
 
 To add a supported selection/configuration control:
 
@@ -188,16 +219,21 @@ long-running jobs that should continue after the terminal disconnects.
 Inspect `--plan-only` and
 `--status` first, and keep the manifest unchanged during an
 attempt. The runner validates the schema and runtime fingerprints before plan
-or execution, holds one OS advisory lock for a mutating run, and directly runs
-the declared Python argv with no shell intermediary. It stops on the first
+or execution, acquires ownership for each execution unit, and directly runs
+the declared Python argv with no shell intermediary. Sequential orchestration
+stops on the first
 command or output-check failure.
 
 After a successful row command, the runner checks the declared outputs, retains
 the row-specific merge report, snapshots `selectedWCs.txt`,
 `scalings-preselect.json`, and the merge report, hashes the primary TXT/ROOT
-outputs and every row-local control artifact (merge report, snapshots, and log),
-and atomically publishes an execution receipt. Receipt validation rechecks both
-size and SHA256; these checks do not assess the physics content.
+outputs and every row-local control artifact (merge report, snapshots, and log).
+Producer writes go first into a private numbered physical-attempt directory
+beside the canonical row output. After validation the runner writes an
+attempt-local completion intent, publishes canonical files without overwriting
+existing bytes, verifies the published sizes and SHA-256 values, then publishes
+the execution receipt. Receipt validation rechecks both size and SHA-256;
+these checks do not assess the physics content.
 
 On restart, a row is skipped only when its receipt matches the current manifest,
 argv, paths, runtime contract, and byte-bound artifacts. A valid immutable
@@ -213,22 +249,229 @@ runtime and execution-input availability and marks the overall plan not
 launch-ready when a required input is unavailable; completed rows are not
 penalized for unavailable historical execution inputs.
 
-Owner metadata is updated atomically under the OS lock before each row.
-`started_at` records when this runner acquired execution ownership and remains
-stable for that runner's lifetime; `current_row_started_at` records the start
-of the current row and changes with each row. `--status` reports
-`active` only when evidence has no receipt *and* the lock plus owner metadata
-identify that exact row/attempt; evidence with a free lock is
-`interrupted_requires_external_reconciliation`, even if stale owner JSON
-remains. `invalid_receipt` means recorded bytes no longer match.
+The manifest `attempt_id` remains the public receipt and package
+`--selected-unit` identity. Physical attempt numbers are internal runner
+retries under that identity. There is no `--resume` flag and no automatic retry
+within a failing invocation; passing the same manifest again is the explicit
+rerun/reconciliation action. A valid receipt skips without a new physical
+attempt. An incomplete attempt is preserved, receives no completion authority,
+and a later explicit invocation uses a new noncolliding directory when the
+canonical row directory remains absent.
+
+Owner metadata is updated atomically under the unit's output-domain lock.
+`started_at` and `current_row_started_at` describe that unit's ownership and
+physical producer start. `--status` reports `active` when the held lock and
+owner metadata identify the row. Different units may be active together;
+local, manual and Condor attempts on the same canonical output root exclude
+each other. Owner metadata carries backend and optional scheduler identity as
+observations. The dashboard renders every active unit and its staged log.
+A free lock makes matching owner metadata stale; rerun still passes through
+the runner's transaction classification and logical reservation check. A live
+Condor job keeps its logical reservation even when no process holds this lock.
 
 Before each row launch, the held runner rechecks the runtime contract and
-freshly classifies the row. Only `not_started` launches; valid receipts skip,
-and `active`, interrupted, unreceipted, or invalid state blocks. External
-reconciliation must decide whether a new attempt is safe and, if so, supply a
-new attempt ID and non-overwriting paths. There is no automatic retry or
-output-existence shortcut. A runtime fingerprint change blocks before the next
-row.
+freshly classifies the row. `not_started`, `stale_owner_free_lock`, and
+`partial_staging_attempt` can launch a new physical attempt; valid receipts
+skip. `complete_validated_staging_not_promoted` is revalidated and published
+without running the producer. `promoted_incomplete` completes only missing
+files whose existing bytes match the attempt intent.
+`promoted_complete_without_receipt` publishes the missing receipt only after
+all canonical and control bytes match the validated attempt. A stale owner
+cannot override a held lock. An invalid receipt, unmarked canonical directory,
+mismatched bytes, malformed intent, or unknown lock ownership blocks with
+`invalid_receipt`, `canonical_collision_or_ambiguous_state`, or
+`held_lock_active_or_unknown`. Preserve these bytes and investigate the
+reported paths; do not delete them or rely on file counts. A crash between
+creating the canonical directory and linking its attempt marker is intentionally
+ambiguous and fails closed. A runtime fingerprint change blocks before the next
+producer launch; reconciliation uses its recorded successful runtime binding.
+
+### Execute one unit or prepare Condor material
+
+The global v3 manifest defines workload topology. Each existing manifest row
+is one execution unit. A derived `topeft_datacard_execution_unit_v1` descriptor
+contains `parent_manifest`, `parent_integrity`, and `row_id` alongside `schema`.
+It references the original manifest; it contains no independent channel plan.
+The integrity hash detects changed dispatch input. Public row/attempt and
+receipt/package bindings continue to use the original manifest bytes.
+
+Whole-manifest local execution is a sequential loop over the same unit
+executor used by workers. To inspect or execute a single existing row, use its
+exact ID from the manifest:
+
+```bash
+analysis/topeft_run2/run_datacard_matrix_resumable.sh --derive-units /path/to/manifest.json
+analysis/topeft_run2/run_datacard_matrix_resumable.sh --plan-only --row-id "$row_id" /path/to/manifest.json
+analysis/topeft_run2/run_datacard_matrix_resumable.sh --row-id "$row_id" /path/to/manifest.json
+```
+
+This scheduler contract covers TopEFT datacard production and H2 publication.
+EFTFit/Combine runtime and fit scheduling belong to the package consumer.
+
+Submit from a fresh dispatch directory after choosing resources and retry/start
+budgets for your site and workload. Set the variables below explicitly; the
+software supplies no production resource or retry defaults:
+
+```bash
+python analysis/topeft_run2/make_cards.py --condor \
+  --matrix-manifest /absolute/path/to/manifest.json \
+  --condor-output /absolute/path/to/fresh_dispatch \
+  --request-cpus "$request_cpus" \
+  --request-memory "$request_memory" \
+  --request-disk "$request_disk" \
+  --max-retries "$max_retries" \
+  --max-starts "$max_starts"
+```
+
+This writes `units/*.json`, `items.txt`, `worker.sh`, `datacards.sub`, and an
+empty `logs/` directory, then invokes the installed `condor_submit` through
+the maintained reservation transaction. Each queue item identifies exactly one unit. The
+worker enters `datacard_matrix_runner.py --unit DESCRIPTOR`; its producer runs
+without `--condor`. Add `--prepare-only` to the command above for a no-submit
+inspection run. Material generation is ownership-free: prepare-only creates no
+row reservation, queries no scheduler, and cannot block later local execution.
+Existing dispatch destinations are rejected. Items initially carry an
+`unreserved` placeholder, which cannot authorize a worker. Already complete
+rows retain their queue item and skip production by valid H2 receipt.
+
+Submission ownership belongs to `submission_transaction()`, called by the
+internal Condor adapter after preparation. It reconciles target rows, creates
+fresh reservation tokens and binds itemdata while holding all row leases. The
+adapter passes those lease descriptors into `condor_submit` and waits for its
+result. Operators use `make_cards.py --condor`; prepared material must not be
+submitted directly or replayed outside the transaction.
+
+A definite process-creation failure rolls back newly created reservations.
+Command exit zero retains them. A timeout, nonzero exit or interruption after
+possible scheduler side effects is `AMBIGUOUS_SUBMISSION_OUTCOME`: reservations
+remain until the next invocation automatically reconciles them by token and
+then applies H2 recovery as needed. The command's stdout and any reported
+ClusterId.ProcId are informational; they do not establish scheduler ownership.
+
+Normal ownership attempts reconcile automatically. The explicit maintenance
+command is optional and proactive; it is not required for backend switching:
+
+```bash
+analysis/topeft_run2/run_datacard_matrix_resumable.sh \
+  --reconcile-reservations /absolute/path/to/manifest.json
+```
+
+This queries current ownership and reconciles H2 without starting a producer.
+Use `--row-id "$row_id"` to select one row. Reconciliation cannot acquire a
+physical lease while its producer or submission transaction is active. Status
+queries remain read-only. Never delete reservation or lock files to bypass
+unresolved ownership.
+
+The adapter currently requires a shared filesystem: original manifests,
+inputs, runtime, dispatch and output paths must be visible at the same absolute
+locations on every worker. Dispatch destination, interpreter and runner paths
+support letters, digits, `_`, `.`, `/`, `+` and `-`; whitespace and submit
+metacharacters fail before output creation. Worker/site qualification is a
+separate step. Material generation alone does not qualify submission.
+
+`getenv = false` disables inheritance of the interactive submitter environment.
+The worker invokes the manifest's absolute Python interpreter and the absolute
+maintained runner; no Conda activation, inherited `PYTHONPATH`, credentials or
+EFTFit bootstrap is serialized. The interpreter's installed packages must
+resolve TopEFT and its dependencies. The adapter resolves an absolute
+`condor_q` for submit-side reconciliation only. Workers do not run it or contact
+the schedd to prove identity. They require `_CONDOR_JOB_AD`: local literal
+`DatacardUnit` and `DatacardReservation` must match the submitted row/token and
+shared reservation. Missing, malformed and conflicting local context have
+specific diagnostics. A sanitized submit-host import/CLI probe does not
+qualify the execute-node environment or the site's job wrapper. First qualify
+the shared absolute interpreter; if that fails while common Conda paths are
+visible, evaluate an explicit `conda run -p <resolved-prefix>` bootstrap before
+considering a frozen environment archive.
+
+CPU requests are positive integers. Memory/disk are positive quantities with
+optional HTCondor unit suffixes; explicit suffixes avoid unit ambiguity.
+Optional `--max-runtime "$allowed_execute_duration"` emits native
+`allowed_execute_duration` seconds. HTCondor 25.0.1 parses this control. It
+limits one activation, excludes file-transfer time and resets for a later
+activation after eviction/restart. `RemoteWallClockTime` instead accumulates
+remote allocation across attempts. A value of `21600` represents six hours per
+activation exactly; it is supported, not a universal workload recommendation.
+The first successful lifecycle canary must allow at least 21600 seconds per
+activation. Exceeding the native limit causes a Held transition followed by
+periodic removal; inspect its event-log reason.
+Use one common resource request initially and measure it before normal
+scheduling. Cards per unit come from workload decomposition; jobs in flight
+come from operator/site policy. This adapter sets no concurrency cap.
+
+`--max-retries` is a nonnegative terminal executable retry budget; zero disables
+those retries. Native success exit code zero removes the job normally. A
+nonzero/signal exit can retry within the budget, then native removal takes it
+out of the live queue. There is no unconditional failure hold. Evictions do not
+consume terminal-exit retries, so positive `--max-starts` separately caps
+`NumJobStarts`. A match guard prevents another activation at the cap; the final
+permitted activation may finish. Its terminal exit removes the job, and an
+evicted job left Idle at the cap is removed on the scheduler's next periodic
+policy evaluation. Exhausted retries/starts are not deliberately parked Held
+or permanently Idle. Every Held state is terminal for the current TopEFT job,
+including duration, memory/disk, process-creation, input/output, site and manual
+holds. `JobStatus == 5` triggers periodic removal regardless of reason code;
+there is no automatic release or replacement scheduler job. Hold-to-removal
+timing follows scheduler policy evaluation.
+
+The canonical row/output domain identifies the workload. A unique reservation
+token is the current operational correlation key, not workload or completion
+authority. `ClusterId.ProcId` is only a scheduler locator for status and logs;
+ProcId never defines a row or an H2 physical attempt. A changed cached locator
+does not invalidate a reservation. Local worker metadata uses its job-ad locator.
+
+Submit-side ownership queries select `DatacardReservation == "<safe token>"`
+and cross-check `DatacardUnit`. One live match means active ownership; multiple
+matches fail closed with all locators. Queries try a previously observed
+schedd/pool hint when available, then the current default and global domains.
+An empty result proves disappearance only when that successful query covers the
+observed scheduler domain. An exact removal event or matching terminal history
+record is alternate terminal proof. Failed or non-covering queries raise
+`SCHEDULER_OBSERVABILITY_INCOMPLETE` or
+`SCHEDULER_OBSERVABILITY_INSUFFICIENT` and preserve the reservation; live and
+terminal evidence together fail as a contradiction.
+
+Logical reservations survive live Idle, Running, Held-pending-removal,
+Suspended, Transferring and post-eviction Idle states. Eviction, job removal and
+physical flock release do not directly free a row. Local/manual unit execution,
+full-workload execution and Condor reservation all reconcile before a new
+claim. Raw `make_cards.py` holds the output-domain lease through production and
+refuses reserved or H2-published roots; use the matrix runner for those domains.
+Unit output roots must be disjoint; nested ownership domains are rejected.
+
+On the next ownership attempt after coverage-qualified disappearance or exact
+terminal proof, the runner automatically acquires the physical lease and
+inspects H2. A valid receipt
+means complete. Otherwise validated staging is reconciled, or an incomplete
+attempt is preserved and eligible only if H2 permits it. Unavailable physical
+ownership, malformed state or collisions block retirement. A surviving producer
+retains its inherited lease even after manager death. Only safe H2 reconciliation
+permits another backend to claim the unchanged workload. Neither disappearance
+nor exit zero establishes completion.
+
+Shared-filesystem persistence remains `should_transfer_files = NO`: worker ->
+H2 private staging -> validation -> no-overwrite publication -> receipt last.
+There is no authoritative HTCondor output transfer or wrapper `cp`/`rsync` step.
+Scheduler logs are `logs/<row>__<ClusterId>.<ProcId>.out`, `.err`, and
+`.events.log`. H2 producer logs remain separately scoped to physical attempts;
+restarts of the same scheduler job can share its scheduler logs. The event log
+is primary durable evidence of submission, executions/evictions, holds with
+reason information, removal and termination as applicable. The fault canary
+must prove useful hold reasons survive removal. Live status also exposes
+`HoldReason`, `HoldReasonCode` and `HoldReasonSubCode` when present. Optional
+post-mortem history may add removal/terminal details. Unavailable history does
+not block reconciliation when an exact removal event or coverage-qualified
+zero result already proves disappearance; without one of those proofs,
+ownership remains reserved.
+
+Runner `--status` and the dashboard expose live reservations and prominently
+show Held/unknown ownership, even when a valid H2 receipt already exists.
+Scheduler observations can also be supplied separately to either runner `--status`
+or the dashboard with `--scheduler-status FILE`. They are displayed as
+operational metadata with an observation time; they never change completion
+or permit retry. Scheduler exit zero without a valid receipt is incomplete.
+See the [reference](../reference/datacards_and_scalings.md#execution-unit-and-dispatch-interfaces)
+for the observation schema and maintained APIs.
 
 The steps are:
 
@@ -301,6 +544,25 @@ combined `selectedWCs.txt` or `combinedcard.txt`. The `certify` subcommand can
 check an existing package against the same Run 2 and Run 3 inputs. Fit
 configuration determines the Wilson coefficients used when building the
 workspace.
+
+## Standardize a certified combined package
+
+For the current `TOP26006_v1` package schema, run from the repository root:
+
+```bash
+python analysis/topeft_run2/standardize_systematics.py \
+  --input-package /absolute/path/to/certified-combined-package \
+  --output-package /absolute/path/to/fresh-standardized-sibling
+```
+
+The input and output must differ, and the destination must be fresh. The input
+package is not modified. The mapping row's `run2` or `run3` era selects the
+naming map; card filenames and card count do not select it. This operates on
+final TXT/ROOT datacards, preserving their already-realized correlation
+topology, card order, EFT scalings, and logical mapping. The sibling is still
+a datacard package. The standardizer preserves an already shared MVA identity;
+it does not create one from per-run inputs. See the [nuisance reference](../reference/datacards_and_scalings.md)
+for exact identities and failure boundaries.
 
 `ordered_card_inputs.txt` lists cards in combination order. From the combined
 package directory, follow its generated README:
