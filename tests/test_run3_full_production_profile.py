@@ -28,6 +28,30 @@ EXPECTED_BLOCKS = [
     ("run3_full_d", "3l_onZ_tau", "njets lj0pt ptz lt"),
     ("run3_full_e", "3l_fwd", "njets lj0pt ptz lt"),
 ]
+SR_EXTENSION_CHUNKS = [
+    ("2l 2lss_1tau 2los_1tau 4l", (
+        "fwd0pt fwd0eta j0pt j0eta nbtagsm",
+        "met l0conept l0eta l1conept l1eta",
+        "nbtagsl invmass ljptsum npvsGood tau0Tpt",
+    )),
+    ("3l_m_offZ", (
+        "j0pt j0eta nbtagsm", "met l0conept l0eta l1conept l1eta",
+        "nbtagsl invmass ljptsum npvsGood",
+    )),
+    ("3l_p_offZ", (
+        "j0pt j0eta nbtagsm", "met l0conept l0eta l1conept l1eta",
+        "nbtagsl invmass ljptsum npvsGood",
+    )),
+    ("3l_onZ_tau", (
+        "j0pt j0eta nbtagsm", "met l0conept l0eta l1conept l1eta",
+        "nbtagsl invmass ljptsum npvsGood tau0Tpt",
+    )),
+    ("3l_fwd", (
+        "fwd0pt fwd0eta j0pt j0eta nbtagsm",
+        "met l0conept l0eta l1conept l1eta",
+        "nbtagsl invmass ljptsum npvsGood",
+    )),
+]
 REBIN_FINE_BLOCKS = [
     ("run2_a", "2016APV 2016 2017 2018", "2lss_1tau 3l_m_offZ", "lj0pt ptll ptz_wtau"),
     ("run2_b", "2016APV 2016 2017 2018", "3l_p_offZ 3l_onZ_tau", "lj0pt ptz ptll"),
@@ -547,6 +571,69 @@ def test_run3_full_dry_run_resolves_exact_complete_five_block_plan(tmp_path):
     assert "environment_policy: explicit_snapshot" in result.stdout
     assert "environment_mode: explicit_snapshot" in result.stdout
     assert "--snapshot" in result.stdout
+    assert not output_dir.exists()
+
+
+@pytest.mark.parametrize(
+    ("production_profile", "years", "np_option"),
+    [
+        ("run2_sr_ext", "UL16 UL16APV UL17 UL18", "--np-postprocess=inline"),
+        ("run3_sr_ext", YEARS, "--np-postprocess=defer"),
+    ],
+)
+def test_sr_extension_profiles_resolve_exact_plan_and_full_contract(
+    tmp_path, production_profile, years, np_option
+):
+    env_file = _write_env(tmp_path)
+    output_dir = tmp_path / production_profile
+    result = _run(
+        "--production-profile", production_profile, "--dry-run",
+        "--output-dir", str(output_dir), "--campaign-tag", production_profile,
+        "--env-file", str(env_file),
+    )
+    assert result.returncode == 0, result.stderr
+    resolved = re.findall(
+        r"Mode: SR\nYears: ([^\n]+)\nCategories: ([^\n]+)\nVariables: ([^\n]+)",
+        result.stdout,
+    )
+    expected = [
+        ("run2" if production_profile.startswith("run2") else years, categories, chunk)
+        for categories, chunks in SR_EXTENSION_CHUNKS
+        for chunk in chunks
+    ]
+    assert resolved == expected
+    assert len(resolved) == 15
+    commands = _resolved_commands(result.stdout)
+    assert len(commands) == 15
+    source_commands = [
+        shlex.split(line.strip())
+        for line in re.findall(r"^ \./fullR3_run\.sh [^\n]+", result.stdout, re.MULTILINE)
+    ]
+    assert len(source_commands) == 15
+    assert all("--sr" in command and "--cr" not in command for command in source_commands)
+    for command, (_, categories, chunk) in zip(commands, expected):
+        assert command[command.index("--years") + 1:command.index("--hist-list")] == years.split()
+        assert command[command.index("--hist-list") + 1:command.index("--skip-cr")] == chunk.split()
+        group_index = command.index("--category-groups")
+        assert command[group_index + 1:group_index + 1 + len(categories.split())] == categories.split()
+        assert "--do-systs" in command
+        assert "--record-raw-count" not in command
+        assert "--all-analysis" in command
+        assert "--skip-cr" in command
+        assert "--skip-sr" not in command
+        assert "--do-np" in command
+        assert np_option in command
+        assert "--options" not in command
+        assert command[command.index("-x") + 1] == "work_queue"
+    families = {family for _, _, chunk in resolved for family in chunk.split()}
+    assert families == {
+        "fwd0pt", "fwd0eta", "j0pt", "j0eta", "nbtagsm", "met",
+        "l0conept", "l0eta", "l1conept", "l1eta", "nbtagsl",
+        "invmass", "ljptsum", "npvsGood", "tau0Tpt",
+    }
+    assert not families.intersection({"njets", "lj0pt", "ptz", "ptz_wtau", "lt", "tau0Fpt"})
+    assert "sumw2_storage_mode: production (implicit)" in result.stdout
+    assert "Mode: CR" not in result.stdout
     assert not output_dir.exists()
 
 

@@ -1,70 +1,16 @@
 import os
 import time
 import json
-import shutil
 import argparse
+import sys
 import gzip
 import pickle
 import numpy as np
 
-from topcoffea.modules.utils import regex_match,clean_dir,dict_comp
+from topcoffea.modules.utils import regex_match,dict_comp
 import topeft.modules.datacard_tools as datacard_tools
 from topeft.modules.histogram_artifact import write_histogram_artifact
 from topeft.modules.axis_binning import BINNING_MODES
-
-# Note:
-#   Not sure if constructing the condor related files this way is good or bad practice. It already
-#   feels clunky in a number of places with having to manually hardcode what options are used by the
-#   condor jobs.
-# Note 2:
-#   The single quotes on some of the arguments are to ensure the submit file passes the string of
-#   (potentially multiple) options as a single argument to the executable script, i.e. we don't want
-#   it to split the string up by spaces, but still have the executable see it as a space spearated
-#   list of arguments
-sub_fragment = """\
-universe   = vanilla
-executable = condor.sh
-arguments  = "{usr_dir} {pkl_list} {out_dir} {var_lst} '{ch_lst}' '{other}'"
-output = {condor_dir}/job_{idx}.out
-error  = {condor_dir}/job_{idx}.err
-log    = {condor_dir}/job_{idx}.log
-
-request_cpus = 1
-request_memory = 20000
-request_disk = 4096
-
-transfer_input_files = {transfer_inputs}
-should_transfer_files = yes
-transfer_executable = true
-
-getenv = true
-queue 1
-"""
-
-sh_fragment = r"""#!/bin/sh
-USR_DIR=${1}
-PKL_LIST_FILE=${2}
-OUT_DIR=${3}
-VAR_LST=${4}
-CH_LST=${5}
-OTHER=${6}
-
-echo "USR_DIR: ${USR_DIR}"
-echo "PKL_LIST_FILE: ${PKL_LIST_FILE}"
-echo "OUT_DIR: ${OUT_DIR}"
-echo "VAR_LST: ${VAR_LST}"
-echo "CH_LST: ${CH_LST}"
-echo "OTHER: ${OTHER}"
-
-export CONDA_DIR="$(conda info --base)"
-echo "CONDA_DIR: ${CONDA_DIR}"
-source ${CONDA_DIR}/etc/profile.d/conda.sh
-unset PYTHONPATH
-conda activate ${CONDA_DEFAULT_ENV}
-
-ulimit -s unlimited
-python make_cards.py --pkl-list-file "${PKL_LIST_FILE}" -d ${OUT_DIR} --var-lst ${VAR_LST} --ch-lst ${CH_LST} --use-selected "selectedWCs.txt" ${OTHER}
-"""
 
 def build_arg_parser():
     parser = argparse.ArgumentParser(description="You can select which file to run over")
@@ -90,6 +36,10 @@ def build_arg_parser():
         ),
     )
     parser.add_argument("--skip-missing-parton-rate-syst",action="store_true",default=False,help="Skip loading/inserting only the missing-parton rate systematic; preserves other nuisances.")
+    parser.add_argument(
+        "--enable-legacy-run3-vsmu-recovery", action="store_true", default=False,
+        help="Explicitly allow recovery of structurally supported pre-fix Run-3 VSmu labels.",
+    )
     parser.add_argument("--selected-wcs-ref",default="test/selectedWCs.json",help="Reference file for selected wcs")
     parser.add_argument("--out-dir","-d",default=".",help="Output directory to write root and text datacard files to")
     parser.add_argument("--var-lst",default=[],action="extend",nargs="+",help="Specify a list of variables to make cards for.")
@@ -100,13 +50,28 @@ def build_arg_parser():
     parser.add_argument("--POI",default=[],help="List of WCs (comma separated)")
     parser.add_argument("--year","-y",default=[],action="extend",nargs="+",help="Run over a subset of years")
     parser.add_argument("--do-nuisance",action="store_true",help="Include nuisance parameters")
+    parser.add_argument(
+        "--lepton-mva-correlation",
+        choices=datacard_tools.lepton_mva_correlation_modes,
+        default=datacard_tools.default_lepton_mva_correlation,
+        help="Correlation identity for electron and muon MVA shapes (default: per-run)",
+    )
     parser.add_argument("--unblind",action="store_true",help="If set, use real data, otherwise use asimov data")
     parser.add_argument("--verbose","-v",action="store_true",help="Set to verbose output")
     parser.add_argument("--select-only",action="store_true",help="Only run the WC selection step")
     parser.add_argument("--skip-selected-wcs-check",action="store_true",help="Do not raise an error if the selected WCs disagree with ref")
     parser.add_argument("--use-selected",default="",help="Load selected process+WC combs from a file. Skips doing the normal selection step.")
-    parser.add_argument("--condor","-C",action="store_true",help="Split up the channels into multiple condor jobs")
-    parser.add_argument("--chunks","-n",default=1,help="The number of channels each condor job should process")
+    parser.add_argument("--condor", "-C", action="store_true", help="Submit canonical datacard units to HTCondor from --matrix-manifest")
+    parser.add_argument("--prepare-only", action="store_true", help="With --condor, write and validate dispatch material without reserving or submitting")
+    parser.add_argument("--matrix-manifest", help="Canonical v3 workload for Condor preparation")
+    parser.add_argument("--condor-output", help="Fresh shared-filesystem directory for dispatch material")
+    parser.add_argument("--request-cpus", type=int)
+    parser.add_argument("--request-memory")
+    parser.add_argument("--request-disk")
+    parser.add_argument("--max-runtime", type=int, help="Optional AllowedExecuteDuration seconds per activation, excluding transfer time; timeout holds the job")
+    parser.add_argument("--max-retries", type=int, help="Explicit terminal executable retry budget (zero disables retries)")
+    parser.add_argument("--max-starts", type=int, help="Explicit total physical start budget, including eviction restarts")
+    parser.add_argument("--condor-batch-name", help="Optional HTCondor batch label for operator visibility")
     parser.add_argument("--keep-negative-bins",action="store_true",help="Don't crop negative bins")
     parser.add_argument("--use-AAC","-A",action="store_true",help="Include all EFT templates in datacards for AAC model")
     parser.add_argument("--wc-vals", default="",action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
@@ -252,135 +217,55 @@ def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
         for ch in matched_chs:
             r = dc.analyze(km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict)
 
-def _build_condor_base_other_opts(dc, year_coverage_policy, rate_syst_json=None):
-    base_other_opts = []
-    if dc.do_mc_stat:
-        base_other_opts.append("--do-mc-stat")
-    if dc.verbose:
-        base_other_opts.append("--verbose")
-    if dc.use_real_data:
-        base_other_opts.append("--unblind")
-    if dc.do_nuisance:
-        base_other_opts.append("--do-nuisance")
-    if dc.year_lst:
-        base_other_opts.extend(["--year"," ".join(dc.year_lst)])
-    if dc.drop_syst:
-        base_other_opts.extend(["--drop-syst"," ".join(dc.drop_syst)])
-    missing_parton_payload_path = getattr(dc, "missing_parton_payload_path", None)
-    if missing_parton_payload_path is not None:
-        base_other_opts.extend(["--miss-parton-file", missing_parton_payload_path])
-    if getattr(dc, "skip_missing_parton_rate_syst", False):
-        base_other_opts.append("--skip-missing-parton-rate-syst")
-    if rate_syst_json is not None:
-        base_other_opts.extend(["--rate-syst-json", rate_syst_json])
-    base_other_opts.extend(["--binning", dc.binning_mode])
-    base_other_opts.extend(["--year-coverage-policy", year_coverage_policy])
-    return base_other_opts
-
-# VERY IMPORTANT:
-#   This setup assumes the output directory is mounted on the remote condor machines
-# Note:
-#   The condor jobs currently have to read the various .json files from the default locations, which
-#   means that they will probably be getting read from the user's AFS area (or wherever their TopEFT
-#   repo is located).
-# TODO: Currently there's no way to transparently passthrough parent arguments to the condor ones.
-#   There's also no clear way to pass customized options to different sub-sets of condor jobs
-def run_condor(
-    dc,
-    pkl_paths,
-    out_dir,
-    var_lst,
-    ch_lst,
-    chunk_size,
-    year_coverage_policy="warn",
-    merge_report="-",
-    rate_syst_json=None,
-):
-    import subprocess
-    import stat
-
-    home = os.getcwd()
-
-    condor_dir = os.path.join(out_dir,"job_logs")
-
-    if not os.path.exists(condor_dir):
-        print(f"Making condor output directory {condor_dir}")
-        os.mkdir(condor_dir)
-
-    clean_dir(condor_dir,targets=["job_.*log","job_.*err","job_.*out","^condor.*sub$"])
-
-    condor_exe_fname = "condor.sh"
-    if not os.path.samefile(home,out_dir):
-        condor_exe_fname = os.path.join(out_dir,"condor.sh")
-
-    print("Generating condor executable script")
-    with open(condor_exe_fname,"w") as f:
-        f.write(sh_fragment)
-
-    pkl_list_basename = "pkl_inputs.txt"
-    pkl_list_fpath = os.path.join(out_dir,pkl_list_basename)
-    print(f"Writing pkl list file for condor: {pkl_list_fpath}")
-    with open(pkl_list_fpath,"w") as f:
-        for p in pkl_paths:
-            f.write(f"{p}\n")
-
-    usr_perms = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
-    grp_perms = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP
-    all_perms = stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH
-
-    os.chmod(condor_exe_fname,usr_perms | grp_perms | all_perms)    # equiv. to 777
-
-    base_other_opts = _build_condor_base_other_opts(
-        dc,
-        year_coverage_policy,
-        rate_syst_json=rate_syst_json,
-    )
-
-    idx = 0
-    for km_dist in var_lst:
-        all_chs = dc.channels(km_dist)
-        matched_chs = regex_match(all_chs,ch_lst)
-        n = max(chunk_size,1)
-        chunks = np.split(matched_chs,[i for i in range(n,len(matched_chs),n)])
-        for chnk in chunks:
-            print(f"[{idx+1:0>3}] Variable: {km_dist} -- Channels: {chnk}")
-            other_opts = list(base_other_opts)
-            if merge_report == "-":
-                other_opts.extend(["--merge-report","-"])
-            else:
-                report_path = merge_report
-                if report_path.endswith(".json"):
-                    report_path = report_path.replace(".json",f".job_{idx}.json")
-                else:
-                    report_path = f"{report_path}.job_{idx}.json"
-                other_opts.extend(["--merge-report",report_path])
-            other_opts = " ".join(other_opts)
-
-            s = sub_fragment.format(
-                idx=idx,
-                usr_dir=os.path.expanduser("~"),
-                pkl_list=pkl_list_basename,
-                out_dir=os.path.realpath(out_dir),
-                var_lst=km_dist,
-                ch_lst=" ".join(chnk),
-                condor_dir=condor_dir,
-                other=f"{other_opts}",
-                transfer_inputs=f"make_cards.py,selectedWCs.txt,{pkl_list_basename}",
-            )
-            condor_submit_fname = os.path.join(condor_dir,f"condor.{idx}.sub")
-            with open(condor_submit_fname,"w") as f:
-                f.write(s)
-            cmd = ["condor_submit",condor_submit_fname]
-            print(f"{'':>5} Condor command: {' '.join(cmd)}")
-            os.chdir(out_dir)
-            p = subprocess.run(cmd)
-            os.chdir(home)
-            idx += 1
-
 def main():
     parser = build_arg_parser()
     args = parser.parse_args()
+    if args.condor:
+        # Dispatch before resolving PKLs, loading histograms or producer setup.
+        from pathlib import Path
+        try:
+            from .datacard_matrix_condor import prepare_material, submit_material, runner
+        except ImportError:
+            from datacard_matrix_condor import prepare_material, submit_material, runner
+        if not args.matrix_manifest or not args.condor_output:
+            parser.error("--condor requires --matrix-manifest and --condor-output; generate the workload with make_datacard_matrix_manifest.py")
+        allowed = {"condor", "prepare_only", "matrix_manifest", "condor_output", "request_cpus", "request_memory", "request_disk", "max_runtime", "max_retries", "max_starts", "condor_batch_name"}
+        allowed_options = {option for action in parser._actions if action.dest in allowed for option in action.option_strings}
+        for token in sys.argv[1:]:
+            if token.startswith("-") and token.split("=", 1)[0] not in allowed_options:
+                parser.error("producer options belong in the canonical manifest; --condor accepts only workload, dispatch and resource options")
+        if args.pkl_file:
+            parser.error("producer inputs belong in the canonical manifest")
+        try:
+            result = prepare_material(Path(args.matrix_manifest), Path(args.condor_output),
+                                      request_cpus=args.request_cpus, request_memory=args.request_memory,
+                                      request_disk=args.request_disk, max_runtime=args.max_runtime,
+                                      max_retries=args.max_retries, max_starts=args.max_starts)
+            if not args.prepare_only:
+                result = {**result, **submit_material(Path(args.matrix_manifest),
+                            Path(args.condor_output), result["scheduler"], batch_name=args.condor_batch_name)}
+        except (runner.RunnerError, OSError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(result, indent=2, sort_keys=True))
+        if not args.prepare_only and not result["submitted"]:
+            raise SystemExit(1)
+        return
+    if args.prepare_only or any(value is not None for value in (args.matrix_manifest, args.condor_output, args.request_cpus, args.request_memory, args.request_disk, args.max_runtime, args.max_retries, args.max_starts, args.condor_batch_name)):
+        parser.error("dispatch and resource options require --condor")
     pkl_files  = _resolve_pkl_paths(args, parser)
+    from pathlib import Path
+    try:
+        from .datacard_matrix_runner import direct_output_lease, RunnerError
+    except ImportError:
+        from datacard_matrix_runner import direct_output_lease, RunnerError
+    try:
+        with direct_output_lease(Path(args.out_dir)):
+            return _run_producer(args, pkl_files)
+    except RunnerError as exc:
+        parser.error(str(exc))
+
+
+def _run_producer(args, pkl_files):
     rs_json    = args.rate_syst_json
     mp_file    = args.miss_parton_file
     out_dir    = args.out_dir
@@ -403,8 +288,6 @@ def main():
     select_only = args.select_only
     use_selected = args.use_selected
 
-    use_condor = args.condor
-    chunks = int(args.chunks)
 
     if isinstance(wcs,str):
         wcs = wcs.split(",")
@@ -418,8 +301,10 @@ def main():
         "do_mc_stat": do_mc_stat,
         "ignore": ignore,
         "do_nuisance": do_nuis,
+        "lepton_mva_correlation": args.lepton_mva_correlation,
         "drop_syst": drop_syst,
         "skip_missing_parton_rate_syst": skip_missing_parton_rate_syst,
+        "enable_legacy_run3_vsmu_recovery": args.enable_legacy_run3_vsmu_recovery,
         "unblind": unblind,
         "verbose": verbose,
         "year_lst": years,
@@ -433,13 +318,6 @@ def main():
 
     if out_dir != "." and not os.path.exists(out_dir):
         os.makedirs(out_dir)
-
-    # Copy over make_cards.py ASAP so a user can't accidentally modify it before the submit jobs run
-    if use_condor and not os.path.samefile(os.getcwd(),out_dir):
-        shutil.copy("make_cards.py",out_dir)
-
-    if args.condor and args.merge_only:
-        parser.error("--merge-only and --condor cannot be used together.")
 
     merged_hists, merge_report = datacard_tools.load_and_merge_histogram_pkls(
         pkl_files,
@@ -522,20 +400,7 @@ def main():
     if select_only:
         return
 
-    if use_condor:
-        run_condor(
-            dc,
-            pkl_files,
-            out_dir,
-            dists,
-            ch_lst,
-            chunks,
-            year_coverage_policy=args.year_coverage_policy,
-            merge_report=args.merge_report,
-            rate_syst_json=rs_json,
-        )
-    else:
-        run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins, wcs_dict)
+    run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins, wcs_dict)
 
     # make pre-selection scalings.json
     print("Making scalings-preselect.json file...")

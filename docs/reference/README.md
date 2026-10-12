@@ -8,6 +8,8 @@ signatures and executable behavior, check the source paths named on each page.
 For a guided analysis, start from the [documentation index](../README.md). For
 instructions that change or run something, use the linked how-to guide rather
 than treating an option table as a recipe.
+For package construction and handoff, follow the
+[datacard-package guide](../how_to/datacard_packages.md).
 
 ## Reference map
 
@@ -28,6 +30,7 @@ than treating an option table as a recipe.
 | [Flexible binning](flexible_binning.md) | Processing and fitting schemas, family defaults, exact channel-name overrides, and exact aggregation |
 | [Plotting](plotting.md) | Wrapper/direct-CLI defaults, configuration owners, binning views, and output controls |
 | [Datacards and scalings](datacards_and_scalings.md) | Manifest-free direct card CLI; input-role matrix profiles, runner, per-era and combined package interfaces, outputs, and channel mappings |
+| [Systematics nuisance catalog](systematics_nuisance_catalog.md) | Generated exhaustive nuisance-policy and standardization catalog from maintained static authorities |
 | [Specialist interfaces](specialist_interfaces.md) | Artifact inspection and developer-facing interfaces that support focused maintenance work |
 | [B-tag scale-factor payloads](btag_scale_factor_payloads.md) | Packaged UL files, current consumers, and provenance limits |
 | [Missing-parton payloads](missing_parton_payloads.md) | Installed Run 2/Run 3 payload schema, selection, overrides, compatibility, and test authority |
@@ -111,10 +114,15 @@ signature. For exact callable parameters, read the named function, class,
 parser, or wrapper help block in the checked-out source. Resolve any difference
 between the reference and executable source before production.
 
+## Generated reference
+
+The [systematics nuisance catalog](systematics_nuisance_catalog.md) is generated
+from maintained static authorities. Other reference pages remain curated;
+source docstrings and annotations remain machine-near authority where substantive.
+
 ## API publication
 
-The repository does not currently publish generated API pages, and this
-documentation does not introduce a generator. That tooling limitation is
-independent of the curated coverage above. Source docstrings and annotations
-remain machine-near authority where they are substantive; these pages supply
-the stable contract when machine-near documentation is shallow.
+The repository does not currently publish generated API documentation. The
+nuisance catalog is a generated reference page, not a generated callable API.
+Source docstrings and annotations remain machine-near authority where they are
+substantive; these pages supply stable contracts where they are shallow.

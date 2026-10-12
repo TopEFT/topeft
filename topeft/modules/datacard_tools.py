@@ -238,8 +238,43 @@ def add_run3_luminosity_shape_nuisances(histogram):
     )
 
 
-def resolve_shape_nuisance_identity(systematic, run_suffix, run_decorrelate):
+tau_run2_year_correlation_bases = (
+    "CMS_fake_t_DeepTau2017v2p1_VSe_abseta0to1p5",
+    "CMS_fake_t_DeepTau2017v2p1_VSe_abseta1p5to2p3",
+    "CMS_fake_t_DeepTau2017v2p1_VSmu_abseta0p4to0p8",
+    "CMS_fake_t_DeepTau2017v2p1_VSmu_abseta0p8to1p2",
+    "CMS_fake_t_DeepTau2017v2p1_VSmu_abseta0to0p4",
+    "CMS_fake_t_DeepTau2017v2p1_VSmu_abseta1p2to1p7",
+    "CMS_fake_t_DeepTau2017v2p1_VSmu_abseta1p7to2p3",
+    "CMS_scale_t_DeepTau2017v2p1_DM0_genElectron",
+    "CMS_scale_t_DeepTau2017v2p1_DM0_genTau",
+    "CMS_scale_t_DeepTau2017v2p1_DM10_genTau",
+    "CMS_scale_t_DeepTau2017v2p1_DM11_genTau",
+    "CMS_scale_t_DeepTau2017v2p1_DM1_genElectron",
+    "CMS_scale_t_DeepTau2017v2p1_DM1_genTau",
+)
+
+
+lepton_mva_correlation_modes = ("per-run", "cross-run")
+default_lepton_mva_correlation = "per-run"
+cross_run_mva_identities = ("lepSF_elec_mva", "lepSF_muon_mva")
+
+
+def validate_lepton_mva_correlation(mode):
+    if mode not in lepton_mva_correlation_modes:
+        raise ValueError(
+            f"Invalid lepton MVA correlation {mode!r}; expected one of "
+            f"{lepton_mva_correlation_modes}."
+        )
+    return mode
+
+
+def resolve_shape_nuisance_identity(
+    systematic, run_suffix, run_decorrelate,
+    lepton_mva_correlation=default_lepton_mva_correlation,
+):
     """Return one final nuisance base and paired template name for a variation."""
+    validate_lepton_mva_correlation(lepton_mva_correlation)
     direction = ""
     for candidate in ("Up", "Down"):
         if systematic.endswith(candidate):
@@ -249,6 +284,13 @@ def resolve_shape_nuisance_identity(systematic, run_suffix, run_decorrelate):
     if base.startswith(FULLY_SPECIFIED_TAU_NUISANCE_PREFIXES):
         return base, f"{base}{direction}"
     if base in run_decorrelate:
+        if lepton_mva_correlation == "cross-run" and base in cross_run_mva_identities:
+            return base, f"{base}{direction}"
+        if base in (
+            "lepSF_elec_mva", "lepSF_muon_mva",
+            "lepSF_elec_non_mva", "lepSF_muon_non_mva",
+        ):
+            run_suffix = {"_run2": "_13TeV", "_run3": "_13p6TeV"}[run_suffix]
         base = f"{base}{run_suffix}"
     return base, f"{base}{direction}"
 
@@ -1324,6 +1366,17 @@ class DatacardMaker():
 
     def __init__(self,pkl_path=None,hists=None,**kwargs):
         self.binning_mode    = kwargs.pop("binning_mode", "fitting")
+        self.lepton_mva_correlation = validate_lepton_mva_correlation(
+            kwargs.pop("lepton_mva_correlation", default_lepton_mva_correlation)
+        )
+        enable_legacy_run3_vsmu_recovery = kwargs.pop(
+            "enable_legacy_run3_vsmu_recovery", False,
+        )
+        if not isinstance(enable_legacy_run3_vsmu_recovery, bool):
+            raise TypeError(
+                "enable_legacy_run3_vsmu_recovery must be a bool"
+            )
+        self.enable_legacy_run3_vsmu_recovery = enable_legacy_run3_vsmu_recovery
         if self.binning_mode not in BINNING_MODES:
             raise ValueError(
                 f"Unknown binning mode {self.binning_mode!r}; expected one of {BINNING_MODES}."
@@ -1447,6 +1500,29 @@ class DatacardMaker():
         }
 
 
+        self.syst_year_corr.update({
+            source_base: {"2016": ["2016APV"], "2016APV": ["2016"]}
+            for source_base in tau_run2_year_correlation_bases
+        })
+
+        for eta_token in (
+            "abseta0to0p4", "abseta0p4to0p8", "abseta0p8to1p2",
+            "abseta1p2to1p7", "abseta1p7to2p4",
+        ):
+            self.syst_year_corr[
+                f"CMS_fake_t_DeepTau2018v2p5_VSmu_{eta_token}"
+            ] = {
+                "2022": ["2022EE"], "2022EE": ["2022"],
+                "2023": ["2023BPix"], "2023BPix": ["2023"],
+            }
+        for decay_mode in (0, 1, 10, 11):
+            self.syst_year_corr[
+                f"CMS_scale_t_DeepTau2018v2p5_DM{decay_mode}_genElectron"
+            ] = {
+                "2022": ["2022EE"], "2022EE": ["2022"],
+                "2023": ["2023BPix"], "2023BPix": ["2023"],
+            }
+
         # Defines which systematics should be decorrelated in the self.analysis() step. Each key
         #   should match (exactly) a particular systematic. The list for each systematic specifies
         #   which processes should remain remain correlated or not.
@@ -1485,7 +1561,7 @@ class DatacardMaker():
             }]
         }
 
-        self.run_decorrelate = ["FES","FF", "FFeta", "FFpt", "btagSFbc_corr", "btagSFlight_corr", "charge_flips", "TES", "lepSF_elec", "lepSF_muon", "lepSF_taus_fake", "lepSF_taus_real"]
+        self.run_decorrelate = ["FES","FF", "FFeta", "FFpt", "btagSFbc_corr", "btagSFlight_corr", "charge_flips", "TES", "lepSF_elec", "lepSF_muon", "lepSF_taus_fake", "lepSF_taus_real", "lepSF_elec_mva", "lepSF_muon_mva", "lepSF_elec_non_mva", "lepSF_muon_non_mva"]
         if extra_ignore:
             print(f"Adding processes to ignore: {extra_ignore}")
         self.ignore.extend(extra_ignore)
@@ -1506,6 +1582,20 @@ class DatacardMaker():
         print (f"Saving output to {os.path.realpath(self.out_dir)}")
 
     def read(self,fpath=None,hists=None):
+        """Prepare card histograms and apply the normal final year correlation."""
+        for km_dist in self._prepare_source_periods(fpath=fpath, hists=hists):
+            h = self.correlate_years(
+                self.hists[km_dist],
+                add_luminosity_shapes=not _is_sumw2_key(km_dist),
+            )
+            print(f"Num. Systematics: {len(h.axes['systematic'])}")
+            self.hists[km_dist] = h
+
+    def read_source_periods(self,fpath=None,hists=None):
+        """Expose the prepared source-period view before final year correlation."""
+        return list(self._prepare_source_periods(fpath=fpath, hists=hists))
+
+    def _prepare_source_periods(self,fpath=None,hists=None):
         """
             Input can be either:
               - a file path to a pkl file containing histograms produced by the topeft.py processor
@@ -1616,15 +1706,125 @@ class DatacardMaker():
             h = h.group("process", grp_map)
 
             h = self.group_processes(h)
-            h = self.correlate_years(
-                h,
-                add_luminosity_shapes=not _is_sumw2_key(km_dist),
+            # Legacy Run-3 VSmu shapes used the calendar year on the systematic
+            # axis even though the process axis retained the source period.
+            # Rename only the affected joint coordinates, before year merging.
+            vsmu_pattern = re.compile(
+                r"(?P<base>CMS_fake_t_DeepTau2018v2p5_VSmu_[A-Za-z0-9]+)_"
+                r"(?P<period>2022EE|2023BPix|2022|2023)"
+                r"(?P<direction>Up|Down)"
             )
-
-            num_systs = len(h.axes["systematic"])
-            print(f"Num. Systematics: {num_systs}")
-
+            vsmu_prefix = "CMS_fake_t_DeepTau2018v2p5_VSmu_"
+            rename_by_process = defaultdict(dict)
+            periods_by_family = defaultdict(set)
+            discriminating_schema_kinds = set()
+            sides_by_coordinate = defaultdict(set)
+            target_sources = defaultdict(dict)
+            for key in h.categorical_keys:
+                process = key.process
+                systematic = key.systematic
+                process_period = self.get_year(process)
+                if systematic.startswith(vsmu_prefix):
+                    match = vsmu_pattern.fullmatch(systematic)
+                    if match is None or match["base"] not in self.syst_year_corr:
+                        raise ValueError(
+                            f"Unsupported Run-3 VSmu source identity {systematic!r}."
+                        )
+                    if process_period not in ("2022", "2022EE", "2023", "2023BPix"):
+                        raise ValueError(
+                            f"Run-3 VSmu process period is missing or ambiguous: {process!r}."
+                        )
+                    source_period = match["period"]
+                    if source_period not in (process_period, process_period[:4]):
+                        raise ValueError(
+                            f"Run-3 VSmu source/process period mismatch: "
+                            f"{systematic!r}, {process!r}."
+                        )
+                    base = match["base"]
+                    periods_by_family[(process, base)].add(source_period)
+                    if process_period != process_period[:4]:
+                        discriminating_schema_kinds.add(
+                            "native" if source_period == process_period else "legacy"
+                        )
+                    coordinates = tuple(
+                        (name, value) for name, value in key._asdict().items()
+                        if name != "systematic"
+                    )
+                    sides_by_coordinate[(coordinates, base)].add(match["direction"])
+                    target = f"{base}_{process_period}{match['direction']}"
+                    prior = target_sources[process].setdefault(target, systematic)
+                    if prior != systematic:
+                        raise ValueError(
+                            f"Run-3 VSmu coordinate collision: {prior!r}, {systematic!r}."
+                        )
+                    rename_by_process[process][systematic] = target
+                elif (
+                    systematic.startswith("CMS_fake_t_DeepTau2018v2p5_VSe_")
+                    or (
+                        systematic.startswith("CMS_eff_t_DeepTau2018v2p5_VSjet_dm_")
+                        and not systematic.startswith(
+                            "CMS_eff_t_DeepTau2018v2p5_VSjet_dm_syst_alleras_Run3"
+                        )
+                    )
+                    or (
+                        systematic.startswith("CMS_scale_t_DeepTau2018v2p5_")
+                        and ("_genTau_" in systematic or "_genElectron_" in systematic)
+                    )
+                ):
+                    source_period = self.get_year(systematic)
+                    if source_period != process_period:
+                        raise ValueError(
+                            f"Unsupported pre-collapsed Run-3 Tau source identity: "
+                            f"{systematic!r}, {process!r}."
+                        )
+            if any(len(periods) != 1 for periods in periods_by_family.values()):
+                raise ValueError("Mixed native and legacy Run-3 VSmu source identities.")
+            if len(discriminating_schema_kinds) > 1:
+                raise ValueError("Mixed native and legacy Run-3 VSmu source identities.")
+            for (coordinates, base), sides in sides_by_coordinate.items():
+                if sides != {"Up", "Down"}:
+                    process = dict(coordinates)["process"]
+                    missing = sorted({"Up", "Down"} - sides)
+                    raise ValueError(
+                        "Incomplete Run-3 VSmu Up/Down source identities: "
+                        f"{base}_{self.get_year(process)}{missing[0]!s}, "
+                        f"coordinates={coordinates!r}."
+                    )
+            if (
+                "legacy" in discriminating_schema_kinds
+                and not self.enable_legacy_run3_vsmu_recovery
+            ):
+                raise ValueError(
+                    "Route-D legacy Run-3 VSmu recovery requires explicit "
+                    "--enable-legacy-run3-vsmu-recovery."
+                )
+            if any(
+                source != target
+                for replacements in rename_by_process.values()
+                for source, target in replacements.items()
+            ):
+                recovered = h.empty_from_axes()
+                processes = {key.process for key in h.categorical_keys}
+                for process in sorted(
+                    processes,
+                    key=lambda name: (
+                        self.get_process(name),
+                        self.YEARS.index(self.get_year(name))
+                        if self.get_year(name) in self.YEARS else len(self.YEARS),
+                    ),
+                ):
+                    fragment = h[{"process": [process]}]
+                    sources = {key.systematic for key in fragment.categorical_keys}
+                    groups = {
+                        rename_by_process[process].get(source, source): [source]
+                        for source in sources
+                    }
+                    if len(groups) != len(sources):
+                        raise ValueError(f"Run-3 VSmu coordinate collision for {process!r}.")
+                    recovered += fragment.group("systematic", groups)
+                h = recovered
             self.hists[km_dist] = h
+            yield km_dist
 
     def channels(self, km_dist):
         return list(self.hists[km_dist].axes["channel"])
@@ -2102,7 +2302,8 @@ class DatacardMaker():
                         syst = sp_key.systematic
 
                         syst_base, syst = resolve_shape_nuisance_identity(
-                            syst, self.suffix, self.run_decorrelate
+                            syst, self.suffix, self.run_decorrelate,
+                            self.lepton_mva_correlation,
                         )
 
                         if syst_base == "JES_Total":

@@ -36,6 +36,11 @@ if "--order" in args:
 if "--write-path" in args:
     p = Path(one("--write-path")); p.parent.mkdir(parents=True, exist_ok=True); p.write_text("external\n")
 if "--mutate-path" in args: Path(one("--mutate-path")).write_text("runtime drift\n")
+if "--wait-for" in args:
+    deadline = time.monotonic() + 30
+    while not Path(one("--wait-for")).exists():
+        if time.monotonic() > deadline: raise SystemExit(8)
+        time.sleep(.01)
 if "--sleep" in args: time.sleep(float(one("--sleep")))
 if "--fail" in args: raise SystemExit(7)
 root = Path(one("--out-dir")); root.mkdir(parents=True, exist_ok=True)
@@ -44,6 +49,11 @@ report = Path(one("--merge-report")); report.parent.mkdir(parents=True, exist_ok
 (root / "scalings-preselect.json").write_text("scalings\n")
 for name in many("--expected-output"):
     p = Path(name); p.parent.mkdir(parents=True, exist_ok=True); p.write_text("synthetic " + input_pkl + "\n")
+    if "--partial-once" in args:
+        marker = Path(one("--partial-once"))
+        if not marker.exists():
+            marker.write_text("failed\n")
+            raise SystemExit(7)
 '''
 
 
@@ -172,6 +182,9 @@ def test_v3_requires_logical_row_id_and_rejects_old_consumer_option(tmp_path, fa
     row["producer_args"].extend(["--sr-registry", "ALL_CH_LST_SR"])
     path, _ = manifest(tmp_path, fake_script, [row], "old-option.json")
     assert result(invoke(path, "--plan-only").stderr)["status"] == "manifest_schema_error"
+    row = make_row(tmp_path, fake_script, extra=["--cache-merged-pkl", str(tmp_path / "external.pkl.gz")])
+    path, _ = manifest(tmp_path, fake_script, [row], "external-cache.json")
+    assert result(invoke(path, "--plan-only").stderr)["status"] == "manifest_schema_error"
 
 
 def test_plan_and_status_are_nonmutating(tmp_path, fake_script):
@@ -215,7 +228,7 @@ def test_active_interrupted_and_stale_owner_statuses(tmp_path, fake_script):
     (tmp_path / "control" / "runner_owner.json").write_text(json.dumps(stale_owner))
     log = Path(row["log_path"]); log.parent.mkdir(parents=True); log.write_text("interrupted\n")
     stale = result(invoke(path, "--status").stdout)
-    assert stale["lock_held"] is False and stale["rows"][0]["status"] == "interrupted_requires_external_reconciliation"
+    assert stale["lock_held"] is False and stale["rows"][0]["status"] == "canonical_collision_or_ambiguous_state"
     with lock.open("a+b") as handle:
         runner_engine.fcntl.flock(handle.fileno(), runner_engine.fcntl.LOCK_EX | runner_engine.fcntl.LOCK_NB)
         active = result(invoke(path, "--status").stdout)
@@ -223,10 +236,10 @@ def test_active_interrupted_and_stale_owner_statuses(tmp_path, fake_script):
         wrong_owner = {**stale_owner, "current_row_id": "different_row"}
         (tmp_path / "control" / "runner_owner.json").write_text(json.dumps(wrong_owner))
         mismatched = result(invoke(path, "--status").stdout)
-        assert mismatched["lock_held"] is True and mismatched["rows"][0]["status"] == "interrupted_requires_external_reconciliation"
+        assert mismatched["lock_held"] is True and mismatched["rows"][0]["status"] == "held_lock_active_or_unknown"
     (tmp_path / "control" / "runner_owner.json").write_text(json.dumps(stale_owner))
     final = result(invoke(path, "--status").stdout)
-    assert final["lock_held"] is False and final["rows"][0]["status"] == "interrupted_requires_external_reconciliation"
+    assert final["lock_held"] is False and final["rows"][0]["status"] == "canonical_collision_or_ambiguous_state"
 
 
 def test_lock_probe_oserror_is_explicit_unknown(tmp_path, fake_script, monkeypatch):
@@ -243,8 +256,7 @@ def test_lock_probe_oserror_is_explicit_unknown(tmp_path, fake_script, monkeypat
     status = runner_engine.read_only("status", loaded, manifest_hash)
     assert status["lock_held"] is None
     assert status["lock_probe_error"] == "OSError: synthetic lock probe failure"
-    assert status["rows"][0]["status"] == "interrupted_requires_external_reconciliation"
-    assert status["rows"][0]["reason"].startswith("lock state is unknown")
+    assert status["rows"][0]["status"] == "held_lock_active_or_unknown"
 
 
 def test_receipt_byte_binds_outputs_and_control_artifacts(tmp_path, fake_script):
@@ -263,11 +275,210 @@ def test_resume_failures_and_new_attempt(tmp_path, fake_script):
     assert invoke(path).returncode == 0 and invoke(path).returncode == 0 and counter.read_text() == "1"
     bad = make_row(tmp_path, fake_script, "bad", extra=["--fail"]); later = make_row(tmp_path, fake_script, "later", extra=["--counter", str(tmp_path / "later")]); bad_path, _ = manifest(tmp_path, fake_script, [bad, later], "bad.json")
     assert result(invoke(bad_path).stderr)["status"] == "row_command_failed" and not (tmp_path / "later").exists()
-    assert Path(bad["log_path"]).exists()
+    bad_attempts = list(runner_engine.attempt_root(sha(bad_path), bad).iterdir())
+    assert len(bad_attempts) == 1 and (bad_attempts[0] / "producer.log").exists()
+    assert result(invoke(bad_path, "--status").stdout)["rows"][0]["status"] == "partial_staging_attempt"
     assert not (tmp_path / "control" / "runner_owner.json").exists()
     retry = make_row(tmp_path, fake_script, "bad", "attempt_02"); retry_path, _ = manifest(tmp_path, fake_script, [retry], "retry.json"); assert invoke(retry_path).returncode == 0
     orphan = make_row(tmp_path, fake_script, "orphan"); Path(orphan["expected_output_paths"][0]).parent.mkdir(parents=True); Path(orphan["expected_output_paths"][0]).write_text("orphan\n"); orphan_path, _ = manifest(tmp_path, fake_script, [orphan], "orphan.json")
-    assert result(invoke(orphan_path).stderr)["status"] == "interrupted_requires_external_reconciliation"
+    assert result(invoke(orphan_path).stderr)["status"] == "canonical_collision_or_ambiguous_state"
+
+
+def test_partial_attempt_is_preserved_and_explicit_rerun_uses_new_namespace(tmp_path, fake_script):
+    marker = tmp_path / "failed-once"
+    row = make_row(tmp_path, fake_script, extra=["--partial-once", str(marker)])
+    path, _ = manifest(tmp_path, fake_script, [row])
+    assert result(invoke(path).stderr)["status"] == "row_command_failed"
+    attempt_root = runner_engine.attempt_root(sha(path), row)
+    first = attempt_root / "attempt_000001"
+    assert (first / "cards" / "card.txt").exists()
+    assert not Path(row["output_root"]).exists()
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "partial_staging_attempt"
+    assert invoke(path).returncode == 0
+    assert (attempt_root / "attempt_000002" / "intent.json").exists()
+    assert (first / "cards" / "card.txt").exists()
+    assert receipt(tmp_path, row)["physical_attempt_id"] == "attempt_000002"
+
+
+def test_validated_staging_reconciles_without_reexecution(tmp_path, fake_script, monkeypatch):
+    counter = tmp_path / "counter"
+    row = make_row(tmp_path, fake_script, extra=["--counter", str(counter)])
+    path, data = manifest(tmp_path, fake_script, [row])
+    loaded, manifest_hash = runner_engine.load_manifest(path)
+    original = runner_engine.reconcile_row
+    with monkeypatch.context() as patcher:
+        patcher.setattr(runner_engine, "reconcile_row", lambda *_: (_ for _ in ()).throw(RuntimeError("crash before promotion")))
+        with pytest.raises(RuntimeError, match="crash before promotion"):
+            runner_engine.execute(loaded, manifest_hash)
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "complete_validated_staging_not_promoted"
+    assert not Path(row["output_root"]).exists()
+    assert original is runner_engine.reconcile_row
+    assert invoke(path).returncode == 0
+    assert counter.read_text() == "1"
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "complete"
+    assert Path(data["control_root"], "receipts", f"{row['row_id']}__{row['attempt_id']}.json").exists()
+
+
+def test_validated_staging_tamper_blocks_promotion(tmp_path, fake_script, monkeypatch):
+    row = make_row(tmp_path, fake_script)
+    path, data = manifest(tmp_path, fake_script, [row])
+    loaded, manifest_hash = runner_engine.load_manifest(path)
+    with monkeypatch.context() as patcher:
+        patcher.setattr(runner_engine, "reconcile_row", lambda *_: (_ for _ in ()).throw(RuntimeError("crash before promotion")))
+        with pytest.raises(RuntimeError, match="crash before promotion"):
+            runner_engine.execute(loaded, manifest_hash)
+    staged = runner_engine.attempt_root(manifest_hash, row) / "attempt_000001" / "cards" / "card.txt"
+    staged.write_text("tampered\n")
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "canonical_collision_or_ambiguous_state"
+    assert result(invoke(path).stderr)["status"] == "canonical_collision_or_ambiguous_state"
+    assert not Path(row["output_root"]).exists()
+    assert not runner_engine.receipt_path(data, row).exists()
+
+
+def test_promoted_without_receipt_reconciles_exact_bytes(tmp_path, fake_script, monkeypatch):
+    counter = tmp_path / "counter"
+    row = make_row(tmp_path, fake_script, extra=["--counter", str(counter)])
+    path, data = manifest(tmp_path, fake_script, [row])
+    loaded, manifest_hash = runner_engine.load_manifest(path)
+    final = runner_engine.receipt_path(data, row)
+    original = runner_engine.atomic_json
+
+    def crash_at_receipt(payload, destination, overwrite):
+        if destination == final:
+            raise RuntimeError("crash before receipt")
+        return original(payload, destination, overwrite)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(runner_engine, "atomic_json", crash_at_receipt)
+        with pytest.raises(RuntimeError, match="crash before receipt"):
+            runner_engine.execute(loaded, manifest_hash)
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "promoted_complete_without_receipt"
+    assert not final.exists()
+    assert invoke(path).returncode == 0
+    assert counter.read_text() == "1"
+    assert final.exists()
+
+
+def test_incomplete_marked_publication_reconciles_without_reexecution(tmp_path, fake_script, monkeypatch):
+    counter = tmp_path / "counter"
+    row = make_row(tmp_path, fake_script, extra=["--counter", str(counter)])
+    path, data = manifest(tmp_path, fake_script, [row])
+    loaded, manifest_hash = runner_engine.load_manifest(path)
+    first_output = Path(row["expected_output_paths"][0])
+    original = runner_engine.publish_matching
+
+    def crash_after_first_output(source, destination, source_record):
+        if destination != first_output and first_output.exists():
+            raise RuntimeError("crash during publication")
+        return original(source, destination, source_record)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(runner_engine, "publish_matching", crash_after_first_output)
+        with pytest.raises(RuntimeError, match="crash during publication"):
+            runner_engine.execute(loaded, manifest_hash)
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "promoted_incomplete"
+    assert invoke(path).returncode == 0
+    assert counter.read_text() == "1"
+    assert runner_engine.receipt_path(data, row).exists()
+
+
+def test_unmarked_canonical_directory_is_ambiguous(tmp_path, fake_script, monkeypatch):
+    row = make_row(tmp_path, fake_script)
+    path, _ = manifest(tmp_path, fake_script, [row])
+    loaded, manifest_hash = runner_engine.load_manifest(path)
+    original = runner_engine.os.link
+
+    def crash_before_marker(source, destination):
+        if str(destination).endswith(runner_engine.INTENT_MARKER):
+            raise RuntimeError("crash before marker")
+        return original(source, destination)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(runner_engine.os, "link", crash_before_marker)
+        with pytest.raises(RuntimeError, match="crash before marker"):
+            runner_engine.execute(loaded, manifest_hash)
+    assert Path(row["output_root"]).is_dir()
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "canonical_collision_or_ambiguous_state"
+    assert result(invoke(path).stderr)["status"] == "canonical_collision_or_ambiguous_state"
+
+
+def test_promoted_mismatch_fails_closed(tmp_path, fake_script, monkeypatch):
+    row = make_row(tmp_path, fake_script)
+    path, data = manifest(tmp_path, fake_script, [row])
+    loaded, manifest_hash = runner_engine.load_manifest(path)
+    final = runner_engine.receipt_path(data, row)
+    original = runner_engine.atomic_json
+    with monkeypatch.context() as patcher:
+        patcher.setattr(runner_engine, "atomic_json", lambda payload, destination, overwrite: (_ for _ in ()).throw(RuntimeError("receipt crash")) if destination == final else original(payload, destination, overwrite))
+        with pytest.raises(RuntimeError, match="receipt crash"):
+            runner_engine.execute(loaded, manifest_hash)
+    Path(row["expected_output_paths"][0]).write_text("tampered\n")
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "canonical_collision_or_ambiguous_state"
+    assert result(invoke(path).stderr)["status"] == "canonical_collision_or_ambiguous_state"
+    assert not final.exists()
+
+
+def test_status_filesystem_read_error_fails_closed(tmp_path, fake_script, monkeypatch):
+    row = make_row(tmp_path, fake_script)
+    path, data = manifest(tmp_path, fake_script, [row])
+    assert invoke(path).returncode == 0
+    runner_engine.receipt_path(data, row).unlink()
+    loaded, manifest_hash = runner_engine.load_manifest(path)
+    with monkeypatch.context() as patcher:
+        patcher.setattr(runner_engine.os.path, "samefile", lambda *_: (_ for _ in ()).throw(OSError("synthetic NFS read error")))
+        status = runner_engine.read_only("status", loaded, manifest_hash)
+    assert status["rows"][0]["status"] == "canonical_collision_or_ambiguous_state"
+    assert "synthetic NFS read error" in status["rows"][0]["reason"]
+
+
+def test_stale_owner_with_free_lock_is_not_active(tmp_path, fake_script):
+    row = make_row(tmp_path, fake_script)
+    path, data = manifest(tmp_path, fake_script, [row])
+    control = Path(data["control_root"])
+    control.mkdir()
+    Path(data["lock_path"]).touch()
+    (control / "runner_owner.json").write_text(json.dumps({"schema_version": runner_engine.OWNER_SCHEMA, "manifest_sha256": sha(path), "current_row_id": row["row_id"], "current_attempt_id": row["attempt_id"]}))
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "stale_owner_free_lock"
+    assert invoke(path).returncode == 0
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "complete"
+
+
+def test_current_v3_receipt_without_physical_fields_remains_valid(tmp_path, fake_script):
+    row = make_row(tmp_path, fake_script)
+    path, data = manifest(tmp_path, fake_script, [row])
+    assert invoke(path).returncode == 0
+    final = runner_engine.receipt_path(data, row)
+    payload = json.loads(final.read_text())
+    del payload["physical_attempt_id"]
+    del payload["execution_argv"]
+    final.write_text(json.dumps(payload))
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "complete"
+    assert result(invoke(path).stdout)["rows"][0]["action"] == "skipped_valid_receipt"
+
+
+def test_malformed_receipt_has_no_authority(tmp_path, fake_script):
+    row = make_row(tmp_path, fake_script)
+    path, data = manifest(tmp_path, fake_script, [row])
+    final = runner_engine.receipt_path(data, row)
+    final.parent.mkdir(parents=True)
+    final.write_text("{broken")
+    assert result(invoke(path, "--status").stdout)["rows"][0]["status"] == "invalid_receipt"
+    assert result(invoke(path).stderr)["status"] == "invalid_receipt"
+    assert not Path(row["output_root"]).exists()
+
+
+def test_held_lock_with_unmatched_owner_and_attempt_evidence_is_unknown(tmp_path, fake_script):
+    row = make_row(tmp_path, fake_script)
+    path, data = manifest(tmp_path, fake_script, [row])
+    root = runner_engine.attempt_root(sha(path), row)
+    (root / "attempt_000001").mkdir(parents=True)
+    lock = Path(data["lock_path"])
+    lock.parent.mkdir(parents=True)
+    with lock.open("a+b") as handle:
+        runner_engine.fcntl.flock(handle.fileno(), runner_engine.fcntl.LOCK_EX | runner_engine.fcntl.LOCK_NB)
+        state = result(invoke(path, "--status").stdout)
+        assert state["rows"][0]["status"] == "held_lock_active_or_unknown"
+        assert result(invoke(path).stderr)["status"] == "execution_lock_held"
 
 
 def test_unexpected_exception_cleans_active_owner(tmp_path, fake_script, monkeypatch):
@@ -275,7 +486,7 @@ def test_unexpected_exception_cleans_active_owner(tmp_path, fake_script, monkeyp
     path, data = manifest(tmp_path, fake_script, [row])
     loaded, manifest_hash = runner_engine.load_manifest(path)
 
-    def unexpected(*_args):
+    def unexpected(*_args, **_kwargs):
         raise RuntimeError("synthetic unexpected failure")
 
     monkeypatch.setattr(runner_engine, "execute_row", unexpected)
@@ -353,7 +564,7 @@ def test_fresh_classification_blocks_future_external_output(tmp_path, fake_scrip
     future = make_row(tmp_path, fake_script, "future", extra=["--counter", str(tmp_path / "future")])
     first = make_row(tmp_path, fake_script, "first", extra=["--write-path", future["expected_output_paths"][0]])
     path, _ = manifest(tmp_path, fake_script, [first, future])
-    assert result(invoke(path).stderr)["status"] == "interrupted_requires_external_reconciliation" and not (tmp_path / "future").exists()
+    assert result(invoke(path).stderr)["status"] == "canonical_collision_or_ambiguous_state" and not (tmp_path / "future").exists()
 
 
 def test_input_binding_literal_argv_and_direct_execution(tmp_path, fake_script):
@@ -371,22 +582,22 @@ def test_input_binding_literal_argv_and_direct_execution(tmp_path, fake_script):
 def test_lock_blocks_second_owner_and_no_finalizer_behavior(tmp_path, fake_script):
     row = make_row(tmp_path, fake_script, extra=["--sleep", "1"]); path, _ = manifest(tmp_path, fake_script, [row]); first = subprocess.Popen([str(RUNNER), str(path)], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     deadline = time.monotonic() + 10
-    while not Path(row["log_path"]).exists() and time.monotonic() < deadline: time.sleep(.02)
+    while not list(runner_engine.attempt_root(sha(path), row).glob("attempt_*/producer.log")) and time.monotonic() < deadline: time.sleep(.02)
     assert result(invoke(path).stderr)["status"] == "execution_lock_held"
     first.communicate(timeout=10); assert first.returncode == 0
     source = ENGINE.read_text(); assert "datacards_post_processing" not in source and '"scalings.json"' not in source
 
 
-def test_owner_started_at_is_stable_across_row_updates(tmp_path, fake_script):
+def test_owner_lifetime_is_per_unit(tmp_path, fake_script):
     first = make_row(tmp_path, fake_script, "first", extra=["--sleep", ".4"])
     second = make_row(tmp_path, fake_script, "second", extra=["--sleep", ".4"])
     path, data = manifest(tmp_path, fake_script, [first, second], "owner.json")
     process = subprocess.Popen([str(RUNNER), str(path)], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    owner_path = Path(data["control_root"]) / "runner_owner.json"
+    owner_path = runner_engine.unit_owner_path(first)
     first_owner = wait_for_owner(owner_path, "first")
-    second_owner = wait_for_owner(owner_path, "second")
+    second_owner = wait_for_owner(runner_engine.unit_owner_path(second), "second")
     stdout, stderr = process.communicate(timeout=10)
     assert process.returncode == 0, stdout + stderr
-    assert first_owner["started_at"] == second_owner["started_at"]
+    assert first_owner["started_at"] != second_owner["started_at"]
     assert first_owner["current_row_started_at"] != second_owner["current_row_started_at"]
     assert not owner_path.exists()

@@ -1156,9 +1156,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         *,
         is_run3=None,
         application_region=None,
+        producer_region=None,
     ):
         """Return the producer's binary category-family fill decision."""
 
+        if producer_region == "SR":
+            is_forward_sr_channel = (
+                lep_chan.startswith("2lss_fwd_")
+                or (lep_chan.startswith("3l_") and lep_chan.endswith("_fwd"))
+            )
+            if dense_axis_name in {"fwd0pt", "fwd0eta"} and not is_forward_sr_channel:
+                return False
+            if dense_axis_name == "tau0Tpt" and "_1tau" not in lep_chan:
+                return False
         if dense_axis_name in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS:
             if is_run3 is None or application_region is None:
                 raise ValueError(
@@ -1186,6 +1196,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         split_by_lepton_flavor=False,
         is_run3_values=(False, True),
         producer_proxy=None,
+        selected_category_regions=None,
     ):
         """Serialize the exact producer decision for selected output channels."""
 
@@ -1200,10 +1211,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         is_run3_values = tuple(dict.fromkeys(bool(value) for value in is_run3_values))
         if not is_run3_values:
             raise ValueError("Producer applicability requires at least one run period.")
+        if selected_category_regions is None:
+            selected_category_regions = (None,) * len(selected_category_dicts)
+        if len(selected_category_regions) != len(selected_category_dicts):
+            raise ValueError("Producer category regions must match selected dictionaries.")
         families = {}
         for family in dict.fromkeys(str(value) for value in runtime_families):
             channel_states = {}
-            for category_dict in selected_category_dicts:
+            for category_dict, producer_region in zip(
+                selected_category_dicts, selected_category_regions
+            ):
                 for category in category_dict.values():
                     jet_labels = (
                         (None,)
@@ -1241,6 +1258,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     njet_str=output_jet_label,
                                     flav_str=flavor_label,
                                 )
+                                context_options = (
+                                    {"producer_region": producer_region}
+                                    if producer_region is not None else {}
+                                )
                                 applicable = any(
                                     proxy.histogram_fill_is_applicable(
                                         family,
@@ -1248,6 +1269,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         lepton_channel,
                                         is_run3=is_run3,
                                         application_region=application_region,
+                                        **context_options,
                                     )
                                     for is_run3 in is_run3_values
                                     for application_region in application_regions
@@ -2580,6 +2602,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ########## Fill the histograms ##########
             cat_dict = {}
+            sr_category_names = frozenset()
             if not self._skip_signal_regions:
             # If we are not skipping the signal regions, we will fill the SR categories
                 sr_cat_dict = {}    
@@ -2599,6 +2622,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         else:
                             sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
                 
+                sr_category_names = frozenset(sr_cat_dict)
                 cat_dict.update(sr_cat_dict)
                 del import_sr_cat_dict
 
@@ -2776,6 +2800,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             lep_chan,
                                             is_run3=is_run3,
                                             application_region=appl,
+                                            producer_region=(
+                                                "SR" if nlep_cat in sr_category_names else "CR"
+                                            ),
                                         ):
                                             continue
 

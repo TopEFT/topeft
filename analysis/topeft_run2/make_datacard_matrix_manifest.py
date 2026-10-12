@@ -8,6 +8,7 @@ import yaml
 
 from analysis.topeft_run2 import build_per_era_datacard_package as per_era
 from analysis.topeft_run2 import datacard_matrix_runner as runner
+from topeft.modules import datacard_tools
 
 
 _card_prefix = "ttx_multileptons-"
@@ -128,10 +129,13 @@ def make_manifest(args):
                 "--out-dir", str(row_output), "--var-lst", distribution,
                 "--ch-lst", *channels, "--binning", "fitting",
                 "--do-nuisance", "--do-mc-stat", "--skip-selected-wcs-check",
+                "--lepton-mva-correlation", args.lepton_mva_correlation,
                 "--year-coverage-policy", "error", "--year", *years,
                 "--miss-parton-file", str(missing_parton),
                 "--merge-report", str(merge_report),
             ]
+            if args.enable_legacy_run3_vsmu_recovery and args.era == "run3":
+                producer_args.append("--enable-legacy-run3-vsmu-recovery")
             rows.append({
                 "row_id": row_id, "logical_row_id": logical_row_id,
                 "attempt_id": args.attempt_id, "era": args.era,
@@ -157,6 +161,14 @@ def make_manifest(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--era", choices=("run2", "run3"), required=True)
+    parser.add_argument(
+        "--lepton-mva-correlation",
+        choices=datacard_tools.lepton_mva_correlation_modes,
+        default=datacard_tools.default_lepton_mva_correlation,
+    )
+    parser.add_argument("--enable-legacy-run3-vsmu-recovery", action="store_true",
+                        default=False,
+                        help="Enable accepted legacy Run 3 VSmu recovery for Run 3 rows")
     parser.add_argument("--manifest-output", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--control-root", type=Path, required=True)

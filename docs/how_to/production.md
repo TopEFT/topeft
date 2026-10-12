@@ -265,9 +265,14 @@ their defaults to the core wrapper chain. See
 
 ## Maintained profile and recovery boundary
 
-Use one of the eight public profiles: `run2_full`, `run3_full`, `run2_full_CR`,
-`run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `t0_sr_statonly`, or
-`t0_cr_statonly`. Supply a fresh absolute output directory and a campaign tag.
+Use a maintained profile: `run2_full`, `run3_full`, `run2_full_CR`,
+`run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`,
+`run3_sr_ext`, `t0_sr_statonly`, or `t0_cr_statonly`. Supply a fresh absolute
+output directory and a campaign tag for a new campaign. The SR-reco extension
+profiles have a separate [operator guide](sr_reco_pkl_campaign.md) for their
+Run 2 then Run 3 sequence, explicit frozen worker archive, and bounded
+post-run qualification.
+
 The combined Run 2/Run 3 full-SR route is `run2_run3_full`; it is not another
 CLI profile. With no `--env-file`, the wrapper resolves or
 creates the current worker environment. With `--env-file X`, it validates and
@@ -278,10 +283,10 @@ fingerprint, and source identity from campaign state. `rebin_fine` is a
 specialist legacy profile that retains its explicit current-compatible archive
 requirement.
 
-The wrapper validates an explicit archive strictly and reuses the exact archive
-frozen in a valid resumable campaign state. When no archive is supplied for a
-fresh maintained campaign, it delegates current archive creation or reuse to
-`run_analysis.py --prepare-env-only`. The maintained profile uses chunksize
+The wrapper validates explicit archive integrity and provenance and reuses the
+exact archive frozen in a valid resumable campaign state. When no archive is
+supplied for a fresh maintained campaign, it delegates current archive creation
+or reuse to `run_analysis.py --prepare-env-only`. The maintained profile uses chunksize
 `100000` and leaves stdout/stderr on the controlling terminal; do not add a
 `tee` collector as a substitute for native evidence paths.
 

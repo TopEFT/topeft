@@ -414,6 +414,7 @@ Usage: ./run_cr.sh [--dry-run]
 
 Public PROFILE values:
   run2_full, run3_full, run2_run3_full
+  run2_sr_ext, run3_sr_ext
   run2_full_CR, run3_full_CR, run2_run3_full_CR
   t0_sr_statonly, t0_cr_statonly
 
@@ -434,6 +435,7 @@ CR mapping with nominal weights, raw counts, and separate native
 nonprompt/charge-flip postprocessing.
 
 run3_full is the canonical complete Run-3 SR source-production profile.
+run2_sr_ext and run3_sr_ext produce 15 extension-only SR fragments per era.
 rebin_fine is the specialized six-block Run-2/Run-3 source-production profile
 for fitting families whose bins changed and remains available as a legacy
 profile. Resume remains available only where already maintained by the legacy
@@ -527,7 +529,7 @@ if [[ -z "${production_profile}" ]]; then
 fi
 
 case "${production_profile}" in
-  run2_full|run3_full|run2_full_CR|run3_full_CR|rebin_fine|t0_sr_statonly|t0_cr_statonly) ;;
+  run2_full|run3_full|run2_sr_ext|run3_sr_ext|run2_full_CR|run3_full_CR|rebin_fine|t0_sr_statonly|t0_cr_statonly) ;;
   *)
     echo "ERROR: unsupported production profile '${production_profile}'." >&2
     exit 1
@@ -546,13 +548,11 @@ cd -- "${script_dir}"
 validation_backend="${SRPLOT009_VALIDATION_BACKEND:-}"
 validation_root="${SRPLOT009_VALIDATION_ROOT:-}"
 validation_scenario="${SRPLOT009_VALIDATION_SCENARIO:-success}"
-native_wq_log_dir="${script_dir}"
+native_wq_log_dir=""
 if [[ -n "${validation_backend}" ]]; then
   case "${validation_root}" in /tmp/*) ;; *) echo "ERROR: SRPLOT009_VALIDATION_ROOT must be below /tmp." >&2; exit 1 ;; esac
   case "${validation_backend}" in /tmp/*) ;; *) echo "ERROR: SRPLOT009_VALIDATION_BACKEND must be below /tmp." >&2; exit 1 ;; esac
   [[ -x "${validation_backend}" ]] || { echo "ERROR: validation backend is not executable." >&2; exit 1; }
-  native_wq_log_dir="${validation_root}/native_logs"
-  mkdir -p -- "${native_wq_log_dir}"
 fi
 
 ###############################################################################
@@ -622,12 +622,12 @@ if [[ "${output_dir}" != /* ]]; then
   exit 1
 fi
 
-if [[ "${production_profile}" == "run3_full" ]] \
+if [[ "${production_profile}" == "run3_full" || "${production_profile}" == "run3_sr_ext" ]] \
   && { [[ "${output_dir}" == "/groups/klannon/apiccine/preappr_v9_260729" ]] \
     || [[ "${output_dir}" == "/groups/klannon/apiccine/rebin_fine_260818_v3" ]] \
     || [[ "${campaign_tag}" == "ANv9" ]] \
     || [[ "${campaign_tag}" == "rebin-fine-260818-v3" ]]; }; then
-  echo "ERROR: run3_full must use a fresh namespace, not a historical baseline or v3 campaign." >&2
+  echo "ERROR: ${production_profile} must use a fresh namespace, not a historical baseline or v3 campaign." >&2
   exit 1
 fi
 
@@ -647,14 +647,14 @@ sr_pkl_base_tag="${campaign_tag}"
 # Select the one region owned by the public component profile. The legacy
 # rebin_fine profile retains its maintained two-stage SR behavior.
 case "${production_profile}" in
-  run2_full)
+  run2_full|run2_sr_ext)
     run_cr=false
     run_sr=true
     production_region="SR"
     production_np_mode="inline"
     production_component="run2"
     ;;
-  run3_full|rebin_fine)
+  run3_full|run3_sr_ext|rebin_fine)
     run_cr=false
     run_sr=true
     production_region="SR"
@@ -788,6 +788,36 @@ run3_full_category_var_set_names=(
   "sr_fwd_var_sets"
 )
 
+# Three extension-only chunks per maintained SR category block. The forward
+# and tight-tau variants are confined to blocks that contain those channels.
+sr_ext_common_var_sets=(
+  "j0pt j0eta nbtagsm"
+  "met l0conept l0eta l1conept l1eta"
+  "nbtagsl invmass ljptsum npvsGood"
+)
+sr_ext_forward_var_sets=(
+  "fwd0pt fwd0eta ${sr_ext_common_var_sets[0]}"
+  "${sr_ext_common_var_sets[1]}"
+  "${sr_ext_common_var_sets[2]}"
+)
+sr_ext_tau_var_sets=(
+  "${sr_ext_common_var_sets[0]}"
+  "${sr_ext_common_var_sets[1]}"
+  "${sr_ext_common_var_sets[2]} tau0Tpt"
+)
+sr_ext_forward_tau_var_sets=(
+  "${sr_ext_forward_var_sets[0]}"
+  "${sr_ext_common_var_sets[1]}"
+  "${sr_ext_tau_var_sets[2]}"
+)
+sr_ext_category_var_set_names=(
+  "sr_ext_forward_tau_var_sets"
+  "sr_ext_common_var_sets"
+  "sr_ext_common_var_sets"
+  "sr_ext_tau_var_sets"
+  "sr_ext_forward_var_sets"
+)
+
 # Static memory-bounded source-production plan for the families whose fitting
 # bins changed. The plan is intentionally limited to canonical live keys and
 # excludes njets, whose missing-parton workflow is produced separately.
@@ -831,20 +861,26 @@ if [[ "${production_profile}" == "rebin_fine" ]]; then
     "rebin_fine_category_var_set_names"
     "rebin_fine_category_var_set_names"
   )
-elif [[ "${production_profile}" == "run2_full" ]]; then
+elif [[ "${production_profile}" == "run2_full" || "${production_profile}" == "run2_sr_ext" ]]; then
   sr_year_sets=("run2")
   sr_year_category_set_names=("run3_full_category_sets")
-  sr_year_category_var_set_names=("run3_full_category_var_set_names")
-elif [[ "${production_profile}" == "run3_full" ]]; then
+  if [[ "${production_profile}" == "run2_sr_ext" ]]; then
+    sr_year_category_var_set_names=("sr_ext_category_var_set_names")
+  else
+    sr_year_category_var_set_names=("run3_full_category_var_set_names")
+  fi
+elif [[ "${production_profile}" == "run3_full" || "${production_profile}" == "run3_sr_ext" ]]; then
   sr_year_sets=(
     "2022 2022EE 2023 2023BPix"
   )
   sr_year_category_set_names=(
     "run3_full_category_sets"
   )
-  sr_year_category_var_set_names=(
-    "run3_full_category_var_set_names"
-  )
+  if [[ "${production_profile}" == "run3_sr_ext" ]]; then
+    sr_year_category_var_set_names=("sr_ext_category_var_set_names")
+  else
+    sr_year_category_var_set_names=("run3_full_category_var_set_names")
+  fi
 elif [[ "${production_profile}" == "t0_sr_statonly" ]]; then
   sr_year_sets=(
     "2016APV 2016 2017 2018"
@@ -873,6 +909,25 @@ production_plan_category_sets=()
 production_plan_var_sets=()
 
 case "${production_profile}" in
+  run2_sr_ext|run3_sr_ext)
+    profile_block_suffixes=(a b c d e)
+    if [[ "${production_profile}" == "run2_sr_ext" ]]; then
+      profile_year_expr="run2"
+    else
+      profile_year_expr="2022 2022EE 2023 2023BPix"
+    fi
+    for profile_index in "${!run3_full_category_sets[@]}"; do
+      profile_var_set_name="${sr_ext_category_var_set_names[profile_index]}"
+      declare -n profile_var_set_ref="${profile_var_set_name}"
+      for profile_chunk_index in "${!profile_var_set_ref[@]}"; do
+        production_block_ids+=("${production_profile}_${profile_block_suffixes[profile_index]}_$((profile_chunk_index + 1))")
+        production_plan_year_exprs+=("${profile_year_expr}")
+        production_plan_category_sets+=("${run3_full_category_sets[profile_index]}")
+        production_plan_var_sets+=("${profile_var_set_ref[profile_chunk_index]}")
+      done
+      unset -n profile_var_set_ref
+    done
+    ;;
   rebin_fine)
     production_block_ids=(run2_a run2_b run2_c run3_a run3_b run3_c)
     production_plan_year_exprs=(
@@ -1839,6 +1894,7 @@ production_assert_live_plan() {
   local expected_count
   case "${production_profile}" in
     run2_full|run3_full) expected_count=5 ;;
+    run2_sr_ext|run3_sr_ext) expected_count=15 ;;
     t0_sr_statonly) expected_count=10 ;;
     t0_cr_statonly) expected_count=18 ;;
     run2_full_CR) expected_count=6 ;;
@@ -2299,11 +2355,18 @@ build_common_command_options() {
 
 native_wq_log_names=(debug.log tr.log stats.log tasks.log)
 
+set_native_wq_log_dir() {
+  local block_id="$1"
+  local stage="$2"
+  native_wq_log_dir="${output_dir}/work_queue_logs/${production_component}/${block_id}/${stage}_native"
+}
+
 assert_native_wq_logs_clean() {
   local name
+  mkdir -p -- "${native_wq_log_dir}"
   for name in "${native_wq_log_names[@]}"; do
     if [[ -e "${native_wq_log_dir}/${name}" ]]; then
-      echo "ERROR: unexpected generic Work Queue log requires ownership reconciliation before a new invocation: ${native_wq_log_dir}/${name}" >&2
+      echo "ERROR: owned Work Queue log already exists for this fragment and stage; refusing a new invocation: ${native_wq_log_dir}/${name}" >&2
       return 1
     fi
   done
@@ -2448,6 +2511,7 @@ run_cr_block() {
     echo "ERROR: unable to resolve expected output paths for ${production_block}." >&2
     exit 1
   fi
+  set_native_wq_log_dir "${production_block}" source
   source_sidecar_path="${source_path}.metadata.json"
   nonprompt_sidecar_path="${nonprompt_path}.metadata.json"
 
@@ -2585,6 +2649,7 @@ run_cr_block() {
   )
 
   build_common_command_options cmd
+  cmd+=(--wq-log-dir "${native_wq_log_dir}")
 
   local nonprompt_cmd=(
     python ./run_data_driven.py
@@ -2803,6 +2868,7 @@ run_sr_block() {
     echo "ERROR: unable to resolve expected output paths for ${production_block}." >&2
     exit 1
   fi
+  set_native_wq_log_dir "${production_block}" source
   source_sidecar_path="${source_path}.metadata.json"
   nonprompt_sidecar_path="${nonprompt_path}.metadata.json"
 
@@ -2904,6 +2970,7 @@ run_sr_block() {
   )
 
   build_common_command_options source_cmd
+  source_cmd+=(--wq-log-dir "${native_wq_log_dir}")
   local nonprompt_cmd=(
     python ./run_data_driven.py
     --input-pkl "${source_path}"
@@ -3098,6 +3165,11 @@ assert_parallel_array_lengths \
   "${#run3_full_category_var_set_names[@]}"
 
 assert_parallel_array_lengths \
+  "SR extension category-to-variable mapping" \
+  "${#run3_full_category_sets[@]}" \
+  "${#sr_ext_category_var_set_names[@]}"
+
+assert_parallel_array_lengths \
   "rebin_fine SR category-to-variable mapping" \
   "${#rebin_fine_category_sets[@]}" \
   "${#rebin_fine_category_var_set_names[@]}"
@@ -3115,6 +3187,7 @@ assert_parallel_array_lengths \
 for var_set_name in \
   "${cr_category_var_set_names[@]}" \
   "${run3_full_category_var_set_names[@]}" \
+  "${sr_ext_category_var_set_names[@]}" \
   "${rebin_fine_category_var_set_names[@]}"; do
   assert_array_defined "${var_set_name}"
 done

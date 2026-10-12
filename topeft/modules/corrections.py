@@ -235,7 +235,7 @@ def get_tau_eta_variation_specs(year):
     """Return final VSe/VSmu nuisance names and their disjoint masks."""
     run = get_tau_run(year)
     tagger = get_tau_tagger(year)
-    period = year if run == "Run2" else str(year)[:4]
+    period = year
     specs = OrderedDict()
     for source, bins in (
         ("VSe", TAU_VSE_ETA_BINS[run]),

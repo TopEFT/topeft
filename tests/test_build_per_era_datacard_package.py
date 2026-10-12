@@ -201,6 +201,95 @@ def test_duplicate_manifest_target_blocks_before_packaging(tmp_path):
         builder._declared_manifest_surface([first, second], "run2")
 
 
+def _selected_unit(manifest_path, row_id, attempt_id="attempt_01"):
+    manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    return f"{manifest_hash}:{row_id}:{attempt_id}"
+
+
+def test_cli_explicit_composite_selection_preserves_manifest_lineage(tmp_path, monkeypatch):
+    original, recovery = _partial_manifest(tmp_path)
+    selected = [_selected_unit(original, "unit_01"), _selected_unit(recovery, "unit_02")]
+    captured = {}
+    monkeypatch.setattr(builder, "_canonical_physical_names", lambda *_: ["alpha_ptz", "beta_ptz"])
+    monkeypatch.setattr(builder, "build_per_era_package_from_units",
+                        lambda *args: captured.setdefault("call", args))
+    output = tmp_path / "package"
+    assert builder.main(["build", "--era", "run2", "--matrix-manifest", str(original),
+                         "--matrix-manifest", str(recovery), "--output", str(output),
+                         "--analysis", "TOP-26-006",
+                         *[item for key in selected for item in ("--selected-unit", key)]]) == 0
+    era, analysis, names, units, destination, manifest_hashes = captured["call"]
+    assert (era, analysis, names, destination) == (
+        "run2", "TOP-26-006", ["alpha_ptz", "beta_ptz"], output)
+    assert [unit["unit_id"] for unit in units] == ["unit_01", "unit_02"]
+    assert manifest_hashes == [hashlib.sha256(path.read_bytes()).hexdigest()
+                               for path in (original, recovery)]
+    assert not output.exists()
+    with pytest.raises(ValueError, match="duplicate manifest physical target"):
+        builder._declared_manifest_surface([original, recovery], "run2")
+
+
+def test_explicit_selection_requires_receipt_exact_identity_and_full_coverage(tmp_path, monkeypatch):
+    original, recovery = _partial_manifest(tmp_path)
+    original_key = _selected_unit(original, "unit_01")
+    recovery_key = _selected_unit(recovery, "unit_02")
+    monkeypatch.setattr(builder, "_canonical_physical_names", lambda *_: ["alpha_ptz", "beta_ptz"])
+    common = ["build", "--era", "run2", "--matrix-manifest", str(original),
+              "--matrix-manifest", str(recovery), "--output", str(tmp_path / "package"),
+              "--analysis", "TOP-26-006"]
+    with pytest.raises(ValueError, match="selected unit has no receipt"):
+        builder.main(common + ["--selected-unit", original_key,
+                               "--selected-unit", _selected_unit(original, "unit_02"),
+                               "--selected-unit", recovery_key])
+    with pytest.raises(ValueError, match="no selected"):
+        builder.main(common + ["--selected-unit", original_key])
+    monkeypatch.setattr(builder, "_canonical_physical_names",
+                        lambda *_: ["alpha_ptz", "beta_ptz", "gamma_ptz"])
+    with pytest.raises(ValueError, match="do not cover the full run2 target set"):
+        builder.main(common + ["--selected-unit", original_key,
+                               "--selected-unit", recovery_key])
+    monkeypatch.setattr(builder, "_canonical_physical_names", lambda *_: ["alpha_ptz", "beta_ptz"])
+    with pytest.raises(ValueError, match="absent from supplied manifests"):
+        builder._resolve_v3_manifest_units([original, recovery], "run2",
+                                            selected_unit_keys=builder._parse_selected_unit_keys(
+                                                [original_key, recovery_key,
+                                                 _selected_unit(original, "missing_unit")]))
+    with pytest.raises(ValueError, match="duplicate selected unit identity"):
+        builder._parse_selected_unit_keys([original_key, original_key])
+    manifest, _ = runner.load_manifest(recovery)
+    receipt_path = runner.receipt_path(manifest, manifest["rows"][0])
+    receipt = json.loads(receipt_path.read_text())
+    receipt["manifest_sha256"] = "0" * 64
+    _replace_receipt(receipt_path, receipt)
+    with pytest.raises(ValueError, match="receipt is not the selected successful attempt"):
+        builder.main(common + ["--selected-unit", original_key,
+                               "--selected-unit", recovery_key])
+
+
+@pytest.mark.parametrize("receipt_state", ["failed", "malformed"])
+def test_explicit_selection_rejects_failed_or_malformed_receipt(tmp_path, receipt_state):
+    manifest_path, receipt_path, _, receipt = _manifest_receipt(tmp_path)
+    if receipt_state == "failed":
+        receipt["command_return_code"] = 1
+        _replace_receipt(receipt_path, receipt)
+    else:
+        receipt_path.write_text("{invalid", encoding="utf-8")
+    selected = builder._parse_selected_unit_keys([_selected_unit(manifest_path, "unit_01")])
+    with pytest.raises(ValueError, match="receipt"):
+        builder._resolve_v3_manifest_units([manifest_path], "run2",
+                                           selected_unit_keys=selected)
+
+
+def test_explicit_selection_rejects_duplicate_successful_owners(tmp_path):
+    first, _, _, _ = _manifest_receipt(tmp_path / "first", "unit_01", "alpha")
+    second, _, _, _ = _manifest_receipt(tmp_path / "second", "unit_02", "alpha")
+    selected = builder._parse_selected_unit_keys([
+        _selected_unit(first, "unit_01"), _selected_unit(second, "unit_02")])
+    with pytest.raises(ValueError, match="duplicate physical target coverage"):
+        builder._resolve_v3_manifest_units([first, second], "run2",
+                                           selected_unit_keys=selected)
+
+
 def test_existing_malformed_receipt_fails_closed(tmp_path):
     plan, _ = _partial_manifest(tmp_path)
     manifest, _ = runner.load_manifest(plan)
