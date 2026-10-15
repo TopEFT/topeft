@@ -134,6 +134,8 @@ def make_manifest(args):
                 "--miss-parton-file", str(missing_parton),
                 "--merge-report", str(merge_report),
             ]
+            if args.unblind:
+                producer_args.append("--unblind")
             if args.enable_legacy_run3_vsmu_recovery and args.era == "run3":
                 producer_args.append("--enable-legacy-run3-vsmu-recovery")
             rows.append({
@@ -186,6 +188,7 @@ def main(argv=None):
                         help="Advanced: repeat to filter the selected profile to exact physical targets")
     parser.add_argument("--attempt-id", default="attempt_01")
     parser.add_argument("--working-directory", type=Path, default=_repository_root)
+    parser.add_argument("--unblind",action="store_true",help="If set, use real data, otherwise use asimov data", default=False)
     args = parser.parse_args(argv)
     manifest = make_manifest(args)
     with args.manifest_output.open("x", encoding="utf-8") as output:
