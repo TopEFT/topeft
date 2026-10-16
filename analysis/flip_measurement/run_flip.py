@@ -1,3 +1,18 @@
+'''
+     Flip rate calculation
+
+     For each period:
+     1. make a separate cfg file with only DY and TTbar background json.
+     2. Then use run_flip.py to run over the cfg file to make the flip/noflip pkl file.
+     3. Once you have the flip/noflip pkl file, use it as input to flip_mr_plotter.py, to make the flip probability rate pkl file, and all the plots.
+     4. Note that in this script no flip line `noflip_sumw_arr = hist_noflip._sumw[()]` is somehow summing up both no flip and flip together. So if the probability rate looks off, then add this line right below and run it again.
+         noflip_sumw_arr = noflip_sumw_arr  - flip_sumw_arr
+     5. Eventually, use flip_sf_run3.py script to make the actual SF numbers -- then put it as this formate here
+
+
+'''
+
+
 import json
 import time
 import cloudpickle
