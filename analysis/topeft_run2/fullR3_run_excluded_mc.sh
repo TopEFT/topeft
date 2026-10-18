@@ -21,19 +21,19 @@ PrintUsage() {
   echo "  --output-name NAME"
   echo "             Override the generated output basename"
   echo "  --ttgamma-sample-role-policy POLICY"
-  echo "             Forward ttgamma sample-role policy to run_analysis_excluded_mc_ul18.py"
+  echo "             Forward ttgamma sample-role policy to run_analysis_excluded_mc.py"
   echo "             Supported values: split, run2_nlo_inclusive"
   echo "  --sample-universe-wrapper VALUE"
-  echo "             Record wrapper provenance exactly once (default: fullR3_run_excluded_mc_ul18.sh)"
+  echo "             Record wrapper provenance exactly once (default: fullR3_run_excluded_mc.sh)"
   echo "  -p, --outpath PATH"
-  echo "             Override the run_analysis_excluded_mc_ul18.py output directory"
+  echo "             Override the run_analysis_excluded_mc.py output directory"
   echo "  --env-file PATH"
-  echo "             Forward one prebuilt Poncho archive to run_analysis_excluded_mc_ul18.py"
-  echo "  --dry-run  Print the resolved run_analysis_excluded_mc_ul18.py command and exit"
+  echo "             Forward one prebuilt Poncho archive to run_analysis_excluded_mc.py"
+  echo "  --dry-run  Print the resolved run_analysis_excluded_mc.py command and exit"
   echo "  -h, --help Show this help message"
   echo
   echo "Any additional options after those listed above are passed directly"
-  echo "to run_analysis_excluded_mc_ul18.py, allowing access to its full set of arguments."
+  echo "to run_analysis_excluded_mc.py, allowing access to its full set of arguments."
 }
 
 main() {
@@ -65,7 +65,7 @@ main() {
   local TAG=""
   local SAMPLE_JSON=""
   local CFG_OVERRIDE=""
-  local SAMPLE_UNIVERSE_WRAPPER="fullR3_run_excluded_mc_ul18.sh"
+  local SAMPLE_UNIVERSE_WRAPPER="fullR3_run_excluded_mc.sh"
   local SAMPLE_UNIVERSE_WRAPPER_PROVIDED=false
   local OUTPUT_NAME_OVERRIDE=""
 
@@ -526,7 +526,7 @@ main() {
   fi
 
   # Build and run the command
-  local -a RUN_CMD=(python run_analysis_excluded_mc_ul18.py "$CFGS")
+  local -a RUN_CMD=(python run_analysis_excluded_mc.py "$CFGS")
   RUN_CMD+=(--years "${RESOLVED_YEARS[@]}")
   RUN_CMD+=("${OPTIONS[@]}")
   RUN_CMD+=(--sample-universe-wrapper "$SAMPLE_UNIVERSE_WRAPPER")
