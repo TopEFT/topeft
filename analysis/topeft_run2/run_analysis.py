@@ -496,20 +496,22 @@ def _resolve_environment_file(
                 _strict_environment_error(integrity)
             _print_environment_identity(integrity)
             return env_path
+        if snapshot:
+            if integrity["status"] != "valid" or not integrity["usable"]:
+                _strict_environment_error(integrity)
+            print("SNAPSHOT ENVIRONMENT MODE")
+            print("compatibility enforcement: bypassed explicitly with --snapshot")
+            _print_environment_identity(integrity)
+            return integrity["archive_path"]
         current_request = remote_environment.resolve_environment_request(
             extra_pip_local=extra_pip_local,
             unstaged="fail",
         )
         validation = remote_environment.validate_environment_archive(
-            env_path, current_request, snapshot=snapshot
+            env_path, current_request
         )
         if not validation["usable"]:
             _strict_environment_error(validation)
-        if snapshot:
-            print("SNAPSHOT ENVIRONMENT MODE")
-            print("compatibility enforcement: bypassed explicitly with --snapshot")
-            for mismatch in validation["mismatches"]:
-                print(f"snapshot_environment_mismatch: {mismatch}")
         _print_environment_identity(validation)
         return env_path
 
