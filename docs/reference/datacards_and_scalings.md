@@ -37,8 +37,8 @@ are:
 | Years/coverage | Optional supported year list; coverage `warn`, `error`, or `off`, default `warn` | Mixed input identities and structural year gaps follow the selected fail/warn policy. |
 | Binning | `fitting` or `processing`, default `fitting` | Fitting performs exact late aggregation per selected physical channel. |
 | WCs | POI list, reference/selected-WC files, select-only/check controls, optional WC values/scaling order | WC selection uses the card-facing fitting view; selected files must match the producer's supported process/WC structure. `--use-selected` materializes canonical signal-only `selectedWCs.txt` in `--out-dir`. |
-| Nuisances | Nuisance and MC-stat switches, `--rate-syst-json`, `--miss-parton-file`, and `--skip-missing-parton-rate-syst` | Run era selects maintained defaults when the override is omitted. An explicit `--rate-syst-json` is forwarded as `rate_systs_path`; worker arguments come from the canonical manifest. The missing-parton consumer infers the maintained payload layout and has no `--sr-registry` option. |
-| Data/negative bins | Asimov by default; `--unblind` for observed data; crop negative bins by default | These choices affect card contents and must be recorded with production evidence. |
+| Nuisances | Nuisance and MC-stat switches, `--rate-syst-json`, `--miss-parton-file`, `--skip-missing-parton-rate-syst`, and optional `--suppress-nominal-like-tau-shapes` | Run era selects maintained defaults when the override is omitted. An explicit `--rate-syst-json` is forwarded as `rate_systs_path`; worker arguments come from the canonical manifest. The missing-parton consumer infers the maintained payload layout and has no `--sr-registry` option. |
+| Data/negative bins | Asimov by default; `--unblind` for observed data; crop negative bins by default | Both modes write `data_obs`. Unblinded production requires a `data` process in each selected channel; object presence does not identify the observation mode. |
 | Execution | Direct local default; `--condor` requires `--matrix-manifest`, `--condor-output`, explicit CPU/memory/disk requests, `--max-retries`, `--max-starts`; optional `--max-runtime` and `--prepare-only`. Scheduler queries use installed default discovery. | Submits one queue item per manifest row after token reservation. Prepare-only emits ownership-free material and invokes no scheduler. |
 | Existing-row dispatch | Repeat `--row-id ROW_ID` with `--condor`; `--rescue-ambiguous` requires exactly one selected row and excludes `--prepare-only` | Uses original v3 row descriptors and public manifest/attempt identity. Guarded rescue replaces an ambiguous reservation token under the row lease; known active jobs and held leases block it. |
 
@@ -80,6 +80,7 @@ raises `TypeError`.
 | `do_mc_stat` | Boolean, default false | Enables card `autoMCStats` behavior; stored template variances still follow process policy. |
 | `wcs` | Sequence, default empty | Restricts WC consideration during selection/decomposition. |
 | `unblind` | Boolean, default false | Keeps real data; otherwise data processes are removed and Asimov output is used. |
+| `suppress_nominal_like_tau_shapes` | Boolean, default false | Omits only qualifying complete local Tau shape pairs after the card-facing view; unsupported with `use_AAC`. |
 | `verbose` | Boolean, default true at class level | Controls progress diagnostics. The CLI resolves its own default. |
 | `use_AAC` | Boolean, default false | Enables the AAC template convention. |
 | `wc_scalings` | Sequence, default empty | Requested WC ordering/selection for scaling production. |
@@ -120,6 +121,12 @@ files. `--channel-set-key` defaults to `ALL_CH_LST_SR` and selects a maintained
 channel set. As an advanced optional filter, repeat
 `--physical-target <channel>_<distribution>` to produce an exact one-off
 subset. Supply the PKL roles used by the selected rows.
+`--lepton-mva-correlation {per-run,cross-run}` defaults to `per-run` and is
+recorded in every selected row's producer arguments. Optional
+`--suppress-nominal-like-tau-shapes` and `--unblind` are likewise forwarded to
+every selected row; neither is enabled by default. A manifest therefore has
+one requested observation mode across its rows. Package builders do not
+establish consistency among independently produced manifests or packages.
 
 Physical targets and their distributions come from the human-authored
 `analysis/topeft_run2/datacard_matrix_profiles.yml`, checked against
@@ -555,6 +562,17 @@ group 2016 with 2016APV; 2017 and 2018 retain separate year identities.
 Other tau families have their own final identities; inspect the focused test
 before inferring a shared year domain from a family name.
 
+The optional `--suppress-nominal-like-tau-shapes` check acts after the
+card-facing binning view on eligible SM processes. It considers only uniquely
+paired, fully specified Tau Up/Down shapes with valid finite arrays, a
+positive nominal total, nonnegative raw bins, unchanged physical underflow,
+and exact agreement in nominal-zero bins. Both directions must differ from
+nominal by strictly less than `1e-5` relative in every other serialized bin.
+It excludes processes retaining statistical variance, data and flip processes,
+and protects Run 2 genuine-tau energy-scale shapes from suppression. This is
+a narrowly gated local shape omission, not a general near-nominal nuisance
+policy. It is off by default and incompatible with `--use-AAC`.
+
 The default `--lepton-mva-correlation per-run` gives `lepSF_elec_mva` and
 `lepSF_muon_mva` separate `13TeV` Run 2 and `13p6TeV` Run 3 identities.
 `--lepton-mva-correlation cross-run` instead gives them the unsuffixed shared
@@ -600,6 +618,18 @@ The package schemas are unchanged; full package and fit comparison of the new
 mode requires a separate qualification. The [package procedure](../how_to/datacard_packages.md) and
 [artifact boundary](../explanation/datacards_and_eftfit.md) give the operating
 context.
+
+When the source combined package has `config/TOP_26_006.yml`, the standardized
+sibling copies its bytes and records its path and SHA-256 in `fit_config` within
+`package-provenance.json`. Its standardization inventory also includes that
+file. The original combined builder's `certify` compares an original package
+with its per-era inputs; it does not certify the rewritten sibling against
+those inputs. `build_fit_input_package.py` accepts the sibling with an explicit
+`--fit-config` path to its package-local YAML, reads both inputs without
+changing them, and copies selected TXT/ROOT pairs, ordered inputs, scalings
+and config to a fresh fit-input package. It validates the selected consumer
+contract and records copied-byte hashes; it does not combine cards, build a
+workspace or run a fit.
 
 The ineffective legacy rate/envelope override is not an active default.
 Current era-selected rate-systematic files and the implemented consumer remain

@@ -45,14 +45,17 @@ produce a combined `selectedWCs.txt` or `combinedcard.txt`.
 
 `DatacardMaker` has already realized the final nuisance correlation groups in
 the individual TXT/ROOT cards before combination or standardization. The
-certified `TOP26006_v1` combined package is the card-level input authority.
-`standardize_systematics.py` may rename its final TXT nuisances and matching
-ROOT keys into a fresh standardized sibling; it preserves the realized
-correlation topology, card order, EFT scalings, and logical mapping. The
-maintained `build_fit_input_package.py` intake accepts either package under
-the same package contract. This is a pre-workspace handoff: the standardized
-sibling is a datacard package, not `combinedcard.txt`, a workspace, a fit, or
-an impacts result.
+original `TOP26006_v1` combined package is checked against its Run 2 and Run 3
+inputs. `standardize_systematics.py` may rename its final TXT nuisances and
+matching ROOT keys into a fresh standardized sibling; it preserves the
+realized correlation topology, card order, EFT scalings, and logical mapping.
+When the input carries a package-local fit YAML, the sibling copies it and
+records its digest. The original builder's input-based certification does not
+describe the sibling's rewritten TXT/ROOT and provenance. The maintained
+`build_fit_input_package.py` intake accepts either valid package with an
+explicit fit YAML path, including one inside the standardized sibling. It
+checks and copies pre-workspace inputs without changing the source package;
+it does not create `combinedcard.txt`, a workspace, a fit, or an impacts result.
 
 ## Repository boundary
 

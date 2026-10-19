@@ -46,7 +46,9 @@ Repeat positional PKLs for coherent fragments, or use `--pkl-list-file` for a
 long list; do not provide both. The default uses Asimov data, fitting binning,
 no nuisance insertion, and warning-only year coverage. `--unblind`,
 `--do-nuisance`, `--do-mc-stat`, and `--keep-negative-bins` are explicit
-choices. `--merge-only` stops after load/merge validation, and
+choices. Both modes write `data_obs`; its presence in a ROOT file does not
+identify whether observations came from data or Asimov construction.
+`--merge-only` stops after load/merge validation, and
 `--merge-report PATH` retains the diagnostic report.
 The optional `--lepton-mva-correlation {per-run,cross-run}` defaults to
 `per-run`. It changes only the final electron and muon MVA nuisance identities
@@ -57,6 +59,12 @@ For matrix work, select the same option when generating each canonical manifest;
 its rows carry the choice in `producer_args`, including the explicit default.
 Older v3 rows without this option still mean `per-run` under their historical
 producer; replay also remains subject to the existing runtime fingerprint checks.
+`--suppress-nominal-like-tau-shapes` is a separate opt-in for complete local
+Tau Up/Down template pairs that satisfy the card writer's strict bin-by-bin
+comparison with nominal. It leaves other shapes, including protected Run 2
+genuine-tau energy-scale variations, in place. It is unavailable with
+`--use-AAC`; see the [reference](../reference/datacards_and_scalings.md#final-nuisance-identities)
+for its exact conditions.
 
 Before card production, confirm that every input belongs to one compatible
 production family and has the nominal/sumw2 companions required by the selected
@@ -158,6 +166,7 @@ python analysis/topeft_run2/make_datacard_matrix_manifest.py \
   --input-pkl 3l_fwd=/absolute/path/to/3l-fwd.pkl.gz \
   --python-executable /absolute/path/to/python \
   --missing-parton-file /absolute/path/to/missing-parton.root \
+  --lepton-mva-correlation per-run \
   --runtime-contract-id run3-cards-001 \
   --output-root /absolute/path/to/row-outputs \
   --control-root /absolute/path/to/runner-control \
@@ -186,6 +195,17 @@ output layout.
 Only PKL roles used by the selected rows are required. Make the same physical
 subset in the Run 2 and Run 3 manifests before running either matrix: Run 2
 manifest X and Run 3 manifest X produce packages with the same surface X.
+
+The generator records nuisance and MC-stat insertion, the chosen MVA mode,
+years and channel selection in each row's producer arguments; the input PKL
+is recorded separately as `input_pkl`. Add
+`--suppress-nominal-like-tau-shapes` to the generator when that
+opt-in card policy is intended for every row. Add `--unblind` only when the
+selected PKLs contain the observed `data` process for every selected channel;
+the generator forwards it to every row in that manifest. Without it, each row
+uses Asimov observations. Keep independently generated manifests, row outputs,
+and package inputs consistent with the intended observation mode when
+assembling packages; the package builders do not choose that mode for you.
 
 The current manifest uses the `topeft_datacard_matrix_v3` schema. Each
 execution-unit row records its logical row ID, input PKL, literal channel
