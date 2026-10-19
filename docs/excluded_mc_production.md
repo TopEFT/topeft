@@ -63,7 +63,11 @@ block d selects `3l_onZ_tau`. Work Queue requests one processing core and
 32000 MB plus two accumulating cores. These are task requests, not worker
 factory sizing or available-capacity findings.
 
-The parent waits for the first child to terminate. It advances only after rc
+The producer's stdout and stderr stream live to the invoking terminal and to
+the per-unit runner log through `tee`. The launcher waits for both the source
+child and the log writer, and records the source child's own return code. A
+display or log write failure blocks the next unit even if the source succeeds.
+The parent advances only after rc
 zero and a newly published PKL/sidecar pair with matching hash, size, CFG
 identity, wrapper identity, `njets` sumw2 policy, and disabled data-driven
 products. The environment and CFG hashes and source HEAD must remain stable.

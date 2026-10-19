@@ -135,13 +135,34 @@ if [[ "$execute" == true ]]; then
   done
 fi
 
-child_pid=""
+child_pid="" display_pid="" display_input_fd="" log_write_fd="" terminal_fd=""
+finish_display_log() {
+  local display_rc=0
+  if [[ -n "$log_write_fd" ]]; then
+    exec {log_write_fd}>&-
+    log_write_fd=""
+  fi
+  if [[ -n "$display_input_fd" ]]; then
+    exec {display_input_fd}>&-
+    display_input_fd=""
+  fi
+  if [[ -n "$display_pid" ]]; then
+    wait "$display_pid" || display_rc=$?
+    display_pid=""
+  fi
+  if [[ -n "$terminal_fd" ]]; then
+    exec {terminal_fd}>&-
+    terminal_fd=""
+  fi
+  return "$display_rc"
+}
 stop_child() {
   if [[ -n "$child_pid" ]]; then
     kill -TERM -- "-$child_pid" 2>/dev/null || kill -TERM "$child_pid" 2>/dev/null || true
     wait "$child_pid" 2>/dev/null || true
     child_pid=""
   fi
+  finish_display_log || true
 }
 on_interrupt() {
   printf 'EXCLUDED_MC_INTERRUPTED signal=%s active_child=%s\n' "$1" "${child_pid:-none}" >&2
@@ -236,13 +257,23 @@ for index in "${!blocks[@]}"; do
   printf 'source_head=%s env_sha256=%s cfg_sha256=%s manager=%s argv=' "$observed_head" "$env_sha256" "$cfg_sha256" "$manager_name" >> "$unit_log"
   printf '%q ' "${command[@]}" >> "$unit_log"
   printf '\nstart_utc=%s\n' "$(date -u +%FT%TZ)" >> "$unit_log"
-  (cd "$script_dir" && exec setsid --wait "${command[@]}") >> "$unit_log" 2>&1 &
+  # The source child keeps its own process group and wait status. A separate
+  # tee drains its combined output to the caller and the durable runner log.
+  exec {terminal_fd}>&1
+  coproc display_log { tee -a "$unit_log" >&"$terminal_fd"; }
+  display_pid=$display_log_PID
+  display_input_fd=${display_log[1]}
+  exec {log_write_fd}>&"$display_input_fd"
+  (cd "$script_dir" && exec setsid --wait "${command[@]}") >&"$log_write_fd" 2>&1 &
   child_pid=$!
   child_rc=0
   wait "$child_pid" || child_rc=$?
   child_pid=""
+  display_rc=0
+  finish_display_log || display_rc=$?
   printf 'end_utc=%s rc=%s\n' "$(date -u +%FT%TZ)" "$child_rc" >> "$unit_log"
-  [[ "$child_rc" == 0 ]] || { echo "Unit $unit_block failed with rc $child_rc; later units were not started." >&2; exit 1; }
+  [[ "$child_rc" == 0 ]] || { echo "Unit $unit_block failed with rc $child_rc; later units were not started." >&2; exit "$child_rc"; }
+  [[ "$display_rc" == 0 ]] || { echo "Unit $unit_block display/logging failed with rc $display_rc; later units were not started." >&2; exit "$display_rc"; }
   verify_completed_unit "$index" || { echo "Unit $unit_block has no validated terminal artifact pair; later units were not started." >&2; exit 1; }
   printf 'validated_pkl_sha256=%s validated_sidecar_sha256=%s status=complete\n' "$(sha256sum "$output_pkl" | cut -d ' ' -f 1)" "$(sha256sum "$output_pkl.metadata.json" | cut -d ' ' -f 1)" >> "$unit_log"
 done

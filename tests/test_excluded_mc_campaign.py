@@ -4,6 +4,7 @@ import fcntl
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import time
 
@@ -99,9 +100,15 @@ while (($#)); do
   esac
 done
 printf 'start:%s:%s\n' "$outname" "$manager" >> "$EXCLUDED_MOCK_TRACE"
+printf 'producer-stdout:%s\n' "$outname"
+printf 'producer-stderr:%s\n' "$outname" >&2
 if [[ "${EXCLUDED_MOCK_BEHAVIOR:-success}" == fail_a && "$outname" == *block_a* ]]; then exit 7; fi
 if [[ "${EXCLUDED_MOCK_BEHAVIOR:-success}" == missing_a && "$outname" == *block_a* ]]; then exit 0; fi
-if [[ "${EXCLUDED_MOCK_BEHAVIOR:-success}" == sleep_a && "$outname" == *block_a* ]]; then sleep 30; fi
+if [[ "${EXCLUDED_MOCK_BEHAVIOR:-success}" == sleep_a && "$outname" == *block_a* ]]; then
+  sleep 30 &
+  printf 'sleep_pid:%s\n' "$!" >> "$EXCLUDED_MOCK_TRACE"
+  wait
+fi
 mkdir -p "$outdir"
 pkl="$outdir/$outname.pkl.gz"
 printf 'inert-pkl:%s\n' "$outname" > "$pkl"
@@ -172,14 +179,45 @@ def test_inert_execute_waits_and_gates_next_unit(tmp_path, behavior, expected_su
     assert len(starts) == expected_starts
     assert starts[0].endswith(manager_a)
     assert ("EXCLUDED_MC_ENV_MODE explicit_snapshot" if snapshot else "EXCLUDED_MC_ENV_MODE current_source") in result.stdout
+    log_a = (output_root / "run3/excluded_mc_run3_block_a_njets.runner.log").read_text()
+    assert "producer-stdout:excluded_mc_run3_block_a_njets" in result.stdout
+    assert "producer-stderr:excluded_mc_run3_block_a_njets" in result.stdout
+    assert "producer-stdout:excluded_mc_run3_block_a_njets" in log_a
+    assert "producer-stderr:excluded_mc_run3_block_a_njets" in log_a
     if expected_success:
         assert starts[1].endswith(manager_d)
         lines = trace.read_text().splitlines()
         assert lines.index(f"end:excluded_mc_run3_block_a_njets:{manager_a}") < lines.index(f"start:excluded_mc_run3_block_d_njets:{manager_d}")
         assert "EXCLUDED_MC_CAMPAIGN_STATUS complete units=2" in result.stdout
+        log_d = (output_root / "run3/excluded_mc_run3_block_d_njets.runner.log").read_text()
+        assert result.stdout.index("producer-stdout:excluded_mc_run3_block_a_njets") < result.stdout.index("producer-stdout:excluded_mc_run3_block_d_njets")
+        assert "producer-stdout:excluded_mc_run3_block_d_njets" in log_d
+        assert "producer-stderr:excluded_mc_run3_block_d_njets" in log_d
     else:
         assert not any(manager_d in line for line in starts)
         assert "EXCLUDED_MC_CAMPAIGN_STATUS complete" not in result.stdout
+        if behavior == "fail_a":
+            assert result.returncode == 7
+            assert "rc=7" in log_a
+
+
+def test_inert_display_failure_blocks_d_after_successful_child(tmp_path):
+    copied_launcher, output_root, env_file, trace, head = inert_checkout(tmp_path)
+    bin_dir = tmp_path / "mock_bin"
+    bin_dir.mkdir()
+    tee = bin_dir / "tee"
+    tee.write_text("#!/usr/bin/env bash\ncat >/dev/null\nexit 9\n")
+    tee.chmod(0o755)
+    result = subprocess.run(
+        [str(copied_launcher), *plan_args(output_root, env_file), "--expected-source-head", head, "--execute"],
+        capture_output=True, text=True,
+        env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "EXCLUDED_MOCK_TRACE": str(trace)},
+    )
+    assert result.returncode == 9
+    assert "display/logging failed with rc 9" in result.stderr
+    assert "rc=0" in (output_root / "run3/excluded_mc_run3_block_a_njets.runner.log").read_text()
+    assert manager_d not in trace.read_text()
+    assert "EXCLUDED_MC_CAMPAIGN_STATUS complete" not in result.stdout
 
 
 def test_inert_execute_refuses_namespace_output_collision(tmp_path):
@@ -225,7 +263,8 @@ def test_inert_interruption_stops_child_and_never_starts_d(tmp_path):
             time.sleep(0.02)
         else:
             pytest.fail("Inert first child did not start")
-        process.terminate()
+        child_pid = int(next(line.split(":", 1)[1] for line in trace.read_text().splitlines() if line.startswith("sleep_pid:")))
+        process.send_signal(signal.SIGINT)
         stdout, stderr = process.communicate(timeout=5)
     finally:
         if process.poll() is None:
@@ -233,6 +272,8 @@ def test_inert_interruption_stops_child_and_never_starts_d(tmp_path):
             process.communicate()
     assert process.returncode != 0
     assert "EXCLUDED_MC_INTERRUPTED" in stderr
+    with pytest.raises(ProcessLookupError):
+        os.kill(child_pid, 0)
     assert manager_d not in trace.read_text()
     assert "EXCLUDED_MC_CAMPAIGN_STATUS complete" not in stdout
 
