@@ -49,12 +49,35 @@ producer refuses existing Work Queue log files. No overwrite, retry, resume,
 or tag change is automatic.
 
 Each unit uses all four Run3 eras (2022, 2022EE, 2023, 2023BPix), 50000-event
-chunks, `njets` with explicit full-custom `njets_sumw2`, MC-only
-`processor_output`, `--np-postprocess=skip`, and
-`--ttgamma-sample-role-policy split`. Block a selects `2l` and `2los_1tau`;
-block d selects `3l_onZ_tau`. Work Queue requests one processing core and
+chunks, MC-only `processor_output`, `--do-systs`, `--all-analysis`,
+`--np-postprocess=skip`, and `--ttgamma-sample-role-policy split`. Block a selects
+`2l` and `2los_1tau` with `njets lj0pt ptz ptz_wtau lt`; block d selects
+`3l_onZ_tau` with `njets lj0pt ptz lt`. These are the matching SR `run3_full`
+histogram families for the selected category blocks. Each family requests an
+explicit full-custom sumw2 companion, including `njets_sumw2`. The `_njets`
+output basename is the unchanged campaign identifier, not a histogram limit.
+Run2's deferred single-unit dry-run retains its original `njets` selection.
+Work Queue requests one processing core and
 32000 MB plus two accumulating cores. These are task requests, not worker
 factory sizing or available-capacity findings.
+
+The standard `run3_full` SR source uses `--do-np --defer-np` and implicit
+production sumw2. Its `--do-np` resolves and certifies same-year data and prompt
+MC contributors before the executor, which also determines the implicit
+sumw2 targets; the separate `run_data_driven.py` step then runs after the
+source. The excluded CFG deliberately contains backgrounds only, so it has no
+same-year data contributors and cannot satisfy that nonprompt source contract.
+The dedicated producer therefore does not request `--do-np` or start a data
+driven stage. It retains `--np-postprocess=skip`; no nonprompt output or
+nonprompt certification is claimed. With no enabled data driven product, the
+implicit production policy would select no sumw2 targets for these backgrounds.
+Explicit `--sumw2-family` for each requested distribution preserves the
+nominal MC statistical companions consumed by the SR plotter. This changes
+statistical sidecar provenance relative to standard `run3_full` and includes
+background sumw2 targets regardless of that profile's contributor selection.
+The event selection, nominal weights and systematic variation switch use the
+same source flags for these units, while the background-only input universe
+remains intentional.
 
 The foreground producer inherits stdout and stderr directly from the invoking
 terminal, as in `run_cr.sh`. The launcher waits for its native return code and
@@ -75,10 +98,12 @@ attempt. Lane HTCondor's existing factory selector matches these two names.
 
 The prospective output root is
 `/groups/klannon/apiccine/top26006_excluded_mc_njets_corrected_20261018_run3_001/`.
-The aborted output root and exact old Run3/a staging directory were removed
-after bounded ownership and process checks. Capacity, environment binding,
-staging/quota paths, free-space thresholds, ports, and worker readiness require
-fresh production preflight. The prior
+The central-only attempt and its staging are owner-managed; their current
+state is not established by this document. The owner will terminate it and
+verify the exact output, staging, process, listener and catalog state before
+reusing this tag, output root, manager names and ports. Capacity, environment
+binding, staging/quota paths, free-space thresholds and worker/factory
+readiness require fresh production preflight. The prior
 `top26006_excluded_mc_ul18_njets_probe_001/cross_era` products are immutable
 historical evidence and are not part of this corrected campaign.
 

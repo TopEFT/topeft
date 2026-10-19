@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import shlex
 import shutil
 import signal
 import subprocess
@@ -47,8 +48,38 @@ def test_real_chain_dry_run_resolves_both_units_without_outputs(tmp_path):
     assert output.count("--ttgamma-sample-role-policy split") >= 2
     assert output.count("--years 2022 2022EE 2023 2023BPix") == 2
     assert output.count("--skip-cr") == 2
-    assert output.count("--sumw2-family njets") >= 2
-    assert output.count("--np-postprocess=skip") >= 2
+    python_commands = [
+        shlex.split(line) for line in output.splitlines()
+        if line.startswith("python run_analysis_excluded_mc.py ")
+    ]
+    assert len(python_commands) == 2
+    for argv, categories, histograms in zip(
+        python_commands,
+        (("2l", "2los_1tau"), ("3l_onZ_tau",)),
+        (("njets", "lj0pt", "ptz", "ptz_wtau", "lt"),
+         ("njets", "lj0pt", "ptz", "lt")),
+    ):
+        assert argv[argv.index("--hist-list") + 1:argv.index("--skip-cr")] == list(histograms)
+        assert argv[argv.index("--category-groups") + 1:argv.index("--wq-manager-name")] == list(categories)
+        assert argv[argv.index("--years") + 1:argv.index("--hist-list")] == ["2022", "2022EE", "2023", "2023BPix"]
+        assert "--do-systs" in argv
+        assert "--do-np" not in argv
+        assert "--np-postprocess=skip" in argv
+        assert "--defer-np" not in argv
+        assert "--record-raw-count" not in argv
+        assert "--all-analysis" in argv
+        assert [argv[index + 1] for index, flag in enumerate(argv[:-1]) if flag == "--sumw2-family"] == list(histograms)
+        assert "--cfg-override" not in argv  # The wrapper forwards the dedicated CFG as a positional input.
+        assert argv[2].endswith("/input_samples/cfgs/excluded_mc_run3_sr.cfg")
+        assert "--sample-universe-wrapper" in argv
+        assert "fullR3_run_excluded_mc.sh" in argv
+        assert "--ttgamma-sample-role-policy" in argv
+        assert argv[argv.index("--ttgamma-sample-role-policy") + 1] == "split"
+        assert "--snapshot" not in argv
+        assert "--options" not in argv
+        assert "--no-sumw2" not in argv
+    assert "excluded_mc_run3_sr.cfg" in output
+    assert "--hist-list njets --skip-cr" not in output
     assert output.count("--wq-processing-cores 1") >= 2
     assert output.count("--wq-accumulating-memory-mb 32000") >= 2
     assert output.count("--wq-accumulating-cores 2") >= 2

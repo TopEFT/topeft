@@ -130,13 +130,19 @@ for index in "${!blocks[@]}"; do
   output_pkl="${output_pkls[index]}"
   log_dir="${log_dirs[index]}"
   unit_port="${unit_ports[index]}"
-  case "$unit_block" in a) category_groups=(2l 2los_1tau) ;; d) category_groups=(3l_onZ_tau) ;; esac
+  case "$unit_block" in
+    a) category_groups=(2l 2los_1tau); hist_vars=(njets lj0pt ptz ptz_wtau lt) ;;
+    d) category_groups=(3l_onZ_tau); hist_vars=(njets lj0pt ptz lt) ;;
+  esac
+  if [[ "$run" == run2 ]]; then
+    hist_vars=(njets)
+  fi
   outname="excluded_mc_${run}_block_${unit_block}_njets"
-  command=("$runner" -y "$run" --sr --hist-vars njets --output-name "$outname"
+  command=("$runner" -y "$run" --sr --hist-vars "${hist_vars[@]}" --output-name "$outname"
     -s 50000 --cfg-override "$cfg_path"
     --sample-universe-wrapper fullR3_run_excluded_mc.sh
     --ttgamma-sample-role-policy split -p "$output_dir" -t "$campaign_tag"
-    --all-analysis --category-groups "${category_groups[@]}" --sumw2-family njets
+    --all-analysis --category-groups "${category_groups[@]}"
     --wq-manager-name "$manager_name" --wq-processing-cores 1
     --wq-accumulating-memory-mb 32000 --wq-accumulating-cores 2
     --np-postprocess=skip -x work_queue --port "$unit_port" --wq-guard
@@ -144,6 +150,12 @@ for index in "${!blocks[@]}"; do
     --wq-quota-root "$wq_quota_root" --wq-free-warning-bytes "$wq_free_warning_bytes"
     --wq-min-free-bytes "$wq_min_free_bytes" --wq-poll-seconds "$wq_poll_seconds"
     --wq-log-dir "$log_dir" --env-file "$env_file")
+  for hist_var in "${hist_vars[@]}"; do
+    command+=(--sumw2-family "$hist_var")
+  done
+  if [[ "$run" == run3 ]]; then
+    command+=(--do-systs)
+  fi
   if [[ "$snapshot" == true ]]; then
     command+=(--snapshot)
   fi
