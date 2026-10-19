@@ -27,6 +27,22 @@ and `--port-d` for `--block all`, or `--port` for one block. The optional
 single-unit `--manager-name` only checks the name derived from the campaign
 tag, run and block; it cannot change it.
 
+`--snapshot` requires an explicit `--env-file`. In snapshot mode the dedicated
+entrypoint validates the archive and its adjacent manifest, then uses that
+worker environment without resolving the dirty current checkout as an
+environment request. Ordinary mode retains strict current-source resolution
+and rejects a dirty checkout or incompatible archive. Dry-run prints the
+resolved environment mode and both wrapper and entrypoint argv; it does not
+validate a synthetic archive.
+
+The tarball snapshots the worker environment. The manager entrypoint and its
+imports still come from the active checkout, and Work Queue separately receives
+`analysis_processor.py` from that checkout as an extra input file. The live
+source-HEAD and dedicated clean-path guards limit some checkout drift, but do
+not prove every loaded source byte matches the archive. A complete source
+freeze would be a separate feature for both campaign styles; it is not needed
+for environment-snapshot launcher parity.
+
 Select exactly one of `--dry-run` and `--execute`. Help or missing mode is
 nonexecuting. Dry-run resolves both units through the actual dedicated wrapper
 and prints each final Python command without making output or starting a
@@ -72,3 +88,12 @@ thresholds, ports, source commit, and worker readiness require fresh later
 production preflight. The prior
 `top26006_excluded_mc_ul18_njets_probe_001/cross_era` products are immutable
 historical evidence and are not part of this corrected campaign.
+
+The existing archive and adjacent manifest currently reside under
+`/groups/klannon/apiccine/top26006_excluded_mc_env_build_20261019_001/topeft-envs/`.
+The desired `analysis/topeft_run2/topeft-envs/` location is a separate storage
+follow-up. Neither archive nor manifest was moved for this launcher change.
+Before the owner runs the campaign manually from `analysis/topeft_run2` in the
+active Conda environment, check resources, output namespace and collisions, and
+read back the current source HEAD for `--expected-source-head`. Lane HTCondor
+owns its worker factory.

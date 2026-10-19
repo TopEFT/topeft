@@ -40,6 +40,8 @@ def test_real_chain_dry_run_resolves_both_units_without_outputs(tmp_path):
     assert f"EXCLUDED_MC_OUTPUT {output_root}/run3/excluded_mc_run3_block_d_njets.pkl.gz" in output
     assert "EXCLUDED_MC_PORT 31001" in output and "EXCLUDED_MC_PORT 31002" in output
     assert f"EXCLUDED_MC_ENV_FILE {tmp_path}/synthetic_env.tar.gz" in output
+    assert "EXCLUDED_MC_ENV_MODE current_source" in output
+    assert "--snapshot" not in output
     assert output.count("python run_analysis_excluded_mc.py") == 2
     assert output.count("--sample-universe-wrapper fullR3_run_excluded_mc.sh") >= 2
     assert output.count("--ttgamma-sample-role-policy split") >= 2
@@ -52,6 +54,34 @@ def test_real_chain_dry_run_resolves_both_units_without_outputs(tmp_path):
     assert output.count("--wq-accumulating-cores 2") >= 2
     assert "EXCLUDED_MC_CAMPAIGN_STATUS planned_only units=2" in output
     assert not output_root.exists()
+
+
+def test_snapshot_dry_run_forwards_to_dedicated_entrypoint(tmp_path):
+    output_root = tmp_path / "never_created"
+    result = subprocess.run(
+        [str(launcher), *plan_args(output_root, tmp_path / "synthetic_env.tar.gz"),
+         "--snapshot", "--dry-run"],
+        capture_output=True, text=True, check=True,
+    )
+    output = result.stdout
+    assert "EXCLUDED_MC_ENV_MODE explicit_snapshot" in output
+    assert output.index("EXCLUDED_MC_UNIT run3/a") < output.index("EXCLUDED_MC_UNIT run3/d")
+    assert output.count("--snapshot") == 4  # launcher argv and wrapper Python command, twice each
+    assert output.count("python run_analysis_excluded_mc.py") == 2
+    assert "EXCLUDED_MC_CAMPAIGN_STATUS planned_only units=2" in output
+    assert not output_root.exists()
+
+
+def test_snapshot_requires_explicit_env_file(tmp_path):
+    args = plan_args(tmp_path / "never_created", tmp_path / "synthetic_env.tar.gz")
+    env_index = args.index("--env-file")
+    del args[env_index:env_index + 2]
+    result = subprocess.run(
+        [str(launcher), *args, "--snapshot", "--dry-run"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 2
+    assert "--snapshot requires an explicit --env-file" in result.stderr
 
 
 stub_runner = r'''#!/usr/bin/env bash
@@ -130,14 +160,18 @@ def inert_checkout(tmp_path):
         ("wrong_a", False, 1),
     ],
 )
-def test_inert_execute_waits_and_gates_next_unit(tmp_path, behavior, expected_success, expected_starts):
+@pytest.mark.parametrize("snapshot", [False, True])
+def test_inert_execute_waits_and_gates_next_unit(tmp_path, behavior, expected_success, expected_starts, snapshot):
     copied_launcher, output_root, env_file, trace, head = inert_checkout(tmp_path)
     command = [str(copied_launcher), *plan_args(output_root, env_file), "--expected-source-head", head, "--execute"]
+    if snapshot:
+        command.append("--snapshot")
     result = subprocess.run(command, capture_output=True, text=True, env={**os.environ, "EXCLUDED_MOCK_TRACE": str(trace), "EXCLUDED_MOCK_BEHAVIOR": behavior})
     assert (result.returncode == 0) is expected_success, result.stderr
     starts = [line for line in trace.read_text().splitlines() if line.startswith("start:")]
     assert len(starts) == expected_starts
     assert starts[0].endswith(manager_a)
+    assert ("EXCLUDED_MC_ENV_MODE explicit_snapshot" if snapshot else "EXCLUDED_MC_ENV_MODE current_source") in result.stdout
     if expected_success:
         assert starts[1].endswith(manager_d)
         lines = trace.read_text().splitlines()

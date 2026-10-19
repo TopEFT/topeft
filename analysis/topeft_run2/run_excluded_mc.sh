@@ -6,20 +6,22 @@ usage() {
 Usage: run_excluded_mc.sh --run {run2|run3} --block {a|d|all} --campaign-tag TAG
   --output-root ABS_PATH --wq-staging-base ABS_PATH --wq-quota-root ABS_PATH
   --wq-free-warning-bytes N --wq-min-free-bytes N --wq-poll-seconds N
-  --env-file ABS_PATH [--port PORT | --port-a PORT --port-d PORT]
+  --env-file ABS_PATH [--snapshot] [--port PORT | --port-a PORT --port-d PORT]
   [--expected-source-head SHA] (--dry-run | --execute)
 
 --block all is Run3 only and executes a, then d after validated completion.
 --port is for one block; --port-a and --port-d bind the two-unit plan.
-Dry-run accepts synthetic paths and does not start production. Execute requires
-an existing output root, environment archive, and exact committed source HEAD.
+Dry-run accepts synthetic paths and does not start production. --snapshot uses
+the explicit archive after native integrity validation in the entrypoint.
+Execute requires an existing output root, environment archive, and exact
+committed source HEAD.
 USAGE
 }
 
 run="" block="" campaign_tag="" output_root="" port="" port_a="" port_d=""
 wq_staging_base="" wq_quota_root="" wq_free_warning_bytes=""
 wq_min_free_bytes="" wq_poll_seconds="" env_file="" expected_source_head=""
-manager_name_assertion="" dry_run=false execute=false
+manager_name_assertion="" dry_run=false execute=false snapshot=false
 
 while (($#)); do
   case "$1" in
@@ -38,6 +40,7 @@ while (($#)); do
       shift 2 ;;
     --dry-run) dry_run=true; shift ;;
     --execute) execute=true; shift ;;
+    --snapshot) snapshot=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage; exit 2 ;;
   esac
@@ -48,6 +51,7 @@ done
 [[ "$block" == a || "$block" == d || "$block" == all ]] || { echo 'Block must be a, d, or all.' >&2; exit 2; }
 [[ "$block" != all || "$run" == run3 ]] || { echo 'The all-block campaign is Run3 only.' >&2; exit 2; }
 [[ "$campaign_tag" =~ ^[A-Za-z0-9_-]+$ ]] || { echo 'Invalid campaign tag.' >&2; exit 2; }
+[[ "$snapshot" != true || -n "$env_file" ]] || { echo '--snapshot requires an explicit --env-file.' >&2; exit 2; }
 for path in "$output_root" "$wq_staging_base" "$wq_quota_root" "$env_file"; do
   [[ "$path" == /* ]] || { echo 'Output, staging, quota, and environment paths must be absolute.' >&2; exit 2; }
 done
@@ -77,6 +81,11 @@ manager_selector="^${campaign_tag}-${run}-block-($(IFS='|'; echo "${blocks[*]}")
 printf 'EXCLUDED_MC_MANAGER_SELECTOR %s\n' "$manager_selector"
 printf 'EXCLUDED_MC_RUN2_STATUS deferred_TTToHadronic_unavailable\n'
 printf 'EXCLUDED_MC_ENV_FILE %s\n' "$env_file"
+if [[ "$snapshot" == true ]]; then
+  printf 'EXCLUDED_MC_ENV_MODE explicit_snapshot\n'
+else
+  printf 'EXCLUDED_MC_ENV_MODE current_source\n'
+fi
 printf 'EXCLUDED_MC_STAGING_BASE %s\n' "$wq_staging_base"
 printf 'EXCLUDED_MC_QUOTA_ROOT %s\n' "$wq_quota_root"
 printf 'EXCLUDED_MC_SOURCE_HEAD_BINDING %s\n' "${expected_source_head:-unbound_dry_run}"
@@ -201,6 +210,9 @@ for index in "${!blocks[@]}"; do
     --wq-quota-root "$wq_quota_root" --wq-free-warning-bytes "$wq_free_warning_bytes"
     --wq-min-free-bytes "$wq_min_free_bytes" --wq-poll-seconds "$wq_poll_seconds"
     --wq-log-dir "$log_dir" --env-file "$env_file")
+  if [[ "$snapshot" == true ]]; then
+    command+=(--snapshot)
+  fi
   printf 'EXCLUDED_MC_UNIT %s/%s\n' "$run" "$unit_block"
   printf 'EXCLUDED_MC_MANAGER %s\n' "$manager_name"
   printf 'EXCLUDED_MC_OUTPUT %s\n' "$output_pkl"
