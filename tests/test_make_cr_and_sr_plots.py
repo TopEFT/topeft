@@ -9,7 +9,8 @@ from types import SimpleNamespace
 import hist
 import numpy as np
 import pytest
-from collections import defaultdict
+from collections import Counter, defaultdict
+from matplotlib.colors import to_rgb, to_rgba
 from matplotlib.transforms import Bbox
 
 from analysis.topeft_run2 import make_cr_and_sr_plots
@@ -1956,7 +1957,7 @@ def test_excluded_mc_labels_use_native_cr_sr_metadata_once(process_label, family
         (group, pattern)
         for group, patterns in make_cr_and_sr_plots.SR_GRP_PATTERNS.items()
         for pattern in patterns
-        if pattern in canonical_name or pattern in process_label
+        if isinstance(pattern, str) and (pattern in canonical_name or pattern in process_label)
     ]
     assert len(matching_patterns) == 1
     assert matching_patterns[0][0] == family
@@ -3797,6 +3798,177 @@ def _make_sr_ttbar_display_inputs(*, negative=False):
         "Other": ["other"],
     }
     return h_mc, h_sumw2, h_data, group_map
+
+
+def test_run3_fully_hadronic_display_preserves_inputs_and_resolves_legend_colors():
+    eras = ("2022", "2022EE", "2023", "2023BPix")
+    fully_hadronic = {f"TTto4Q_central{era}" for era in eras}
+    samples = {
+        **{name: [2.0, -0.25 if name.endswith("2022") else 1.0, 3.0]
+           for name in fully_hadronic},
+        "TTto2L2Nu_central2022": [5.0, 2.0, 1.0],
+        "TTtoLNu2Q_central2023": [4.0, 1.0, 2.0],
+        "ttll_private2022": [3.0, 1.0, 2.0],
+        "DYJetsToLL_MLL-50_central2022": [3.0, 2.0, 1.0],
+        "TTGJets_central2023": [1.0, 1.0, 1.0],
+        "ZGToLLG_central2022": [1.0, 2.0, 1.0],
+        "ttH_central2022": [1.0, 1.0, 2.0],
+        "ST_top_t-channel_central2022": [1.0, 1.0, 1.0],
+        "tllq_central2023": [1.0, 1.0, 1.0],
+        "tttt_central2022": [1.0, 1.0, 1.0],
+        "WJetsToLNu_central2022": [1.0, 1.0, 1.0],
+    }
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    jet_axis = hist.axis.Regular(3, 3.0, 6.0, name="njets")
+    h_mc = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    h_sumw2 = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    h_data = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    for process, values in samples.items():
+        for jet, value in zip((3.5, 4.5, 5.5), values):
+            h_mc.fill(process=process, njets=jet, weight=value)
+            h_sumw2.fill(process=process, njets=jet, weight=abs(value) + 1.0)
+    for jet, value in zip((3.5, 4.5, 5.5), (25.0, 15.0, 18.0)):
+        h_data.fill(process="data", njets=jet, weight=value)
+
+    group_map = make_cr_and_sr_plots.populate_group_map(
+        samples, make_cr_and_sr_plots.SR_GRP_PATTERNS
+    )
+    ownership = Counter(member for members in group_map.values() for member in members)
+    assert ownership == Counter(samples.keys())
+    assert set(group_map["ttll"]) == fully_hadronic | {
+        "TTto2L2Nu_central2022", "TTtoLNu2Q_central2023", "ttll_private2022"
+    }
+    assert all(
+        make_cr_and_sr_plots.populate_group_map(
+            [name], make_cr_and_sr_plots.SR_GRP_PATTERNS
+        )["ttll"] == [name]
+        for name in fully_hadronic
+    )
+    assert not make_cr_and_sr_plots.populate_group_map(
+        ["TTto4Q_central2022_extra"], make_cr_and_sr_plots.SR_GRP_PATTERNS
+    )["ttll"]
+
+    before_mc = h_mc.values(flow=True).copy()
+    before_sumw2 = h_sumw2.values(flow=True).copy()
+    before_data = h_data.values(flow=True).copy()
+    total = h_mc[{"process": sum}].values(flow=True)[1:]
+    render_kwargs = dict(
+        h_mc=h_mc, h_data=h_data, h_mc_sumw2=h_sumw2,
+        unit_norm_bool=False, var="njets", group=group_map,
+        unblind=True, uncertainty_mode="total", syst_err="total",
+        err_p_syst=total + 2.0, err_m_syst=total - 2.0,
+        err_ratio_p_syst=np.ones_like(total),
+        err_ratio_m_syst=np.ones_like(total),
+    )
+    original = make_cr_and_sr_plots.make_region_stacked_ratio_fig(**render_kwargs)
+    split = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        **render_kwargs, sr_ttbar_display_years=eras
+    )
+    try:
+        view = split._topeft_sr_ttbar_display_view
+        assert not view["fallback"]
+        assert set(view["fully_hadronic_members"]) == fully_hadronic
+        assert set(view["ttbar_members"]) == {
+            "TTto2L2Nu_central2022", "TTtoLNu2Q_central2023"
+        }
+        assert view["remainder_members"] == ("ttll_private2022",)
+        assert Counter(
+            member for members in view["draw_group"].values() for member in members
+        ) == Counter(samples.keys())
+        np.testing.assert_allclose(
+            view["ttbar_values"] + view["fully_hadronic_values"]
+            + view["remainder_values"],
+            original._topeft_plot_view["raw_grouped_centrals"]["ttll"],
+        )
+        for key in ("displayed_total", "total_variance"):
+            np.testing.assert_allclose(
+                split._topeft_plot_view[key], original._topeft_plot_view[key]
+            )
+        for key in original._topeft_uncertainty_bands:
+            if key != "main_band_handles":
+                np.testing.assert_allclose(
+                    split._topeft_uncertainty_bands[key],
+                    original._topeft_uncertainty_bands[key], equal_nan=True
+                )
+        np.testing.assert_array_equal(h_mc.values(flow=True), before_mc)
+        np.testing.assert_array_equal(h_sumw2.values(flow=True), before_sumw2)
+        np.testing.assert_array_equal(h_data.values(flow=True), before_data)
+
+        legend = split.legends[0]
+        legend_colors = {
+            label.get_text(): handle.get_facecolor()
+            for handle, label in zip(legend.legend_handles, legend.get_texts())
+            if hasattr(handle, "get_facecolor")
+        }
+        cr = make_cr_and_sr_plots.CR_GROUP_INFO
+        sr = make_cr_and_sr_plots.SR_GROUP_INFO
+        assert to_rgba(cr["DY"]["color"]) == to_rgba(sr["DY"]["color"])
+        assert to_rgba(cr["Ttbar"]["color"]) != to_rgba(cr["DY"]["color"])
+        assert to_rgba(legend_colors["ttbar"]) == to_rgba(cr["Ttbar"]["color"])
+        assert to_rgba(legend_colors["DY"]) == to_rgba(cr["DY"]["color"])
+        split_config = sr["ttll"]["display_split"]
+        assert to_rgba(legend_colors[split_config["fully_hadronic_label"]]) == to_rgba(
+            split_config["fully_hadronic_color"]
+        )
+        assert to_rgba(legend_colors[split_config["remainder_label"]]) == to_rgba(
+            sr["ttll"]["color"]
+        )
+        for first, second in (("DY", split_config["remainder_label"]),
+                              ("ZGamma", "ttH"), ("Single top", "tllq"),
+                              ("tttt", "Singleboson")):
+            assert to_rgba(legend_colors[first]) != to_rgba(legend_colors[second])
+        assert all(
+            to_rgba(legend_colors[split_config["fully_hadronic_label"]]) != to_rgba(color)
+            for label, color in legend_colors.items()
+            if view["draw_group"].get(label)
+            and label != split_config["fully_hadronic_label"]
+        )
+        displayed_mc_colors = [
+            to_rgba(color) for label, color in legend_colors.items()
+            if view["draw_group"].get(label)
+        ]
+        assert len(displayed_mc_colors) == len(set(displayed_mc_colors))
+        dark_green = to_rgb(legend_colors["ttbar"])
+        light_green = to_rgb(legend_colors[split_config["fully_hadronic_label"]])
+        assert light_green[1] > dark_green[1]
+        assert light_green[1] >= light_green[0] and light_green[1] >= light_green[2]
+    finally:
+        make_cr_and_sr_plots.plt.close(original)
+        make_cr_and_sr_plots.plt.close(split)
+
+
+def test_run3_fully_hadronic_negative_bucket_keeps_original_stack():
+    samples = {
+        "TTto4Q_central2022": -3.0,
+        "TTto2L2Nu_central2022": 4.0,
+        "ttll_private2022": 2.0,
+    }
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    jet_axis = hist.axis.Regular(1, 3.0, 4.0, name="njets")
+    h_mc = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    h_data = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    for process, value in samples.items():
+        h_mc.fill(process=process, njets=3.5, weight=value)
+    h_data.fill(process="data", njets=3.5, weight=3.0)
+    group_map = make_cr_and_sr_plots.populate_group_map(
+        samples, make_cr_and_sr_plots.SR_GRP_PATTERNS
+    )
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc=h_mc, h_data=h_data, unit_norm_bool=False, var="njets",
+        group=group_map, unblind=False, sr_ttbar_display_years=["2022"],
+    )
+    try:
+        view = fig._topeft_sr_ttbar_display_view
+        assert view["fallback"]
+        assert list(view["draw_group"]["ttll"]) == list(samples)
+        np.testing.assert_allclose(view["original_visible_ttll"], [3.0, 0.0])
+        np.testing.assert_allclose(view["split_visible_ttll"], [6.0, 0.0])
+        np.testing.assert_allclose(fig._topeft_plot_view["displayed_total"], [3.0, 0.0])
+        assert "ttbar (fully hadronic)" in {
+            label.get_text() for legend in fig.legends for label in legend.get_texts()
+        }
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
 
 
 def test_sr_ttbar_metadata_partition_covers_census_identities():

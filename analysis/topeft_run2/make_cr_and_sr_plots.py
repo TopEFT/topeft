@@ -844,7 +844,13 @@ CHANNEL_REFERENCE_MAP = {**CR_CHAN_DICT, **SR_CHAN_DICT}
 CR_GROUP_INFO = _META.get("CR_GRP_MAP", {})
 SR_GROUP_INFO = _META.get("SR_GRP_MAP", {})
 CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
-SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
+SR_GRP_PATTERNS = {
+    k: [*v.get("patterns", []), *(
+        {"exact": name}
+        for name in v.get("display_split", {}).get("fully_hadronic_processes", [])
+    )]
+    for k, v in SR_GROUP_INFO.items()
+}
 CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
 SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
 SR_SIGNAL_GROUP_KEYS = {"ttH", "ttlnu", "ttll", "tXq", "tttt"}
@@ -4495,7 +4501,13 @@ def populate_group_map(samples, pattern_map):
         matched = False
         for grp, patterns in pattern_map.items():
             for pat in patterns:
-                if pat in canonical_name or pat in proc_name:
+                if isinstance(pat, dict):
+                    if set(pat) != {"exact"} or not isinstance(pat["exact"], str):
+                        raise ValueError("Group pattern exact match must contain one string identity")
+                    pattern_matches = proc_name == pat["exact"]
+                else:
+                    pattern_matches = pat in canonical_name or pat in proc_name
+                if pattern_matches:
                     out[grp].append(proc_name)
                     matched = True
                     break
@@ -4525,9 +4537,25 @@ def _resolve_sr_ttbar_display_view(hist_mc, group_map, year_tokens):
     ttbar_group = split_config["ttbar_group"]
     ttbar_label = split_config["ttbar_label"]
     remainder_label = split_config["remainder_label"]
+    fully_hadronic_label = split_config.get("fully_hadronic_label")
+    fully_hadronic_color = split_config.get("fully_hadronic_color")
+    fully_hadronic_processes = split_config.get("fully_hadronic_processes", ())
+    if any(key in split_config for key in (
+        "fully_hadronic_label", "fully_hadronic_color", "fully_hadronic_processes"
+    )) and (
+        not isinstance(fully_hadronic_label, str) or not fully_hadronic_label.strip()
+        or not isinstance(fully_hadronic_color, str) or not fully_hadronic_color.strip()
+        or not isinstance(fully_hadronic_processes, list)
+        or len(fully_hadronic_processes) != len(set(fully_hadronic_processes))
+        or not all(isinstance(name, str) and name for name in fully_hadronic_processes)
+    ):
+        raise ValueError("SR ttll display_split has invalid fully hadronic configuration")
     if (
         ttbar_label == remainder_label
-        or ttbar_label in group_map or remainder_label in group_map
+        or len({ttbar_label, remainder_label, fully_hadronic_label}) != 3
+        or any(label in group_map for label in (
+            ttbar_label, remainder_label, fully_hadronic_label
+        ) if label is not None)
         or ttbar_group not in CR_GRP_PATTERNS
         or not CR_GRP_PATTERNS[ttbar_group]
         or not CR_GROUP_INFO[ttbar_group].get("color")
@@ -4554,15 +4582,17 @@ def _resolve_sr_ttbar_display_view(hist_mc, group_map, year_tokens):
     if not np.any(np.asarray(hist_mc[{"process": list(present_members)}].values(flow=True))):
         return None
 
+    fully_hadronic = tuple(member for member in members if member in fully_hadronic_processes)
+    other_members = tuple(member for member in members if member not in fully_hadronic_processes)
     ttbar_patterns = CR_GRP_PATTERNS[ttbar_group]
     # populate_group_map uses first match; the catchall applies only inside ttll.
     partition = populate_group_map(
-        members, OrderedDict(((ttbar_label, ttbar_patterns),
+        other_members, OrderedDict(((ttbar_label, ttbar_patterns),
                               (remainder_label, [""])))
     )
     ttbar = tuple(partition[ttbar_label])
     remainder = tuple(partition[remainder_label])
-    if not ttbar or not remainder or set(ttbar) & set(remainder) or set(ttbar) | set(remainder) != set(members):
+    if not ttbar or not remainder or set(ttbar) & set(remainder) or set(ttbar) | set(remainder) | set(fully_hadronic) != set(members):
         raise ValueError("SR ttbar display needs a complete nonempty ttll partition")
     def values(names):
         return np.asarray(
@@ -4574,13 +4604,17 @@ def _resolve_sr_ttbar_display_view(hist_mc, group_map, year_tokens):
 
     ttbar_values = values(ttbar)
     remainder_values = values(remainder)
-    original_visible = np.maximum(ttbar_values + remainder_values, 0.0)
-    split_visible = np.maximum(ttbar_values, 0.0) + np.maximum(remainder_values, 0.0)
+    fully_hadronic_values = values(fully_hadronic) if fully_hadronic else np.zeros_like(ttbar_values)
+    original_visible = np.maximum(ttbar_values + remainder_values + fully_hadronic_values, 0.0)
+    split_visible = (np.maximum(ttbar_values, 0.0) + np.maximum(remainder_values, 0.0)
+                     + np.maximum(fully_hadronic_values, 0.0))
     fallback = not np.allclose(original_visible, split_visible, rtol=1e-12, atol=1e-12)
     draw_group = OrderedDict()
     for name, source_members in group_map.items():
         if name == "ttll" and not fallback:
             draw_group[ttbar_label] = list(ttbar)
+            if fully_hadronic:
+                draw_group[fully_hadronic_label] = list(fully_hadronic)
             draw_group[remainder_label] = list(remainder)
         else:
             draw_group[name] = list(source_members)
@@ -4588,8 +4622,10 @@ def _resolve_sr_ttbar_display_view(hist_mc, group_map, year_tokens):
         "draw_group": draw_group,
         "fallback": fallback,
         "ttbar_members": ttbar,
+        "fully_hadronic_members": fully_hadronic,
         "remainder_members": remainder,
         "ttbar_values": ttbar_values,
+        "fully_hadronic_values": fully_hadronic_values,
         "remainder_values": remainder_values,
         "original_visible_ttll": original_visible,
         "split_visible_ttll": split_visible,
@@ -9195,6 +9231,8 @@ def make_region_stacked_ratio_fig(
             split_config = SR_GROUP_INFO["ttll"]["display_split"]
             if proc == split_config["ttbar_label"]:
                 c = CR_GROUP_INFO[split_config["ttbar_group"]]["color"]
+            elif proc == split_config.get("fully_hadronic_label"):
+                c = split_config["fully_hadronic_color"]
             elif proc == split_config["remainder_label"]:
                 c = SR_GROUP_INFO["ttll"]["color"]
         if c is None:
@@ -9557,12 +9595,19 @@ def make_region_stacked_ratio_fig(
         split_config = SR_GROUP_INFO["ttll"]["display_split"]
         original_y_limits = ax.get_ylim()
         bin_centers = (plot_bins[:-1] + plot_bins[1:]) / 2.0
-        for component_index, (values, label, color, line_style) in enumerate((
+        fallback_components = [
             (sr_ttbar_display_view["ttbar_values"], split_config["ttbar_label"],
              CR_GROUP_INFO[split_config["ttbar_group"]]["color"], "--"),
             (sr_ttbar_display_view["remainder_values"], split_config["remainder_label"],
              SR_GROUP_INFO["ttll"]["color"], ":"),
-        )):
+        ]
+        if sr_ttbar_display_view["fully_hadronic_members"]:
+            fallback_components.append((
+                sr_ttbar_display_view["fully_hadronic_values"],
+                split_config["fully_hadronic_label"],
+                split_config["fully_hadronic_color"], "-."
+            ))
+        for component_index, (values, label, color, line_style) in enumerate(fallback_components):
             ax.stairs(values, plot_bins, label=label, color=color,
                       linestyle=line_style, linewidth=1.5)
             for bin_center, value in zip(bin_centers, values):
