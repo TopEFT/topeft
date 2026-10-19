@@ -33,15 +33,24 @@ whole plan without `--selected-fragment` or `--resume`:
 ```bash
 ./run_cr.sh --production-profile run3_sr_ext \
   --output-dir "$campaign_dir" --campaign-tag "$campaign_tag" \
-  --sr-plan "$plan_file" --env-file "$worker_archive" \
+  --sr-plan "$plan_file" --chunksize "$chunk_size" \
+  --env-file "$worker_archive" \
   --wq-staging-base "$staging_base" --wq-quota-root "$quota_root" \
   --wq-free-warning-bytes "$warning_bytes" \
   --wq-min-free-bytes "$minimum_free_bytes" \
   --wq-poll-seconds "$poll_seconds"
 ```
 
-Set each shell variable to the corresponding absolute path or guard value
-before running the command. The staging base must be an existing owned
+Set each shell variable to the corresponding absolute path or value before
+running the command. For an SR extension profile, choose a `--chunksize` of
+100000, 75000, 50000 or 25000; omitting it selects 100000. For an ordinary
+`--resume`, repeat the persisted campaign's chunksize so pending units keep
+the same choice. The five `--wq-*` options shown are required staging guard
+parameters for a real Work Queue campaign. The launcher also accepts optional
+`--wq-treereduction`, `--wq-processing-cores`, `--wq-accumulating-memory-mb`
+and `--wq-accumulating-cores`; the example sets none of them. See
+[Work Queue staging and stop conditions](#work-queue-staging-and-stop-conditions)
+for their constraints and defaults. The staging base must be an existing owned
 directory on a non-root filesystem, and the minimum free-space value
 must be at least 10 GB (decimal). Supply `--env-file` only when using a
 prebuilt worker archive as an explicit snapshot; its path must be absolute.
