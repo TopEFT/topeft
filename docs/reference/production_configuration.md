@@ -190,11 +190,12 @@ implicit `production` sumw2 policy and leave raw-count recording disabled.
 `run2_sr_ext` and `run3_sr_ext` use the eight keys `fwd0pt`, `j0pt`,
 `b0pt`, `met`, `l0conept`, `l1conept`, `invmass`, and `tau0Tpt`.
 `fwd0pt` and `tau0Tpt` retain their forward and tight-tau locality. The
-default JSON plan has 12 units per era; a supplied full plan can choose
-another exact partition. Each profile stores its full initial plan and any
-pending-only revisions in one campaign state. Both enable systematics, use
-implicit production `sumw2`, and leave raw counts disabled. Run 2 produces
-inline nonprompt artifacts; Run 3 runs the separate local data-driven stage.
+default JSON plan has 12 units per profile; a supplied full plan can choose
+another exact partition and unit count without changing that default. Each
+profile stores its full initial plan and any pending-only revisions in one
+campaign state. Both enable systematics, use implicit production `sumw2`, and
+leave raw counts disabled. Both publish the source artifact before a separate
+local nonprompt stage.
 See the [SR-reco operator guide](../how_to/sr_reco_pkl_campaign.md).
 
 The other two profiles, `t0_sr_statonly` and `t0_cr_statonly`, are stat-only
@@ -209,8 +210,8 @@ The no-argument invocation remains a legacy alias for the fixed `run2_full`
 campaign.
 
 New campaign roots require a fresh absolute output directory and campaign tag.
-The SR-reco Run 3 component uses the shared root already established by Run 2;
-see the [SR-reco operator guide](../how_to/sr_reco_pkl_campaign.md).
+Each SR-reco profile starts in its own fresh root; see the
+[SR-reco operator guide](../how_to/sr_reco_pkl_campaign.md).
 The profiles use the maintained worker environment archive and do not expose
 a profile-level Work Queue worker-count setting. See
 [the production runbook](../how_to/production.md) for environment and recovery

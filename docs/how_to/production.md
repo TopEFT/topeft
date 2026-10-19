@@ -31,13 +31,9 @@ histogram definition belongs at its module/source authority.
 
 ## Run a maintained `run_cr.sh` campaign
 
-The current wrapper is non-portable: it hard-codes the managed correction-lib
-checkout for both its `topeft/analysis/topeft_run2` working directory and its
-topeft commit readback, rather than deriving either path from the invoked
-script. Invoking a copied script or a different checkout still uses that fixed
-managed checkout. Before starting or resuming a campaign, verify that the
-managed checkout is the one you intend to execute and record; making the
-wrapper relocatable requires an executable workflow change.
+The wrapper derives its working directory and repository root from the invoked
+script. Before starting or resuming a campaign, verify that this checkout is
+the one you intend to execute.
 
 Inspect a fresh TOP-26-006 Run 3 plan before launching it:
 
@@ -60,13 +56,14 @@ inputs, outputs, and environment archive. Resume only that frozen plan:
 separately. Do not point a fresh campaign at an existing output directory, and
 do not edit the state file to force a resume.
 
-During a resume, `run_cr.sh` compares the `topeft` and `topcoffea` commits
-stored in campaign state with the commits currently checked out. If the
-differences are limited to files that do not directly configure or control the
-campaign, the comparison can pass. If a changed file is used directly by the
-campaign workflow, resume stops and requires an explicit review of the current
-checkout. After that review, provide the full current SHA for the corresponding
-repository with `--reviewed-topeft-manager-head SHA` and/or
+During a non-SR-reco profile resume, `run_cr.sh` compares the `topeft` and
+`topcoffea` commits stored in campaign state with the commits currently
+checked out. If the differences are limited to files that do not directly
+configure or control the campaign, the comparison can pass. If a changed file
+is used directly by the campaign workflow, resume stops and requires an
+explicit review of the current checkout. After that review, provide the full
+current SHA for the corresponding repository with
+`--reviewed-topeft-manager-head SHA` and/or
 `--reviewed-topcoffea-manager-head SHA`. Each supplied SHA must equal the
 current HEAD of that repository. These options acknowledge a reviewed code
 difference; they do not bypass the other consistency checks performed during
@@ -267,9 +264,8 @@ Use a maintained profile: `run2_full`, `run3_full`, `run2_full_CR`,
 `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`,
 `run3_sr_ext`, `t0_sr_statonly`, or `t0_cr_statonly`. Supply a fresh absolute
 output directory and a campaign tag for a new campaign. The SR-reco extension
-profiles have a separate [operator guide](sr_reco_pkl_campaign.md) for their
-Run 2 then Run 3 sequence, explicit frozen worker archive, and bounded
-post-run qualification.
+profiles have a separate [operator guide](sr_reco_pkl_campaign.md) for explicit
+plans, worker archives, and post-run qualification.
 
 The combined Run 2/Run 3 full-SR route is `run2_run3_full`; it is not another
 CLI profile. With no `--env-file`, the wrapper resolves or
@@ -277,13 +273,23 @@ creates the current worker environment. With `--env-file X`, it validates and
 uses exactly `X` as an intentional snapshot without requiring current-checkout
 compatibility, and both children of a combined profile receive that same
 archive. Capture the environment mode, resolved path, SHA-256, environment
-fingerprint, and source identity from campaign state. The SR-reco profiles
-require a separate archive qualification after their shared `b0pt` bin change.
+fingerprint, and source identity from campaign state. Qualify an explicit
+archive for the intended processor and worker runtime; snapshot validation
+alone does not establish that compatibility.
 
 The wrapper validates explicit archive integrity and provenance and reuses the
 exact archive frozen in a valid resumable campaign state. When no archive is
 supplied for a fresh maintained campaign, it delegates current archive creation
-or reuse to `run_analysis.py --prepare-env-only`. The maintained profile uses chunksize
+or reuse to `run_analysis.py --prepare-env-only`. To make a new archive from a
+chosen build workspace, use the native builder:
+
+```bash
+python /absolute/path/to/topeft/analysis/topeft_run2/run_analysis.py \
+  --prepare-env-only --rebuild-env
+```
+
+The reported archive path depends on that workspace; keep its adjacent
+`.manifest.json` with the archive. The maintained profile uses chunksize
 `100000` and leaves stdout/stderr on the controlling terminal; do not add a
 `tee` collector as a substitute for native evidence paths.
 

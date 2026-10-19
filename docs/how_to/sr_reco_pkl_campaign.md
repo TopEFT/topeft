@@ -9,9 +9,11 @@ histogram; its numerical bins match `j0pt` while its key and label remain
 distinct. Fit observables around b-tag classification are a separate analysis.
 
 The supplied [default plan](../../analysis/topeft_run2/sr_reco_default_plan.json)
-contains 12 units per era. `--sr-plan /absolute/plan.json` selects another
-complete, valid initial partition. The plan has one `units` array; each unit
-has a unique snake-case `id`, `category_groups` list and `histograms` list.
+contains 12 units per profile. `--sr-plan /absolute/plan.json` selects another
+complete, valid initial partition for a fresh campaign. Its unit count depends
+on the supplied plan; it does not change the default. The plan has one `units`
+array; each unit has a unique snake-case `id`, `category_groups` list and
+`histograms` list.
 Each unit describes a category-group × histogram product. The launcher checks
 that its applicable physical category × variable coverage is exact and unique
 against the live channel registry. It derives the target size from that
@@ -21,18 +23,50 @@ the largest category × axis-bin proxy is 2,112, versus 2,684 for the
 otherwise equivalent 11-unit packing. This proxy is not a measured memory
 or output-size limit.
 
-## One root, selected units and continuation
+## Start a full Run 3 campaign with an explicit plan
 
-Use a fresh output directory for the **initial** campaign. Run 2 and Run 3
-remain distinct profile components and retain their existing shared-root
-arrangement when a combined campaign owns them. An internal plan revision
-stays inside its component's campaign root. No existing output is copied or
+Choose a complete plan that covers the current SR category-group × histogram
+target exactly once. Use an absolute path for `--sr-plan`, a fresh absolute
+output directory, and a campaign tag. From `analysis/topeft_run2`, start the
+whole plan without `--selected-fragment` or `--resume`:
+
+```bash
+./run_cr.sh --production-profile run3_sr_ext \
+  --output-dir "$campaign_dir" --campaign-tag "$campaign_tag" \
+  --sr-plan "$plan_file" --env-file "$worker_archive" \
+  --wq-staging-base "$staging_base" --wq-quota-root "$quota_root" \
+  --wq-free-warning-bytes "$warning_bytes" \
+  --wq-min-free-bytes "$minimum_free_bytes" \
+  --wq-poll-seconds "$poll_seconds"
+```
+
+Set each shell variable to the corresponding absolute path or guard value
+before running the command. The staging base must be an existing owned
+directory on a non-root filesystem, and the minimum free-space value
+must be at least 10 GB (decimal). Supply `--env-file` only when using a
+prebuilt worker archive as an explicit snapshot; its path must be absolute.
+Omit that option to resolve or create the current checkout's worker environment.
+The archive and its adjacent manifest are validated before campaign work,
+without resolving an environment request from the current checkout.
+The snapshot freezes the worker environment, while the manager runs from the
+current checkout and transfers `analysis_processor.py` separately. It does not
+freeze all runtime code or establish worker compatibility by itself.
+
+For a new worker archive, follow the native builder procedure in the
+[production guide](production.md). Inspect the resolved plan, environment
+identity, staging resources and output paths before starting production.
+
+Each SR-reco profile owns its own fresh campaign root. An internal plan
+revision stays inside that profile's existing root. No output is copied or
 adopted from another root.
+
+## Selected units and continuation
 
 A selected-unit invocation uses the complete persisted plan. For example,
 `--selected-fragment run2_sr_ext_a_1` runs one ordinary unit in the default
-Run 2 plan. A later `--resume` uses the same root and skips verified completed
-units. Run 2 and Run 3 now write the source artifact first and perform `_np`
+Run 2 plan rather than launching every unit. A later `--resume` recovers an
+existing campaign in the same root and skips verified completed units. Run 2
+and Run 3 now write the source artifact first and perform `_np`
 in a separate local child. The source child retains `--do-np` to certify the
 nonprompt product and sumw2 policy; `--defer-np` changes when postprocessing
 runs. A normal successful source child publishes a checked source receipt
@@ -48,6 +82,13 @@ and a coverage target. `campaign_summary.tsv` and `campaign_summary.md` read
 that same state. A source or `_np` PKL's existence alone is not completion
 proof. Keep the state, both sidecars, native Work Queue logs, output paths and
 command transcript together for review.
+
+After the run, inspect `.<profile>_campaign_state.json`,
+`campaign_summary.tsv`, and `campaign_summary.md` in the output directory.
+Check each planned unit's source and nonprompt status, its expected PKLs,
+adjacent sidecars, and recorded receipts. The required artifact count follows
+the persisted plan and its revisions; a shell exit or a fixed PKL count alone
+does not establish completion.
 
 When a new source or `_np` output is accepted, the native owner hashes its PKL
 bytes and checks the digest and size against its sidecar before recording a
@@ -176,8 +217,10 @@ actual advertised resources.
 Before launch, the guard requires effective available bytes strictly above the
 selected minimum, calculated as the smaller of filesystem free availability
 and group quota remaining, plus 1,000 free inodes. The minimum is at least 10
-GB (decimal). During execution it reports usable free bytes and inodes without
-scanning the staging tree. Only a valid current measurement at or below
+GB (decimal). The `Work Queue staging health` message reports available
+filesystem/quota space in bytes and free inodes, not worker RAM. During
+execution the guard reports these values without scanning the staging tree.
+Only a valid current measurement at or below
 `--wq-min-free-bytes` requests one controlled `SIGTERM` to the manager after
 its PID/start identity and owned marker are verified and the critical-space
 reason, observed bytes, threshold and timestamp are written to the marker and
@@ -192,13 +235,10 @@ valid source receipt remains valid. A failed source stops later guarded units. P
 an ambiguous state and inspect the exact process, scheduler, artifact and log
 ownership before any separate recovery decision.
 
-An explicit worker archive is a frozen snapshot, not proof of source
-compatibility. Any archive made before the `b0pt` bin change needs a fresh
-module/axis qualification and path selection before this campaign can run.
-The first manual canary also needs an isolated non-root staging mount with
-measured quota/inode/free-space budget, scheduler readiness, a conservative
-worker memory/concurrency and tree-reduction bound, and a fresh initial
-campaign namespace. An occupied campaign is resumed only after its native
+An explicit worker archive is a frozen snapshot, not proof of processor or
+worker compatibility. Qualify the archive against the intended analysis before
+production. Confirm staging capacity, scheduler readiness and worker resources
+for the selected plan. An occupied campaign is resumed only after its native
 state, receipts, staging and collision checks pass.
 
 `--dry-run` resolves commands without creating a campaign root or submitting

@@ -35,14 +35,14 @@ state to resume without confusing partial, stale, or mismatched output.
 
 | Input | Type/requirement/default | Semantics |
 | --- | --- | --- |
-| `--production-profile` | Required public profile: `run2_full`, `run3_full`, `run2_full_CR`, `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`, `run3_sr_ext`, `t0_sr_statonly`, or `t0_cr_statonly` | Selects the maintained plan. `run2_sr_ext` uses inline data-driven production; `run3_sr_ext` uses a separate local stage. |
-| `--output-dir` | Required absolute path; fresh for a new campaign root | Owns state, logs, and produced artifacts. The SR-reco Run 3 component follows successful Run 2 in the shared root established by Run 2; it does not repeat the initial root-absence gate. Existing state otherwise follows profile-specific compatibility and resume behavior. |
+| `--production-profile` | Required public profile: `run2_full`, `run3_full`, `run2_full_CR`, `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`, `run3_sr_ext`, `t0_sr_statonly`, or `t0_cr_statonly` | Selects the maintained plan. Both SR-reco extension profiles use a separate local nonprompt stage after source publication. |
+| `--output-dir` | Required absolute path; fresh for a new campaign root | Owns state, logs, and produced artifacts. Each SR-reco profile requires its own fresh root for an initial campaign. Existing state follows profile-specific resume behavior. |
 | `--campaign-tag` | Required non-empty string | Portable campaign identity recorded with state. |
 | `--env-file` | Optional absolute path | When omitted, resolves or creates the current worker environment. When supplied, selects exactly that archive as an intentional snapshot: integrity/provenance validation remains required, but current-checkout compatibility does not. The wrapper freezes the mode, resolved path, hash, fingerprint, and source identity; combined profiles forward the same explicit snapshot to both components. |
 | `--resume` | Boolean, default false | Reopens compatible campaign state and mechanically selects incomplete blocks/stages. |
 | `--dry-run` | Boolean, default false | Skips campaign-block execution, but first resolves or validates the selected current environment or explicit snapshot. It then prints the resolved plan without running campaign blocks or creating the campaign namespace. |
-| `--sr-plan` | JSON path for a fresh SR extension campaign | Supplies a complete category-group × histogram partition; omitted means the maintained 12-unit default. |
-| `--selected-fragment` | Exact SR extension unit ID | Executes one unit while persisting the full plan; later `--resume` retains verified completions. |
+| `--sr-plan` | JSON path for a fresh SR extension campaign | Supplies a complete category-group × histogram partition; omitted means the maintained 12-unit default per profile. The explicit plan determines its own unit count. |
+| `--selected-fragment` | Exact SR extension unit ID | Executes one unit while persisting the full plan; omit it to launch the full plan. Later `--resume` retains verified completions. |
 | `--activate-pending-plan`, `--expected-plan-revision` | JSON path and exact observed active revision, with `--resume` | Atomically replaces only untouched pending SR extension coverage in the same campaign root; activation submits no work. |
 
 The wrapper derives full `fullR3_run.sh` invocations, records profile/block
@@ -51,7 +51,7 @@ after the heavy processor child exits. It does not own selections, processor
 physics, bin edges, or artifact schemas. Extend a profile by changing its one
 block-plan owner and the production-profile tests; do not copy its defaults into
 another wrapper. The [SR-reco campaign guide](../how_to/sr_reco_pkl_campaign.md)
-specifies the conditional Run 2 then Run 3 operation and evidence review.
+specifies explicit-plan operation and evidence review.
 
 ### `analysis/topeft_run2/fullR3_run.sh`
 
@@ -262,8 +262,8 @@ The public production profiles are `run2_full`, `run3_full`, `run2_full_CR`,
 legacy `run2_full` alias.
 `rebin_fine` and the former `_clike` extension profiles are retired from the
 current CLI. New campaign roots require fresh output namespaces, an
-absolute output directory, and a campaign tag; the SR-reco Run 3 component
-uses the root already established by Run 2.
+absolute output directory, and a campaign tag; each SR-reco profile owns its
+own fresh campaign root.
 
 For a fresh maintained campaign, no `--env-file` means resolve or create the
 current worker environment for the checkout. An explicit absolute
