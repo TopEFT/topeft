@@ -440,7 +440,7 @@ def test_worker_rejects_descriptor_mutation(tmp_path, fake_script, fake_query):
 @pytest.mark.parametrize("binning", ["fitting", "processing"])
 @pytest.mark.parametrize("skip", [False, True])
 def test_worker_preserves_canonical_producer_options(tmp_path, fake_script, fake_query, policy, binning, skip):
-    extras = ["--year-coverage-policy", policy, "--rate-syst-json", "custom/rates.json"]
+    extras = ["--year-coverage-policy", policy, "--rate-syst-json", "custom/rates.json", "--unblind"]
     if skip:
         extras.append("--skip-missing-parton-rate-syst")
     row = make_row(tmp_path, fake_script, extra=extras)
@@ -452,6 +452,7 @@ def test_worker_preserves_canonical_producer_options(tmp_path, fake_script, fake
     parent, _, selected = runner.resolve_unit(unit)
     assert runner.resolved_argv(parent, selected) == runner.resolved_argv(data, row)
     assert selected["producer_args"] == row["producer_args"]
+    assert runner.resolved_argv(parent, selected).count("--unblind") == 1
     assert "--sr-registry" not in selected["producer_args"]
     assert "--condor" not in selected["producer_args"]
 

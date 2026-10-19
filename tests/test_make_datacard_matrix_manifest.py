@@ -78,6 +78,7 @@ def test_standard_manifest_matches_accepted_input_matrix(tmp_path, era, years):
         assert row["input_pkl"] == str(inputs[role])
         assert "sr_registry" not in row and "--sr-registry" not in row["producer_args"]
         assert row["producer_args"].count("--enable-legacy-run3-vsmu-recovery") == 0
+        assert "--unblind" not in row["producer_args"]
         assert runner.option_values(row["producer_args"], "--ch-lst") == row["physical_channels"]
         assert runner.option_values(row["producer_args"], "--year-coverage-policy") == ["error"]
         assert runner.option_values(row["producer_args"], "--binning") == ["fitting"]
@@ -139,6 +140,44 @@ def test_invalid_mva_mode_leaves_manifest_absent(tmp_path):
         generator.main(argv + ["--lepton-mva-correlation", "shared"])
     assert error.value.code == 2
     assert not (tmp_path / "matrix.json").exists()
+
+
+@pytest.mark.parametrize("era", ("run2", "run3"))
+def test_unblind_opt_in_preserves_matrix_and_other_producer_options(tmp_path, era):
+    default_root = tmp_path / "default"
+    enabled_root = tmp_path / "enabled"
+    default_root.mkdir()
+    enabled_root.mkdir()
+    default_argv, _, _ = _args(default_root, era)
+    enabled_argv, _, _ = _args(enabled_root, era)
+    other_options = [
+        "--lepton-mva-correlation", "cross-run",
+        "--enable-legacy-run3-vsmu-recovery",
+        "--suppress-nominal-like-tau-shapes",
+    ]
+    assert generator.main(default_argv + other_options) == 0
+    assert generator.main(enabled_argv + other_options + ["--unblind"]) == 0
+    default_manifest, _ = runner.load_manifest(default_root / "matrix.json")
+    enabled_manifest, _ = runner.load_manifest(enabled_root / "matrix.json")
+    default_rows = {row["row_id"]: row for row in default_manifest["rows"]}
+    enabled_rows = {row["row_id"]: row for row in enabled_manifest["rows"]}
+    assert default_rows.keys() == enabled_rows.keys()
+    assert len(enabled_rows) == {"run2": 11, "run3": 34}[era]
+    for row_id, row in enabled_rows.items():
+        default_row = default_rows[row_id]
+        assert row["physical_channels"] == default_row["physical_channels"]
+        assert row["years"] == default_row["years"]
+        assert row["distribution"] == default_row["distribution"]
+        assert row["producer_args"].count("--unblind") == 1
+        assert "--unblind" not in default_row["producer_args"]
+        assert row["producer_args"].count("--suppress-nominal-like-tau-shapes") == 1
+        assert row["producer_args"].count("--enable-legacy-run3-vsmu-recovery") == (era == "run3")
+        assert runner.option_values(row["producer_args"], "--lepton-mva-correlation") == ["cross-run"]
+        assert [arg for arg in row["producer_args"] if arg != "--unblind"] == [
+            arg.replace(str(default_root), str(enabled_root))
+            for arg in default_row["producer_args"]
+        ]
+        assert runner.resolved_argv(enabled_manifest, row).count("--unblind") == 1
 
 
 def test_v3_row_without_new_option_retains_structural_and_argv_contract(tmp_path):

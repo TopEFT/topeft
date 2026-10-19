@@ -2570,6 +2570,13 @@ class DatacardMaker():
             msg = "No sumw2 histogram found! Setting errors to 0"
             print(msg)
         ch_hist = self.binning_view(h.integrate("channel",[ch]), km_dist, ch)
+        if self.use_real_data and not any(
+            key.process == "data" for key in ch_hist.categorical_keys
+        ):
+            raise RuntimeError(
+                f"Unblinded datacard requires the data process for {km_dist}:{ch}; "
+                "check the selected input and year coverage before producing cards."
+            )
         ch_sumw2 = (
             None
             if h_sumw2 is None
