@@ -1,5 +1,6 @@
 """Inert control-flow checks for the dedicated two-unit excluded-MC launcher."""
 
+import json
 import os
 from pathlib import Path
 import shlex
@@ -9,6 +10,11 @@ import subprocess
 import time
 
 import pytest
+
+from topeft.modules.histogram_category_compatibility import (
+    PTZ_WTAU_CHANNEL_FILL,
+    find_incompatible_histograms,
+)
 
 
 repo_root = Path(__file__).resolve().parents[1]
@@ -56,7 +62,7 @@ def test_real_chain_dry_run_resolves_both_units_without_outputs(tmp_path):
     for argv, categories, histograms in zip(
         python_commands,
         (("2l", "2los_1tau"), ("3l_onZ_tau",)),
-        (("njets", "lj0pt", "ptz", "ptz_wtau", "lt"),
+        (("njets", "lj0pt", "ptz", "lt"),
          ("njets", "lj0pt", "ptz", "lt")),
     ):
         assert argv[argv.index("--hist-list") + 1:argv.index("--skip-cr")] == list(histograms)
@@ -85,6 +91,36 @@ def test_real_chain_dry_run_resolves_both_units_without_outputs(tmp_path):
     assert output.count("--wq-accumulating-cores 2") >= 2
     assert "EXCLUDED_MC_CAMPAIGN_STATUS planned_only units=2" in output
     assert not output_root.exists()
+
+
+def test_run3_a_histograms_match_live_channel_fill_rule(tmp_path):
+    result = subprocess.run(
+        [str(launcher), *plan_args(tmp_path / "never_created", tmp_path / "synthetic_env.tar.gz"), "--dry-run"],
+        capture_output=True, text=True, check=True,
+    )
+    argv = shlex.split(next(
+        line for line in result.stdout.splitlines()
+        if line.startswith("python run_analysis_excluded_mc.py ")
+    ))
+    categories = argv[argv.index("--category-groups") + 1:argv.index("--wq-manager-name")]
+    histograms = argv[argv.index("--hist-list") + 1:argv.index("--skip-cr")]
+    channel_config = json.loads(
+        (repo_root / "topeft/channels/ch_lst.json").read_text(encoding="utf-8")
+    )["ALL_CH_LST_SR"]
+    selected = {category: channel_config[category] for category in categories}
+
+    assert categories == ["2l", "2los_1tau"]
+    assert find_incompatible_histograms(histograms, selected_category_dicts=(selected,)) == ()
+    incompatible = find_incompatible_histograms(
+        ["ptz_wtau"], selected_category_dicts=(selected,)
+    )
+    assert [(item.histogram_family, item.required_capability) for item in incompatible] == [
+        ("ptz_wtau", PTZ_WTAU_CHANNEL_FILL)
+    ]
+    full_a = {category: channel_config[category] for category in (*categories, "2lss_1tau", "4l")}
+    assert find_incompatible_histograms(
+        ["ptz_wtau"], selected_category_dicts=(full_a,)
+    ) == ()
 
 
 def test_snapshot_dry_run_forwards_to_dedicated_entrypoint(tmp_path):

@@ -131,7 +131,7 @@ for index in "${!blocks[@]}"; do
   log_dir="${log_dirs[index]}"
   unit_port="${unit_ports[index]}"
   case "$unit_block" in
-    a) category_groups=(2l 2los_1tau); hist_vars=(njets lj0pt ptz ptz_wtau lt) ;;
+    a) category_groups=(2l 2los_1tau); hist_vars=(njets lj0pt ptz lt) ;;
     d) category_groups=(3l_onZ_tau); hist_vars=(njets lj0pt ptz lt) ;;
   esac
   if [[ "$run" == run2 ]]; then

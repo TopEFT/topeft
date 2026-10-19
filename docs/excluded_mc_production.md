@@ -51,9 +51,11 @@ or tag change is automatic.
 Each unit uses all four Run3 eras (2022, 2022EE, 2023, 2023BPix), 50000-event
 chunks, MC-only `processor_output`, `--do-systs`, `--all-analysis`,
 `--np-postprocess=skip`, and `--ttgamma-sample-role-policy split`. Block a selects
-`2l` and `2los_1tau` with `njets lj0pt ptz ptz_wtau lt`; block d selects
-`3l_onZ_tau` with `njets lj0pt ptz lt`. These are the matching SR `run3_full`
-histogram families for the selected category blocks. Each family requests an
+`2l` and `2los_1tau` with `njets lj0pt ptz lt`; block d selects
+`3l_onZ_tau` with `njets lj0pt ptz lt`. The wider `run3_full` a block also
+selects `2lss_1tau`, whose on-Z channels can fill `ptz_wtau`. Neither selected
+excluded-MC a category has a channel that fills that family, so omitting it
+loses no physical contribution from this slice. Each requested family has an
 explicit full-custom sumw2 companion, including `njets_sumw2`. The `_njets`
 output basename is the unchanged campaign identifier, not a histogram limit.
 Run2's deferred single-unit dry-run retains its original `njets` selection.
