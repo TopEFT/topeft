@@ -7,25 +7,24 @@ Usage: run_excluded_mc.sh --run {run2|run3} --block {a|d|all} --campaign-tag TAG
   --output-root ABS_PATH --wq-staging-base ABS_PATH --wq-quota-root ABS_PATH
   --wq-free-warning-bytes N --wq-min-free-bytes N --wq-poll-seconds N
   --env-file ABS_PATH [--snapshot] [--port PORT | --port-a PORT --port-d PORT]
-  [--expected-source-head SHA] (--dry-run | --execute)
+  (--dry-run | --execute)
 
---block all is Run3 only and executes a, then d after validated completion.
+--block all is Run3 only and executes a, then d after a returns success.
 --port is for one block; --port-a and --port-d bind the two-unit plan.
 Dry-run accepts synthetic paths and does not start production. --snapshot uses
 the explicit archive after native integrity validation in the entrypoint.
-Execute requires an existing output root, environment archive, and exact
-committed source HEAD.
+Execute requires the environment archive.
 USAGE
 }
 
 run="" block="" campaign_tag="" output_root="" port="" port_a="" port_d=""
 wq_staging_base="" wq_quota_root="" wq_free_warning_bytes=""
-wq_min_free_bytes="" wq_poll_seconds="" env_file="" expected_source_head=""
+wq_min_free_bytes="" wq_poll_seconds="" env_file=""
 manager_name_assertion="" dry_run=false execute=false snapshot=false
 
 while (($#)); do
   case "$1" in
-    --run|--block|--campaign-tag|--output-root|--port|--port-a|--port-d|--wq-staging-base|--wq-quota-root|--wq-free-warning-bytes|--wq-min-free-bytes|--wq-poll-seconds|--env-file|--expected-source-head|--manager-name)
+    --run|--block|--campaign-tag|--output-root|--port|--port-a|--port-d|--wq-staging-base|--wq-quota-root|--wq-free-warning-bytes|--wq-min-free-bytes|--wq-poll-seconds|--env-file|--manager-name)
       if (($# < 2)) || [[ -z "$2" || "$2" == --* ]]; then usage; exit 2; fi
       case "$1" in
         --run) run="$2" ;; --block) block="$2" ;; --campaign-tag) campaign_tag="$2" ;;
@@ -34,7 +33,7 @@ while (($#)); do
         --wq-staging-base) wq_staging_base="$2" ;; --wq-quota-root) wq_quota_root="$2" ;;
         --wq-free-warning-bytes) wq_free_warning_bytes="$2" ;;
         --wq-min-free-bytes) wq_min_free_bytes="$2" ;; --wq-poll-seconds) wq_poll_seconds="$2" ;;
-        --env-file) env_file="$2" ;; --expected-source-head) expected_source_head="$2" ;;
+        --env-file) env_file="$2" ;;
         --manager-name) manager_name_assertion="$2" ;;
       esac
       shift 2 ;;
@@ -88,9 +87,8 @@ else
 fi
 printf 'EXCLUDED_MC_STAGING_BASE %s\n' "$wq_staging_base"
 printf 'EXCLUDED_MC_QUOTA_ROOT %s\n' "$wq_quota_root"
-printf 'EXCLUDED_MC_SOURCE_HEAD_BINDING %s\n' "${expected_source_head:-unbound_dry_run}"
 
-declare -a manager_names=() output_pkls=() output_dirs=() log_roots=() log_dirs=() unit_logs=() unit_ports=()
+declare -a manager_names=() output_pkls=() output_dirs=() log_dirs=() unit_ports=()
 declare -A seen_managers=() seen_outputs=()
 for unit_block in "${blocks[@]}"; do
   manager_name="${campaign_tag}-${run}-block-${unit_block}"
@@ -107,10 +105,8 @@ for unit_block in "${blocks[@]}"; do
   seen_managers[$manager_name]=yes
   seen_outputs[$output_pkl]=yes
   log_dir="$output_dir/work_queue_logs/$outname/source_native"
-  log_root="$output_dir/work_queue_logs/$outname"
-  unit_log="$output_dir/$outname.runner.log"
   manager_names+=("$manager_name") output_pkls+=("$output_pkl")
-  output_dirs+=("$output_dir") log_roots+=("$log_root") log_dirs+=("$log_dir") unit_logs+=("$unit_log")
+  output_dirs+=("$output_dir") log_dirs+=("$log_dir")
   if [[ "$block" == all ]]; then
     [[ "$unit_block" == a ]] && unit_ports+=("$port_a") || unit_ports+=("$port_d")
   else
@@ -119,95 +115,13 @@ for unit_block in "${blocks[@]}"; do
 done
 
 if [[ "$execute" == true ]]; then
-  [[ "$expected_source_head" =~ ^[0-9a-f]{40}$ ]] || { echo 'Execute requires --expected-source-head SHA.' >&2; exit 2; }
-  observed_head=$(git -C "$repo_dir" rev-parse HEAD)
-  [[ "$observed_head" == "$expected_source_head" ]] || { echo 'Source HEAD mismatch.' >&2; exit 2; }
-  git -C "$repo_dir" diff --quiet HEAD -- "${cfg_path#"$repo_dir/"}" analysis/topeft_run2/run_excluded_mc.sh analysis/topeft_run2/fullR3_run_excluded_mc.sh analysis/topeft_run2/run_analysis_excluded_mc.py || { echo 'Dedicated producer has uncommitted changes.' >&2; exit 2; }
-  [[ -d "$output_root" && ! -L "$output_root" && ! -L "$output_root/$run" && -f "$env_file" && ! -L "$env_file" ]] || { echo 'Output root or environment archive is absent/unsafe.' >&2; exit 2; }
-  exec {namespace_lock_fd}< "$output_root"
-  flock -n "$namespace_lock_fd" || { echo 'Campaign output namespace is in use.' >&2; exit 2; }
-  env_sha256=$(sha256sum "$env_file"); env_sha256="${env_sha256%% *}"
-  cfg_sha256=$(sha256sum "$cfg_path"); cfg_sha256="${cfg_sha256%% *}"
+  [[ -f "$env_file" ]] || { echo 'Environment archive is absent.' >&2; exit 2; }
   for index in "${!blocks[@]}"; do
-    for target in "${output_pkls[index]}" "${output_pkls[index]}.metadata.json" "${log_roots[index]}" "${log_dirs[index]}" "${unit_logs[index]}"; do
+    for target in "${output_pkls[index]}" "${output_pkls[index]}.metadata.json"; do
       [[ ! -e "$target" && ! -L "$target" ]] || { echo "Refusing collision: $target" >&2; exit 2; }
     done
   done
 fi
-
-child_pid="" display_pid="" display_input_fd="" log_write_fd="" terminal_fd=""
-finish_display_log() {
-  local display_rc=0
-  if [[ -n "$log_write_fd" ]]; then
-    exec {log_write_fd}>&-
-    log_write_fd=""
-  fi
-  if [[ -n "$display_input_fd" ]]; then
-    exec {display_input_fd}>&-
-    display_input_fd=""
-  fi
-  if [[ -n "$display_pid" ]]; then
-    wait "$display_pid" || display_rc=$?
-    display_pid=""
-  fi
-  if [[ -n "$terminal_fd" ]]; then
-    exec {terminal_fd}>&-
-    terminal_fd=""
-  fi
-  return "$display_rc"
-}
-stop_child() {
-  if [[ -n "$child_pid" ]]; then
-    kill -TERM -- "-$child_pid" 2>/dev/null || kill -TERM "$child_pid" 2>/dev/null || true
-    wait "$child_pid" 2>/dev/null || true
-    child_pid=""
-  fi
-  finish_display_log || true
-}
-on_interrupt() {
-  printf 'EXCLUDED_MC_INTERRUPTED signal=%s active_child=%s\n' "$1" "${child_pid:-none}" >&2
-  stop_child
-  exit 130
-}
-trap 'on_interrupt INT' INT
-trap 'on_interrupt TERM' TERM
-trap 'on_interrupt HUP' HUP
-
-verify_completed_unit() {
-  local index="$1" pkl="${output_pkls[index]}" sidecar="${output_pkls[index]}.metadata.json"
-  [[ -f "$pkl" && ! -L "$pkl" && -f "$sidecar" && ! -L "$sidecar" ]] || return 1
-  local pkl_size pkl_sha current_env_sha current_cfg_sha
-  pkl_size=$(stat -c '%s' "$pkl")
-  pkl_sha=$(sha256sum "$pkl"); pkl_sha="${pkl_sha%% *}"
-  current_env_sha=$(sha256sum "$env_file"); current_env_sha="${current_env_sha%% *}"
-  current_cfg_sha=$(sha256sum "$cfg_path"); current_cfg_sha="${current_cfg_sha%% *}"
-  [[ "$current_env_sha" == "$env_sha256" && "$current_cfg_sha" == "$cfg_sha256" ]] || return 1
-  [[ "$(git -C "$repo_dir" rev-parse HEAD)" == "$expected_source_head" ]] || return 1
-  jq -e --arg basename "${pkl##*/}" --arg sha "$pkl_sha" --argjson size "$pkl_size" \
-    --arg cfg_basename "${cfg_path##*/}" --arg cfg_sha "$cfg_sha256" '
-    .metadata_schema_version == 2 and
-    .artifact.pkl_basename == $basename and .artifact.pkl_sha256 == $sha and
-    .artifact.pkl_size_bytes == $size and .artifact.artifact_kind == "processor_output" and
-    .artifact.merged == false and .artifact.nominal_container_schema_version == 2 and
-    .artifact.nominal_container_layout == "split_sibling_v1" and
-    (.lineage.inputs == []) and (.sumw2_content_manifest != null) and
-    (.histogram_applicability != null) and
-    .production_sample_contract.wrapper_identity == "fullR3_run_excluded_mc.sh" and
-    .production_sample_contract.contract_version == 1 and
-    .production_sample_contract.compatibility_validated == true and
-    (.production_sample_contract.contract_identity_sha256 | type) == "string" and
-    .production_sample_contract.cfg_identities == [{"basename":$cfg_basename,"content_sha256":$cfg_sha,"input_kind":"cfg"}] and
-    .sumw2_storage_provenance.requested_mode == "full_custom" and
-    .sumw2_storage_provenance.resolved_mode == "full_custom" and
-    .sumw2_storage_provenance.runtime_histogram_families == ["njets"] and
-    (.sumw2_storage_provenance.resolved_datasets | length) > 0 and
-    (.sumw2_storage_provenance.resolved_targets | length) == (.sumw2_storage_provenance.resolved_datasets | length) and
-    .requested_data_driven_products.products.nonprompt.enabled == false and
-    .requested_data_driven_products.products.flips.enabled == false and
-    .resolved_data_driven_contract.products.nonprompt.enabled == false and
-    .resolved_data_driven_contract.products.flips.enabled == false
-  ' "$sidecar" >/dev/null
-}
 
 for index in "${!blocks[@]}"; do
   unit_block="${blocks[index]}"
@@ -215,7 +129,6 @@ for index in "${!blocks[@]}"; do
   output_dir="${output_dirs[index]}"
   output_pkl="${output_pkls[index]}"
   log_dir="${log_dirs[index]}"
-  unit_log="${unit_logs[index]}"
   unit_port="${unit_ports[index]}"
   case "$unit_block" in a) category_groups=(2l 2los_1tau) ;; d) category_groups=(3l_onZ_tau) ;; esac
   outname="excluded_mc_${run}_block_${unit_block}_njets"
@@ -245,37 +158,17 @@ for index in "${!blocks[@]}"; do
     (cd "$script_dir" && "${command[@]}" --dry-run)
     continue
   fi
-  for target in "$output_pkl" "$output_pkl.metadata.json" "${log_roots[index]}" "$log_dir" "$unit_log"; do
+  for target in "$output_pkl" "$output_pkl.metadata.json"; do
     [[ ! -e "$target" && ! -L "$target" ]] || { echo "Refusing fresh collision: $target" >&2; exit 1; }
   done
-  command -v ss >/dev/null || { echo 'Port inspection command ss is absent.' >&2; exit 1; }
-  if ss -H -ltn "sport = :$unit_port" | grep -q .; then
-    echo "Port is already listening: $unit_port" >&2; exit 1
-  fi
   mkdir -p "$output_dir"
-  (set -C; : > "$unit_log") || { echo "Runner log collision: $unit_log" >&2; exit 1; }
-  printf 'source_head=%s env_sha256=%s cfg_sha256=%s manager=%s argv=' "$observed_head" "$env_sha256" "$cfg_sha256" "$manager_name" >> "$unit_log"
-  printf '%q ' "${command[@]}" >> "$unit_log"
-  printf '\nstart_utc=%s\n' "$(date -u +%FT%TZ)" >> "$unit_log"
-  # The source child keeps its own process group and wait status. A separate
-  # tee drains its combined output to the caller and the durable runner log.
-  exec {terminal_fd}>&1
-  coproc display_log { tee -a "$unit_log" >&"$terminal_fd"; }
-  display_pid=$display_log_PID
-  display_input_fd=${display_log[1]}
-  exec {log_write_fd}>&"$display_input_fd"
-  (cd "$script_dir" && exec setsid --wait "${command[@]}") >&"$log_write_fd" 2>&1 &
-  child_pid=$!
-  child_rc=0
-  wait "$child_pid" || child_rc=$?
-  child_pid=""
-  display_rc=0
-  finish_display_log || display_rc=$?
-  printf 'end_utc=%s rc=%s\n' "$(date -u +%FT%TZ)" "$child_rc" >> "$unit_log"
+  # Like run_cr.sh, the foreground child inherits both terminal streams.
+  if (cd "$script_dir" && "${command[@]}"); then
+    child_rc=0
+  else
+    child_rc=$?
+  fi
   [[ "$child_rc" == 0 ]] || { echo "Unit $unit_block failed with rc $child_rc; later units were not started." >&2; exit "$child_rc"; }
-  [[ "$display_rc" == 0 ]] || { echo "Unit $unit_block display/logging failed with rc $display_rc; later units were not started." >&2; exit "$display_rc"; }
-  verify_completed_unit "$index" || { echo "Unit $unit_block has no validated terminal artifact pair; later units were not started." >&2; exit 1; }
-  printf 'validated_pkl_sha256=%s validated_sidecar_sha256=%s status=complete\n' "$(sha256sum "$output_pkl" | cut -d ' ' -f 1)" "$(sha256sum "$output_pkl.metadata.json" | cut -d ' ' -f 1)" >> "$unit_log"
 done
 if [[ "$dry_run" == true ]]; then
   printf 'EXCLUDED_MC_CAMPAIGN_STATUS planned_only units=%s\n' "${#blocks[@]}"

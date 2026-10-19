@@ -1,6 +1,5 @@
 """Inert control-flow checks for the dedicated two-unit excluded-MC launcher."""
 
-import fcntl
 import os
 from pathlib import Path
 import shutil
@@ -105,33 +104,10 @@ printf 'producer-stderr:%s\n' "$outname" >&2
 if [[ "${EXCLUDED_MOCK_BEHAVIOR:-success}" == fail_a && "$outname" == *block_a* ]]; then exit 7; fi
 if [[ "${EXCLUDED_MOCK_BEHAVIOR:-success}" == missing_a && "$outname" == *block_a* ]]; then exit 0; fi
 if [[ "${EXCLUDED_MOCK_BEHAVIOR:-success}" == sleep_a && "$outname" == *block_a* ]]; then
-  sleep 30 &
-  printf 'sleep_pid:%s\n' "$!" >> "$EXCLUDED_MOCK_TRACE"
-  wait
+  sleep 30
 fi
-mkdir -p "$outdir"
-pkl="$outdir/$outname.pkl.gz"
-printf 'inert-pkl:%s\n' "$outname" > "$pkl"
-size=$(stat -c '%s' "$pkl")
-sha=$(sha256sum "$pkl"); sha="${sha%% *}"
-cfg_sha=$(sha256sum "$cfg"); cfg_sha="${cfg_sha%% *}"
-if [[ "${EXCLUDED_MOCK_BEHAVIOR:-success}" == wrong_a && "$outname" == *block_a* ]]; then sha=0000000000000000000000000000000000000000000000000000000000000000; fi
-jq -n --arg basename "${pkl##*/}" --arg sha "$sha" --argjson size "$size" \
-  --arg cfg_basename "${cfg##*/}" --arg cfg_sha "$cfg_sha" '
-  {metadata_schema_version:2,
-   artifact:{pkl_basename:$basename,pkl_sha256:$sha,pkl_size_bytes:$size,artifact_kind:"processor_output",merged:false,nominal_container_schema_version:2,nominal_container_layout:"split_sibling_v1"},
-   lineage:{inputs:[]},sumw2_content_manifest:{synthetic:true},histogram_applicability:{synthetic:true},
-   production_sample_contract:{contract_version:1,compatibility_validated:true,contract_identity_sha256:"synthetic",wrapper_identity:"fullR3_run_excluded_mc.sh",cfg_identities:[{basename:$cfg_basename,content_sha256:$cfg_sha,input_kind:"cfg"}]},
-   sumw2_storage_provenance:{requested_mode:"full_custom",resolved_mode:"full_custom",runtime_histogram_families:["njets"],resolved_datasets:["inert"],resolved_targets:["inert"]},
-   requested_data_driven_products:{products:{nonprompt:{enabled:false},flips:{enabled:false}}},
-   resolved_data_driven_contract:{products:{nonprompt:{enabled:false},flips:{enabled:false}}}}
-' > "$pkl.metadata.json"
 printf 'end:%s:%s\n' "$outname" "$manager" >> "$EXCLUDED_MOCK_TRACE"
 '''
-
-
-def git(repo, *args):
-    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True).stdout.strip()
 
 
 def inert_checkout(tmp_path):
@@ -147,15 +123,12 @@ def inert_checkout(tmp_path):
     runner.chmod(0o755)
     (analysis / "run_analysis_excluded_mc.py").write_text("# inert test marker\n")
     (cfg_dir / "excluded_mc_run3_sr.cfg").write_text("# inert synthetic CFG; no production samples\n")
-    git(repo, "init", "-q")
-    git(repo, "add", "analysis/topeft_run2/run_excluded_mc.sh", "analysis/topeft_run2/fullR3_run_excluded_mc.sh", "analysis/topeft_run2/run_analysis_excluded_mc.py", "input_samples/cfgs/excluded_mc_run3_sr.cfg")
-    subprocess.run(["git", "-C", str(repo), "-c", "user.name=Inert Test", "-c", "user.email=inert@example.invalid", "commit", "-qm", "Inert fixture"], check=True)
     output_root = tmp_path / "synthetic_output"
     output_root.mkdir()
     env_file = tmp_path / "synthetic_env.tar.gz"
     env_file.write_text("inert archive marker")
     trace = tmp_path / "mock_trace.txt"
-    return copied_launcher, output_root, env_file, trace, git(repo, "rev-parse", "HEAD")
+    return copied_launcher, output_root, env_file, trace
 
 
 @pytest.mark.parametrize(
@@ -163,14 +136,13 @@ def inert_checkout(tmp_path):
     [
         ("success", True, 2),
         ("fail_a", False, 1),
-        ("missing_a", False, 1),
-        ("wrong_a", False, 1),
+        ("missing_a", True, 2),
     ],
 )
 @pytest.mark.parametrize("snapshot", [False, True])
 def test_inert_execute_waits_and_gates_next_unit(tmp_path, behavior, expected_success, expected_starts, snapshot):
-    copied_launcher, output_root, env_file, trace, head = inert_checkout(tmp_path)
-    command = [str(copied_launcher), *plan_args(output_root, env_file), "--expected-source-head", head, "--execute"]
+    copied_launcher, output_root, env_file, trace = inert_checkout(tmp_path)
+    command = [str(copied_launcher), *plan_args(output_root, env_file), "--execute"]
     if snapshot:
         command.append("--snapshot")
     result = subprocess.run(command, capture_output=True, text=True, env={**os.environ, "EXCLUDED_MOCK_TRACE": str(trace), "EXCLUDED_MOCK_BEHAVIOR": behavior})
@@ -179,82 +151,45 @@ def test_inert_execute_waits_and_gates_next_unit(tmp_path, behavior, expected_su
     assert len(starts) == expected_starts
     assert starts[0].endswith(manager_a)
     assert ("EXCLUDED_MC_ENV_MODE explicit_snapshot" if snapshot else "EXCLUDED_MC_ENV_MODE current_source") in result.stdout
-    log_a = (output_root / "run3/excluded_mc_run3_block_a_njets.runner.log").read_text()
     assert "producer-stdout:excluded_mc_run3_block_a_njets" in result.stdout
-    assert "producer-stderr:excluded_mc_run3_block_a_njets" in result.stdout
-    assert "producer-stdout:excluded_mc_run3_block_a_njets" in log_a
-    assert "producer-stderr:excluded_mc_run3_block_a_njets" in log_a
+    assert "producer-stderr:excluded_mc_run3_block_a_njets" in result.stderr
+    assert not list(output_root.rglob("*.runner.log"))
     if expected_success:
         assert starts[1].endswith(manager_d)
         lines = trace.read_text().splitlines()
-        assert lines.index(f"end:excluded_mc_run3_block_a_njets:{manager_a}") < lines.index(f"start:excluded_mc_run3_block_d_njets:{manager_d}")
+        if behavior == "success":
+            assert lines.index(f"end:excluded_mc_run3_block_a_njets:{manager_a}") < lines.index(f"start:excluded_mc_run3_block_d_njets:{manager_d}")
+        else:
+            assert not any(line.startswith("end:excluded_mc_run3_block_a_njets") for line in lines)
         assert "EXCLUDED_MC_CAMPAIGN_STATUS complete units=2" in result.stdout
-        log_d = (output_root / "run3/excluded_mc_run3_block_d_njets.runner.log").read_text()
         assert result.stdout.index("producer-stdout:excluded_mc_run3_block_a_njets") < result.stdout.index("producer-stdout:excluded_mc_run3_block_d_njets")
-        assert "producer-stdout:excluded_mc_run3_block_d_njets" in log_d
-        assert "producer-stderr:excluded_mc_run3_block_d_njets" in log_d
+        assert "producer-stderr:excluded_mc_run3_block_d_njets" in result.stderr
     else:
         assert not any(manager_d in line for line in starts)
         assert "EXCLUDED_MC_CAMPAIGN_STATUS complete" not in result.stdout
         if behavior == "fail_a":
             assert result.returncode == 7
-            assert "rc=7" in log_a
-
-
-def test_inert_display_failure_blocks_d_after_successful_child(tmp_path):
-    copied_launcher, output_root, env_file, trace, head = inert_checkout(tmp_path)
-    bin_dir = tmp_path / "mock_bin"
-    bin_dir.mkdir()
-    tee = bin_dir / "tee"
-    tee.write_text("#!/usr/bin/env bash\ncat >/dev/null\nexit 9\n")
-    tee.chmod(0o755)
-    result = subprocess.run(
-        [str(copied_launcher), *plan_args(output_root, env_file), "--expected-source-head", head, "--execute"],
-        capture_output=True, text=True,
-        env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "EXCLUDED_MOCK_TRACE": str(trace)},
-    )
-    assert result.returncode == 9
-    assert "display/logging failed with rc 9" in result.stderr
-    assert "rc=0" in (output_root / "run3/excluded_mc_run3_block_a_njets.runner.log").read_text()
-    assert manager_d not in trace.read_text()
-    assert "EXCLUDED_MC_CAMPAIGN_STATUS complete" not in result.stdout
 
 
 def test_inert_execute_refuses_namespace_output_collision(tmp_path):
-    copied_launcher, output_root, env_file, trace, head = inert_checkout(tmp_path)
+    copied_launcher, output_root, env_file, trace = inert_checkout(tmp_path)
     existing = output_root / "run3/excluded_mc_run3_block_d_njets.pkl.gz"
     existing.parent.mkdir()
     existing.write_text("foreign prior output")
-    result = subprocess.run([str(copied_launcher), *plan_args(output_root, env_file), "--expected-source-head", head, "--execute"], capture_output=True, text=True)
+    result = subprocess.run([str(copied_launcher), *plan_args(output_root, env_file), "--execute"], capture_output=True, text=True)
     assert result.returncode != 0
     assert "Refusing collision" in result.stderr
     assert not trace.exists()
     assert existing.read_text() == "foreign prior output"
 
 
-def test_inert_execute_refuses_held_namespace_lock(tmp_path):
-    copied_launcher, output_root, env_file, trace, head = inert_checkout(tmp_path)
-    lock_fd = os.open(output_root, os.O_RDONLY)
-    try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        result = subprocess.run(
-            [str(copied_launcher), *plan_args(output_root, env_file), "--expected-source-head", head, "--execute"],
-            capture_output=True, text=True,
-        )
-    finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        os.close(lock_fd)
-    assert result.returncode != 0
-    assert "namespace is in use" in result.stderr
-    assert not trace.exists()
-
-
 def test_inert_interruption_stops_child_and_never_starts_d(tmp_path):
-    copied_launcher, output_root, env_file, trace, head = inert_checkout(tmp_path)
-    command = [str(copied_launcher), *plan_args(output_root, env_file), "--expected-source-head", head, "--execute"]
+    copied_launcher, output_root, env_file, trace = inert_checkout(tmp_path)
+    command = [str(copied_launcher), *plan_args(output_root, env_file), "--execute"]
     process = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
         env={**os.environ, "EXCLUDED_MOCK_TRACE": str(trace), "EXCLUDED_MOCK_BEHAVIOR": "sleep_a"},
+        start_new_session=True,
     )
     try:
         for _ in range(100):
@@ -263,19 +198,22 @@ def test_inert_interruption_stops_child_and_never_starts_d(tmp_path):
             time.sleep(0.02)
         else:
             pytest.fail("Inert first child did not start")
-        child_pid = int(next(line.split(":", 1)[1] for line in trace.read_text().splitlines() if line.startswith("sleep_pid:")))
-        process.send_signal(signal.SIGINT)
+        os.killpg(process.pid, signal.SIGINT)
         stdout, stderr = process.communicate(timeout=5)
     finally:
         if process.poll() is None:
             process.kill()
             process.communicate()
     assert process.returncode != 0
-    assert "EXCLUDED_MC_INTERRUPTED" in stderr
-    with pytest.raises(ProcessLookupError):
-        os.kill(child_pid, 0)
+    assert "EXCLUDED_MC_INTERRUPTED" not in stderr
     assert manager_d not in trace.read_text()
     assert "EXCLUDED_MC_CAMPAIGN_STATUS complete" not in stdout
+
+
+def test_launcher_has_no_extra_execution_guards_or_obsolete_flag():
+    source = launcher.read_text()
+    for obsolete in ("--expected-source-head", "coproc", "tee -a", "setsid", "flock", "ss -H", "verify_completed_unit", ".runner.log"):
+        assert obsolete not in source
 
 
 def test_all_block_plan_rejects_run2(tmp_path):

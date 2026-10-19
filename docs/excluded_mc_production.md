@@ -17,7 +17,7 @@ available in the active CR inputs.
 
 ## Interface
 
-Use `--run run3 --block all` for the guarded a-then-d campaign. `--block a`
+Use `--run run3 --block all` for the a-then-d campaign. `--block a`
 and `--block d` select one unit; these single-unit forms also resolve Run2,
 but the current campaign does not run Run2. The required options are
 `--campaign-tag`, `--output-root`, `--env-file`, `--wq-staging-base`,
@@ -37,23 +37,16 @@ validate a synthetic archive.
 
 The tarball snapshots the worker environment. The manager entrypoint and its
 imports still come from the active checkout, and Work Queue separately receives
-`analysis_processor.py` from that checkout as an extra input file. The live
-source-HEAD and dedicated clean-path guards limit some checkout drift, but do
-not prove every loaded source byte matches the archive. A complete source
-freeze would be a separate feature for both campaign styles; it is not needed
-for environment-snapshot launcher parity.
+`analysis_processor.py` from that checkout as an extra input file.
 
 Select exactly one of `--dry-run` and `--execute`. Help or missing mode is
 nonexecuting. Dry-run resolves both units through the actual dedicated wrapper
 and prints each final Python command without making output or starting a
 manager. Synthetic dry-run arguments are for interface tests only. Execute
-also requires `--expected-source-head` equal to the committed topeft HEAD,
-an existing output root, and an existing environment archive. It checks the
-dedicated source and CFG for uncommitted changes, hashes the CFG and archive,
-holds an invocation-scoped lock on the output root, and refuses pre-existing
-PKLs, sidecars, logs, or log directories. It rechecks each unit's output and
-listening port before launch. No overwrite, retry, resume, or tag change is
-automatic.
+requires an existing environment archive. It refuses pre-existing PKLs and
+sidecars and rechecks each unit's output paths before launch. The native
+producer refuses existing Work Queue log files. No overwrite, retry, resume,
+or tag change is automatic.
 
 Each unit uses all four Run3 eras (2022, 2022EE, 2023, 2023BPix), 50000-event
 chunks, `njets` with explicit full-custom `njets_sumw2`, MC-only
@@ -63,18 +56,12 @@ block d selects `3l_onZ_tau`. Work Queue requests one processing core and
 32000 MB plus two accumulating cores. These are task requests, not worker
 factory sizing or available-capacity findings.
 
-The producer's stdout and stderr stream live to the invoking terminal and to
-the per-unit runner log through `tee`. The launcher waits for both the source
-child and the log writer, and records the source child's own return code. A
-display or log write failure blocks the next unit even if the source succeeds.
-The parent advances only after rc
-zero and a newly published PKL/sidecar pair with matching hash, size, CFG
-identity, wrapper identity, `njets` sumw2 policy, and disabled data-driven
-products. The environment and CFG hashes and source HEAD must remain stable.
-Its per-unit runner log records argv, manager identity, start/end times, rc,
-and artifact digests. A caught INT, TERM or HUP targets the active child
-process group. Forced termination or host loss is not covered; partial
-products remain evidence and block a new launch under the same namespace.
+The foreground producer inherits stdout and stderr directly from the invoking
+terminal, as in `run_cr.sh`. The launcher waits for its native return code and
+starts d only if a returns zero. There is no display helper or runner log.
+The native producer owns PKL and sidecar creation, archive validation, Work
+Queue staging, and native logs. A terminal Ctrl-C reaches the foreground
+process group as it does for `run_cr.sh`; partial products remain for review.
 
 ## Immediate Run3 campaign identity
 
@@ -83,13 +70,15 @@ The planned tag is
 `top26006-excludedmc-cross-era-njets-20261018-001-run3-block-a` and
 `top26006-excludedmc-cross-era-njets-20261018-001-run3-block-d`; the selector
 is `^top26006-excludedmc-cross-era-njets-20261018-001-run3-block-(a|d)$`.
-Names are planned, not reserved or active.
+These are the identities for the owner-run replacement of the interrupted
+attempt. Lane HTCondor's existing factory selector matches these two names.
 
 The prospective output root is
 `/groups/klannon/apiccine/top26006_excluded_mc_njets_corrected_20261018_run3_001/`.
-Its absence, capacity, environment binding, staging/quota paths, free-space
-thresholds, ports, source commit, and worker readiness require fresh later
-production preflight. The prior
+The aborted output root and exact old Run3/a staging directory were removed
+after bounded ownership and process checks. Capacity, environment binding,
+staging/quota paths, free-space thresholds, ports, and worker readiness require
+fresh production preflight. The prior
 `top26006_excluded_mc_ul18_njets_probe_001/cross_era` products are immutable
 historical evidence and are not part of this corrected campaign.
 
@@ -97,7 +86,5 @@ The existing archive and adjacent manifest currently reside under
 `/groups/klannon/apiccine/top26006_excluded_mc_env_build_20261019_001/topeft-envs/`.
 The desired `analysis/topeft_run2/topeft-envs/` location is a separate storage
 follow-up. Neither archive nor manifest was moved for this launcher change.
-Before the owner runs the campaign manually from `analysis/topeft_run2` in the
-active Conda environment, check resources, output namespace and collisions, and
-read back the current source HEAD for `--expected-source-head`. Lane HTCondor
-owns its worker factory.
+The owner runs the campaign manually from `analysis/topeft_run2` in the active
+Conda environment. Lane HTCondor owns its worker factory.
