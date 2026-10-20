@@ -85,7 +85,8 @@ axis definition.
 
 - `CR_CHAN_DICT` and `SR_CHAN_DICT` map displayed category names to histogram
   channel labels;
-- `CR_GRP_MAP` and `SR_GRP_MAP` group raw processes for stacked plots;
+- `CR_GRP_MAP` and `SR_GRP_MAP` group raw processes for stacked plots; SR
+  groups are flat display ownership only;
 - `REGION_PLOTTING` owns region transformations, removals, opt-in skips, and
   blinding mechanics;
 - `STACKED_RATIO_STYLE` owns figure, axis, tick, and legend presentation.
@@ -114,9 +115,49 @@ When adding or changing a plotting category:
    use the corresponding channel tests.
 
 An axis or binning change instead belongs to `axes.py` and must keep nominal,
-sumw2, and any EFT payloads aligned. A new process group can change displayed
-yields and uncertainty bands but not the source PKL; a new physical channel or
+sumw2, and any EFT payloads aligned. A new SR display group can change the
+stack and legend but not the signed total or nuisance response; a new physical channel or
 processing family usually starts upstream and may require new artifacts.
+
+## Select the SR njets wave in Python
+
+The maintained programmatic route is `run_with_args(args, parser,
+channel_allowlist=...)`. It accepts configured `SR_CHAN_DICT` base names or
+their aliases, validates unknown names, limits the njets loader to the selected
+physical channels, and filters the rendered category map. Omit the keyword for
+the normal complete SR selection. It requires `--sr --variables njets`; there
+is no channel allowlist CLI option. For example, after importing
+`analysis.topeft_run2.make_cr_and_sr_plots as plotter`:
+
+```python
+wave_one = (
+    "2lss_4t_m", "2lss_4t_p", "2lss_m", "2lss_p",
+    "2lss_fwd_m", "2lss_fwd_p", "2los_onZ_1tau",
+    "3l_1tau_1b", "3l_1tau_2b", "3l_onZ_1b", "3l_onZ_2b",
+)
+parser = plotter.build_arg_parser()
+args = parser.parse_args([
+    "--sr", "--variables", "njets", "-y", "2022", "-f", input_pkl,
+    "-o", output_parent, "-n", "wave1_run3_2022",
+])
+plotter.run_with_args(args, parser, channel_allowlist=wave_one)
+```
+
+Supply the coherent baseline and auxiliary PKLs with repeated `-f`, and use a
+fresh output root under `topeft/histos/` separated by wave, Run, and period.
+For combined Run 2 select UL16APV, UL16, UL17 and UL18; for combined Run 3
+select 2022, 2022EE, 2023 and 2023BPix. Each separate view selects one
+period. Source-period filtering applies before aggregation. The existing Run 2
+auxiliary PKLs under
+`/groups/klannon/apiccine/top26006_excluded_mc_ul18_njets_probe_001/cross_era/run2`
+declare only njets nominal and sumw2 content; their measured shape coverage
+must be checked before a total-uncertainty render. The baseline Run 2 and Run
+3 inputs are under `/groups/klannon/apiccine/t0_sr_full_260915_79b0b07b/`.
+The corrected Run 3 auxiliary inputs are under
+`/groups/klannon/apiccine/top26006_excluded_mc_njets_corrected_20261018_run3_001/run3/`.
+Check the associated sidecars and [histogram artifact contract](../reference/histogram_artifacts.md)
+for exact input identities. The 11 selected families have five views per Run;
+the remaining 23 families per Run are a later wave.
 
 Histogram processing/fitting edges belong to `topeft/modules/axes.py`, not the
 plot metadata. See [change binning](flexible_binning.md). Exact plotting

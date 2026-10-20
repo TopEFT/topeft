@@ -443,12 +443,11 @@ def test_sr_ttbar_draw_partition_keeps_correlated_rate_and_shape_inputs(monkeypa
     )
     assert set(details_before["valid_bases"]) == {"renorm", "fact"}
 
-    draw_view = make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+    draw_view = make_cr_and_sr_plots._resolve_sr_signed_display_view(
         hist_obj.integrate("systematic", "nominal"),
-        original_group_map, ["2016"],
+        {"ttbar": [ttbar], "ttll": [remainder]},
     )
-    assert draw_view["ttbar_members"] == (ttbar,)
-    assert draw_view["remainder_members"] == (remainder,)
+    assert draw_view is None  # Positive groups need no signed fallback.
     assert original_group_map == make_cr_and_sr_plots.SR_GRP_MAP
     rate_after = make_cr_and_sr_plots.get_rate_syst_arrs(
         hist_obj, original_group_map, group_type="SR"
@@ -459,6 +458,16 @@ def test_sr_ttbar_draw_partition_keeps_correlated_rate_and_shape_inputs(monkeypa
     assert details_after == details_before
     for before, after in zip(rate_before + shape_before, rate_after + shape_after):
         np.testing.assert_allclose(before, after)
+
+
+def test_sr_non_njets_special_card_rates_fail_closed():
+    hist_obj = _make_process_sparse_hist({
+        "WZTo3LNu_central2022": {"nominal": 10.0},
+    })
+    with pytest.raises(ValueError, match="channel/jet-specific diboson_njets"):
+        make_cr_and_sr_plots.get_rate_syst_arrs(
+            hist_obj, {}, group_type="SR", variable="lj0pt",
+        )
 
 
 def test_metadata_skipped_group_is_not_reintroduced_for_systematics(monkeypatch):

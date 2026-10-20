@@ -54,6 +54,14 @@ from topeft.modules.datacard_tools import (
     _reject_cross_run_histogram_composition,
     load_and_merge_histogram_pkls,
 )
+from topeft.modules.plot_uncertainty_contract import (
+    card_process_name as _sr_card_process_name,
+    rate_responses as _sr_rate_responses,
+    shape_nuisance_name as _sr_shape_nuisance_name,
+    luminosity_responses as _sr_luminosity_responses,
+    combine_responses as _sr_combine_responses,
+    is_excluded_auxiliary as _sr_is_excluded_auxiliary,
+)
 from topeft.modules.histogram_artifact import (
     metadata_sidecar_path,
     read_histogram_sidecar,
@@ -844,16 +852,9 @@ CHANNEL_REFERENCE_MAP = {**CR_CHAN_DICT, **SR_CHAN_DICT}
 CR_GROUP_INFO = _META.get("CR_GRP_MAP", {})
 SR_GROUP_INFO = _META.get("SR_GRP_MAP", {})
 CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
-SR_GRP_PATTERNS = {
-    k: [*v.get("patterns", []), *(
-        {"exact": name}
-        for name in v.get("display_split", {}).get("fully_hadronic_processes", [])
-    )]
-    for k, v in SR_GROUP_INFO.items()
-}
+SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
 CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
 SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
-SR_SIGNAL_GROUP_KEYS = {"ttH", "ttlnu", "ttll", "tXq", "tttt"}
 SIGNAL_WC_MATCHES = ("ttH", "tllq", "ttlnu", "ttll", "tHq", "tttt")
 CR_KNOWN_CHANNELS = set(_CR_CHANNEL_NAMESPACE["leaf_to_base"].keys())
 SR_KNOWN_CHANNELS = set(_SR_CHANNEL_NAMESPACE["leaf_to_base"].keys())
@@ -3610,6 +3611,7 @@ def _render_variable_category(
                     region_ctx.group_map,
                     group_type=region_ctx.name,
                     rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                    variable=var_name,
                 )
                 rate_calc_ok = True
             except Exception as exc:
@@ -3663,7 +3665,7 @@ def _render_variable_category(
                 )
 
             if rate_calc_ok and shape_calc_ok:
-                if var_name == "njets":
+                if var_name == "njets" and region_ctx.name.upper() == "CR":
                     diboson_samples = region_ctx.group_map.get("Diboson", [])
                     diboson_samples, _ = filter_existing_processes(
                         diboson_samples, _process_axis_labels(hist_mc_integrated)
@@ -3805,8 +3807,8 @@ def _render_variable_category(
                 "uncertainty_mode": uncertainty_mode,
                 "diagnostic_context": plot_diagnostic_context,
             }
-            if region_ctx.name.upper() == "SR" and "display_split" in SR_GROUP_INFO.get("ttll", {}):
-                stacked_kwargs["sr_ttbar_display_years"] = region_ctx.years or ()
+            if region_ctx.name.upper() == "SR":
+                stacked_kwargs["sr_flat_display"] = True
             rebin_report = _prepare_plot_rebin_and_negative_rows(
                 variable=var_name,
                 hist_mc=hist_mc_integrated,
@@ -3981,6 +3983,7 @@ def _render_variable_category(
                     region_ctx.group_map,
                     group_type=region_ctx.name,
                     rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                    variable=var_name,
                 )
                 rate_calc_ok = True
             except Exception as exc:
@@ -4034,7 +4037,7 @@ def _render_variable_category(
                 )
 
             if rate_calc_ok and shape_calc_ok:
-                if var_name == "njets":
+                if var_name == "njets" and region_ctx.name.upper() == "CR":
                     diboson_samples, _ = filter_existing_processes(
                         region_ctx.group_map.get("Diboson", []),
                         _process_axis_labels(hist_mc_channel),
@@ -4134,8 +4137,8 @@ def _render_variable_category(
             "uncertainty_mode": uncertainty_mode,
             "diagnostic_context": plot_diagnostic_context,
         }
-        if region_ctx.name.upper() == "SR" and "display_split" in SR_GROUP_INFO.get("ttll", {}):
-            stacked_kwargs["sr_ttbar_display_years"] = region_ctx.years or ()
+        if region_ctx.name.upper() == "SR":
+            stacked_kwargs["sr_flat_display"] = True
         rebin_report = _prepare_plot_rebin_and_negative_rows(
             variable=var_name,
             hist_mc=hist_mc_integrated,
@@ -4492,13 +4495,13 @@ def validate_channel_group(
             f"Subgroup '{subgroup}'{region_str}{var_str} references channels not found in the subgroup-local channel selection: {sorted(stray_channels)}."
         )
 
-def populate_group_map(samples, pattern_map):
+def populate_group_map(samples, pattern_map, *, require_unique=False):
     out = OrderedDict((k, []) for k in pattern_map)
     unmatched = []
 
     for proc_name in samples:
         canonical_name = tc_utils.canonicalize_process_name(proc_name)
-        matched = False
+        matches = []
         for grp, patterns in pattern_map.items():
             for pat in patterns:
                 if isinstance(pat, dict):
@@ -4508,12 +4511,15 @@ def populate_group_map(samples, pattern_map):
                 else:
                     pattern_matches = pat in canonical_name or pat in proc_name
                 if pattern_matches:
-                    out[grp].append(proc_name)
-                    matched = True
+                    matches.append(grp)
                     break
-            if matched:
-                break
-        if not matched:
+        if require_unique and len(matches) != 1:
+            raise ValueError(
+                f"Process {proc_name!r} has {len(matches)} SR display owners: {matches!r}"
+            )
+        if matches:
+            out[matches[0]].append(proc_name)
+        else:
             unmatched.append(proc_name)
 
     if unmatched:
@@ -4525,110 +4531,33 @@ def populate_group_map(samples, pattern_map):
     return out
 
 
-def _resolve_sr_ttbar_display_view(hist_mc, group_map, year_tokens):
-    """Partition only original ttll members for drawing, retaining science groups."""
-
-    split_config = SR_GROUP_INFO.get("ttll", {}).get("display_split")
-    if not isinstance(split_config, dict) or any(
-        not isinstance(split_config.get(key), str) or not split_config[key].strip()
-        for key in ("ttbar_group", "ttbar_label", "remainder_label")
-    ):
-        raise ValueError("SR ttll display_split requires ttbar_group and two nonempty labels")
-    ttbar_group = split_config["ttbar_group"]
-    ttbar_label = split_config["ttbar_label"]
-    remainder_label = split_config["remainder_label"]
-    fully_hadronic_label = split_config.get("fully_hadronic_label")
-    fully_hadronic_color = split_config.get("fully_hadronic_color")
-    fully_hadronic_processes = split_config.get("fully_hadronic_processes", ())
-    if any(key in split_config for key in (
-        "fully_hadronic_label", "fully_hadronic_color", "fully_hadronic_processes"
-    )) and (
-        not isinstance(fully_hadronic_label, str) or not fully_hadronic_label.strip()
-        or not isinstance(fully_hadronic_color, str) or not fully_hadronic_color.strip()
-        or not isinstance(fully_hadronic_processes, list)
-        or len(fully_hadronic_processes) != len(set(fully_hadronic_processes))
-        or not all(isinstance(name, str) and name for name in fully_hadronic_processes)
-    ):
-        raise ValueError("SR ttll display_split has invalid fully hadronic configuration")
-    if (
-        ttbar_label == remainder_label
-        or len({ttbar_label, remainder_label, fully_hadronic_label}) != 3
-        or any(label in group_map for label in (
-            ttbar_label, remainder_label, fully_hadronic_label
-        ) if label is not None)
-        or ttbar_group not in CR_GRP_PATTERNS
-        or not CR_GRP_PATTERNS[ttbar_group]
-        or not CR_GROUP_INFO[ttbar_group].get("color")
-        or not SR_GROUP_INFO["ttll"].get("color")
-    ):
-        raise ValueError("SR ttll display_split has conflicting labels or invalid ttbar group/colors")
-
-    members = tuple(group_map.get("ttll", ()))
-    if not members:
+def _resolve_sr_signed_display_view(hist_mc, group_map):
+    """Keep the visible MC total exact when clipped group stacks would inflate it."""
+    available = set(hist_mc.axes["process"])
+    components = []
+    for name, members in group_map.items():
+        present = [member for member in members if member in available]
+        if not present:
+            continue
+        values = np.asarray(_values_without_flow(
+            hist_mc[{"process": present}][{"process": sum}],
+            include_overflow=True,
+        ), dtype=float)
+        components.append((name, tuple(present), values))
+    if not components:
         return None
-    selected_eras = tuple(_extract_dd_year_tokens_from_cli_years(year_tokens) or ())
-    if len(members) != len(set(members)) or (year_tokens and not selected_eras):
-        raise ValueError("SR ttbar display requires unique ttll members and valid selected eras")
-    if selected_eras and any(not any(member.endswith(era) for era in selected_eras) for member in members):
-        raise ValueError("Original ttll member has no selected-era identity")
-    if any(set(members).intersection(other_members) for name, other_members in group_map.items() if name != "ttll"):
-        raise ValueError("SR ttll display_split overlaps another original group")
-    available_members = set(hist_mc.axes["process"])
-    present_members = tuple(member for member in members if member in available_members)
-    if not present_members:
+    raw_total = sum((item[2] for item in components), np.zeros_like(components[0][2]))
+    clipped_sum = sum((np.maximum(item[2], 0) for item in components),
+                      np.zeros_like(raw_total))
+    if np.allclose(np.maximum(raw_total, 0), clipped_sum, rtol=1e-12, atol=1e-12):
         return None
-    if len(present_members) != len(members):
-        raise ValueError("SR ttll display_split is missing original members in the plotted process axis")
-    if not np.any(np.asarray(hist_mc[{"process": list(present_members)}].values(flow=True))):
-        return None
-
-    fully_hadronic = tuple(member for member in members if member in fully_hadronic_processes)
-    other_members = tuple(member for member in members if member not in fully_hadronic_processes)
-    ttbar_patterns = CR_GRP_PATTERNS[ttbar_group]
-    # populate_group_map uses first match; the catchall applies only inside ttll.
-    partition = populate_group_map(
-        other_members, OrderedDict(((ttbar_label, ttbar_patterns),
-                              (remainder_label, [""])))
-    )
-    ttbar = tuple(partition[ttbar_label])
-    remainder = tuple(partition[remainder_label])
-    if not ttbar or not remainder or set(ttbar) & set(remainder) or set(ttbar) | set(remainder) | set(fully_hadronic) != set(members):
-        raise ValueError("SR ttbar display needs a complete nonempty ttll partition")
-    def values(names):
-        return np.asarray(
-            _values_without_flow(
-                hist_mc[{"process": list(names)}][{"process": sum}],
-                include_overflow=True,
-            ), dtype=float,
-        )
-
-    ttbar_values = values(ttbar)
-    remainder_values = values(remainder)
-    fully_hadronic_values = values(fully_hadronic) if fully_hadronic else np.zeros_like(ttbar_values)
-    original_visible = np.maximum(ttbar_values + remainder_values + fully_hadronic_values, 0.0)
-    split_visible = (np.maximum(ttbar_values, 0.0) + np.maximum(remainder_values, 0.0)
-                     + np.maximum(fully_hadronic_values, 0.0))
-    fallback = not np.allclose(original_visible, split_visible, rtol=1e-12, atol=1e-12)
-    draw_group = OrderedDict()
-    for name, source_members in group_map.items():
-        if name == "ttll" and not fallback:
-            draw_group[ttbar_label] = list(ttbar)
-            if fully_hadronic:
-                draw_group[fully_hadronic_label] = list(fully_hadronic)
-            draw_group[remainder_label] = list(remainder)
-        else:
-            draw_group[name] = list(source_members)
     return {
-        "draw_group": draw_group,
-        "fallback": fallback,
-        "ttbar_members": ttbar,
-        "fully_hadronic_members": fully_hadronic,
-        "remainder_members": remainder,
-        "ttbar_values": ttbar_values,
-        "fully_hadronic_values": fully_hadronic_values,
-        "remainder_values": remainder_values,
-        "original_visible_ttll": original_visible,
-        "split_visible_ttll": split_visible,
+        "draw_group": OrderedDict((("MC total",
+                                   [member for _, members, _ in components for member in members]),)),
+        "fallback": True,
+        "components": tuple((name, values) for name, _, values in components),
+        "raw_total": raw_total,
+        "visible_total": np.maximum(raw_total, 0),
     }
 
 
@@ -6648,11 +6577,7 @@ def _sample_in_signal_group(sample_name, sample_group_map, group_type):
         )
 
     if group_type == "SR":
-        for grp_key in SR_SIGNAL_GROUP_KEYS:
-            if _sample_in_group(
-                sample_name, sample_group_map.get(grp_key, []), canonical_sample
-            ):
-                return True
+        return _sr_card_process_name(sample_name) in SIGNAL_WC_MATCHES
 
     return False
 
@@ -6825,12 +6750,22 @@ def _filter_channel_dict_for_mode(channel_dict, region_ctx):
         allowed_keys = per_channel_keys
 
     if not allowed_keys:
-        return dict(channel_dict)
+        allowed_keys = set(channel_dict)
 
-    return {
+    selected = {
         key: channel_dict[key]
         for key in channel_dict
         if key in allowed_keys
+    }
+    if region_ctx.channel_allowlist is None:
+        return selected
+    allowed_physical = set(region_ctx.channel_allowlist)
+    for base in region_ctx.channel_allowlist:
+        allowed_physical.update(region_ctx.channel_map[base])
+    return {
+        key: [leaf for leaf in leaves if leaf in allowed_physical]
+        for key, leaves in selected.items()
+        if any(leaf in allowed_physical for leaf in leaves)
     }
 
 
@@ -6951,6 +6886,7 @@ class RegionContext(object):
         lumi_components=None,
         scope_label=None,
         binning_mode="processing",
+        channel_allowlist=None,
     ):
         self.name = name
         self.dict_of_hists = dict_of_hists
@@ -6976,6 +6912,7 @@ class RegionContext(object):
         self.channel_base_to_alias = channel_namespace["base_to_alias"]
         self.channel_alias_to_bases = channel_namespace["alias_to_bases"]
         self.channel_output_names = channel_namespace["output_name_by_base"]
+        self.channel_allowlist = channel_allowlist
         self.is_lepton_flavor_in_pkl = bool(is_lepton_flavor_in_pkl)
         self.group_patterns = group_patterns
         self.group_map = group_map
@@ -7209,6 +7146,7 @@ def build_region_context(
     channel_output_mode="merged",
     enable_category_skips=False,
     binning_mode="processing",
+    channel_allowlist=None,
 ):
     region_upper = region.upper()
     if region_upper not in ["CR","SR"]:
@@ -7509,24 +7447,23 @@ def build_region_context(
         channel_map = SR_CHAN_DICT
         channel_aliases = SR_CHAN_ALIASES
         channel_dict_name = "SR_CHAN_DICT"
-        group_map = populate_group_map(mc_samples + data_samples, group_patterns)
+        group_map = populate_group_map(mc_samples + data_samples, group_patterns, require_unique=True)
         signal_samples = sorted(
             {
                 proc_name
-                for group_name in SR_SIGNAL_GROUP_KEYS
-                for proc_name in group_map.get(group_name, [])
+                for proc_name in mc_samples
+                if _sr_card_process_name(proc_name) in {"ttH", "ttlnu", "ttll", "tllq", "tHq", "tttt"}
             }
         )
         unblind_default = resolved_unblind
         global SR_GRP_MAP
         SR_GRP_MAP = group_map
 
-    rate_syst_by_sample = {
-        sample_name: get_rate_systs(
-            sample_name, group_map, group_type=region_upper
-        )
-        for sample_name in dict.fromkeys(filtered_mc_samples or [])
-    }
+    rate_syst_by_sample = (
+        {sample_name: get_rate_systs(sample_name, group_map, group_type=region_upper)
+         for sample_name in dict.fromkeys(filtered_mc_samples or [])}
+        if region_upper == "CR" else {}
+    )
 
     return RegionContext(
         region_upper,
@@ -7564,6 +7501,7 @@ def build_region_context(
         lumi_components=lumi_components,
         scope_label=scope_label,
         binning_mode=binning_mode,
+        channel_allowlist=channel_allowlist,
     )
 
 
@@ -7985,6 +7923,8 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 # Match a given sample name to whatever it is called in the json
 # Will return None if a match is not found
 def get_scale_name(sample_name,sample_group_map,group_type="CR"):
+    if group_type == "SR":
+        raise ValueError("SR rate identity is owned by plot_uncertainty_contract")
     scale_name_for_json = None
     canonical_sample = tc_utils.canonicalize_process_name(sample_name)
     if _sample_in_group(sample_name, sample_group_map.get("Conv", []), canonical_sample):
@@ -8009,6 +7949,8 @@ def get_scale_name(sample_name,sample_group_map,group_type="CR"):
 #   - For qcd_scale this corresponds to the process type (e.g. VV)
 # For any systemaitc or process that is not included in the correlations json we return None
 def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type="CR"):
+    if group_type == "SR":
+        raise ValueError("SR rate correlation is owned by plot_uncertainty_contract")
     proc_name_in_json = get_scale_name(proc_name,sample_group_map,group_type=group_type)
     corr_tag = None
     # Right now we only have two types of uncorrelated rate systematics
@@ -8028,6 +7970,8 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type="
 # Returns a dictionary with all of the uncertainties
 # If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
 def get_rate_systs(sample_name,sample_group_map,group_type="CR"):
+    if group_type == "SR":
+        raise ValueError("SR rate factors are owned by plot_uncertainty_contract")
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
     scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type=group_type)
@@ -8073,7 +8017,27 @@ def get_rate_syst_arrs(
     proc_group_map,
     group_type="CR",
     rate_syst_by_sample=None,
+    variable=None,
 ):
+
+    if group_type == "SR":
+        if variable not in (None, "njets") and any(
+            _sr_card_process_name(process) in {"Diboson", "tllq", "tHq"}
+            for process in _process_axis_labels(base_histo)
+        ):
+            raise ValueError(
+                "SR non-njets card rate requires channel/jet-specific diboson_njets "
+                "or missing_parton mapping before category aggregation"
+            )
+        nominal_projection = base_histo.integrate("systematic", "nominal")
+        processes = _process_axis_labels(base_histo)
+        nominal = _eval_without_underflow(nominal_projection[{"process": processes[0]}])
+        responses = []
+        for process in processes:
+            values = _eval_without_underflow(nominal_projection[{"process": process}])
+            for nuisance, (down, up) in _sr_rate_responses(process, values).items():
+                responses.append((nuisance, down, up))
+        return list(_sr_combine_responses(responses, nominal))
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
     rate_syst_arr_dict = {}
@@ -8324,6 +8288,45 @@ def get_shape_syst_arrs(base_histo,group_type="CR",return_details=False):
     Process labels missing from the current process axis are filtered rather
     than treated as global shape-systematic failures.
     """
+
+    if group_type == "SR":
+        by_process = {}
+        for key in base_histo.categorical_keys:
+            by_process.setdefault(str(key.process), set()).add(str(key.systematic))
+        processes = [process for process, names in by_process.items() if "nominal" in names]
+        if not processes:
+            raise ValueError("SR shape uncertainty has no nominal MC process")
+        nominal = _eval_without_underflow(base_histo[{"process": processes[0], "systematic": "nominal"}])
+        responses = []
+        bases_seen = set()
+        for process in processes:
+            names = by_process[process]
+            if any(name.startswith("lumi_") for name in names):
+                raise ValueError(f"SR source {process!r} already contains card luminosity templates")
+            if names == {"nominal"} and _sr_is_excluded_auxiliary(process):
+                raise ValueError(
+                    f"SR auxiliary {process!r} is scalar-nominal-only; source shape "
+                    "applicability and Up/Down coverage are incomplete"
+                )
+            nominal_process = _eval_without_underflow(base_histo[{"process": process, "systematic": "nominal"}])
+            for nuisance, (down, up) in _sr_luminosity_responses(process, nominal_process).items():
+                responses.append((nuisance, down, up))
+            bases = {name[:-2] for name in names if name.endswith("Up")}
+            bases.update(name[:-4] for name in names if name.endswith("Down"))
+            for base in sorted(bases):
+                if base + "Up" not in names or base + "Down" not in names:
+                    raise ValueError(f"Incomplete SR variation pair: process={process!r}, base={base!r}")
+                up = _eval_without_underflow(base_histo[{"process": process, "systematic": base + "Up"}])
+                down = _eval_without_underflow(base_histo[{"process": process, "systematic": base + "Down"}])
+                up = _match_variation_length(nominal_process, up) - nominal_process
+                down = _match_variation_length(nominal_process, down) - nominal_process
+                responses.append((_sr_shape_nuisance_name(base, process), down, up))
+                bases_seen.add(base)
+        result = list(_sr_combine_responses(responses, nominal))
+        details = {"valid_bases": tuple(sorted(bases_seen)), "evaluated_bases": tuple(sorted(bases_seen)),
+                   "skipped_orphans": tuple(), "skipped_failed": tuple(),
+                   "renormfact_present": bool({"renorm", "fact"} & bases_seen)}
+        return (result, details) if return_details else result
 
     # Get the list of systematic base names (i.e. without the up and down tags),
     # and keep only complete Up/Down pairs.
@@ -9009,7 +9012,7 @@ def make_region_stacked_ratio_fig(
     lumi_components=None,
     scope_label=None,
     diagnostic_context=None,
-    sr_ttbar_display_years=None,
+    sr_flat_display=False,
 ):
     if uncertainty_mode not in {"total", "stat", "none"}:
         raise ValueError(
@@ -9029,7 +9032,7 @@ def make_region_stacked_ratio_fig(
     if group is None:
         group = {}
 
-    sr_ttbar_display_view = None
+    sr_signed_display_view = None
 
     recompute_syst_ratio_arrays = False
 
@@ -9192,12 +9195,10 @@ def make_region_stacked_ratio_fig(
 
     default_colors = DEFAULT_STACK_COLORS
 
-    if sr_ttbar_display_years is not None:
-        sr_ttbar_display_view = _resolve_sr_ttbar_display_view(
-            h_mc, group, sr_ttbar_display_years
-        )
-        if sr_ttbar_display_view is not None:
-            group = sr_ttbar_display_view["draw_group"]
+    if sr_flat_display:
+        sr_signed_display_view = _resolve_sr_signed_display_view(h_mc, group)
+        if sr_signed_display_view is not None:
+            group = sr_signed_display_view["draw_group"]
 
     grouping = OrderedDict()
     axis_collection = getattr(h_mc, "axes", None)
@@ -9227,14 +9228,8 @@ def make_region_stacked_ratio_fig(
     default_color_index = 0
     for proc in grouping:
         c = FILL_COLORS.get(proc)
-        if sr_ttbar_display_view is not None:
-            split_config = SR_GROUP_INFO["ttll"]["display_split"]
-            if proc == split_config["ttbar_label"]:
-                c = CR_GROUP_INFO[split_config["ttbar_group"]]["color"]
-            elif proc == split_config.get("fully_hadronic_label"):
-                c = split_config["fully_hadronic_color"]
-            elif proc == split_config["remainder_label"]:
-                c = SR_GROUP_INFO["ttll"]["color"]
+        if sr_signed_display_view is not None and proc == "MC total":
+            c = "#777777"
         if c is None:
             c = default_colors[default_color_index % len(default_colors)]
             default_color_index += 1
@@ -9591,25 +9586,13 @@ def make_region_stacked_ratio_fig(
             rax.set_xlim(set_x_lim)
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
-    if sr_ttbar_display_view is not None and sr_ttbar_display_view["fallback"]:
-        split_config = SR_GROUP_INFO["ttll"]["display_split"]
+    if sr_signed_display_view is not None:
         original_y_limits = ax.get_ylim()
         bin_centers = (plot_bins[:-1] + plot_bins[1:]) / 2.0
-        fallback_components = [
-            (sr_ttbar_display_view["ttbar_values"], split_config["ttbar_label"],
-             CR_GROUP_INFO[split_config["ttbar_group"]]["color"], "--"),
-            (sr_ttbar_display_view["remainder_values"], split_config["remainder_label"],
-             SR_GROUP_INFO["ttll"]["color"], ":"),
-        ]
-        if sr_ttbar_display_view["fully_hadronic_members"]:
-            fallback_components.append((
-                sr_ttbar_display_view["fully_hadronic_values"],
-                split_config["fully_hadronic_label"],
-                split_config["fully_hadronic_color"], "-."
-            ))
-        for component_index, (values, label, color, line_style) in enumerate(fallback_components):
+        for component_index, (label, values) in enumerate(sr_signed_display_view["components"]):
+            color = SR_GROUP_INFO.get(label, {}).get("color") or default_colors[component_index % len(default_colors)]
             ax.stairs(values, plot_bins, label=label, color=color,
-                      linestyle=line_style, linewidth=1.5)
+                      linestyle=("--", ":", "-.")[component_index % 3], linewidth=1.5)
             for bin_center, value in zip(bin_centers, values):
                 if value < 0:
                     ax.text(bin_center, 0.04 + component_index * 0.06,
@@ -9625,7 +9608,7 @@ def make_region_stacked_ratio_fig(
         for handle, label in zip(legend_handles, legend_labels):
             if label == '_nolegend_':
                 continue
-            if sr_ttbar_display_view is not None and sr_ttbar_display_view["fallback"] and label == "ttll":
+            if sr_signed_display_view is not None and label == "MC total":
                 continue
             if label not in filtered:
                 filtered[label] = handle
@@ -9635,14 +9618,8 @@ def make_region_stacked_ratio_fig(
             if not isinstance(ncol, int) or ncol <= 0:
                 ncol = 1
             entries = list(filtered.items())
+            ncol = max(ncol, math.ceil(len(entries) / max_rows))
             nrows = math.ceil(len(entries) / ncol)
-            if nrows > max_rows:
-                warnings.warn(
-                    "Legend contains more than 15 entries; truncating to fit a 5x3 layout.",
-                    RuntimeWarning,
-                )
-                entries = entries[: ncol * max_rows]
-                nrows = max_rows
             bbox_to_anchor = legend_style.get("bbox_to_anchor", (0.5, 1.0))
             if isinstance(bbox_to_anchor, (list, tuple)):
                 bbox_to_anchor = tuple(bbox_to_anchor)
@@ -9771,8 +9748,8 @@ def make_region_stacked_ratio_fig(
         "ratio_denominator": np.asarray(mc_totals, dtype=float).copy(),
     }
 
-    if sr_ttbar_display_view is not None:
-        fig._topeft_sr_ttbar_display_view = sr_ttbar_display_view
+    if sr_signed_display_view is not None:
+        fig._topeft_sr_signed_display_view = sr_signed_display_view
 
     return fig
 
@@ -9801,10 +9778,15 @@ def run_plots_for_region(
     show_ratio_legend=False,
     binning_mode="processing",
     output_formats=("png",),
+    channel_allowlist=None,
 ):
     """Run one CR/SR plotting pass and write optional zero/negative reports."""
 
     _SYSTEMATICS_SUMMARY_EMITTED.clear()
+    if channel_allowlist is not None:
+        if region_name.upper() != "SR":
+            raise ValueError("Channel allowlist is supported for SR only")
+        channel_allowlist = _resolve_sr_channel_allowlist(channel_allowlist)
     if uncertainty_mode is None:
         uncertainty_mode = _resolve_uncertainty_mode(skip_syst=skip_syst_errs)
     elif uncertainty_mode not in {"total", "stat", "none"}:
@@ -9872,6 +9854,7 @@ def run_plots_for_region(
             channel_output_mode=channel_output,
             enable_category_skips=enable_category_skips,
             binning_mode=binning_mode,
+            channel_allowlist=channel_allowlist,
         )
         if summary_region_ctx is None:
             summary_region_ctx = region_ctx
@@ -10209,13 +10192,27 @@ def _resolve_pkl_paths(args, parser):
     return pkl_paths
 
 
-def _sr_njets_channel_patterns():
+def _resolve_sr_channel_allowlist(names):
+    """Resolve base names and aliases to an exact set of configured SR bases."""
+    requested = {names} if isinstance(names, str) else set(names)
+    if not requested:
+        raise ValueError("SR channel allowlist must not be empty")
+    unknown = requested - set(SR_CHAN_DICT) - set(SR_CHAN_ALIASES.values())
+    if unknown:
+        raise ValueError(f"Unknown SR channel allowlist names: {sorted(unknown)!r}")
+    return frozenset(
+        base for base in SR_CHAN_DICT
+        if base in requested or SR_CHAN_ALIASES.get(base) in requested
+    )
+
+
+def _sr_njets_channel_patterns(allowed_bases=None):
     """Select physical SR channels accepted by the njets plot configuration."""
-    bases = set(SR_CHAN_DICT)
+    bases = set(SR_CHAN_DICT) if allowed_bases is None else set(allowed_bases)
     producer_presets = _load_producer_channel_presets()
     compatible_names = set(_region_compatible_producer_preset_names("SR", producer_presets))
     for preset_name, subgroups in producer_presets:
-        if preset_name in compatible_names:
+        if allowed_bases is None and preset_name in compatible_names:
             for _subgroup_name, producer_bases in subgroups:
                 bases.update(producer_bases)
     return [rf"^{re.escape(base)}(?:_[0-9]+j)?$" for base in sorted(bases)]
@@ -10464,10 +10461,16 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=Non
     return out_fpath
 
 
-def run_with_args(args, parser):
+def run_with_args(args, parser, *, channel_allowlist=None):
     """Normalize CLI arguments, load histograms, and dispatch region plotting."""
 
     pkl_paths = _resolve_pkl_paths(args, parser)
+    if channel_allowlist is not None:
+        if args.region_override != "SR":
+            raise ValueError("Programmatic channel allowlist requires explicit --sr")
+        if args.variables != ["njets"]:
+            raise ValueError("Programmatic channel allowlist requires --variables njets")
+        channel_allowlist = _resolve_sr_channel_allowlist(channel_allowlist)
     uncertainty_mode = _resolve_uncertainty_mode(
         skip_syst=args.skip_syst,
         no_uncertainties=args.no_uncertainties,
@@ -10597,7 +10600,7 @@ def run_with_args(args, parser):
     if resolved_region == "SR" and selected_variables == ["njets"]:
         selected_load = {
             "selected_families": ["njets"],
-            "channel_patterns": _sr_njets_channel_patterns(),
+            "channel_patterns": _sr_njets_channel_patterns(channel_allowlist),
         }
     if mixed_stage_sidecars is None:
         hin_dict, merge_report = load_and_merge_histogram_pkls(
@@ -10667,6 +10670,7 @@ def run_with_args(args, parser):
         show_ratio_legend=args.show_ratio_legend,
         binning_mode=args.binning,
         output_formats=args.output_formats,
+        channel_allowlist=channel_allowlist,
     )
     return 0
 

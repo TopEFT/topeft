@@ -46,9 +46,11 @@ including:
 - per-njet channel groupings used by the `*-njets` output modes;
 - stacked-ratio presentation defaults.
 
-An MC process that matches no configured background pattern is retained as a
-one-off group named after the raw process, with a warning and fallback colour.
-It is not silently removed from the total MC stack.
+For SR, every present process must have exactly one flat display owner;
+overlapping or unknown process identities fail explicitly. Locally absent
+members and one-component categories are valid. CR retains its established
+grouping behavior. `make_jvm_reviewer_panels.py` reads only
+`LUMI_COM_PAIRS` from the same YAML, so its consumed schema is unchanged.
 
 The histogram-family processing/fitting edges remain owned by
 [`topeft.modules.axes`](flexible_binning.md); plot metadata must not duplicate
@@ -62,7 +64,7 @@ extension depend on the monolithic call graph.
 | Fully qualified symbol | Kind/status; parameters and return | Contract, side effects, and failures |
 | --- | --- | --- |
 | `make_cr_and_sr_plots.build_arg_parser` | Public CLI builder; no inputs → `ArgumentParser` | Defines options/defaults. Parser acceptance does not bypass later artifact/year/channel validation. |
-| `make_cr_and_sr_plots.run_with_args` | Developer-facing; parsed namespace and parser → integer status | Resolves paths/region/blinding, creates output, validates/merges artifacts, optionally caches, materializes scalar views, and dispatches plots. Parser/config/merge errors stop rendering. |
+| `make_cr_and_sr_plots.run_with_args` | Developer-facing; parsed namespace, parser, optional `channel_allowlist` → integer status | Resolves paths/region/blinding, creates output, validates/merges artifacts, optionally caches, materializes scalar views, and dispatches plots. The allowlist is SR njets only, validated against base names and aliases; omission selects all channels. |
 | `make_cr_and_sr_plots._apply_plot_binning_view` | Internal extension; histogram, family, exact channels, mode → view | Processing returns physical view; fitting resolves a common exact-channel view and rebins. Does not mutate the source artifact. |
 | `make_cr_and_sr_plots.RegionContext` | Developer-facing class; region identity, histograms, years, channel/group/sample sets and optional policy/presentation fields → context | Normalizes one region's authority. Required values are normally produced by `build_region_context`; direct construction must supply coherent groups/channels. No I/O. |
 | `make_cr_and_sr_plots.build_region_context` | Developer-facing; region, histograms, years, optional unblind and output/binning keywords → `RegionContext` | Accepts CR/SR only; validates years and resolves metadata-owned channels, groups, luminosity, skips, and defaults. |
@@ -101,26 +103,65 @@ not create missing templates or assign new nuisance meaning. Negative-weight
 and effective-entry diagnostics report properties of the selected content;
 they do not mutate the source artifact.
 
-For the nominal SM stack, the renderer clips each negative displayed process
-bin to zero after maintained grouping and the selected binning view. Positive
-displayed process bins are not redistributed or rescaled, and the original
-grouped statistical variance remains attached to the display. This clipping is
-plot-view only: it does not modify histogram artifacts, templates, datacards,
-or workspaces. The Data/MC ratio denominator is the resulting displayed,
-clipped MC total; bins with a zero displayed denominator are masked.
+The raw signed nominal and sumw2 remain source-owned. For SR bins where
+clipping separate flat groups would inflate the total, the renderer draws one
+visible total stack plus signed component outlines and labels. Its center and
+Data/MC denominator are `max(sum(raw groups), 0)`, rather than
+`sum(max(raw group, 0))`. Otherwise the ordinary flat stack is used. CR keeps
+its established drawing policy. The original statistical variance remains
+attached to the display; no source histogram, template, card, or workspace is
+altered. Zero displayed denominators are masked.
 
 Data markers use exact central Neyman/Garwood intervals at 68.27% confidence.
 On a logarithmic axis, a zero Data count is represented by its Garwood upper
 limit rather than by a fake epsilon-valued point.
 
-The total uncertainty display is a total-prefit band: it combines retained MC
-statistical variance in quadrature with the configured prefit shape/rate
-systematic variance. Systematic excursions are measured from the signed raw
-nominal total and recentered on the displayed clipped nominal without changing
-their magnitude. It is not a post-fit or profiled covariance band. A shape
+The SR total uncertainty is a two-sided prefit envelope. For each card nuisance
+identity, signed process and era Up/Down responses are added first. The upward
+excursion is `max(total Up shift, total Down shift, 0)` and the downward
+excursion is `max(-total Up shift, -total Down shift, 0)`. Independent nuisance
+excursions and the retained MC statistical variance combine in quadrature on
+each side. The band is recentered on the visible MC total. It visualizes the
+card nuisance scheme; it is not a full card likelihood, a postfit band, or a
+profiled covariance. A shape
 mismatch between the raw systematic reference and displayed MC total raises an
 explicit error; the renderer does not truncate, copy, or zero-pad either array
 to manufacture agreement.
+
+The scientific owner is
+[`plot_uncertainty_contract.py`](../../topeft/modules/plot_uncertainty_contract.py),
+which uses the maintained card `DatacardMaker.GROUP`, shape identity resolver,
+annual luminosity factors, and run-specific rate reader from
+[`datacard_tools.py`](../../topeft/modules/datacard_tools.py). Rate numbers
+and PDF/QCD correlation tags remain in `topeft/params/rate_systs_run2.json`
+and `rate_systs_run3.json`; the CR plot rate helper uses the separate
+`rate_systs.json`. Producer PKLs own nominal, sumw2, and shape templates.
+See [datacards and scalings](datacards_and_scalings.md) for the card policy.
+The comparison domain is the same selected processes, eras, bins, flow,
+normalization and parameter point. Data is excluded from MC nuisance inputs;
+data-driven components follow the card's process-specific rate and luminosity
+exclusions. SR display colors, labels, order and group splits never define
+nuisance correlation.
+
+Card-grouped ttll includes inclusive semileptonic and dileptonic ttbar, even
+when ttbar is drawn in a separate green group. For example, a common renorm
+nuisance moving the two components by +3 and -2 has net +1, whether one or two
+colors show them. Treating them as independent would instead give `sqrt(13)`.
+ISR uses card gg/qq/qg partitions, renorm/fact use card process identities,
+PDF/QCD use run-specific JSON tags and exact down/up factors, and luminosity
+uses the card's annual shape components without a scalar global addition.
+Applicable Tau/year shape names follow the card resolver. The excluded DY,
+single-top, W+jets and ZGamma auxiliaries remain in nominal and statistical
+totals; card grouping is applied where defined and their source variations
+are used when present. No unspecified rate is fabricated. `TTto4Q` remains an
+exact physical identity for its four Run 3 periods and maps to itself for card
+nuisance naming outside the selected card process domain.
+For `njets`, the card suppresses its jet-dependent `diboson_njets` and
+`missing_parton` rate rows; the SR plot follows that rule. For a different
+observable, a category that contains Diboson, tllq or tHq requires the card's
+channel/jet-specific rate evaluation before aggregation. The current SR
+consumer fails explicitly there until that mapping is available. CR keeps its
+existing rate and shape handling.
 
 Physics-facing region, grouping, observable, and binning policy is distinct
 from scheduling, file paths, rendering mechanics, and presentation styling.
