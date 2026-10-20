@@ -150,14 +150,17 @@ select 2022, 2022EE, 2023 and 2023BPix. Each separate view selects one
 period. Source-period filtering applies before aggregation. The existing Run 2
 auxiliary PKLs under
 `/groups/klannon/apiccine/top26006_excluded_mc_ul18_njets_probe_001/cross_era/run2`
-declare only njets nominal and sumw2 content; their measured shape coverage
-must be checked before a total-uncertainty render. The baseline Run 2 and Run
-3 inputs are under `/groups/klannon/apiccine/t0_sr_full_260915_79b0b07b/`.
+declare only njets nominal and sumw2 content; they need regeneration with
+shape variations before a Run 2 total-uncertainty render. The baseline Run 2
+and Run 3 inputs are under
+`/groups/klannon/apiccine/t0_sr_full_260915_79b0b07b/`.
 The corrected Run 3 auxiliary inputs are under
 `/groups/klannon/apiccine/top26006_excluded_mc_njets_corrected_20261018_run3_001/run3/`.
 Check the associated sidecars and [histogram artifact contract](../reference/histogram_artifacts.md)
-for exact input identities. The 11 selected families have five views per Run;
-the remaining 23 families per Run are a later wave.
+for exact input identities. The first render wave uses the 11 selected families
+in the five Run 3 views (55 figures); the remaining 23 Run 3 families are a
+later wave. Absent auxiliary rate rows are the accepted card-model boundary,
+not a Run 3 readiness blocker.
 
 Histogram processing/fitting edges belong to `topeft/modules/axes.py`, not the
 plot metadata. See [change binning](flexible_binning.md). Exact plotting

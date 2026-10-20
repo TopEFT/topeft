@@ -151,3 +151,13 @@ def test_auxiliary_mapping_has_no_invented_rate():
         np.testing.assert_allclose([down[0], up[0]],
                                    [10 * (1 / 1.3 - 1), 3.0])
         assert contract.luminosity_responses(process, np.array([10.0])) == {}
+
+
+def test_absent_auxiliary_rate_is_distinct_from_unknown_identity():
+    process = "DY50_central2022"
+    assert contract.rate_responses(process, np.array([4.0])) == {}
+    assert contract.luminosity_responses(process, np.array([4.0]))
+    with pytest.raises(ValueError, match="Unknown SR card process identity"):
+        contract.rate_responses("mystery_central2022", np.array([4.0]))
+    with pytest.raises(ValueError, match="no era"):
+        contract.rate_responses("mystery", np.array([4.0]))

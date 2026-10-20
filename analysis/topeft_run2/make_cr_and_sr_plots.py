@@ -8314,6 +8314,10 @@ def get_shape_syst_arrs(base_histo,group_type="CR",return_details=False):
             bases = {name[:-2] for name in names if name.endswith("Up")}
             bases.update(name[:-4] for name in names if name.endswith("Down"))
             for base in sorted(bases):
+                # Match DatacardMaker's per-template selection: JES_Total is
+                # excluded even when a process has no component JES source.
+                if base == "JES_Total":
+                    continue
                 if base + "Up" not in names or base + "Down" not in names:
                     raise ValueError(f"Incomplete SR variation pair: process={process!r}, base={base!r}")
                 up = _eval_without_underflow(base_histo[{"process": process, "systematic": base + "Up"}])

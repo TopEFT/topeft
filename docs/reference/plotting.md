@@ -153,9 +153,13 @@ uses the card's annual shape components without a scalar global addition.
 Applicable Tau/year shape names follow the card resolver. The excluded DY,
 single-top, W+jets and ZGamma auxiliaries remain in nominal and statistical
 totals; card grouping is applied where defined and their source variations
-are used when present. No unspecified rate is fabricated. `TTto4Q` remains an
-exact physical identity for its four Run 3 periods and maps to itself for card
-nuisance naming outside the selected card process domain.
+are used when present. Their absent card JSON rate rows are an intentional
+model boundary: no rate is inferred from a display group. The card excludes
+`JES_Total` per process and era, including when it is the only JES source;
+complete component pairs remain applicable. The default card profile does not
+enable nominal-like Tau suppression, so those pairs remain applicable too.
+`TTto4Q` remains an exact physical identity for its four Run 3 periods and maps
+to itself for card nuisance naming outside the selected card process domain.
 For `njets`, the card suppresses its jet-dependent `diboson_njets` and
 `missing_parton` rate rows; the SR plot follows that rule. For a different
 observable, a category that contains Diboson, tllq or tHq requires the card's

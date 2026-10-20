@@ -2618,6 +2618,36 @@ def test_sr_aggregate_blinded_renders_when_data_empty(tmp_path):
     assert plot_paths, "Expected SR blinded plot when MC is non-zero and data is empty"
 
 
+def test_sr_total_caller_rejects_incomplete_component_without_figure(tmp_path):
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    njets_axis = hist.axis.Regular(1, 0.0, 1.0, name="njets")
+    hist_obj = make_cr_and_sr_plots.tc_sparseHist.SparseHist(
+        process_axis, channel_axis, syst_axis, njets_axis
+    )
+    for systematic, weight in (
+        ("nominal", 10.0), ("JES_TotalUp", 20.0),
+        ("JES_AbsoluteUp", 12.0),
+    ):
+        hist_obj.fill(
+            process="ttH_central2022", channel="2lss_p",
+            systematic=systematic, njets=0.5, weight=weight,
+        )
+    hist_obj.fill(
+        process="data2022", channel="2lss_p", systematic="nominal",
+        njets=0.5, weight=0.0,
+    )
+    with pytest.raises(ValueError, match="Incomplete total uncertainty.*JES_Absolute"):
+        make_cr_and_sr_plots.run_plots_for_region(
+            "SR", {"njets": hist_obj}, years=["2022"],
+            save_dir_path=str(tmp_path), variables=["njets"],
+            channel_output="merged", uncertainty_mode="total",
+            workers=1, unblind=False,
+        )
+    assert not list(tmp_path.rglob("*.png"))
+
+
 def test_data_driven_samples_preserved_for_1tau_cr():
     process_axis = hist.axis.StrCategory([], name="process", growth=True)
     channel_axis = hist.axis.StrCategory([], name="channel", growth=True)

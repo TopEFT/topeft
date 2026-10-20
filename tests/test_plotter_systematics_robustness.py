@@ -460,6 +460,86 @@ def test_sr_ttbar_draw_partition_keeps_correlated_rate_and_shape_inputs(monkeypa
         np.testing.assert_allclose(before, after)
 
 
+def test_sr_jes_selection_is_per_process_era_and_matches_card():
+    source = {
+        "ttH_central2022": {
+            "nominal": 10.0,
+            "JES_TotalUp": 100.0, "JES_TotalDown": 1.0,
+            "JES_AbsoluteUp": 12.0, "JES_AbsoluteDown": 8.0,
+        },
+        "ttH_central2022EE": {
+            "nominal": 20.0,
+            "JES_TotalUp": 50.0, "JES_TotalDown": 2.0,
+            "JES_FlavorQCDUp": 23.0, "JES_FlavorQCDDown": 17.0,
+        },
+        "ttH_central2023": {
+            "nominal": 5.0,
+            "JES_TotalUp": 9.0, "JES_TotalDown": 1.0,
+        },
+    }
+    hist_obj = _make_process_sparse_hist(source)
+    (low, high), details = make_cr_and_sr_plots.get_shape_syst_arrs(
+        hist_obj, group_type="SR", return_details=True,
+    )
+    assert details["valid_bases"] == ("JES_Absolute", "JES_FlavorQCD")
+    without_total = {
+        process: {name: weight for name, weight in weights.items()
+                  if not name.startswith("JES_Total")}
+        for process, weights in source.items()
+    }
+    expected, _ = make_cr_and_sr_plots.get_shape_syst_arrs(
+        _make_process_sparse_hist(without_total), group_type="SR", return_details=True,
+    )
+    for actual, reference in zip((low, high), expected):
+        np.testing.assert_allclose(actual, reference)
+
+
+def test_sr_only_total_does_not_create_card_jes_nuisance():
+    hist_obj = _make_process_sparse_hist({
+        "ttH_central2022": {
+            "nominal": 10.0, "JES_TotalUp": 15.0, "JES_TotalDown": 5.0,
+        },
+    })
+    result, details = make_cr_and_sr_plots.get_shape_syst_arrs(
+        hist_obj, group_type="SR", return_details=True,
+    )
+    assert details["valid_bases"] == ()
+    nominal_only = _make_process_sparse_hist({"ttH_central2022": {"nominal": 10.0}})
+    expected = make_cr_and_sr_plots.get_shape_syst_arrs(nominal_only, group_type="SR")
+    for actual, reference in zip(result, expected):
+        np.testing.assert_allclose(actual, reference)
+
+
+def test_sr_incomplete_component_pair_is_not_hidden_by_total():
+    hist_obj = _make_process_sparse_hist({
+        "ttH_central2022": {
+            "nominal": 10.0, "JES_TotalUp": 15.0,
+            "JES_AbsoluteUp": 12.0,
+        },
+    })
+    with pytest.raises(ValueError, match="Incomplete SR variation pair.*JES_Absolute"):
+        make_cr_and_sr_plots.get_shape_syst_arrs(hist_obj, group_type="SR")
+
+
+def test_sr_nominal_like_tau_pair_is_kept_when_card_option_is_off():
+    from analysis.topeft_run2.make_cards import build_arg_parser as card_parser
+
+    assert card_parser().parse_args([]).suppress_nominal_like_tau_shapes is False
+    source = "CMS_fake_t_DeepTau2018v2p5_VSmu_abseta0to0p4_2022"
+    hist_obj = _make_process_sparse_hist({
+        "ttH_central2022": {
+            "nominal": 10.0,
+            source + "Up": 10.00001,
+            source + "Down": 9.99999,
+        },
+    })
+    (_, high), details = make_cr_and_sr_plots.get_shape_syst_arrs(
+        hist_obj, group_type="SR", return_details=True,
+    )
+    assert source in details["valid_bases"]
+    assert high[0] > 0
+
+
 def test_sr_non_njets_special_card_rates_fail_closed():
     hist_obj = _make_process_sparse_hist({
         "WZTo3LNu_central2022": {"nominal": 10.0},

@@ -85,8 +85,16 @@ def rate_responses(process, nominal):
     card_name = card_process_name(process)
     if card_name in {"data_obs", "data"}:
         return {}
+    rates = _card_rates(run)
+    known_card_names = {
+        *(group.rstrip("_") for group in DatacardMaker.GROUP),
+        *DatacardMaker.SIGNALS,
+        *(name for source in rates.values() for name in source.corrs),
+    }
+    if card_name not in known_card_names and not is_excluded_auxiliary(process):
+        raise ValueError(f"Unknown SR card process identity: {process!r}")
     responses = {}
-    for nuisance, source in _card_rates(run).items():
+    for nuisance, source in rates.items():
         if nuisance == "diboson_njets":
             continue  # the card omits this jet-dependent rate in the njets view
         factor = source.get_process(card_name)
