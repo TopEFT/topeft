@@ -12,14 +12,13 @@ CFGs are `input_samples/cfgs/excluded_mc_run2_sr.cfg` and
 active background CR JSON paths minus the active background SR JSON paths for
 each included era, with no path shared with a signal-named CFG. Run3 includes
 the four existing `TTto4Q_NDSkim_<era>.json` inputs. The producer changes no
-source JSON metadata. Run2 remains on hold because `TTToHadronic` is not
-available in the active CR inputs.
+source JSON metadata. Run2 uses the available excluded backgrounds across its
+four eras; unavailable `TTToHadronic` remains a physical-coverage caveat.
 
 ## Interface
 
-Use `--run run3 --block all` for the a-then-d campaign. `--block a`
-and `--block d` select one unit; these single-unit forms also resolve Run2,
-but the current campaign does not run Run2. The required options are
+Use `--block all` for an a-then-d campaign with either `--run run2` or
+`--run run3`. `--block a` and `--block d` select one unit. The required options are
 `--campaign-tag`, `--output-root`, `--env-file`, `--wq-staging-base`,
 `--wq-quota-root`, `--wq-free-warning-bytes`, `--wq-min-free-bytes`, and
 `--wq-poll-seconds`. All paths must be absolute. Supply distinct `--port-a`
@@ -48,8 +47,9 @@ sidecars and rechecks each unit's output paths before launch. The native
 producer refuses existing Work Queue log files. No overwrite, retry, resume,
 or tag change is automatic.
 
-Each unit uses all four Run3 eras (2022, 2022EE, 2023, 2023BPix), 50000-event
-chunks, MC-only `processor_output`, `--do-systs`, `--all-analysis`,
+Each unit uses four separate eras (Run2: UL16, UL16APV, UL17, UL18; Run3:
+2022, 2022EE, 2023, 2023BPix), 50000-event chunks, MC-only
+`processor_output`, `--do-systs`, `--all-analysis`,
 `--np-postprocess=skip`, and `--ttgamma-sample-role-policy split`. Block a selects
 `2l` and `2los_1tau` with `njets lj0pt ptz lt`; block d selects
 `3l_onZ_tau` with `njets lj0pt ptz lt`. The wider `run3_full` a block also
@@ -58,7 +58,8 @@ excluded-MC a category has a channel that fills that family, so omitting it
 loses no physical contribution from this slice. Each requested family has an
 explicit full-custom sumw2 companion, including `njets_sumw2`. The `_njets`
 output basename is the unchanged campaign identifier, not a histogram limit.
-Run2's deferred single-unit dry-run retains its original `njets` selection.
+Run2 uses the same applicable SR-full histogram families and category groups.
+The first plot wave remains `njets` only; it does not narrow producer output.
 Work Queue requests one processing core and
 32000 MB plus two accumulating cores. These are task requests, not worker
 factory sizing or available-capacity findings.
