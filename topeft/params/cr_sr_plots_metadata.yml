@@ -485,7 +485,7 @@ SR_GRP_MAP:
     patterns:
     - flips
   ttH:
-    color: tab:orange
+    color: '#b04a90'
     patterns:
     - ttH
   ttlnu:
@@ -493,7 +493,18 @@ SR_GRP_MAP:
     patterns:
     - ttlnu
   ttll:
-    color: tab:blue
+    color: '#2f5965'
+    display_split:
+      ttbar_group: Ttbar
+      ttbar_label: ttbar
+      remainder_label: ttll (ttbar excluded)
+      fully_hadronic_label: ttbar (fully hadronic)
+      fully_hadronic_color: '#93c493'
+      fully_hadronic_processes:
+      - TTto4Q_central2022
+      - TTto4Q_central2022EE
+      - TTto4Q_central2023
+      - TTto4Q_central2023BPix
     patterns:
     - ttll
     - TTZToLL_M1to10
@@ -502,7 +513,7 @@ SR_GRP_MAP:
     - TTto2L2Nu
     - TTtoLNu2Q
   tllq:
-    color: tab:pink
+    color: '#a47f24'
     patterns:
     - tllq
   tHq:
@@ -542,6 +553,24 @@ SR_GRP_MAP:
     - ZZTo2e2tau
     - ZZTo2e2mu
     - ggToZZ
+  DY:
+    color: tab:blue
+    patterns:
+    - DY
+  ZGamma:
+    color: tab:orange
+    patterns:
+    - ZG
+  Single top:
+    color: tab:pink
+    patterns:
+    - ST_
+    - tW_centralUL
+    - tbarW_centralUL
+  Singleboson:
+    color: '#7d9735'
+    patterns:
+    - WJets
 WCPT_EXAMPLE:
   ctW: -0.74
   ctZ: -0.86

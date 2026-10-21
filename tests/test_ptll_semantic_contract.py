@@ -12,6 +12,7 @@ import pytest
 
 from analysis.topeft_run2 import analysis_processor
 from analysis.topeft_run2 import make_cr_and_sr_plots
+from analysis.topeft_run2 import sr_reco_manifest
 from topcoffea.modules.sparseHist import SparseHist
 from topeft.modules.axes import info
 from topeft.modules.axis_binning import (
@@ -237,27 +238,15 @@ def test_historical_ptz_does_not_satisfy_new_ptll_card_lookup():
 def test_run_cr_profiles_request_canonical_families():
     source = RUN_CR_PATH.read_text(encoding="utf-8")
 
-    assert _bash_array(source, "rebin_fine_category_sets") == [
-        "2lss_1tau 3l_m_offZ",
-        "3l_p_offZ 3l_onZ_tau",
-        "3l_fwd",
-    ]
-    assert _bash_array(source, "rebin_fine_2lss_1tau_3l_m_offz_var_sets") == [
-        "lj0pt ptll ptz_wtau"
-    ]
-    assert _bash_array(source, "rebin_fine_3l_p_offz_3l_onZ_tau_var_sets") == [
-        "lj0pt ptz ptll"
-    ]
-    assert _bash_array(source, "rebin_fine_3l_fwd_var_sets") == ["lt"]
+    assert "rebin_fine_category_sets" not in source
+    assert sr_reco_manifest.verify_partition(
+        sr_reco_manifest.load_plan(sr_reco_manifest.DEFAULT_PLAN_PATH),
+        sr_reco_manifest.target_coverage(),
+    )
 
     assert _bash_array(source, "sr_offz_var_sets") == ["njets lj0pt ptll lt"]
     assert _bash_array(source, "sr_onz_tau_var_sets") == ["njets lj0pt ptz lt"]
     assert _bash_array(source, "sr_fwd_var_sets") == ["njets lj0pt ptz lt"]
-    assert _bash_array(source, "rebin_fine_category_var_set_names") == [
-        "rebin_fine_2lss_1tau_3l_m_offz_var_sets",
-        "rebin_fine_3l_p_offz_3l_onZ_tau_var_sets",
-        "rebin_fine_3l_fwd_var_sets",
-    ]
     assert _bash_array(source, "run3_full_category_var_set_names") == [
         "sr_with_ptz_wtau_var_sets",
         "sr_offz_var_sets",

@@ -32,11 +32,25 @@ def submit_path(path: Path) -> str:
     return value
 
 
+def selected_units(manifest_path: Path, row_ids: list[str] | None) -> list[dict]:
+    units = runner.derive_units(manifest_path)
+    if row_ids is None:
+        return units
+    if not row_ids or len(row_ids) != len(set(row_ids)):
+        raise runner.RunnerError("row_selection_error", "row IDs must be nonempty and unique")
+    known = {unit["row_id"]: unit for unit in units}
+    unknown = set(row_ids) - set(known)
+    if unknown:
+        raise runner.RunnerError("row_selection_error", f"unknown row IDs: {sorted(unknown)}")
+    return [known[row_id] for row_id in row_ids]
+
+
 def prepare_material(manifest_path: Path, destination: Path, *, request_cpus: int,
                      request_memory: str, request_disk: str,
                      max_retries: int, max_starts: int,
                      query_executable: str | None = None,
-                     max_runtime: int | None = None) -> dict:
+                     max_runtime: int | None = None,
+                     row_ids: list[str] | None = None) -> dict:
     """Write fresh dispatch material with one item per canonical unit.
 
     Paths and runtime must be visible at the same absolute locations on workers.
@@ -57,7 +71,7 @@ def prepare_material(manifest_path: Path, destination: Path, *, request_cpus: in
         raise runner.RunnerError("condor_configuration_error", "an absolute maintained condor_q executable is required")
     scheduler = {"query_executable": submit_path(Path(query_executable)),
                  "dispatch_directory": submit_path(destination)}
-    units = runner.derive_units(manifest_path)
+    units = selected_units(manifest_path, row_ids)
     manifest, _, _ = runner.resolve_unit(units[0])
     destination = Path(submit_path(destination))
     engine = Path(runner.__file__).resolve()
@@ -121,7 +135,9 @@ def prepare_material(manifest_path: Path, destination: Path, *, request_cpus: in
 
 
 @contextmanager
-def submission_transaction(manifest_path: Path, destination: Path, scheduler: dict):
+def submission_transaction(manifest_path: Path, destination: Path, scheduler: dict, *,
+                           row_ids: list[str] | None = None,
+                           rescue_ambiguous: bool = False):
     """Bind prepared itemdata inside the maintained reservation transaction.
 
     The submit caller must mark_submission_started immediately before process
@@ -129,15 +145,20 @@ def submission_transaction(manifest_path: Path, destination: Path, scheduler: di
     wait for it to terminate before exiting. Exceptions,
     timeout and nonzero exit after that marker preserve all reservations.
     """
-    units = runner.derive_units(manifest_path)
+    units = selected_units(manifest_path, row_ids)
     manifest, manifest_hash, _ = runner.resolve_unit(units[0])
+    runner.validate_runtime(manifest["runtime_contract"])
+    if rescue_ambiguous and (row_ids is None or len(units) != 1):
+        raise runner.RunnerError("row_selection_error", "ambiguous rescue requires exactly one selected row")
     items = []
     for unit in units:
         unit_path = destination / "units" / (unit["row_id"] + ".json")
         if json.loads(unit_path.read_text()) != unit:
             raise runner.RunnerError("stale_dispatch_input", "prepared descriptor differs from canonical unit")
         items.append((unit["row_id"], runner.hash_file(unit_path)))
-    with runner.reserve_condor(manifest, manifest_hash, manifest["rows"], scheduler) as transaction:
+    rows = [runner.select_row(manifest, unit["row_id"]) for unit in units]
+    with runner.reserve_condor(manifest, manifest_hash, rows, scheduler,
+                               rescue_ambiguous=rescue_ambiguous) as transaction:
         tokens = {item["row_id"]: item["owner_id"] for item in transaction.reservations}
         (destination / "items.txt").write_text("".join(
             f"{row_id} {integrity} {tokens[row_id]}\n" for row_id, integrity in items))
@@ -147,7 +168,9 @@ def submission_transaction(manifest_path: Path, destination: Path, scheduler: di
 def submit_material(manifest_path: Path, destination: Path, scheduler: dict, *,
                     submit_executable: str | None = None,
                     batch_name: str | None = None,
-                    timeout: float | None = None) -> dict:
+                    timeout: float | None = None,
+                    row_ids: list[str] | None = None,
+                    rescue_ambiguous: bool = False) -> dict:
     """Submit prepared material while holding every row's reservation lease.
 
     A zero exit reports only command success. Scheduler ownership is later
@@ -165,7 +188,8 @@ def submit_material(manifest_path: Path, destination: Path, scheduler: dict, *,
         argv.extend(["-batch-name", batch_name])
     argv.append(submit_path(destination / "datacards.sub"))
     pre_submit_snapshot = runner.scheduler_snapshot(scheduler)
-    with submission_transaction(manifest_path, destination, scheduler) as transaction:
+    with submission_transaction(manifest_path, destination, scheduler,
+                                row_ids=row_ids, rescue_ambiguous=rescue_ambiguous) as transaction:
         result = {"argv": argv, "start_time": datetime.now(timezone.utc).isoformat(),
                   "exit_status": None, "stdout": "", "stderr": "",
                   "pre_submit_scheduler_snapshot": pre_submit_snapshot}

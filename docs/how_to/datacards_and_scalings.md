@@ -46,7 +46,9 @@ Repeat positional PKLs for coherent fragments, or use `--pkl-list-file` for a
 long list; do not provide both. The default uses Asimov data, fitting binning,
 no nuisance insertion, and warning-only year coverage. `--unblind`,
 `--do-nuisance`, `--do-mc-stat`, and `--keep-negative-bins` are explicit
-choices. `--merge-only` stops after load/merge validation, and
+choices. Both modes write `data_obs`; its presence in a ROOT file does not
+identify whether observations came from data or Asimov construction.
+`--merge-only` stops after load/merge validation, and
 `--merge-report PATH` retains the diagnostic report.
 The optional `--lepton-mva-correlation {per-run,cross-run}` defaults to
 `per-run`. It changes only the final electron and muon MVA nuisance identities
@@ -57,21 +59,26 @@ For matrix work, select the same option when generating each canonical manifest;
 its rows carry the choice in `producer_args`, including the explicit default.
 Older v3 rows without this option still mean `per-run` under their historical
 producer; replay also remains subject to the existing runtime fingerprint checks.
+`--suppress-nominal-like-tau-shapes` is a separate opt-in, disabled by default.
+With nuisances enabled, it omits eligible Tau Up/Down template pairs only when
+both directions meet the writer's fixed, strict relative `1e-5` comparison
+with nominal in every nonzero regular bin. The suppressed pair is absent from
+the ROOT templates and its process/category entry in the text card is `-`.
+Other applications keep their nuisance names and correlations; no suppressed
+shape is converted to `lnN`. Other shapes, including protected Run 2
+genuine-tau energy-scale variations, remain in place. The option is
+unavailable with `--use-AAC`; see the
+[reference](../reference/datacards_and_scalings.md#final-nuisance-identities)
+for the exact eligibility and zero-bin conditions.
 
-`--unblind` is a direct `make_cards.py` option. When the selected input contains
-an actual `data` process for the requested channel and variable, it keeps that
-process and writes its selected contents to the ROOT `data_obs` object and the
-TXT `observation` value. The flag does not supply data: without a selected
-`data` process, the observed-data array can remain zero. Without `--unblind`,
-`DatacardMaker` removes real data and builds Asimov `data_obs` from the nominal
-processes at the truth point supplied by `--wc-vals` (the empty/default value
-is the SM point). The canonical matrix manifest generator carries the
-MVA-correlation choice but has no unblind option. At this revision, the
-reviewed supported route for observed-data cards is the direct `make_cards.py`
-CLI. Use a fresh, separately named output directory and retain the input,
-command, and data-access provenance; restrict access to observed-data artifacts
-according to the applicable data policy. Source support for this route is not
-evidence that a real-data card has been produced or numerically validated.
+For direct card production from `analysis/topeft_run2`:
+
+```bash
+python make_cards.py /path/to/final_np.pkl.gz \
+  --out-dir /absolute/path/to/cards \
+  --var-lst lj0pt --ch-lst '^2lss_.*' \
+  --do-nuisance --suppress-nominal-like-tau-shapes
+```
 
 Before card production, confirm that every input belongs to one compatible
 production family and has the nominal/sumw2 companions required by the selected
@@ -112,12 +119,26 @@ exist as histogram families in the merged input.
 
 `make_cards.py --condor` submits execution units from an existing canonical
 v3 manifest before any PKL loading or producer setup. Put producer options in
-that workload; the frontend accepts only manifest, dispatch destination and
-resource options. Add `--prepare-only` for material inspection without
-reservation or submission. Local and worker execution pass the same recorded producer
-arguments through the matrix runner. The former Condor option reconstruction
-and `--chunks` interface have been retired; execution partitioning remains
-owned by the profile and manifest generator.
+that workload; the frontend accepts only manifest, dispatch destination,
+resource, and row-selection options. Local and worker execution pass the same
+recorded producer arguments through the matrix runner. The former Condor option
+reconstruction and `--chunks` interface have been retired; execution
+partitioning remains owned by the profile and manifest generator.
+
+Add repeatable `--row-id ROW_ID` to dispatch only those original
+rows; omission retains whole-manifest dispatch. Duplicate or unknown IDs are
+rejected before dispatch output is created. `--prepare-only` remains an
+ownership-free no-submit inspection, including with row selection.
+
+For one selected row whose prior Condor submission has an ambiguous outcome,
+`--rescue-ambiguous --row-id ROW_ID` explicitly transfers its reservation to a
+fresh token under the row lease. An active scheduler job or held producer lease
+blocks rescue. An empty or unavailable scheduler query does not prove that the
+old job terminated; the old token is fenced before the new submission attempt.
+If the new submit outcome is uncertain, retain its reservation and inspect H2
+state before any further operator action. A valid H2 receipt is the only row
+completion authority. The manifest and its pinned producer fingerprints must
+remain unchanged for that campaign; a stale producer fails before reservation.
 
 To add a supported selection/configuration control:
 
@@ -159,6 +180,7 @@ python analysis/topeft_run2/make_datacard_matrix_manifest.py \
   --input-pkl 3l_fwd=/absolute/path/to/3l-fwd.pkl.gz \
   --python-executable /absolute/path/to/python \
   --missing-parton-file /absolute/path/to/missing-parton.root \
+  --lepton-mva-correlation per-run \
   --runtime-contract-id run3-cards-001 \
   --output-root /absolute/path/to/row-outputs \
   --control-root /absolute/path/to/runner-control \
@@ -187,6 +209,17 @@ output layout.
 Only PKL roles used by the selected rows are required. Make the same physical
 subset in the Run 2 and Run 3 manifests before running either matrix: Run 2
 manifest X and Run 3 manifest X produce packages with the same surface X.
+
+The generator records nuisance and MC-stat insertion, the chosen MVA mode,
+years and channel selection in each row's producer arguments; the input PKL
+is recorded separately as `input_pkl`. Add
+`--suppress-nominal-like-tau-shapes` to the generator when that
+opt-in card policy is intended for every row. Add `--unblind` only when the
+selected PKLs contain the observed `data` process for every selected channel;
+the generator forwards it to every row in that manifest. Without it, each row
+uses Asimov observations. Keep independently generated manifests, row outputs,
+and package inputs consistent with the intended observation mode when
+assembling packages; the package builders do not choose that mode for you.
 
 The current manifest uses the `topeft_datacard_matrix_v3` schema. Each
 execution-unit row records its logical row ID, input PKL, literal channel
@@ -309,8 +342,10 @@ This scheduler contract covers TopEFT datacard production and H2 publication.
 EFTFit/Combine runtime and fit scheduling belong to the package consumer.
 
 Submit from a fresh dispatch directory after choosing resources and retry/start
-budgets for your site and workload. Set the variables below explicitly; the
-software supplies no production resource or retry defaults:
+budgets for your site and workload. The frontend uses the installed HTCondor
+configuration for default scheduler discovery; it has no schedd/pool flags.
+Set the resource and budget variables below explicitly; the software supplies
+no production resource or retry defaults:
 
 ```bash
 python analysis/topeft_run2/make_cards.py --condor \
@@ -422,14 +457,12 @@ does not invalidate a reservation. Local worker metadata uses its job-ad locator
 
 Submit-side ownership queries select `DatacardReservation == "<safe token>"`
 and cross-check `DatacardUnit`. One live match means active ownership; multiple
-matches fail closed with all locators. Queries try a previously observed
-schedd/pool hint when available, then the current default and global domains.
-An empty result proves disappearance only when that successful query covers the
-observed scheduler domain. An exact removal event or matching terminal history
-record is alternate terminal proof. Failed or non-covering queries raise
+matches fail closed with all locators. A failed or insufficient query reports
 `SCHEDULER_OBSERVABILITY_INCOMPLETE` or
-`SCHEDULER_OBSERVABILITY_INSUFFICIENT` and preserve the reservation; live and
-terminal evidence together fail as a contradiction.
+`SCHEDULER_OBSERVABILITY_INSUFFICIENT` with query diagnostics and preserves the
+reservation unless another covered query or terminal proof establishes
+disappearance. An empty query without coverage of the previously observed
+owner is not disappearance proof.
 
 Logical reservations survive live Idle, Running, Held-pending-removal,
 Suspended, Transferring and post-eviction Idle states. Eviction, job removal and
@@ -439,9 +472,8 @@ claim. Raw `make_cards.py` holds the output-domain lease through production and
 refuses reserved or H2-published roots; use the matrix runner for those domains.
 Unit output roots must be disjoint; nested ownership domains are rejected.
 
-On the next ownership attempt after coverage-qualified disappearance or exact
-terminal proof, the runner automatically acquires the physical lease and
-inspects H2. A valid receipt
+On the next ownership attempt after scheduler disappearance, the runner
+automatically acquires the physical lease and inspects H2. A valid receipt
 means complete. Otherwise validated staging is reconciled, or an incomplete
 attempt is preserved and eligible only if H2 permits it. Unavailable physical
 ownership, malformed state or collisions block retirement. A surviving producer
@@ -459,10 +491,9 @@ is primary durable evidence of submission, executions/evictions, holds with
 reason information, removal and termination as applicable. The fault canary
 must prove useful hold reasons survive removal. Live status also exposes
 `HoldReason`, `HoldReasonCode` and `HoldReasonSubCode` when present. Optional
-post-mortem history may add removal/terminal details. Unavailable history does
-not block reconciliation when an exact removal event or coverage-qualified
-zero result already proves disappearance; without one of those proofs,
-ownership remains reserved.
+post-mortem history may add removal/terminal details; unavailable history does
+not prevent H2 reconciliation when another covered query or event-log removal
+proves disappearance.
 
 Runner `--status` and the dashboard expose live reservations and prominently
 show Held/unknown ownership, even when a valid H2 receipt already exists.

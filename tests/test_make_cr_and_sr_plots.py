@@ -9,10 +9,353 @@ from types import SimpleNamespace
 import hist
 import numpy as np
 import pytest
-from collections import defaultdict
+from collections import Counter, defaultdict
+from matplotlib.colors import to_rgb, to_rgba
 from matplotlib.transforms import Bbox
 
 from analysis.topeft_run2 import make_cr_and_sr_plots
+
+
+def _mixed_sr_histogram(process, *, companion=False, auxiliary=False,
+                        sr_weight=1.0, ar_weight=0.0, shape=False):
+    from topcoffea.modules.sparseHist import SparseHist
+
+    dense_name = "njets_sumw2" if companion else "njets"
+    axes = [
+        hist.axis.StrCategory([], name="process", growth=True),
+        hist.axis.StrCategory([], name="channel", growth=True),
+        hist.axis.StrCategory([], name="systematic", growth=True),
+    ]
+    if auxiliary:
+        axes.append(hist.axis.StrCategory([], name="appl", growth=True))
+    axes.append(hist.axis.Regular(2, 0, 2, name=dense_name))
+    output = SparseHist(*axes, storage="Double")
+    for channel, sr_label, ar_label in (
+        ("2lss_p", "isSR_2lSS", "isAR_2lSS"),
+        ("3l_onZ_2b", "isSR_3l", "isAR_3l"),
+    ):
+        variations = [("nominal", sr_weight)]
+        if shape:
+            variations += [("shapeUp", sr_weight * 1.2),
+                           ("shapeDown", sr_weight * 0.8)]
+        for systematic, weight in variations:
+            values = {
+                "process": process, "channel": channel,
+                "systematic": systematic, dense_name: np.asarray([0.5]),
+                "weight": np.asarray([weight]),
+            }
+            if auxiliary:
+                values["appl"] = sr_label
+            output.fill(**values)
+        if auxiliary and ar_weight:
+            output.fill(
+                process=process, channel=channel, systematic="nominal",
+                appl=ar_label, **{dense_name: np.asarray([0.5])},
+                weight=np.asarray([ar_weight]),
+            )
+    return output
+
+
+def _mixed_sr_fixture(monkeypatch, *, auxiliary_process="DY50_centralUL18",
+                      auxiliary_histogram=None):
+    from topeft.modules.nominal_schema import scalar_nominal_key
+
+    scalar_key = scalar_nominal_key("njets")
+    primary = {
+        scalar_key: _mixed_sr_histogram("dataUL18", sr_weight=7),
+        "njets_sumw2": _mixed_sr_histogram("baselineUL18", companion=True,
+                                           sr_weight=16),
+    }
+    primary[scalar_key] += _mixed_sr_histogram(
+        "baselineUL18", sr_weight=4, shape=True
+    )
+    auxiliary = {
+        scalar_key: auxiliary_histogram or _mixed_sr_histogram(
+            auxiliary_process, auxiliary=True, sr_weight=2, ar_weight=30
+        ),
+        "njets_sumw2": _mixed_sr_histogram(
+            auxiliary_process, auxiliary=True, companion=True,
+            sr_weight=5, ar_weight=900,
+        ),
+    }
+    sidecars = [
+        {"artifact": {"artifact_kind": "nonprompt_output",
+                      "pkl_sha256": "a" * 64},
+         "sumw2_storage_provenance": {"resolved_processes": [
+             "dataUL18", "baselineUL18"]}},
+        {"artifact": {"artifact_kind": "processor_output",
+                      "pkl_sha256": "b" * 64},
+         "sumw2_storage_provenance": {"resolved_processes": [
+             auxiliary_process]},
+         "requested_data_driven_products": {"products": {
+             "nonprompt": {"enabled": False}, "flips": {"enabled": False}}},
+         "sumw2_content_manifest": {"families": {"njets": {
+             "required_sumw2_processes": [auxiliary_process]}}}},
+    ]
+    def load_one(paths, **_kwargs):
+        return (
+            primary if paths == ["primary.pkl.gz"] else auxiliary,
+            {"schema": "split_sibling_v1",
+             "runtime_histogram_families": ["njets"]},
+        )
+    monkeypatch.setattr(make_cr_and_sr_plots, "load_and_merge_histogram_pkls",
+                        load_one)
+    return sidecars
+
+
+def _mixed_sr_total(histogram, process, systematic="nominal"):
+    selected = histogram[{"process": process, "systematic": systematic}]
+    return float(np.sum(selected.values(flow=True)))
+
+
+def test_mixed_stage_sr_view_projects_sr_and_preserves_data_sumw2_and_provenance(
+    monkeypatch,
+):
+    sidecars = _mixed_sr_fixture(monkeypatch)
+    grouping_before = dict(make_cr_and_sr_plots.SR_GRP_PATTERNS)
+    view, report = make_cr_and_sr_plots._load_mixed_stage_sr_plot_view(
+        ["primary.pkl.gz", "auxiliary.pkl.gz"], sidecars,
+        selected_load={"selected_families": ["njets"]},
+        year_coverage_policy="off",
+    )
+    assert _mixed_sr_total(view["njets__scalar_nominal"], "dataUL18") == 14
+    assert _mixed_sr_total(view["njets__scalar_nominal"], "baselineUL18") == 8
+    assert _mixed_sr_total(view["njets__scalar_nominal"], "DY50_centralUL18") == 4
+    assert _mixed_sr_total(view["njets_sumw2"], "DY50_centralUL18") == 10
+    assert "appl" not in view["njets_sumw2"].axes.name
+    assert report["auxiliaries"][0]["sr_labels_by_component_and_channel"][
+        "njets_sumw2"
+    ] == {"2lss_p": "isSR_2lSS", "3l_onZ_2b": "isSR_3l"}
+    assert report["primary"]["artifact_kind"] == "nonprompt_output"
+    assert report["auxiliaries"][0]["artifact_kind"] == "processor_output"
+    assert report["generic_sidecar_merge_bypassed"]
+    assert report["cacheable"] is False and report["persistent_artifact"] is False
+    assert make_cr_and_sr_plots.SR_GRP_PATTERNS == grouping_before
+    shape_histo = view["njets__scalar_nominal"].prune("channel", ["2lss_p"])
+    (_, shape_up), details = make_cr_and_sr_plots.get_shape_syst_arrs(
+        shape_histo, group_type="SR", return_details=True
+    )
+    assert details["evaluated_bases"] == ("shape",)
+    assert np.max(np.asarray(shape_up)) == pytest.approx(0.8**2)
+
+
+@pytest.mark.parametrize("process, error", [
+    ("baselineUL18", "process identity collision"),
+    ("dataUL18", "Data or data-driven"),
+])
+def test_mixed_stage_rejects_collision_and_auxiliary_data(monkeypatch, process, error):
+    sidecars = _mixed_sr_fixture(monkeypatch, auxiliary_process=process)
+    with pytest.raises(ValueError, match=error):
+        make_cr_and_sr_plots._load_mixed_stage_sr_plot_view(
+            ["primary.pkl.gz", "auxiliary.pkl.gz"], sidecars,
+            selected_load={"selected_families": ["njets"]},
+            year_coverage_policy="off",
+        )
+
+
+def test_mixed_stage_rejects_missing_sr_appl(monkeypatch):
+    auxiliary = _mixed_sr_histogram(
+        "DY50_centralUL18", auxiliary=True, sr_weight=2, ar_weight=30
+    )
+    auxiliary = auxiliary.remove("appl", ["isSR_2lSS", "isSR_3l"])
+    sidecars = _mixed_sr_fixture(monkeypatch, auxiliary_histogram=auxiliary)
+    with pytest.raises(ValueError, match="missing source-defined SR appl"):
+        make_cr_and_sr_plots._load_mixed_stage_sr_plot_view(
+            ["primary.pkl.gz", "auxiliary.pkl.gz"], sidecars,
+            selected_load={"selected_families": ["njets"]},
+            year_coverage_policy="off",
+        )
+
+
+def test_mixed_stage_automatic_sr_dispatch_uses_single_input_validation(
+    monkeypatch, tmp_path,
+):
+    sidecars = _mixed_sr_fixture(monkeypatch)
+    monkeypatch.setattr(make_cr_and_sr_plots, "_mixed_stage_sidecars",
+                        lambda _paths: sidecars)
+    calls = []
+    loader = make_cr_and_sr_plots.load_and_merge_histogram_pkls
+
+    def record_loader(paths, **kwargs):
+        calls.append(paths)
+        return loader(paths, **kwargs)
+
+    monkeypatch.setattr(make_cr_and_sr_plots, "load_and_merge_histogram_pkls",
+                        record_loader)
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    args = parser.parse_args([
+        "-f", "primary.pkl.gz", "-f", "auxiliary.pkl.gz",
+        "-o", str(tmp_path), "-n", "mixed", "--sr",
+        "--variables", "njets", "--merge-only",
+    ])
+    assert make_cr_and_sr_plots.run_with_args(args, parser) == 0
+    assert calls == [["primary.pkl.gz"], ["auxiliary.pkl.gz"]]
+
+
+def test_mixed_stage_kind_classifier_requires_one_final_primary(
+    monkeypatch, tmp_path,
+):
+    paths = [str(tmp_path / "primary.pkl.gz"),
+             str(tmp_path / "auxiliary.pkl.gz")]
+    for path in paths:
+        make_cr_and_sr_plots.metadata_sidecar_path(path).touch()
+    kinds = ["nonprompt_output", "processor_output"]
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "read_histogram_sidecar",
+        lambda path: {"artifact": {"artifact_kind": kinds[paths.index(path)]}},
+    )
+    assert make_cr_and_sr_plots._mixed_stage_sidecars(paths) is not None
+    kinds[0] = "flips_output"
+    with pytest.raises(ValueError, match="exactly one nonprompt_output"):
+        make_cr_and_sr_plots._mixed_stage_sidecars(paths)
+
+
+def test_mixed_stage_rejects_cross_run_and_unproven_prompt_only(monkeypatch):
+    sidecars = _mixed_sr_fixture(monkeypatch)
+    sidecars[1]["sumw2_storage_provenance"]["resolved_processes"] = [
+        "DY50_central2022"
+    ]
+    with pytest.raises(RuntimeError, match=r"Run 2 \+ Run 3"):
+        make_cr_and_sr_plots._load_mixed_stage_sr_plot_view(
+            ["primary.pkl.gz", "auxiliary.pkl.gz"], sidecars,
+            selected_load={"selected_families": ["njets"]},
+            year_coverage_policy="off",
+        )
+    sidecars[1]["sumw2_storage_provenance"]["resolved_processes"] = [
+        "DY50_centralUL18"
+    ]
+    del sidecars[1]["requested_data_driven_products"]
+    with pytest.raises(ValueError, match="prompt-only provenance is unproven"):
+        make_cr_and_sr_plots._load_mixed_stage_sr_plot_view(
+            ["primary.pkl.gz", "auxiliary.pkl.gz"], sidecars,
+            selected_load={"selected_families": ["njets"]},
+            year_coverage_policy="off",
+        )
+
+
+@pytest.mark.parametrize("extra_args, error", [
+    (["--cr"], "only for the SR plot view"),
+    (["--sr", "--cache-merged-pkl", "cached"], "not cacheable"),
+])
+def test_mixed_stage_wrong_region_and_cache_fail_before_load(
+    monkeypatch, tmp_path, extra_args, error,
+):
+    sidecars = _mixed_sr_fixture(monkeypatch)
+    monkeypatch.setattr(make_cr_and_sr_plots, "_mixed_stage_sidecars",
+                        lambda _paths: sidecars)
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    args = parser.parse_args([
+        "-f", "primary.pkl.gz", "-f", "auxiliary.pkl.gz",
+        "-o", str(tmp_path), "-n", "mixed", "--variables", "njets",
+        *extra_args,
+    ])
+    with pytest.raises(ValueError, match=error):
+        make_cr_and_sr_plots.run_with_args(args, parser)
+
+
+def test_generic_sidecar_merge_rejects_mixed_kinds():
+    from topeft.modules.histogram_artifact import merge_histogram_sidecars
+
+    with pytest.raises(Exception, match="incompatible histogram artifact kinds"):
+        merge_histogram_sidecars([
+            {"artifact": {"artifact_kind": "nonprompt_output"}},
+            {"artifact": {"artifact_kind": "processor_output"}},
+        ])
+
+
+def test_sr_njets_selectors_reach_native_loader_before_materialization(monkeypatch, tmp_path):
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    args = parser.parse_args([
+        "-f", "synthetic.pkl.gz", "-o", str(tmp_path), "-n", "bounded",
+        "--sr", "--variables", "njets", "--merge-only",
+    ])
+    captured = {}
+
+    def capture_load(_paths, **kwargs):
+        captured.update(kwargs)
+        return {}, {"schema": "split_sibling_v1", "runtime_histogram_families": ["njets"]}
+
+    monkeypatch.setattr(make_cr_and_sr_plots, "load_and_merge_histogram_pkls", capture_load)
+    assert make_cr_and_sr_plots.run_with_args(args, parser) == 0
+    assert captured["selected_families"] == ["njets"]
+    assert any(re.search(pattern, "3l_onZ_2b_4j") for pattern in captured["channel_patterns"])
+    assert any(re.search(pattern, "3l_onZ_2b") for pattern in captured["channel_patterns"])
+    assert not any(re.search(pattern, "2lss_ee_CR_1j") for pattern in captured["channel_patterns"])
+
+
+def test_sr_njets_selected_consumer_matches_unselected_synthetic_multi_pkl(tmp_path, monkeypatch):
+    from tests.test_make_cards_selective_loading import _payload, _assert_histograms_equal
+    from tests.test_split_nominal_loader import _policy_for_families, _write_versioned, _scalar
+    from topeft.modules import datacard_tools, nominal_schema
+    from topeft.modules.nominal_schema import materialize_scalar_histogram_dict
+
+    channels = ("3l_onZ_2b_4j", "2lss_ee_CR_1j")
+    first_payload = _payload(channels=channels, signal=False)
+    second_payload = _payload(channels=channels, background=False)
+    data_samples = {
+        "background_dataset": {"histAxisName": "background", "isData": False, "WCnames": []},
+        "signal_dataset": {"histAxisName": "signal", "isData": False, "WCnames": ["ctG"]},
+        "data_dataset": {"histAxisName": "data", "isData": True, "WCnames": []},
+    }
+    first_payload[nominal_schema.scalar_nominal_key("njets")] += _scalar(
+        "data", 7.0, channel=channels[0]
+    )
+    first_payload[nominal_schema.sumw2_key("njets")] += _scalar(
+        "data", 7.0, companion=True, channel=channels[0]
+    )
+    first, second = tmp_path / "first.pkl.gz", tmp_path / "second.pkl.gz"
+    policy = _policy_for_families(("njets", "ptz_wtau"), samples=data_samples)
+    _write_versioned(first, first_payload, policy, samples=data_samples)
+    _write_versioned(second, second_payload, policy, samples=data_samples)
+    paths = [str(first), str(second)]
+    eager, eager_report = datacard_tools.load_and_merge_histogram_pkls(paths)
+    expected = {
+        key: histogram.prune("channel", [channels[0]])
+        for key, histogram in eager.items() if key.startswith("njets")
+    }
+    expected_view = materialize_scalar_histogram_dict(
+        expected, runtime_families=["njets"], wc_values={},
+    )
+    captured = {}
+    original_loader = make_cr_and_sr_plots.load_and_merge_histogram_pkls
+
+    def capture_loader(*args, **kwargs):
+        result = original_loader(*args, **kwargs)
+        captured["report"] = result[1]
+        return result
+
+    monkeypatch.setattr(make_cr_and_sr_plots, "load_and_merge_histogram_pkls", capture_loader)
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "run_plots_for_region",
+        lambda _region, histograms, *_args, **_kwargs: captured.update(view=histograms),
+    )
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    args = parser.parse_args([
+        "-f", str(first), "-f", str(second), "-o", str(tmp_path),
+        "-n", "selected", "--sr", "--variables", "njets",
+    ])
+    assert make_cr_and_sr_plots.run_with_args(args, parser) == 0
+    assert set(captured["view"]) == {"njets", "njets_sumw2"}
+    assert "ptz_wtau__scalar_nominal" in captured["report"]["files"][0]["discarded_keys"]
+    assert channels[1] not in captured["report"]["files"][0]["resolved_channels"]
+    _assert_histograms_equal(captured["view"], expected_view)
+    assert "data" in list(captured["view"]["njets"].axes["process"])
+    assert "data" in list(eager[nominal_schema.scalar_nominal_key("njets")].axes["process"])
+    assert eager_report["schema"] == captured["report"]["schema"]
+
+
+def test_sr_njets_selected_loader_preserves_collision_rejection(tmp_path):
+    from tests.test_make_cards_selective_loading import _write_fixture
+    from topeft.modules.datacard_tools import load_and_merge_histogram_pkls
+
+    first, second = tmp_path / "first.pkl.gz", tmp_path / "second.pkl.gz"
+    _write_fixture(first, signal=False)
+    _write_fixture(second, signal=False)
+    with pytest.raises(RuntimeError, match="Duplicate histogram contribution support"):
+        load_and_merge_histogram_pkls(
+            [str(first), str(second)], selected_families=["njets"],
+            channel_patterns=make_cr_and_sr_plots._sr_njets_channel_patterns(),
+        )
 
 
 class _DummyHist:
@@ -1140,6 +1483,7 @@ def test_stat_and_total_modes_keep_mc_uncertainty_bands(monkeypatch, uncertainty
         group=group_map,
         unblind=True,
         uncertainty_mode=uncertainty_mode,
+        h_mc_sumw2=h_mc if uncertainty_mode == "total" else None,
         syst_err="total",
         err_p_syst=mc_totals + 1.0,
         err_m_syst=mc_totals - 1.0,
@@ -1199,8 +1543,8 @@ def test_uncertainty_band_shape_mismatch_fails_closed():
             rax=None,
             bins=np.array([0.0, 1.0, 2.0]),
             mc_totals=np.array([4.0, 5.0]),
-            mc_sumw2_vals={},
-            h_mc_sumw2=None,
+            mc_sumw2_vals={"synthetic": np.array([1.0, 1.0])},
+            h_mc_sumw2=object(),
             unit_norm_bool=False,
             mc_scaled=False,
             mc_norm_factor=1.0,
@@ -1217,6 +1561,46 @@ def test_uncertainty_band_shape_mismatch_fails_closed():
     assert "systematic_reference_total.shape=(4,)" in message
     assert "mc_totals.shape=(2,)" in message
     assert "Silent truncation/padding is forbidden" in message
+
+
+def test_total_band_requires_nominal_sumw2_moments():
+    with pytest.raises(ValueError, match="requires nominal MC sumw2 moments"):
+        make_cr_and_sr_plots._compute_uncertainty_bands(
+            ax=None,
+            rax=None,
+            bins=np.array([0.0, 1.0, 2.0]),
+            mc_totals=np.array([4.0, 5.0]),
+            mc_sumw2_vals={},
+            h_mc_sumw2=None,
+            unit_norm_bool=False,
+            mc_scaled=False,
+            mc_norm_factor=1.0,
+            err_p_syst=np.array([5.0, 6.0]),
+            err_m_syst=np.array([3.0, 4.0]),
+            err_ratio_p_syst=None,
+            err_ratio_m_syst=None,
+            syst_err="total",
+        )
+
+
+def test_total_band_rejects_missing_statistical_bins():
+    with pytest.raises(ValueError, match="MC sumw2 bin shapes differ"):
+        make_cr_and_sr_plots._compute_uncertainty_bands(
+            ax=None,
+            rax=None,
+            bins=np.array([0.0, 1.0, 2.0]),
+            mc_totals=np.array([4.0, 5.0]),
+            mc_sumw2_vals={"synthetic": np.array([1.0])},
+            h_mc_sumw2=object(),
+            unit_norm_bool=False,
+            mc_scaled=False,
+            mc_norm_factor=1.0,
+            err_p_syst=np.array([5.0, 6.0]),
+            err_m_syst=np.array([3.0, 4.0]),
+            err_ratio_p_syst=None,
+            err_ratio_m_syst=None,
+            syst_err="total",
+        )
 
 
 def _get_cms_text_union_bbox(fig, ax, renderer):
@@ -1533,6 +1917,70 @@ def test_unit_normalization_skips_empty_histograms(monkeypatch):
 
     assert any("Skipping MC unit normalization" in msg for msg in logged_messages)
     assert any("Skipping data unit normalization" in msg for msg in logged_messages)
+
+
+@pytest.mark.parametrize(
+    ("process_label", "family"),
+    [
+        ("DY10to50_centralUL17", "DY"),
+        ("DY50_centralUL17", "DY"),
+        ("DYJetsToLL_MLL-10to50_central2022", "DY"),
+        ("DYJetsToLL_MLL-50_central2023BPix", "DY"),
+        ("ZGToLLG_centralUL18", "ZGamma"),
+        ("ZG_MLL-4to50_PTG-100to200_central2022EE", "ZGamma"),
+        ("ZG_MLL-50_PTG-600_central2023", "ZGamma"),
+        ("ST_top_t-channel_centralUL16", "Single top"),
+        ("tW_centralUL17", "Single top"),
+        ("tbarW_centralUL18", "Single top"),
+        ("ST_tW_Leptonic_central2022", "Single top"),
+        ("ST_tbarW_Semileptonic_central2023BPix", "Single top"),
+        ("WJetsToLNu_centralUL16APV", "Singleboson"),
+        ("WJetsToLNu_central2023", "Singleboson"),
+    ],
+)
+def test_excluded_mc_labels_use_native_cr_sr_metadata_once(process_label, family):
+    for pattern_map in (
+        make_cr_and_sr_plots.CR_GRP_PATTERNS,
+        make_cr_and_sr_plots.SR_GRP_PATTERNS,
+    ):
+        group_map = make_cr_and_sr_plots.populate_group_map(
+            [process_label], pattern_map
+        )
+        assert [
+            group for group, members in group_map.items() if process_label in members
+        ] == [family]
+
+    canonical_name = make_cr_and_sr_plots.tc_utils.canonicalize_process_name(
+        process_label
+    )
+    matching_patterns = [
+        (group, pattern)
+        for group, patterns in make_cr_and_sr_plots.SR_GRP_PATTERNS.items()
+        for pattern in patterns
+        if isinstance(pattern, str) and (pattern in canonical_name or pattern in process_label)
+    ]
+    assert len(matching_patterns) == 1
+    assert matching_patterns[0][0] == family
+
+
+@pytest.mark.parametrize(
+    ("process_label", "group"),
+    [
+        ("TTTo2L2Nu_centralUL17", "ttll"),
+        ("TTGJets_centralUL18", "Conv"),
+        ("WWW_central2022", "Triboson"),
+        ("TWZ_central2023", "tWZ"),
+        ("WZTo3LNu_centralUL16", "Diboson"),
+        ("ttH_central2022EE", "ttH"),
+    ],
+)
+def test_excluded_mc_sr_metadata_preserves_baseline_groups(process_label, group):
+    group_map = make_cr_and_sr_plots.populate_group_map(
+        [process_label], make_cr_and_sr_plots.SR_GRP_PATTERNS
+    )
+    assert [
+        name for name, members in group_map.items() if process_label in members
+    ] == [group]
 
 
 def test_unmatched_sample_is_skipped_from_group_map(monkeypatch):
@@ -3324,3 +3772,531 @@ def test_plotter_parser_exposes_rebin_and_negative_report_switches():
 
     assert args.rebin_plot_vars == "j0pt:2"
     assert args.negative_weight_report is False
+
+
+def _make_sr_ttbar_display_inputs(*, negative=False):
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    jet_axis = hist.axis.Regular(2, 3.0, 5.0, name="njets")
+    h_mc = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    h_sumw2 = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    h_data = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    samples = {
+        "TTTo2L2Nu_centralUL16": [4.0, -4.0 if negative else 1.0, 3.0],
+        "TTToSemiLeptonic_centralUL17": [2.0, 1.0, 2.0],
+        "TTZToLL_M1to10_centralUL18": [1.0, 2.0, 0.0],
+        "ttllJet_privateUL16APV": [3.0, 2.0, 1.0],
+        "other": [5.0, 1.0, 1.0],
+    }
+    for process, values in samples.items():
+        for jet, value in zip((3.5, 4.5, 5.5), values):
+            h_mc.fill(process=process, njets=jet, weight=value)
+            h_sumw2.fill(process=process, njets=jet, weight=abs(value) + 1.0)
+    for jet, value in zip((3.5, 4.5, 5.5), (14.0, 6.0, 7.0)):
+        h_data.fill(process="data", njets=jet, weight=value)
+    group_map = {
+        "ttll": [name for name in samples if name != "other"],
+        "Other": ["other"],
+    }
+    return h_mc, h_sumw2, h_data, group_map
+
+
+def test_run3_fully_hadronic_display_preserves_inputs_and_resolves_legend_colors():
+    eras = ("2022", "2022EE", "2023", "2023BPix")
+    fully_hadronic = {f"TTto4Q_central{era}" for era in eras}
+    samples = {
+        **{name: [2.0, -0.25 if name.endswith("2022") else 1.0, 3.0]
+           for name in fully_hadronic},
+        "TTto2L2Nu_central2022": [5.0, 2.0, 1.0],
+        "TTtoLNu2Q_central2023": [4.0, 1.0, 2.0],
+        "ttll_private2022": [3.0, 1.0, 2.0],
+        "DYJetsToLL_MLL-50_central2022": [3.0, 2.0, 1.0],
+        "TTGJets_central2023": [1.0, 1.0, 1.0],
+        "ZGToLLG_central2022": [1.0, 2.0, 1.0],
+        "ttH_central2022": [1.0, 1.0, 2.0],
+        "ST_top_t-channel_central2022": [1.0, 1.0, 1.0],
+        "tllq_central2023": [1.0, 1.0, 1.0],
+        "tttt_central2022": [1.0, 1.0, 1.0],
+        "WJetsToLNu_central2022": [1.0, 1.0, 1.0],
+    }
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    jet_axis = hist.axis.Regular(3, 3.0, 6.0, name="njets")
+    h_mc = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    h_sumw2 = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    h_data = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    for process, values in samples.items():
+        for jet, value in zip((3.5, 4.5, 5.5), values):
+            h_mc.fill(process=process, njets=jet, weight=value)
+            h_sumw2.fill(process=process, njets=jet, weight=abs(value) + 1.0)
+    for jet, value in zip((3.5, 4.5, 5.5), (25.0, 15.0, 18.0)):
+        h_data.fill(process="data", njets=jet, weight=value)
+
+    group_map = make_cr_and_sr_plots.populate_group_map(
+        samples, make_cr_and_sr_plots.SR_GRP_PATTERNS
+    )
+    ownership = Counter(member for members in group_map.values() for member in members)
+    assert ownership == Counter(samples.keys())
+    assert set(group_map["ttll"]) == fully_hadronic | {
+        "TTto2L2Nu_central2022", "TTtoLNu2Q_central2023", "ttll_private2022"
+    }
+    assert all(
+        make_cr_and_sr_plots.populate_group_map(
+            [name], make_cr_and_sr_plots.SR_GRP_PATTERNS
+        )["ttll"] == [name]
+        for name in fully_hadronic
+    )
+    assert not make_cr_and_sr_plots.populate_group_map(
+        ["TTto4Q_central2022_extra"], make_cr_and_sr_plots.SR_GRP_PATTERNS
+    )["ttll"]
+
+    before_mc = h_mc.values(flow=True).copy()
+    before_sumw2 = h_sumw2.values(flow=True).copy()
+    before_data = h_data.values(flow=True).copy()
+    total = h_mc[{"process": sum}].values(flow=True)[1:]
+    render_kwargs = dict(
+        h_mc=h_mc, h_data=h_data, h_mc_sumw2=h_sumw2,
+        unit_norm_bool=False, var="njets", group=group_map,
+        unblind=True, uncertainty_mode="total", syst_err="total",
+        err_p_syst=total + 2.0, err_m_syst=total - 2.0,
+        err_ratio_p_syst=np.ones_like(total),
+        err_ratio_m_syst=np.ones_like(total),
+    )
+    original = make_cr_and_sr_plots.make_region_stacked_ratio_fig(**render_kwargs)
+    split = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        **render_kwargs, sr_ttbar_display_years=eras
+    )
+    try:
+        view = split._topeft_sr_ttbar_display_view
+        assert not view["fallback"]
+        assert set(view["fully_hadronic_members"]) == fully_hadronic
+        assert set(view["ttbar_members"]) == {
+            "TTto2L2Nu_central2022", "TTtoLNu2Q_central2023"
+        }
+        assert view["remainder_members"] == ("ttll_private2022",)
+        assert Counter(
+            member for members in view["draw_group"].values() for member in members
+        ) == Counter(samples.keys())
+        np.testing.assert_allclose(
+            view["ttbar_values"] + view["fully_hadronic_values"]
+            + view["remainder_values"],
+            original._topeft_plot_view["raw_grouped_centrals"]["ttll"],
+        )
+        for key in ("displayed_total", "total_variance"):
+            np.testing.assert_allclose(
+                split._topeft_plot_view[key], original._topeft_plot_view[key]
+            )
+        for key in original._topeft_uncertainty_bands:
+            if key != "main_band_handles":
+                np.testing.assert_allclose(
+                    split._topeft_uncertainty_bands[key],
+                    original._topeft_uncertainty_bands[key], equal_nan=True
+                )
+        np.testing.assert_array_equal(h_mc.values(flow=True), before_mc)
+        np.testing.assert_array_equal(h_sumw2.values(flow=True), before_sumw2)
+        np.testing.assert_array_equal(h_data.values(flow=True), before_data)
+
+        legend = split.legends[0]
+        legend_colors = {
+            label.get_text(): handle.get_facecolor()
+            for handle, label in zip(legend.legend_handles, legend.get_texts())
+            if hasattr(handle, "get_facecolor")
+        }
+        cr = make_cr_and_sr_plots.CR_GROUP_INFO
+        sr = make_cr_and_sr_plots.SR_GROUP_INFO
+        assert to_rgba(cr["DY"]["color"]) == to_rgba(sr["DY"]["color"])
+        assert to_rgba(cr["Ttbar"]["color"]) != to_rgba(cr["DY"]["color"])
+        assert to_rgba(legend_colors["ttbar"]) == to_rgba(cr["Ttbar"]["color"])
+        assert to_rgba(legend_colors["DY"]) == to_rgba(cr["DY"]["color"])
+        split_config = sr["ttll"]["display_split"]
+        assert to_rgba(legend_colors[split_config["fully_hadronic_label"]]) == to_rgba(
+            split_config["fully_hadronic_color"]
+        )
+        assert to_rgba(legend_colors[split_config["remainder_label"]]) == to_rgba(
+            sr["ttll"]["color"]
+        )
+        for first, second in (("DY", split_config["remainder_label"]),
+                              ("ZGamma", "ttH"), ("Single top", "tllq"),
+                              ("tttt", "Singleboson")):
+            assert to_rgba(legend_colors[first]) != to_rgba(legend_colors[second])
+        assert all(
+            to_rgba(legend_colors[split_config["fully_hadronic_label"]]) != to_rgba(color)
+            for label, color in legend_colors.items()
+            if view["draw_group"].get(label)
+            and label != split_config["fully_hadronic_label"]
+        )
+        displayed_mc_colors = [
+            to_rgba(color) for label, color in legend_colors.items()
+            if view["draw_group"].get(label)
+        ]
+        assert len(displayed_mc_colors) == len(set(displayed_mc_colors))
+        dark_green = to_rgb(legend_colors["ttbar"])
+        light_green = to_rgb(legend_colors[split_config["fully_hadronic_label"]])
+        assert light_green[1] > dark_green[1]
+        assert light_green[1] >= light_green[0] and light_green[1] >= light_green[2]
+    finally:
+        make_cr_and_sr_plots.plt.close(original)
+        make_cr_and_sr_plots.plt.close(split)
+
+
+def test_run3_fully_hadronic_negative_bucket_keeps_original_stack():
+    samples = {
+        "TTto4Q_central2022": -3.0,
+        "TTto2L2Nu_central2022": 4.0,
+        "ttll_private2022": 2.0,
+    }
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    jet_axis = hist.axis.Regular(1, 3.0, 4.0, name="njets")
+    h_mc = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    h_data = hist.Hist(process_axis, jet_axis, storage=hist.storage.Double())
+    for process, value in samples.items():
+        h_mc.fill(process=process, njets=3.5, weight=value)
+    h_data.fill(process="data", njets=3.5, weight=3.0)
+    group_map = make_cr_and_sr_plots.populate_group_map(
+        samples, make_cr_and_sr_plots.SR_GRP_PATTERNS
+    )
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc=h_mc, h_data=h_data, unit_norm_bool=False, var="njets",
+        group=group_map, unblind=False, sr_ttbar_display_years=["2022"],
+    )
+    try:
+        view = fig._topeft_sr_ttbar_display_view
+        assert view["fallback"]
+        assert list(view["draw_group"]["ttll"]) == list(samples)
+        np.testing.assert_allclose(view["original_visible_ttll"], [3.0, 0.0])
+        np.testing.assert_allclose(view["split_visible_ttll"], [6.0, 0.0])
+        np.testing.assert_allclose(fig._topeft_plot_view["displayed_total"], [3.0, 0.0])
+        assert "ttbar (fully hadronic)" in {
+            label.get_text() for legend in fig.legends for label in legend.get_texts()
+        }
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
+
+
+def test_sr_ttbar_metadata_partition_covers_census_identities():
+    run2_eras = ("UL16", "UL16APV", "UL17", "UL18")
+    run3_eras = ("2022", "2022EE", "2023", "2023BPix")
+    run2 = [f"{stem}{era}" for era in run2_eras for stem in (
+        "TTTo2L2Nu_central", "TTToSemiLeptonic_central",
+        "TTZToLL_M1to10_central", "ttllJet_private",
+    )]
+    run3 = [f"{stem}{era}" for era in run3_eras for stem in (
+        "TTto2L2Nu_central", "TTtoLNu2Q_central", "ttll_private",
+    )]
+    assert len(run2 + run3) == 28
+    for members, years, expected_ttbar in (
+        (run2, ["2016", "2016APV", "2017", "2018"], 8),
+        (run3, ["2022", "2022EE", "2023", "2023BPix"], 8),
+    ):
+        process_axis = hist.axis.StrCategory(members, name="process")
+        jet_axis = hist.axis.Regular(1, 3, 4, name="njets")
+        source = hist.Hist(process_axis, jet_axis)
+        for member in members:
+            source.fill(process=member, njets=3.5)
+        view = make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+            source, {"ttll": members}, years,
+        )
+        assert len(view["ttbar_members"]) == expected_ttbar
+        assert set(view["ttbar_members"]).isdisjoint(view["remainder_members"])
+        assert set(view["ttbar_members"]) | set(view["remainder_members"]) == set(members)
+
+
+def test_sr_ttbar_metadata_partition_is_exact_and_fail_closed():
+    group_map = {
+        "ttll": [
+            "TTTo2L2Nu_centralUL16APV",
+            "TTToSemiLeptonic_centralUL18",
+            "TTZToLL_M1to10_centralUL17",
+            "ttllJet_privateUL16",
+        ]
+    }
+    source = hist.Hist(
+        hist.axis.StrCategory(group_map["ttll"], name="process"),
+        hist.axis.Regular(1, 3, 4, name="njets"),
+    )
+    for member in group_map["ttll"]:
+        source.fill(process=member, njets=3.5)
+    view = make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+        source, group_map, ["2016", "2016APV", "2017", "2018"]
+    )
+    ttbar, remainder = view["ttbar_members"], view["remainder_members"]
+    assert len(ttbar) == 2
+    assert remainder == (
+        "TTZToLL_M1to10_centralUL17", "ttllJet_privateUL16"
+    )
+    assert set(ttbar).isdisjoint(remainder)
+    assert set(ttbar) | set(remainder) == set(group_map["ttll"])
+
+    run3_map = {
+        "ttll": ["TTto2L2Nu_central2022EE", "TTtoLNu2Q_central2023BPix",
+                 "ttll_private2022", "ttll_private2023"]
+    }
+    run3_source = hist.Hist(
+        hist.axis.StrCategory(run3_map["ttll"], name="process"),
+        hist.axis.Regular(1, 3, 4, name="njets"),
+    )
+    for member in run3_map["ttll"]:
+        run3_source.fill(process=member, njets=3.5)
+    run3_view = make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+        run3_source, run3_map, ["2022", "2022EE", "2023", "2023BPix"]
+    )
+    run3_ttbar, run3_remainder = run3_view["ttbar_members"], run3_view["remainder_members"]
+    assert len(run3_ttbar) == len(run3_remainder) == 2
+
+    for invalid in (
+        ["ttllJet_privateUL16"],
+        ["TTTo2L2Nu_centralUL16", "TTTo2L2Nu_centralUL16"],
+        ["TTTo2L2Nu_centralUL16", "TTTo2L2Nu_centralUL16_extra",
+         "ttllJet_privateUL16"],
+    ):
+        with pytest.raises(ValueError):
+            make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+                source, {"ttll": invalid}, ["2016"]
+            )
+    with pytest.raises(ValueError, match="selected-era"):
+        make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+            run3_source, run3_map, ["2016"]
+        )
+
+
+def test_sr_ttbar_yaml_absence_and_empty_category_leave_legacy_draw(monkeypatch):
+    h_mc, h_sumw2, h_data, group_map = _make_sr_ttbar_display_inputs()
+    original_info = make_cr_and_sr_plots.SR_GROUP_INFO
+    without_split = dict(original_info)
+    without_split["ttll"] = {
+        key: value for key, value in original_info["ttll"].items()
+        if key != "display_split"
+    }
+    monkeypatch.setattr(make_cr_and_sr_plots, "SR_GROUP_INFO", without_split)
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc, h_data, False, var="njets", group=group_map,
+        h_mc_sumw2=h_sumw2, unblind=True, uncertainty_mode="stat",
+    )
+    try:
+        assert not hasattr(fig, "_topeft_sr_ttbar_display_view")
+        assert "ttll" in fig._topeft_plot_view["raw_grouped_centrals"]
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
+
+    monkeypatch.setattr(make_cr_and_sr_plots, "SR_GROUP_INFO", original_info)
+    assert make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+        h_mc, {"Other": ["other"]}, ["2016", "2016APV", "2017", "2018"]
+    ) is None
+    empty = hist.Hist(
+        hist.axis.StrCategory(group_map["ttll"], name="process"),
+        hist.axis.Regular(2, 3, 5, name="njets"),
+    )
+    assert make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+        empty, {"ttll": group_map["ttll"]},
+        ["2016", "2016APV", "2017", "2018"],
+    ) is None
+    absent = hist.Hist(
+        hist.axis.StrCategory(["other"], name="process"),
+        hist.axis.Regular(2, 3, 5, name="njets"),
+    )
+    absent.fill(process="other", njets=3.5)
+    assert make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+        absent, group_map, ["2016", "2016APV", "2017", "2018"]
+    ) is None
+    partial = hist.Hist(
+        hist.axis.StrCategory([group_map["ttll"][0]], name="process"),
+        hist.axis.Regular(2, 3, 5, name="njets"),
+    )
+    partial.fill(process=group_map["ttll"][0], njets=3.5)
+    with pytest.raises(ValueError, match="missing original members"):
+        make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+            partial, group_map, ["2016", "2016APV", "2017", "2018"]
+        )
+    with pytest.raises(ValueError, match="overlaps"):
+        make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+            h_mc, {**group_map, "Other": ["other", group_map["ttll"][0]]},
+            ["2016", "2016APV", "2017", "2018"],
+        )
+
+
+@pytest.mark.parametrize("invalid", [None, {}, {"ttbar_group": "Unknown", "ttbar_label": "t", "remainder_label": "r"},
+                                    {"ttbar_group": "Ttbar", "ttbar_label": "same", "remainder_label": "same"}])
+def test_sr_ttbar_malformed_present_yaml_fails_explicitly(monkeypatch, invalid):
+    h_mc, _, _, group_map = _make_sr_ttbar_display_inputs()
+    info = dict(make_cr_and_sr_plots.SR_GROUP_INFO)
+    info["ttll"] = dict(info["ttll"], display_split=invalid)
+    monkeypatch.setattr(make_cr_and_sr_plots, "SR_GROUP_INFO", info)
+    with pytest.raises(ValueError, match="display_split"):
+        make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+            h_mc, group_map, ["2016", "2016APV", "2017", "2018"]
+        )
+
+
+@pytest.mark.parametrize("negative", [False, True])
+def test_sr_ttbar_draw_view_preserves_signed_total_variance_and_full_band(negative):
+    h_mc, h_sumw2, h_data, group_map = _make_sr_ttbar_display_inputs(
+        negative=negative
+    )
+    before_mc = h_mc.values(flow=True).copy()
+    before_variance = h_sumw2.values(flow=True).copy()
+    signed_total = h_mc[{"process": sum}].values(flow=True)[1:]
+    render_kwargs = dict(
+        h_mc=h_mc, h_data=h_data, h_mc_sumw2=h_sumw2,
+        unit_norm_bool=False, var="njets", group=group_map,
+        unblind=True, uncertainty_mode="total", syst_err="total",
+        err_p_syst=signed_total + 2.0,
+        err_m_syst=signed_total - 3.0,
+        err_ratio_p_syst=np.ones_like(signed_total),
+        err_ratio_m_syst=np.ones_like(signed_total),
+    )
+    original = make_cr_and_sr_plots.make_region_stacked_ratio_fig(**render_kwargs)
+    split = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        **render_kwargs,
+        sr_ttbar_display_years=["2016", "2016APV", "2017", "2018"],
+    )
+    try:
+        view = split._topeft_sr_ttbar_display_view
+        np.testing.assert_allclose(
+            view["ttbar_values"] + view["remainder_values"],
+            original._topeft_plot_view["raw_grouped_centrals"]["ttll"],
+        )
+        np.testing.assert_allclose(
+            split._topeft_plot_view["displayed_total"],
+            original._topeft_plot_view["displayed_total"],
+        )
+        np.testing.assert_allclose(
+            split._topeft_plot_summary["ratio_denominator"],
+            original._topeft_plot_summary["ratio_denominator"],
+        )
+        for key in original._topeft_uncertainty_bands:
+            if key == "main_band_handles":
+                continue
+            np.testing.assert_allclose(
+                split._topeft_uncertainty_bands[key],
+                original._topeft_uncertainty_bands[key], equal_nan=True,
+            )
+        np.testing.assert_allclose(
+            split._topeft_plot_view["total_variance"],
+            original._topeft_plot_view["total_variance"],
+        )
+        np.testing.assert_allclose(
+            split._topeft_data_intervals["central_counts"],
+            original._topeft_data_intervals["central_counts"],
+        )
+        np.testing.assert_allclose(
+            split._topeft_ratio_values, original._topeft_ratio_values,
+        )
+        np.testing.assert_allclose(
+            sum(split._topeft_plot_view["raw_grouped_centrals"].values()),
+            sum(original._topeft_plot_view["raw_grouped_centrals"].values()),
+        )
+        assert view["fallback"] is negative
+        assert len(split.axes) == len(original.axes) == 2
+        assert [axis.get_title() for axis in split.axes] == ["", ""]
+        assert "sr_ttbar_companion_panel" not in split._topeft_plot_summary
+        labels = [text.get_text() for legend in split.legends for text in legend.get_texts()]
+        assert "ttbar" in labels
+        assert "ttll (ttbar excluded)" in labels
+        assert "ttll" not in labels
+        assert "ttbar (existing ttll)" not in labels
+        assert "other former-ttll members" not in labels
+        if negative:
+            assert list(split._topeft_plot_view["raw_grouped_centrals"]) == list(
+                original._topeft_plot_view["raw_grouped_centrals"]
+            )
+            assert view["split_visible_ttll"][1] > view["original_visible_ttll"][1]
+            assert {"ttbar", "ttll (ttbar excluded)"}.issubset(
+                {artist.get_label() for artist in split.axes[0].patches}
+            )
+            assert any(text.get_text() == "-3" for text in split.axes[0].texts)
+            np.testing.assert_allclose(split.axes[0].get_ylim(), original.axes[0].get_ylim())
+        else:
+            assert "ttbar" in split._topeft_plot_view[
+                "raw_grouped_centrals"
+            ]
+        np.testing.assert_array_equal(h_mc.values(flow=True), before_mc)
+        np.testing.assert_array_equal(h_sumw2.values(flow=True), before_variance)
+    finally:
+        make_cr_and_sr_plots.plt.close(original)
+        make_cr_and_sr_plots.plt.close(split)
+
+
+def test_sr_ttbar_retired_cli_option_is_not_recognized():
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--sr-ttbar-display-split"])
+
+
+def test_sr_ttbar_yaml_does_not_limit_sr_plot_categories(monkeypatch):
+    category_calls = []
+    region_ctx = SimpleNamespace(
+        name="SR", dict_of_hists={"njets": object()},
+        apply_category_skips=False, unblind_default=True,
+        variable_label="Variable",
+    )
+    payload = {
+        "channel_dict": {
+            "2los_onZ_1tau": ["2los_onZ_1tau"],
+            "unrelated_sr_category": ["unrelated_sr_category"],
+        },
+        "channel_transformations": [],
+        "is_sparse2d": False,
+        "hist_mc": object(), "hist_data": object(),
+        "hist_mc_sumw2_orig": object(),
+        "_global_channel_coverage_validated": True,
+    }
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "_prepare_variable_payload",
+        lambda *args, **kwargs: payload,
+    )
+
+    def record_category(var_name, hist_cat, *args, **kwargs):
+        category_calls.append((var_name, hist_cat))
+        return 0, 1, set(), []
+
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "_render_variable_category", record_category
+    )
+    make_cr_and_sr_plots.produce_region_plots(
+        region_ctx, None, ["njets"], "total", False, False,
+        unblind=True, workers=1,
+    )
+    assert category_calls == [
+        ("njets", "2los_onZ_1tau"),
+        ("njets", "unrelated_sr_category"),
+    ]
+
+
+def test_sr_ttbar_yaml_activates_merged_and_per_channel_1d(tmp_path, monkeypatch):
+    source = make_cr_and_sr_plots.SparseHist(
+        hist.axis.StrCategory([], name="process", growth=True),
+        hist.axis.StrCategory([], name="channel", growth=True),
+        hist.axis.StrCategory([], name="systematic", growth=True),
+        hist.axis.Regular(1, 0.0, 1.0, name="njets"),
+    )
+    for process, weight in (
+        ("TTto2L2Nu_central2022", 3.0),
+        ("ttll_private2022", 2.0),
+        ("data2022", 4.0),
+    ):
+        source.fill(
+            process=process, channel="2lss_p", systematic="nominal",
+            njets=0.5, weight=weight,
+        )
+    captured = []
+    original_render = make_cr_and_sr_plots.make_region_stacked_ratio_fig
+
+    def capture_render(*args, **kwargs):
+        fig = original_render(*args, **kwargs)
+        if fig is not None:
+            captured.append((
+                kwargs.get("sr_ttbar_display_years"),
+                getattr(fig, "_topeft_sr_ttbar_display_view", None),
+            ))
+        return fig
+
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "make_region_stacked_ratio_fig", capture_render
+    )
+    make_cr_and_sr_plots.run_plots_for_region(
+        "SR", {"njets": source}, years=["2022"],
+        save_dir_path=str(tmp_path), channel_output="both",
+        skip_syst_errs=True, workers=1, unblind=True,
+        variables=["njets"],
+    )
+    assert len(captured) >= 2
+    assert all(years == ("2022",) and view is not None for years, view in captured)
+    assert all(view["ttbar_members"] == ("TTto2L2Nu_central2022",) for _, view in captured)

@@ -2,7 +2,7 @@
   "xsec": 6025.2,
   "year": "2017",
   "treeName": "Events",
-  "histAxisName": "DYJetsToLL_centralUL17",
+  "histAxisName": "DY50_centralUL17",
   "options": "",
   "WCnames": [],
   "files": [

@@ -37,9 +37,10 @@ are:
 | Years/coverage | Optional supported year list; coverage `warn`, `error`, or `off`, default `warn` | Mixed input identities and structural year gaps follow the selected fail/warn policy. |
 | Binning | `fitting` or `processing`, default `fitting` | Fitting performs exact late aggregation per selected physical channel. |
 | WCs | POI list, reference/selected-WC files, select-only/check controls, optional WC values/scaling order | WC selection uses the card-facing fitting view; selected files must match the producer's supported process/WC structure. `--use-selected` materializes canonical signal-only `selectedWCs.txt` in `--out-dir`. |
-| Nuisances | Nuisance and MC-stat switches, `--rate-syst-json`, `--miss-parton-file`, and `--skip-missing-parton-rate-syst` | Run era selects maintained defaults when the override is omitted. An explicit `--rate-syst-json` is forwarded as `rate_systs_path`; worker arguments come from the canonical manifest. The missing-parton consumer infers the maintained payload layout and has no `--sr-registry` option. |
-| Data/negative bins | Asimov by default; direct `--unblind` for observed data; crop negative bins by default | With an actual selected `data` process, unblind writes its contents to ROOT `data_obs` and TXT `observation`. Without that process, the observation can remain zero. The Asimov branch evaluates nominal processes at `--wc-vals`. The canonical matrix generator has no unblind option; the reviewed supported observed-data route at this revision is the direct CLI. Keep distinct output/provenance records and control access to observed-data artifacts. Numerical real-data validation is unestablished. |
-| Execution | Direct local default; `--condor` requires `--matrix-manifest`, `--condor-output`, explicit CPU/memory/disk requests, `--max-retries`, and `--max-starts`; optional `--max-runtime` and `--prepare-only` | Submits one queue item per manifest row after token reservation. Prepare-only emits ownership-free material and invokes no scheduler. |
+| Nuisances | Nuisance and MC-stat switches, `--rate-syst-json`, `--miss-parton-file`, `--skip-missing-parton-rate-syst`, and optional `--suppress-nominal-like-tau-shapes` | Run era selects maintained defaults when the override is omitted. An explicit `--rate-syst-json` is forwarded as `rate_systs_path`; worker arguments come from the canonical manifest. The missing-parton consumer infers the maintained payload layout and has no `--sr-registry` option. |
+| Data/negative bins | Asimov by default; `--unblind` for observed data; crop negative bins by default | Both modes write `data_obs`. Unblinded production requires a `data` process in each selected channel; object presence does not identify the observation mode. |
+| Execution | Direct local default; `--condor` requires `--matrix-manifest`, `--condor-output`, explicit CPU/memory/disk requests, `--max-retries`, `--max-starts`; optional `--max-runtime` and `--prepare-only`. Scheduler queries use installed default discovery. | Submits one queue item per manifest row after token reservation. Prepare-only emits ownership-free material and invokes no scheduler. |
+| Existing-row dispatch | Repeat `--row-id ROW_ID` with `--condor`; `--rescue-ambiguous` requires exactly one selected row and excludes `--prepare-only` | Uses original v3 row descriptors and public manifest/attempt identity. Guarded rescue replaces an ambiguous reservation token under the row lease; known active jobs and held leases block it. |
 
 In direct mode, `make_cards.main()` resolves inputs, validates/merges them,
 constructs one `DatacardMaker`, selects or loads WCs, calls `run_local()`, and
@@ -72,14 +73,14 @@ raises `TypeError`.
 | `year_lst` | Sequence, default empty/all | Supported values are `UL16`, `UL16APV`, `UL17`, `UL18`, `2022`, `2022EE`, `2023`, `2023BPix`. Determines Run 2/3 rate-systematic defaults and missing-parton era. |
 | `do_sm` | Boolean, default false | Selects SM-only card behavior where consumed. |
 | `do_nuisance` | Boolean, default false | Loads/writes supported nuisance contracts. |
-| `lepton_mva_correlation` | `per-run` default; also `cross-run` | Chooses run-specific `13TeV`/`13p6TeV` electron and muon MVA nuisance identities or shared unsuffixed identities. |
 | `drop_syst` | Sequence, default empty | Removes named template systematics after supported loading/selection. |
 | `skip_missing_parton_rate_syst` | Boolean, default false | Disables only the missing-parton nuisance. |
 | `out_dir` | Path string, default `.` | Destination for text/ROOT card artifacts. |
 | `var_lst` | Sequence, default empty | Kinematic family selection. |
 | `do_mc_stat` | Boolean, default false | Enables card `autoMCStats` behavior; stored template variances still follow process policy. |
 | `wcs` | Sequence, default empty | Restricts WC consideration during selection/decomposition. |
-| `unblind` | Boolean, default false | Keeps a selected `data` process and writes it through the shared `data_obs` array to ROOT and TXT observation output. A real-data input is required for genuine observed counts; the flag alone can leave a zero observation. Otherwise data processes are removed and Asimov output is built from nominal processes at the supplied WC truth point. |
+| `unblind` | Boolean, default false | Keeps real data; otherwise data processes are removed and Asimov output is used. |
+| `suppress_nominal_like_tau_shapes` | Boolean, default false | Omits only qualifying complete local Tau shape pairs after the card-facing view; unsupported with `use_AAC`. |
 | `verbose` | Boolean, default true at class level | Controls progress diagnostics. The CLI resolves its own default. |
 | `use_AAC` | Boolean, default false | Enables the AAC template convention. |
 | `wc_scalings` | Sequence, default empty | Requested WC ordering/selection for scaling production. |
@@ -120,6 +121,12 @@ files. `--channel-set-key` defaults to `ALL_CH_LST_SR` and selects a maintained
 channel set. As an advanced optional filter, repeat
 `--physical-target <channel>_<distribution>` to produce an exact one-off
 subset. Supply the PKL roles used by the selected rows.
+`--lepton-mva-correlation {per-run,cross-run}` defaults to `per-run` and is
+recorded in every selected row's producer arguments. Optional
+`--suppress-nominal-like-tau-shapes` and `--unblind` are likewise forwarded to
+every selected row; neither is enabled by default. A manifest therefore has
+one requested observation mode across its rows. Package builders do not
+establish consistency among independently produced manifests or packages.
 
 Physical targets and their distributions come from the human-authored
 `analysis/topeft_run2/datacard_matrix_profiles.yml`, checked against
@@ -189,7 +196,7 @@ completion, physics, resources, or topology suitability.
 | `execute(manifest, manifest_hash, ...)` | Sequential orchestration over `execute_unit`; stops at a blocked/failed unit. No second completion state machine. |
 | Runner `--unit FILE` or `MANIFEST --row-id ID` | Selects one unit without rewriting its parent or public identity. `--plan-only` and `--status` remain read-only. `--derive-units MANIFEST` prints descriptors only. |
 | Runner `--reconcile-reservations MANIFEST [--row-id ID]` | Optional proactive reconciliation under each physical lease. Every new ownership attempt also reconciles automatically. Never runs a producer. |
-| `datacard_matrix_condor.prepare_material(manifest_path, destination, request_cpus=..., request_memory=..., request_disk=..., max_retries=..., max_starts=..., query_executable=..., max_runtime=...)` | Fresh-only shared-filesystem material with no row reservations. Resources and budgets are required; runtime is optional. Absolute query executable defaults to resolved `condor_q`; scheduler domains are discovered from current/observed context. No producer, submission or package builder. |
+| `datacard_matrix_condor.prepare_material(manifest_path, destination, request_cpus=..., request_memory=..., request_disk=..., max_retries=..., max_starts=..., query_executable=..., max_runtime=...)` | Fresh-only shared-filesystem material with no row reservations. Resources and budgets are required; runtime optional. The absolute query executable defaults to resolved `condor_q`, and scheduler endpoint discovery follows the installed configuration. No producer, submission or package builder. |
 | `datacard_matrix_condor.submission_transaction(manifest_path, destination, scheduler)` | Context manager: validate prepared descriptors, reconcile target rows, create reservations and bind itemdata under all row leases. Yields transaction state; never invokes a submitter. |
 | `datacard_matrix_condor.submit_material(manifest_path, destination, scheduler)` | Internal process adapter used by `make_cards.py --condor`; invokes installed `condor_submit` with argv and inherited row lease descriptors, and classifies command outcomes. Operators do not call it directly. |
 | `datacard_matrix_runner.reserve_condor(manifest, manifest_hash, rows, scheduler)` | Maintained reservation transaction context underlying dispatch. Reconciles stale ownership/H2 before claims; rolls back only definite no-start outcomes. |
@@ -221,9 +228,8 @@ reservation, not a global registry or completion record. Its existing schema
 remains `topeft_datacard_reservation_v1`; fields are `schema`, `row_id`,
 `output_root`, `backend`, `owner_id`, `created_at`, `scheduler`, and
 `scheduler_id`. The last two are null for local/manual ownership. Condor's
-initial scheduler object records the absolute `query_executable` and dispatch
-directory; later observations may add `pool` and `schedd` hints.
-`scheduler_id` caches only the last observed locator; it is
+scheduler object records explicit `pool`, `schedd` and absolute
+`query_executable`. `scheduler_id` caches only the last observed locator; it is
 never a query fallback or equality gate. `owner_id` is fresh UUID-style hex:
 exactly 32 lowercase hex digits, checked before constraint interpolation.
 It is current operational correlation, not historical workload authority.
@@ -263,19 +269,18 @@ reservation token, scheduler locator, physical lease, physical attempt and
 valid receipt remain distinct. Neither ProcId order nor a historical manifest
 hash defines the row; changed scheduler locators do not invalidate ownership.
 
-Submit-side queries use `-allusers`, an exact
+Submit-side queries use installed default discovery (or an observed endpoint
+hint for an existing reservation), `-allusers`, exact
 `DatacardReservation == "<safe token>"` constraint, JSON projection and a
-30-second timeout. They try an observed endpoint hint when present, then the
-current default and global domains. One matching row/token has
-`ownership: ACTIVE`; multiple matches raise
-`DUPLICATE_SCHEDULER_OWNERSHIP` with all locators. A zero-result query yields
-`GONE` only when its domain covers the observed scheduler identity. Otherwise
-failed, malformed, or non-covering observations raise
+30-second timeout. One match with matching row/token has `ownership: ACTIVE`;
+multiple matches raise `DUPLICATE_SCHEDULER_OWNERSHIP` with all locators. An
+empty reply proves `GONE` only when the queried endpoint covers the previously
+observed owner; terminal history or a matching removal event log can also prove
+disappearance. Otherwise failed or insufficient queries raise
 `SCHEDULER_OBSERVABILITY_INCOMPLETE` or
-`SCHEDULER_OBSERVABILITY_INSUFFICIENT` and preserve ownership. An exact remove
-event or matching terminal history record can supply terminal proof; history
-is not live authority. Live and terminal evidence together raise
-`SCHEDULER_EVIDENCE_CONTRADICTION`.
+`SCHEDULER_OBSERVABILITY_INSUFFICIENT` with query diagnostics, preserving
+ownership. Contradictory or malformed ads fail closed with specific diagnostics.
+History is terminal evidence, never live ownership authority.
 
 Workers never invoke `condor_q` or contact a schedd for identity. They require
 `_CONDOR_JOB_AD` and parse only literal `DatacardUnit`, `DatacardReservation`,
@@ -288,9 +293,8 @@ are not blockers. The installed HTCondor distribution supports the local ad
 path; synthetic fixtures validate parsing, while execute-node availability
 remains a live qualification obligation.
 
-After a coverage-qualified zero result or exact terminal proof establishes
-disappearance, existing H2 classification and reconciliation run automatically
-under the lease before reservation retirement.
+After a successful query proves disappearance, existing H2 classification and
+reconciliation run automatically under the lease before reservation retirement.
 Local direct-unit execution, full orchestration, Condor reservation and explicit
 maintenance all use this gate; the manual reconciliation CLI is optional for
 backend switching. Valid receipts mean complete; partial staging can become
@@ -558,6 +562,22 @@ group 2016 with 2016APV; 2017 and 2018 retain separate year identities.
 Other tau families have their own final identities; inspect the focused test
 before inferring a shared year domain from a family name.
 
+The optional `--suppress-nominal-like-tau-shapes` check acts after the
+card-facing binning view on eligible SM processes. It considers only uniquely
+paired, fully specified Tau Up/Down shapes with valid finite arrays, a
+positive nominal total, nonnegative raw bins, unchanged physical underflow,
+and exact agreement in nominal-zero bins. Both directions must differ from
+nominal by strictly less than the fixed relative `1e-5` threshold in every
+other serialized bin. For a qualifying process/category application, the
+writer omits both directional ROOT templates and writes `-` in that nuisance's
+text-card column. Remaining applications retain their existing nuisance
+identity and correlation structure. Suppression does not convert the shape
+to an `lnN` uncertainty.
+It excludes processes retaining statistical variance, data and flip processes,
+and protects Run 2 genuine-tau energy-scale shapes from suppression. This is
+a narrowly gated local shape omission, not a general near-nominal nuisance
+policy. It is off by default and incompatible with `--use-AAC`.
+
 The default `--lepton-mva-correlation per-run` gives `lepSF_elec_mva` and
 `lepSF_muon_mva` separate `13TeV` Run 2 and `13p6TeV` Run 3 identities.
 `--lepton-mva-correlation cross-run` instead gives them the unsuffixed shared
@@ -603,6 +623,18 @@ The package schemas are unchanged; full package and fit comparison of the new
 mode requires a separate qualification. The [package procedure](../how_to/datacard_packages.md) and
 [artifact boundary](../explanation/datacards_and_eftfit.md) give the operating
 context.
+
+When the source combined package has `config/TOP_26_006.yml`, the standardized
+sibling copies its bytes and records its path and SHA-256 in `fit_config` within
+`package-provenance.json`. Its standardization inventory also includes that
+file. The original combined builder's `certify` compares an original package
+with its per-era inputs; it does not certify the rewritten sibling against
+those inputs. `build_fit_input_package.py` accepts the sibling with an explicit
+`--fit-config` path to its package-local YAML, reads both inputs without
+changing them, and copies selected TXT/ROOT pairs, ordered inputs, scalings
+and config to a fresh fit-input package. It validates the selected consumer
+contract and records copied-byte hashes; it does not combine cards, build a
+workspace or run a fit.
 
 The ineffective legacy rate/envelope override is not an active default.
 Current era-selected rate-systematic files and the implemented consumer remain

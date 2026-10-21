@@ -23,7 +23,13 @@ _source_provenance_names = {
     "source_manifest_sha256s", "source_unit_count", "builder_git_head", "builder_source_sha256",
     "builder_git_dirty",
 }
-_output_names = {"cards", "scalings.json", "ordered_card_inputs.txt", "combined_mapping_manifest.json", "package-provenance.json", "README.md"}
+_legacy_output_names = {"cards", "scalings.json", "ordered_card_inputs.txt", "combined_mapping_manifest.json", "package-provenance.json", "README.md"}
+_output_names = _legacy_output_names | {"config"}
+_fit_config_logical_path = "config/TOP_26_006.yml"
+_missing_fit_config_guidance = (
+    "package-local fit config is missing: config/TOP_26_006.yml. For legacy/historical package certification only, "
+    "run certify --allow-legacy-missing-fit-config. This does not make the package EFTFit-portable "
+    "and does not bypass current/new package requirements.")
 _provenance_names = {
     "schema", "artifact_type", "analysis", "package_version", "package_date", "package_root",
     "assembler_commit", "assembler_source_sha256", "manifest_sha256", "ordered_card_inputs_sha256",
@@ -98,6 +104,50 @@ def _plain_file(path):
 
 def _plain_directory(path):
     return path.is_dir() and not path.is_symlink()
+
+
+def _default_fit_config():
+    return Path(__file__).resolve().parents[2] / "topeft/params/fits/TOP_26_006.yml"
+
+
+def _selected_fit_config(fit_config):
+    source = Path(fit_config) if fit_config is not None else _default_fit_config()
+    _require(_plain_file(source), "selected fit config is not a regular readable file")
+    try:
+        content = source.read_bytes()
+    except OSError as error:
+        raise ValueError("selected fit config is not readable") from error
+    _require(bool(content), "selected fit config is empty")
+    return source, content
+
+
+def _fit_config_provenance(source, content):
+    repository = Path(__file__).resolve().parents[2]
+    resolved_source = source.resolve()
+    try:
+        source_path = resolved_source.relative_to(repository).as_posix()
+    except ValueError:
+        source_path = str(resolved_source)
+    source_repository = None
+    source_commit = None
+    if resolved_source.is_relative_to(repository):
+        try:
+            observed_root = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"], cwd=repository,
+                check=True, capture_output=True, text=True).stdout.strip()
+            if Path(observed_root).resolve() == repository:
+                source_repository = "topeft"
+                observed_head = subprocess.run(
+                    ["git", "rev-parse", "HEAD"], cwd=repository,
+                    check=True, capture_output=True, text=True).stdout.strip()
+                if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", observed_head):
+                    source_commit = observed_head
+        except (OSError, subprocess.SubprocessError, ValueError):
+            pass
+    return {"logical_path": _fit_config_logical_path,
+            "sha256": hashlib.sha256(content).hexdigest(),
+            "source_path": source_path, "source_repository": source_repository,
+            "source_commit": source_commit}
 
 
 def _source_package(root, era):
@@ -271,7 +321,7 @@ def _scan_forbidden_references(package_root, output, run2_root, run3_root, card_
     forbidden = {str(run2_root), str(run3_root), str(staging)}
     if package_root != output:
         forbidden.add(str(package_root))
-    names = sorted(_output_names - {"cards"})
+    names = sorted(_legacy_output_names - {"cards"})
     paths = [package_root / name for name in names]
     paths.extend(package_root / "cards" / name for name in sorted(card_names) if name.endswith(".txt"))
     for path in paths:
@@ -297,7 +347,8 @@ def _readme(analysis, output):
             "Packaged TXT and ROOT payloads live under `cards/`. "
             "`combined_mapping_manifest.json` records the mapping and order. "
             "`scalings.json` is the combined scaling payload. "
-            "`ordered_card_inputs.txt` is the canonical consumer ordering authority.\n\n"
+            "`ordered_card_inputs.txt` is the canonical consumer ordering authority. "
+            "Package-local fit configuration: `config/TOP_26_006.yml`.\n\n"
             "```bash\n"
             f"cd {output}\n"
             "mapfile -t cards < ordered_card_inputs.txt\n"
@@ -320,7 +371,8 @@ def _manifest(mapping, output):
             "package_root": str(output), "rows": mapping}
 
 
-def _certify_details(package_root, run2_package, run3_package, output, result):
+def _certify_details(package_root, run2_package, run3_package, output, result,
+                     allow_legacy_missing_fit_config):
     """Reopen all decision-relevant source and package content."""
     checks = result["checks"]
     result["current_check"] = "source_packages"
@@ -337,14 +389,39 @@ def _certify_details(package_root, run2_package, run3_package, output, result):
         "run2_cards": len(run2["mapping"]), "run3_cards": len(run3["mapping"])}, "failures": []}
     result["current_check"] = "combined_layout"
     observed_names = {entry.name for entry in package_root.iterdir()}
-    result["missing_paths"].extend(sorted(_output_names - observed_names))
+    result["missing_paths"].extend(sorted(_legacy_output_names - observed_names))
     result["extra_paths"].extend(sorted(observed_names - _output_names))
-    _require(observed_names == _output_names, "combined package top-level inventory differs")
+    _require(observed_names in (_legacy_output_names, _output_names),
+             "combined package top-level inventory differs")
     cards = package_root / "cards"
     _require(_plain_directory(cards), "combined cards directory is invalid")
-    for name in _output_names - {"cards"}:
+    for name in _legacy_output_names - {"cards"}:
         _require(_plain_file(package_root / name), f"combined metadata member missing: {name}")
     checks["combined_layout"] = {"result": "pass", "evidence": {"top_level_members": len(observed_names)}, "failures": []}
+    result["current_check"] = "fit_config"
+    config = package_root / "config"
+    config_file = package_root / _fit_config_logical_path
+    if observed_names == _legacy_output_names and allow_legacy_missing_fit_config:
+        checks["fit_config"] = {"result": "pass", "evidence": {
+            "logical_path": _fit_config_logical_path, "portability": False,
+            "legacy_missing_fit_config": True}, "failures": []}
+    else:
+        if observed_names == _legacy_output_names:
+            result["missing_paths"].append(_fit_config_logical_path)
+        if not config.exists():
+            _require(False, _missing_fit_config_guidance)
+        _require(_plain_directory(config), "combined fit config directory is missing or invalid")
+        config_names = {entry.name for entry in config.iterdir()}
+        result["missing_paths"].extend("config/" + name for name in sorted({"TOP_26_006.yml"} - config_names))
+        result["extra_paths"].extend("config/" + name for name in sorted(config_names - {"TOP_26_006.yml"}))
+        if "TOP_26_006.yml" not in config_names:
+            _require(False, _missing_fit_config_guidance)
+        _require(config_names == {"TOP_26_006.yml"}, "combined fit config inventory differs")
+        _require(_plain_file(config_file), "combined fit config is not a regular readable file")
+        _require(bool(config_file.read_bytes()), "combined fit config is empty")
+        checks["fit_config"] = {"result": "pass", "evidence": {
+            "logical_path": _fit_config_logical_path, "portability": True,
+            "legacy_missing_fit_config": False}, "failures": []}
     result["current_check"] = "mapping"
     manifest = _read_json(package_root / "combined_mapping_manifest.json")
     _require(isinstance(manifest, dict) and set(manifest) == {"schema", "artifact_type", "package_root", "rows"}
@@ -392,7 +469,7 @@ def _certify_details(package_root, run2_package, run3_package, output, result):
     checks["ordered_inputs"] = {"result": "pass", "evidence": {"lines": len(order.splitlines())}, "failures": []}
     result["current_check"] = "provenance"
     provenance = _read_json(package_root / "package-provenance.json")
-    _require(isinstance(provenance, dict) and set(provenance) == _provenance_names
+    _require(isinstance(provenance, dict) and set(provenance) in (_provenance_names, _provenance_names | {"fit_config"})
              and provenance["schema"] == "TOP26006_v1"
              and provenance["artifact_type"] == "package_provenance"
              and provenance["analysis"] == run2["analysis"]
@@ -424,6 +501,18 @@ def _certify_details(package_root, run2_package, run3_package, output, result):
              and type(provenance["packaged_root_count"]) is int
              and provenance["packaged_txt_count"] == len(mapping)
              and provenance["packaged_root_count"] == len(mapping), "packaged counts differ")
+    fit_config_provenance = provenance.get("fit_config")
+    if fit_config_provenance is not None:
+        if not isinstance(fit_config_provenance, dict):
+            checks["fit_config"]["evidence"].setdefault("warnings", []).append("fit_config_provenance_invalid")
+        elif checks["fit_config"]["evidence"]["portability"]:
+            observed_sha = datacard_packaging.sha256_file(config_file)
+            if fit_config_provenance.get("sha256") != observed_sha:
+                checks["fit_config"]["evidence"].setdefault("warnings", []).append(
+                    "fit_config_provenance_sha256_mismatch")
+            if fit_config_provenance.get("logical_path") != _fit_config_logical_path:
+                checks["fit_config"]["evidence"].setdefault("warnings", []).append(
+                    "fit_config_provenance_logical_path_mismatch")
     checks["provenance"] = {"result": "pass", "evidence": {"declared_txt": provenance["packaged_txt_count"],
                            "declared_root": provenance["packaged_root_count"]}, "failures": []}
     result["current_check"] = "consumer_references"
@@ -436,7 +525,8 @@ def _certify_details(package_root, run2_package, run3_package, output, result):
     checks["consumer_references"] = {"result": "pass", "evidence": {"text_members": 5 + len(mapping)}, "failures": []}
 
 
-def certify_combined_package(package_root, run2_package, run3_package, *, expected_output=None):
+def certify_combined_package(package_root, run2_package, run3_package, *, expected_output=None,
+                             allow_legacy_missing_fit_config=False):
     """Return a source-bound PASS or FAIL result from reopened files."""
     package_root = Path(package_root)
     output = Path(expected_output) if expected_output is not None else package_root
@@ -446,7 +536,8 @@ def certify_combined_package(package_root, run2_package, run3_package, *, expect
               "observed_counts": {}, "checks": {}, "missing_paths": [], "extra_paths": [],
               "mismatches": [], "certification_observed_at": datetime.now(timezone.utc).isoformat()}
     try:
-        _certify_details(package_root, run2_package, run3_package, output, result)
+        _certify_details(package_root, run2_package, run3_package, output, result,
+                         allow_legacy_missing_fit_config)
     except (ValueError, KeyError, TypeError, UnicodeError, OSError) as error:
         check_id = result["current_check"]
         result["checks"][check_id] = {"result": "fail", "evidence": {}, "failures": [str(error)]}
@@ -457,7 +548,8 @@ def certify_combined_package(package_root, run2_package, run3_package, *, expect
     return result
 
 
-def build_combined_package(run2_package, run3_package, output, analysis, package_date, package_version):
+def build_combined_package(run2_package, run3_package, output, analysis, package_date, package_version,
+                           *, fit_config=None):
     output = Path(output)
     _require(output.is_absolute() and output.name not in {"", ".", ".."}, "output must be absolute")
     _require(_plain_directory(output.parent), "output parent does not exist")
@@ -473,11 +565,18 @@ def build_combined_package(run2_package, run3_package, output, analysis, package
     run3 = _source_package(run3_package, "run3")
     _require_matching_physical_surface(run2, run3)
     _require(run2["analysis"] == run3["analysis"] == analysis, "source analysis differs")
+    fit_config_source, fit_config_bytes = _selected_fit_config(fit_config)
     mapping = datacard_packaging.build_combined_mapping(run2["mapping"], run3["mapping"])
     combined_scalings = _combine_scalings(run2["scalings"], run3["scalings"], mapping)
     ordered_inputs = datacard_packaging.build_ordered_card_inputs(mapping)
     head, source_hash = _builder_identity()
     staging.mkdir()
+    config_directory = staging / "config"
+    config_directory.mkdir()
+    staged_fit_config = staging / _fit_config_logical_path
+    staged_fit_config.write_bytes(fit_config_bytes)
+    _require(_plain_file(staged_fit_config) and staged_fit_config.read_bytes() == fit_config_bytes,
+             "staged fit config differs from selected source")
     cards = staging / "cards"
     cards.mkdir()
     for row in mapping:
@@ -504,6 +603,7 @@ def build_combined_package(run2_package, run3_package, output, analysis, package
         "source_scalings_sha256": {era: datacard_packaging.sha256_file(source["root"] / "scalings.json")
                                    for era, source in (("run2", run2), ("run3", run3))},
         "packaged_txt_count": len(mapping), "packaged_root_count": len(mapping),
+        "fit_config": _fit_config_provenance(fit_config_source, fit_config_bytes),
     }
     _write_json(staging / "package-provenance.json", provenance)
     staging_certification = certify_combined_package(staging, run2["root"], run3["root"], expected_output=output)
@@ -542,16 +642,19 @@ def main(argv=None):
     build.add_argument("--analysis", required=True)
     build.add_argument("--package-date", required=True)
     build.add_argument("--package-version", required=True)
+    build.add_argument("--fit-config", type=Path)
     certify = commands.add_parser("certify")
     certify.add_argument("--package-root", type=Path, required=True)
     certify.add_argument("--run2-package", type=Path, required=True)
     certify.add_argument("--run3-package", type=Path, required=True)
     certify.add_argument("--report-json", type=Path)
+    certify.add_argument("--allow-legacy-missing-fit-config", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "build":
         try:
             result = build_combined_package(args.run2_package, args.run3_package, args.output,
-                                            args.analysis, args.package_date, args.package_version)
+                                            args.analysis, args.package_date, args.package_version,
+                                            fit_config=args.fit_config)
         except PublishedButNotCertified as error:
             print(json.dumps({"schema": "topeft_combined_package_build_v1", "result": "fail",
                               "state": "published_but_not_certified", "package_root": str(args.output),
@@ -564,7 +667,8 @@ def main(argv=None):
                 args.report_json = _resolved_report_path(args.report_json, roots)
             except (OSError, ValueError) as error:
                 parser.error(str(error))
-        result = certify_combined_package(*roots)
+        result = certify_combined_package(*roots,
+                                          allow_legacy_missing_fit_config=args.allow_legacy_missing_fit_config)
         if args.report_json is not None:
             _write_certification_report(args.report_json, result, roots)
     print(json.dumps(result, sort_keys=True, allow_nan=False))

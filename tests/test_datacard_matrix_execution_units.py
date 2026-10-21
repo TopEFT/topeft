@@ -39,6 +39,19 @@ def test_unit_executes_only_selected_row_and_switches_backend(tmp_path, fake_scr
     assert runner.receipt_path(data, row).read_bytes() == before
 
 
+def test_unblind_flag_is_bound_to_unit_argv_and_receipt(tmp_path, fake_script):
+    row = make_row(tmp_path, fake_script, extra=["--unblind"])
+    path, data = manifest(tmp_path, fake_script, [row])
+    parent, digest, selected = runner.resolve_unit(runner.derive_units(path)[0])
+    assert selected["producer_args"].count("--unblind") == 1
+    assert runner.execute_unit(parent, digest, selected)["action"] == "executed"
+    receipt = json.loads(runner.receipt_path(data, row).read_text())
+    assert receipt["resolved_argv"] == runner.resolved_argv(data, row)
+    assert receipt["resolved_argv"].count("--unblind") == 1
+    assert receipt["execution_argv"].count("--unblind") == 1
+    assert runner.validate_receipt(receipt, data, digest, row)[0]
+
+
 def test_independent_leases_coexist_and_alias_manifest_blocks(tmp_path, fake_script):
     rows = [make_row(tmp_path, fake_script, name) for name in ("a", "b")]
     _, data = manifest(tmp_path, fake_script, rows)
