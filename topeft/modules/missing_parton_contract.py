@@ -22,6 +22,15 @@ SR_CHANNEL_CONFIG_KEY = DEFAULT_SR_REGISTRY
 EXPECTED_BASE_CHANNEL_COUNT = 34
 EXPECTED_FINAL_CHANNEL_COUNT = 132
 LEGACY_MISSING_PARTON_BRANCH = "tllq"
+
+
+def resolve_missing_parton_response_index(channel: str, natural_index: int) -> int:
+    """Reuse the accepted 3j response for the new 2los tau 5j card only."""
+    if channel == "2los_onZ_1tau_5j":
+        return 3
+    return natural_index
+
+
 # Historical ALL-registry fixtures retained only for comparison and compatibility
 # tests. Registry-derived layouts below are the production authority.
 LEGACY_MISSING_PARTON_BASE_CHANNELS = (

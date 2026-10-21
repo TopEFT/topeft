@@ -56,6 +56,7 @@ from topeft.modules.missing_parton_contract import (
     SR_CHANNEL_CONFIG_KEY,
     infer_legacy_missing_parton_layout,
     load_missing_parton_channel_contract,
+    resolve_missing_parton_response_index,
     validate_legacy_missing_parton_payload,
 )
 
@@ -2921,7 +2922,7 @@ class DatacardMaker():
                         #    bin_idx = num_j - njet_offset
                         #else:
                         ch_key = ch.replace(f"_{num_j}j","")
-                        bin_idx = num_j
+                        bin_idx = resolve_missing_parton_response_index(ch, num_j)
                         if isinstance(v,dict):
                         
                             # Skip channels that don't exist in missing_parton file

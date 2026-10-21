@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import hist
+
+from topcoffea.modules.histEFT import HistEFT
 
 from topeft.modules import datacard_tools
 from topeft.modules.datacard_tools import DatacardMaker
@@ -378,3 +381,87 @@ def test_consumer_boundary_rejects_obsolete_payload_without_fallback(monkeypatch
 
     with pytest.raises(ValueError, match="obsolete missing-parton schema"):
         maker.load_systematics("params/rate_systs_run2.json", "legacy.root")
+
+
+@pytest.mark.parametrize("year", ("UL18", "2023"))
+def test_writer_reuses_only_target_fivejet_missing_parton_response(
+    monkeypatch, tmp_path, year
+):
+    channels = (
+        "2los_onZ_1tau_5j",
+        "2los_onZ_1tau_3j",
+        "3l_onZ_1b_2j",
+    )
+    source = HistEFT(
+        hist.axis.StrCategory([], name="process", growth=True),
+        hist.axis.StrCategory([], name="channel", growth=True),
+        hist.axis.StrCategory([], name="systematic", growth=True),
+        hist.axis.Regular(1, 0, 1, name="ptz"),
+        wc_names=[],
+        label="Events",
+    )
+    nominal_rates = dict(zip(channels, (5.0, 3.0, 2.0)))
+    for channel in channels:
+        for process in ("tllq", "tHq", "ttll"):
+            source.fill(
+                process=f"{process}{year}",
+                channel=channel,
+                systematic="nominal",
+                ptz=np.asarray([0.5]),
+                weight=np.asarray([nominal_rates[channel]]),
+            )
+
+    def validate(_path, *, sr_registry):
+        assert sr_registry == DEFAULT_SR_REGISTRY
+        # The target has no index 5; index 3 and unrelated index 2 differ.
+        return {
+            "2los_onZ_1tau": np.asarray((0.0, 0.0, 0.0, 0.2)),
+            "3l_onZ_1b": np.asarray((0.0, 0.0, 0.4, 0.8)),
+        }
+
+    monkeypatch.setattr(datacard_tools, "validate_legacy_missing_parton_payload", validate)
+    monkeypatch.setattr(
+        datacard_tools, "infer_legacy_missing_parton_layout",
+        lambda _path: type("layout", (), {"registry": DEFAULT_SR_REGISTRY})(),
+    )
+    maker = DatacardMaker(
+        hists={"ptz": source},
+        out_dir=str(tmp_path),
+        binning_mode="processing",
+        do_nuisance=False,
+        year_lst=[year],
+        verbose=False,
+    )
+    # Use the maintained loader so process entries and nuisance identity are
+    # source-derived; only its response payload is synthetic.
+    maker.do_nuisance = True
+    missing_parton = maker.load_systematics(
+        "params/rate_systs_run2.json" if year == "UL18" else "params/rate_systs_run3.json",
+        "synthetic.root",
+    )["missing_parton"]
+    maker.rate_systs = {"missing_parton": missing_parton}
+
+    assert missing_parton.name == "missing_parton"
+    assert set(missing_parton.corrs) == {"tllq", "tHq"}
+    assert missing_parton.get_process("ttll") == "-"
+    assert maker.missing_parton_nuisance_name(year) == "missing_parton"
+
+    for channel, expected in zip(channels, ("0.800000/1.200000", "0.800000/1.200000", "0.600000/1.400000")):
+        maker.analyze("ptz", channel, {process: [] for process in ("tllq", "tHq", "ttll")}, True, {})
+        card = (tmp_path / f"ttx_multileptons-{channel}_ptz.txt").read_text(
+            encoding="utf-8"
+        )
+        lines = [line.split() for line in card.splitlines()]
+        process_row = next(
+            fields for fields in lines
+            if fields[0] == "process" and "tllq_sm" in fields
+        )
+        nuisance_row = next(fields for fields in lines if fields[:2] == ["missing_parton", "lnN"])
+        values = dict(zip(process_row[1:], nuisance_row[2:]))
+        assert values == {"tllq_sm": expected, "tHq_sm": expected, "ttll_sm": "-"}
+        rate_row = next(fields for fields in lines if fields[0] == "rate")
+        assert dict(zip(process_row[1:], map(float, rate_row[1:]))) == {
+            f"{process}_sm": nominal_rates[channel]
+            for process in ("tllq", "tHq", "ttll")
+        }
+        assert sum(fields[:2] == ["missing_parton", "lnN"] for fields in lines) == 1

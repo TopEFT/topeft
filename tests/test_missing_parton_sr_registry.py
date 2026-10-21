@@ -13,6 +13,7 @@ from topeft.modules.missing_parton_contract import (
     normalize_sr_registry,
     parse_analysis_njet_token,
     parse_sr_njet_token,
+    resolve_missing_parton_response_index,
 )
 from topeft.modules.paths import topeft_path
 
@@ -28,6 +29,21 @@ def _registry_tokens():
         for family in config[registry].values()
         for token in family["jet_lst"]
     }
+
+
+@pytest.mark.parametrize(
+    ("channel", "natural_index", "expected_index"),
+    (
+        ("2los_onZ_1tau_5j", 5, 3),
+        ("2los_onZ_1tau_3j", 3, 3),
+        ("3l_onZ_1b_5j", 5, 5),
+        ("2los_onZ_1tau_5j_extra", 5, 5),
+    ),
+)
+def test_missing_parton_response_reuse_is_exact_channel_only(
+    channel, natural_index, expected_index
+):
+    assert resolve_missing_parton_response_index(channel, natural_index) == expected_index
 
 
 def test_registry_normalization_preserves_only_canonical_values():
