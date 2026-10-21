@@ -550,6 +550,84 @@ def test_sr_non_njets_special_card_rates_fail_closed():
         )
 
 
+def test_sr_non_njets_rates_sum_signed_physical_channel_responses(monkeypatch):
+    hist_obj = make_cr_and_sr_plots.SparseHist(
+        hist.axis.StrCategory([], name="process", growth=True),
+        hist.axis.StrCategory([], name="channel", growth=True),
+        hist.axis.StrCategory([], name="systematic", growth=True),
+        hist.axis.Regular(1, 0.0, 1.0, name="met"),
+    )
+    for channel, weight in (("3l_onZ_1b_2j", 5.0), ("3l_onZ_1b_3j", 7.0)):
+        hist_obj.fill(
+            process="WZTo3LNu_central2022", channel=channel,
+            systematic="nominal", met=0.5, weight=weight,
+        )
+    seen = []
+
+    def physical_rate(process, values, *, channel, variable):
+        seen.append((process, channel, variable, values.copy()))
+        if channel.endswith("_2j"):
+            return {"diboson_njets": (values * -0.2, values * 0.2)}
+        return {"diboson_njets": (values * (2 / 7), values * (-2 / 7))}
+
+    monkeypatch.setattr(make_cr_and_sr_plots, "_sr_rate_responses", physical_rate)
+    down_square, up_square = make_cr_and_sr_plots.get_rate_syst_arrs(
+        hist_obj, {}, group_type="SR", variable="lj0pt",
+        channel_bins=("3l_onZ_1b_2j", "3l_onZ_1b_3j"),
+    )
+    assert [row[1] for row in seen] == ["3l_onZ_1b_2j", "3l_onZ_1b_3j"]
+    np.testing.assert_allclose([row[3][0] for row in seen], [5.0, 7.0])
+    # The two physical contributions cancel only after signed, correlated sum.
+    np.testing.assert_allclose(down_square, [1.0])
+    np.testing.assert_allclose(up_square, [1.0])
+
+
+def test_sr_non_njets_mixed_card_factors_ignore_display_partition(monkeypatch):
+    from topeft.modules.plot_uncertainty_contract import rate_responses
+
+    physical = (
+        ("WZTo3LNu_central2022", "3l_onZ_1b_2j", 5.0, 0.86),
+        ("ZZTo4L_central2022", "3l_onZ_1b_3j", 7.0, 1.43),
+    )
+    h_mc = make_cr_and_sr_plots.SparseHist(
+        hist.axis.StrCategory([], name="process", growth=True),
+        hist.axis.StrCategory([], name="channel", growth=True),
+        hist.axis.StrCategory([], name="systematic", growth=True),
+        hist.axis.Regular(1, 0.0, 1.0, name="lj0pt"),
+    )
+    for process, channel, value, high in physical:
+        h_mc.fill(process=process, channel=channel, systematic="nominal",
+                  lj0pt=0.5, weight=value)
+        down, up = rate_responses(
+            process, np.array([value]), channel=channel, variable="lj0pt",
+        )["diboson_njets"]
+        np.testing.assert_allclose(down, [value * ((2 - high) - 1)])
+        np.testing.assert_allclose(up, [value * (high - 1)])
+
+    def only_card_jet_rate(process, values, *, channel, variable):
+        return {"diboson_njets": rate_responses(
+            process, values, channel=channel, variable=variable,
+        )["diboson_njets"]}
+
+    monkeypatch.setattr(make_cr_and_sr_plots, "_sr_rate_responses", only_card_jet_rate)
+    merged = {"one label": [item[0] for item in physical]}
+    split = {"other label": [physical[1][0]], "first label": [physical[0][0]]}
+    observed = []
+    for group_map, selected_channels in (
+        (merged, (physical[0][1], physical[1][1])),
+        (split, (physical[1][1], physical[0][1])),
+    ):
+        observed.append(make_cr_and_sr_plots.get_rate_syst_arrs(
+            h_mc, group_map, group_type="SR", variable="lj0pt",
+            channel_bins=selected_channels,
+        ))
+    expected_signed = 5.0 * (0.86 - 1) + 7.0 * (1.43 - 1)
+    assert expected_signed == pytest.approx(2.31)
+    for down_square, up_square in observed:
+        np.testing.assert_allclose(down_square, [expected_signed ** 2])
+        np.testing.assert_allclose(up_square, [expected_signed ** 2])
+
+
 def test_metadata_skipped_group_is_not_reintroduced_for_systematics(monkeypatch):
     hist_obj = _make_process_sparse_hist(
         {

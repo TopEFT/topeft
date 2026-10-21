@@ -1991,7 +1991,11 @@ def _summarize_zero_yield_processes_by_variable(
             )
             continue
 
-        allowed_processes = _resolve_grouped_processes(region_ctx.group_map)
+        allowed_processes = (
+            tuple(dict.fromkeys((*region_ctx.mc_samples, *region_ctx.data_samples)))
+            if region_ctx.name.upper() == "SR"
+            else _resolve_grouped_processes(region_ctx.group_map)
+        )
         if allowed_processes:
             available_processes = tuple(
                 proc for proc in available_processes if proc in allowed_processes
@@ -3252,7 +3256,12 @@ def _prepare_variable_payload(
                 "process", region_ctx.signal_samples
             )
 
-    allowed_processes = _resolve_grouped_processes(region_ctx.group_map)
+    # SR physical selection is independent of the YAML stack partition.
+    allowed_processes = (
+        tuple(dict.fromkeys((*region_ctx.mc_samples, *region_ctx.data_samples)))
+        if region_ctx.name.upper() == "SR"
+        else _resolve_grouped_processes(region_ctx.group_map)
+    )
     hist_mc = _filter_process_axis(hist_mc, allowed_processes)
     hist_data = _filter_process_axis(hist_data, allowed_processes)
     if hist_mc_sumw2_orig is not None:
@@ -3583,6 +3592,17 @@ def _render_variable_category(
                 "process", samples_to_rm
             )
 
+        rate_histo = hist_mc_integrated
+        rate_channels = None
+        if region_ctx.name.upper() == "SR" and var_name != "njets" and not is_sparse2d:
+            # Card jet factors need each physical channel before the displayed
+            # category's channel sum; use the same application and binning view.
+            rate_histo = yt.integrate_out_appl(hist_mc, hist_cat)
+            rate_histo = _apply_plot_binning_view(
+                rate_histo, var_name, channel_bins, region_ctx.binning_mode,
+            ).remove("process", samples_to_rm)
+            rate_channels = channel_bins
+
         p_err_arr = None
         m_err_arr = None
         p_err_arr_ratio = None
@@ -3607,11 +3627,12 @@ def _render_variable_category(
 
             try:
                 rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
-                    hist_mc_integrated,
+                    rate_histo,
                     region_ctx.group_map,
                     group_type=region_ctx.name,
                     rate_syst_by_sample=region_ctx.rate_syst_by_sample,
                     variable=var_name,
+                    channel_bins=rate_channels,
                 )
                 rate_calc_ok = True
             except Exception as exc:
@@ -3940,6 +3961,14 @@ def _render_variable_category(
             channel_bins,
             region_ctx.binning_mode,
         )
+        rate_histo = hist_mc_channel
+        rate_channels = None
+        if region_ctx.name.upper() == "SR" and var_name != "njets":
+            rate_histo = hist_mc.remove("process", samples_to_rm)
+            rate_histo = _apply_plot_binning_view(
+                rate_histo, var_name, channel_bins, region_ctx.binning_mode,
+            )
+            rate_channels = channels
         hist_mc_sumw2 = _apply_plot_binning_view(
             hist_mc_sumw2,
             var_name,
@@ -3979,11 +4008,12 @@ def _render_variable_category(
             shape_error = None
             try:
                 rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
-                    hist_mc_channel,
+                    rate_histo,
                     region_ctx.group_map,
                     group_type=region_ctx.name,
                     rate_syst_by_sample=region_ctx.rate_syst_by_sample,
                     variable=var_name,
+                    channel_bins=rate_channels,
                 )
                 rate_calc_ok = True
             except Exception as exc:
@@ -8018,25 +8048,48 @@ def get_rate_syst_arrs(
     group_type="CR",
     rate_syst_by_sample=None,
     variable=None,
+    channel_bins=None,
 ):
 
     if group_type == "SR":
-        if variable not in (None, "njets") and any(
+        processes = _process_axis_labels(base_histo)
+        special_non_njets = variable not in (None, "njets") and any(
             _sr_card_process_name(process) in {"Diboson", "tllq", "tHq"}
-            for process in _process_axis_labels(base_histo)
-        ):
+            for process in processes
+        )
+        if special_non_njets and (not _has_axis(base_histo, "channel") or not channel_bins):
             raise ValueError(
                 "SR non-njets card rate requires channel/jet-specific diboson_njets "
                 "or missing_parton mapping before category aggregation"
             )
-        nominal_projection = base_histo.integrate("systematic", "nominal")
-        processes = _process_axis_labels(base_histo)
-        nominal = _eval_without_underflow(nominal_projection[{"process": processes[0]}])
+        if channel_bins is not None and _has_axis(base_histo, "channel"):
+            available = set(_resolve_channel_axis_labels(base_histo))
+            selected_channels = [
+                channel for channel in dict.fromkeys(channel_bins)
+                if channel in available
+            ]
+            if not selected_channels:
+                raise ValueError("SR card rate has no selected physical channels")
+            physical_views = [
+                (channel, base_histo.integrate("channel", [channel])[{"channel": sum}])
+                for channel in selected_channels
+            ]
+        else:
+            physical_views = [(None, base_histo)]
+        nominal_projection = physical_views[0][1].integrate("systematic", "nominal")
+        first_local_process = _process_axis_labels(nominal_projection)[0]
+        nominal = _eval_without_underflow(
+            nominal_projection[{"process": first_local_process}]
+        )
         responses = []
-        for process in processes:
-            values = _eval_without_underflow(nominal_projection[{"process": process}])
-            for nuisance, (down, up) in _sr_rate_responses(process, values).items():
-                responses.append((nuisance, down, up))
+        for channel, physical_view in physical_views:
+            nominal_projection = physical_view.integrate("systematic", "nominal")
+            for process in _process_axis_labels(nominal_projection):
+                values = _eval_without_underflow(nominal_projection[{"process": process}])
+                for nuisance, (down, up) in _sr_rate_responses(
+                    process, values, channel=channel, variable=variable,
+                ).items():
+                    responses.append((nuisance, down, up))
         return list(_sr_combine_responses(responses, nominal))
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)

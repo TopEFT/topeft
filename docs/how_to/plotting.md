@@ -28,9 +28,8 @@ The wrapper validates paths and year tokens, expands `run2`/`run3`, resolves CR
 or SR from an explicit flag or filename, and forwards plotting options. It does
 not own channel maps, process grouping, styles, or binning definitions. Keep
 `--dry-run` until the resolved command and output destination are correct.
-`run_plotter.sh` creates the requested output directory before it reaches the
-dry-run guard, so `--dry-run` is not a filesystem no-op. Use a deliberate fresh
-or disposable output path when inspecting the command.
+The wrapper's dry run checks input path readability and prints the resolved
+command without creating the output directory or reading the PKL contents.
 
 An explicit `--cr` or `--sr` is preferable for production plots. Filename
 detection is a convenience: if both `CR` and `SR` appear, the wrapper warns and
@@ -50,6 +49,32 @@ leave semantic validation in Python and test that token grouping survives the
 shell boundary. Do not copy a Python default into the wrapper unless the
 wrapper deliberately changes it. Check sourceability/return handling and the
 Condor forwarding path when the new option is relevant there.
+
+### Run a sequential SR baseline campaign
+
+The same wrapper accepts a tab-separated campaign catalogue with the exact
+columns `unit`, `kind`, `run`, `view`, `owner`, `years`, `variables`,
+`expected_figures`, `pkl`, `historical_pkl_sha256`, `sidecar`, and
+`historical_sidecar_sha256`. Use an absolute manifest path and a new root below
+`topeft/histos/`:
+
+```bash
+./run_plotter.sh --campaign-manifest /absolute/path/to/catalogue.tsv \
+  --campaign-phase all -o /absolute/path/to/topeft/histos/new_sr_baseline \
+  --dry-run
+```
+
+Replace `--dry-run` with `--execute` only after checking the resolved commands,
+checkout, inputs and destination. The root must be absent, including dangling
+symlinks. `all` orders njets rows before other variables; `njets` and `other`
+select independent phases and each needs its own fresh root. Each selected row
+starts one guarded, single-PKL child with one worker. The wrapper verifies the
+selected input and sidecar digests once before execution, uses the existing
+node-memory guard, shows child output, and records per-unit logs, guard events,
+source hashes and status under the new root. A failed child, log write or
+missing guard result stops later rows; inspect the partial output before any
+separate retry. The dry run neither creates that root nor hashes PKLs. The
+catalogue's figure counts are plans, not proof that any figure was rendered.
 
 ## Plot directly
 
@@ -86,7 +111,7 @@ axis definition.
 - `CR_CHAN_DICT` and `SR_CHAN_DICT` map displayed category names to histogram
   channel labels;
 - `CR_GRP_MAP` and `SR_GRP_MAP` group raw processes for stacked plots; SR
-  groups are flat display ownership only;
+  groups are flat display ownership applied after physical rates and shapes;
 - `REGION_PLOTTING` owns region transformations, removals, opt-in skips, and
   blinding mechanics;
 - `STACKED_RATIO_STYLE` owns figure, axis, tick, and legend presentation.
@@ -143,24 +168,13 @@ args = parser.parse_args([
 plotter.run_with_args(args, parser, channel_allowlist=wave_one)
 ```
 
-Supply the coherent baseline and auxiliary PKLs with repeated `-f`, and use a
-fresh output root under `topeft/histos/` separated by wave, Run, and period.
-For combined Run 2 select UL16APV, UL16, UL17 and UL18; for combined Run 3
-select 2022, 2022EE, 2023 and 2023BPix. Each separate view selects one
-period. Source-period filtering applies before aggregation. The existing Run 2
-auxiliary PKLs under
-`/groups/klannon/apiccine/top26006_excluded_mc_ul18_njets_probe_001/cross_era/run2`
-declare only njets nominal and sumw2 content; they need regeneration with
-shape variations before a Run 2 total-uncertainty render. The baseline Run 2
-and Run 3 inputs are under
-`/groups/klannon/apiccine/t0_sr_full_260915_79b0b07b/`.
-The corrected Run 3 auxiliary inputs are under
-`/groups/klannon/apiccine/top26006_excluded_mc_njets_corrected_20261018_run3_001/run3/`.
-Check the associated sidecars and [histogram artifact contract](../reference/histogram_artifacts.md)
-for exact input identities. The first render wave uses the 11 selected families
-in the five Run 3 views (55 figures); the remaining 23 Run 3 families are a
-later wave. Absent auxiliary rate rows are the accepted card-model boundary,
-not a Run 3 readiness blocker.
+This programmatic allowlist remains available for an explicitly selected njets
+subset. Use the campaign interface above for the full principal-input baseline
+catalogue. For combined Run 2 select UL16APV, UL16, UL17 and UL18; for combined
+Run 3 select 2022, 2022EE, 2023 and 2023BPix. Each separate view selects one
+period. Source-period filtering applies before aggregation. Check input
+identities and sidecars against the
+[histogram artifact contract](../reference/histogram_artifacts.md).
 
 Histogram processing/fitting edges belong to `topeft/modules/axes.py`, not the
 plot metadata. See [change binning](flexible_binning.md). Exact plotting

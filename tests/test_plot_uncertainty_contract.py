@@ -127,6 +127,52 @@ def test_rate_factors_are_card_factors(process, nuisance, pair):
     np.testing.assert_allclose(up, [10 * (pair[1] - 1)])
 
 
+@pytest.mark.parametrize("run, process, channel, high", [
+    ("run2", "WZTo3LNu_centralUL18", "3l_onZ_1b_4j", 1.77),
+    ("run3", "WZTo3LNu_central2022", "3l_onZ_1b_4j", 1.43),
+])
+def test_non_njets_diboson_rate_uses_card_jet_factor(run, process, channel, high):
+    card_factor = contract._card_rates(run, True)["diboson_njets"].get_process("Diboson", 4)
+    low_text, high_text = card_factor.split("/")
+    assert float(high_text) == high
+    low, up = contract.rate_responses(
+        process, np.array([10.0]), channel=channel, variable="lj0pt",
+    )["diboson_njets"]
+    np.testing.assert_allclose(low, [10 * (float(low_text) - 1)])
+    np.testing.assert_allclose(up, [10 * (high - 1)])
+    assert "diboson_njets" not in contract.rate_responses(process, np.array([10.0]))
+
+
+@pytest.mark.parametrize("run, year", [("run2", "UL18"), ("run3", "2022")])
+def test_non_njets_missing_parton_uses_card_channel_and_jet(run, year):
+    process = f"tllq_private{year}"
+    channel = "3l_onZ_1b_3j"
+    card = object.__new__(DatacardMaker)
+    card.do_nuisance = True
+    card.skip_missing_parton_rate_syst = False
+    card.year_lst = [year]
+    payload = card.resolve_missing_parton_payload_path(card.year_lst)
+    rates = card.load_systematics(f"params/rate_systs_{run}.json", payload)
+    factor_high = float(rates["missing_parton"].get_process("tllq")["3l_onZ_1b"][3])
+    factor_low = max(0.01, 2 - factor_high)
+    expected_low = float(f"{factor_low:.6f}")
+    expected_high = float(f"{factor_high:.6f}")
+    down, up = contract.rate_responses(
+        process, np.array([7.0]), channel=channel, variable="ptz",
+    )["missing_parton"]
+    np.testing.assert_allclose(down, [7 * (expected_low - 1)])
+    np.testing.assert_allclose(up, [7 * (expected_high - 1)])
+    assert "missing_parton" not in contract.rate_responses(process, np.array([7.0]))
+
+
+def test_non_njets_special_rate_requires_physical_jet_channel():
+    with pytest.raises(ValueError, match="cannot resolve jets"):
+        contract.rate_responses(
+            "WZTo3LNu_central2022", np.array([5.0]),
+            channel="3l_onZ_1b", variable="lj0pt",
+        )
+
+
 @pytest.mark.parametrize("process, nuisance, factor", [
     ("TTTo2L2Nu_centralUL18", "lumi_13TeV_15161718_l", run2_luminosity_shape_factor),
     ("TTto4Q_central2022EE", "lumi_1", run3_luminosity_shape_factor),

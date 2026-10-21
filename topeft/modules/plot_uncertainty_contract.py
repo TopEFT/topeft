@@ -11,6 +11,7 @@ import numpy as np
 
 from topeft.modules.datacard_tools import (
     DatacardMaker,
+    PRECISION,
     resolve_shape_nuisance_identity,
     run2_luminosity_shape_factors,
     run3_luminosity_shape_factors,
@@ -66,17 +67,54 @@ def _rate_factor_pair(value):
     return 1.0 / high, high
 
 
-@lru_cache(maxsize=2)
-def _card_rates(run):
+@lru_cache(maxsize=4)
+def _card_rates(run, include_jet_rates=False):
     """Reuse the card's JSON reader with a lightweight, uninitialized receiver."""
     card = object.__new__(DatacardMaker)
     card.do_nuisance = True
-    card.skip_missing_parton_rate_syst = True
+    card.skip_missing_parton_rate_syst = not include_jet_rates
     card.year_lst = ["UL18" if run == "run2" else "2022"]
-    return card.load_systematics(f"params/rate_systs_{run}.json", None)
+    payload_path = (
+        card.resolve_missing_parton_payload_path(card.year_lst)
+        if include_jet_rates else None
+    )
+    return card.load_systematics(f"params/rate_systs_{run}.json", payload_path)
 
 
-def rate_responses(process, nominal):
+def _channel_jet_count(channel):
+    """Use the card's channel parser, requiring a physical jet-labelled leaf."""
+    if not isinstance(channel, str) or not channel:
+        raise ValueError("SR non-njets card rate requires a physical channel")
+    try:
+        return DatacardMaker.get_jet_mults(channel)[0]
+    except (AttributeError, ValueError, TypeError) as exc:
+        raise ValueError(
+            f"SR non-njets card rate cannot resolve jets for channel {channel!r}"
+        ) from exc
+
+
+def _special_rate_factor(source, card_name, channel, jet_count):
+    """Read a channel/jet factor in the format written by the card."""
+    if source.name == "diboson_njets":
+        return source.get_process(card_name, jet_count)
+    channel_rates = source.get_process(card_name)
+    if channel_rates == "-":
+        return "-"
+    channel_key = channel.replace(f"_{jet_count}j", "")
+    if channel_key not in channel_rates:
+        return "-"  # The card treats an absent payload channel as inapplicable.
+    try:
+        high = float(channel_rates[channel_key][jet_count])
+    except (IndexError, KeyError, TypeError) as exc:
+        raise ValueError(
+            f"Missing card {source.name} factor for {card_name!r} "
+            f"channel={channel!r} jets={jet_count}"
+        ) from exc
+    low = max(0.01, 2 - high)
+    return f"{low:.{PRECISION}f}/{high:.{PRECISION}f}"
+
+
+def rate_responses(process, nominal, *, channel=None, variable="njets"):
     """Return signed Down/Up responses keyed by card rate nuisance name."""
     year = canonical_process_year(process)
     if year is None:
@@ -85,7 +123,11 @@ def rate_responses(process, nominal):
     card_name = card_process_name(process)
     if card_name in {"data_obs", "data"}:
         return {}
-    rates = _card_rates(run)
+    include_jet_rates = (
+        variable not in (None, "njets")
+        and card_name in {"Diboson", "tllq", "tHq"}
+    )
+    rates = _card_rates(run, include_jet_rates)
     known_card_names = {
         *(group.rstrip("_") for group in DatacardMaker.GROUP),
         *DatacardMaker.SIGNALS,
@@ -95,9 +137,16 @@ def rate_responses(process, nominal):
         raise ValueError(f"Unknown SR card process identity: {process!r}")
     responses = {}
     for nuisance, source in rates.items():
-        if nuisance == "diboson_njets":
-            continue  # the card omits this jet-dependent rate in the njets view
-        factor = source.get_process(card_name)
+        special_rate = nuisance == "diboson_njets" or DatacardMaker.is_missing_parton_nuisance_name(nuisance)
+        if special_rate and not include_jet_rates:
+            continue  # The card omits these rates in the njets view.
+        if special_rate and not source.has_process(card_name):
+            continue
+        if special_rate:
+            jet_count = _channel_jet_count(channel)
+            factor = _special_rate_factor(source, card_name, channel, jet_count)
+        else:
+            factor = source.get_process(card_name)
         if factor == "-":
             continue
         low, high = _rate_factor_pair(factor)

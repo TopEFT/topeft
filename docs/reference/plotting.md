@@ -18,6 +18,23 @@ Both commands are public supported interfaces. The shell usage block and
 `make_cr_and_sr_plots.build_arg_parser()` are option authority. The direct CLI
 returns process status; its side effects are output-directory creation, plot
 files, optional merge caches/reports, and negative-contribution reports.
+The wrapper also composes a sequential SR baseline from a validated TSV via
+`--campaign-manifest`, `--campaign-phase all|njets|other`, `-o`, and an explicit
+`--dry-run` or `--execute`. This campaign interface calls the same maintained
+single-input wrapper path for every row; the direct Python CLI has no campaign
+or display-group switch. Ordinary single-invocation wrapper options retain
+their behavior.
+
+Campaign dry-run validates the TSV and prints resolved child commands without
+creating a root or reading PKL contents. Execute requires a new root under
+`topeft/histos/`, verifies distinct selected PKL and sidecar digests, and runs
+one child at a time beneath `topeft.modules.node_memory_guard` with a
+245000000000-byte total-node-memory threshold and 0.5-second sampling. Each
+unit records input/output identity, a visible tee log, guard JSONL and status;
+the root records source hashes and checkout HEAD. A nonzero child or tee result,
+missing/ambiguous terminal guard result, or occupied unit stops the remaining
+rows. There is no automatic retry or resume. A dry-run command is a validated
+configuration, not evidence of produced figures.
 
 ### Stable direct option groups
 
@@ -86,7 +103,9 @@ artifact compatibility belongs to merge/sidecar owners.
 ## Source and test authority
 
 - `analysis/topeft_run2/run_plotter.sh`
+- `analysis/topeft_run2/test/test_run_plotter.py`
 - `analysis/topeft_run2/make_cr_and_sr_plots.py`
+- `topeft/modules/plot_uncertainty_contract.py`
 - `topeft/params/cr_sr_plots_metadata.yml`
 - `tests/test_make_cr_and_sr_plots.py`
 
@@ -142,6 +161,12 @@ normalization and parameter point. Data is excluded from MC nuisance inputs;
 data-driven components follow the card's process-specific rate and luminosity
 exclusions. SR display colors, labels, order and group splits never define
 nuisance correlation.
+The YAML display map is validated when SR context is built, but its graphical
+composition is applied only after physical process, era and channel selections,
+card rates and shapes, signed nuisance responses, and the total uncertainty
+have been prepared. Physical/card process identity remains distinct from a
+display label. Splitting or renaming a valid display group therefore leaves
+the raw total, variance and nuisance-keyed total band unchanged.
 
 Card-grouped ttll includes inclusive semileptonic and dileptonic ttbar, even
 when ttbar is drawn in a separate green group. For example, a common renorm
@@ -162,10 +187,10 @@ enable nominal-like Tau suppression, so those pairs remain applicable too.
 to itself for card nuisance naming outside the selected card process domain.
 For `njets`, the card suppresses its jet-dependent `diboson_njets` and
 `missing_parton` rate rows; the SR plot follows that rule. For a different
-observable, a category that contains Diboson, tllq or tHq requires the card's
-channel/jet-specific rate evaluation before aggregation. The current SR
-consumer fails explicitly there until that mapping is available. CR keeps its
-existing rate and shape handling.
+observable, the SR consumer retains each physical channel and its jet count
+through the card's Diboson `diboson_njets` or tllq/tHq `missing_parton` rate
+evaluation before category aggregation. A missing required physical channel or
+factor fails the total-band gate. CR keeps its existing rate and shape handling.
 
 Physics-facing region, grouping, observable, and binning policy is distinct
 from scheduling, file paths, rendering mechanics, and presentation styling.

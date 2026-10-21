@@ -2618,6 +2618,64 @@ def test_sr_aggregate_blinded_renders_when_data_empty(tmp_path):
     assert plot_paths, "Expected SR blinded plot when MC is non-zero and data is empty"
 
 
+@pytest.mark.parametrize("channel_output", ["merged", "split"])
+@pytest.mark.parametrize("missing_rate", [False, True])
+def test_sr_non_njets_actual_callers_keep_physical_jet_axis_until_card_rates(
+    tmp_path, monkeypatch, channel_output, missing_rate,
+):
+    process_axis = hist.axis.StrCategory([], name="process", growth=True)
+    channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
+    systematic_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+    dense_axis = hist.axis.Regular(1, 0.0, 1.0, name="lj0pt")
+    sumw2_axis = hist.axis.Regular(1, 0.0, 1.0, name="lj0pt_sumw2")
+    h_mc = make_cr_and_sr_plots.SparseHist(
+        process_axis, channel_axis, systematic_axis, dense_axis,
+    )
+    h_sumw2 = make_cr_and_sr_plots.SparseHist(
+        process_axis, channel_axis, systematic_axis, sumw2_axis,
+    )
+    channel = "3l_onZ_1b_3j"
+    process = "WZTo3LNu_central2022"
+    for systematic, value in (
+        ("nominal", 10.0), ("JES_AbsoluteUp", 11.0),
+        ("JES_AbsoluteDown", 9.0),
+    ):
+        h_mc.fill(process=process, channel=channel, systematic=systematic,
+                  lj0pt=0.5, weight=value)
+    h_mc.fill(process="data2022", channel=channel, systematic="nominal",
+              lj0pt=0.5, weight=12.0)
+    h_sumw2.fill(process=process, channel=channel, systematic="nominal",
+                 lj0pt_sumw2=0.5, weight=10.0)
+    observed = []
+    actual_rate = make_cr_and_sr_plots.get_rate_syst_arrs
+
+    def capture_rate(base_histo, *args, **kwargs):
+        if kwargs.get("group_type") == "SR":
+            observed.append((tuple(base_histo.axes.name), tuple(kwargs.get("channel_bins") or ())))
+            if missing_rate:
+                raise ValueError("required channel/jet card factor absent")
+        return actual_rate(base_histo, *args, **kwargs)
+
+    monkeypatch.setattr(make_cr_and_sr_plots, "get_rate_syst_arrs", capture_rate)
+    def run_native_view():
+        return make_cr_and_sr_plots.run_plots_for_region(
+            "SR", {"lj0pt": h_mc, "lj0pt_sumw2": h_sumw2},
+            years=["2022"], save_dir_path=str(tmp_path), variables=["lj0pt"],
+            channel_output=channel_output, uncertainty_mode="total", workers=1,
+            unblind=True, negative_weight_report=False,
+        )
+
+    if missing_rate:
+        with pytest.raises(ValueError, match="required channel/jet card factor absent"):
+            run_native_view()
+        assert not list(tmp_path.rglob("*.png"))
+    else:
+        run_native_view()
+        assert list(tmp_path.rglob("*_lj0pt_processing.png"))
+    assert observed
+    assert all("channel" in axes and channel in selected for axes, selected in observed)
+
+
 def test_sr_total_caller_rejects_incomplete_component_without_figure(tmp_path):
     process_axis = hist.axis.StrCategory([], name="process", growth=True)
     channel_axis = hist.axis.StrCategory([], name="channel", growth=True)
