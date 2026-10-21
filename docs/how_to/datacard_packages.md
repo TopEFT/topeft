@@ -249,6 +249,10 @@ cards match the previously accepted standardized derivative byte for byte;
 ROOT scientific histogram content was equivalent although serialization bytes
 need not match. These are observations for these releases, not package-format
 cardinality or universal byte-identity requirements. Neither is a workspace.
+They remain immutable historical package artifacts. Later direct or matrix
+`--unblind` support and the optional cross-run MVA policy do not reclassify
+them as observed-data or cross-run-MVA outputs. Establish those choices only
+from each package's source manifests, receipts, commands, and provenance.
 
 ## Optional fit-input package
 

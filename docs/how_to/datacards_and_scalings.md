@@ -59,12 +59,26 @@ For matrix work, select the same option when generating each canonical manifest;
 its rows carry the choice in `producer_args`, including the explicit default.
 Older v3 rows without this option still mean `per-run` under their historical
 producer; replay also remains subject to the existing runtime fingerprint checks.
-`--suppress-nominal-like-tau-shapes` is a separate opt-in for complete local
-Tau Up/Down template pairs that satisfy the card writer's strict bin-by-bin
-comparison with nominal. It leaves other shapes, including protected Run 2
-genuine-tau energy-scale variations, in place. It is unavailable with
-`--use-AAC`; see the [reference](../reference/datacards_and_scalings.md#final-nuisance-identities)
-for its exact conditions.
+`--suppress-nominal-like-tau-shapes` is a separate opt-in, disabled by default.
+With nuisances enabled, it omits eligible Tau Up/Down template pairs only when
+both directions meet the writer's fixed, strict relative `1e-5` comparison
+with nominal in every nonzero regular bin. The suppressed pair is absent from
+the ROOT templates and its process/category entry in the text card is `-`.
+Other applications keep their nuisance names and correlations; no suppressed
+shape is converted to `lnN`. Other shapes, including protected Run 2
+genuine-tau energy-scale variations, remain in place. The option is
+unavailable with `--use-AAC`; see the
+[reference](../reference/datacards_and_scalings.md#final-nuisance-identities)
+for the exact eligibility and zero-bin conditions.
+
+For direct card production from `analysis/topeft_run2`:
+
+```bash
+python make_cards.py /path/to/final_np.pkl.gz \
+  --out-dir /absolute/path/to/cards \
+  --var-lst lj0pt --ch-lst '^2lss_.*' \
+  --do-nuisance --suppress-nominal-like-tau-shapes
+```
 
 Before card production, confirm that every input belongs to one compatible
 production family and has the nominal/sumw2 companions required by the selected

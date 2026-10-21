@@ -567,7 +567,12 @@ card-facing binning view on eligible SM processes. It considers only uniquely
 paired, fully specified Tau Up/Down shapes with valid finite arrays, a
 positive nominal total, nonnegative raw bins, unchanged physical underflow,
 and exact agreement in nominal-zero bins. Both directions must differ from
-nominal by strictly less than `1e-5` relative in every other serialized bin.
+nominal by strictly less than the fixed relative `1e-5` threshold in every
+other serialized bin. For a qualifying process/category application, the
+writer omits both directional ROOT templates and writes `-` in that nuisance's
+text-card column. Remaining applications retain their existing nuisance
+identity and correlation structure. Suppression does not convert the shape
+to an `lnN` uncertainty.
 It excludes processes retaining statistical variance, data and flip processes,
 and protects Run 2 genuine-tau energy-scale shapes from suppression. This is
 a narrowly gated local shape omission, not a general near-nominal nuisance

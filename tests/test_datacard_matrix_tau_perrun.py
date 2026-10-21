@@ -29,6 +29,7 @@ def _manifest_args(tmp_path, era, *, suppress=False, mva="per-run"):
         lepton_mva_correlation=mva,
         enable_legacy_run3_vsmu_recovery=(era == "run3"),
         suppress_nominal_like_tau_shapes=suppress,
+        unblind=False,
         manifest_output=manifest_dir / f"{era}.json",
         output_root=tmp_path / "raw" / era,
         control_root=tmp_path / "control" / era,
