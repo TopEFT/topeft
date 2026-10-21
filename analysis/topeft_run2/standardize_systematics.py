@@ -11,7 +11,9 @@ import numpy as np
 import boost_histogram as bh
 import topcoffea.modules.utils as utils
 from topeft.modules.datacard_tools import cross_run_mva_identities
-from analysis.topeft_run2.build_fit_input_package import _source_contract, _validate_source_members
+from analysis.topeft_run2.build_fit_input_package import (
+    _read_regular_bytes, _source_contract, _validate_source_members,
+)
 
 accepted_mapping_commit = "013d9de2b53ad2f0eb5cfae5e47e5d796b07fe1f"
 
@@ -919,6 +921,22 @@ def standardize_package(input_package, output_package):
     source_manifest = json.loads((input_package / "combined_mapping_manifest.json").read_text())
     source_provenance_path = input_package / "package-provenance.json"
     source_provenance = json.loads(source_provenance_path.read_text())
+    source_config = input_package / "config" / "TOP_26_006.yml"
+    has_local_config = ("fit_config" in source_provenance
+                        or (input_package / "config").exists()
+                        or (input_package / "config").is_symlink())
+    config_bytes = None
+    if has_local_config:
+        if not (input_package / "config").is_dir() or (input_package / "config").is_symlink():
+            raise ValueError("Package-local fit config directory is missing or non-regular")
+        try:
+            config_bytes = _read_regular_bytes(source_config)
+        except (OSError, ValueError) as error:
+            raise ValueError("Package-local fit config is missing or non-regular") from error
+        if not config_bytes:
+            raise ValueError("Package-local fit config is empty")
+        if "fit_config" in source_provenance and not isinstance(source_provenance["fit_config"], dict):
+            raise ValueError("Package-local fit config provenance is invalid")
     if (source_manifest.get("package_root") != str(input_package)
             or source_provenance.get("package_root") != str(input_package)):
         raise ValueError("Input metadata package root does not identify the input package")
@@ -939,6 +957,12 @@ def standardize_package(input_package, output_package):
         _write_standardized_card(card_path, root_path, run, output_cards / card_path.name)
     shutil.copyfile(ordered_path, output_package / "ordered_card_inputs.txt")
     shutil.copyfile(input_package / "scalings.json", output_package / "scalings.json")
+    if config_bytes is not None:
+        output_config = output_package / "config" / "TOP_26_006.yml"
+        output_config.parent.mkdir()
+        output_config.write_bytes(config_bytes)
+        if _read_regular_bytes(output_config) != config_bytes or _sha256(output_config) != hashlib.sha256(config_bytes).hexdigest():
+            raise ValueError("Copied package-local fit config differs from source")
     source_manifest["package_root"] = str(output_package.resolve())
     (output_package / "combined_mapping_manifest.json").write_text(
         json.dumps(source_manifest, sort_keys=True, indent=2) + "\n"
@@ -956,6 +980,12 @@ def standardize_package(input_package, output_package):
         for path in sorted(output_package.rglob("*")) if path.is_file()
     ]
     provenance = dict(source_provenance)
+    if config_bytes is not None:
+        provenance["fit_config"] = {
+            **source_provenance.get("fit_config", {}),
+            "logical_path": "config/TOP_26_006.yml",
+            "sha256": hashlib.sha256(config_bytes).hexdigest(),
+        }
     provenance.update({
         "package_root": str(output_package.resolve()),
         "package_version": source_provenance["package_version"] + ".standardized",

@@ -47,6 +47,10 @@ def build_arg_parser():
     parser.add_argument("--do-mc-stat",action="store_true",help="Add bin-by-bin statistical uncertainties with the autoMCstats option (for background)")
     parser.add_argument("--ignore","-i",default=[],action="extend",nargs="+",help="Specify a list of processes to exclude, must match name from 'sample' axis modulo UL year")
     parser.add_argument("--drop-syst",default=[],action="extend",nargs="+",help="Specify one or more template systematics to remove from the datacard")
+    parser.add_argument(
+        "--suppress-nominal-like-tau-shapes", action="store_true", default=False,
+        help="Omit complete local Tau shape pairs below the strict relative 1e-5 threshold (default: off; unsupported with --use-AAC)",
+    )
     parser.add_argument("--POI",default=[],help="List of WCs (comma separated)")
     parser.add_argument("--year","-y",default=[],action="extend",nargs="+",help="Run over a subset of years")
     parser.add_argument("--do-nuisance",action="store_true",help="Include nuisance parameters")
@@ -63,6 +67,8 @@ def build_arg_parser():
     parser.add_argument("--use-selected",default="",help="Load selected process+WC combs from a file. Skips doing the normal selection step.")
     parser.add_argument("--condor", "-C", action="store_true", help="Submit canonical datacard units to HTCondor from --matrix-manifest")
     parser.add_argument("--prepare-only", action="store_true", help="With --condor, write and validate dispatch material without reserving or submitting")
+    parser.add_argument("--row-id", action="append", help="With --condor, dispatch an existing manifest row (repeatable)")
+    parser.add_argument("--rescue-ambiguous", action="store_true", help="With one --row-id, explicitly supersede an ambiguous row reservation")
     parser.add_argument("--matrix-manifest", help="Canonical v3 workload for Condor preparation")
     parser.add_argument("--condor-output", help="Fresh shared-filesystem directory for dispatch material")
     parser.add_argument("--request-cpus", type=int)
@@ -229,28 +235,32 @@ def main():
             from datacard_matrix_condor import prepare_material, submit_material, runner
         if not args.matrix_manifest or not args.condor_output:
             parser.error("--condor requires --matrix-manifest and --condor-output; generate the workload with make_datacard_matrix_manifest.py")
-        allowed = {"condor", "prepare_only", "matrix_manifest", "condor_output", "request_cpus", "request_memory", "request_disk", "max_runtime", "max_retries", "max_starts", "condor_batch_name"}
+        allowed = {"condor", "prepare_only", "row_id", "rescue_ambiguous", "matrix_manifest", "condor_output", "request_cpus", "request_memory", "request_disk", "max_runtime", "max_retries", "max_starts", "condor_batch_name"}
         allowed_options = {option for action in parser._actions if action.dest in allowed for option in action.option_strings}
         for token in sys.argv[1:]:
             if token.startswith("-") and token.split("=", 1)[0] not in allowed_options:
                 parser.error("producer options belong in the canonical manifest; --condor accepts only workload, dispatch and resource options")
         if args.pkl_file:
             parser.error("producer inputs belong in the canonical manifest")
+        if args.rescue_ambiguous and (args.prepare_only or not args.row_id or len(args.row_id) != 1):
+            parser.error("--rescue-ambiguous requires exactly one --row-id and cannot use --prepare-only")
         try:
             result = prepare_material(Path(args.matrix_manifest), Path(args.condor_output),
                                       request_cpus=args.request_cpus, request_memory=args.request_memory,
                                       request_disk=args.request_disk, max_runtime=args.max_runtime,
-                                      max_retries=args.max_retries, max_starts=args.max_starts)
+                                      max_retries=args.max_retries, max_starts=args.max_starts,
+                                      row_ids=args.row_id)
             if not args.prepare_only:
                 result = {**result, **submit_material(Path(args.matrix_manifest),
-                            Path(args.condor_output), result["scheduler"], batch_name=args.condor_batch_name)}
+                            Path(args.condor_output), result["scheduler"], batch_name=args.condor_batch_name,
+                            row_ids=args.row_id, rescue_ambiguous=args.rescue_ambiguous)}
         except (runner.RunnerError, OSError) as exc:
             parser.error(str(exc))
         print(json.dumps(result, indent=2, sort_keys=True))
         if not args.prepare_only and not result["submitted"]:
             raise SystemExit(1)
         return
-    if args.prepare_only or any(value is not None for value in (args.matrix_manifest, args.condor_output, args.request_cpus, args.request_memory, args.request_disk, args.max_runtime, args.max_retries, args.max_starts, args.condor_batch_name)):
+    if args.prepare_only or args.rescue_ambiguous or args.row_id or any(value is not None for value in (args.matrix_manifest, args.condor_output, args.request_cpus, args.request_memory, args.request_disk, args.max_runtime, args.max_retries, args.max_starts, args.condor_batch_name)):
         parser.error("dispatch and resource options require --condor")
     pkl_files  = _resolve_pkl_paths(args, parser)
     from pathlib import Path
@@ -303,6 +313,7 @@ def _run_producer(args, pkl_files):
         "do_nuisance": do_nuis,
         "lepton_mva_correlation": args.lepton_mva_correlation,
         "drop_syst": drop_syst,
+        "suppress_nominal_like_tau_shapes": args.suppress_nominal_like_tau_shapes,
         "skip_missing_parton_rate_syst": skip_missing_parton_rate_syst,
         "enable_legacy_run3_vsmu_recovery": args.enable_legacy_run3_vsmu_recovery,
         "unblind": unblind,
@@ -319,10 +330,15 @@ def _run_producer(args, pkl_files):
     if out_dir != "." and not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
+    if var_lst and args.cache_merged_pkl:
+        raise ValueError(
+            "A selected histogram closure cannot be cached as a complete artifact."
+        )
     merged_hists, merge_report = datacard_tools.load_and_merge_histogram_pkls(
         pkl_files,
         require_sumw2=True,
         year_coverage_policy=args.year_coverage_policy,
+        **({"selected_families": var_lst, "channel_patterns": ch_lst} if var_lst else {}),
     )
     _emit_merge_report(merge_report, args.merge_report, out_dir)
     if args.cache_merged_pkl:

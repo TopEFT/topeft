@@ -287,6 +287,7 @@ def _run_state_tool(tmp_path, *arguments):
         check=False,
         capture_output=True,
         text=True,
+        env={**os.environ, "PYTHONPATH": str(ANALYSIS_DIR)},
     )
 
 
@@ -577,7 +578,7 @@ def test_run3_full_dry_run_resolves_exact_complete_five_block_plan(tmp_path):
 @pytest.mark.parametrize(
     ("production_profile", "years", "np_option"),
     [
-        ("run2_sr_ext", "UL16 UL16APV UL17 UL18", "--np-postprocess=inline"),
+        ("run2_sr_ext", "UL16 UL16APV UL17 UL18", "--np-postprocess=defer"),
         ("run3_sr_ext", YEARS, "--np-postprocess=defer"),
     ],
 )

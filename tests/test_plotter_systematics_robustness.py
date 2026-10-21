@@ -79,6 +79,8 @@ def test_get_shape_syst_arrs_skips_orphan_and_keeps_valid_pairs():
     assert np.allclose(shape_p, np.array([16.0]))
     assert np.allclose(shape_m, np.array([4.0]))
     assert details["valid_bases"] == ("Bar",)
+    assert details["evaluated_bases"] == ("Bar",)
+    assert details["nonapplicable_bases"] == ()
 
     skipped = {
         entry["base"]: tuple(entry.get("missing", ()))
@@ -86,6 +88,82 @@ def test_get_shape_syst_arrs_skips_orphan_and_keeps_valid_pairs():
     }
     assert "Foo" in skipped
     assert skipped["Foo"] == ("FooDown",)
+
+
+@pytest.mark.parametrize(
+    ("years", "expected"),
+    [
+        (("2016APV", "2016", "2017", "2018"), "run2"),
+        (("UL16APV", "UL16", "UL17", "UL18"), "run2"),
+        (("run2",), "run2"),
+        (("2022", "2022EE", "2023", "2023BPix"), "run3"),
+        (("run3",), "run3"),
+    ],
+)
+def test_diboson_njets_era_resolution(years, expected):
+    assert make_cr_and_sr_plots._resolve_diboson_njets_era(years) == expected
+
+
+@pytest.mark.parametrize("years", [(), ("unknown",), ("UL18", "2022")])
+def test_diboson_njets_era_rejects_unresolved_years(years):
+    with pytest.raises(ValueError, match="Diboson njets total uncertainty"):
+        make_cr_and_sr_plots._resolve_diboson_njets_era(years)
+
+
+def test_diboson_njets_factors_use_the_resolved_era_and_preserve_nominal():
+    nominal = np.arange(1.0, 10.0)
+    expected_factors = {
+        "run2": [1.0, 1.0, 1.2, 1.48, 1.77, 2.05, 2.34, 2.62, 2.62],
+        "run3": [1.0, 1.0, 0.86, 1.43, 1.43, 1.72, 2.0, 2.29, 2.29],
+    }
+    before = nominal.copy()
+    for era, factors in expected_factors.items():
+        contribution = make_cr_and_sr_plots.get_diboson_njets_syst_arr(
+            nominal, bin0_njets=0, era=era
+        )
+        np.testing.assert_allclose(contribution, (nominal * (np.array(factors) - 1)) ** 2)
+    np.testing.assert_array_equal(nominal, before)
+    assert make_cr_and_sr_plots._cached_get_jet_dependent_syst_dict("run2")["4"] == 1.77
+    assert make_cr_and_sr_plots._cached_get_jet_dependent_syst_dict("run3")["4"] == 1.43
+
+
+@pytest.mark.parametrize(
+    ("rate_ok", "shape_ok", "details", "failure"),
+    [
+        (False, True, {}, "rate=missing rate"),
+        (True, False, {}, "shape=missing shape"),
+        (True, True, {"skipped_orphans": ({"base": "Foo"},)}, "Foo"),
+        (True, True, {"skipped_failed": ({"base": "Bar"},)}, "Bar"),
+    ],
+)
+def test_total_systematics_fail_closed(rate_ok, shape_ok, details, failure):
+    with pytest.raises(ValueError, match="Incomplete total uncertainty") as exc_info:
+        make_cr_and_sr_plots._require_complete_total_systematics(
+            "SR", "2lss_p_4j", "njets", ("UL16",), rate_ok, shape_ok,
+            details, rate_error="missing rate", shape_error="missing shape",
+        )
+    message = str(exc_info.value)
+    assert "2lss_p_4j" in message
+    assert "njets" in message
+    assert "UL16" in message
+    assert failure in message
+
+
+def test_total_systematics_accepts_complete_pair_and_declared_no_shape():
+    make_cr_and_sr_plots._require_complete_total_systematics(
+        "SR", "2lss_p_4j", "njets", ("UL16",), True, True,
+        {"valid_bases": ("Foo",), "skipped_orphans": (), "skipped_failed": ()},
+    )
+    make_cr_and_sr_plots._require_complete_total_systematics(
+        "SR", "nominal_only", "met", ("UL16",), True, True,
+        {"valid_bases": (), "skipped_orphans": (), "skipped_failed": ()},
+    )
+
+
+@pytest.mark.parametrize("variation", [np.array([1.0]), np.array([1.0, 2.0, 3.0])])
+def test_shape_variation_length_mismatch_fails_closed(variation):
+    with pytest.raises(ValueError, match="silent truncation or zero padding is forbidden"):
+        make_cr_and_sr_plots._match_variation_length(np.array([1.0, 2.0]), variation)
 
 
 def test_emit_systematics_summary_reports_nominal_only_rate_mode(capsys):
@@ -342,6 +420,45 @@ def test_renorm_all_present_grouping_behavior_is_unchanged(monkeypatch):
     assert details["skipped_failed"] == ()
     assert np.allclose(shape_p, np.array([5.0**2]))
     assert np.allclose(shape_m, np.array([5.0**2]))
+
+
+def test_sr_ttbar_draw_partition_keeps_correlated_rate_and_shape_inputs(monkeypatch):
+    ttbar = "TTTo2L2Nu_centralUL16"
+    remainder = "ttllJet_privateUL16"
+    original_group_map = {"ttll": [ttbar, remainder], "Flips": []}
+    hist_obj = _make_process_sparse_hist(
+        {
+            ttbar: {"nominal": 5.0, "renormUp": 6.0, "renormDown": 4.0,
+                    "factUp": 7.0, "factDown": 3.0},
+            remainder: {"nominal": 7.0, "renormUp": 9.0, "renormDown": 5.0,
+                        "factUp": 10.0, "factDown": 4.0},
+        }
+    )
+    monkeypatch.setattr(make_cr_and_sr_plots, "SR_GRP_MAP", original_group_map)
+    rate_before = make_cr_and_sr_plots.get_rate_syst_arrs(
+        hist_obj, original_group_map, group_type="SR"
+    )
+    shape_before, details_before = make_cr_and_sr_plots.get_shape_syst_arrs(
+        hist_obj, group_type="SR", return_details=True
+    )
+    assert set(details_before["valid_bases"]) == {"renorm", "fact"}
+
+    draw_view = make_cr_and_sr_plots._resolve_sr_ttbar_display_view(
+        hist_obj.integrate("systematic", "nominal"),
+        original_group_map, ["2016"],
+    )
+    assert draw_view["ttbar_members"] == (ttbar,)
+    assert draw_view["remainder_members"] == (remainder,)
+    assert original_group_map == make_cr_and_sr_plots.SR_GRP_MAP
+    rate_after = make_cr_and_sr_plots.get_rate_syst_arrs(
+        hist_obj, original_group_map, group_type="SR"
+    )
+    shape_after, details_after = make_cr_and_sr_plots.get_shape_syst_arrs(
+        hist_obj, group_type="SR", return_details=True
+    )
+    assert details_after == details_before
+    for before, after in zip(rate_before + shape_before, rate_after + shape_after):
+        np.testing.assert_allclose(before, after)
 
 
 def test_metadata_skipped_group_is_not_reintroduced_for_systematics(monkeypatch):

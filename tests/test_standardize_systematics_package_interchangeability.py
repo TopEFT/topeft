@@ -20,6 +20,8 @@ def test_same_consumer_accepts_source_and_standardized_roots(tmp_path):
         "cards", "scalings.json", "ordered_card_inputs.txt",
         "combined_mapping_manifest.json", "package-provenance.json", "README.md",
     }
+    assert not (standardized / "config").exists()
+    assert "fit_config" not in provenance
     assert (standardized / "scalings.json").read_bytes() == (source / "scalings.json").read_bytes()
     assert (standardized / "ordered_card_inputs.txt").read_bytes() == ordered.encode()
     source_mapping = json.loads((source / "combined_mapping_manifest.json").read_text())

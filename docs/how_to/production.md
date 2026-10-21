@@ -18,7 +18,7 @@ processor behavior.
 
 | Concern | Owner | Derived or hard-coded behavior | Protected by |
 | --- | --- | --- | --- |
-| campaign block matrix, state, resume, and frozen environment | `run_cr.sh` production profile | `run3_full` has five fixed blocks; `rebin_fine` has six; output and campaign tag have no implicit production value | `test_run3_full_production_profile.py`, `test_rebin_fine_resume_and_environment.py` |
+| campaign block matrix, state, resume, and frozen environment | `run_cr.sh` production profile | `run3_full` has five fixed blocks; SR-reco uses a complete JSON plan with same-root pending revisions; output and campaign tag have no implicit production value | `test_run3_full_production_profile.py`, `test_sr_reco_manifest.py` |
 | cfg bundle, years, region, histogram list, tag-derived output name | `fullR3_run.sh` | year aliases and cfg paths are derived; absent year/tag still have script defaults, while its default output path is site-specific | `test_fullr3_run_wrapper.py`, profile tests |
 | sample loading, CLI/YAML resolution, executor, processor and artifacts | `run_analysis.py` | parser defaults are `work_queue`, 8 workers, chunksize 100000, `histos/plotsTopEFT`; active channels/histograms are derived from registries and options | CLI, preflight, producer, policy, and artifact tests |
 | event selection and histogram filling | `AnalysisProcessor` | constructed from the resolved run contract | processor/selection/nominal-schema tests |
@@ -31,13 +31,9 @@ histogram definition belongs at its module/source authority.
 
 ## Run a maintained `run_cr.sh` campaign
 
-The current wrapper is non-portable: it hard-codes the managed correction-lib
-checkout for both its `topeft/analysis/topeft_run2` working directory and its
-topeft commit readback, rather than deriving either path from the invoked
-script. Invoking a copied script or a different checkout still uses that fixed
-managed checkout. Before starting or resuming a campaign, verify that the
-managed checkout is the one you intend to execute and record; making the
-wrapper relocatable requires an executable workflow change.
+The wrapper derives its working directory and repository root from the invoked
+script. Before starting or resuming a campaign, verify that this checkout is
+the one you intend to execute.
 
 Inspect a fresh TOP-26-006 Run 3 plan before launching it:
 
@@ -60,13 +56,14 @@ inputs, outputs, and environment archive. Resume only that frozen plan:
 separately. Do not point a fresh campaign at an existing output directory, and
 do not edit the state file to force a resume.
 
-During a resume, `run_cr.sh` compares the `topeft` and `topcoffea` commits
-stored in campaign state with the commits currently checked out. If the
-differences are limited to files that do not directly configure or control the
-campaign, the comparison can pass. If a changed file is used directly by the
-campaign workflow, resume stops and requires an explicit review of the current
-checkout. After that review, provide the full current SHA for the corresponding
-repository with `--reviewed-topeft-manager-head SHA` and/or
+During a non-SR-reco profile resume, `run_cr.sh` compares the `topeft` and
+`topcoffea` commits stored in campaign state with the commits currently
+checked out. If the differences are limited to files that do not directly
+configure or control the campaign, the comparison can pass. If a changed file
+is used directly by the campaign workflow, resume stops and requires an
+explicit review of the current checkout. After that review, provide the full
+current SHA for the corresponding repository with
+`--reviewed-topeft-manager-head SHA` and/or
 `--reviewed-topcoffea-manager-head SHA`. Each supplied SHA must equal the
 current HEAD of that repository. These options acknowledge a reviewed code
 difference; they do not bypass the other consistency checks performed during
@@ -77,8 +74,7 @@ worker environment for the checkout. Supply an absolute `--env-file` to use
 exactly that archive as an intentional frozen snapshot; snapshot integrity and
 provenance remain validated, but compatibility with the current checkout is not
 required. Combined profiles forward the same explicit snapshot to both child
-components. `rebin_fine` retains its specialist requirement for an explicit
-current-compatible archive. A resume uses the exact environment mode, path,
+components. A resume uses the exact environment mode, path,
 hash, fingerprint, repository commits, block plan, and output identities frozen
 in the existing state; a command-line environment that disagrees with state is
 rejected.
@@ -108,14 +104,13 @@ Keep a profile change inside the existing ownership model:
 5. Forward a lower-level option instead of reimplementing its semantics. The
    profile should construct `fullR3_run.sh` arguments, not select sample JSONs
    or interpret processor settings itself.
-6. Update `tests/test_run3_full_production_profile.py`; for `rebin_fine`, also
-   use `tests/test_rebin_fine_resume_and_environment.py`.
+6. Update the directly affected production-profile tests. For SR-reco plan
+   changes, use `tests/test_sr_reco_manifest.py`.
 7. Dry-run a fresh namespace and a matching resume fixture. Check block count,
    ordering, command construction, output uniqueness, environment identity,
    interruption handling, and refusal of stale/missing artifacts.
 
-`rebin_fine` is a specialist Run 2/Run 3 profile and requires an explicit
-current `--env-file`. A new campaign family that cannot fit the existing
+`rebin_fine` is retired from the current CLI. A new campaign family that cannot fit the existing
 profile/block/state invariants is a design decision, not a local documentation
 or shell edit.
 
@@ -269,9 +264,8 @@ Use a maintained profile: `run2_full`, `run3_full`, `run2_full_CR`,
 `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`,
 `run3_sr_ext`, `t0_sr_statonly`, or `t0_cr_statonly`. Supply a fresh absolute
 output directory and a campaign tag for a new campaign. The SR-reco extension
-profiles have a separate [operator guide](sr_reco_pkl_campaign.md) for their
-Run 2 then Run 3 sequence, explicit frozen worker archive, and bounded
-post-run qualification.
+profiles have a separate [operator guide](sr_reco_pkl_campaign.md) for explicit
+plans, worker archives, and post-run qualification.
 
 The combined Run 2/Run 3 full-SR route is `run2_run3_full`; it is not another
 CLI profile. With no `--env-file`, the wrapper resolves or
@@ -279,14 +273,23 @@ creates the current worker environment. With `--env-file X`, it validates and
 uses exactly `X` as an intentional snapshot without requiring current-checkout
 compatibility, and both children of a combined profile receive that same
 archive. Capture the environment mode, resolved path, SHA-256, environment
-fingerprint, and source identity from campaign state. `rebin_fine` is a
-specialist legacy profile that retains its explicit current-compatible archive
-requirement.
+fingerprint, and source identity from campaign state. Qualify an explicit
+archive for the intended processor and worker runtime; snapshot validation
+alone does not establish that compatibility.
 
 The wrapper validates explicit archive integrity and provenance and reuses the
 exact archive frozen in a valid resumable campaign state. When no archive is
 supplied for a fresh maintained campaign, it delegates current archive creation
-or reuse to `run_analysis.py --prepare-env-only`. The maintained profile uses chunksize
+or reuse to `run_analysis.py --prepare-env-only`. To make a new archive from a
+chosen build workspace, use the native builder:
+
+```bash
+python /absolute/path/to/topeft/analysis/topeft_run2/run_analysis.py \
+  --prepare-env-only --rebuild-env
+```
+
+The reported archive path depends on that workspace; keep its adjacent
+`.manifest.json` with the archive. The maintained profile uses chunksize
 `100000` and leaves stdout/stderr on the controlling terminal; do not add a
 `tee` collector as a substitute for native evidence paths.
 

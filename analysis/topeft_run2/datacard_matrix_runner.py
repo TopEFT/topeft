@@ -28,6 +28,17 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 TOP_FIELDS = {"schema", "control_root", "lock_path", "runtime_contract", "rows"}
 RUNTIME_FIELDS = {"contract_id", "python_executable", "make_cards_path", "fingerprints"}
 FINGERPRINT_FIELDS = {"path", "sha256"}
+RUNTIME_OVERLAY_SCHEMA = "topeft_datacard_runtime_overlay_v1"
+RUNTIME_OVERLAY_FIELDS = {"schema", "base_manifest_sha256", "base_runtime_contract_digest", "allowed_row_ids", "replacements"}
+RUNTIME_REPLACEMENT_FIELDS = {"path", "from_sha256", "to_sha256"}
+RUNTIME_OVERLAY_MANIFEST_SHA256 = "f49d936d682809d0d450ecc829a8801394859ac31ac3ec1e1235ce69b93a1651"
+RUNTIME_OVERLAY_BASE_DIGEST = "1728c047d48ab1692d87db65491f09de47ac9305ec07ecff0fd35ecc3f24dc5f"
+RUNTIME_OVERLAY_ROWS = {"run3_07_exec_01", "run3_11_exec_01", "run3_05_exec_01"}
+RUNTIME_OVERLAY_FROM = {
+    "analysis/topeft_run2/make_cards.py": "16bba455a7c27dc07a68ffd990b69c08285189161c89a620fa7eb69605e395a9",
+    "topeft/modules/datacard_tools.py": "c9d8b3b7cbdcb43e242ace2b376fbfdb0da86ae425875c828c4668dd4ed81758",
+    "analysis/topeft_run2/datacard_matrix_runner.py": "72beb21b3ca47a97e273fbd87f490efd9c03c773254159bd53fc2757fc584374",
+}
 ROW_FIELDS = {"row_id", "logical_row_id", "attempt_id", "era", "working_directory", "input_pkl", "output_root", "distribution", "physical_channels", "years", "missing_parton_path", "merge_report_path", "snapshot_directory", "log_path", "expected_output_paths", "producer_args"}
 SNAPSHOTS = {"selected_wcs": "selectedWCs.txt", "scalings": "scalings-preselect.json", "merge_report": "merge_report.json"}
 INTENT_SCHEMA = "topeft_datacard_attempt_intent_v1"
@@ -108,6 +119,89 @@ def option_values(args: list[str], option: str) -> list[str]:
 
 def runtime_digest(contract: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(contract, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def runtime_overlay_digest(overlay: dict[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(overlay, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def effective_runtime(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any],
+                      overlay: Any, *, verify_files: bool = True) -> dict[str, Any]:
+    """Validate the frozen campaign's exact three replacements before using them."""
+    overlay = exact_fields(overlay, RUNTIME_OVERLAY_FIELDS, "runtime_contract_overlay")
+    runtime = manifest["runtime_contract"]
+    if (overlay["schema"] != RUNTIME_OVERLAY_SCHEMA
+            or manifest_hash != RUNTIME_OVERLAY_MANIFEST_SHA256
+            or overlay["base_manifest_sha256"] != manifest_hash
+            or runtime_digest(runtime) != RUNTIME_OVERLAY_BASE_DIGEST
+            or overlay["base_runtime_contract_digest"] != runtime_digest(runtime)):
+        raise RunnerError("runtime_overlay_mismatch", "overlay schema or frozen base identity differs")
+    allowed_rows = overlay["allowed_row_ids"]
+    if (not isinstance(allowed_rows, list) or len(allowed_rows) != len(RUNTIME_OVERLAY_ROWS)
+            or any(not isinstance(item, str) for item in allowed_rows)
+            or set(allowed_rows) != RUNTIME_OVERLAY_ROWS or row["row_id"] not in allowed_rows):
+        raise RunnerError("runtime_overlay_mismatch", "overlay row scope differs")
+    replacements = overlay["replacements"]
+    if not isinstance(replacements, list) or len(replacements) != len(RUNTIME_OVERLAY_FROM):
+        raise RunnerError("runtime_overlay_mismatch", "overlay requires exactly three replacements")
+    repository_root = Path(__file__).resolve().parents[2]
+    pinned = {item["path"]: item["sha256"] for item in runtime["fingerprints"]}
+    replacement_sha: dict[str, str] = {}
+    for index, replacement in enumerate(replacements):
+        replacement = exact_fields(replacement, RUNTIME_REPLACEMENT_FIELDS, f"runtime_contract_overlay.replacements[{index}]")
+        relative = replacement["path"]
+        if relative not in RUNTIME_OVERLAY_FROM or relative in replacement_sha:
+            raise RunnerError("runtime_overlay_mismatch", "unknown or duplicate replacement path")
+        path = str(repository_root / relative)
+        if (pinned.get(path) != RUNTIME_OVERLAY_FROM[relative]
+                or replacement["from_sha256"] != pinned[path]
+                or not isinstance(replacement["to_sha256"], str)
+                or not SHA256_RE.fullmatch(replacement["to_sha256"])):
+            raise RunnerError("runtime_overlay_mismatch", f"replacement identity differs: {relative}")
+        replacement_sha[relative] = replacement["to_sha256"]
+    if set(replacement_sha) != set(RUNTIME_OVERLAY_FROM):
+        raise RunnerError("runtime_overlay_mismatch", "replacement set differs")
+    replacement_paths = {str(repository_root / relative): digest
+                         for relative, digest in replacement_sha.items()}
+    effective = {**runtime, "fingerprints": [
+        {"path": item["path"], "sha256": replacement_paths.get(item["path"], item["sha256"])}
+        for item in runtime["fingerprints"]
+    ]}
+    validate_runtime(effective, verify_files=verify_files)
+    return effective
+
+
+def overlay_provenance(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any],
+                       overlay: dict[str, Any], *, verify_files: bool = False) -> dict[str, Any]:
+    effective = effective_runtime(manifest, manifest_hash, row, overlay, verify_files=verify_files)
+    return {"base_manifest_sha256": manifest_hash,
+            "base_runtime_contract_digest": runtime_digest(manifest["runtime_contract"]),
+            "runtime_contract_overlay": overlay,
+            "runtime_contract_overlay_sha256": runtime_overlay_digest(overlay),
+            "effective_runtime_contract_digest": runtime_digest(effective),
+            "effective_runtime_fingerprints": effective["fingerprints"]}
+
+
+def validate_overlay_provenance(value: dict[str, Any], manifest: dict[str, Any],
+                                manifest_hash: str, row: dict[str, Any]) -> tuple[bool, str]:
+    keys = set(overlay_provenance_fields())
+    present = keys.intersection(value)
+    if not present:
+        return True, "legacy base runtime identity"
+    if present != keys:
+        return False, "overlay provenance is incomplete"
+    try:
+        expected = overlay_provenance(manifest, manifest_hash, row, value["runtime_contract_overlay"])
+    except (RunnerError, TypeError, ValueError) as exc:
+        return False, f"overlay provenance differs: {exc}"
+    if any(value[key] != expected[key] for key in keys):
+        return False, "overlay provenance differs from frozen manifest"
+    return True, "embedded overlay and effective runtime identity match"
+
+
+def overlay_provenance_fields() -> tuple[str, ...]:
+    return ("base_manifest_sha256", "base_runtime_contract_digest", "runtime_contract_overlay",
+            "runtime_contract_overlay_sha256", "effective_runtime_contract_digest", "effective_runtime_fingerprints")
 
 
 def validate_runtime(contract: Any, verify_files: bool = True) -> dict[str, Any]:
@@ -503,6 +597,7 @@ class submission_transaction:
         self.reservations = []
         self.lease_fds = ()
         self.submission_started = False
+        self.superseded_tokens = set()
 
     def mark_submission_started(self):
         self.submission_started = True
@@ -520,26 +615,53 @@ class submission_transaction:
 
 
 @contextmanager
-def reserve_condor(manifest: dict, manifest_hash: str, rows: list[dict], scheduler: dict):
+def reserve_condor(manifest: dict, manifest_hash: str, rows: list[dict], scheduler: dict, *,
+                   rescue_ambiguous: bool = False):
     """Own all row reservations for one transaction; never invoke a submitter."""
     validate_scheduler(scheduler)
+    validate_runtime(manifest["runtime_contract"])
+    if rescue_ambiguous and len(rows) != 1:
+        raise RunnerError("row_selection_error", "ambiguous rescue requires exactly one row")
     transaction = submission_transaction()
     with ExitStack() as leases:
         try:
             for row in sorted(rows, key=lambda item: str(unit_lock_path(item))):
                 transaction.lease_fds += leases.enter_context(unit_lease(manifest, row))
-                if reconcile_reservation(manifest, manifest_hash, row) is not None:
-                    raise RunnerError("row_reserved", "row already has a logical owner", row_id=row["row_id"])
-                reconcile_h2(manifest, manifest_hash, row)
+                old = read_reservation(row) if rescue_ambiguous else None
+                if rescue_ambiguous:
+                    if old is None or old["backend"] != "condor":
+                        raise RunnerError("rescue_not_applicable", "rescue requires an existing Condor reservation", row_id=row["row_id"])
+                    try:
+                        observation = query_reservation(old)
+                    except RunnerError as exc:
+                        if exc.code not in {"SCHEDULER_OBSERVABILITY_INCOMPLETE", "SCHEDULER_OBSERVABILITY_INSUFFICIENT"}:
+                            raise
+                        observation = None
+                    if observation is not None and observation["ownership"] == "ACTIVE":
+                        raise RunnerError("row_reserved", "active Condor owner cannot be superseded", row_id=row["row_id"])
+                    state = reconcile_h2(manifest, manifest_hash, row)
+                    if state["status"] == "complete":
+                        raise RunnerError("row_complete", "valid H2 receipt already completes row", row_id=row["row_id"])
+                    if (observation is not None and observation.get("terminal_proof", {}).get("source")
+                            in {"history", "event_log_remove"}):
+                        reservation_path(row).unlink()
+                        old = None
+                else:
+                    if reconcile_reservation(manifest, manifest_hash, row) is not None:
+                        raise RunnerError("row_reserved", "row already has a logical owner", row_id=row["row_id"])
+                    reconcile_h2(manifest, manifest_hash, row)
                 reservation = new_reservation(row, "condor", scheduler)
                 transaction.reservations.append(reservation)
-                atomic_json(reservation, reservation_path(row), False)
+                atomic_json(reservation, reservation_path(row), old is not None)
+                if old is not None:
+                    transaction.superseded_tokens.add(reservation["owner_id"])
             yield transaction
         finally:
             if not transaction.submission_started:
                 for reservation in transaction.reservations:
                     current = read_reservation(reservation)
-                    if current and current["owner_id"] == reservation["owner_id"]:
+                    if (current and current["owner_id"] == reservation["owner_id"]
+                            and reservation["owner_id"] not in transaction.superseded_tokens):
                         reservation_path(reservation).unlink()
 
 
@@ -690,8 +812,9 @@ def path_availability(path: Path, *, executable: bool = False) -> dict[str, Any]
     }
 
 
-def execution_input_availability(manifest: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
-    runtime = manifest["runtime_contract"]
+def execution_input_availability(manifest: dict[str, Any], row: dict[str, Any],
+                                 effective: dict[str, Any] | None = None) -> dict[str, Any]:
+    runtime = effective if effective is not None else manifest["runtime_contract"]
     checks = {
         "working_directory": {
             "path": row["working_directory"],
@@ -748,6 +871,9 @@ def validate_receipt(receipt: Any, manifest: dict[str, Any], manifest_hash: str,
     expected = {"schema": RECEIPT_SCHEMA, "manifest_sha256": manifest_hash, "row_id": row["row_id"], "attempt_id": row["attempt_id"], "resolved_argv": resolved_argv(manifest, row), "command_return_code": 0, "runtime_contract_id": runtime["contract_id"], "python_executable": runtime["python_executable"], "make_cards_path": runtime["make_cards_path"], "runtime_fingerprints": runtime["fingerprints"], "runtime_contract_digest": runtime_digest(runtime)}
     if any(receipt.get(key) != value for key, value in expected.items()):
         return False, "receipt contract does not match"
+    overlay_valid, overlay_reason = validate_overlay_provenance(receipt, manifest, manifest_hash, row)
+    if not overlay_valid:
+        return False, overlay_reason
     if "physical_attempt_id" in receipt or "execution_argv" in receipt:
         physical = receipt.get("physical_attempt_id")
         if not isinstance(physical, str) or not ATTEMPT_RE.fullmatch(physical):
@@ -844,6 +970,9 @@ def valid_intent(manifest: dict[str, Any], manifest_hash: str, row: dict[str, An
     expected = {"schema": INTENT_SCHEMA, "manifest_sha256": manifest_hash, "row_id": row["row_id"], "attempt_id": row["attempt_id"], "physical_attempt_id": attempt.name, "resolved_argv": resolved_argv(manifest, row), "execution_argv": staged_argv(manifest, row, attempt), "runtime_contract_digest": runtime_digest(manifest["runtime_contract"]), "command_return_code": 0}
     if any(intent.get(key) != value for key, value in expected.items()):
         return False, "intent identity or execution contract differs", None
+    overlay_valid, overlay_reason = validate_overlay_provenance(intent, manifest, manifest_hash, row)
+    if not overlay_valid:
+        return False, overlay_reason, None
     if not all(isinstance(intent.get(key), str) and intent[key] for key in ("start_timestamp", "end_timestamp")):
         return False, "intent timestamps missing", None
     outputs, artifacts = staged_paths(row, attempt)
@@ -901,10 +1030,14 @@ def classify(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any], 
     base = {"row_id": row["row_id"], "attempt_id": row["attempt_id"], "receipt_path": str(receipt)}
     if receipt.exists():
         try:
-            valid, reason = validate_receipt(json.loads(receipt.read_text()), manifest, manifest_hash, row)
+            receipt_value = json.loads(receipt.read_text())
+            valid, reason = validate_receipt(receipt_value, manifest, manifest_hash, row)
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             valid, reason = False, str(exc)
-        return {**base, "status": "complete" if valid else "invalid_receipt", "reason": reason}
+            receipt_value = None
+        provenance = {key: receipt_value[key] for key in overlay_provenance_fields()
+                      if valid and isinstance(receipt_value, dict) and key in receipt_value}
+        return {**base, "status": "complete" if valid else "invalid_receipt", "reason": reason, **provenance}
     if held is None:
         legacy_held = probe_lock(Path(manifest["lock_path"]))[0]
         unit_held = probe_lock(unit_lock_path(row))[0]
@@ -940,10 +1073,15 @@ def classify(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any], 
     return {**base, "status": "not_started", "reason": "no row-owned artifacts", "stale_owner_free_lock": False}
 
 
-def read_only(mode: str, manifest: dict[str, Any], manifest_hash: str, row_id: str | None = None) -> dict[str, Any]:
+def read_only(mode: str, manifest: dict[str, Any], manifest_hash: str, row_id: str | None = None,
+              runtime_overlay: dict[str, Any] | None = None) -> dict[str, Any]:
     held, lock_probe_error = probe_lock(Path(manifest["lock_path"]))
     owner = read_owner(manifest)
     selected = [select_row(manifest, row_id)] if row_id else manifest["rows"]
+    if runtime_overlay is not None and (mode != "plan_only" or len(selected) != 1):
+        raise RunnerError("runtime_overlay_mismatch", "overlay plan requires exactly one selected row")
+    effective = (effective_runtime(manifest, manifest_hash, selected[0], runtime_overlay)
+                 if runtime_overlay is not None else None)
     rows = []
     for row in selected:
         unit_held, unit_error = probe_lock(unit_lock_path(row))
@@ -970,7 +1108,7 @@ def read_only(mode: str, manifest: dict[str, Any], manifest_hash: str, row_id: s
                 status["reason"] = "logical reservation requires owner/H2 reconciliation"
             status["resolved_argv"] = resolved_argv(manifest, row)
             if status["action"] == "execute":
-                availability = execution_input_availability(manifest, row)
+                availability = execution_input_availability(manifest, row, effective)
                 status["execution_input_availability"] = availability
                 if not availability["ready"]:
                     status["action"] = "block"
@@ -983,6 +1121,8 @@ def read_only(mode: str, manifest: dict[str, Any], manifest_hash: str, row_id: s
                     "reason": "valid receipt permits skip without historical execution inputs" if status["action"] == "skip" else "validated attempt permits reconciliation without historical execution inputs" if status["action"] == "reconcile" else "row state blocks before execution-input checks",
                 }
     result = {"schema": "topeft_datacard_matrix_read_only_result_v2", "mode": mode, "manifest_sha256": manifest_hash, "runtime_contract_digest": runtime_digest(manifest["runtime_contract"]), "lock_held": True if any(row["lock_held"] is True for row in rows) else None if any(row["lock_held"] is None for row in rows) else False, "lock_probe_error": lock_probe_error, "owner_metadata": owner, "mutated": False, "rows": rows}
+    if runtime_overlay is not None:
+        result.update(overlay_provenance(manifest, manifest_hash, selected[0], runtime_overlay))
     if mode == "plan_only":
         result["launch_ready"] = all(row["action"] in {"skip", "execute", "reconcile"} for row in rows)
     return result
@@ -1084,6 +1224,8 @@ def reconcile_row(manifest: dict[str, Any], manifest_hash: str, row: dict[str, A
         raise RunnerError(state, reason, row_id=row["row_id"])
     runtime = manifest["runtime_contract"]
     receipt = {"schema": RECEIPT_SCHEMA, "manifest_sha256": manifest_hash, "row_id": row["row_id"], "attempt_id": row["attempt_id"], "physical_attempt_id": attempt.name, "resolved_argv": resolved_argv(manifest, row), "execution_argv": intent["execution_argv"], "start_timestamp": intent["start_timestamp"], "end_timestamp": intent["end_timestamp"], "command_return_code": 0, "runtime_contract_id": runtime["contract_id"], "python_executable": runtime["python_executable"], "make_cards_path": runtime["make_cards_path"], "runtime_fingerprints": runtime["fingerprints"], "runtime_contract_digest": runtime_digest(runtime), "primary_outputs": [record(Path(path)) for path in row["expected_output_paths"]], "artifacts": {key: record(path) for key, path in canonical_artifacts(row).items()}}
+    if "runtime_contract_overlay" in intent:
+        receipt.update({key: intent[key] for key in overlay_provenance_fields()})
     valid, reason = validate_receipt(receipt, manifest, manifest_hash, row)
     if not valid:
         raise RunnerError("canonical_collision_or_ambiguous_state", reason, row_id=row["row_id"])
@@ -1095,7 +1237,9 @@ def reconcile_row(manifest: dict[str, Any], manifest_hash: str, row: dict[str, A
     return {"row_id": row["row_id"], "attempt_id": row["attempt_id"], "physical_attempt_id": attempt.name, "action": "reconciled", "receipt_path": str(final)}
 
 
-def execute_row(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any], owner_started_at: str, *, lease_fds: tuple[int, ...] = (), backend: str = "local", scheduler_id: str | None = None) -> dict[str, Any]:
+def execute_row(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any], owner_started_at: str, *, lease_fds: tuple[int, ...] = (), backend: str = "local", scheduler_id: str | None = None, runtime_overlay: dict[str, Any] | None = None) -> dict[str, Any]:
+    if runtime_overlay is not None:
+        effective_runtime(manifest, manifest_hash, row, runtime_overlay)
     entries = attempts(manifest_hash, row)
     next_index = int(entries[-1].name[-6:]) + 1 if entries else 1
     if next_index > 999999:
@@ -1132,6 +1276,8 @@ def execute_row(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any
         with path.open("rb") as source_handle:
             os.fsync(source_handle.fileno())
     intent = {"schema": INTENT_SCHEMA, "manifest_sha256": manifest_hash, "row_id": row["row_id"], "attempt_id": row["attempt_id"], "physical_attempt_id": attempt.name, "resolved_argv": resolved_argv(manifest, row), "execution_argv": argv, "runtime_contract_digest": runtime_digest(manifest["runtime_contract"]), "command_return_code": 0, "start_timestamp": started, "end_timestamp": now(), "primary_outputs": [record(path) for path in output_paths], "artifacts": {key: record(path) for key, path in staged_artifacts.items()}}
+    if runtime_overlay is not None:
+        intent.update(overlay_provenance(manifest, manifest_hash, row, runtime_overlay))
     atomic_json(intent, attempt / "intent.json", False)
     valid, reason, _ = valid_intent(manifest, manifest_hash, row, attempt)
     if not valid:
@@ -1141,8 +1287,10 @@ def execute_row(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any
     return result
 
 
-def execute_unit(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any], *, backend: str = "local", scheduler_id: str | None = None, reservation_token: str | None = None) -> dict[str, Any]:
+def execute_unit(manifest: dict[str, Any], manifest_hash: str, row: dict[str, Any], *, backend: str = "local", scheduler_id: str | None = None, reservation_token: str | None = None, runtime_overlay: dict[str, Any] | None = None) -> dict[str, Any]:
     """The sole mutating primitive: acquire ownership, reconcile, then execute."""
+    effective = (effective_runtime(manifest, manifest_hash, row, runtime_overlay)
+                 if runtime_overlay is not None else None)
     with unit_lease(manifest, row) as lease_fds:
         if backend == "condor":
             scheduler_id = worker_identity(row, reservation_token)
@@ -1167,12 +1315,12 @@ def execute_unit(manifest: dict[str, Any], manifest_hash: str, row: dict[str, An
             if state["status"] not in {"not_started", "stale_owner_free_lock", "partial_staging_attempt"}:
                 raise RunnerError(state["status"], state["reason"], row_id=row["row_id"])
             validate_unit_layout(manifest)
-            validate_runtime(manifest["runtime_contract"])
+            validate_runtime(effective if effective is not None else manifest["runtime_contract"])
             validate_row_inputs(row)
             fresh = classify(manifest, manifest_hash, row, False, unit_owner(row) or read_owner(manifest))
             if fresh["status"] not in {"not_started", "stale_owner_free_lock", "partial_staging_attempt"}:
                 raise RunnerError(fresh["status"], fresh["reason"], row_id=row["row_id"])
-            return execute_row(manifest, manifest_hash, row, now(), lease_fds=lease_fds, backend=backend, scheduler_id=scheduler_id)
+            return execute_row(manifest, manifest_hash, row, now(), lease_fds=lease_fds, backend=backend, scheduler_id=scheduler_id, runtime_overlay=runtime_overlay)
         finally:
             unit_owner_path(row).unlink(missing_ok=True)
             if backend != "condor":
@@ -1224,6 +1372,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reservation-token", help="Generated per-unit dispatch owner token")
     parser.add_argument("--unit-integrity", help="Dispatch guard for descriptor bytes")
     parser.add_argument("--scheduler-status", type=Path, help="Read-only operational metadata overlay")
+    parser.add_argument("--runtime-contract-overlay", type=Path, help="Exact invocation-local runtime fingerprint replacement JSON")
     parser.add_argument("--runner-integrity", help="Dispatch guard for the worker runner bytes")
     args = parser.parse_args(argv)
     if bool(args.manifest) == bool(args.unit) or (args.unit and (args.row_id or args.derive_units)):
@@ -1234,6 +1383,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--scheduler-status requires --status")
     if args.unit_integrity and not args.unit:
         parser.error("--unit-integrity requires --unit")
+    if args.runtime_contract_overlay and (args.status or args.derive_units or args.reconcile_reservations):
+        parser.error("--runtime-contract-overlay requires one selected plan or execution row")
     try:
         if args.runner_integrity and hash_file(Path(__file__)) != args.runner_integrity:
             raise RunnerError("stale_dispatch_input", "worker runner bytes changed")
@@ -1248,8 +1399,14 @@ def main(argv: list[str] | None = None) -> int:
         else:
             manifest, manifest_hash = load_manifest(args.manifest)
             row = select_row(manifest, args.row_id) if args.row_id else None
+        runtime_overlay = None
+        if args.runtime_contract_overlay:
+            if row is None:
+                raise RunnerError("runtime_overlay_mismatch", "overlay requires exactly one selected row")
+            runtime_overlay = json.loads(args.runtime_contract_overlay.read_text())
+            effective_runtime(manifest, manifest_hash, row, runtime_overlay)
         if args.plan_only or args.status:
-            result = read_only("plan_only" if args.plan_only else "status", manifest, manifest_hash, row["row_id"] if row else None)
+            result = read_only("plan_only" if args.plan_only else "status", manifest, manifest_hash, row["row_id"] if row else None, runtime_overlay)
         elif args.reconcile_reservations:
             states = []
             for selected in ([row] if row else manifest["rows"]):
@@ -1262,7 +1419,7 @@ def main(argv: list[str] | None = None) -> int:
             result = {"rows": states, "producer_executed": False}
         elif row:
             result = {"schema": "topeft_datacard_matrix_execution_result_v2", "manifest_sha256": manifest_hash,
-                      "rows": [execute_unit(manifest, manifest_hash, row, backend=args.backend, scheduler_id=args.scheduler_id, reservation_token=args.reservation_token)]}
+                      "rows": [execute_unit(manifest, manifest_hash, row, backend=args.backend, scheduler_id=args.scheduler_id, reservation_token=args.reservation_token, runtime_overlay=runtime_overlay)]}
         else:
             result = execute(manifest, manifest_hash, backend=args.backend, scheduler_id=args.scheduler_id)
         if args.scheduler_status:

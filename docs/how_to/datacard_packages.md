@@ -13,7 +13,7 @@ names, see the [reference](../reference/datacards_and_scalings.md).
 | `build_per_era_datacard_package.py build` | Completed matrix-v3 units and successful receipts → one Run 2 or Run 3 package | Receipt bindings, source hashes, exact physical-target coverage, copied members and metadata | No |
 | `build_combined_datacard_package.py build` | Matching Run 2 and Run 3 packages → original combined package | Source package and physical-surface checks; staged and published certification | No |
 | `standardize_systematics.py` | Certified combined package → fresh standardized combined package | Package contract, card/ROOT pairing and nuisance collision checks | No; the output is a sibling |
-| `build_fit_input_package.py` (optional) | Either valid combined package plus fit config → fit-input package | Metadata hashes, ordered mapping, selected members and copied-byte hashes | No |
+| `build_fit_input_package.py` (optional) | Either valid combined package plus an explicit fit config → fit-input package | Metadata hashes, ordered mapping, selected members and copied-byte hashes | No |
 | EFTFit/Combine | Ordered packaged cards and fit configuration → `combinedcard.txt`, then workspace and fit products | Consumer-side card, model and physics checks | The fit consumer owns its writable outputs |
 
 Each package is a directory of inputs and provenance, not a workspace or a fit.
@@ -180,18 +180,27 @@ and nuisance identities before writing. It renames TXT shape and rate nuisance
 rows and matching ROOT systematic keys using each mapping row's era. Nuisance
 name splits/collisions and ROOT-key collisions fail closed.
 
-The fresh sibling has the same six top-level member names as the original
-combined package. `ordered_card_inputs.txt` and `scalings.json` are copied
-byte for byte. The logical mapping rows are preserved, while the manifest's
-package root is updated. Provenance is regenerated with the new package root,
-metadata hashes, version/date, source-package link, standardizer identity and
-member inventory. ROOT files are rewritten, so serialization bytes can differ.
+The fresh sibling retains the combined package's six core top-level members.
+When the source carries `config/TOP_26_006.yml`, the sibling also contains
+that package-local YAML, copied byte for byte. Its provenance records the
+config's logical path and SHA-256 digest. `ordered_card_inputs.txt` and
+`scalings.json` are copied byte for byte. The logical mapping rows are
+preserved, while the manifest's package root is updated. Provenance is
+regenerated with the new package root, metadata hashes, version/date,
+source-package link, standardizer identity and member inventory. ROOT files
+are rewritten, so serialization bytes can differ.
 
 The nested `standardization` block records `source_package_root`,
 `source_package_provenance_sha256`, `accepted_mapping_commit`,
 `standardizer_file_sha256`, `member_inventory_scope`, and `member_inventory`;
 the inventory covers every standardized package file except the newly written
 `package-provenance.json`.
+
+The original combined builder's `certify` command compares its output against
+the original Run 2 and Run 3 package inputs. It is not the certification
+command for the standardized sibling, whose nuisance names, ROOT content and
+provenance were deliberately rewritten. Use the standardizer's validation and
+the fit-input consumer's package checks at their respective boundaries.
 
 The standardizer requires a fresh absent destination, then writes directly into
 that final directory after preflight. It does not publish through a staging
@@ -223,6 +232,7 @@ manifests and receipts for that audit.
 | TXT nuisance names | Producer names | Standardized final names |
 | ROOT systematic keys | Producer names | Corresponding standardized names; ROOT bytes may differ |
 | Package provenance | Original assembler and source identities | Regenerated, with standardization lineage |
+| Package-local fit config | May be present | Copied byte for byte when present; path and digest recorded |
 | Scientific correlation topology | Already realized in cards | Preserved by consistent renaming |
 | Workspace ownership | EFTFit/Combine | EFTFit/Combine |
 | Source mutability | Built from unchanged per-era sources | Original combined package remains unchanged |
@@ -239,15 +249,18 @@ cards match the previously accepted standardized derivative byte for byte;
 ROOT scientific histogram content was equivalent although serialization bytes
 need not match. These are observations for these releases, not package-format
 cardinality or universal byte-identity requirements. Neither is a workspace.
-They remain immutable historical package artifacts: current direct-CLI
+They remain immutable historical package artifacts. Later direct or matrix
 `--unblind` support and the optional cross-run MVA policy do not reclassify
 them as observed-data or cross-run-MVA outputs. Establish those choices only
-from a package's own source manifests, receipts, commands, and provenance.
+from each package's source manifests, receipts, commands, and provenance.
 
 ## Optional fit-input package
 
 `analysis/topeft_run2/build_fit_input_package.py` takes either valid combined
-package and a fit YAML config. It validates the combined mapping, ordered
+package and a fit YAML config. For a standardized sibling carrying a package-local
+config, pass `--fit-config "$standardized_package/config/TOP_26_006.yml"`
+explicitly; the consumer does not select it automatically. It reads that YAML
+without changing the source package and validates the combined mapping, ordered
 inputs, hashes, selected card members and config, then copies the selected
 TXT/ROOT members under `datacards/cards/`. It also preserves
 `datacards/ordered_card_inputs.txt` and `datacards/scalings.json` byte for byte.
@@ -282,9 +295,11 @@ relative to `datacards/`.
 2. Before combining, confirm both eras declare the same physical target set
    and analysis identity. The combined builder certifies staging and final
    output against those exact inputs.
-3. Before standardizing, run `certify` with the original two per-era inputs;
-   confirm the destination is absent and outside the source package. Inspect
-   the new provenance and ordered-file/scalings identities afterward.
+3. Before standardizing, run the original combined builder's `certify` with
+   the original two per-era inputs; confirm the destination is absent and
+   outside the source package. Inspect the new provenance, optional config
+   digest, and ordered-file/scalings identities afterward. Do not apply that
+   original-input certification command to the standardized sibling.
 4. Before fit handoff, check the combined package's order, mapping, metadata
    hashes and complete TXT/ROOT pairs. The fit-input builder enforces its
    selected consumer contract and records the copied-byte inventory.
@@ -345,7 +360,8 @@ python analysis/topeft_run2/standardize_systematics.py \
   --input-package "$combined_package" --output-package "$standardized_package"
 
 python analysis/topeft_run2/build_fit_input_package.py \
-  --combined-package "$standardized_package" --fit-config "$fit_config" \
+  --combined-package "$standardized_package" \
+  --fit-config "$standardized_package/config/TOP_26_006.yml" \
   --output "$fit_input_package"
 ```
 
