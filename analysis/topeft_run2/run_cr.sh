@@ -8,6 +8,7 @@ print_usage() {
 Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag TAG
   [--dry-run] [--env-file PATH] [--resume] [--chunksize POSITIVE_INTEGER]
   [--selected-fragment ID] [--plan JSON]
+  [--wq-manager-name EXACT_NAME]
   [--activate-pending-plan JSON --expected-plan-revision ID]
   [Work Queue guard and resource options]
 
@@ -43,6 +44,8 @@ profile_wq_treereduction=""
 profile_wq_processing_cores=""
 profile_wq_accumulating_memory_mb=""
 profile_wq_accumulating_cores=""
+profile_wq_manager_name=""
+profile_wq_manager_name_provided=false
 profile_selected_fragment=""
 profile_plan=""
 profile_activate_pending_plan=""
@@ -84,6 +87,15 @@ while (( $# > 0 )); do
         exit 1
       fi
       profile_env_file="$2"
+      shift 2
+      ;;
+    --wq-manager-name)
+      if (( $# < 2 )) || [[ -z "$2" ]] || [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
+        echo "ERROR: --wq-manager-name requires one non-empty exact name." >&2
+        exit 1
+      fi
+      profile_wq_manager_name="$2"
+      profile_wq_manager_name_provided=true
       shift 2
       ;;
     --chunksize|--wq-staging-base|--wq-quota-root|--wq-free-warning-bytes|--wq-min-free-bytes|--wq-poll-seconds|--wq-treereduction|--wq-processing-cores|--wq-accumulating-memory-mb|--wq-accumulating-cores)
@@ -325,6 +337,10 @@ if [[ "${profile_resume}" == "true" && ! -d "${output_dir}" ]]; then
 fi
 
 if [[ "${combined_profile}" == "true" ]]; then
+  if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
+    echo "ERROR: --wq-manager-name requires one component campaign; combined profiles span separate source managers." >&2
+    exit 1
+  fi
   if [[ -n "${profile_plan}${profile_activate_pending_plan}${profile_expected_plan_revision}${profile_selected_fragment}" ]]; then
     echo "ERROR: plan revisions and selected units belong to component campaigns." >&2
     exit 1
@@ -846,17 +862,21 @@ prepare_production_campaign() {
   if [[ "${dry_run}" == "true" ]]; then
     plan_directory="${TMPDIR:-/tmp}"
   else
-    if [[ "${profile_resume}" == "false" ]]; then
+    if [[ "${profile_resume}" == "false" && "${profile_wq_manager_name_provided}" == "false" ]]; then
       mkdir -- "${output_dir}"
     fi
-    campaign_lock_path="${output_dir}/.${production_profile}_campaign.lock"
-    if [[ -L "${campaign_lock_path}" ]]; then
-      echo "ERROR: campaign writer lock path is a symbolic link." >&2
-      exit 1
+    if [[ "${profile_resume}" == "false" && "${profile_wq_manager_name_provided}" == "true" ]]; then
+      plan_directory="${TMPDIR:-/tmp}"
+    else
+      campaign_lock_path="${output_dir}/.${production_profile}_campaign.lock"
+      if [[ -L "${campaign_lock_path}" ]]; then
+        echo "ERROR: campaign writer lock path is a symbolic link." >&2
+        exit 1
+      fi
+      exec {campaign_lock_fd}>> "${campaign_lock_path}"
+      flock -n "${campaign_lock_fd}" || { echo "ERROR: campaign writer lock is held." >&2; exit 1; }
+      plan_directory="${output_dir}"
     fi
-    exec {campaign_lock_fd}>> "${campaign_lock_path}"
-    flock -n "${campaign_lock_fd}" || { echo "ERROR: campaign writer lock is held." >&2; exit 1; }
-    plan_directory="${output_dir}"
   fi
   production_plan_file=$(mktemp "${plan_directory}/.${production_profile}_plan.XXXXXX")
   if [[ "${profile_mode}" != "sr_ext" ]]; then
@@ -878,31 +898,12 @@ prepare_production_campaign() {
       "${production_topcoffea_git_commit}" "${production_topcoffea_source_fingerprint}" \
       "${ttgamma_sample_role_policy}" "${do_systs}" "${do_np}" \
       "${production_region}" "${production_np_mode}"
-    if [[ "${dry_run}" == "false" ]]; then
-      production_state_tool reconcile "${production_state_path}"
-      production_state_tool record-provenance \
-        "${production_state_path}" "${production_git_commit}" \
-        "${production_env_file}" "${production_env_file_sha256}" \
-        "${production_environment_fingerprint}" "${production_environment_mode}" \
-        "${production_topcoffea_git_commit}" "${production_topcoffea_source_fingerprint}"
-    fi
     python ./campaign_manifest.py render-active "${production_state_path}" "${production_plan_file}"
   else
     python ./campaign_manifest.py render-new \
       "${default_plan_path}" "${supplied_plan}" \
       "${production_profile}" "${campaign_tag}" \
       "${output_dir}" "${production_plan_file}"
-    if [[ "${dry_run}" == "false" ]]; then
-      production_state_tool initialize \
-        "${production_state_path}" "${production_plan_file}" \
-        "${production_profile}" "${default_plan_path}" \
-        "${campaign_tag}" "${output_dir}" "${production_git_commit}" \
-        "${production_env_file}" "${production_env_file_sha256}" \
-        "${production_environment_fingerprint}" "${production_environment_mode}" \
-        "${production_topcoffea_git_commit}" "${production_topcoffea_source_fingerprint}" \
-        "${ttgamma_sample_role_policy}" "${do_systs}" "${do_np}" \
-        "${production_region}" "${production_np_mode}"
-    fi
   fi
   production_block_ids=()
   production_plan_year_exprs=()
@@ -923,6 +924,72 @@ prepare_production_campaign() {
       echo "ERROR: unknown selected fragment ${profile_selected_fragment}." >&2
       exit 1
     fi
+  fi
+  validate_wq_manager_name_scope
+  if [[ "${dry_run}" == "false" ]]; then
+    if [[ "${profile_resume}" == "true" ]]; then
+      production_state_tool reconcile "${production_state_path}"
+      production_state_tool record-provenance \
+        "${production_state_path}" "${production_git_commit}" \
+        "${production_env_file}" "${production_env_file_sha256}" \
+        "${production_environment_fingerprint}" "${production_environment_mode}" \
+        "${production_topcoffea_git_commit}" "${production_topcoffea_source_fingerprint}"
+    else
+      if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
+        mkdir -- "${output_dir}"
+        campaign_lock_path="${output_dir}/.${production_profile}_campaign.lock"
+        exec {campaign_lock_fd}>> "${campaign_lock_path}"
+        flock -n "${campaign_lock_fd}" || { echo "ERROR: campaign writer lock is held." >&2; exit 1; }
+      fi
+      production_state_tool initialize \
+        "${production_state_path}" "${production_plan_file}" \
+        "${production_profile}" "${default_plan_path}" \
+        "${campaign_tag}" "${output_dir}" "${production_git_commit}" \
+        "${production_env_file}" "${production_env_file_sha256}" \
+        "${production_environment_fingerprint}" "${production_environment_mode}" \
+        "${production_topcoffea_git_commit}" "${production_topcoffea_source_fingerprint}" \
+        "${ttgamma_sample_role_policy}" "${do_systs}" "${do_np}" \
+        "${production_region}" "${production_np_mode}"
+    fi
+  fi
+}
+
+validate_wq_manager_name_scope() {
+  [[ "${profile_wq_manager_name_provided}" == "true" ]] || return 0
+  local plan_index
+  local source_status
+  local status_line
+  local source_manager_count=0
+  for plan_index in "${!production_block_ids[@]}"; do
+    if [[ -n "${profile_selected_fragment}" \
+      && "${production_block_ids[plan_index]}" != "${profile_selected_fragment}" ]]; then
+      continue
+    fi
+    if [[ "${profile_resume}" == "true" ]]; then
+      status_line=$(production_state_tool status "${production_state_path}" "${production_block_ids[plan_index]}")
+      IFS=$'\t' read -r _ source_status _ <<< "${status_line}"
+      case "${source_status}" in
+        ready) continue ;;
+        planned|failed) ;;
+        running)
+          echo "ERROR: --wq-manager-name cannot resolve a running source before recovery." >&2
+          exit 1
+          ;;
+        *)
+          echo "ERROR: --wq-manager-name cannot resolve source status '${source_status}'." >&2
+          exit 1
+          ;;
+      esac
+    fi
+    source_manager_count=$((source_manager_count + 1))
+    if (( source_manager_count > 1 )); then
+      echo "ERROR: --wq-manager-name requires exactly one source manager; resolved multiple." >&2
+      exit 1
+    fi
+  done
+  if (( source_manager_count != 1 )); then
+    echo "ERROR: --wq-manager-name requires exactly one source manager; resolved zero." >&2
+    exit 1
   fi
 }
 
@@ -1412,6 +1479,9 @@ run_campaign_unit() {
     "${region_option}" --hist-vars "${vars[@]}" --category-groups "${cats[@]}"
   )
   build_common_command_options source_cmd
+  if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
+    source_cmd+=(--wq-manager-name "${profile_wq_manager_name}")
+  fi
   append_guard_options source_cmd "${block_id}"
   source_cmd+=(--wq-log-dir "${native_wq_log_dir}")
   data_driven_cmd=(

@@ -7,6 +7,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -97,6 +98,48 @@ def state_path(tmp_path, profile="run2_prod"):
     return tmp_path / "output" / f".{profile}_campaign_state_v9.json"
 
 
+def test_nominal_manager_name_default_and_exact_override(monkeypatch):
+    monkeypatch.syspath_prepend(str(RUN_DIRECTORY))
+    monkeypatch.setenv("USER", "synthetic_user")
+    spec = importlib.util.spec_from_file_location("run_analysis_manager_name_test", RUN_ANALYSIS)
+    run_analysis = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(run_analysis)
+
+    assert run_analysis._resolve_wq_manager_name(None, "work_queue", "sample") == (
+        "synthetic_user-workqueue-sample"
+    )
+    assert run_analysis._resolve_wq_manager_name(
+        "top26006-test-manager", "work_queue", "sample"
+    ) == "top26006-test-manager"
+    assert run_analysis._resolve_wq_manager_name("name.with_ordinary-chars", "work_queue", "sample") == (
+        "name.with_ordinary-chars"
+    )
+    with pytest.raises(ValueError, match="non-empty"):
+        run_analysis._resolve_wq_manager_name("", "work_queue", "sample")
+    with pytest.raises(ValueError, match="work_queue executor"):
+        run_analysis._resolve_wq_manager_name("exact-name", "futures", "sample")
+    with pytest.raises(ValueError, match="work_queue executor"):
+        run_analysis._resolve_wq_manager_name("exact-name", "taskvine", "sample")
+
+
+@pytest.mark.parametrize(("executor_name", "manager_name", "expected_error"), (
+    ("futures", "exact-name", "requires the work_queue executor"),
+    ("taskvine", "exact-name", "requires the work_queue executor"),
+    ("work_queue", "", "requires a non-empty name"),
+))
+def test_nominal_manager_name_cli_rejects_invalid_use_before_input_read(
+    executor_name, manager_name, expected_error
+):
+    wrap_path = RUN_DIRECTORY.parents[2] / "codex-run.sh"
+    result = subprocess.run(
+        [str(wrap_path), sys.executable, str(RUN_ANALYSIS), "--executor", executor_name,
+         "--wq-manager-name", manager_name],
+        cwd=RUN_DIRECTORY, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode != 0
+    assert expected_error in result.stderr
+
+
 def test_selected_fragment_persists_complete_plan_and_receipts(tmp_path, backend):
     result = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -141,6 +184,27 @@ def test_failed_downstream_reuses_source_on_resume(tmp_path, backend):
     assert len(unit["stages"]["source"]["attempts"]) == 1
     assert len(unit["stages"]["data_driven"]["attempts"]) == 2
     assert unit["stages"]["data_driven"]["status"] == "success"
+
+
+def test_manager_override_rejects_reusable_source_before_state_transition(tmp_path, backend):
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "downstream_fail_once"
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
+    assert first.returncode != 0
+    before = state_path(tmp_path).read_bytes()
+    second = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a",
+                    "--wq-manager-name", "exact-name")
+    assert second.returncode != 0
+    assert "resolved zero" in second.stderr
+    assert state_path(tmp_path).read_bytes() == before
+    assert "Running the following command:" not in second.stdout
+
+
+def test_manager_override_rejects_multiple_sources_before_campaign_creation(tmp_path, backend):
+    result = launch(tmp_path, backend, "--wq-manager-name", "exact-name")
+    assert result.returncode != 0
+    assert "resolved multiple" in result.stderr
+    assert not (tmp_path / "output").exists()
+    assert "Running the following command:" not in result.stdout
 
 
 def test_combined_child_failure_retains_run2_evidence_and_runs_run3(tmp_path, backend):

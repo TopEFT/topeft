@@ -139,6 +139,36 @@ def test_selection_keeps_full_plan_and_positive_chunksize(profile, tmp_path, val
     assert "dry_run_complete: 1 unit" in result.stdout
 
 
+def test_exact_manager_name_reaches_nominal_runner_for_one_source(tmp_path, validation_environment):
+    result = run_profile("run3_prod", tmp_path, validation_environment,
+                         "--selected-fragment", "run3_prod_a",
+                         "--wq-manager-name", "top26006-test-manager")
+    assert result.returncode == 0, result.stdout + result.stderr
+    commands = source_commands(result.stdout)
+    assert len(commands) == 1
+    assert commands[0].count("--wq-manager-name") == 1
+    assert option_values(commands[0], "--wq-manager-name") == ("top26006-test-manager",)
+    assert not (tmp_path / "output").exists()
+
+
+def test_exact_manager_name_rejects_multiple_sources_before_output(tmp_path, validation_environment):
+    result = run_profile("run3_prod", tmp_path, validation_environment,
+                         "--wq-manager-name", "top26006-test-manager")
+    assert result.returncode != 0
+    assert "resolved multiple" in result.stderr
+    assert source_commands(result.stdout) == []
+    assert not (tmp_path / "output").exists()
+
+
+def test_exact_manager_name_rejects_combined_profile_before_children(tmp_path, validation_environment):
+    result = run_profile("run2_run3_prod", tmp_path, validation_environment,
+                         "--wq-manager-name", "top26006-test-manager")
+    assert result.returncode != 0
+    assert "requires one component campaign" in result.stderr
+    assert source_commands(result.stdout) == []
+    assert not (tmp_path / "output").exists()
+
+
 @pytest.mark.parametrize("profile", (
     "run2_full", "run3_full", "run2_run3_full", "run2_full_CR",
     "run3_full_CR", "run2_run3_full_CR", "t0_sr_statonly", "t0_cr_statonly",

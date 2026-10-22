@@ -66,6 +66,32 @@ def source_command(state, unit, chunksize="12345"):
     return command
 
 
+def test_manager_name_changes_attempt_provenance_only(make_campaign):
+    baseline = make_campaign()
+    state_a = copy.deepcopy(baseline)
+    state_b = copy.deepcopy(baseline)
+    unit_a = state_a["units"][0]
+    unit_b = state_b["units"][0]
+    command_a = source_command(state_a, unit_a) + ["--wq-manager-name", "manager-a"]
+    command_b = source_command(state_b, unit_b) + ["--wq-manager-name", "manager-b"]
+
+    manifest.transition(state_a, unit_a["id"], "source", "running", "none", "test", tuple(command_a))
+    manifest.transition(state_b, unit_b["id"], "source", "running", "none", "test", tuple(command_b))
+
+    assert state_a["campaign_identity"] == state_b["campaign_identity"]
+    assert state_a["scientific_identity"] == state_b["scientific_identity"]
+    assert state_a["scientific_identity"]["source_stage_scientific_contract_sha256"] == (
+        state_b["scientific_identity"]["source_stage_scientific_contract_sha256"]
+    )
+    assert state_a["scientific_identity"]["data_driven_stage_scientific_contract_sha256"] == (
+        state_b["scientific_identity"]["data_driven_stage_scientific_contract_sha256"]
+    )
+    attempt_a = unit_a["stages"]["source"]["attempts"][0]
+    attempt_b = unit_b["stages"]["source"]["attempts"][0]
+    assert attempt_a["command_argv"] != attempt_b["command_argv"]
+    assert manifest.attempt_identity(attempt_a) != manifest.attempt_identity(attempt_b)
+
+
 def write_artifact(path, source_sha256=None, *, state=None, unit=None, real_payload=False,
                    wrapper_identity="run_cr.sh -> fullR3_run.sh"):
     path = Path(path)

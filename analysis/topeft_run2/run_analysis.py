@@ -78,6 +78,18 @@ from analysis.topeft_run2.analysis_processor import (
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
 
 
+def _resolve_wq_manager_name(override, executor_name, outname):
+    if override is not None:
+        if not override:
+            raise ValueError("--wq-manager-name requires a non-empty name")
+        if executor_name != "work_queue":
+            raise ValueError("--wq-manager-name requires the work_queue executor")
+        return override
+    if executor_name in ("work_queue", "taskvine"):
+        return f"{os.environ['USER']}-workqueue-{outname}"
+    return None
+
+
 def _configure_wq_categories(queue, processing_cores=None, accumulating_memory_mb=None, accumulating_cores=None,
                              admission_base=None, admission_quota_root=None,
                              admission_warning_bytes=None, admission_min_free_bytes=None):
@@ -1138,6 +1150,8 @@ if __name__ == "__main__":
         default=None,
         help="Explicit manager-side Work Queue staging base for guarded runs",
     )
+    parser.add_argument("--wq-manager-name", default=None,
+                        help="Exact Work Queue manager name; defaults to USER-workqueue-outname")
     parser.add_argument("--wq-guard", action="store_true", help="Enable owned staging preflight and runtime warnings")
     parser.add_argument("--wq-invocation-id", help="Unique profile/block/attempt staging identity")
     parser.add_argument("--wq-quota-root", help="Exact site quota root, e.g. /groups/klannon")
@@ -1436,6 +1450,13 @@ if __name__ == "__main__":
             raise ValueError(
                 f"Unsupported YAML option key(s): {unsupported_option_keys}"
             )
+
+    try:
+        wq_manager_name = _resolve_wq_manager_name(
+            args.wq_manager_name, executor_name, outname
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
     if do_renormfact_envelope:
         raise_unsupported_renormfact_envelope()
@@ -2233,7 +2254,7 @@ if __name__ == "__main__":
         elif wq_filepath:
             raise SystemExit("--wq-filepath requires --wq-guard to prevent unmonitored staging")
         executor_args = {
-            "manager_name": f"{os.environ['USER']}-workqueue-{outname}",
+            "manager_name": wq_manager_name,
             # find a port to run work queue in this range:
             "port": port,
             **wq_log_paths,

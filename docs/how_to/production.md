@@ -71,6 +71,14 @@ archive only when its SHA-256 is unchanged. That frozen byte digest is the
 source worker implementation authority; a different digest requires a new
 campaign. Checkout and manager fingerprints remain attempt provenance.
 
+For an invocation that will start exactly one component source manager, pass
+`--wq-manager-name EXACT_NAME` to select its Work Queue name. A selected unit
+with a reusable source, or an invocation with multiple pending sources, rejects
+the override before changing campaign state or starting a source child. Combined
+profiles do not accept this override; select a component invocation. The name
+is recorded in the source command and attempt identity, not the campaign,
+source, or data-driven scientific identity.
+
 After the dry run, inspect the five `run3_prod` block rows, especially their
 category groups, histogram families, source paths, and `_np` destinations. The
 profile continues to later blocks after one block fails and records each result,

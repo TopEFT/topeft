@@ -6,6 +6,14 @@ worker environment, stages repository inputs, and waits for independently
 launched workers. There is no maintained `work_queue_run.py` entry point in the
 current workflow.
 
+`run_analysis.py --wq-manager-name NAME` passes a nonempty name unchanged to
+the Work Queue executor. Without it, the name remains
+`USER-workqueue-outname`. The option fails for other executors. `run_cr.sh`
+forwards the same option through the unchanged `fullR3_run.sh` argument path,
+after confirming that exactly one component source manager is due to start.
+The manager name selects operational routing and attempt provenance; it does
+not enter the campaign or stage scientific contracts.
+
 Use Work Queue only after a small `futures` or `--pretend` check has established
 that the samples, options, and output identity are correct. Distributed
 execution changes where tasks run; it does not change the processor, histogram,

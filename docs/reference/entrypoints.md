@@ -47,6 +47,7 @@ state to resume without confusing partial, stale, or mismatched output.
 | `--plan` | JSON path for a fresh component campaign | Supplies a complete partition of the profile's approved scientific coverage; omitted means its scientific default. |
 | `--chunksize` | Positive integer, default 100000 | Source-attempt resource setting; a retry may change it without changing science. |
 | `--selected-fragment` | Exact component unit ID | Executes one unit while persisting the full plan. |
+| `--wq-manager-name` | Optional nonempty exact name | Passed unchanged to the single source Work Queue manager. Fails for zero or multiple pending sources and for combined profiles. |
 | `--activate-pending-plan`, `--expected-plan-revision` | JSON path and exact observed active revision, with `--resume` | Under the exclusive lock, atomically repartitions untouched pending coverage while retaining verified source-ready/completed units. |
 
 The launcher derives full `fullR3_run.sh` invocations and calls
