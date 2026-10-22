@@ -61,18 +61,26 @@ and returned to a recoverable stage. When its PKL and maintained metadata
 sidecar validate against the recorded attempt, the engine adopts that source
 or downstream result without rerunning it. Source recovery validates the real
 processor sidecar, including its exact CFG set, applicability, sample contract,
-wrapper, layout, stat policy and artifact identity. The ordinary deferred
+layout, stat policy and artifact identity. Wrapper spelling remains provenance,
+not a recovery gate. Both SR and CR require nonprompt and charge-flip
+preparation in the source artifact. The ordinary deferred
 `_np.pkl.gz` result must be `nonprompt_output`; a flips or processor sidecar
-cannot stand in for it. An unverified output or uncertain writer
-ownership stops recovery without deleting or overwriting the candidate.
+cannot stand in for it. Downstream recovery reads the maintained transformed
+sidecar, including lineage, product and transformation contracts, sumw2
+manifest, sample contract, applicability, layout and PKL identity. An
+unverified output or uncertain writer ownership stops recovery without
+deleting or overwriting the candidate.
 
 The state stores campaign, source-stage and data-driven-stage scientific
 contracts plus a separate approved coverage digest. Source-stage implementation
 identity is the frozen archive SHA-256. The local data-driven stage binds its
-calculation dependencies and exact source artifact identity. A downstream-only
-science change can retain a valid source receipt, while an old downstream
-result cannot be reused under that changed calculation. The active plan revision and partition digest describe how
-that coverage is grouped. Source and downstream receipts bind the contract,
+estimator, nonprompt policy, product-name rule, application-region mapping,
+resolved prompt alias list, entry-point implementation and exact source
+artifact identity. Generic containers, serialization and provenance helpers
+remain runtime dependencies. A downstream-only science change can retain a
+valid source receipt, while an old downstream result cannot be reused under
+that changed calculation. The active plan revision and partition digest
+describe how that coverage is grouped. Source and downstream receipts bind the contract,
 coverage, unit coverage, revision, attempt and artifact lineage. The summary
 files `campaign_summary.tsv` and `campaign_summary.md` derive from the
 same state. PKL existence alone is not completion evidence.

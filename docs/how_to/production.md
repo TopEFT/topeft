@@ -136,6 +136,10 @@ values. The output name is derived from normalized years, region, and tag.
 `--np-postprocess=defer`; it does not enable nonprompt by itself. The wrapper
 records its identity through `--sample-universe-wrapper` and defaults the
 ttgamma sample-role policy to `split`.
+For maintained SR and CR campaigns, `--do-np --defer-np` certifies the complete
+nonprompt and charge-flip input contract before the separate data-driven stage.
+The recorded wrapper name is provenance; recovery checks the resolved
+scientific inputs and the final artifact sidecar.
 
 When modifying `fullR3_run.sh`, keep Run 2 aggregate and Run 3 per-year cfg
 selection centralized, keep CR/SR selection explicit, and classify every new

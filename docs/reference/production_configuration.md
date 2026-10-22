@@ -201,8 +201,8 @@ See the [SR-reco operator guide](../how_to/sr_reco_pkl_campaign.md).
 
 The six `stat_diagnostic` profiles use explicit `full_diagnostics` sumw2
 storage, disable systematics and enable raw-count recording. Each component
-uses the corresponding Run 2 or Run 3 SR/CR coverage. The CR data-driven
-stage retains nonprompt and charge-flip science. There is no no-argument
+uses the corresponding Run 2 or Run 3 SR/CR coverage. Both SR and CR
+data-driven stages retain nonprompt and charge-flip science. There is no no-argument
 production alias.
 
 New campaign roots require a fresh absolute output directory and campaign tag.

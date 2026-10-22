@@ -28,25 +28,13 @@ RUN2_YEARS = ("2016APV", "2016", "2017", "2018")
 RUN3_YEARS = ("2022", "2022EE", "2023", "2023BPix")
 DATA_DRIVEN_SCIENTIFIC_PATHS = (
     "topeft/modules/dataDrivenEstimation.py",
-    "topeft/modules/data_driven_products.py",
     "topeft/modules/nonprompt_policy.py",
-    "topeft/modules/nominal_schema.py",
-    "topeft/modules/axes.py",
-    "topeft/modules/sumw2_policy.py",
-    "topeft/params/params.json",
     "analysis/topeft_run2/run_data_driven.py",
-    "topcoffea/topcoffea/modules/hist_utils.py",
-    "topcoffea/topcoffea/modules/histEFT.py",
-    "topcoffea/topcoffea/modules/sparseHist.py",
-    "topcoffea/topcoffea/modules/eft_helper.py",
-    "topcoffea/topcoffea/modules/get_param_from_jsons.py",
 )
 DATA_DRIVEN_SCIENTIFIC_SYMBOLS = {
-    "topeft/modules/histogram_artifact.py": (
-        "FLIPS_APPLICATION_REGION", "NONPROMPT_APPLICATION_REGIONS",
-        "derive_data_driven_applicability",
+    "topeft/modules/data_driven_products.py": (
+        "DATA_DRIVEN_PRODUCT_NAMES", "generated_process_name",
     ),
-    "topcoffea/topcoffea/modules/utils.py": ("canonicalize_process_name",),
 }
 SR_EXTENSION_VARIABLES = frozenset(
     ("fwd0pt", "j0pt", "b0pt", "met", "l0conept", "l1conept", "invmass", "tau0Tpt")
@@ -158,7 +146,7 @@ def profile_contract(profile, *, region=None, mode=None, run_scope=None,
         "systematics": expected_systs,
         "sumw2_policy": "full_diagnostics" if not expected_systs else "implicit_production",
         "raw_counts": not expected_systs,
-        "data_driven_policy": "nonprompt_charge_flip" if expected_region == "CR" else "nonprompt",
+        "data_driven_policy": "nonprompt_charge_flip",
         "ttgamma_sample_role_policy": ttgamma_policy,
         "stages": ["source", "data_driven"],
     }
@@ -400,6 +388,18 @@ def scientific_files(contract, stage="source"):
         for name in sorted(names)
     }
     if stage == "data_driven":
+        from topeft.modules.histogram_artifact import (
+            FLIPS_APPLICATION_REGION, NONPROMPT_APPLICATION_REGIONS,
+        )
+
+        parameters = json.loads((REPOSITORY_ROOT / "topeft/params/params.json").read_text(encoding="utf-8"))
+        digests["topeft/params/params.json:prompt_subtraction_samples"] = canonical_digest(
+            sorted(set(parameters["prompt_subtraction_samples"]))
+        )
+        digests["data_driven_application_regions"] = canonical_digest(
+            {"nonprompt": sorted(NONPROMPT_APPLICATION_REGIONS),
+             "flips": [FLIPS_APPLICATION_REGION]}
+        )
         for name, symbols in DATA_DRIVEN_SCIENTIFIC_SYMBOLS.items():
             path = REPOSITORY_ROOT.parent / name if name.startswith("topcoffea/") else REPOSITORY_ROOT / name
             source = path.read_text(encoding="utf-8")
@@ -788,6 +788,7 @@ def data_driven_command_artifact_kind(unit, command):
 def validate_recovery_sidecar(state, unit, stage, sidecar):
     """Use fields emitted by the maintained artifact writers, not a campaign-only field."""
     from topeft.modules.histogram_artifact import read_histogram_sidecar
+    from topeft.modules.data_driven_products import validate_requested_product_input
 
     attempt = unit["stages"][stage]["attempts"][-1]
     command = attempt["command_argv"]
@@ -808,7 +809,6 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
             ("--hist-vars", unit["histograms"]),
             ("-t", [unit["output_tag"]]),
             ("-p", [state["campaign_identity"]["output_dir"]]),
-            ("--sample-universe-wrapper", ["run_cr.sh -> fullR3_run.sh"]),
             ("--env-file", [attempt["provenance"].get("environment_file") or state["provenance"]["initial"]["environment_file"]]),
         ):
             if command_values(command, option) != expected:
@@ -828,6 +828,12 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
         ):
             fail("recovery_evidence_insufficient: source histogram applicability differs")
     else:
+        try:
+            validated = read_histogram_sidecar(unit["outputs"]["data_driven"])
+        except (OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
+            fail(f"recovery_evidence_insufficient: invalid data-driven sidecar: {error}")
+        if validated != sidecar:
+            fail("recovery_evidence_insufficient: data-driven sidecar is not canonical")
         expected_kind = data_driven_command_artifact_kind(unit, command)
         if sidecar.get("artifact", {}).get("artifact_kind") != expected_kind:
             fail("recovery_evidence_insufficient: downstream artifact kind differs")
@@ -839,6 +845,25 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
         }] if source is not None else None
         if sidecar.get("lineage", {}).get("inputs") != expected_lineage:
             fail("recovery_evidence_insufficient: downstream lineage mismatch")
+        if sidecar["artifact"]["merged"] is not False:
+            fail("recovery_evidence_insufficient: downstream artifact is unexpectedly merged")
+        source_sidecar = read_histogram_sidecar(unit["outputs"]["source"])
+        try:
+            effective_source = validate_requested_product_input(
+                source_sidecar, artifact_kind=expected_kind,
+            )["effective_sidecar"]
+        except (ValueError, KeyError, TypeError) as error:
+            fail(f"recovery_evidence_insufficient: source data-driven contract is invalid: {error}")
+        for field in (
+            "sumw2_storage_provenance", "production_sample_contract",
+            "requested_data_driven_products", "resolved_data_driven_contract",
+            "histogram_applicability",
+        ):
+            if field not in sidecar or sidecar[field] != effective_source.get(field):
+                fail(f"recovery_evidence_insufficient: downstream {field} differs from source")
+        for product in ("nonprompt", "flips"):
+            if sidecar["requested_data_driven_products"]["products"][product]["enabled"] is not True:
+                fail(f"recovery_evidence_insufficient: downstream {product} product is disabled")
     sumw2 = sidecar.get("sumw2_storage_provenance", {})
     expected_mode = "production" if state["profile_contract"]["systematics"] else "full_diagnostics"
     if sumw2.get("requested_mode") != expected_mode or sumw2.get("resolved_mode") != expected_mode or sumw2.get("runtime_histogram_families") != unit["histograms"]:
@@ -864,10 +889,13 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
         observed_cfg[basename] = item["content_sha256"]
     if observed_cfg != expected_cfg:
         fail("recovery_evidence_insufficient: sample cfg set is incomplete or extra")
-    if stage == "source" and sample.get("wrapper_identity") != "run_cr.sh -> fullR3_run.sh":
-        fail("recovery_evidence_insufficient: producer wrapper identity differs")
-    if stage == "source" and sidecar.get("resolved_data_driven_contract", {}).get("products", {}).get("nonprompt", {}).get("enabled") is not True:
-        fail("recovery_evidence_insufficient: producer nonprompt contract differs")
+    if stage == "source":
+        for product in ("nonprompt", "flips"):
+            if (
+                sidecar.get("requested_data_driven_products", {}).get("products", {}).get(product, {}).get("enabled") is not True
+                or sidecar.get("resolved_data_driven_contract", {}).get("products", {}).get(product, {}).get("enabled") is not True
+            ):
+                fail(f"recovery_evidence_insufficient: producer {product} contract differs")
     if sidecar.get("metadata_schema_version") != 2:
         fail("recovery_evidence_insufficient: maintained processor metadata is incomplete")
 

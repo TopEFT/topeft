@@ -4,15 +4,22 @@ import copy
 import json
 from pathlib import Path
 
+import hist
+import numpy as np
 import pytest
 
 from analysis.topeft_run2 import campaign_manifest as manifest
 from analysis.topeft_run2 import analysis_processor
+from analysis.topeft_run2 import run_data_driven
+from topcoffea.modules.sparseHist import SparseHist
+from topcoffea.modules.utils import get_hist_from_pkl
+from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.axes import info as axes_info, info_2d as axes_info_2d
 from topeft.modules.data_driven_products import (
     certify_data_driven_preflight, resolve_data_driven_products,
 )
-from topeft.modules.histogram_artifact import write_histogram_sidecar
+from topeft.modules.histogram_artifact import write_histogram_artifact, write_histogram_sidecar
+from topeft.modules.nominal_schema import scalar_nominal_key
 from topeft.modules.production_sample_profile import (
     build_active_sample_universe, certify_production_sample_contract,
 )
@@ -21,10 +28,10 @@ from topeft.modules.sumw2_policy import resolve_sumw2_storage_policy
 
 @pytest.fixture
 def make_campaign(tmp_path):
-    def build(profile="run2_prod"):
+    def build(profile="run2_prod", histograms=("ptll", "lt")):
         units = [
-            {"id": "a", "years": ["run2"], "category_groups": ["3l_m_offZ"], "histograms": ["ptll", "lt"]},
-            {"id": "b", "years": ["run2"], "category_groups": ["3l_p_offZ"], "histograms": ["ptll", "lt"]},
+            {"id": "a", "years": ["run2"], "category_groups": ["3l_m_offZ"], "histograms": list(histograms)},
+            {"id": "b", "years": ["run2"], "category_groups": ["3l_p_offZ"], "histograms": list(histograms)},
         ]
         root = tmp_path / profile
         root.mkdir(exist_ok=True)
@@ -59,14 +66,11 @@ def source_command(state, unit, chunksize="12345"):
     return command
 
 
-def write_artifact(path, source_sha256=None, *, state=None, unit=None):
+def write_artifact(path, source_sha256=None, *, state=None, unit=None, real_payload=False,
+                   wrapper_identity="run_cr.sh -> fullR3_run.sh"):
     path = Path(path)
-    path.write_bytes(b"synthetic processor output")
-    sidecar = {
-        "artifact": {"pkl_basename": path.name, "pkl_size_bytes": path.stat().st_size,
-                     "pkl_sha256": manifest.digest_file(path)},
-        "lineage": {"inputs": [] if source_sha256 is None else [{"pkl_sha256": source_sha256}]},
-    }
+    if not real_payload:
+        path.write_bytes(b"synthetic processor output")
     if state is not None and source_sha256 is None:
         samples = {
             "data_dataset": {"histAxisName": "dataUL18", "isData": True, "WCnames": []},
@@ -88,16 +92,17 @@ def write_artifact(path, source_sha256=None, *, state=None, unit=None):
                     "data": {"process_names": ["dataUL18"]},
                     "prompt_mc": {"process_names": ["TTTo2L2Nu_centralUL18"]},
                 }},
-                "flips": {"enabled": False},
+                "flips": {"enabled": True, "source_contributors": {
+                    "data": {"process_names": ["dataUL18"]},
+                }},
             },
             data_driven_products_present=True, legacy_do_np=False,
             samples=samples, runtime_families=tuple(unit["histograms"]),
             metadata_path="test_options.yml",
         )
         requested, resolved = certify_data_driven_preflight(products, policy)
-        wrapper = "run_cr.sh -> fullR3_run.sh"
         contract = certify_production_sample_contract(
-            build_active_sample_universe(samples, wrapper_identity=wrapper),
+            build_active_sample_universe(samples, wrapper_identity=wrapper_identity),
             policy, products,
         )
         files = manifest.scientific_files(state["profile_contract"], "source")
@@ -114,8 +119,35 @@ def write_artifact(path, source_sha256=None, *, state=None, unit=None):
             "analysis_mode": "all",
             "families": {family: {"channels": {}} for family in unit["histograms"]},
         }
-        write_histogram_sidecar(
-            path, histograms={}, artifact_kind="processor_output",
+        histograms = {}
+        if real_payload:
+            for family in unit["histograms"]:
+                axes = (
+                    hist.axis.StrCategory([], name="process", growth=True),
+                    hist.axis.StrCategory([], name="channel", growth=True),
+                    hist.axis.StrCategory([], name="systematic", growth=True),
+                    hist.axis.StrCategory([], name="appl", growth=True),
+                    hist.axis.Regular(1, 0, 1, name=family),
+                )
+                nominal = SparseHist(*axes, storage="Double")
+                sumw2 = SparseHist(*axes, storage="Double")
+                for process, region, weight in (
+                    ("dataUL18", "isAR_3l", 10.0),
+                    ("TTTo2L2Nu_centralUL18", "isAR_3l", 3.0),
+                    ("dataUL18", "isAR_2lSS_OS", 4.0),
+                ):
+                    values = {"process": process, "channel": "3l", "systematic": "nominal",
+                              "appl": region, family: np.asarray([0.5])}
+                    nominal.fill(**values, weight=np.asarray([weight]))
+                    sumw2.fill(**values, weight=np.asarray([weight * weight]))
+                histograms[scalar_nominal_key(family)] = nominal
+                histograms[f"{family}_sumw2"] = sumw2
+            applicability["families"] = {
+                family: {"channels": {"3l": "applicable"}} for family in unit["histograms"]
+            }
+        writer = write_histogram_artifact if real_payload else write_histogram_sidecar
+        writer(
+            path, histograms=histograms, artifact_kind="processor_output",
             sumw2_storage_provenance=policy.to_provenance(),
             production_sample_contract=contract,
             requested_data_driven_products=requested,
@@ -123,6 +155,11 @@ def write_artifact(path, source_sha256=None, *, state=None, unit=None):
             histogram_applicability=applicability,
         )
         return
+    sidecar = {
+        "artifact": {"pkl_basename": path.name, "pkl_size_bytes": path.stat().st_size,
+                     "pkl_sha256": manifest.digest_file(path)},
+        "lineage": {"inputs": [] if source_sha256 is None else [{"pkl_sha256": source_sha256}]},
+    }
     if state is not None:
         source_sidecar = json.loads(Path(f"{unit['outputs']['source']}.metadata.json").read_text())
         sidecar.update({
@@ -142,9 +179,17 @@ def write_artifact(path, source_sha256=None, *, state=None, unit=None):
 def test_canonical_shape_for_component_modes(make_campaign, profile):
     state = make_campaign(profile)
     assert state["schema_version"] == 9
+    assert state["profile_contract"]["data_driven_policy"] == "nonprompt_charge_flip"
     assert set(state["units"][0]["stages"]) == {"source", "data_driven"}
     assert manifest.validate_state(json.loads(json.dumps(state)), verify_artifacts=False)
     assert state["scientific_identity"]["scientific_coverage_sha256"] != state["plan"]["plan_partition_sha256"]
+
+
+def test_sr_and_cr_share_complete_data_driven_policy():
+    sr = manifest.profile_contract("run2_prod")
+    cr = manifest.profile_contract("run2_prod_CR")
+    assert sr["data_driven_policy"] == cr["data_driven_policy"] == "nonprompt_charge_flip"
+    assert {key for key in sr if sr[key] != cr[key]} == {"region"}
 
 
 def test_operational_delta_does_not_change_science(make_campaign):
@@ -457,6 +502,10 @@ def test_running_source_with_verified_artifact_is_reconciled(make_campaign):
     unit = state["units"][0]
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(source_command(state, unit)))
     write_artifact(unit["outputs"]["source"], state=state, unit=unit)
+    prepared = json.loads(Path(f"{unit['outputs']['source']}.metadata.json").read_text())
+    for product in ("nonprompt", "flips"):
+        assert prepared["requested_data_driven_products"]["products"][product]["enabled"] is True
+        assert prepared["resolved_data_driven_contract"]["products"][product]["enabled"] is True
     assert manifest.reconcile_running(state)
     assert unit["stages"]["source"]["status"] == "success"
     assert unit["stages"]["source"]["attempts"][0]["result"] == "reconciled_success"
@@ -468,9 +517,10 @@ def test_running_source_with_verified_artifact_is_reconciled(make_campaign):
 
 @pytest.mark.parametrize("damage", (
     "missing_cfg", "extra_cfg", "wrong_cfg", "contract_version", "contract_mode",
-    "wrapper", "applicability_version", "applicability_mode", "applicability_query",
+    "applicability_version", "applicability_mode", "applicability_query",
     "families", "nominal_layout", "nominal_schema", "artifact_kind", "lineage",
     "artifact_sha", "artifact_size", "synthetic", "sumw2_mode", "sumw2_schema",
+    "flips_disabled",
 ))
 def test_running_source_rejects_incomplete_or_contradictory_sidecar(make_campaign, damage):
     state = make_campaign()
@@ -497,8 +547,6 @@ def test_running_source_rejects_incomplete_or_contradictory_sidecar(make_campaig
         contract["contract_version"] = 999
     elif damage == "contract_mode":
         contract["resolved_mode"] = "full_diagnostics"
-    elif damage == "wrapper":
-        contract["wrapper_identity"] = "other_wrapper.sh"
     elif damage == "applicability_version":
         applicability["contract_version"] = 999
     elif damage == "applicability_mode":
@@ -525,7 +573,10 @@ def test_running_source_rejects_incomplete_or_contradictory_sidecar(make_campaig
         sumw2["requested_mode"] = "full_diagnostics"
     elif damage == "sumw2_schema":
         sumw2["schema_version"] = 999
-    if damage in {"missing_cfg", "extra_cfg", "wrong_cfg", "contract_version", "contract_mode", "wrapper"}:
+    elif damage == "flips_disabled":
+        sidecar["requested_data_driven_products"]["products"]["flips"]["enabled"] = False
+        sidecar["resolved_data_driven_contract"]["products"]["flips"]["enabled"] = False
+    if damage in {"missing_cfg", "extra_cfg", "wrong_cfg", "contract_version", "contract_mode"}:
         contract["contract_identity_sha256"] = manifest.canonical_digest({
             key: value for key, value in contract.items() if key != "contract_identity_sha256"
         })
@@ -535,40 +586,141 @@ def test_running_source_rejects_incomplete_or_contradictory_sidecar(make_campaig
     assert unit["stages"]["source"]["status"] == "running"
 
 
-def test_running_data_driven_with_real_style_lineage_is_reconciled(make_campaign):
+def test_source_wrapper_spelling_is_provenance_only(make_campaign):
     state = make_campaign()
     unit = state["units"][0]
+    command = source_command(state, unit)
+    command[command.index("--sample-universe-wrapper") + 1] = "same-science-renamed-wrapper"
+    manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
+    write_artifact(unit["outputs"]["source"], state=state, unit=unit,
+                   wrapper_identity="same-science-renamed-wrapper")
+    assert manifest.reconcile_running(state)
+    assert unit["stages"]["source"]["status"] == "success"
+
+
+def test_source_scientific_command_change_rejects_recovery(make_campaign):
+    state = make_campaign()
+    unit = state["units"][0]
+    command = source_command(state, unit)
+    command[command.index("--hist-vars") + 1] = "different_family"
+    with pytest.raises(ValueError, match="source command --hist-vars contradicts unit or science"):
+        manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
+
+
+def test_running_data_driven_with_real_style_lineage_is_reconciled(make_campaign):
+    state = make_campaign("run2_stat_diagnostic")
+    unit = state["units"][0]
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(source_command(state, unit)))
-    write_artifact(unit["outputs"]["source"], state=state, unit=unit)
+    write_artifact(unit["outputs"]["source"], state=state, unit=unit, real_payload=True)
     manifest.transition(state, unit["id"], "source", "ready", "0", "test")
     command = ("python", "./run_data_driven.py", "--input-pkl", unit["outputs"]["source"],
                "--output-pkl", unit["outputs"]["data_driven"])
     manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
-    write_artifact(unit["outputs"]["data_driven"],
-                   unit["stages"]["source"]["receipt"]["artifact"]["sha256"],
-                   state=state, unit=unit)
+    run_data_driven.main(["--input-pkl", unit["outputs"]["source"],
+                          "--output-pkl", unit["outputs"]["data_driven"], "--quiet"])
     assert manifest.reconcile_running(state)
     assert unit["stages"]["data_driven"]["status"] == "success"
     assert unit["stages"]["data_driven"]["attempts"][0]["result"] == "reconciled_success"
 
 
-@pytest.mark.parametrize("wrong_kind", ("flips_output", "processor_output"))
-def test_running_downstream_rejects_wrong_kind(make_campaign, wrong_kind):
-    state = make_campaign()
+@pytest.mark.parametrize("damage", (
+    "lineage", "merged", "nominal_schema", "nominal_layout", "requested_products",
+    "resolved_contract", "transformation_contract", "sumw2_manifest",
+    "sumw2_provenance", "sample_contract", "applicability", "metadata_schema",
+    "artifact_sha", "artifact_size",
+))
+def test_running_downstream_rejects_damaged_real_sidecar(make_campaign, damage):
+    state = make_campaign("run2_stat_diagnostic", histograms=("ptll",))
     unit = state["units"][0]
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(source_command(state, unit)))
-    write_artifact(unit["outputs"]["source"], state=state, unit=unit)
+    write_artifact(unit["outputs"]["source"], state=state, unit=unit, real_payload=True)
+    manifest.transition(state, unit["id"], "source", "ready", "0", "test")
+    command = ("python", "./run_data_driven.py", "--input-pkl", unit["outputs"]["source"],
+               "--output-pkl", unit["outputs"]["data_driven"])
+    manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
+    run_data_driven.main(["--input-pkl", unit["outputs"]["source"],
+                          "--output-pkl", unit["outputs"]["data_driven"], "--quiet"])
+    metadata = Path(f"{unit['outputs']['data_driven']}.metadata.json")
+    sidecar = json.loads(metadata.read_text(encoding="utf-8"))
+    if damage == "lineage":
+        sidecar["lineage"]["inputs"][0]["pkl_sha256"] = "0" * 64
+    elif damage == "merged":
+        sidecar["artifact"]["merged"] = True
+    elif damage == "nominal_schema":
+        sidecar["artifact"]["nominal_container_schema_version"] = 999
+    elif damage == "nominal_layout":
+        sidecar["artifact"]["nominal_container_layout"] = "other"
+    elif damage == "requested_products":
+        sidecar["requested_data_driven_products"]["products"]["flips"]["enabled"] = False
+    elif damage == "resolved_contract":
+        sidecar["resolved_data_driven_contract"]["products"]["flips"]["enabled"] = False
+    elif damage == "transformation_contract":
+        del sidecar["transformation_contract"]
+    elif damage == "sumw2_manifest":
+        del sidecar["sumw2_content_manifest"]
+    elif damage == "sumw2_provenance":
+        sidecar["sumw2_storage_provenance"]["requested_mode"] = "production"
+    elif damage == "sample_contract":
+        sidecar["production_sample_contract"]["cfg_identities"].pop()
+    elif damage == "applicability":
+        sidecar["histogram_applicability"]["analysis_mode"] = "offz"
+    elif damage == "metadata_schema":
+        sidecar["metadata_schema_version"] = 999
+    elif damage == "artifact_sha":
+        sidecar["artifact"]["pkl_sha256"] = "0" * 64
+    elif damage == "artifact_size":
+        sidecar["artifact"]["pkl_size_bytes"] += 1
+    metadata.write_text(json.dumps(sidecar), encoding="utf-8")
+    with pytest.raises(ValueError, match="recovery_evidence_insufficient|artifact sidecar identity mismatch"):
+        manifest.reconcile_running(state)
+    assert unit["stages"]["data_driven"]["status"] == "running"
+
+
+def test_tiny_run2_inline_and_separate_data_driven_parity(make_campaign):
+    state = make_campaign("run2_stat_diagnostic", histograms=("ptll",))
+    unit = state["units"][0]
+    source_path = unit["outputs"]["source"]
+    write_artifact(source_path, state=state, unit=unit, real_payload=True)
+    source_histograms = get_hist_from_pkl(source_path)
+    inline = DataDrivenProducer(source_histograms, "").getDataDrivenHistogram()
+    run_data_driven.main(["--input-pkl", source_path,
+                          "--output-pkl", unit["outputs"]["data_driven"], "--quiet"])
+    separate = get_hist_from_pkl(unit["outputs"]["data_driven"])
+    assert set(inline) == set(separate)
+    for key in inline:
+        expected = inline[key].view(flow=True, as_dict=True)
+        observed = separate[key].view(flow=True, as_dict=True)
+        assert set(expected) == set(observed)
+        for sparse_key in expected:
+            np.testing.assert_array_equal(np.asarray(expected[sparse_key]), np.asarray(observed[sparse_key]))
+    nominal = separate[scalar_nominal_key("ptll")].view(flow=True, as_dict=True)
+    totals = {
+        process: sum(float(np.asarray(values).sum()) for key, values in nominal.items()
+                     if key[0] == process)
+        for process in ("nonpromptUL18", "flipsUL18")
+    }
+    assert totals == {"nonpromptUL18": 7.0, "flipsUL18": 4.0}
+    assert sum(totals.values()) == 11.0
+
+
+@pytest.mark.parametrize("wrong_kind", ("flips_output", "processor_output"))
+def test_running_downstream_rejects_wrong_kind(make_campaign, wrong_kind):
+    state = make_campaign("run2_stat_diagnostic")
+    unit = state["units"][0]
+    manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(source_command(state, unit)))
+    write_artifact(unit["outputs"]["source"], state=state, unit=unit, real_payload=True)
     manifest.transition(state, unit["id"], "source", "ready", "0", "test")
     command = ("python", "./run_data_driven.py", "--input-pkl", unit["outputs"]["source"],
                "--output-pkl", unit["outputs"]["data_driven"])
     manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
     path = unit["outputs"]["data_driven"]
-    write_artifact(path, unit["stages"]["source"]["receipt"]["artifact"]["sha256"], state=state, unit=unit)
+    run_data_driven.main(["--input-pkl", unit["outputs"]["source"],
+                          "--output-pkl", path, "--quiet"])
     metadata = Path(f"{path}.metadata.json")
     sidecar = json.loads(metadata.read_text(encoding="utf-8"))
     sidecar["artifact"]["artifact_kind"] = wrong_kind
     metadata.write_text(json.dumps(sidecar), encoding="utf-8")
-    with pytest.raises(ValueError, match="downstream artifact kind differs"):
+    with pytest.raises(ValueError, match="recovery_evidence_insufficient"):
         manifest.reconcile_running(state)
 
 
@@ -677,7 +829,7 @@ def test_downstream_calculation_dependency_and_provenance_helper_boundaries(make
     assert current["data_driven_stage_scientific_contract_sha256"] == baseline_downstream
 
     def calculation_change(path):
-        if str(path).endswith("topcoffea/modules/histEFT.py"):
+        if str(path).endswith("topeft/modules/nonprompt_policy.py"):
             return "f" * 64
         return original_digest(path)
 
@@ -695,6 +847,51 @@ def test_downstream_calculation_dependency_and_provenance_helper_boundaries(make
             state["provenance"]["initial"], state["scientific_identity"]["scientific_coverage"],
         )
     assert manifest.validate_receipt(state, unit, "source")
+
+
+def test_downstream_science_uses_resolved_values_and_source_artifact(make_campaign, monkeypatch):
+    state = make_campaign()
+    contract = state["profile_contract"]
+    provenance = state["provenance"]["initial"]
+    coverage = state["scientific_identity"]["scientific_coverage"]
+    baseline = manifest.scientific_identity(contract, provenance["environment_file_sha256"],
+                                            provenance["topcoffea_relevant_source_fingerprint"], coverage)
+    original_digest = manifest.digest_file
+
+    def technical_change(path):
+        if str(path).endswith("topcoffea/modules/histEFT.py"):
+            return "f" * 64
+        return original_digest(path)
+
+    monkeypatch.setattr(manifest, "digest_file", technical_change)
+    assert manifest.scientific_identity(contract, provenance["environment_file_sha256"],
+                                        provenance["topcoffea_relevant_source_fingerprint"], coverage)[
+        "data_driven_stage_scientific_contract_sha256"] == baseline[
+        "data_driven_stage_scientific_contract_sha256"]
+    original_parameters = json.loads((manifest.REPOSITORY_ROOT / "topeft/params/params.json").read_text())
+    changed_parameters = dict(original_parameters, prompt_subtraction_samples=["changed"])
+    original_read_text = Path.read_text
+
+    def changed_value(path, *args, **kwargs):
+        if str(path).endswith("topeft/params/params.json"):
+            return json.dumps(changed_parameters)
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", changed_value)
+    assert manifest.scientific_identity(contract, provenance["environment_file_sha256"],
+                                        provenance["topcoffea_relevant_source_fingerprint"], coverage)[
+        "data_driven_stage_scientific_contract_sha256"] != baseline[
+        "data_driven_stage_scientific_contract_sha256"]
+    unit = state["units"][0]
+    manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(source_command(state, unit)))
+    write_artifact(unit["outputs"]["source"], state=state, unit=unit)
+    manifest.transition(state, unit["id"], "source", "ready", "0", "test")
+    command = ("python", "./run_data_driven.py", "--input-pkl", unit["outputs"]["source"],
+               "--output-pkl", unit["outputs"]["data_driven"])
+    manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
+    first = manifest.canonical_digest(manifest.binding(state, unit, "data_driven"))
+    unit["stages"]["source"]["receipt"]["artifact"]["sha256"] = "0" * 64
+    assert manifest.canonical_digest(manifest.binding(state, unit, "data_driven")) != first
 
 
 def test_running_artifact_without_attempt_binding_is_not_adopted(make_campaign):
