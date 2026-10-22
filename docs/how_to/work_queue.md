@@ -178,8 +178,8 @@ campaign, prepare one validated environment archive and reuse its exact frozen
 identity for the campaign rather than rebuilding it per task.
 
 The Work Queue executor uses `retries=15` with `resource_monitor=measure`.
-Those internal task retries are distinct from campaign-level recovery or a
-profile-specific resume decision. Native `debug.log`, `tr.log`, `stats.log`,
+Those internal task retries are distinct from schema-9 campaign recovery and
+the campaign's stage-attempt history. Native `debug.log`, `tr.log`, `stats.log`,
 and `tasks.log` belong to
 `<output_root>/work_queue_logs/<production_component>/<block_id>/source_native/`
 for a campaign source stage. The runner copies them to the corresponding

@@ -6,7 +6,8 @@ three supported entry levels expose progressively less automation:
 
 | Entry point | Choose it when | It owns | You still own |
 | --- | --- | --- | --- |
-| `run_cr.sh` | running or resuming a maintained multi-block campaign | production-profile block selection, output namespace, state, resume, environment archive, and artifact checks | selecting the profile, output root, campaign tag, and reviewing the frozen plan |
+| `run_cr.sh` | running or resuming a maintained multi-block campaign | public profile resolution, block command construction, output namespace and child execution | selecting the profile, output root, campaign tag, and reviewing the plan |
+| `campaign_manifest.py` | state or recovery operations driven by the launcher | schema-9 plan, revision, attempt, receipt and reconciliation checks | inspecting its state and report evidence |
 | `fullR3_run.sh` | running one Run 2 or Run 3 block | year/cfg bundle selection and construction of one `run_analysis.py` command | campaign layout, state, resume, and downstream lifecycle |
 | `run_analysis.py` | a focused direct run or CLI development | sample loading, executor setup, processor construction, artifact/sidecar publication, and optional nonprompt dispatch | every input, option, output identity, and reproducibility record |
 
@@ -18,7 +19,8 @@ processor behavior.
 
 | Concern | Owner | Derived or hard-coded behavior | Protected by |
 | --- | --- | --- | --- |
-| campaign block matrix, state, resume, and frozen environment | `run_cr.sh` production profile | `run3_full` has five fixed blocks; SR-reco uses a complete JSON plan with same-root pending revisions; output and campaign tag have no implicit production value | `test_run3_full_production_profile.py`, `test_sr_reco_manifest.py` |
+| public profile, block matrix and child commands | `run_cr.sh` | Run 3 SR production defaults to five blocks; all component profiles accept an exact-coverage plan; output and campaign tag have no implicit production value | `test_campaign_production_profiles.py`, `test_campaign_profile_handoff.py` |
+| plan, schema-9 state, receipts and recovery | `campaign_manifest.py` | approved scientific coverage is independent of the active partition; attempts retain operational provenance | `test_campaign_manifest.py` |
 | cfg bundle, years, region, histogram list, tag-derived output name | `fullR3_run.sh` | year aliases and cfg paths are derived; absent year/tag still have script defaults, while its default output path is site-specific | `test_fullr3_run_wrapper.py`, profile tests |
 | sample loading, CLI/YAML resolution, executor, processor and artifacts | `run_analysis.py` | parser defaults are `work_queue`, 8 workers, chunksize 100000, `histos/plotsTopEFT`; active channels/histograms are derived from registries and options | CLI, preflight, producer, policy, and artifact tests |
 | event selection and histogram filling | `AnalysisProcessor` | constructed from the resolved run contract | processor/selection/nominal-schema tests |
@@ -38,48 +40,38 @@ the one you intend to execute.
 Inspect a fresh TOP-26-006 Run 3 plan before launching it:
 
 ```bash
-./run_cr.sh --production-profile run3_full \
+./run_cr.sh --production-profile run3_prod \
   --output-dir /absolute/path/to/fresh_run3_campaign \
   --campaign-tag run3_campaign --dry-run
 ```
 
 Run the same command without `--dry-run` after reviewing the block matrix,
-inputs, outputs, and environment archive. Resume only that frozen plan:
+inputs, outputs, and environment archive. Resume the same approved scientific
+coverage and any validated active partition:
 
 ```bash
-./run_cr.sh --production-profile run3_full \
+./run_cr.sh --production-profile run3_prod \
   --output-dir /absolute/path/to/fresh_run3_campaign \
   --campaign-tag run3_campaign --resume
 ```
 
-`run_cr.sh` owns the campaign state file and records source and nonprompt stages
-separately. Do not point a fresh campaign at an existing output directory, and
-do not edit the state file to force a resume.
-
-During a non-SR-reco profile resume, `run_cr.sh` compares the `topeft` and
-`topcoffea` commits stored in campaign state with the commits currently
-checked out. If the differences are limited to files that do not directly
-configure or control the campaign, the comparison can pass. If a changed file
-is used directly by the campaign workflow, resume stops and requires an
-explicit review of the current checkout. After that review, provide the full
-current SHA for the corresponding repository with
-`--reviewed-topeft-manager-head SHA` and/or
-`--reviewed-topcoffea-manager-head SHA`. Each supplied SHA must equal the
-current HEAD of that repository. These options acknowledge a reviewed code
-difference; they do not bypass the other consistency checks performed during
-resume. Missing, malformed, or stale values are rejected.
+`campaign_manifest.py` owns the schema-9 state, with generic `source` and
+`data_driven` stages. Do not point a fresh campaign at an existing output
+directory or edit state to force resume. A resume compares the resolved
+campaign and stage-local scientific contracts and approved coverage, then
+checks receipts and writer ownership. An operational commit, chunksize or
+manager-resource change is recorded on a new attempt. A downstream-only
+science change can retain a valid source receipt; a source science change
+blocks source reuse.
 
 For maintained profiles, omit `--env-file` to resolve or create the current
-worker environment for the checkout. Supply an absolute `--env-file` to use
-exactly that archive as an intentional frozen snapshot; snapshot integrity and
-provenance remain validated, but compatibility with the current checkout is not
-required. Combined profiles forward the same explicit snapshot to both child
-components. A resume uses the exact environment mode, path,
-hash, fingerprint, repository commits, block plan, and output identities frozen
-in the existing state; a command-line environment that disagrees with state is
-rejected.
+worker environment. An absolute `--env-file` selects a validated snapshot;
+combined profiles forward it to both children. A resume may use a relocated
+archive only when its SHA-256 is unchanged. That frozen byte digest is the
+source worker implementation authority; a different digest requires a new
+campaign. Checkout and manager fingerprints remain attempt provenance.
 
-After the dry run, inspect the five `run3_full` block rows, especially their
+After the dry run, inspect the five `run3_prod` block rows, especially their
 category groups, histogram families, source paths, and `_np` destinations. The
 profile continues to later blocks after one block fails and records each result,
 so the final summary and state—not the last shell exit alone—are the campaign
@@ -98,14 +90,13 @@ Keep a profile change inside the existing ownership model:
 3. Update every parallel profile array and the mechanical packing checks
    together. A block ID, category set, variable set, output tag, source PKL,
    transformed PKL, and state row must stay one-to-one.
-4. Preserve unique block/output identities, the frozen-plan hash, environment
-   archive checks, and the two-stage source/nonprompt state model. Never make a
-   changed live plan silently compatible with old state.
+4. Preserve unique block/output identities, approved scientific coverage,
+   archive checks, and the two-stage source/data-driven model. A repartition
+   may change the active plan revision only through a checked transition.
 5. Forward a lower-level option instead of reimplementing its semantics. The
    profile should construct `fullR3_run.sh` arguments, not select sample JSONs
    or interpret processor settings itself.
-6. Update the directly affected production-profile tests. For SR-reco plan
-   changes, use `tests/test_sr_reco_manifest.py`.
+6. Update the directly affected production-profile and campaign-manifest tests.
 7. Dry-run a fresh namespace and a matching resume fixture. Check block count,
    ordering, command construction, output uniqueness, environment identity,
    interruption handling, and refusal of stale/missing artifacts.
@@ -260,15 +251,16 @@ their defaults to the core wrapper chain. See
 
 ## Maintained profile and recovery boundary
 
-Use a maintained profile: `run2_full`, `run3_full`, `run2_full_CR`,
-`run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`,
-`run3_sr_ext`, `t0_sr_statonly`, or `t0_cr_statonly`. Supply a fresh absolute
+Use a maintained profile: `run2_prod`, `run3_prod`, `run2_prod_CR`,
+`run3_prod_CR`, `run2_run3_prod`, `run2_run3_prod_CR`, the corresponding
+`stat_diagnostic` SR/CR component and combined profiles, or `run2_sr_ext` and
+`run3_sr_ext`. Supply a fresh absolute
 output directory and a campaign tag for a new campaign. The SR-reco extension
 profiles have a separate [operator guide](sr_reco_pkl_campaign.md) for explicit
 plans, worker archives, and post-run qualification.
 
-The combined Run 2/Run 3 full-SR route is `run2_run3_full`; it is not another
-CLI profile. With no `--env-file`, the wrapper resolves or
+The combined Run 2/Run 3 production SR route is `run2_run3_prod`; it
+orchestrates separate component states. With no `--env-file`, the wrapper resolves or
 creates the current worker environment. With `--env-file X`, it validates and
 uses exactly `X` as an intentional snapshot without requiring current-checkout
 compatibility, and both children of a combined profile receive that same
@@ -277,8 +269,8 @@ fingerprint, and source identity from campaign state. Qualify an explicit
 archive for the intended processor and worker runtime; snapshot validation
 alone does not establish that compatibility.
 
-The wrapper validates explicit archive integrity and provenance and reuses the
-exact archive frozen in a valid resumable campaign state. When no archive is
+The wrapper validates explicit archive integrity and provenance and may reuse
+the same archive bytes at a new path. When no archive is
 supplied for a fresh maintained campaign, it delegates current archive creation
 or reuse to `run_analysis.py --prepare-env-only`. To make a new archive from a
 chosen build workspace, use the native builder:

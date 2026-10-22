@@ -58,19 +58,20 @@ the existing owner and update the sample-profile tests. See
 
 ### Production profile
 
-**Why it exists.** A production profile is a named plan in `run_cr.sh`. It
-groups blocks that must share campaign, environment, state, and output
-invariants. `run3_full` is the maintained complete Run 3 plan; `rebin_fine` is
-a separate specialist plan.
+**Why it exists.** A production profile resolves the approved scientific
+policies and coverage for an ordered set of units. `run3_prod` is the
+maintained complete Run 3 SR profile.
 
 **Consumes and produces.** It consumes its declared profile name, a fresh or
 exactly resumable output namespace, an environment request, and block options.
-It produces a frozen plan/state record and delegates each block to
-`fullR3_run.sh`.
+The launcher delegates each source unit to `fullR3_run.sh` and each
+data-driven unit to `run_data_driven.py`.
 
-**Owns.** It owns orchestration order, block identity, state transitions,
-namespace collision checks, resume evidence, and the separate source/nonprompt
-process lifecycle.
+**Owns.** `run_cr.sh` owns the public profile and child command boundary.
+`campaign_manifest.py` owns one schema-9 state model for all component
+profiles: scientific identity and coverage digests, plan revisions, attempts,
+receipts, namespace collision checks and interrupted-attempt reconciliation.
+The active partition can change while approved science remains exact.
 
 **Does not own.** It does not define selections, corrections, histogram axes,
 sample JSON contents, or statistical models. A profile must not duplicate
@@ -465,13 +466,15 @@ registry for cross-repository state.
 ## Portable production boundary
 
 `run_cr.sh` derives its repository root from the script location rather than a
-checkout-specific path. Its public profile matrix is `run2_full`, `run3_full`,
-`run2_full_CR`, `run3_full_CR`, `run2_run3_full`, and
-`run2_run3_full_CR`; the no-argument form is a legacy `run2_full` alias and
-`rebin_fine` remains specialist legacy machinery.
+checkout-specific path. Its public profile matrix has six `prod`, six
+`stat_diagnostic` and two `sr_ext` names. There is no no-argument alias.
 
-The wrapper consumes a pinned environment identity rather than automatically
-building an environment. It validates the required archive and records its
-identity in campaign state. Combined profiles keep Run 2 and Run 3 in separate
+The launcher validates the resolved worker archive and records its path and
+byte digest. The frozen archive SHA-256 is the source worker implementation
+authority for a campaign; a different digest requires a new campaign even if
+the profile is unchanged. Live checkout and manager fingerprints remain
+operational provenance. The local data-driven calculation binds its reached
+scientific dependencies and the exact source artifact. Combined
+profiles keep Run 2 and Run 3 in separate
 namespaces and failure domains: a safely classified component-local failure is
 distinct from a shared unsafe blocker, which fails closed.

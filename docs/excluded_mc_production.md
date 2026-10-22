@@ -52,7 +52,7 @@ Each unit uses four separate eras (Run2: UL16, UL16APV, UL17, UL18; Run3:
 `processor_output`, `--do-systs`, `--all-analysis`,
 `--np-postprocess=skip`, and `--ttgamma-sample-role-policy split`. Block a selects
 `2l` and `2los_1tau` with `njets lj0pt ptz lt`; block d selects
-`3l_onZ_tau` with `njets lj0pt ptz lt`. The wider `run3_full` a block also
+`3l_onZ_tau` with `njets lj0pt ptz lt`. The wider `run3_prod` a block also
 selects `2lss_1tau`, whose on-Z channels can fill `ptz_wtau`. Neither selected
 excluded-MC a category has a channel that fills that family, so omitting it
 loses no physical contribution from this slice. Each requested family has an
@@ -64,7 +64,7 @@ Work Queue requests one processing core and
 32000 MB plus two accumulating cores. These are task requests, not worker
 factory sizing or available-capacity findings.
 
-The standard `run3_full` SR source uses `--do-np --defer-np` and implicit
+The standard `run3_prod` SR source uses `--do-np --defer-np` and implicit
 production sumw2. Its `--do-np` resolves and certifies same-year data and prompt
 MC contributors before the executor, which also determines the implicit
 sumw2 targets; the separate `run_data_driven.py` step then runs after the
@@ -76,7 +76,7 @@ nonprompt certification is claimed. With no enabled data driven product, the
 implicit production policy would select no sumw2 targets for these backgrounds.
 Explicit `--sumw2-family` for each requested distribution preserves the
 nominal MC statistical companions consumed by the SR plotter. This changes
-statistical sidecar provenance relative to standard `run3_full` and includes
+statistical sidecar provenance relative to standard `run3_prod` and includes
 background sumw2 targets regardless of that profile's contributor selection.
 The event selection, nominal weights and systematic variation switch use the
 same source flags for these units, while the background-only input universe

@@ -8,7 +8,8 @@ layer retains. It is a lookup page, not a production recipe. See the
 
 | Component | Kind and status | Inputs | Defaults and outputs | Failure boundary |
 | --- | --- | --- | --- | --- |
-| `analysis/topeft_run2/run_cr.sh` | Maintained production-profile wrapper | `--production-profile`, an absolute `--output-dir`, and `--campaign-tag`; optional `--env-file`, `--resume`, and `--dry-run` | Ten public Run 2/Run 3 SR+CR and SR-reco extension profiles; campaign state plus source/transformed PKLs and sidecars | Rejects missing or mismatched state, a reused fresh namespace, invalid archives, ambiguous interruption, and incomplete outputs |
+| `analysis/topeft_run2/run_cr.sh` | Maintained production-profile launcher | `--production-profile`, an absolute `--output-dir`, and `--campaign-tag`; optional `--env-file`, `--resume`, `--plan`, `--selected-fragment`, and `--dry-run` | Fourteen public component/combined profiles; child commands and source/transformed PKLs | Rejects unknown profiles, reused fresh namespaces, invalid archives and child failures |
+| `analysis/topeft_run2/campaign_manifest.py` | Maintained schema-9 campaign engine | Resolved profile, plan, provenance and state operations from the launcher | Scientific and coverage digests, revisions, stage attempts, receipts and recovery transitions | Rejects scientific drift, invalid coverage, stale revisions, unverified artifacts and concurrent writers |
 | `analysis/topeft_run2/fullR3_run.sh` | Maintained command/configuration wrapper | Years, exactly one of `--cr` or `--sr`, optional histogram/input/output overrides, and forwarded analysis options | Year/config-dependent `run_analysis.py` command | Rejects conflicting input overrides, missing cfg/JSON inputs, and unsupported region/year combinations |
 | `analysis/topeft_run2/run_analysis.py` | Direct developer CLI | Sample JSON/cfg expression and CLI or YAML options | Executor `work_queue`; 8 workers; chunksize 100000; `histos/plotsTopEFT.pkl.gz` | Validates executor, active sample universe, categories, environment, policies, and artifact contracts at their owning boundaries |
 | `analysis/topeft_run2/run_data_driven.py` | Direct transformed-artifact CLI | A validated source PKL/sidecar and requested data-driven product | Streaming input; output name derived from the input when omitted | Rejects missing/incompatible sidecars, uncertified input policy, invalid product requests, and incomplete transformed companions |
@@ -37,19 +38,20 @@ state to resume without confusing partial, stale, or mismatched output.
 
 | Input | Type/requirement/default | Semantics |
 | --- | --- | --- |
-| `--production-profile` | Required public profile: `run2_full`, `run3_full`, `run2_full_CR`, `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`, `run3_sr_ext`, `t0_sr_statonly`, or `t0_cr_statonly` | Selects the maintained plan. Both SR-reco extension profiles use a separate local nonprompt stage after source publication. |
-| `--output-dir` | Required absolute path; fresh for a new campaign root | Owns state, logs, and produced artifacts. Each SR-reco profile requires its own fresh root for an initial campaign. Existing state follows profile-specific resume behavior. |
+| `--production-profile` | Required: Run 2/3 `prod` or `stat_diagnostic` SR/CR component or combined profile, or `run2_sr_ext`/`run3_sr_ext` | Resolves the scientific profile once; combined profiles own child campaigns rather than a separate state. |
+| `--output-dir` | Required absolute path; fresh for a new campaign root | Owns state, logs, and produced artifacts. Each component profile requires its own fresh initial root. Existing state follows generic schema-9 recovery checks. |
 | `--campaign-tag` | Required non-empty string | Portable campaign identity recorded with state. |
-| `--env-file` | Optional absolute path | When omitted, resolves or creates the current worker environment. When supplied, selects exactly that archive as an intentional snapshot: integrity/provenance validation remains required, but current-checkout compatibility does not. The wrapper freezes the mode, resolved path, hash, fingerprint, and source identity; combined profiles forward the same explicit snapshot to both components. |
+| `--env-file` | Optional absolute path | When omitted, resolves or creates the current worker environment. When supplied, validates a frozen snapshot. An identical archive at a different path remains the same scientific runtime. |
 | `--resume` | Boolean, default false | Reopens compatible campaign state and mechanically selects incomplete blocks/stages. |
 | `--dry-run` | Boolean, default false | Skips campaign-block execution, but first resolves or validates the selected current environment or explicit snapshot. It then prints the resolved plan without running campaign blocks or creating the campaign namespace. |
-| `--sr-plan` | JSON path for a fresh SR extension campaign | Supplies a complete category-group × histogram partition; omitted means the maintained 12-unit default per profile. The explicit plan determines its own unit count. |
-| `--selected-fragment` | Exact SR extension unit ID | Executes one unit while persisting the full plan; omit it to launch the full plan. Later `--resume` retains verified completions. |
-| `--activate-pending-plan`, `--expected-plan-revision` | JSON path and exact observed active revision, with `--resume` | Atomically replaces only untouched pending SR extension coverage in the same campaign root; activation submits no work. |
+| `--plan` | JSON path for a fresh component campaign | Supplies a complete partition of the profile's approved scientific coverage; omitted means its scientific default. |
+| `--chunksize` | Positive integer, default 100000 | Source-attempt resource setting; a retry may change it without changing science. |
+| `--selected-fragment` | Exact component unit ID | Executes one unit while persisting the full plan. |
+| `--activate-pending-plan`, `--expected-plan-revision` | JSON path and exact observed active revision, with `--resume` | Under the exclusive lock, atomically repartitions untouched pending coverage while retaining verified source-ready/completed units. |
 
-The wrapper derives full `fullR3_run.sh` invocations, records profile/block
-state, and, for the maintained deferred path, invokes `run_data_driven.py` only
-after the heavy processor child exits. It does not own selections, processor
+The launcher derives full `fullR3_run.sh` invocations and calls
+`run_data_driven.py` only after the source receipt is verified. The campaign
+engine records state, receipts and reconciliation. Neither owns selections, processor
 physics, bin edges, or artifact schemas. Extend a profile by changing its one
 block-plan owner and the production-profile tests; do not copy its defaults into
 another wrapper. The [SR-reco campaign guide](../how_to/sr_reco_pkl_campaign.md)
@@ -87,7 +89,7 @@ pair.
 | Scope | Optional years, histogram list, category groups, WC list | Filters the resolved input/processor family universe. Names are validated before or during processor construction. |
 | Analysis flags | Off-Z, tau, forward, or all-analysis; default none | Mutually exclusive mode selectors. `--analysis-mode` accepts `standard` or `taufitter`, default `standard`. |
 | Sumw2/systematics | Modern YAML `sumw2_storage`; deprecated `--no-sumw2`; `--do-systs` | Modern policy is resolved before processing. Legacy statistical inputs have explicit compatibility/conflict handling. |
-| Raw-count diagnostics | `--record-raw-count`; YAML `record_raw_count`; default false | Records per-bin selected nominal-MC event counts for histograms used by the fitting configuration. Ordinary full-production and SR-reco extension profiles leave raw-count recording disabled. The two stat-only diagnostic profiles, `t0_sr_statonly` and `t0_cr_statonly`, enable it. |
+| Raw-count diagnostics | `--record-raw-count`; YAML `record_raw_count`; default false | Records per-bin selected nominal-MC event counts. Maintained `stat_diagnostic` profiles enable it; `prod` and `sr_ext` leave it disabled. |
 | Nonprompt | `--do-np`; `--np-postprocess` in `inline`, `defer`, `skip`, default `inline` | Inline publishes a transformed artifact; defer prints a direct follow-up command; skip omits transformation. |
 | Environment | Optional archive/rebuild/prepare/snapshot/no-remote controls | Owns worker-environment preparation/validation, not package installation. |
 | YAML overlay | `--options FILE` | One mapping loaded after CLI-derived values; recognized YAML values replace corresponding CLI values. See the exact caveat in production configuration. |
@@ -158,7 +160,7 @@ See [production configuration](production_configuration.md),
 
 Shell usage blocks and Python `build_arg_parser()` definitions are the exact
 option authority. Focused ownership tests include
-`tests/test_run3_full_production_profile.py`,
+`tests/test_campaign_production_profiles.py`,
 `tests/test_run_analysis_preflight.py`, `tests/test_run_data_driven.py`,
 `tests/test_make_cr_and_sr_plots.py`, and
 `tests/test_make_cards_multi_pkl.py`.
@@ -258,10 +260,10 @@ derived values in the implemented path.
 
 ## `run_cr.sh` production interface
 
-The public production profiles are `run2_full`, `run3_full`, `run2_full_CR`,
-`run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`, `run2_sr_ext`,
-`run3_sr_ext`, `t0_sr_statonly`, and `t0_cr_statonly`; no arguments retain the
-legacy `run2_full` alias.
+The public production profiles are `run2_prod`, `run3_prod`,
+`run2_run3_prod` and their `_CR` counterparts; the same six
+`stat_diagnostic` names; and `run2_sr_ext` and `run3_sr_ext`.
+Retired `full` and `t0_*_statonly` names have no launcher aliases.
 `rebin_fine` and the former `_clike` extension profiles are retired from the
 current CLI. New campaign roots require fresh output namespaces, an
 absolute output directory, and a campaign tag; each SR-reco profile owns its
@@ -273,8 +275,9 @@ current worker environment for the checkout. An explicit absolute
 provenance are validated, but current-checkout compatibility is deliberately
 not required. The wrapper records the exact environment mode and resolved
 identity, and combined profiles forward the same explicit snapshot to both
-components. Resume is profile-specific and reuses the exact mode and archive
-frozen in state; it is not a generic retry operation, and an interrupted state
-must be inspected before a resume is requested. Worker provisioning remains an
+components. Schema-9 resume is generic. It checks scientific contract,
+approved coverage, receipts and writer evidence while recording operational
+differences on new attempts. Interrupted states are reconciled under the
+exclusive campaign lock when ownership and artifact evidence suffice. Worker provisioning remains an
 external Work Queue concern; this wrapper does not forward a worker-count
 option.

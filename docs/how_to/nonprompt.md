@@ -28,11 +28,10 @@ python run_analysis.py INPUT.cfg --do-np --np-postprocess=inline \
   --outpath /absolute/path/to/output --outname analysis_block
 ```
 
-`inline` is the default when `--do-np` is active. It publishes the source and
-transformed products in one invocation. The maintained Run 2 SR profiles
-`run2_full` and `run2_sr_ext` use inline local `DataDrivenProducer` processing.
-The Run 3 SR profiles `run3_full` and `run3_sr_ext` defer the local
-`run_data_driven.py` stage until source publication succeeds. The direct
+`inline` is the default when `--do-np` is active in a direct invocation. It
+publishes source and transformed products in one invocation. Maintained
+`run_cr.sh` component profiles instead use a verified source receipt followed
+by a separate `run_data_driven.py` stage for both Run 2 and Run 3. The direct
 deferred form is:
 
 ```bash
