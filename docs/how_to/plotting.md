@@ -106,6 +106,8 @@ selects their histogram-family union in one parent-side streaming load, and
 renders each view from that retained mapping. The maintained loader checks the
 PKL digest separately before streaming. The generated Condor material uses
 shared paths and does not stage PKLs or submit jobs.
+`campaign_inputs.json` records the exact ten manifest-derived principal-PKL
+paths and their logical rows. Every descriptor carries that same input set.
 
 Run `prepare` through the workspace Python wrapper, with a fresh dispatch
 directory and an ordinary TOPEFT `histos` campaign root:
@@ -124,13 +126,19 @@ directory and an ordinary TOPEFT `histos` campaign root:
 
 The resource quantities above illustrate syntax only. Select them from a real
 pilot measurement before submission. Inspect `units/*.json`, `items.txt`,
-`worker.sh`, and `plots.sub`; the submit file requests one vanilla cluster with
+`worker.sh`, and `plots.sub`; `prepare --unit-id <manifest-derived-unit-id>`
+creates a separate one-unit queue while retaining the full campaign input-set
+record. The submit file requests one vanilla cluster with
 itemdata and `should_transfer_files = NO`. `prepare` never opens a production
 PKL or creates the campaign plot root. A later authorized submission would use
 the generated `plots.sub` after reviewing the output root and resources.
 
-Each `run-unit` checks its descriptor against the current TSV and source
-identity, refuses occupied row output directories, then uses the ordinary
+Each `run-unit` checks its descriptor against the current TSV and campaign
+input set, requires its declared principal PKL to be readable, and refuses
+occupied row output directories. It does not substitute another PKL path or
+gate on checkout HEAD or prepare-time source hashes. Mixed units reduce each
+njets view to the established physical-channel selection without changing
+the parent mapping or opening the PKL again. Output uses the ordinary
 `run/view/owner/variables` layout under the caller's campaign root. It writes a
 small receipt only after all planned PNGs are present and readable. A failed
 unit leaves its partial outputs in place for inspection; it has no automatic

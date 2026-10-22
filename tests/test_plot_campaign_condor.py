@@ -3,6 +3,8 @@ import inspect
 import json
 from pathlib import Path
 
+import hist
+import awkward as ak
 import pytest
 
 from analysis.topeft_run2 import make_cr_and_sr_plots as plotter
@@ -42,6 +44,8 @@ def test_accepted_manifest_partitions_exactly_and_prepare_never_opens_pkls(
     assert sum(row["kind"] == "njets" for row in rows) == 50
     assert sum(row["kind"] == "other" for row in rows) == 50
     assert len(units) == 10
+    manifest_paths = {row["pkl"] for row in rows}
+    assert len(manifest_paths) == 10
     assert sum(unit["expected_figures"] for unit in units) == 910
     assert {row["unit"] for unit in units for row in unit["rows"]} == {
         row["unit"] for row in rows}
@@ -69,6 +73,12 @@ def test_accepted_manifest_partitions_exactly_and_prepare_never_opens_pkls(
     assert len(items) == 10
     descriptors = [json.loads(path.read_text()) for path in sorted((destination / "units").glob("*.json"))]
     assert len(descriptors) == 10
+    input_record = json.loads((destination / "campaign_inputs.json").read_text())
+    assert set(input_record["campaign_principal_pkl_paths"]) == manifest_paths
+    assert set(input_record["rows_by_principal_pkl"]) == manifest_paths
+    assert {descriptor["principal_pkl"] for descriptor in descriptors} == manifest_paths
+    assert all(set(descriptor["campaign_principal_pkl_paths"]) == manifest_paths
+               for descriptor in descriptors)
     for item, descriptor in zip(sorted(items), sorted(descriptors, key=lambda value: value["unit_id"])):
         unit_id, digest = item.split()
         path = destination / "units" / (unit_id + ".json")
@@ -88,6 +98,29 @@ def test_accepted_manifest_partitions_exactly_and_prepare_never_opens_pkls(
     assert "condor_submit" not in submit
 
 
+def test_one_unit_prepare_keeps_whole_campaign_input_set(tmp_path):
+    rows, manifest_hash = campaign.read_campaign(_accepted_manifest)
+    units = campaign.derive_units(rows, manifest_hash)
+    chosen = next(unit for unit in units if unit["unit_id"] == "pkl_60965b09ae555381")
+    destination = tmp_path / "pilot"
+    result = campaign.prepare(
+        _accepted_manifest, destination,
+        campaign._repo_root / "histos" / "test_pilot_prepare_only_uncreated",
+        request_cpus=1, request_memory="1GB", request_disk="1GB",
+        max_runtime=60, workers=1, unit_id=chosen["unit_id"],
+    )
+    assert result["units"] == 1
+    assert result["queued_rows"] == len(chosen["rows"])
+    assert result["expected_figures"] == chosen["expected_figures"]
+    assert len((destination / "items.txt").read_text().splitlines()) == 1
+    descriptor = json.loads((destination / "units" / (chosen["unit_id"] + ".json")).read_text())
+    assert descriptor["principal_pkl"] == chosen["principal_pkl"]
+    assert len(descriptor["campaign_principal_pkl_paths"]) == 10
+    assert len(json.loads((destination / "campaign_inputs.json").read_text())[
+        "campaign_principal_pkl_paths"]) == 10
+    assert "should_transfer_files = NO" in (destination / "plots.sub").read_text()
+
+
 @pytest.mark.parametrize("workers", [1, 3])
 def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, workers):
     manifest = _fixture_manifest(tmp_path)
@@ -99,10 +132,15 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
     descriptor = {
         "schema": "plot_campaign_unit_v1", "campaign_id": "campaign",
         "campaign_manifest": str(manifest), "output_root": str(output_root),
-        "source_identity": {"head": "fixture"}, "workers": workers, **unit,
+        "source_identity": {"head": "prepared, different from runtime",
+                            "frontend_sha256": "0" * 64,
+                            "plotter_sha256": "f" * 64},
+        "campaign_principal_pkl_paths": [unit["principal_pkl"]],
+        "workers": workers, **unit,
     }
     descriptor_path = tmp_path / f"unit_{workers}.json"
     descriptor_path.write_bytes(campaign._json_bytes(descriptor))
+    Path(unit["sidecar"]).write_text("prepare-time sidecar provenance changed")
     loader_calls = []
     rendered = []
 
@@ -110,8 +148,20 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
         loader_calls.append((paths, kwargs))
         assert len(loader_calls) == 1
         assert kwargs["selected_families"] == ["njets", "ptz"]
-        return {"njets__scalar_nominal": 11, "njets_sumw2": 1,
-                "ptz__scalar_nominal": 22, "ptz_sumw2": 2}, {
+        def make_histogram(variable, weight):
+            histogram = plotter.SparseHist(
+                hist.axis.StrCategory([], name="process", growth=True),
+                hist.axis.StrCategory([], name="channel", growth=True),
+                hist.axis.StrCategory([], name="systematic", growth=True),
+                hist.axis.Regular(2, 0, 2, name=variable),
+            )
+            histogram.fill(process="ttH_central2022", channel="2lss_p",
+                           systematic="nominal", **{variable: 0.5}, weight=weight)
+            return histogram
+        return {"njets__scalar_nominal": make_histogram("njets", 11),
+                "njets_sumw2": make_histogram("njets", 1),
+                "ptz__scalar_nominal": make_histogram("ptz", 22),
+                "ptz_sumw2": make_histogram("ptz", 2)}, {
             "schema": "split_sibling_v1", "runtime_histogram_families": ["njets", "ptz"]}
 
     def render(args, parser, *, loaded_view):
@@ -120,7 +170,8 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
         mapping, report = loaded_view
         assert set(mapping) == {family + "__scalar_nominal", family + "_sumw2"}
         assert report["runtime_histogram_families"] == [family]
-        rendered.append((family, mapping[family + "__scalar_nominal"], args.workers))
+        rendered.append((family, float(ak.sum(mapping[family + "__scalar_nominal"].values())),
+                         args.workers))
         path = Path(args.output_path) / args.output_name
         path.mkdir(parents=True)
         (path / (family + ".png")).write_bytes(b"PNG fixture")
@@ -130,14 +181,116 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
     monkeypatch.setattr(plotter, "run_with_args", render)
     receipt = campaign.run_unit(descriptor_path, campaign._sha256(descriptor_path))
     assert len(loader_calls) == 1
-    assert rendered == [("njets", 11, workers), ("ptz", 22, workers)]
+    assert rendered == [("njets", 11.0, workers), ("ptz", 22.0, workers)]
     assert receipt["logical_view_count"] == 2
     assert receipt["expected_output_count"] == receipt["observed_output_count"] == 2
     assert receipt["zero_byte_or_unreadable_output_count"] == 0
     assert receipt["return_code"] == 0
+    assert receipt["topeft_source_identity"] != receipt["runtime_topeft_source_identity"]
     with pytest.raises(FileExistsError, match="Occupied campaign output"):
         campaign.run_unit(descriptor_path, campaign._sha256(descriptor_path))
     assert len(loader_calls) == 1
+
+
+def test_missing_declared_principal_pkl_fails_without_substitution(tmp_path, monkeypatch):
+    manifest = _fixture_manifest(tmp_path)
+    rows, manifest_hash = campaign.read_campaign(manifest)
+    unit = campaign.derive_units(rows, manifest_hash)[0]
+    descriptor = {
+        "schema": "plot_campaign_unit_v1", "campaign_id": "campaign",
+        "campaign_manifest": str(manifest),
+        "output_root": str(tmp_path / "histos" / "campaign"),
+        "source_identity": {"head": "old"},
+        "campaign_principal_pkl_paths": [unit["principal_pkl"]],
+        "workers": 1, **unit,
+    }
+    descriptor_path = tmp_path / "unit.json"
+    descriptor_path.write_bytes(campaign._json_bytes(descriptor))
+    Path(unit["principal_pkl"]).unlink()
+    (tmp_path / "replacement.pkl.gz").write_bytes(b"not a campaign member")
+    monkeypatch.setattr(campaign, "_histos_root", lambda path: str(path))
+    monkeypatch.setattr(plotter, "load_and_merge_histogram_pkls",
+                        lambda *args, **kwargs: pytest.fail("loader must not be called"))
+    with pytest.raises(FileNotFoundError, match="Declared principal PKL"):
+        campaign.run_unit(descriptor_path, campaign._sha256(descriptor_path))
+    assert not Path(descriptor["output_root"]).exists()
+
+
+def test_mixed_unit_njets_view_matches_selective_channel_semantics():
+    from topcoffea.modules.utils import regex_match
+
+    selected_channel = "2lss_p"
+    extra_channel = "unrelated_extra_channel"
+    patterns = plotter._sr_njets_channel_patterns()
+    assert regex_match([selected_channel], patterns) == [selected_channel]
+    assert not regex_match([extra_channel], patterns)
+
+    def make_histogram(variable, offset):
+        output = plotter.SparseHist(
+            hist.axis.StrCategory([], name="process", growth=True),
+            hist.axis.StrCategory([], name="channel", growth=True),
+            hist.axis.StrCategory([], name="systematic", growth=True),
+            hist.axis.Regular(2, 0, 2, name=variable),
+        )
+        for channel, factor in ((selected_channel, 1), (extra_channel, 100)):
+            for process, process_factor in (("ttH_central2022", 2),
+                                            ("data2022", 3),
+                                            ("nonprompt2022", 5),
+                                            ("flips2022", 7)):
+                for systematic, syst_factor in (("nominal", 1),
+                                                ("JESUp", 1.2),
+                                                ("JESDown", 0.8)):
+                    output.fill(process=process, channel=channel,
+                                systematic=systematic, **{variable: 0.5},
+                                weight=(offset + process_factor) * factor * syst_factor)
+        return output
+
+    retained = {
+        "njets__scalar_nominal": make_histogram("njets", 1),
+        "njets_sumw2": make_histogram("njets", 9),
+        "ptz__scalar_nominal": make_histogram("ptz", 3),
+        "ptz_sumw2": make_histogram("ptz", 11),
+    }
+    report = {"runtime_histogram_families": ["njets", "ptz"]}
+    njets_row = {"kind": "njets", "variables": "njets"}
+    other_row = {"kind": "other", "variables": "ptz"}
+    original = {key: ak.to_list(histogram.values(flow=True))
+                for key, histogram in retained.items()}
+    reference = {
+        key: histogram.prune("channel", regex_match(list(histogram.axes["channel"]), patterns))
+        for key, histogram in retained.items() if key.startswith("njets")
+    }
+
+    for order in ((njets_row, other_row), (other_row, njets_row)):
+        for row in order:
+            view, view_report = campaign._selected_view(retained, report, row)
+            assert view_report["runtime_histogram_families"] == [row["variables"]]
+            assert set(view) == set(reference if row["kind"] == "njets" else
+                                    {key: value for key, value in retained.items()
+                                     if key.startswith("ptz")})
+            for key, histogram in view.items():
+                expected = reference[key] if row["kind"] == "njets" else retained[key]
+                assert list(histogram.axes["channel"]) == list(expected.axes["channel"])
+                assert list(histogram.axes["process"]) == list(expected.axes["process"])
+                assert list(histogram.axes["systematic"]) == list(expected.axes["systematic"])
+                assert ak.to_list(histogram.values(flow=True)) == ak.to_list(expected.values(flow=True))
+                if row["kind"] == "njets":
+                    assert list(histogram.axes["channel"]) == [selected_channel]
+            if row["kind"] == "njets":
+                reference_context = plotter.build_region_context(
+                    "SR", reference, ["2022"], unblind=True,
+                    channel_mode_override="aggregate")
+                candidate_context = plotter.build_region_context(
+                    "SR", view, ["2022"], unblind=True,
+                    channel_mode_override="aggregate")
+                assert candidate_context.all_samples == reference_context.all_samples
+                assert candidate_context.mc_samples == reference_context.mc_samples
+                assert candidate_context.data_samples == reference_context.data_samples
+                assert candidate_context.channel_map == reference_context.channel_map
+                assert set(candidate_context.sumw2_hists) == set(reference_context.sumw2_hists)
+        for key, histogram in retained.items():
+            assert ak.to_list(histogram.values(flow=True)) == original[key]
+            assert extra_channel in histogram.axes["channel"]
 
 
 def test_render_worker_path_has_no_pkl_loader_call():

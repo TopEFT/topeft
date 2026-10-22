@@ -18,6 +18,7 @@ import re
 import shlex
 import subprocess
 import sys
+from typing import Optional
 
 
 _header = (
@@ -39,7 +40,7 @@ _wrapper = _workspace_root / "codex-run.sh"
 _python = Path("/users/apiccine/work/miniconda3/envs/clib-env/bin/python")
 
 # A direct script invocation puts analysis/topeft_run2, not the repository root,
-# on sys.path. Bind imports to the same checkout whose source identity we check.
+# on sys.path. Bind imports to the selected checkout.
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
@@ -121,9 +122,8 @@ def derive_units(rows: list[dict], manifest_sha256: str) -> list[dict]:
     units = []
     for pkl_path, group in sorted(groups.items()):
         group = sorted(group, key=lambda row: row["unit"])
-        if len({(row["sidecar"], row["historical_pkl_sha256"],
-                 row["historical_sidecar_sha256"]) for row in group}) != 1:
-            raise ValueError(f"Conflicting identities for {pkl_path}")
+        if len({row["sidecar"] for row in group}) != 1:
+            raise ValueError(f"Conflicting sidecar paths for {pkl_path}")
         families = sorted({variable for row in group
                            for variable in row["variables"].split(",")})
         # njets-only units can use the established SR physical-channel selector.
@@ -153,15 +153,14 @@ def derive_units(rows: list[dict], manifest_sha256: str) -> list[dict]:
 
 
 def _source_identity() -> dict:
-    head = subprocess.run(
-        ["git", "-C", str(_repo_root), "rev-parse", "HEAD"],
-        check=True, capture_output=True, text=True,
-    ).stdout.strip()
-    return {
-        "head": head,
-        "frontend_sha256": _sha256(Path(__file__)),
-        "plotter_sha256": _sha256(_repo_root / "analysis/topeft_run2/make_cr_and_sr_plots.py"),
-    }
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(_repo_root), "rev-parse", "HEAD"],
+            check=False, capture_output=True, text=True,
+        )
+    except OSError:
+        return {"head": None}
+    return {"head": result.stdout.strip() if result.returncode == 0 else None}
 
 
 def _histos_root(output_root: Path) -> str:
@@ -176,9 +175,16 @@ def _histos_root(output_root: Path) -> str:
 
 def prepare(manifest_path: Path, destination: Path, output_root: Path, *,
             request_cpus: int, request_memory: str, request_disk: str,
-            max_runtime: int, workers: int) -> dict:
+            max_runtime: int, workers: int, unit_id: Optional[str] = None) -> dict:
     rows, manifest_sha256 = read_campaign(manifest_path)
     units = derive_units(rows, manifest_sha256)
+    campaign_principal_pkl_paths = sorted({row["pkl"] for row in rows})
+    if len(campaign_principal_pkl_paths) != 10:
+        raise ValueError("Accepted SR campaign must declare exactly 10 principal PKL paths")
+    if unit_id is not None:
+        units = [unit for unit in units if unit["unit_id"] == unit_id]
+        if len(units) != 1:
+            raise ValueError(f"Unknown or ambiguous campaign unit: {unit_id!r}")
     if request_cpus < workers or workers < 1 or max_runtime < 1:
         raise ValueError("Positive workers/runtime and request_cpus >= workers are required")
     if not _resource.fullmatch(request_memory) or not _resource.fullmatch(request_disk):
@@ -193,6 +199,15 @@ def prepare(manifest_path: Path, destination: Path, output_root: Path, *,
     destination.mkdir(parents=True, mode=0o700, exist_ok=False)
     (destination / "units").mkdir(mode=0o700)
     (destination / "logs").mkdir(mode=0o700)
+    (destination / "campaign_inputs.json").write_bytes(_json_bytes({
+        "manifest": str(manifest_path),
+        "manifest_sha256": manifest_sha256,
+        "campaign_principal_pkl_paths": campaign_principal_pkl_paths,
+        "rows_by_principal_pkl": {
+            path: sorted(row["unit"] for row in rows if row["pkl"] == path)
+            for path in campaign_principal_pkl_paths
+        },
+    }))
     items = []
     for unit in units:
         descriptor = {
@@ -201,6 +216,7 @@ def prepare(manifest_path: Path, destination: Path, output_root: Path, *,
             "campaign_manifest": str(manifest_path),
             "output_root": output_path,
             "source_identity": source_identity,
+            "campaign_principal_pkl_paths": campaign_principal_pkl_paths,
             "workers": workers,
             **unit,
         }
@@ -240,13 +256,15 @@ def prepare(manifest_path: Path, destination: Path, output_root: Path, *,
     )) + "\n", encoding="utf-8")
     return {"rows": len(rows), "njets_rows": sum(row["kind"] == "njets" for row in rows),
             "other_rows": sum(row["kind"] == "other" for row in rows),
-            "units": len(units), "expected_figures": sum(unit["expected_figures"] for unit in units),
+            "units": len(units), "queued_rows": sum(len(unit["rows"]) for unit in units),
+            "expected_figures": sum(unit["expected_figures"] for unit in units),
             "manifest_sha256": manifest_sha256, "submit_file": str(submit),
             "submitted": False}
 
 
 def _selected_view(loaded: dict, report: dict, row: dict) -> tuple[dict, dict]:
     from topeft.modules.nominal_schema import family_from_component_key
+    from topcoffea.modules.utils import regex_match
 
     families = row["variables"].split(",")
     subset = {key: histogram for key, histogram in loaded.items()
@@ -257,6 +275,23 @@ def _selected_view(loaded: dict, report: dict, row: dict) -> tuple[dict, dict]:
             raise ValueError(f"Selected union lacks nominal family {family!r}")
     if not subset:
         raise ValueError("Selected logical view is empty")
+    if row["kind"] == "njets":
+        from analysis.topeft_run2 import make_cr_and_sr_plots as plotter
+
+        patterns = plotter._sr_njets_channel_patterns()
+        reduced = {}
+        matched = set()
+        for key, histogram in subset.items():
+            if "channel" not in histogram.categorical_axes.name:
+                raise ValueError(f"Selected njets component {key!r} has no channel axis")
+            available = list(histogram.axes["channel"])
+            channels = regex_match(available, patterns)
+            matched.update(channels)
+            reduced[key] = (histogram if len(channels) == len(available)
+                            else histogram.prune("channel", channels))
+        if not matched:
+            raise ValueError("Selected njets view has no accepted physical channel")
+        subset = reduced
     view_report = {**report, "runtime_histogram_families": families,
                    "selected_families": families}
     return subset, view_report
@@ -286,12 +321,18 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
     manifest = Path(descriptor["campaign_manifest"])
     rows, manifest_sha256 = read_campaign(manifest)
     units = {unit["unit_id"]: unit for unit in derive_units(rows, manifest_sha256)}
+    campaign_principal_pkl_paths = sorted({row["pkl"] for row in rows})
+    if descriptor.get("campaign_principal_pkl_paths") != campaign_principal_pkl_paths:
+        raise ValueError("Descriptor campaign principal PKL path set differs from manifest")
     unit_id = descriptor["unit_id"]
     if unit_id not in units or any(descriptor.get(key) != value
                                    for key, value in units[unit_id].items()):
         raise ValueError("Descriptor differs from the current campaign partition")
-    if descriptor["source_identity"] != _source_identity():
-        raise ValueError("TOPEFT plotting source differs from prepared identity")
+    principal_pkl = descriptor["principal_pkl"]
+    if principal_pkl not in campaign_principal_pkl_paths:
+        raise ValueError("Unit principal PKL is outside the campaign input set")
+    if not Path(principal_pkl).is_file() or not os.access(principal_pkl, os.R_OK):
+        raise FileNotFoundError(f"Declared principal PKL is missing or unreadable: {principal_pkl}")
     output_root = Path(descriptor["output_root"])
     _histos_root(output_root)
     if descriptor["campaign_id"] != output_root.name:
@@ -305,13 +346,6 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
                     if path.exists() or path.is_symlink())
     if occupied:
         raise FileExistsError(f"Occupied campaign output: {occupied}")
-    sidecar = Path(descriptor["sidecar"])
-    if _sha256(sidecar) != descriptor["historical_sidecar_sha256"]:
-        raise ValueError("Principal sidecar differs from accepted manifest identity")
-    sidecar_data = json.loads(sidecar.read_text(encoding="utf-8"))
-    if sidecar_data["artifact"]["pkl_sha256"] != descriptor["historical_pkl_sha256"]:
-        raise ValueError("Principal PKL identity differs from accepted manifest")
-
     from analysis.topeft_run2 import make_cr_and_sr_plots as plotter
 
     patterns = (plotter._sr_njets_channel_patterns()
@@ -354,6 +388,7 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
         "historical_pkl_sha256": descriptor["historical_pkl_sha256"],
         "manifest_sha256": manifest_sha256,
         "topeft_source_identity": descriptor["source_identity"],
+        "runtime_topeft_source_identity": _source_identity(),
         "worker_count": descriptor["workers"],
         "multiprocessing_start_method": multiprocessing.get_start_method(allow_none=True),
         "start_time": start_time,
@@ -382,6 +417,7 @@ def main() -> int:
     prepare_parser.add_argument("--request-disk", required=True)
     prepare_parser.add_argument("--max-runtime", type=int, required=True)
     prepare_parser.add_argument("--workers", type=int, required=True)
+    prepare_parser.add_argument("--unit-id", help="Queue one manifest-derived principal-PKL unit")
     run_parser = subparsers.add_parser("run-unit")
     run_parser.add_argument("--descriptor", type=Path, required=True)
     run_parser.add_argument("--descriptor-sha256", required=True)
@@ -391,7 +427,8 @@ def main() -> int:
                          request_cpus=args.request_cpus,
                          request_memory=args.request_memory,
                          request_disk=args.request_disk,
-                         max_runtime=args.max_runtime, workers=args.workers)
+                         max_runtime=args.max_runtime, workers=args.workers,
+                         unit_id=args.unit_id)
     else:
         result = run_unit(args.descriptor, args.descriptor_sha256)
     print(json.dumps(result, sort_keys=True))

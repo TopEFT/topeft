@@ -29,9 +29,13 @@ their behavior.
 shared-filesystem campaign frontend. `prepare` consumes that same TSV and emits
 one descriptor per principal PKL, an itemdata file, a worker script and one
 vanilla `plots.sub`. It never reads a production PKL, renders, or submits.
-`run-unit` validates its descriptor and source identity, loads the selected
+An optional `--unit-id` queues exactly one manifest-derived unit for a pilot.
+`run-unit` validates its descriptor against the manifest-derived ten-path
+campaign input set and checks declared-PKL availability. Prepare-time source
+identity is receipt provenance, not an execution gate. It loads the selected
 family/channel union once in the parent, then calls `run_with_args` with a
-loaded view for each logical row. Render workers receive prepared plotting
+loaded view for each logical row. A mixed unit reduces each njets view using
+the same physical-channel patterns as the selective njets path. Render workers receive prepared plotting
 state and do not call the PKL loader. An integrity SHA read in the maintained
 loader precedes the selective streaming traversal. The final receipt records
 output count and path/size inventory identity without per-PNG hashes.
