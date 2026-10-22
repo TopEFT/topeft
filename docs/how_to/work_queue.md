@@ -50,6 +50,94 @@ For a direct Work Queue invocation, the default native log directory is
 selects an explicit native log directory. The runner refuses to overwrite any
 of the four owned log filenames, including existing symlinks.
 
+### Guarded processing admission
+
+Both guarded Work Queue launchers install the same queue-local Coffea 0.7.22
+admission coordinator through `custom_init`. It is idempotent across the
+preprocessing and processing callbacks. Unguarded Work Queue and other
+executors retain their prior behavior. The coordinator never selects a policy
+from a manager name, port, project, campaign, dataset, or launcher name.
+
+The initial ready reserve is `max(10, ceil(2 × C_processing))`, where
+`C_processing` is a conservative one-slot-per-compatible-connected-worker
+estimate from native worker resource summaries, including busy workers. It is
+not a limit on running work or a request for Condor jobs. At zero connected
+workers the minimum provides a bounded bootstrap; an unavailable summary uses
+a valid recent estimate for at most 30 seconds, then the labeled bootstrap.
+Memory and disk summaries are rounded down by CCTools. Declared Coffea and
+launcher resource bounds are checked against each connected profile; borderline
+rounded profiles remain unknown. Unspecified proportional dimensions are
+worker-relative and appear as `null` in telemetry. The native category
+`first_allocation` is calculated on the largest worker and is never applied
+as a universal threshold. A profile that meets declared bounds while leaving
+dimensions to automatic allocation contributes to a labeled compatibility
+estimate, since learned native requirements may change; native matching decides actual
+placement. Cores and GPUs are checked as well.
+The coordinator admits at most the ready deficit, estimated unsubmitted input,
+512 new tasks, and 0.25 seconds of submission work in one pass. It then yields
+to Coffea's wait/result loop. The task-count estimate is a provisioning hint
+derived from remaining event count and current chunksize; input exhaustion
+publishes zero. Retry and split children bypass ordinary new-input admission,
+retain Coffea's event accounting, and are counted separately.
+
+The native global `hungry()` is not an additional processing gate. Native
+resource matching remains authoritative. At most 32 default-priority
+processing tasks per 30-second window receive priority 1 before submission
+to make them visible through a large reduction backlog; explicit negative and higher
+pre-existing
+priorities are preserved. This preference is bounded and does not create a
+separate scheduler or route categories to workers. Reduction groups retain
+Coffea's size order but are admitted one feasible group at a time. Inputs
+remain owned until a successful reducer output replaces them. At finalization,
+deferred groups drain cooperatively through the native queue before Coffea's
+final local merge. The admission policy does not fail a healthy running reducer
+after a fixed silence interval. An external test harness may impose a bounded
+test time; operator early termination can still return partial results.
+
+Admission reuses the staging guard's filesystem and quota free-space
+measurement. It caches measurements for five seconds between results, but
+invalidates the cache after every collected result, including failures and
+cleanup. This prevents a new output from being excluded by a pre-result
+measurement. Actual measurement count and elapsed time are reported in
+telemetry; result-heavy operation may invoke quota more often than every five
+seconds. Observed free bytes already include the cost
+of retained files, so the decision subtracts only estimated *additional*
+outputs from active processing/accumulation and a reducer transient reserve.
+The cache timestamp is the beginning of the filesystem/quota read; the two
+observations can be acquired at different instants. Freshness is checked when
+the full read returns. If its oldest possible age exceeds 15 seconds, no new
+processing or reducer task is admitted from that sample. A later valid quick
+read permits submission again.
+Result arrival and input cleanup invalidate cached headroom so a later pass
+measures files already materialized before releasing reservations.
+The output estimate begins at 64 MiB per task and grows to twice the largest
+observed processing result; it is a planning estimate, not a maximum output
+size. New processing stops when the warning floor, inode floor, unknown
+measurement makes further admission unsafe. With no proven reducer capacity,
+Coffea-held intermediates have a bounded budget; queued reducers are already
+accounted for by their transient space and do not veto processing globally.
+Eligible reductions may still submit above the guard's
+critical floor, using their own transient allowance, and a deferred group is
+rechecked after wait timeouts without consuming or releasing its inputs.
+The guard's independent critical-space behavior remains active. Shared
+filesystem headroom is best effort across managers; this coordinator holds no
+cross-manager reservation.
+
+`admission.jsonl` lives beside the configured native logs. Schema version 3
+records UTC and monotonic time, invocation correlation, effective config,
+capacity and quality, ready/running/waiting-retrieval/retrieved processing,
+held Coffea results, estimated unsubmitted work, new and recovery submissions,
+useful completion counters, measured retained bytes when bounded inspection
+is complete, predicted additional bytes, free-space freshness, and a decision
+reason. A transition labels the old reason and its duration separately. A
+2 MiB current file and one previous file bound long-run retention. Records
+are periodic at most every 30 seconds plus coalesced changes; an I/O error
+disables telemetry without changing scientific task
+success. Compare ready-reserve starvation with native transfer timings and
+dispatch counters in `tr.log`/`stats.log`, and compare useful completions,
+intermediate bytes, retries and compatible idle capacity together. Later
+production analytics and parameter tuning require a separate round.
+
 Use `--prepare-env-only` to create/validate the current archive and exit before
 analysis setup. `--env-file` pins a prebuilt archive; `--snapshot` permits an
 explicit historical archive after integrity validation and is not a current
@@ -108,11 +196,9 @@ current environment file or the maintained environment construction path; do
 not rely on a global `PYTHONPATH` or assume the worker sees the login node's
 editable checkout.
 
-`--wq-filepath` is not a general remote scratch/configuration interface. The
-current code prepares a staging-directory path but passes `/tmp` as the Coffea
-executor `filepath`. Treat any change to that behavior as an executor
-implementation change with tests, not a documented site override that is not
-currently effective end to end.
+`--wq-filepath` is an owned staging base when paired with `--wq-guard`; the
+guard creates a private invocation directory and passes that directory to the
+Coffea executor. It is not a general remote scratch/configuration interface.
 
 When extending Work Queue configuration:
 
@@ -189,3 +275,90 @@ Keep stdout and stderr directly on the terminal; native logs and campaign
 state are the durable evidence surfaces. See the
 [SR-reco campaign guide](sr_reco_pkl_campaign.md) for its launch and recovery
 sequence.
+
+## Processing admission and candidate monitor
+
+The guarded Work Queue launchers share one queue-local admission adapter. Its
+initial `ready_minimum=10` and `ready_factor=2` set the processing **ready**
+reserve to `max(10, ceil(2 * estimated compatible connected capacity))`.
+Running tasks and retained results have separate accounting. The adapter
+admits at most 512 new input tasks or 0.25 seconds of admission work per pass,
+subject to remaining input and effective staging headroom. A zero connected
+capacity has a ten-task bootstrap. A failed headroom measurement pauses new
+input until a fresh measurement succeeds. Accumulation keeps Coffea's group
+size, size order, and final drain rules; the native queue still places tasks.
+This is an initial qualified policy, not a factory worker target or a measured
+production optimum. The parameters are independent of manager and campaign
+names and do not change native `q.tune` options.
+
+The invocation log directory contains a bounded `admission.jsonl` file with
+schema version 1. Each record identifies the invocation, elapsed time,
+configuration, compatible-capacity estimate and quality, ready/running/native
+retrieval states, held grouping inputs, estimated remaining input, admission
+and recovery counts, retained/predicted bytes, effective quota headroom,
+measurement age, and pause reason/duration. Frequent unchanged decisions are
+coalesced; the sink stops at 2 MiB and never certifies scientific success.
+Compare these records with native transfer and task logs by timestamp. A full
+ready reserve with idle compatible capacity points to native dispatch or
+transfer delay; low headroom with growing retained bytes points to downstream
+pressure. Repeated short pause/resume intervals and useful completed work
+should be reviewed together before changing the two parameters. No automatic
+retuning or production analytics job is installed.
+
+An isolated CCTools monitor candidate contains a fatal signal path that exits
+without trying to format another summary, plus a separate negative-receive
+correction. A future manager invocation must explicitly select and verify its
+ELF with `CCTOOLS_RESOURCE_MONITOR` before enabling monitoring. Existing
+managers, workers, cached monitor copies, and environments do not change when
+the candidate file is built. Keep task result and Coffea success checks after
+monitor failure; a parseable old summary is not proof that the attempt was
+successfully monitored.
+
+## Factory capacity and timeout disposition for a later deployment
+
+The pinned CCTools 7.15.10 factory source computes demand from current
+`tasks_waiting`, `tasks_left`, and `tasks_on_workers`; the last is omitted for
+foremen in one path. It applies the configured maximum and minimum to that
+aggregate, then subtracts its own submitted jobs and any excess connected
+workers. `tasks_dispatched` is cumulative and is not current demand. This
+calculation cannot by itself give three factories distinct processing,
+128 GB, and 192 GB capacity floors. The processing example of min 500,
+max 800, and 50 workers per cycle describes availability while relevant work
+remains; it does not authorize 500 processing tasks when only 20 inputs remain.
+The three memory profiles are distinct. A compatible multi-profile worker is
+one allocation, and an attributable manual worker counts toward the pool's
+total rather than an extra factory request. Pending Condor jobs, running jobs,
+connected workers, and held jobs are different states. The existing factory
+knows only aggregate connected workers when deducting external capacity; a
+failed or stale manager query does not prove zero demand. A living finished
+manager is not a permanent reason for a floor, while a transient admission
+pause is not campaign completion.
+
+The source-backed next action is a separate, bounded **CCTools status-schema
+correction**, owned by `work_queue/src/work_queue.c`: expose the already
+recorded `factory_name` provenance alongside each worker's existing resource
+and identity fields in `worker_status`, marking absent provenance unknown.
+Its inputs are manager-owned worker records; its only write path is the
+read-only status response. A focused manager test should connect one tagged
+worker and one untagged worker, verify stable distinct identities and resource
+units, then verify disconnect removes each record. This closes a specific
+attribution gap before any profile-aware actuator design. It does not by
+itself qualify a multi-factory controller or reserve a shared worker for one
+profile; a later capacity decision must still select one writer, define
+overlap ownership, and prove backend effects. No factory JSON writer or
+worker action is part of the admission or monitor candidates.
+
+At this version, factory `timeout` becomes worker `-t`, which sets **both**
+connect and idle timeouts. `worker-extra-options` is appended after `-t`, so
+explicit `--connect-timeout` and `--idle-timeout` values can override them in
+the worker's left-to-right parser; their resolved argv must be checked for a
+specific deployment. Connect timeout bounds finding a manager; idle timeout
+is reset by worker task activity and does not recover a stuck active monitor.
+`factory-timeout` concerns time without managers. Monitor/task failure is a
+fourth, separate path. A 1,800,000-second manual value is about 20.8 days and
+is not an approved value for both timers. The factory rereads its own one
+config file each cycle, retaining old values after a bad reread; three files
+have no group transaction. This version waits when it computes excess jobs,
+but that observation does not establish safe live lowering across backends.
+No new value changes already running worker argv. Do not remove busy workers
+on the basis of WAITING, age, CPU zero, or status timeout.
