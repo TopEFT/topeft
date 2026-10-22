@@ -94,8 +94,47 @@ and Run 3 year selection is rejected.
 The plotter validates and merges repeated inputs before rendering. Choose
 `--year-coverage-policy error` for a production validation pass; `warn` records
 structural gaps but continues, and `off` suppresses that check. More than one
-worker parallelizes variables and then categories when slots remain, but each
-process loads the histogram dictionary, so memory use grows with worker count.
+worker parallelizes variables and then categories when slots remain. The parent
+loads the PKL before creating render workers; worker memory use still grows
+with the retained plot state and multiprocessing start method.
+
+### Prepare one principal-PKL unit per SR campaign input
+
+`plot_campaign_condor.py` derives execution units from the same accepted TSV
+used by the sequential wrapper. It groups all logical views of a principal PKL,
+selects their histogram-family union in one parent-side streaming load, and
+renders each view from that retained mapping. The maintained loader checks the
+PKL digest separately before streaming. The generated Condor material uses
+shared paths and does not stage PKLs or submit jobs.
+
+Run `prepare` through the workspace Python wrapper, with a fresh dispatch
+directory and an ordinary TOPEFT `histos` campaign root:
+
+```bash
+/users/apiccine/work/correction-lib/codex-run.sh /bin/bash --noprofile --norc -c '
+  cd /users/apiccine/work/correction-lib/topeft &&
+  /users/apiccine/work/miniconda3/envs/clib-env/bin/python \
+    analysis/topeft_run2/plot_campaign_condor.py prepare \
+    --manifest /absolute/path/to/coverage_input_manifest.tsv \
+    --dispatch-dir /absolute/path/to/new_dispatch \
+    --output-root /users/apiccine/work/correction-lib/topeft/histos/new_campaign \
+    --request-cpus 2 --request-memory 8GB --request-disk 4GB \
+    --max-runtime 3600 --workers 2'
+```
+
+The resource quantities above illustrate syntax only. Select them from a real
+pilot measurement before submission. Inspect `units/*.json`, `items.txt`,
+`worker.sh`, and `plots.sub`; the submit file requests one vanilla cluster with
+itemdata and `should_transfer_files = NO`. `prepare` never opens a production
+PKL or creates the campaign plot root. A later authorized submission would use
+the generated `plots.sub` after reviewing the output root and resources.
+
+Each `run-unit` checks its descriptor against the current TSV and source
+identity, refuses occupied row output directories, then uses the ordinary
+`run/view/owner/variables` layout under the caller's campaign root. It writes a
+small receipt only after all planned PNGs are present and readable. A failed
+unit leaves its partial outputs in place for inspection; it has no automatic
+retry, resume, or cleanup.
 
 The negative-contribution report is diagnostic, not a correction. It records
 signed process/group yields, sumw2-derived errors/effective entries when a
@@ -181,7 +220,7 @@ plot metadata. See [change binning](flexible_binning.md). Exact plotting
 interfaces and metadata keys are in the
 [plotting reference](../reference/plotting.md).
 
-## Submit the maintained plot wrapper to Glados HTCondor
+## Submit one standalone plot wrapper job to Glados HTCondor
 
 `analysis/topeft_run2/submit_plotter_condor.sh` constructs a Condor description
 whose entry script calls `run_plotter.sh` from a shared checkout. It requires a

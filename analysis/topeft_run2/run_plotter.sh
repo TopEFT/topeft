@@ -663,8 +663,8 @@ campaign_main() {
     printf 'Campaign TSV: %s\nPhase: %s\nRows: njets=%d other=%d\nPlanned figures: njets=%d other=%d\n' \
         "$manifest" "$phase" "$count_njets" "$count_other" "$figures_njets" "$figures_other"
     if [[ $action == --execute ]]; then
-        if [[ $(pwd -P) != "$repo_root" || $(git -C "$repo_root" branch --show-current) != te/datacard_sr_reco ]]; then
-            echo "Execute requires TOPEFT cwd and selected feature branch" >&2; return 2
+        if [[ $(git -C "$repo_root" branch --show-current) != te/datacard_sr_reco ]]; then
+            echo "Execute requires the selected TOPEFT feature branch" >&2; return 2
         fi
         local free_bytes free_inodes
         free_bytes=$(df -B1 --output=avail "$histos_root" | tail -n 1)

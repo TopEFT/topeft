@@ -3891,6 +3891,65 @@ def test_plotter_parser_exposes_rebin_and_negative_report_switches():
     assert args.negative_weight_report is False
 
 
+def test_explicit_output_name_is_independent_of_condor_environment(tmp_path, monkeypatch):
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    args = parser.parse_args([
+        "-f", str(tmp_path / "in_SR.pkl.gz"), "-o", str(tmp_path), "-n", "chosen",
+        "-y", "2022", "--sr", "--variables", "njets",
+        "--no-negative-weight-report",
+    ])
+    monkeypatch.setenv("_CONDOR_SCRATCH_DIR", str(tmp_path / "scratch"))
+    monkeypatch.setattr(make_cr_and_sr_plots, "_emit_merge_report", lambda *_args: None)
+    observed = []
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "run_plots_for_region",
+        lambda _region, _hists, _years, output, **_kwargs: observed.append(output),
+    )
+    make_cr_and_sr_plots.run_with_args(
+        args, parser, loaded_view=({"njets": object()}, {"schema": None}),
+    )
+    assert observed == [str(tmp_path / "chosen")]
+    assert not any(path.name.startswith("chosen_") for path in tmp_path.iterdir())
+
+
+def test_retained_sr_fixture_view_order_and_worker_inventory(tmp_path):
+    def make_family(variable):
+        output = make_cr_and_sr_plots.SparseHist(
+            hist.axis.StrCategory([], name="process", growth=True),
+            hist.axis.StrCategory([], name="channel", growth=True),
+            hist.axis.StrCategory([], name="systematic", growth=True),
+            hist.axis.Regular(2, 0, 2, name=variable),
+        )
+        for process, weight in (("ttH_central2022", 5.0), ("data2022", 7.0)):
+            output.fill(process=process, channel="2lss_p", systematic="nominal",
+                        **{variable: 0.5}, weight=weight)
+        return output
+
+    source = {name: make_family(name) for name in ("njets", "ptz")}
+    source_totals = {name: float(np.sum(h.values(flow=True)))
+                     for name, h in source.items()}
+    inventories = {}
+    for label, order, workers in (
+        ("a_b", ("njets", "ptz"), 1),
+        ("b_a", ("ptz", "njets"), 1),
+        ("parallel", ("njets", "ptz"), 2),
+    ):
+        output = tmp_path / label
+        selections = [order] if workers > 1 else [(variable,) for variable in order]
+        for variables in selections:
+            make_cr_and_sr_plots.run_plots_for_region(
+                "SR", source, years=["2022"], save_dir_path=str(output),
+                variables=list(variables), channel_output="merged", skip_syst_errs=True,
+                workers=workers, unblind=True, negative_weight_report=False,
+            )
+            assert {name: float(np.sum(h.values(flow=True))) for name, h in source.items()} == source_totals
+        inventories[label] = {
+            str(path.relative_to(output)) for path in output.rglob("*.png")
+        }
+    assert inventories["a_b"]
+    assert inventories["a_b"] == inventories["b_a"] == inventories["parallel"]
+
+
 def _make_sr_ttbar_display_inputs(*, negative=False):
     process_axis = hist.axis.StrCategory([], name="process", growth=True)
     jet_axis = hist.axis.Regular(2, 3.0, 5.0, name="njets")

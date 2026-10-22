@@ -9983,16 +9983,6 @@ def run_plots_for_region(
 
     return zero_yield_summary
 
-def _running_in_condor():
-    condor_env_vars = (
-        "_CONDOR_SCRATCH_DIR",
-        "_CONDOR_SLOT",
-        "CONDOR_JOB_AD",
-        "CONDOR_JOBID",
-    )
-    return any(os.environ.get(var) for var in condor_env_vars)
-
-
 def _detect_region_from_path(path):
     if not path:
         return None, False
@@ -10518,7 +10508,7 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=Non
     return out_fpath
 
 
-def run_with_args(args, parser, *, channel_allowlist=None):
+def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None):
     """Normalize CLI arguments, load histograms, and dispatch region plotting."""
 
     pkl_paths = _resolve_pkl_paths(args, parser)
@@ -10626,14 +10616,7 @@ def run_with_args(args, parser, *, channel_allowlist=None):
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     save_dir_path = args.output_path
     outdir_name = args.output_name
-    auto_timestamp = bool(
-        _running_in_condor() and args.channel_output and not args.include_timestamp_tag
-    )
-    if auto_timestamp:
-        print(
-            "Condor environment detected; enabling timestamp tagging to reduce output collisions."
-        )
-    if args.include_timestamp_tag or auto_timestamp:
+    if args.include_timestamp_tag:
         outdir_name = outdir_name + "_" + timestamp_tag
     save_dir_path = os.path.join(save_dir_path,outdir_name)
     dir_preexists = os.path.exists(save_dir_path)
@@ -10659,7 +10642,11 @@ def run_with_args(args, parser, *, channel_allowlist=None):
             "selected_families": ["njets"],
             "channel_patterns": _sr_njets_channel_patterns(channel_allowlist),
         }
-    if mixed_stage_sidecars is None:
+    if loaded_view is not None:
+        if len(pkl_paths) != 1 or args.cache_merged_pkl or args.merge_only:
+            raise ValueError("A loaded plotting view requires one input and render-only options.")
+        hin_dict, merge_report = loaded_view
+    elif mixed_stage_sidecars is None:
         hin_dict, merge_report = load_and_merge_histogram_pkls(
             pkl_paths,
             require_sumw2=True,

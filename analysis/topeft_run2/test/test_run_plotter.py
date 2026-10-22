@@ -201,6 +201,19 @@ def test_campaign_inert_execute_records_sequential_guarded_children(tmp_path):
     assert "campaign\tcomplete\tunits=2" in ledger
 
 
+def test_campaign_execute_accepts_repo_and_script_directory(tmp_path):
+    for location in ("repo", "script"):
+        wrapper, manifest, root, env = _inert_campaign_repo(tmp_path / location)
+        cwd = wrapper.parents[2] if location == "repo" else wrapper.parent
+        result = subprocess.run(
+            [str(wrapper), "--campaign-manifest", str(manifest),
+             "--campaign-phase", "njets", "-o", str(root), "--execute"],
+            cwd=cwd, env=env, capture_output=True, text=True, check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert (root / "units.tsv").read_text(encoding="utf-8").count("\tresult\t") == 2
+
+
 @pytest.mark.parametrize(
     ("fixture_options", "expected"),
     [({"failing_child": True}, "guard=17"),

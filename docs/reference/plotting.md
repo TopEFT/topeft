@@ -25,6 +25,23 @@ single-input wrapper path for every row; the direct Python CLI has no campaign
 or display-group switch. Ordinary single-invocation wrapper options retain
 their behavior.
 
+`analysis/topeft_run2/plot_campaign_condor.py` is the plotting-owned
+shared-filesystem campaign frontend. `prepare` consumes that same TSV and emits
+one descriptor per principal PKL, an itemdata file, a worker script and one
+vanilla `plots.sub`. It never reads a production PKL, renders, or submits.
+`run-unit` validates its descriptor and source identity, loads the selected
+family/channel union once in the parent, then calls `run_with_args` with a
+loaded view for each logical row. Render workers receive prepared plotting
+state and do not call the PKL loader. An integrity SHA read in the maintained
+loader precedes the selective streaming traversal. The final receipt records
+output count and path/size inventory identity without per-PNG hashes.
+
+The dispatch requests explicit CPUs, memory, disk, runtime and render-worker
+count, with `request_cpus >= workers`. Its output remains beneath the declared
+TOPEFT `histos/<campaign>/run/view/owner/variables` tree. Occupied row paths
+stop a unit before any plots are written. No retry, resume, staging, DAG, or
+Condor-specific output renaming is supplied.
+
 Campaign dry-run validates the TSV and prints resolved child commands without
 creating a root or reading PKL contents. Execute requires a new root under
 `topeft/histos/`, verifies distinct selected PKL and sidecar digests, and runs
@@ -81,7 +98,7 @@ extension depend on the monolithic call graph.
 | Fully qualified symbol | Kind/status; parameters and return | Contract, side effects, and failures |
 | --- | --- | --- |
 | `make_cr_and_sr_plots.build_arg_parser` | Public CLI builder; no inputs → `ArgumentParser` | Defines options/defaults. Parser acceptance does not bypass later artifact/year/channel validation. |
-| `make_cr_and_sr_plots.run_with_args` | Developer-facing; parsed namespace, parser, optional `channel_allowlist` → integer status | Resolves paths/region/blinding, creates output, validates/merges artifacts, optionally caches, materializes scalar views, and dispatches plots. The allowlist is SR njets only, validated against base names and aliases; omission selects all channels. |
+| `make_cr_and_sr_plots.run_with_args` | Developer-facing; parsed namespace, parser, optional `channel_allowlist` or `loaded_view` → integer status | Resolves paths/region/blinding, creates output, validates/merges artifacts or consumes an already loaded selected mapping, materializes a consumer-local scalar view, and dispatches plots. A loaded view requires one input and render-only options. The allowlist is SR njets only, validated against base names and aliases; omission selects all channels. An output timestamp is added only on explicit request. |
 | `make_cr_and_sr_plots._apply_plot_binning_view` | Internal extension; histogram, family, exact channels, mode → view | Processing returns physical view; fitting resolves a common exact-channel view and rebins. Does not mutate the source artifact. |
 | `make_cr_and_sr_plots.RegionContext` | Developer-facing class; region identity, histograms, years, channel/group/sample sets and optional policy/presentation fields → context | Normalizes one region's authority. Required values are normally produced by `build_region_context`; direct construction must supply coherent groups/channels. No I/O. |
 | `make_cr_and_sr_plots.build_region_context` | Developer-facing; region, histograms, years, optional unblind and output/binning keywords → `RegionContext` | Accepts CR/SR only; validates years and resolves metadata-owned channels, groups, luminosity, skips, and defaults. |
