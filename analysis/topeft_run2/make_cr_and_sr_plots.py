@@ -18,6 +18,7 @@ import math
 import warnings
 import itertools
 import multiprocessing
+from pathlib import Path
 from functools import lru_cache
 import matplotlib as mpl
 mpl.use('Agg')
@@ -2923,6 +2924,15 @@ _SHARED_REGION_CTX = None
 _SHARED_VARIABLE_PAYLOADS = None
 _WORKER_RENDER_CONTEXT = None
 
+# Reasons emitted by the maintained drawability decision below. Consumers may
+# account for these explicit outcomes; ordinary missing files are not skips.
+maintained_undrawable_reasons = frozenset((
+    "empty-mc-content",
+    "empty-data-content",
+    "empty-or-missing-input",
+    "make_region_stacked_ratio_fig-returned-none",
+))
+
 
 def _initialize_render_worker(
     save_dir_path,
@@ -2984,6 +2994,7 @@ def _render_variable_from_worker(task_id, payload):
 
     ctx = _WORKER_RENDER_CONTEXT
     verbose = ctx.get("verbose", False)
+    skip_outcomes = []
 
     prepared_cache = ctx.setdefault("prepared_variables", {})
     variable_payload = prepared_cache.get(var_name)
@@ -3025,6 +3036,7 @@ def _render_variable_from_worker(task_id, payload):
             rebin_plot_vars=ctx["rebin_plot_vars"],
             negative_weight_report=ctx["negative_weight_report"],
             output_formats=ctx["output_formats"],
+            skip_outcomes=skip_outcomes,
         )
     else:
         if not variable_payload:
@@ -3067,8 +3079,9 @@ def _render_variable_from_worker(task_id, payload):
                     rebin_plot_vars=ctx["rebin_plot_vars"],
                     negative_weight_report=ctx["negative_weight_report"],
                     output_formats=ctx["output_formats"],
+                    skip_outcomes=skip_outcomes,
                 )
-    return task_id, stat_only, stat_and_syst, html_set, negative_rows
+    return task_id, stat_only, stat_and_syst, html_set, negative_rows, skip_outcomes
 
 
 def _prepare_variable_payload(
@@ -3305,6 +3318,7 @@ def _render_variable(
     rebin_plot_vars=None,
     negative_weight_report=True,
     output_formats=("png",),
+    skip_outcomes=None,
 ):
     """Render plots for *var_name* and return summary accounting."""
 
@@ -3375,6 +3389,7 @@ def _render_variable(
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
             output_formats=output_formats,
+            skip_outcomes=skip_outcomes,
         )
         stat_only_plots += stat_only
         stat_and_syst_plots += stat_and_syst
@@ -3382,6 +3397,20 @@ def _render_variable(
         negative_rows.extend(category_negative_rows)
 
     return stat_only_plots, stat_and_syst_plots, html_dirs, negative_rows
+
+
+def _planned_plot_paths(
+    region_ctx, save_dir_path, raw_display_label, var_name,
+    unit_norm_bool, output_formats,
+):
+    """Name the ordinary one-figure slots using the renderer's output rules."""
+    category = _resolve_output_category_name(region_ctx, raw_display_label)
+    title = f"{raw_display_label}_{var_name}"
+    if unit_norm_bool:
+        title += "_unitnorm"
+    base = os.path.join(save_dir_path or "", category, title)
+    mode_base = _mode_bearing_output_path(base, region_ctx.binning_mode)
+    return tuple(f"{mode_base}.{fmt}" for fmt in _normalize_output_formats(output_formats))
 
 
 def _render_variable_category(
@@ -3407,6 +3436,7 @@ def _render_variable_category(
     rebin_plot_vars=None,
     negative_weight_report=True,
     output_formats=("png",),
+    skip_outcomes=None,
 ):
     """Render a single (variable, category) pair and return bookkeeping totals."""
 
@@ -3519,6 +3549,24 @@ def _render_variable_category(
             mc_empty,
             data_empty,
         )
+        if skip_outcomes is not None:
+            skip_outcomes.append({
+                "outcome": "skipped",
+                "reason": reason,
+                "region": region_ctx.name,
+                "category": hist_cat,
+                "variable": var_name,
+                "mode": mode,
+                "has_mc": has_mc,
+                "has_data_like": has_data_like,
+                "mc_empty": mc_empty,
+                "data_empty": data_empty,
+                "paths": [str(Path(path).relative_to(save_dir_path))
+                          for path in _planned_plot_paths(
+                    region_ctx, save_dir_path, raw_display_label, var_name,
+                    unit_norm_bool, output_formats,
+                )],
+            })
 
     if region_ctx.channel_mode == "aggregate":
         if verbose:
@@ -7550,8 +7598,12 @@ def produce_region_plots(
     rebin_plot_vars=None,
     negative_weight_report=True,
     output_formats=("png",),
+    outcome_collector=None,
 ):
     """Render requested variables and return negative-report rows from the sweep."""
+
+    if outcome_collector is not None and not save_dir_path:
+        raise ValueError("Structured plot outcomes require an output directory")
 
     dict_of_hists = region_ctx.dict_of_hists
     context_label = f"{region_ctx.name} region"
@@ -7631,6 +7683,26 @@ def produce_region_plots(
             )
         ]
         variable_categories[var_name] = categories
+        if outcome_collector is not None:
+            for category in categories:
+                channel_bins = variable_payload["channel_dict"][category]
+                available_channels = variable_payload.get("available_channels")
+                if available_channels is not None:
+                    matched, _ = _filter_existing_channel_bins(
+                        list(channel_bins), available_channels
+                    )
+                    if not matched:
+                        continue
+                raw_label = variable_payload.get("channel_display_labels", {}).get(
+                    category, category
+                )
+                for path in _planned_plot_paths(
+                    region_ctx, save_dir_path, raw_label, var_name,
+                    unit_norm_bool, output_formats,
+                ):
+                    outcome_collector["planned"].append(str(
+                        Path(path).relative_to(save_dir_path)
+                    ))
         if save_dir_path:
             category_dirs.update(
                 _resolve_output_category_name(region_ctx, category)
@@ -7791,11 +7863,14 @@ def produce_region_plots(
                         stat_and_syst,
                         html_set,
                         task_negative_rows,
+                        task_skip_outcomes,
                     ) = future.result()
                     stat_only_plots += stat_only
                     stat_and_syst_plots += stat_and_syst
                     html_dirs.update(html_set)
                     negative_rows.extend(task_negative_rows)
+                    if outcome_collector is not None:
+                        outcome_collector["skipped"].extend(task_skip_outcomes)
                     _report_progress(id_to_label.get(task_id, str(task_id)))
         finally:
             _SHARED_REGION_CTX = None
@@ -7818,6 +7893,8 @@ def produce_region_plots(
                     rebin_plot_vars=rebin_plot_vars,
                     negative_weight_report=negative_weight_report,
                     output_formats=output_formats,
+                    skip_outcomes=(outcome_collector["skipped"]
+                                   if outcome_collector is not None else None),
                 )
             else:
                 if not variable_payload:
@@ -7868,6 +7945,8 @@ def produce_region_plots(
                             rebin_plot_vars=rebin_plot_vars,
                             negative_weight_report=negative_weight_report,
                             output_formats=output_formats,
+                            skip_outcomes=(outcome_collector["skipped"]
+                                           if outcome_collector is not None else None),
                         )
             stat_only_plots += stat_only
             stat_and_syst_plots += stat_and_syst
@@ -9836,6 +9915,7 @@ def run_plots_for_region(
     binning_mode="processing",
     output_formats=("png",),
     channel_allowlist=None,
+    outcome_collector=None,
 ):
     """Run one CR/SR plotting pass and write optional zero/negative reports."""
 
@@ -9951,6 +10031,7 @@ def run_plots_for_region(
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
             output_formats=output_formats,
+            outcome_collector=outcome_collector,
         )
         if negative_rows:
             all_negative_rows.extend(negative_rows)
@@ -10508,7 +10589,8 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=Non
     return out_fpath
 
 
-def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None):
+def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
+                  outcome_collector=None):
     """Normalize CLI arguments, load histograms, and dispatch region plotting."""
 
     pkl_paths = _resolve_pkl_paths(args, parser)
@@ -10715,6 +10797,7 @@ def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None):
         binning_mode=args.binning,
         output_formats=args.output_formats,
         channel_allowlist=channel_allowlist,
+        outcome_collector=outcome_collector,
     )
     return 0
 

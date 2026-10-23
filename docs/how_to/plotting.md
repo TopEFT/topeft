@@ -139,8 +139,12 @@ occupied row output directories. It does not substitute another PKL path or
 gate on checkout HEAD or prepare-time source hashes. Mixed units reduce each
 njets view to the established physical-channel selection without changing
 the parent mapping or opening the PKL again. Output uses the ordinary
-`run/view/owner/variables` layout under the caller's campaign root. It writes a
-small receipt only after all planned PNGs are present and readable. A failed
+`run/view/owner/variables` layout under the caller's campaign root. The
+plotter supplies exact planned paths and structured intentional undrawable
+outcomes. The unit writes a small receipt last only when every planned slot is
+one valid PNG or one explicit maintained skip, with no duplicates or unexpected
+paths. Zero-byte, unreadable, unclassified missing, or extra PNGs fail. Receipt
+success establishes structural completion, not visual or scientific acceptance. A failed
 unit leaves its partial outputs in place for inspection; it has no automatic
 retry, resume, or cleanup.
 

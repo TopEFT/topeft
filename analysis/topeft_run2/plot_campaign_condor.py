@@ -7,6 +7,7 @@ units from it; descriptors are checked against the TSV again at execution.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import csv
 from datetime import datetime, timezone
 import hashlib
@@ -298,15 +299,93 @@ def _selected_view(loaded: dict, report: dict, row: dict) -> tuple[dict, dict]:
 
 
 def _inventory(output_root: Path, outputs: list[str]) -> tuple[list[dict], int]:
+    from PIL import Image, UnidentifiedImageError
+
     inventory = []
     unreadable = 0
     for relative in outputs:
         for path in sorted((output_root / relative).rglob("*.png")):
-            stat = path.stat()
-            if stat.st_size == 0 or not os.access(path, os.R_OK):
+            stat = path.lstat()
+            invalid = path.is_symlink() or not path.is_file() or stat.st_size == 0
+            if not invalid:
+                try:
+                    with Image.open(path) as figure:
+                        if figure.format != "PNG":
+                            invalid = True
+                        else:
+                            figure.verify()
+                except (OSError, ValueError, UnidentifiedImageError):
+                    invalid = True
+            if invalid:
                 unreadable += 1
-            inventory.append({"path": str(path.relative_to(output_root)), "size": stat.st_size})
+            inventory.append({"path": str(path.relative_to(output_root)),
+                              "size": stat.st_size, "valid": not invalid})
     return inventory, unreadable
+
+
+def _reconcile_outputs(descriptor: dict, planned: list[str],
+                       skipped: list[dict], inventory: list[dict],
+                       unreadable: int) -> dict:
+    """Require one valid PNG or one maintained explicit skip per planned path."""
+    from analysis.topeft_run2 import make_cr_and_sr_plots as plotter
+
+    valid_inventory = [{"path": item["path"], "size": item["size"]}
+                       for item in inventory if item["valid"]]
+    produced = [item["path"] for item in valid_inventory]
+    skipped = sorted(skipped, key=lambda record: (record.get("row_id", ""),
+                                                   tuple(record.get("paths", ()))))
+    skipped_paths = []
+    rows_by_id = {row["unit"]: row for row in descriptor.get("rows", [])}
+    for record in skipped:
+        if (record.get("outcome") != "skipped"
+                or record.get("reason") not in plotter.maintained_undrawable_reasons
+                or record.get("region") != "SR"
+                or record.get("mode") != "aggregate"
+                or not record.get("row_id")
+                or not record.get("paths")):
+            raise RuntimeError("Invalid maintained plot skip outcome")
+        if rows_by_id:
+            row = rows_by_id.get(record["row_id"])
+            if (row is None or record.get("variable") not in row["variables"].split(",")
+                    or any(not path.startswith(_output_relative(row) + "/")
+                           for path in record["paths"])):
+                raise RuntimeError("Plot skip is not bound to its logical row")
+        skipped_paths.extend(record["paths"])
+    planned_set = set(planned)
+    produced_set = set(produced)
+    skipped_set = set(skipped_paths)
+    unaccounted = planned_set - produced_set - skipped_set
+    unexpected_produced = produced_set - planned_set
+    unexpected_skips = skipped_set - planned_set
+    conflicting_outcomes = produced_set & skipped_set
+    duplicate_skips = sorted(path for path, count in Counter(skipped_paths).items()
+                             if count > 1)
+    if (len(planned) != len(planned_set)
+            or len(planned) != descriptor["expected_figures"]
+            or len(produced) != len(produced_set)
+            or len(skipped_paths) != len(skipped_set)
+            or conflicting_outcomes
+            or unaccounted or unexpected_produced or unexpected_skips
+            or unreadable):
+        raise RuntimeError(
+            "Plot output inventory differs from the logical manifest: "
+            f"planned={len(planned)}, produced={len(produced)}, "
+            f"skipped={len(skipped_paths)}, unaccounted={sorted(unaccounted)}, "
+            f"unexpected_produced={sorted(unexpected_produced)}, "
+            f"unexpected_skips={sorted(unexpected_skips)}, "
+            f"conflicting_outcomes={sorted(conflicting_outcomes)}, "
+            f"duplicate_skips={duplicate_skips}, invalid_png={unreadable}"
+        )
+    return {
+        "planned_slot_count": len(planned),
+        "produced_png_count": len(produced),
+        "allowed_skip_count": len(skipped_paths),
+        "unaccounted_count": 0,
+        "produced_inventory_identity": hashlib.sha256(
+            _json_bytes(valid_inventory)).hexdigest(),
+        "allowed_skip_inventory_identity": hashlib.sha256(_json_bytes(skipped)).hexdigest(),
+        "allowed_skips": skipped,
+    }
 
 
 def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
@@ -360,6 +439,8 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
     # selective streaming/deserialization traversal. No view invokes it again.
     output_root.mkdir(parents=True, exist_ok=True)
     parser = plotter.build_arg_parser()
+    planned = []
+    skipped = []
     for row in descriptor["rows"]:
         variables = row["variables"].split(",")
         relative = _output_relative(row)
@@ -373,15 +454,24 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
             "--year-coverage-policy", "warn", "--merge-report",
             str(output_root / (row["unit"] + ".composition.json")),
         ])
-        result = plotter.run_with_args(args, parser,
-                                       loaded_view=_selected_view(loaded, merge_report, row))
+        outcomes = {"planned": [], "skipped": []}
+        result = plotter.run_with_args(
+            args, parser, loaded_view=_selected_view(loaded, merge_report, row),
+            outcome_collector=outcomes,
+        )
         if result != 0:
             raise RuntimeError(f"Plot view {row['unit']} returned {result}")
+        if len(outcomes["planned"]) != int(row["expected_figures"]):
+            raise RuntimeError(f"Plot view {row['unit']} planned inventory differs from manifest")
+        planned.extend(str(Path(relative) / path) for path in outcomes["planned"])
+        for record in outcomes["skipped"]:
+            skipped.append({**record, "row_id": row["unit"],
+                            "paths": [str(Path(relative) / path)
+                                      for path in record["paths"]]})
     inventory, unreadable = _inventory(output_root, descriptor["outputs"])
-    if len(inventory) != descriptor["expected_figures"] or unreadable:
-        raise RuntimeError("Plot output inventory differs from the logical manifest")
+    accounting = _reconcile_outputs(descriptor, planned, skipped, inventory, unreadable)
     receipt = {
-        "schema": "plot_campaign_unit_receipt_v1",
+        "schema": "plot_campaign_unit_receipt_v2",
         "campaign_id": descriptor["campaign_id"],
         "unit_id": unit_id,
         "principal_pkl": descriptor["principal_pkl"],
@@ -398,7 +488,10 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
         "expected_output_count": descriptor["expected_figures"],
         "observed_output_count": len(inventory),
         "zero_byte_or_unreadable_output_count": unreadable,
-        "inventory_sha256": hashlib.sha256(_json_bytes(inventory)).hexdigest(),
+        "inventory_sha256": hashlib.sha256(_json_bytes([
+            {"path": item["path"], "size": item["size"]} for item in inventory
+        ])).hexdigest(),
+        **accounting,
     }
     with receipt_path.open("x", encoding="utf-8") as target:
         target.write(_json_bytes(receipt).decode("utf-8"))

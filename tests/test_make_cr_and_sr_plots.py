@@ -1371,7 +1371,7 @@ def test_parallel_rendering_caps_worker_count_at_task_count(monkeypatch):
         def submit(self, _function, task_id, payload):
             captured["submitted"].append((task_id, payload))
             future = concurrent.futures.Future()
-            future.set_result((task_id, 0, 0, set(), []))
+            future.set_result((task_id, 0, 0, set(), [], []))
             return future
 
     monkeypatch.setattr(
@@ -1418,7 +1418,7 @@ def test_parallel_rendering_propagates_worker_failure(monkeypatch):
             if task_id == 1:
                 future.set_exception(RuntimeError("synthetic render failure"))
             else:
-                future.set_result((task_id, 0, 0, set(), []))
+                future.set_result((task_id, 0, 0, set(), [], []))
             return future
 
     monkeypatch.setattr(

@@ -37,8 +37,15 @@ family/channel union once in the parent, then calls `run_with_args` with a
 loaded view for each logical row. A mixed unit reduces each njets view using
 the same physical-channel patterns as the selective njets path. Render workers receive prepared plotting
 state and do not call the PKL loader. An integrity SHA read in the maintained
-loader precedes the selective streaming traversal. The final receipt records
-output count and path/size inventory identity without per-PNG hashes.
+loader precedes the selective streaming traversal. The v2 receipt records
+planned, valid PNG, allowed skip, and unaccounted counts; a path/size PNG
+inventory identity; a structured skip inventory identity and records; and no
+per-PNG hashes. The plotter owns the skip decision, while the frontend requires
+exact one-to-one output identities before writing the receipt.
+The structured skip vocabulary is owned by the plotter's drawability branches:
+`empty-mc-content`, `empty-data-content`, `empty-or-missing-input`, and
+`make_region_stacked_ratio_fig-returned-none`. Other absent files, silent
+early returns, and exceptions do not become allowed skips.
 
 The dispatch requests explicit CPUs, memory, disk, runtime and render-worker
 count, with `request_cpus >= workers`. Its output remains beneath the declared
@@ -102,7 +109,7 @@ extension depend on the monolithic call graph.
 | Fully qualified symbol | Kind/status; parameters and return | Contract, side effects, and failures |
 | --- | --- | --- |
 | `make_cr_and_sr_plots.build_arg_parser` | Public CLI builder; no inputs → `ArgumentParser` | Defines options/defaults. Parser acceptance does not bypass later artifact/year/channel validation. |
-| `make_cr_and_sr_plots.run_with_args` | Developer-facing; parsed namespace, parser, optional `channel_allowlist` or `loaded_view` → integer status | Resolves paths/region/blinding, creates output, validates/merges artifacts or consumes an already loaded selected mapping, materializes a consumer-local scalar view, and dispatches plots. A loaded view requires one input and render-only options. The allowlist is SR njets only, validated against base names and aliases; omission selects all channels. An output timestamp is added only on explicit request. |
+| `make_cr_and_sr_plots.run_with_args` | Developer-facing; parsed namespace, parser, optional `channel_allowlist`, `loaded_view`, or `outcome_collector` → integer status | Resolves paths/region/blinding, creates output, validates/merges artifacts or consumes an already loaded selected mapping, materializes a consumer-local scalar view, and dispatches plots. The optional collector receives planned relative figure paths and structured maintained undrawable skips; the Condor frontend requests PNG only. A loaded view requires one input and render-only options. The allowlist is SR njets only, validated against base names and aliases; omission selects all channels. An output timestamp is added only on explicit request. |
 | `make_cr_and_sr_plots._apply_plot_binning_view` | Internal extension; histogram, family, exact channels, mode → view | Processing returns physical view; fitting resolves a common exact-channel view and rebins. Does not mutate the source artifact. |
 | `make_cr_and_sr_plots.RegionContext` | Developer-facing class; region identity, histograms, years, channel/group/sample sets and optional policy/presentation fields → context | Normalizes one region's authority. Required values are normally produced by `build_region_context`; direct construction must supply coherent groups/channels. No I/O. |
 | `make_cr_and_sr_plots.build_region_context` | Developer-facing; region, histograms, years, optional unblind and output/binning keywords → `RegionContext` | Accepts CR/SR only; validates years and resolves metadata-owned channels, groups, luminosity, skips, and defaults. |

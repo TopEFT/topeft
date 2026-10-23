@@ -6,6 +6,7 @@ from pathlib import Path
 import hist
 import awkward as ak
 import pytest
+from PIL import Image
 
 from analysis.topeft_run2 import make_cr_and_sr_plots as plotter
 from analysis.topeft_run2 import plot_campaign_condor as campaign
@@ -164,7 +165,7 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
                 "ptz_sumw2": make_histogram("ptz", 2)}, {
             "schema": "split_sibling_v1", "runtime_histogram_families": ["njets", "ptz"]}
 
-    def render(args, parser, *, loaded_view):
+    def render(args, parser, *, loaded_view, outcome_collector):
         assert len(loader_calls) == 1
         family = args.variables[0]
         mapping, report = loaded_view
@@ -174,7 +175,8 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
                          args.workers))
         path = Path(args.output_path) / args.output_name
         path.mkdir(parents=True)
-        (path / (family + ".png")).write_bytes(b"PNG fixture")
+        Image.new("RGB", (1, 1)).save(path / (family + ".png"))
+        outcome_collector["planned"].append(family + ".png")
         return 0
 
     monkeypatch.setattr(plotter, "load_and_merge_histogram_pkls", selected_loader)
@@ -184,6 +186,8 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
     assert rendered == [("njets", 11.0, workers), ("ptz", 22.0, workers)]
     assert receipt["logical_view_count"] == 2
     assert receipt["expected_output_count"] == receipt["observed_output_count"] == 2
+    assert receipt["planned_slot_count"] == receipt["produced_png_count"] == 2
+    assert receipt["allowed_skip_count"] == receipt["unaccounted_count"] == 0
     assert receipt["zero_byte_or_unreadable_output_count"] == 0
     assert receipt["return_code"] == 0
     assert receipt["topeft_source_identity"] != receipt["runtime_topeft_source_identity"]
@@ -214,6 +218,82 @@ def test_missing_declared_principal_pkl_fails_without_substitution(tmp_path, mon
     with pytest.raises(FileNotFoundError, match="Declared principal PKL"):
         campaign.run_unit(descriptor_path, campaign._sha256(descriptor_path))
     assert not Path(descriptor["output_root"]).exists()
+
+
+@pytest.mark.parametrize("workers", [1, 2])
+def test_structured_maintained_skip_reconciles_with_drawable_png(tmp_path, workers):
+    def histogram(variable, data_weight):
+        output = plotter.SparseHist(
+            hist.axis.StrCategory([], name="process", growth=True),
+            hist.axis.StrCategory([], name="channel", growth=True),
+            hist.axis.StrCategory([], name="systematic", growth=True),
+            hist.axis.Regular(2, 0, 2, name=variable),
+        )
+        for process, weight in (("ttH_central2022", 5.0),
+                                ("data2022", data_weight)):
+            output.fill(process=process, channel="2lss_p", systematic="nominal",
+                        **{variable: 0.5}, weight=weight)
+        return output
+
+    outcomes = {"planned": [], "skipped": []}
+    plotter.run_plots_for_region(
+        "SR", {"njets": histogram("njets", 0.0),
+               "ptz": histogram("ptz", 7.0)},
+        years=["2022"], save_dir_path=str(tmp_path), variables=["njets", "ptz"],
+        channel_output="merged", skip_syst_errs=True, unblind=True,
+        negative_weight_report=False, outcome_collector=outcomes, workers=workers,
+    )
+    assert outcomes["skipped"]
+    assert all(record["reason"] == "empty-data-content"
+               for record in outcomes["skipped"])
+    assert all(record["variable"] == "njets" for record in outcomes["skipped"])
+    assert any(path.endswith("_ptz_processing.png") for path in outcomes["planned"])
+    inventory, invalid = campaign._inventory(tmp_path, ["."])
+    skipped = [{**record, "row_id": "synthetic_row"}
+               for record in outcomes["skipped"]]
+    accounting = campaign._reconcile_outputs(
+        {"expected_figures": len(outcomes["planned"])},
+        outcomes["planned"], skipped, inventory, invalid,
+    )
+    assert accounting["produced_png_count"] > 0
+    assert accounting["allowed_skip_count"] > 0
+    assert accounting["unaccounted_count"] == 0
+
+
+def test_output_reconciliation_fails_closed(tmp_path):
+    planned = ["row/one.png", "row/two.png"]
+    row = tmp_path / "row"
+    row.mkdir()
+    Image.new("RGB", (1, 1)).save(row / "one.png")
+    descriptor = {"expected_figures": 2}
+    skip = {"outcome": "skipped", "reason": "empty-data-content",
+            "region": "SR", "category": "category", "variable": "njets",
+            "mode": "aggregate", "row_id": "row", "has_mc": True,
+            "has_data_like": False, "mc_empty": False, "data_empty": True,
+            "paths": [planned[1]]}
+
+    def reconcile(skips):
+        inventory, invalid = campaign._inventory(tmp_path, ["row"])
+        return campaign._reconcile_outputs(
+            descriptor, planned, skips, inventory, invalid,
+        )
+
+    with pytest.raises(RuntimeError, match="unaccounted"):
+        reconcile([])
+    with pytest.raises(RuntimeError, match="unexpected_skips"):
+        reconcile([{**skip, "paths": ["row/foreign.png"]}])
+    with pytest.raises(RuntimeError, match="duplicate_skips=\\['row/two.png'\\]"):
+        reconcile([skip, skip])
+    with pytest.raises(RuntimeError, match="conflicting_outcomes=\\['row/one.png'\\]"):
+        reconcile([{**skip, "paths": [planned[0]]}])
+    with pytest.raises(RuntimeError, match="Invalid maintained"):
+        reconcile([{**skip, "reason": "arbitrary"}])
+    (row / "two.png").write_bytes(b"")
+    with pytest.raises(RuntimeError, match="invalid_png=1"):
+        reconcile([])
+    (row / "two.png").write_bytes(b"not a PNG")
+    with pytest.raises(RuntimeError, match="invalid_png=1"):
+        reconcile([])
 
 
 def test_mixed_unit_njets_view_matches_selective_channel_semantics():
