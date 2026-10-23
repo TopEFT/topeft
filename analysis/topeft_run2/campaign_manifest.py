@@ -884,7 +884,7 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
         if not isinstance(item, dict):
             fail("recovery_evidence_insufficient: invalid sample cfg identity")
         basename = item.get("basename")
-        if item.get("input_kind") != "sample_cfg" or basename in observed_cfg or expected_cfg.get(basename) != item.get("content_sha256"):
+        if item.get("input_kind") != "cfg" or basename in observed_cfg or expected_cfg.get(basename) != item.get("content_sha256"):
             fail("recovery_evidence_insufficient: sample cfg differs from recorded science")
         observed_cfg[basename] = item["content_sha256"]
     if observed_cfg != expected_cfg:

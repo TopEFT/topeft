@@ -133,7 +133,7 @@ def write_artifact(path, source_sha256=None, *, state=None, unit=None, real_payl
         )
         files = manifest.scientific_files(state["profile_contract"], "source")
         contract["cfg_identities"] = sorted((
-            {"basename": Path(name).name, "content_sha256": digest, "input_kind": "sample_cfg"}
+            {"basename": Path(name).name, "content_sha256": digest, "input_kind": "cfg"}
             for name, digest in files.items() if name.startswith("input_samples/cfgs/")
         ), key=lambda item: tuple(sorted(item.items())))
         unsigned = {key: value for key, value in contract.items() if key != "contract_identity_sha256"}
@@ -529,6 +529,7 @@ def test_running_source_with_verified_artifact_is_reconciled(make_campaign):
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(source_command(state, unit)))
     write_artifact(unit["outputs"]["source"], state=state, unit=unit)
     prepared = json.loads(Path(f"{unit['outputs']['source']}.metadata.json").read_text())
+    assert {item["input_kind"] for item in prepared["production_sample_contract"]["cfg_identities"]} == {"cfg"}
     for product in ("nonprompt", "flips"):
         assert prepared["requested_data_driven_products"]["products"][product]["enabled"] is True
         assert prepared["resolved_data_driven_contract"]["products"][product]["enabled"] is True
@@ -542,7 +543,8 @@ def test_running_source_with_verified_artifact_is_reconciled(make_campaign):
 
 
 @pytest.mark.parametrize("damage", (
-    "missing_cfg", "extra_cfg", "wrong_cfg", "contract_version", "contract_mode",
+    "missing_cfg", "extra_cfg", "duplicate_cfg", "wrong_cfg", "wrong_basename",
+    "stale_input_kind", "wrong_input_kind", "contract_version", "contract_mode",
     "applicability_version", "applicability_mode", "applicability_query",
     "families", "nominal_layout", "nominal_schema", "artifact_kind", "lineage",
     "artifact_sha", "artifact_size", "synthetic", "sumw2_mode", "sumw2_schema",
@@ -564,11 +566,20 @@ def test_running_source_rejects_incomplete_or_contradictory_sidecar(make_campaig
         contract["cfg_identities"].pop()
     elif damage == "extra_cfg":
         contract["cfg_identities"].append({
-            "basename": "extra.cfg", "content_sha256": "0" * 64, "input_kind": "sample_cfg",
+            "basename": "extra.cfg", "content_sha256": "0" * 64, "input_kind": "cfg",
         })
         contract["cfg_identities"].sort(key=lambda item: tuple(sorted(item.items())))
+    elif damage == "duplicate_cfg":
+        contract["cfg_identities"].append(dict(contract["cfg_identities"][0]))
     elif damage == "wrong_cfg":
         contract["cfg_identities"][0]["content_sha256"] = "0" * 64
+    elif damage == "wrong_basename":
+        contract["cfg_identities"][0]["basename"] = "wrong.cfg"
+        contract["cfg_identities"].sort(key=lambda item: tuple(sorted(item.items())))
+    elif damage == "stale_input_kind":
+        contract["cfg_identities"][0]["input_kind"] = "sample_cfg"
+    elif damage == "wrong_input_kind":
+        contract["cfg_identities"][0]["input_kind"] = "other"
     elif damage == "contract_version":
         contract["contract_version"] = 999
     elif damage == "contract_mode":
@@ -602,12 +613,16 @@ def test_running_source_rejects_incomplete_or_contradictory_sidecar(make_campaig
     elif damage == "flips_disabled":
         sidecar["requested_data_driven_products"]["products"]["flips"]["enabled"] = False
         sidecar["resolved_data_driven_contract"]["products"]["flips"]["enabled"] = False
-    if damage in {"missing_cfg", "extra_cfg", "wrong_cfg", "contract_version", "contract_mode"}:
+    if damage in {"missing_cfg", "extra_cfg", "duplicate_cfg", "wrong_cfg", "wrong_basename",
+                  "stale_input_kind", "wrong_input_kind", "contract_version", "contract_mode"}:
         contract["contract_identity_sha256"] = manifest.canonical_digest({
             key: value for key, value in contract.items() if key != "contract_identity_sha256"
         })
     metadata.write_text(json.dumps(sidecar), encoding="utf-8")
-    with pytest.raises(ValueError, match="recovery_evidence_insufficient|artifact sidecar identity mismatch"):
+    failure = ("sample cfg differs from recorded science"
+               if damage in {"wrong_cfg", "wrong_basename", "stale_input_kind", "wrong_input_kind"}
+               else "recovery_evidence_insufficient|artifact sidecar identity mismatch")
+    with pytest.raises(ValueError, match=failure):
         manifest.reconcile_running(state)
     assert unit["stages"]["source"]["status"] == "running"
 
