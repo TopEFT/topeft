@@ -3832,9 +3832,10 @@ def test_save_figure_formats_uses_one_mode_bearing_root(tmp_path):
             self.calls = []
 
         def savefig(self, path, **kwargs):
-            self.calls.append((path, kwargs))
+            self.calls.append((path.name, kwargs))
 
     figure = RecordingFigure()
+    (tmp_path / "category").mkdir()
     output_paths = make_cr_and_sr_plots._save_figure_formats(
         figure,
         tmp_path / "category" / "stem",
@@ -3851,6 +3852,10 @@ def test_save_figure_formats_uses_one_mode_bearing_root(tmp_path):
     assert [call[0] for call in figure.calls] == list(expected_paths)
     assert [call[1]["format"] for call in figure.calls] == ["png", "pdf", "svg"]
     assert all(call[1]["bbox_inches"] == "tight" for call in figure.calls)
+    with pytest.raises(FileExistsError):
+        make_cr_and_sr_plots._save_figure_formats(
+            figure, tmp_path / "category" / "stem", "fitting", ("png",),
+        )
 
 
 def test_negative_weight_reports_for_binning_modes_coexist(tmp_path):
@@ -4029,6 +4034,104 @@ def test_flat_sr_signed_fallback_preserves_raw_and_visible_totals():
         np.testing.assert_allclose(h_mc.values(flow=True), before)
         np.testing.assert_allclose(h_sumw2.values(flow=True), before_variance)
         assert len(fig.axes) == 2
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
+
+
+def test_sr_positive_groups_use_filled_colored_stack_artists():
+    from matplotlib.colors import to_rgba
+
+    h_mc, h_sumw2, h_data, groups = _make_sr_ttbar_display_inputs()
+    total = h_mc[{"process": sum}].values(flow=True)[1:]
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc, h_data, False, var="njets", group=groups, h_mc_sumw2=h_sumw2,
+        unblind=True, uncertainty_mode="total", sr_flat_display=True,
+        syst_err="total", err_p_syst=total + 1, err_m_syst=total - 1,
+        err_ratio_p_syst=np.ones_like(total), err_ratio_m_syst=np.ones_like(total),
+    )
+    try:
+        ax = fig.axes[0]
+        assert len(fig.axes) == 2
+        assert not hasattr(fig, "_topeft_sr_signed_display_view")
+        filled = {patch.get_label(): patch for patch in ax.patches
+                  if patch.get_fill() and patch.get_facecolor()[-1] > 0}
+        assert set(groups) <= set(filled)
+        legend = fig.legends[0]
+        legend_labels = [item.get_text() for item in legend.get_texts()]
+        assert set(groups) <= set(legend_labels)
+        for label in groups:
+            expected = to_rgba(make_cr_and_sr_plots.FILL_COLORS.get(label, "#1f77b4"))
+            assert filled[label].get_facecolor() == expected
+            legend_index = legend_labels.index(label)
+            assert legend.legend_handles[legend_index].get_facecolor() == expected
+        raw = fig._topeft_plot_view["raw_grouped_centrals"]
+        display = fig._topeft_plot_view["plot_grouped_centrals"]
+        for label in groups:
+            np.testing.assert_allclose(display[label], raw[label])
+        np.testing.assert_allclose(sum(display.values()),
+                                   fig._topeft_plot_summary["ratio_denominator"])
+        assert any(container.get_label() == "Data" for container in ax.containers)
+        assert len(fig._topeft_uncertainty_bands["main_band_handles"]) == 2
+        assert ax.collections  # Statistical and total bands overlay the stack.
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
+
+
+def test_sr_signed_fallback_keeps_colored_fills_and_negative_diagnostic():
+    h_mc, h_sumw2, h_data, groups = _make_sr_ttbar_display_inputs(negative=True)
+    groups = OrderedDict((label, members) for label, members in groups.items())
+    groups["ttbar"] = ["TTTo2L2Nu_centralUL16"]
+    groups["ttll"] = [member for member in groups["ttll"]
+                      if member != "TTTo2L2Nu_centralUL16"]
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc, h_data, False, var="njets", group=groups, h_mc_sumw2=h_sumw2,
+        unblind=True, uncertainty_mode="stat", sr_flat_display=True,
+    )
+    try:
+        ax = fig.axes[0]
+        raw = fig._topeft_plot_view["raw_grouped_centrals"]
+        display = fig._topeft_plot_view["plot_grouped_centrals"]
+        signed_total = sum(raw.values())
+        np.testing.assert_allclose(sum(display.values()), np.maximum(signed_total, 0))
+        np.testing.assert_allclose(fig._topeft_plot_summary["ratio_denominator"],
+                                   np.maximum(signed_total, 0))
+        assert any(np.any(values < 0) for values in raw.values())
+        assert {"ttll", "ttbar", "Other"} <= {
+            patch.get_label() for patch in ax.patches if patch.get_fill()}
+        assert "MC total" not in [patch.get_label() for patch in ax.patches]
+        assert any(float(text.get_text()) < 0 for text in ax.texts
+                   if text.get_text().lstrip("- ").replace(".", "").isdigit())
+    finally:
+        make_cr_and_sr_plots.plt.close(fig)
+
+
+def test_sr_metadata_ttbar_split_is_filled_without_changing_total():
+    from matplotlib.colors import to_rgba
+
+    h_mc, h_sumw2, h_data, _ = _make_sr_ttbar_display_inputs()
+    groups = make_cr_and_sr_plots.populate_group_map(
+        [name for name in h_mc.axes["process"] if name != "other"],
+        make_cr_and_sr_plots.SR_GRP_PATTERNS, require_unique=True,
+    )
+    groups["Other"] = ["other"]
+    fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
+        h_mc, h_data, False, var="njets", group=groups, h_mc_sumw2=h_sumw2,
+        unblind=True, uncertainty_mode="stat", sr_flat_display=True,
+    )
+    try:
+        fills = {patch.get_label(): patch for patch in fig.axes[0].patches
+                 if patch.get_fill()}
+        assert {"ttll", "ttbar", "Other"} <= set(fills)
+        assert fills["ttbar"].get_facecolor() == to_rgba(
+            make_cr_and_sr_plots.SR_GROUP_INFO["ttbar"]["color"])
+        assert fills["ttll"].get_facecolor() == to_rgba(
+            make_cr_and_sr_plots.SR_GROUP_INFO["ttll"]["color"])
+        assert {"ttll", "ttbar", "Other"} <= {
+            text.get_text() for text in fig.legends[0].get_texts()}
+        np.testing.assert_allclose(
+            fig._topeft_plot_view["displayed_total"],
+            h_mc[{"process": sum}].values(flow=True)[1:],
+        )
     finally:
         make_cr_and_sr_plots.plt.close(fig)
 

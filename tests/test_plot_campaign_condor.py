@@ -18,7 +18,7 @@ _accepted_manifest = (
 )
 
 
-def _fixture_manifest(tmp_path):
+def _fixture_manifest(tmp_path, *, run="run3"):
     pkl = tmp_path / "principal_SR.pkl.gz"
     pkl.write_bytes(b"inert input: never deserialize")
     pkl_digest = hashlib.sha256(pkl.read_bytes()).hexdigest()
@@ -27,14 +27,55 @@ def _fixture_manifest(tmp_path):
     sidecar_digest = hashlib.sha256(sidecar.read_bytes()).hexdigest()
     manifest = tmp_path / "campaign.tsv"
     header = "\t".join(campaign._header)
+    year = "2022" if run == "run3" else "2018"
     rows = [
-        ("one_njets", "njets", "run3", "combined", "owner", "2022", "njets", "1"),
-        ("two_other", "other", "run3", "2022", "owner", "2022", "ptz", "1"),
+        ("one_njets", "njets", run, "combined", "owner", year, "njets", "1"),
+        ("two_other", "other", run, year, "owner", year, "ptz", "1"),
     ]
     manifest.write_text(header + "\n" + "\n".join("\t".join((
         *row, str(pkl), pkl_digest, str(sidecar), sidecar_digest,
     )) for row in rows) + "\n", encoding="utf-8")
     return manifest
+
+
+def test_run2_public_row_path_omits_block_but_preserves_unit_identity(tmp_path):
+    manifest = _fixture_manifest(tmp_path)
+    fields = manifest.read_text().splitlines()
+    first = fields[1].split("\t")
+    second = fields[2].split("\t")
+    for row, owner in ((first, "run2_block1"), (second, "run2_block2")):
+        row[0] = owner + "_combined_njets"
+        row[1:7] = ["njets", "run2", "combined", owner, "2018", "njets"]
+    manifest.write_text(fields[0] + "\n" + "\t".join(first) + "\n"
+                        + "\t".join(second) + "\n")
+    rows, digest = campaign.read_campaign(manifest)
+    assert [campaign._output_relative(row) for row in rows] == [
+        "run2/combined/njets", "run2/combined/njets"]
+    unit = campaign.derive_units(rows, digest)[0]
+    assert unit["row_ids"] == sorted(row["unit"] for row in rows)
+    assert unit["outputs"] == ["run2/combined/njets"] * 2
+    assert all(row["owner"].startswith("run2_block") for row in unit["rows"])
+    assert campaign._output_relative({**rows[0], "run": "run3"}) == (
+        "run3/combined/run2_block1/njets")
+    planned = ["run2/combined/njets/category/plot.png"]
+    skip = {"outcome": "skipped", "reason": "empty-data-content",
+            "region": "SR", "mode": "aggregate", "row_id": rows[0]["unit"],
+            "variable": "njets", "paths": planned}
+    accounting = campaign._reconcile_outputs(
+        {"expected_figures": 1, "rows": [rows[0]]}, planned, [skip], [], 0)
+    assert (accounting["planned_slot_count"], accounting["allowed_skip_count"],
+            accounting["unaccounted_count"]) == (1, 1, 0)
+    with pytest.raises(RuntimeError, match="not bound to its logical row"):
+        campaign._reconcile_outputs(
+            {"expected_figures": 1, "rows": [rows[0]]}, planned,
+            [{**skip, "paths": ["run2/combined/run2_block1/njets/category/plot.png"]}],
+            [], 0)
+    duplicate_owner = second.copy()
+    duplicate_owner[4] = "run2_block1"
+    manifest.write_text(fields[0] + "\n" + "\t".join(first) + "\n"
+                        + "\t".join(duplicate_owner) + "\n")
+    with pytest.raises(ValueError, match="Duplicate logical row or output directory"):
+        campaign.read_campaign(manifest)
 
 
 def test_accepted_manifest_partitions_exactly_and_prepare_never_opens_pkls(
@@ -123,8 +164,9 @@ def test_one_unit_prepare_keeps_whole_campaign_input_set(tmp_path):
 
 
 @pytest.mark.parametrize("workers", [1, 3])
-def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, workers):
-    manifest = _fixture_manifest(tmp_path)
+@pytest.mark.parametrize("run", ["run2", "run3"])
+def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, workers, run):
+    manifest = _fixture_manifest(tmp_path, run=run)
     rows, manifest_hash = campaign.read_campaign(manifest)
     unit = campaign.derive_units(rows, manifest_hash)[0]
     output_root = tmp_path / f"histos_{workers}" / "campaign"
@@ -191,6 +233,11 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
     assert receipt["zero_byte_or_unreadable_output_count"] == 0
     assert receipt["return_code"] == 0
     assert receipt["topeft_source_identity"] != receipt["runtime_topeft_source_identity"]
+    for row in rows:
+        relative = campaign._output_relative(row)
+        assert (output_root / relative / (row["variables"] + ".png")).is_file()
+        if run == "run2":
+            assert "/owner/" not in relative
     with pytest.raises(FileExistsError, match="Occupied campaign output"):
         campaign.run_unit(descriptor_path, campaign._sha256(descriptor_path))
     assert len(loader_calls) == 1
@@ -248,7 +295,7 @@ def test_structured_maintained_skip_reconciles_with_drawable_png(tmp_path, worke
                for record in outcomes["skipped"])
     assert all(record["variable"] == "njets" for record in outcomes["skipped"])
     assert any(path.endswith("_ptz_processing.png") for path in outcomes["planned"])
-    inventory, invalid = campaign._inventory(tmp_path, ["."])
+    inventory, invalid = campaign._inventory(tmp_path, outcomes["planned"])
     skipped = [{**record, "row_id": "synthetic_row"}
                for record in outcomes["skipped"]]
     accounting = campaign._reconcile_outputs(
@@ -273,7 +320,7 @@ def test_output_reconciliation_fails_closed(tmp_path):
             "paths": [planned[1]]}
 
     def reconcile(skips):
-        inventory, invalid = campaign._inventory(tmp_path, ["row"])
+        inventory, invalid = campaign._inventory(tmp_path, planned)
         return campaign._reconcile_outputs(
             descriptor, planned, skips, inventory, invalid,
         )

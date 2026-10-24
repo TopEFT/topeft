@@ -144,7 +144,8 @@ def _save_figure_formats(
     output_paths = []
     for output_format in _normalize_output_formats(output_formats):
         output_path = f"{output_root}.{output_format}"
-        fig.savefig(output_path, format=output_format, **savefig_kwargs)
+        with open(output_path, "xb") as output_file:
+            fig.savefig(output_file, format=output_format, **savefig_kwargs)
         output_paths.append(output_path)
     return tuple(output_paths)
 
@@ -4630,13 +4631,22 @@ def _resolve_sr_signed_display_view(hist_mc, group_map):
     if np.allclose(np.maximum(raw_total, 0), clipped_sum, rtol=1e-12, atol=1e-12):
         return None
     return {
-        "draw_group": OrderedDict((("MC total",
-                                   [member for _, members, _ in components for member in members]),)),
         "fallback": True,
         "components": tuple((name, values) for name, _, values in components),
         "raw_total": raw_total,
         "visible_total": np.maximum(raw_total, 0),
     }
+
+
+def _signed_display_stack(grouped_centrals):
+    """Allocate the visible signed total among positive display components."""
+    raw = np.asarray(grouped_centrals, dtype=float)
+    positive = np.maximum(raw, 0.0)
+    positive_total = np.sum(positive, axis=0)
+    visible_total = np.maximum(np.sum(raw, axis=0), 0.0)
+    scale = np.divide(visible_total, positive_total,
+                      out=np.zeros_like(visible_total), where=positive_total > 0)
+    return positive * scale, visible_total
 
 
 def _safe_divide(num, denom, default, zero_over_zero=None):
@@ -5559,6 +5569,7 @@ def _draw_stacked_panel(
     lumi_components=None,
     scope_label=None,
     diagnostic_context=None,
+    signed_display_view=None,
 ):
     """Render stacked MC content, optionally with data and ratio subpanels."""
 
@@ -5805,6 +5816,18 @@ def _draw_stacked_panel(
         bin_edges=bins,
         diagnostic_context=diagnostic_context,
     )
+    if signed_display_view is not None:
+        display_matrix, visible_total = _signed_display_stack(stacked_arrays)
+        plot_view["plot_grouped_centrals"] = OrderedDict(
+            (name, display_matrix[index].copy())
+            for index, name in enumerate(mc_vals)
+        )
+        plot_view["displayed_total"] = visible_total
+        plot_view["zero_total_mask"] = visible_total == 0
+        for diagnostic in plot_view["clipped_negative_diagnostics"]:
+            bin_index = diagnostic["bin_index"]
+            diagnostic["displayed_total_after_clip"] = float(visible_total[bin_index])
+            diagnostic["ratio_denominator"] = float(visible_total[bin_index])
     plot_arrays = list(plot_view["plot_grouped_centrals"].values())
     displayed_mc_totals = plot_view["displayed_total"]
 
@@ -5958,6 +5981,7 @@ def _draw_stacked_panel_only(
     lumi_components=None,
     scope_label=None,
     diagnostic_context=None,
+    signed_display_view=None,
 ):
     return _draw_stacked_panel(
         h_mc,
@@ -5979,6 +6003,7 @@ def _draw_stacked_panel_only(
         lumi_components=lumi_components,
         scope_label=scope_label,
         diagnostic_context=diagnostic_context,
+        signed_display_view=signed_display_view,
     )
 
 
@@ -9333,8 +9358,6 @@ def make_region_stacked_ratio_fig(
 
     if sr_flat_display:
         sr_signed_display_view = _resolve_sr_signed_display_view(h_mc, group)
-        if sr_signed_display_view is not None:
-            group = sr_signed_display_view["draw_group"]
 
     grouping = OrderedDict()
     axis_collection = getattr(h_mc, "axes", None)
@@ -9364,8 +9387,6 @@ def make_region_stacked_ratio_fig(
     default_color_index = 0
     for proc in grouping:
         c = FILL_COLORS.get(proc)
-        if sr_signed_display_view is not None and proc == "MC total":
-            c = "#777777"
         if c is None:
             c = default_colors[default_color_index % len(default_colors)]
             default_color_index += 1
@@ -9435,6 +9456,7 @@ def make_region_stacked_ratio_fig(
             lumi_components=lumi_components,
             scope_label=scope_label,
             diagnostic_context=diagnostic_context,
+            signed_display_view=sr_signed_display_view,
         )
     else:
         panel_info = _draw_stacked_panel_only(
@@ -9456,6 +9478,7 @@ def make_region_stacked_ratio_fig(
             lumi_components=lumi_components,
             scope_label=scope_label,
             diagnostic_context=diagnostic_context,
+            signed_display_view=sr_signed_display_view,
         )
 
     fig = panel_info["fig"]
@@ -9726,8 +9749,10 @@ def make_region_stacked_ratio_fig(
         original_y_limits = ax.get_ylim()
         bin_centers = (plot_bins[:-1] + plot_bins[1:]) / 2.0
         for component_index, (label, values) in enumerate(sr_signed_display_view["components"]):
+            if not np.any(values < 0):
+                continue
             color = SR_GROUP_INFO.get(label, {}).get("color") or default_colors[component_index % len(default_colors)]
-            ax.stairs(values, plot_bins, label=label, color=color,
+            ax.stairs(values, plot_bins, label="_nolegend_", color=color,
                       linestyle=("--", ":", "-.")[component_index % 3], linewidth=1.5)
             for bin_center, value in zip(bin_centers, values):
                 if value < 0:
@@ -9743,8 +9768,6 @@ def make_region_stacked_ratio_fig(
         filtered = OrderedDict()
         for handle, label in zip(legend_handles, legend_labels):
             if label == '_nolegend_':
-                continue
-            if sr_signed_display_view is not None and label == "MC total":
                 continue
             if label not in filtered:
                 filtered[label] = handle

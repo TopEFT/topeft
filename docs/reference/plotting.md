@@ -48,9 +48,12 @@ The structured skip vocabulary is owned by the plotter's drawability branches:
 early returns, and exceptions do not become allowed skips.
 
 The dispatch requests explicit CPUs, memory, disk, runtime and render-worker
-count, with `request_cpus >= workers`. Its output remains beneath the declared
-TOPEFT `histos/<campaign>/run/view/owner/variables` tree. Occupied row paths
-stop a unit before any plots are written. No retry, resume, staging, DAG, or
+count, with `request_cpus >= workers`. Run 2 figures use
+`histos/<campaign>/run2/<period>/<variables>/<category>/<figure>.png`;
+the technical unit owner remains in descriptors and receipts, not the figure
+path. Run 3 retains `run3/<period>/<owner>/<variables>` beneath the campaign
+root. Figure creation rejects an occupied file, and receipt accounting checks
+the planned paths for each unit. No retry, resume, staging, DAG, or
 Condor-specific output renaming is supplied.
 
 Campaign dry-run validates the TSV and prints resolved child commands without
@@ -150,14 +153,16 @@ not create missing templates or assign new nuisance meaning. Negative-weight
 and effective-entry diagnostics report properties of the selected content;
 they do not mutate the source artifact.
 
-The raw signed nominal and sumw2 remain source-owned. For SR bins where
-clipping separate flat groups would inflate the total, the renderer draws one
-visible total stack plus signed component outlines and labels. Its center and
-Data/MC denominator are `max(sum(raw groups), 0)`, rather than
-`sum(max(raw group, 0))`. Otherwise the ordinary flat stack is used. CR keeps
-its established drawing policy. The original statistical variance remains
-attached to the display; no source histogram, template, card, or workspace is
-altered. Zero displayed denominators are masked.
+The raw signed nominal and sumw2 remain source-owned. Ordinary SR process
+groups are filled, colored stack components with matching legend entries.
+Scientific totals and nuisance responses are calculated before display
+grouping. Where negative group content would inflate a separately clipped
+stack, the display allocates `max(sum(raw groups), 0)` among its positive
+components in proportion to their positive content. Only groups with negative
+content receive auxiliary signed outlines and value labels. The Data/MC
+denominator remains `max(sum(raw groups), 0)`; statistical variance and
+systematic band inputs remain attached to the original signed content. CR
+keeps its established drawing policy. Zero displayed denominators are masked.
 
 Data markers use exact central Neyman/Garwood intervals at 68.27% confidence.
 On a logarithmic axis, a zero Data count is represented by its Garwood upper

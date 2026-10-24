@@ -66,8 +66,11 @@ def _safe_absolute(path: Path) -> str:
 
 
 def _output_relative(row: dict) -> str:
-    return "/".join((row["run"], row["view"], row["owner"],
-                     row["variables"].replace(",", "_")))
+    parts = [row["run"], row["view"]]
+    if row["run"] == "run3":
+        parts.append(row["owner"])
+    parts.append(row["variables"].replace(",", "_"))
+    return "/".join(parts)
 
 
 def read_campaign(manifest_path: Path) -> tuple[list[dict], str]:
@@ -108,10 +111,11 @@ def read_campaign(manifest_path: Path) -> tuple[list[dict], str]:
             if not re.fullmatch(r"[0-9a-f]{64}", row[key]):
                 raise ValueError("Invalid historical digest")
         relative = _output_relative(row)
-        if row["unit"] in seen_ids or relative in seen_outputs:
+        output_identity = (relative, row["owner"]) if row["run"] == "run2" else relative
+        if row["unit"] in seen_ids or output_identity in seen_outputs:
             raise ValueError("Duplicate logical row or output directory")
         seen_ids.add(row["unit"])
-        seen_outputs.add(relative)
+        seen_outputs.add(output_identity)
     return rows, _sha256(manifest_path)
 
 
@@ -298,13 +302,14 @@ def _selected_view(loaded: dict, report: dict, row: dict) -> tuple[dict, dict]:
     return subset, view_report
 
 
-def _inventory(output_root: Path, outputs: list[str]) -> tuple[list[dict], int]:
+def _inventory(output_root: Path, planned: list[str]) -> tuple[list[dict], int]:
     from PIL import Image, UnidentifiedImageError
 
     inventory = []
     unreadable = 0
-    for relative in outputs:
-        for path in sorted((output_root / relative).rglob("*.png")):
+    for relative in sorted(set(planned)):
+        path = output_root / relative
+        if path.exists() or path.is_symlink():
             stat = path.lstat()
             invalid = path.is_symlink() or not path.is_file() or stat.st_size == 0
             if not invalid:
@@ -416,8 +421,9 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
     _histos_root(output_root)
     if descriptor["campaign_id"] != output_root.name:
         raise ValueError("Campaign output identity mismatch")
-    occupied = [str(output_root / relative) for relative in descriptor["outputs"]
-                if (output_root / relative).exists() or (output_root / relative).is_symlink()]
+    # Run 2 blocks may share a row directory after the technical owner is
+    # removed from its public path. Individual figure creation is exclusive.
+    occupied = []
     receipt_path = output_root / (unit_id + ".receipt.json")
     report_paths = [output_root / (row_id + ".composition.json")
                     for row_id in descriptor["row_ids"]]
@@ -468,7 +474,7 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
             skipped.append({**record, "row_id": row["unit"],
                             "paths": [str(Path(relative) / path)
                                       for path in record["paths"]]})
-    inventory, unreadable = _inventory(output_root, descriptor["outputs"])
+    inventory, unreadable = _inventory(output_root, planned)
     accounting = _reconcile_outputs(descriptor, planned, skipped, inventory, unreadable)
     receipt = {
         "schema": "plot_campaign_unit_receipt_v2",

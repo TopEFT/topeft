@@ -5,6 +5,19 @@ import pytest
 from analysis.topeft_run2 import make_cr_and_sr_plots
 
 
+def test_signed_display_allocation_preserves_hand_checked_total_and_inputs():
+    grouped = np.array([[4.0, 2.0, 1.0], [2.0, -1.0, -5.0],
+                        [-1.0, 3.0, 1.0]])
+    original = grouped.copy()
+    display, visible = make_cr_and_sr_plots._signed_display_stack(grouped)
+    np.testing.assert_array_equal(grouped, original)
+    np.testing.assert_allclose(visible, [5.0, 4.0, 0.0])
+    np.testing.assert_allclose(display, [[10.0 / 3.0, 1.6, 0.0],
+                                             [5.0 / 3.0, 0.0, 0.0],
+                                             [0.0, 2.4, 0.0]])
+    np.testing.assert_allclose(display.sum(axis=0), visible)
+
+
 @pytest.fixture(autouse=True)
 def _patch_eval_without_underflow(monkeypatch):
     monkeypatch.setattr(
