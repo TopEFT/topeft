@@ -5030,16 +5030,20 @@ def write_negative_weight_report(
     *,
     binning_mode,
     summary_limit=20,
+    name_suffix=None,
 ):
     """Write negative MC contribution CSV and Markdown summary."""
 
     os.makedirs(output_dir, exist_ok=True)
+    if name_suffix is not None and not re.fullmatch(r"[A-Za-z0-9_.+-]+", name_suffix):
+        raise ValueError("Unsafe negative report suffix")
+    suffix = "" if name_suffix is None else "_" + name_suffix
     csv_path = _mode_bearing_output_path(
-        os.path.join(output_dir, "negative_weight_contribution_report.csv"),
+        os.path.join(output_dir, "negative_weight_contribution_report" + suffix + ".csv"),
         binning_mode,
     )
     md_path = _mode_bearing_output_path(
-        os.path.join(output_dir, "negative_weight_contribution_summary.md"),
+        os.path.join(output_dir, "negative_weight_contribution_summary" + suffix + ".md"),
         binning_mode,
     )
 
@@ -9934,6 +9938,7 @@ def run_plots_for_region(
     report_zero_yields=False,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    negative_report_suffix=None,
     show_ratio_legend=False,
     binning_mode="processing",
     output_formats=("png",),
@@ -10076,6 +10081,7 @@ def run_plots_for_region(
             all_negative_rows,
             save_dir_path,
             binning_mode=binning_mode,
+            name_suffix=negative_report_suffix,
         )
         print(
             "Wrote negative MC contribution report: {csv}; summary: {markdown}".format(
@@ -10613,7 +10619,7 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=Non
 
 
 def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
-                  outcome_collector=None):
+                  outcome_collector=None, negative_report_suffix=None):
     """Normalize CLI arguments, load histograms, and dispatch region plotting."""
 
     pkl_paths = _resolve_pkl_paths(args, parser)
@@ -10816,6 +10822,7 @@ def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
         report_zero_yields=args.report_zero_yields,
         rebin_plot_vars=rebin_plot_vars,
         negative_weight_report=args.negative_weight_report,
+        negative_report_suffix=negative_report_suffix,
         show_ratio_legend=args.show_ratio_legend,
         binning_mode=args.binning,
         output_formats=args.output_formats,

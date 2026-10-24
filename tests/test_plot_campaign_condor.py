@@ -207,9 +207,13 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
                 "ptz_sumw2": make_histogram("ptz", 2)}, {
             "schema": "split_sibling_v1", "runtime_histogram_families": ["njets", "ptz"]}
 
-    def render(args, parser, *, loaded_view, outcome_collector):
+    def render(args, parser, *, loaded_view, outcome_collector,
+               negative_report_suffix):
         assert len(loader_calls) == 1
         family = args.variables[0]
+        assert negative_report_suffix == (next(
+            row["unit"] for row in rows if row["variables"] == family)
+            if run == "run2" else None)
         mapping, report = loaded_view
         assert set(mapping) == {family + "__scalar_nominal", family + "_sumw2"}
         assert report["runtime_histogram_families"] == [family]

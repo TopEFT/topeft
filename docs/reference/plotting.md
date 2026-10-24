@@ -53,8 +53,9 @@ count, with `request_cpus >= workers`. Run 2 figures use
 the technical unit owner remains in descriptors and receipts, not the figure
 path. Run 3 retains `run3/<period>/<owner>/<variables>` beneath the campaign
 root. Figure creation rejects an occupied file, and receipt accounting checks
-the planned paths for each unit. No retry, resume, staging, DAG, or
-Condor-specific output renaming is supplied.
+the planned paths for each unit. Negative-contribution report filenames retain
+the logical row identity when row directories are shared. No retry, resume,
+staging, DAG, or Condor-specific output renaming is supplied.
 
 Campaign dry-run validates the TSV and prints resolved child commands without
 creating a root or reading PKL contents. Execute requires a new root under

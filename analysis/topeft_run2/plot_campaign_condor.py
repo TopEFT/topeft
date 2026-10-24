@@ -464,6 +464,7 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
         result = plotter.run_with_args(
             args, parser, loaded_view=_selected_view(loaded, merge_report, row),
             outcome_collector=outcomes,
+            negative_report_suffix=row["unit"] if row["run"] == "run2" else None,
         )
         if result != 0:
             raise RuntimeError(f"Plot view {row['unit']} returned {result}")

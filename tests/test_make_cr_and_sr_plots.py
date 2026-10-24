@@ -3879,6 +3879,19 @@ def test_negative_weight_reports_for_binning_modes_coexist(tmp_path):
     }
 
 
+def test_negative_report_names_remain_unique_in_shared_run2_row_dir(tmp_path):
+    first = make_cr_and_sr_plots.write_negative_weight_report(
+        [], tmp_path, binning_mode="processing", name_suffix="run2_block1_UL18_njets")
+    second = make_cr_and_sr_plots.write_negative_weight_report(
+        [], tmp_path, binning_mode="processing", name_suffix="run2_block2_UL18_njets")
+    assert set(first.values()).isdisjoint(second.values())
+    assert all(os.path.isfile(path) for path in [*first.values(), *second.values()])
+    assert len(list(tmp_path.iterdir())) == 4
+    with pytest.raises(ValueError, match="Unsafe negative report suffix"):
+        make_cr_and_sr_plots.write_negative_weight_report(
+            [], tmp_path, binning_mode="processing", name_suffix="../escape")
+
+
 def test_plotter_parser_exposes_rebin_and_negative_report_switches():
     parser = make_cr_and_sr_plots.build_arg_parser()
 
