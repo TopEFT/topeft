@@ -1158,6 +1158,22 @@ def next_attempt(state, unit_id, stage):
     return len(matches[0]["stages"][stage]["attempts"]) + 1
 
 
+def next_source_attempt(state, unit_id):
+    matches = [unit for unit in state["units"] if unit["id"] == unit_id]
+    if len(matches) != 1 or "source" not in state["profile_contract"]["stages"]:
+        fail("unknown source unit or stage")
+    source = matches[0]["stages"]["source"]
+    if source["status"] not in {"pending", "failed"}:
+        fail("source is not eligible for a new attempt")
+    attempts = source["attempts"]
+    if not isinstance(attempts, list) or any(
+        not isinstance(item, dict) or item.get("number") != index or item.get("stage") != "source"
+        for index, item in enumerate(attempts, 1)
+    ):
+        fail("source attempt history is inconsistent")
+    return len(attempts) + 1
+
+
 def record_attempt_provenance(state, provenance):
     current = scientific_identity(
         state["profile_contract"], provenance["environment_file_sha256"],
@@ -1634,6 +1650,10 @@ def main():
         if action == "next-attempt":
             state = load_state(values[0])
             print(next_attempt(state, values[1], values[2]))
+            return
+        if action == "next-source-attempt":
+            state = load_state(values[0])
+            print(next_source_attempt(state, values[1]))
             return
         if action == "record-provenance":
             (

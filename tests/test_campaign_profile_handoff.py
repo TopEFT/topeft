@@ -207,6 +207,92 @@ def test_manager_override_rejects_multiple_sources_before_campaign_creation(tmp_
     assert "Running the following command:" not in result.stdout
 
 
+def test_manager_exact_override_remains_single_source(tmp_path, backend):
+    result = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a",
+                    "--wq-manager-name", "exact-name")
+    assert result.returncode == 0, result.stdout + result.stderr
+    state = manifest.load_state(state_path(tmp_path))
+    command = state["units"][0]["stages"]["source"]["attempts"][0]["command_argv"]
+    assert command[command.index("--wq-manager-name") + 1] == "exact-name"
+    assert all(unit["stages"]["source"]["status"] == "pending" for unit in state["units"][1:])
+
+
+def test_manager_prefix_rejects_exact_override_and_fresh_campaign(tmp_path, backend):
+    mixed = launch(tmp_path, backend, "--resume", "--wq-manager-name", "exact-name",
+                   "--wq-manager-prefix", "test-")
+    assert mixed.returncode != 0
+    assert "mutually exclusive" in mixed.stderr
+    fresh = launch(tmp_path, backend, "--wq-manager-prefix", "test-")
+    assert fresh.returncode != 0
+    assert "requires component resume" in fresh.stderr
+    assert not (tmp_path / "output").exists()
+
+
+def test_manager_prefix_resumes_all_units_with_persisted_unit_names(tmp_path, backend):
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
+    assert first.returncode == 0, first.stdout + first.stderr
+    resumed = launch(tmp_path, backend, "--resume", "--wq-manager-prefix", "run3-resume-")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    state = manifest.load_state(state_path(tmp_path))
+    assert manifest.classify(state) == "success"
+    assert [unit["id"] for unit in state["units"]] == [
+        "run2_prod_a", "run2_prod_b", "run2_prod_c", "run2_prod_d", "run2_prod_e",
+    ]
+    assert len(state["units"][0]["stages"]["source"]["attempts"]) == 1
+    for unit in state["units"][1:]:
+        command = unit["stages"]["source"]["attempts"][0]["command_argv"]
+        index = command.index("--wq-manager-name")
+        assert command[index + 1] == f"run3-resume-{unit['id']}-a1"
+
+
+def test_manager_prefix_retry_uses_next_attempt_and_selected_unit(tmp_path, backend):
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "source_fail_first"
+    failed = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
+    assert failed.returncode != 0
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "success"
+    resumed = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a",
+                     "--wq-manager-prefix", "run3-resume-")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    state = manifest.load_state(state_path(tmp_path))
+    source_attempts = state["units"][0]["stages"]["source"]["attempts"]
+    assert [attempt["number"] for attempt in source_attempts] == [1, 2]
+    command = source_attempts[1]["command_argv"]
+    assert command[command.index("--wq-manager-name") + 1] == "run3-resume-run2_prod_a-a2"
+    assert all(unit["stages"]["source"]["status"] == "pending" for unit in state["units"][1:])
+
+
+def test_manager_prefix_does_not_name_reused_source(tmp_path, backend):
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "downstream_fail_once"
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
+    assert first.returncode != 0
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "success"
+    resumed = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a",
+                     "--wq-manager-prefix", "run3-resume-")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    assert "Reusing verified source" in resumed.stdout
+    state = manifest.load_state(state_path(tmp_path))
+    source_attempts = state["units"][0]["stages"]["source"]["attempts"]
+    assert len(source_attempts) == 1
+    assert "--wq-manager-name" not in source_attempts[0]["command_argv"]
+
+
+def test_manager_prefix_full_resume_reuses_source_and_continues(tmp_path, backend):
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "downstream_fail_once"
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
+    assert first.returncode != 0
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "success"
+    resumed = launch(tmp_path, backend, "--resume", "--wq-manager-prefix", "run3-resume-")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    state = manifest.load_state(state_path(tmp_path))
+    assert manifest.classify(state) == "success"
+    assert len(state["units"][0]["stages"]["source"]["attempts"]) == 1
+    for unit in state["units"][1:]:
+        command = unit["stages"]["source"]["attempts"][0]["command_argv"]
+        assert command[command.index("--wq-manager-name") + 1] == (
+            f"run3-resume-{unit['id']}-a1"
+        )
+
+
 def test_combined_child_failure_retains_run2_evidence_and_runs_run3(tmp_path, backend):
     backend["CAMPAIGN_VALIDATION_SCENARIO"] = "source_fail_first"
     result = launch(tmp_path, backend, profile="run2_run3_prod")

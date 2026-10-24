@@ -92,6 +92,25 @@ def test_manager_name_changes_attempt_provenance_only(make_campaign):
     assert manifest.attempt_identity(attempt_a) != manifest.attempt_identity(attempt_b)
 
 
+def test_next_source_attempt_uses_validated_persisted_history(make_campaign):
+    state = make_campaign()
+    unit = state["units"][0]
+    unit_id = unit["id"]
+    assert manifest.next_source_attempt(state, unit_id) == 1
+    command = source_command(state, unit)
+    manifest.transition(state, unit_id, "source", "running", "none", "test", tuple(command))
+    with pytest.raises(ValueError, match="not eligible"):
+        manifest.next_source_attempt(state, unit_id)
+    manifest.transition(state, unit_id, "source", "failed", "23", "test")
+    assert manifest.next_source_attempt(state, unit_id) == 2
+    with pytest.raises(ValueError, match="unknown source"):
+        manifest.next_source_attempt(state, "missing")
+    with pytest.raises(ValueError, match="inconsistent"):
+        manifest.next_source_attempt({**state, "units": [{**unit, "stages": {
+            **unit["stages"], "source": {**unit["stages"]["source"], "attempts": "bad"},
+        }}]}, unit_id)
+
+
 def write_artifact(path, source_sha256=None, *, state=None, unit=None, real_payload=False,
                    wrapper_identity="run_cr.sh -> fullR3_run.sh"):
     path = Path(path)

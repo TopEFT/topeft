@@ -8,7 +8,7 @@ print_usage() {
 Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag TAG
   [--dry-run] [--env-file PATH] [--resume] [--chunksize POSITIVE_INTEGER]
   [--selected-fragment ID] [--plan JSON]
-  [--wq-manager-name EXACT_NAME]
+  [--wq-manager-name EXACT_NAME | --wq-manager-prefix PREFIX]
   [--activate-pending-plan JSON --expected-plan-revision ID]
   [Work Queue guard and resource options]
 
@@ -48,6 +48,8 @@ profile_wq_accumulating_memory_mb=""
 profile_wq_accumulating_cores=""
 profile_wq_manager_name=""
 profile_wq_manager_name_provided=false
+profile_wq_manager_prefix=""
+profile_wq_manager_prefix_provided=false
 profile_selected_fragment=""
 profile_plan=""
 profile_activate_pending_plan=""
@@ -98,6 +100,15 @@ while (( $# > 0 )); do
       fi
       profile_wq_manager_name="$2"
       profile_wq_manager_name_provided=true
+      shift 2
+      ;;
+    --wq-manager-prefix)
+      if (( $# < 2 )) || [[ -z "$2" ]] || [[ "${profile_wq_manager_prefix_provided}" == "true" ]]; then
+        echo "ERROR: --wq-manager-prefix requires one non-empty prefix." >&2
+        exit 1
+      fi
+      profile_wq_manager_prefix="$2"
+      profile_wq_manager_prefix_provided=true
       shift 2
       ;;
     --chunksize|--wq-staging-base|--wq-quota-root|--wq-free-warning-bytes|--wq-min-free-bytes|--wq-poll-seconds|--wq-treereduction|--wq-processing-cores|--wq-accumulating-memory-mb|--wq-accumulating-cores)
@@ -167,6 +178,18 @@ if [[ -z "${production_profile}" ]]; then
   echo "ERROR: --production-profile is required; no production was scheduled." >&2
   print_usage >&2
   exit 1
+fi
+
+if [[ "${profile_wq_manager_name_provided}" == "true" \
+  && "${profile_wq_manager_prefix_provided}" == "true" ]]; then
+  echo "ERROR: --wq-manager-name and --wq-manager-prefix are mutually exclusive." >&2
+  exit 1
+fi
+if [[ "${profile_wq_manager_prefix_provided}" == "true" ]]; then
+  if [[ "${profile_resume}" != "true" || ! "${profile_wq_manager_prefix}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+    echo "ERROR: --wq-manager-prefix requires component resume and a prefix of letters, digits, dots, underscores or hyphens." >&2
+    exit 1
+  fi
 fi
 
 if [[ "${production_profile}" =~ ^run2_run3_(prod_2los_1tau|prod|stat_diagnostic)(_CR)?$ ]]; then
@@ -345,6 +368,10 @@ fi
 if [[ "${combined_profile}" == "true" ]]; then
   if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
     echo "ERROR: --wq-manager-name requires one component campaign; combined profiles span separate source managers." >&2
+    exit 1
+  fi
+  if [[ "${profile_wq_manager_prefix_provided}" == "true" ]]; then
+    echo "ERROR: --wq-manager-prefix requires one component campaign." >&2
     exit 1
   fi
   if [[ -n "${profile_plan}${profile_activate_pending_plan}${profile_expected_plan_revision}${profile_selected_fragment}" ]]; then
@@ -1488,7 +1515,10 @@ run_campaign_unit() {
     region_option=--sr
   fi
   source_attempt_number=1
-  if [[ "${dry_run}" == "false" ]]; then
+  if [[ "${profile_wq_manager_prefix_provided}" == "true" \
+    && "${source_reusable}" == "false" ]]; then
+    source_attempt_number=$(production_state_tool next-source-attempt "${production_state_path}" "${block_id}")
+  elif [[ "${dry_run}" == "false" ]]; then
     source_attempt_number=$(production_state_tool next-attempt "${production_state_path}" "${block_id}" source)
   fi
   source_cmd=(
@@ -1498,6 +1528,9 @@ run_campaign_unit() {
   build_common_command_options source_cmd
   if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
     source_cmd+=(--wq-manager-name "${profile_wq_manager_name}")
+  elif [[ "${profile_wq_manager_prefix_provided}" == "true" \
+    && "${source_reusable}" == "false" ]]; then
+    source_cmd+=(--wq-manager-name "${profile_wq_manager_prefix}${block_id}-a${source_attempt_number}")
   fi
   append_guard_options source_cmd "${block_id}"
   source_cmd+=(--wq-log-dir "${native_wq_log_dir}")
