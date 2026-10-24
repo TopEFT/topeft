@@ -217,14 +217,57 @@ def test_manager_exact_override_remains_single_source(tmp_path, backend):
     assert all(unit["stages"]["source"]["status"] == "pending" for unit in state["units"][1:])
 
 
-def test_manager_prefix_rejects_exact_override_and_fresh_campaign(tmp_path, backend):
+def test_manager_prefix_rejects_exact_override(tmp_path, backend):
     mixed = launch(tmp_path, backend, "--resume", "--wq-manager-name", "exact-name",
                    "--wq-manager-prefix", "test-")
     assert mixed.returncode != 0
     assert "mutually exclusive" in mixed.stderr
-    fresh = launch(tmp_path, backend, "--wq-manager-prefix", "test-")
-    assert fresh.returncode != 0
-    assert "requires component resume" in fresh.stderr
+    assert not (tmp_path / "output").exists()
+
+
+@pytest.mark.parametrize(("profile", "prefix"), (
+    ("run2_prod_2los_1tau", "top26006-l12-tau5j-run2-c261024-001-"),
+    ("run3_prod_2los_1tau", "top26006-l12-tau5j-run3-c261024-001-"),
+))
+def test_manager_prefix_fresh_component_uses_initialized_state(tmp_path, backend, profile, prefix):
+    result = launch(tmp_path, backend, "--wq-manager-prefix", prefix, profile=profile)
+    assert result.returncode == 0, result.stdout + result.stderr
+    state = manifest.load_state(state_path(tmp_path, profile))
+    assert state["schema_version"] == 9
+    assert len(state["units"]) == 1
+    unit = state["units"][0]
+    source_attempts = unit["stages"]["source"]["attempts"]
+    assert [attempt["number"] for attempt in source_attempts] == [1]
+    command = source_attempts[0]["command_argv"]
+    assert command[command.index("--wq-manager-name") + 1] == f"{prefix}{unit['id']}-a1"
+
+
+def test_manager_prefix_fresh_collision_refuses_before_source(tmp_path, backend):
+    first = launch(tmp_path, backend, "--wq-manager-prefix", "fresh-",
+                   profile="run2_prod_2los_1tau")
+    assert first.returncode == 0, first.stdout + first.stderr
+    state_before = state_path(tmp_path, "run2_prod_2los_1tau").read_bytes()
+    second = launch(tmp_path, backend, "--wq-manager-prefix", "fresh-",
+                    profile="run2_prod_2los_1tau")
+    assert second.returncode != 0
+    assert "refusing overwrite" in second.stderr
+    assert "Running the following command:" not in second.stdout
+    assert state_path(tmp_path, "run2_prod_2los_1tau").read_bytes() == state_before
+
+
+def test_manager_prefix_combined_profile_still_rejected(tmp_path, backend):
+    result = launch(tmp_path, backend, "--wq-manager-prefix", "fresh-",
+                    profile="run2_run3_prod_2los_1tau")
+    assert result.returncode != 0
+    assert "requires one component campaign" in result.stderr
+    assert not (tmp_path / "output").exists()
+
+
+def test_manager_prefix_fresh_dry_run_requires_initialized_state(tmp_path, backend):
+    result = launch(tmp_path, backend, "--dry-run", "--wq-manager-prefix", "fresh-",
+                    profile="run2_prod_2los_1tau")
+    assert result.returncode != 0
+    assert "requires initialized campaign state" in result.stderr
     assert not (tmp_path / "output").exists()
 
 

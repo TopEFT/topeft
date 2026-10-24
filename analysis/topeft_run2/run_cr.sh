@@ -186,8 +186,12 @@ if [[ "${profile_wq_manager_name_provided}" == "true" \
   exit 1
 fi
 if [[ "${profile_wq_manager_prefix_provided}" == "true" ]]; then
-  if [[ "${profile_resume}" != "true" || ! "${profile_wq_manager_prefix}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-    echo "ERROR: --wq-manager-prefix requires component resume and a prefix of letters, digits, dots, underscores or hyphens." >&2
+  if [[ ! "${profile_wq_manager_prefix}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+    echo "ERROR: --wq-manager-prefix requires a prefix of letters, digits, dots, underscores or hyphens." >&2
+    exit 1
+  fi
+  if [[ "${profile_dry_run}" == "true" && "${profile_resume}" == "false" ]]; then
+    echo "ERROR: fresh --wq-manager-prefix requires initialized campaign state; --dry-run does not initialize state." >&2
     exit 1
   fi
 fi
