@@ -2,6 +2,7 @@
 
 import copy
 import json
+import sys
 from pathlib import Path
 
 import hist
@@ -356,6 +357,109 @@ def test_sr_extension_default_coverage_is_stable(tmp_path, profile):
     assert state["schema_version"] == 9
     assert len(state["units"]) == 12
     assert manifest.validate_state(state, verify_artifacts=False)
+
+
+def test_historical_sr_resume_binds_recorded_coverage_after_registry_change(tmp_path, monkeypatch):
+    profile = "run3_sr_ext"
+    units = [{"id": "historical", "years": ["2022"],
+              "category_groups": ["2los_1tau"], "histograms": ["b0pt"]}]
+    root = tmp_path / "campaign"
+    root.mkdir()
+    revision = manifest.make_revision(1, units)
+    specs = manifest.make_specs(units, profile, "synthetic", str(root), revision)
+    historical_coverage = manifest.partition_coverage(units, profile)
+    identity = {"production_profile": profile, "campaign_tag": "synthetic", "output_dir": str(root)}
+    provenance = {
+        "topeft_git_commit": "old", "environment_file": str(tmp_path / "env.tar.gz"),
+        "environment_file_sha256": "a" * 64, "environment_fingerprint": "b" * 64,
+        "environment_mode": "explicit_snapshot", "topcoffea_git_commit": "c" * 40,
+        "topcoffea_relevant_source_fingerprint": "d" * 64,
+    }
+    state = manifest.new_state(specs, historical_coverage, identity,
+                               manifest.profile_contract(profile), provenance)
+    state_path = root / f".{profile}_campaign_state_v9.json"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    channels = json.loads(manifest.CHANNELS_PATH.read_text(encoding="utf-8"))
+    historical_jet = channels["ALL_CH_LST_SR"]["2los_1tau"]["jet_lst"][0]
+    current_jet = ">42" if historical_jet != ">42" else ">43"
+    channels["ALL_CH_LST_SR"]["2los_1tau"]["jet_lst"] = [current_jet]
+    current_registry = tmp_path / "current_channels.json"
+    current_registry.write_text(json.dumps(channels), encoding="utf-8")
+    monkeypatch.setattr(manifest, "CHANNELS_PATH", current_registry)
+    assert manifest.partition_coverage(units, profile) != historical_coverage
+
+    # New plans still use the current registry; normal resume uses recorded state.
+    current_inputs = ["-", profile, "-", "synthetic", str(root), "new-commit",
+                      provenance["environment_file"], provenance["environment_file_sha256"],
+                      provenance["environment_fingerprint"], provenance["environment_mode"],
+                      provenance["topcoffea_git_commit"],
+                      provenance["topcoffea_relevant_source_fingerprint"],
+                      "split", "true", "true", "SR", "separate"]
+    assert manifest.desired_state_inputs(current_inputs)[-1] != historical_coverage
+    restored = manifest.load_state(state_path)
+    assert manifest.validate_resume(restored, identity, restored["profile_contract"],
+                                    provenance, historical_coverage)
+    monkeypatch.setattr(sys, "argv", ["campaign_manifest.py", "validate", str(state_path),
+                                      *current_inputs])
+    manifest.main()
+    active_plan = tmp_path / "active.tsv"
+    monkeypatch.setattr(sys, "argv", ["campaign_manifest.py", "render-active",
+                                      str(state_path), str(active_plan)])
+    manifest.main()
+    assert active_plan.read_text(encoding="utf-8") == manifest.plan_tsv(state["units"])
+    assert manifest.load_state(state_path)["units"][0]["coverage"] == specs[0]["coverage"]
+    assert f"|{historical_jet}|" in historical_coverage[0]
+    assert all(f"|{current_jet}|" not in row for row in historical_coverage)
+
+    with pytest.raises(ValueError, match="NEW_CAMPAIGN_REQUIRED"):
+        manifest.validate_resume(restored, identity, restored["profile_contract"],
+                                 dict(provenance, environment_file_sha256="f" * 64),
+                                 historical_coverage)
+    with pytest.raises(ValueError, match="frozen topcoffea source fingerprint differs"):
+        manifest.validate_resume(restored, identity, restored["profile_contract"],
+                                 dict(provenance, topcoffea_relevant_source_fingerprint="f" * 64),
+                                 historical_coverage)
+    with pytest.raises(ValueError, match="campaign identity or profile contract differs"):
+        manifest.validate_resume(restored, dict(identity, campaign_tag="different"),
+                                 restored["profile_contract"], provenance, historical_coverage)
+    with pytest.raises(ValueError, match="campaign identity or profile contract differs"):
+        manifest.validate_resume(restored, dict(identity, output_dir="/different"),
+                                 restored["profile_contract"], provenance, historical_coverage)
+    with pytest.raises(ValueError, match="campaign identity or profile contract differs"):
+        manifest.validate_resume(restored, identity,
+                                 dict(restored["profile_contract"], systematics=False),
+                                 provenance, historical_coverage)
+    supplied_plan = tmp_path / "replacement.json"
+    supplied_plan.write_text(json.dumps({"units": units}), encoding="utf-8")
+    with pytest.raises(ValueError, match="plan changes scientific coverage"):
+        manifest.activate_plan(restored, supplied_plan, revision)
+
+
+@pytest.mark.parametrize(("field", "expected"), (
+    ("unit_coverage", "plan changes scientific coverage"),
+    ("snapshot_coverage", "immutable plan revision snapshot changed"),
+    ("science_coverage", "scientific coverage digest changed"),
+    ("science_contract_coverage", "scientific contract coverage differs"),
+))
+def test_recorded_coverage_corruption_is_rejected(make_campaign, field, expected):
+    state = json.loads(json.dumps(make_campaign()))
+    if field == "unit_coverage":
+        state["units"][0]["coverage"].pop()
+        revision = state["plan"]["revisions"][0]
+        revision["units"][0]["coverage"].pop()
+        revision["snapshot_sha256"] = manifest.canonical_digest(revision["units"])
+    elif field == "snapshot_coverage":
+        state["plan"]["revisions"][0]["units"][0]["coverage"].pop()
+    elif field == "science_coverage":
+        state["scientific_identity"]["scientific_coverage"].pop()
+    else:
+        state["scientific_identity"]["scientific_contract_payload"][
+            "approved_scientific_coverage_sha256"] = "f" * 64
+        state["scientific_identity"]["scientific_contract_sha256"] = manifest.canonical_digest(
+            state["scientific_identity"]["scientific_contract_payload"])
+    with pytest.raises(ValueError, match=expected):
+        manifest.validate_state(state, verify_artifacts=False)
 
 
 def test_plan_revision_repartitions_only_pending_science(make_campaign, tmp_path):

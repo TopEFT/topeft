@@ -242,6 +242,48 @@ def verify_partition(units, profile, approved_coverage):
     return observed
 
 
+def verify_recorded_partition(specs, profile, approved_coverage):
+    """Check frozen schema-9 coverage without consulting the host channel registry."""
+    if (not isinstance(approved_coverage, list) or not approved_coverage
+            or any(not isinstance(row, str) or not row for row in approved_coverage)
+            or approved_coverage != sorted(set(approved_coverage))):
+        fail("recorded scientific coverage is not a unique sorted list")
+    counts = Counter()
+    for spec in specs:
+        validate_unit(spec, profile)
+        rows = spec.get("coverage")
+        if (not isinstance(rows, list) or not rows
+                or any(not isinstance(row, str) or not row for row in rows)
+                or rows != sorted(set(rows))):
+            fail(f"{spec['id']} recorded coverage is invalid")
+        years = set(expanded_years(spec["years"]))
+        groups = set(spec["category_groups"])
+        variables = set(spec["histograms"])
+        for row in rows:
+            fields = row.split("|")
+            if profile.endswith("_sr_ext"):
+                if (len(fields) != 5 or not fields[2] or not fields[3]
+                        or not sr_applicable((fields[1], fields[2], fields[3]), fields[4])):
+                    fail(f"{spec['id']} recorded SR coverage row is invalid")
+                year, group, variable = fields[0], fields[1], fields[4]
+            else:
+                if len(fields) != 3:
+                    fail(f"{spec['id']} recorded coverage row is invalid")
+                year, group, variable = fields
+            if year not in years or group not in groups or variable not in variables:
+                fail(f"{spec['id']} recorded coverage contradicts its unit")
+            counts[row] += 1
+    duplicate = sorted(row for row, count in counts.items() if count != 1)
+    if duplicate:
+        fail(f"plan overlaps scientific coverage: {duplicate[:3]}")
+    observed = sorted(counts)
+    if observed != approved_coverage:
+        missing = sorted(set(approved_coverage) - set(observed))
+        added = sorted(set(observed) - set(approved_coverage))
+        fail(f"plan changes scientific coverage: missing={missing[:3]} added={added[:3]}")
+    return observed
+
+
 def read_default_tsv(path, profile):
     units = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
@@ -622,6 +664,13 @@ def validate_state(state, *, verify_artifacts=True):
         fail("NEW_CAMPAIGN_REQUIRED: campaign provenance differs from its frozen tarball")
     if science["scientific_coverage_sha256"] != canonical_digest(science["scientific_coverage"]):
         fail("scientific coverage digest changed")
+    if (not isinstance(science["scientific_contract_payload"], dict)
+            or science["scientific_contract_payload"].get("approved_scientific_coverage_sha256")
+            != science["scientific_coverage_sha256"]):
+        fail("scientific contract coverage differs from recorded coverage")
+    if science["scientific_contract_payload"].get("campaign_science_contract") != {
+            key: value for key, value in state["profile_contract"].items() if key != "stages"}:
+        fail("scientific contract profile differs from recorded profile")
     plan = state.get("plan")
     units = state.get("units")
     if not isinstance(plan, dict) or not isinstance(units, list) or not units:
@@ -641,7 +690,7 @@ def validate_state(state, *, verify_artifacts=True):
         ]
         if revision.get("partition_sha256") != plan_partition_sha256(snapshot_units):
             fail("plan revision partition digest changed")
-        verify_partition(snapshot_units, profile, science["scientific_coverage"])
+        verify_recorded_partition(snapshot, profile, science["scientific_coverage"])
         validate_output_namespace(snapshot)
     if plan.get("active_revision") != revisions[-1]["id"]:
         fail("active plan revision is inconsistent")
@@ -653,11 +702,11 @@ def validate_state(state, *, verify_artifacts=True):
     plan_units = [{key: unit[key] for key in ("id", "years", "category_groups", "histograms")} for unit in units]
     if plan.get("plan_partition_sha256") != plan_partition_sha256(plan_units):
         fail("active plan partition digest changed")
-    verify_partition(plan_units, profile, science["scientific_coverage"])
+    verify_recorded_partition(units, profile, science["scientific_coverage"])
     validate_output_namespace(units)
     revision_ids = {item["id"] for item in revisions}
     for unit in units:
-        if unit["plan_revision"] not in revision_ids or unit["coverage"] != sorted(unit_coverage(unit, profile)):
+        if unit["plan_revision"] not in revision_ids:
             fail(f"{unit['id']} coverage or revision changed")
         if not isinstance(unit.get("transitions"), list) or not unit["transitions"]:
             fail(f"{unit['id']} transition history missing")
@@ -692,7 +741,7 @@ def load_state(path, *, verify_artifacts=True):
     return validate_state(state, verify_artifacts=verify_artifacts)
 
 
-def desired_state_inputs(arguments):
+def desired_state_inputs(arguments, *, approved_coverage=None):
     if len(arguments) < 17:
         fail("campaign initializer lacks required profile and provenance fields")
     (
@@ -718,7 +767,8 @@ def desired_state_inputs(arguments):
         "topcoffea_git_commit": topcoffea_commit,
         "topcoffea_relevant_source_fingerprint": topcoffea_source,
     }
-    approved = partition_coverage(default_units(profile, default_plan), profile)
+    approved = (partition_coverage(default_units(profile, default_plan), profile)
+                if approved_coverage is None else approved_coverage)
     return rendered_plan, identity, contract, provenance, approved
 
 
@@ -737,6 +787,9 @@ def validate_resume(state, identity, contract, provenance, approved):
         fail("scientific_contract_incompatible")
     if provenance["environment_file_sha256"] != recorded["source_stage_scientific_contract"]["frozen_environment_tarball_sha256"]:
         fail("NEW_CAMPAIGN_REQUIRED: frozen environment tarball differs")
+    if (provenance["topcoffea_relevant_source_fingerprint"]
+            != state["provenance"]["initial"]["topcoffea_relevant_source_fingerprint"]):
+        fail("NEW_CAMPAIGN_REQUIRED: frozen topcoffea source fingerprint differs")
     if current["source_stage_scientific_contract_sha256"] != recorded["source_stage_scientific_contract_sha256"]:
         fail("source_scientific_contract_incompatible")
     if current["data_driven_stage_scientific_contract_sha256"] != recorded["data_driven_stage_scientific_contract_sha256"]:
@@ -1619,8 +1672,10 @@ def main():
             atomic_json(state_path, state)
             return
         if action == "validate":
-            rendered, identity, contract, provenance, approved = desired_state_inputs(values[1:])
             state = load_state(values[0])
+            rendered, identity, contract, provenance, approved = desired_state_inputs(
+                values[1:], approved_coverage=state["scientific_identity"]["scientific_coverage"]
+            )
             validate_resume(state, identity, contract, provenance, approved)
             return
         if action == "reconcile":
