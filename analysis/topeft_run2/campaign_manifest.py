@@ -23,7 +23,7 @@ REPOSITORY_ROOT = RUN_DIRECTORY.parents[1]
 CHANNELS_PATH = REPOSITORY_ROOT / "topeft/channels/ch_lst.json"
 DEFAULT_SR_PLAN = RUN_DIRECTORY / "sr_reco_default_plan.json"
 UNIT_ID_PATTERN = re.compile(r"[a-z][a-z0-9_]*\Z")
-PROFILE_PATTERN = re.compile(r"(run2|run3)_(prod|stat_diagnostic|sr_ext)(_CR)?\Z")
+PROFILE_PATTERN = re.compile(r"(run2|run3)_(prod_2los_1tau|prod|stat_diagnostic|sr_ext)(_CR)?\Z")
 RUN2_YEARS = ("2016APV", "2016", "2017", "2018")
 RUN3_YEARS = ("2022", "2022EE", "2023", "2023BPix")
 DATA_DRIVEN_SCIENTIFIC_PATHS = (
@@ -122,7 +122,7 @@ def campaign_lock(state_path):
 def profile_contract(profile, *, region=None, mode=None, run_scope=None,
                      do_systs=None, do_np=None, ttgamma_policy="split"):
     match = PROFILE_PATTERN.fullmatch(profile)
-    if match is None or (match.group(2) == "sr_ext" and match.group(3)):
+    if match is None or (match.group(2) in {"sr_ext", "prod_2los_1tau"} and match.group(3)):
         fail(f"unsupported component profile: {profile}")
     expected_scope, expected_mode, suffix = match.groups()
     expected_region = "CR" if suffix else "SR"

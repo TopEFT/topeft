@@ -219,6 +219,62 @@ def test_combined_child_failure_retains_run2_evidence_and_runs_run3(tmp_path, ba
     assert (tmp_path / "output" / "campaign_summary.tsv").is_file()
 
 
+@pytest.mark.parametrize(("profile", "expected_years"), (
+    ("run2_prod_2los_1tau", {"2016", "2016APV", "2017", "2018"}),
+    ("run3_prod_2los_1tau", {"2022", "2022EE", "2023", "2023BPix"}),
+))
+def test_restricted_tau_component_preserves_production_contract(
+    tmp_path, backend, profile, expected_years
+):
+    result = launch(tmp_path, backend, profile=profile)
+    assert result.returncode == 0, result.stdout + result.stderr
+    state = manifest.load_state(state_path(tmp_path, profile))
+    assert len(state["units"]) == 1
+    unit = state["units"][0]
+    assert unit["category_groups"] == ["2los_1tau"]
+    assert unit["histograms"] == ["njets", "lj0pt", "ptz"]
+    assert set(manifest.expanded_years(unit["years"])) == expected_years
+    assert set(state["scientific_identity"]["scientific_coverage"]) == {
+        f"{year}|2los_1tau|{variable}"
+        for year in expected_years
+        for variable in ("njets", "lj0pt", "ptz")
+    }
+    policy = state["profile_contract"]
+    assert policy["systematics"] is True
+    assert policy["sumw2_policy"] == "implicit_production"
+    assert policy["data_driven_policy"] == "nonprompt_charge_flip"
+    assert policy["stages"] == ["source", "data_driven"]
+    assert set(unit["stages"]) == {"source", "data_driven"}
+    assert manifest.overall_status(unit) == "success"
+    assert "split_lep_flavor: false" in result.stdout
+
+
+def test_combined_restricted_tau_profile_reuses_component_states(tmp_path, backend):
+    result = launch(tmp_path, backend, profile="run2_run3_prod_2los_1tau")
+    assert result.returncode == 0, result.stdout + result.stderr
+    output = tmp_path / "output"
+    for run_scope in ("run2", "run3"):
+        profile = f"{run_scope}_prod_2los_1tau"
+        state = manifest.load_state(
+            output / run_scope / f".{profile}_campaign_state_v9.json"
+        )
+        assert state["campaign_identity"]["production_profile"] == profile
+        assert len(state["units"]) == 1
+        assert state["units"][0]["category_groups"] == ["2los_1tau"]
+        assert state["units"][0]["histograms"] == ["njets", "lj0pt", "ptz"]
+        assert manifest.overall_status(state["units"][0]) == "success"
+    assert (output / "campaign_summary.tsv").is_file()
+
+
+@pytest.mark.parametrize("profile", (
+    "run2_prod_2los_1tau_CR",
+    "run3_prod_2los_1tau_CR",
+))
+def test_restricted_tau_component_rejects_cr_alias(profile):
+    with pytest.raises(ValueError, match="unsupported component profile"):
+        manifest.profile_contract(profile)
+
+
 def test_symlinked_campaign_lock_is_rejected(tmp_path, backend):
     output = tmp_path / "output"
     output.mkdir()

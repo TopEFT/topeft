@@ -14,12 +14,14 @@ Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag
 
 Component profiles:
   run2_prod, run3_prod, run2_prod_CR, run3_prod_CR
+  run2_prod_2los_1tau, run3_prod_2los_1tau
   run2_stat_diagnostic, run3_stat_diagnostic
   run2_stat_diagnostic_CR, run3_stat_diagnostic_CR
   run2_sr_ext, run3_sr_ext
 
 Combined profiles:
   run2_run3_prod, run2_run3_prod_CR
+  run2_run3_prod_2los_1tau
   run2_run3_stat_diagnostic, run2_run3_stat_diagnostic_CR
 
 Combined profiles orchestrate separate Run 2 and Run 3 component states.
@@ -167,18 +169,22 @@ if [[ -z "${production_profile}" ]]; then
   exit 1
 fi
 
-if [[ "${production_profile}" =~ ^run2_run3_(prod|stat_diagnostic)(_CR)?$ ]]; then
+if [[ "${production_profile}" =~ ^run2_run3_(prod_2los_1tau|prod|stat_diagnostic)(_CR)?$ ]]; then
   combined_profile=true
   profile_mode="${BASH_REMATCH[1]}"
   profile_region="SR"
   [[ -z "${BASH_REMATCH[2]}" ]] || profile_region="CR"
-elif [[ "${production_profile}" =~ ^(run2|run3)_(prod|stat_diagnostic|sr_ext)(_CR)?$ ]]; then
+  if [[ "${profile_mode}" == "prod_2los_1tau" && "${profile_region}" == "CR" ]]; then
+    echo "ERROR: unsupported production profile '${production_profile}'." >&2
+    exit 1
+  fi
+elif [[ "${production_profile}" =~ ^(run2|run3)_(prod_2los_1tau|prod|stat_diagnostic|sr_ext)(_CR)?$ ]]; then
   combined_profile=false
   profile_run_scope="${BASH_REMATCH[1]}"
   profile_mode="${BASH_REMATCH[2]}"
   profile_region="SR"
   [[ -z "${BASH_REMATCH[3]}" ]] || profile_region="CR"
-  if [[ "${profile_mode}" == "sr_ext" && "${profile_region}" == "CR" ]]; then
+  if [[ ( "${profile_mode}" == "sr_ext" || "${profile_mode}" == "prod_2los_1tau" ) && "${profile_region}" == "CR" ]]; then
     echo "ERROR: unsupported production profile '${production_profile}'." >&2
     exit 1
   fi
@@ -509,6 +515,10 @@ sr_fwd_var_sets=(
   "njets lj0pt ptz lt"
 )
 
+sr_tau5j_var_sets=(
+  "njets lj0pt ptz"
+)
+
 # The complete Run-3 plan keeps the two off-Z charge families in separate
 # source blocks so failures and output identities remain unambiguous.
 sr_category_sets=(
@@ -526,6 +536,11 @@ sr_category_var_set_names=(
   "sr_onz_tau_var_sets"
   "sr_fwd_var_sets"
 )
+
+if [[ "${profile_mode}" == "prod_2los_1tau" ]]; then
+  sr_category_sets=("2los_1tau")
+  sr_category_var_set_names=("sr_tau5j_var_sets")
+fi
 
 sr_year_sets=()
 sr_year_category_set_names=()
@@ -834,7 +849,9 @@ production_block_id() {
 production_assert_live_plan() {
   local expected_count
   [[ "${profile_mode}" != "sr_ext" ]] || return 0
-  if [[ "${profile_region}" == "SR" ]]; then
+  if [[ "${profile_mode}" == "prod_2los_1tau" ]]; then
+    expected_count=1
+  elif [[ "${profile_region}" == "SR" ]]; then
     expected_count=5
   elif [[ "${profile_run_scope}" == "run2" ]]; then
     expected_count=6

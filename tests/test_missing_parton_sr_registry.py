@@ -88,6 +88,26 @@ def test_processor_uses_the_canonical_sr_token_parser():
     assert analysis_processor.parse_analysis_njet_token is parse_analysis_njet_token
 
 
+def test_tau_5j_registry_preserves_dense_njets_and_binned_channel_identity():
+    from analysis.topeft_run2.analysis_processor import AnalysisProcessor
+
+    config = json.loads(CHANNEL_CONFIG_PATH.read_text(encoding="utf-8"))
+    for registry in ("TAU_CH_LST_SR", "ALL_CH_LST_SR"):
+        assert config[registry]["2los_1tau"]["jet_lst"] == [">5"]
+    assert parse_analysis_njet_token(">5") == ("atleast", 5, "_5j")
+    selected = {"2los_1tau": config["ALL_CH_LST_SR"]["2los_1tau"]}
+    applicability = AnalysisProcessor.build_histogram_applicability(
+        analysis_mode="all",
+        runtime_families=("njets", "lj0pt", "ptz"),
+        selected_category_dicts=(selected,),
+        selected_category_regions=("SR",),
+    )
+    families = applicability["families"]
+    assert set(families["njets"]["channels"]) == {"2los_onZ_1tau"}
+    for family in ("lj0pt", "ptz"):
+        assert set(families[family]["channels"]) == {"2los_onZ_1tau_5j"}
+
+
 def test_analysis_parser_preserves_atmost_support_outside_sr_registries():
     assert parse_analysis_njet_token("<4") == ("atmost", 4, "_4j")
     with pytest.raises(ValueError, match="expected an exact '=N' or inclusive '>N'"):
@@ -96,7 +116,7 @@ def test_analysis_parser_preserves_atmost_support_outside_sr_registries():
 
 def test_every_registry_token_has_processor_equivalent_boolean_semantics():
     tokens = _registry_tokens()
-    assert {">3", ">4", ">5", ">6", ">7"} <= tokens
+    assert {">4", ">5", ">6", ">7"} <= tokens
 
     for token in tokens | {">1"}:
         mode, threshold, suffix = parse_sr_njet_token(token)
