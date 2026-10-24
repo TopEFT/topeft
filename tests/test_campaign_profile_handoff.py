@@ -418,7 +418,7 @@ def test_staging_guard_warns_and_keeps_running_after_telemetry_failures(
     real_scandir = staging_guard.os.scandir
     monkeypatch.setattr(staging_guard.os, "scandir", lambda current: no_tree_scan()
                         if os.fspath(current) == str(path) else real_scandir(current))
-    measurements = iter((measurement_error, (20000000000, 0), (20000000000, 2000)))
+    measurements = iter((measurement_error, (20000000000, 0), (40000000000, 2000)))
     def measure(*_):
         value = next(measurements)
         if isinstance(value, Exception):
@@ -440,10 +440,98 @@ def test_staging_guard_warns_and_keeps_running_after_telemetry_failures(
     assert degraded.value
     output = capsys.readouterr().out
     assert error_text in output
-    assert "available_bytes=20000000000 free_inodes=0" in output
-    assert "available_bytes=20000000000" in output
+    assert output.count("WARNING: Work Queue staging free space or inodes are low") == 1
+    assert "available=20.000 GB free_inodes=0" in output
+    assert "RECOVERY: Work Queue staging free space and inodes recovered; " \
+           "available=40.000 GB free_inodes=2000" in output
     assert "measurement_failed" not in output
     assert json.loads(marker.read_text())["status"] == "running"
+
+
+def test_staging_guard_emits_only_health_state_transitions(
+    tmp_path, monkeypatch, capsys
+):
+    path = tmp_path / "owned"
+    path.mkdir()
+    pid = os.getpid()
+    monkeypatch.setattr(staging_guard.os, "getppid", lambda: pid)
+    start = staging_guard._process_start(pid)
+    marker = path / "guard.json"
+    marker.write_text(json.dumps({"status": "running", "path": str(path),
+                                  "owner_uid": os.getuid(), "owner_pid": pid,
+                                  "owner_start": start, "owner_inode": path.stat().st_ino}))
+    measurements = iter((
+        (40000000000, 2000),
+        (40000000000, 2000),
+        (29000000000, 2000),
+        (29000000000, 2000),
+        (40000000000, 2000),
+        (40000000000, 2000),
+        (29000000000, 2000),
+        (10000000000, 2000),
+        (10000000000, 2000),
+    ))
+    monkeypatch.setattr(staging_guard, "_space", lambda *_: next(measurements))
+    signalled = []
+    monkeypatch.setattr(staging_guard.os, "kill",
+                        lambda target, sig: signalled.append((target, sig)))
+
+    class stop_event:
+        polls = 0
+        def is_set(self):
+            return self.polls >= 9
+        def wait(self, _):
+            self.polls += 1
+            return self.is_set()
+
+    staging_guard._watch(path, tmp_path, "/groups/klannon", pid, start,
+                         30000000000, 10000000000, 1, stop_event(),
+                         path.stat().st_ino, marker.stat().st_ino)
+    output = capsys.readouterr().out
+    assert output.splitlines() == [
+        "WARNING: Work Queue staging free space or inodes are low; "
+        "available=29.000 GB free_inodes=2000; manager remains running",
+        "RECOVERY: Work Queue staging free space and inodes recovered; "
+        "available=40.000 GB free_inodes=2000",
+        "WARNING: Work Queue staging free space or inodes are low; "
+        "available=29.000 GB free_inodes=2000; manager remains running",
+        "CRITICAL: Work Queue staging effective available space 10.000 GB "
+        "is at or below 10.000 GB; verifying manager identity before SIGTERM",
+    ]
+    assert signalled == [(pid, staging_guard.signal.SIGTERM)]
+
+
+def test_staging_guard_uses_decimal_gb_and_keeps_inode_count_exact(
+    tmp_path, monkeypatch, capsys
+):
+    path = tmp_path / "owned"
+    path.mkdir()
+    pid = os.getpid()
+    monkeypatch.setattr(staging_guard.os, "getppid", lambda: pid)
+    start = staging_guard._process_start(pid)
+    marker = path / "guard.json"
+    marker.write_text(json.dumps({"status": "running", "path": str(path),
+                                  "owner_uid": os.getuid(), "owner_pid": pid,
+                                  "owner_start": start, "owner_inode": path.stat().st_ino}))
+    measurements = iter(((30000000000, 999), (30000000000, 999)))
+    monkeypatch.setattr(staging_guard, "_space", lambda *_: next(measurements))
+
+    class stop_event:
+        polls = 0
+        def is_set(self):
+            return self.polls >= 2
+        def wait(self, _):
+            self.polls += 1
+            return self.is_set()
+
+    staging_guard._watch(path, tmp_path, "/groups/klannon", pid, start,
+                         30000000000, 10000000000, 1, stop_event(),
+                         path.stat().st_ino, marker.stat().st_ino)
+    output = capsys.readouterr().out
+    assert output.splitlines() == [
+        "WARNING: Work Queue staging free space or inodes are low; "
+        "available=30.000 GB free_inodes=999; manager remains running",
+    ]
 
 
 @pytest.mark.parametrize(("available_bytes", "should_signal"), (
@@ -488,10 +576,15 @@ def test_staging_guard_signals_only_at_or_below_critical_free_space(
         assert metadata["critical_free_space"]["min_free_bytes"] == 10000000000
         assert metadata["critical_free_space"]["observed_at"]
         assert metadata["critical_free_space"]["observed_at_unix_ns"] > 0
-        assert "requesting SIGTERM for verified manager pid" in capsys.readouterr().out
+        output = capsys.readouterr().out
+        assert output.count("CRITICAL:") == 1
+        assert "30.000 GB" not in output
+        assert "10.000 GB" in output
+        assert "SIGTERM" in output
     else:
         assert "reason" not in metadata
-        capsys.readouterr()
+        output = capsys.readouterr().out
+        assert output.count("WARNING:") == 1
 
 
 def test_staging_guard_does_not_signal_when_critical_marker_logging_fails(

@@ -153,12 +153,19 @@ def _critical_signal_identity(path, marker, owner_pid, owner_start,
     return True
 
 
+def _format_decimal_gb(byte_count):
+    whole_gb, remaining_bytes = divmod(byte_count, 1_000_000_000)
+    fractional_milli_gb = remaining_bytes // 1_000_000
+    return f"{whole_gb}.{fractional_milli_gb:03d} GB"
+
+
 def _watch(path, base, quota_root, owner_pid, owner_start, warning_bytes,
            min_free_bytes,
            poll_seconds, stop_event, owner_inode,
            marker_inode, telemetry_degraded=None, shutdown_ack=None):
     marker = Path(path) / "guard.json"
     critical_signal_sent = False
+    last_health_state = None
     while not stop_event.is_set():
         if os.getppid() != owner_pid:
             raise staging_guard_error("manager parent exited during monitoring")
@@ -197,11 +204,37 @@ def _watch(path, base, quota_root, owner_pid, owner_start, warning_bytes,
                   flush=True)
         if measurement is not None:
             available_bytes, free_inodes = measurement
-            print(f"Work Queue staging health: available_bytes={available_bytes} "
-                  f"free_inodes={free_inodes}", flush=True)
-            if available_bytes < warning_bytes or free_inodes < 1000:
-                print("WARNING: Work Queue staging free space or inodes are low; "
-                      "manager remains running", flush=True)
+            if available_bytes <= min_free_bytes:
+                health_state = "critical"
+            elif available_bytes < warning_bytes or free_inodes < 1000:
+                health_state = "warning"
+            else:
+                health_state = "healthy"
+
+            if health_state == "critical" and last_health_state != "critical":
+                print(
+                    "CRITICAL: Work Queue staging effective available space "
+                    f"{_format_decimal_gb(available_bytes)} is at or below "
+                    f"{_format_decimal_gb(min_free_bytes)}; verifying manager "
+                    "identity before SIGTERM",
+                    flush=True,
+                )
+            elif health_state == "warning" and last_health_state != "warning":
+                print(
+                    "WARNING: Work Queue staging free space or inodes are low; "
+                    f"available={_format_decimal_gb(available_bytes)} "
+                    f"free_inodes={free_inodes}; manager remains running",
+                    flush=True,
+                )
+            elif health_state == "healthy" and last_health_state == "warning":
+                print(
+                    "RECOVERY: Work Queue staging free space and inodes recovered; "
+                    f"available={_format_decimal_gb(available_bytes)} "
+                    f"free_inodes={free_inodes}",
+                    flush=True,
+                )
+            last_health_state = health_state
+
             if available_bytes <= min_free_bytes and not critical_signal_sent:
                 try:
                     safe_identity = current_identity_verified
@@ -236,13 +269,6 @@ def _watch(path, base, quota_root, owner_pid, owner_start, warning_bytes,
                             marker_file.write("\n")
                             marker_file.flush()
                             os.fsync(marker_file.fileno())
-                        print(
-                            "CRITICAL: Work Queue staging effective available space "
-                            f"{available_bytes} bytes is at or below {min_free_bytes}; "
-                            f"requesting SIGTERM for verified manager pid {owner_pid} "
-                            f"at {observed_at}",
-                            flush=True,
-                        )
                         safe_identity = _critical_signal_identity(
                             path, marker, owner_pid, owner_start, owner_inode,
                             marker_inode, telemetry_degraded)
