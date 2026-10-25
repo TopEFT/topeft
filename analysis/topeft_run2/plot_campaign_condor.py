@@ -19,6 +19,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 from typing import Optional
 
 
@@ -265,6 +266,202 @@ def prepare(manifest_path: Path, destination: Path, output_root: Path, *,
             "expected_figures": sum(unit["expected_figures"] for unit in units),
             "manifest_sha256": manifest_sha256, "submit_file": str(submit),
             "submitted": False}
+
+
+_monitor_ads = (
+    "ClusterId", "ProcId", "JobStatus", "NumJobStarts", "RequestCpus",
+    "RequestMemory", "RequestDisk", "RemoteHost", "LastRemoteHost",
+    "RemoteWallClockTime", "MemoryUsage", "ResidentSetSize", "ExitCode",
+    "ExitBySignal", "ExitSignal", "HoldReason", "RemoveReason",
+)
+_monitor_states = {1: "IDLE", 2: "RUNNING", 3: "REMOVED", 4: "COMPLETED",
+                   5: "HELD", 6: "TRANSFERRING", 7: "SUSPENDED"}
+_monitor_counts = ("idle", "running", "held", "transferring", "suspended",
+                   "resolved_terminal", "unknown")
+
+
+def _monitor_units(diagnostics_dir: Path) -> tuple[list[dict], Path, int]:
+    """Bind submitted jobs to intact prepare descriptors before querying Condor."""
+    mapping = json.loads((diagnostics_dir / "campaign_submission_map.json").read_text(
+        encoding="utf-8"))
+    entries = mapping.get("units")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("Missing campaign submission units")
+    units = []
+    seen_units, seen_jobs, seen_rows = set(), set(), set()
+    output_roots, campaign_ids, campaign_manifests = set(), set(), set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError("Malformed campaign submission unit")
+        unit_id = entry.get("unit_id")
+        job = entry.get("scheduler_id")
+        if (not isinstance(unit_id, str) or not _safe_name.fullmatch(unit_id)
+                or not isinstance(job, str) or not re.fullmatch(r"[0-9]+\.[0-9]+", job)
+                or unit_id in seen_units or job in seen_jobs):
+            raise ValueError("Malformed or duplicate unit/job identity")
+        seen_units.add(unit_id)
+        seen_jobs.add(job)
+        descriptor_path = Path(entry.get("descriptor_path", ""))
+        if (descriptor_path != diagnostics_dir / "dispatch" / unit_id / "units" / (unit_id + ".json")
+                or descriptor_path.is_symlink()):
+            raise ValueError("Descriptor path disagrees with campaign dispatch")
+        if _sha256(descriptor_path) != entry.get("descriptor_sha256"):
+            raise ValueError("Descriptor digest disagrees with campaign mapping")
+        descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+        row_ids = descriptor.get("row_ids")
+        if (descriptor.get("schema") != "plot_campaign_unit_v1"
+                or descriptor.get("unit_id") != unit_id
+                or descriptor.get("principal_pkl") != entry.get("principal_pkl_path")
+                or descriptor.get("output_root") != entry.get("output_root")
+                or not isinstance(descriptor.get("campaign_manifest"), str)
+                or not descriptor["campaign_manifest"]
+                or descriptor.get("expected_figures") != entry.get("slots")
+                or not isinstance(row_ids, list) or not row_ids
+                or len(row_ids) != entry.get("rows")
+                or len(set(row_ids)) != len(row_ids)
+                or seen_rows.intersection(row_ids)
+                or not isinstance(descriptor.get("workers"), int)
+                or descriptor["workers"] < 1
+                or not isinstance(entry.get("profile"), str)
+                or not entry["profile"]
+                or not isinstance(entry.get("request_cpus"), int)
+                or entry["request_cpus"] < descriptor["workers"]
+                or any(not isinstance(entry.get(key), int) or entry[key] < 1
+                       for key in ("request_memory_mb", "request_disk_mb", "slots"))):
+            raise ValueError("Campaign mapping and descriptor disagree")
+        seen_rows.update(row_ids)
+        output_roots.add(descriptor["output_root"])
+        campaign_ids.add(descriptor.get("campaign_id"))
+        campaign_manifests.add(descriptor.get("campaign_manifest"))
+        units.append({"unit_id": unit_id, "job": job, "profile": entry["profile"],
+                      "workers": descriptor["workers"], "request_cpus": entry["request_cpus"],
+                      "request_memory_mb": entry.get("request_memory_mb"),
+                      "request_disk_mb": entry.get("request_disk_mb")})
+    if len(output_roots) != 1 or len(campaign_ids) != 1 or len(campaign_manifests) != 1:
+        raise ValueError("Inconsistent campaign/output identity")
+    output_root = Path(next(iter(output_roots)))
+    if (not output_root.is_absolute() or output_root.name != next(iter(campaign_ids))
+            or not _safe_path.fullmatch(str(output_root))):
+        raise ValueError("Invalid campaign output identity")
+    planned_slots = sum(entry["slots"] for entry in entries)
+    if (mapping.get("planned_units") != len(units)
+            or mapping.get("planned_rows") != sum(entry["rows"] for entry in entries)
+            or mapping.get("planned_slots") != planned_slots):
+        raise ValueError("Campaign totals disagree with descriptors")
+    return units, output_root, planned_slots
+
+
+def _query_monitor_job(job: str, command: str) -> Optional[dict]:
+    result = subprocess.run([command, job, "-json", "-attributes",
+                             ",".join(_monitor_ads)], capture_output=True, text=True,
+                            check=False)
+    if result.returncode:
+        raise RuntimeError(f"{command} failed for {job}: {result.stderr.strip()}")
+    ads = json.loads(result.stdout)
+    if not isinstance(ads, list) or len(ads) > 1:
+        raise ValueError(f"Ambiguous {command} response for {job}")
+    if not ads:
+        return None
+    ad = ads[0]
+    if not isinstance(ad, dict) or f"{ad.get('ClusterId')}.{ad.get('ProcId')}" != job:
+        raise ValueError(f"{command} returned another scheduler identity for {job}")
+    return {key: ad.get(key) for key in _monitor_ads}
+
+
+def _monitor_progress(output_root: Path) -> dict:
+    progress = {"png_count": 0, "receipt_v2_count": 0, "json_count": 0,
+                "size_bytes": 0, "available_bytes": None, "complete_scan": True,
+                "label": "informational_only_not_receipt_or_scientific_closure"}
+    if output_root.exists():
+        scanned = 0
+        for directory, names, filenames in os.walk(output_root, followlinks=False):
+            names[:] = [name for name in names if not (Path(directory) / name).is_symlink()]
+            for filename in filenames:
+                scanned += 1
+                if scanned > 100000:
+                    progress["complete_scan"] = False
+                    break
+                path = Path(directory) / filename
+                if path.is_symlink() or not path.is_file():
+                    continue
+                suffix = path.suffix.lower()
+                progress["png_count"] += suffix == ".png"
+                progress["json_count"] += suffix == ".json"
+                progress["receipt_v2_count"] += (suffix == ".json" and "receipt" in filename)
+                progress["size_bytes"] += path.stat().st_size
+            if not progress["complete_scan"]:
+                break
+    capacity_path = output_root
+    while not capacity_path.exists() and capacity_path != capacity_path.parent:
+        capacity_path = capacity_path.parent
+    capacity = os.statvfs(capacity_path)
+    progress["available_bytes"] = capacity.f_bavail * capacity.f_frsize
+    return progress
+
+
+def observe_monitor(diagnostics_dir: Path) -> dict:
+    units, output_root, planned_slots = _monitor_units(diagnostics_dir)
+    counts = dict.fromkeys(_monitor_counts, 0)
+    observed = []
+    attention = []
+    for unit in units:
+        ad = _query_monitor_job(unit["job"], "condor_q")
+        source = "queue"
+        if ad is None:
+            ad = _query_monitor_job(unit["job"], "condor_history")
+            source = "history" if ad is not None else "unresolved"
+        state = _monitor_states.get(ad.get("JobStatus"), "UNKNOWN") if ad else "UNKNOWN"
+        category = ("resolved_terminal" if state in {"REMOVED", "COMPLETED"}
+                    else state.lower() if state.lower() in counts else "unknown")
+        counts[category] += 1
+        exit_code = ad.get("ExitCode") if ad else None
+        exit_signal = ad.get("ExitSignal") if ad else None
+        if state in {"HELD", "REMOVED", "UNKNOWN"} or (exit_code not in (None, 0)
+                or exit_signal is not None or (ad and ad.get("ExitBySignal") is True)):
+            attention.append(unit["unit_id"])
+        observed.append({**unit, "state": state, "source": source,
+                         "ads": ad, "exit_result": ("signal " + str(exit_signal)
+                            if exit_signal is not None else "signal unavailable"
+                            if ad and ad.get("ExitBySignal") is True else "exit " + str(exit_code)
+                            if exit_code is not None else None)})
+    if counts["unknown"]:
+        campaign_status = "MONITOR_INCOMPLETE_OR_UNRESOLVED"
+    elif counts["resolved_terminal"] == len(units):
+        campaign_status = "ALL_TERMINAL_READY_FOR_COLLECTION"
+    elif attention:
+        campaign_status = "ACTIVE_WITH_ATTENTION_REQUIRED"
+    else:
+        campaign_status = "ACTIVE_NO_IMMEDIATE_ATTENTION"
+    return {"observed_at": datetime.now(timezone.utc).isoformat(),
+            "diagnostics_dir": str(diagnostics_dir), "output_root": str(output_root),
+            "planned_slots": planned_slots, "units": observed, "counts": counts,
+            "attention_units": attention, "campaign_status": campaign_status,
+            "observation_success": True, "progress": _monitor_progress(output_root)}
+
+
+def _print_monitor(snapshot: dict, *, json_mode: bool) -> None:
+    if json_mode:
+        print(json.dumps(snapshot, sort_keys=True))
+        return
+    print(f"Campaign: {snapshot['output_root']}  Status: {snapshot['campaign_status']}")
+    print("UNIT JOB PROFILE/workers STATE STARTS CPU MEM_REQ MEM_USE HOST/EXIT")
+    for unit in snapshot["units"]:
+        ad = unit["ads"] or {}
+        show = lambda value: "-" if value is None else str(value)
+        host_or_exit = unit["exit_result"] or ad.get("RemoteHost") or ad.get("LastRemoteHost")
+        print(" ".join((unit["unit_id"], unit["job"],
+              f"{unit['profile']}/{unit['workers']}", unit["state"],
+              show(ad.get("NumJobStarts")), show(ad.get("RequestCpus") or unit["request_cpus"]),
+              show(ad.get("RequestMemory") or unit["request_memory_mb"]),
+              show(ad.get("MemoryUsage") or ad.get("ResidentSetSize")), show(host_or_exit))))
+        if unit["state"] in {"HELD", "REMOVED"}:
+            print("  reason:", show(ad.get("HoldReason") or ad.get("RemoveReason")))
+    print("Counts:", " ".join(f"{key}={value}" for key, value in snapshot["counts"].items()))
+    print("Attention units:", ", ".join(snapshot["attention_units"]) or "none")
+    print("Progress (informational only):", snapshot["progress"],
+          "planned_slots=", snapshot["planned_slots"])
+    print("Partial output counts are not receipt-v2 reconciliation, slot closure, visual or scientific acceptance.")
+    print("ALL_TERMINAL_READY_FOR_COLLECTION is a separate collection boundary, not campaign success.")
 
 
 def _selected_view(loaded: dict, report: dict, row: dict) -> tuple[dict, dict]:
@@ -521,7 +718,22 @@ def main() -> int:
     run_parser = subparsers.add_parser("run-unit")
     run_parser.add_argument("--descriptor", type=Path, required=True)
     run_parser.add_argument("--descriptor-sha256", required=True)
+    monitor_parser = subparsers.add_parser("monitor", help="Read-only campaign observation")
+    monitor_parser.add_argument("--diagnostics-dir", type=Path, required=True)
+    monitor_parser.add_argument("--json", action="store_true")
+    monitor_parser.add_argument("--watch", type=float, metavar="SECONDS")
     args = parser.parse_args()
+    if args.command == "monitor":
+        if args.watch is not None and args.watch <= 0:
+            parser.error("--watch requires a positive interval")
+        try:
+            while True:
+                _print_monitor(observe_monitor(args.diagnostics_dir), json_mode=args.json)
+                if args.watch is None:
+                    return 0
+                time.sleep(args.watch)
+        except KeyboardInterrupt:
+            return 0
     if args.command == "prepare":
         result = prepare(args.manifest, args.dispatch_dir, args.output_root,
                          request_cpus=args.request_cpus,

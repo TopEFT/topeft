@@ -2,6 +2,7 @@ import hashlib
 import inspect
 import json
 from pathlib import Path
+import subprocess
 
 import hist
 import awkward as ak
@@ -10,6 +11,116 @@ from PIL import Image
 
 from analysis.topeft_run2 import make_cr_and_sr_plots as plotter
 from analysis.topeft_run2 import plot_campaign_condor as campaign
+
+
+def _monitor_fixture(tmp_path, *, duplicate=False, wrong_root=False):
+    diagnostics = tmp_path / "diagnostics"
+    diagnostics.mkdir(parents=True)
+    entries = []
+    for index, workers in enumerate((1, 4), 1):
+        unit_id = f"unit_{index}"
+        descriptor_path = diagnostics / "dispatch" / unit_id / "units" / f"{unit_id}.json"
+        descriptor_path.parent.mkdir(parents=True)
+        output_root = tmp_path / ("other" if wrong_root and index == 2 else "campaign")
+        descriptor = {"schema": "plot_campaign_unit_v1", "unit_id": unit_id,
+                      "principal_pkl": f"/input/{unit_id}.pkl.gz", "campaign_id": output_root.name,
+                      "campaign_manifest": "/input/campaign.tsv", "output_root": str(output_root),
+                      "workers": workers,
+                      "expected_figures": 3, "row_ids": [unit_id]}
+        descriptor_path.write_bytes(campaign._json_bytes(descriptor))
+        entries.append({"unit_id": unit_id, "scheduler_id": "1.0" if duplicate else f"{index}.0",
+                        "profile": f"W{workers}", "request_cpus": workers,
+                        "request_memory_mb": 64000, "request_disk_mb": 10000,
+                        "descriptor_path": str(descriptor_path),
+                        "descriptor_sha256": campaign._sha256(descriptor_path),
+                        "principal_pkl_path": descriptor["principal_pkl"],
+                        "output_root": str(output_root), "rows": 1, "slots": 3})
+    (diagnostics / "campaign_submission_map.json").write_bytes(campaign._json_bytes({
+        "units": entries, "planned_units": 2, "planned_rows": 2, "planned_slots": 6}))
+    return diagnostics
+
+
+def test_monitor_queue_history_unknown_and_progress(tmp_path, monkeypatch, capsys):
+    diagnostics = _monitor_fixture(tmp_path)
+    output_root = tmp_path / "campaign"
+    output_root.mkdir()
+    (output_root / "partial.png").write_bytes(b"not opened")
+    (output_root / "receipt_v2.json").write_text("{}")
+    ads = {("condor_q", "1.0"): {"ClusterId": 1, "ProcId": 0, "JobStatus": 1,
+                                 "NumJobStarts": 2, "RequestCpus": 1},
+           ("condor_q", "2.0"): {"ClusterId": 2, "ProcId": 0, "JobStatus": 2,
+                                 "RequestCpus": 4}}
+    calls = []
+    def query(job, command):
+        calls.append((command, job))
+        return ads.get((command, job))
+    monkeypatch.setattr(campaign, "_query_monitor_job", query)
+    snapshot = campaign.observe_monitor(diagnostics)
+    assert snapshot["campaign_status"] == "ACTIVE_NO_IMMEDIATE_ATTENTION"
+    assert snapshot["counts"]["idle"] == snapshot["counts"]["running"] == 1
+    assert [(unit["profile"], unit["workers"]) for unit in snapshot["units"]] == [
+        ("W1", 1), ("W4", 4)]
+    assert snapshot["units"][0]["ads"]["NumJobStarts"] == 2
+    assert snapshot["progress"]["png_count"] == 1
+    assert snapshot["progress"]["label"].startswith("informational_only")
+    campaign._print_monitor(snapshot, json_mode=False)
+    human = capsys.readouterr().out
+    assert "ACTIVE_NO_IMMEDIATE_ATTENTION" in human
+    assert "idle=1 running=1" in human
+    campaign._print_monitor(snapshot, json_mode=True)
+    machine = json.loads(capsys.readouterr().out)
+    assert machine["counts"] == snapshot["counts"]
+    assert machine["campaign_status"] == snapshot["campaign_status"]
+    assert calls == [("condor_q", "1.0"), ("condor_q", "2.0")]
+
+    ads[("condor_q", "1.0")]["JobStatus"] = 5
+    ads[("condor_q", "1.0")]["HoldReason"] = "quota"
+    del ads[("condor_q", "2.0")]
+    ads[("condor_history", "2.0")] = {"ClusterId": 2, "ProcId": 0,
+                                       "JobStatus": 4, "ExitCode": 0}
+    snapshot = campaign.observe_monitor(diagnostics)
+    assert snapshot["campaign_status"] == "ACTIVE_WITH_ATTENTION_REQUIRED"
+    assert snapshot["attention_units"] == ["unit_1"]
+    assert snapshot["units"][1]["source"] == "history"
+    assert snapshot["units"][1]["exit_result"] == "exit 0"
+    ads[("condor_q", "1.0")]["JobStatus"] = 4
+    ads[("condor_q", "1.0")]["ExitCode"] = 7
+    snapshot = campaign.observe_monitor(diagnostics)
+    assert snapshot["campaign_status"] == "ALL_TERMINAL_READY_FOR_COLLECTION"
+    assert snapshot["units"][0]["exit_result"] == "exit 7"
+    del ads[("condor_history", "2.0")]
+    snapshot = campaign.observe_monitor(diagnostics)
+    assert snapshot["campaign_status"] == "MONITOR_INCOMPLETE_OR_UNRESOLVED"
+    assert snapshot["units"][1]["state"] == "UNKNOWN"
+
+
+def test_monitor_rejects_bad_mapping_and_scheduler_identity(tmp_path, monkeypatch):
+    with pytest.raises(ValueError, match="duplicate"):
+        campaign._monitor_units(_monitor_fixture(tmp_path / "duplicate", duplicate=True))
+    with pytest.raises(ValueError, match="Inconsistent"):
+        campaign._monitor_units(_monitor_fixture(tmp_path / "roots", wrong_root=True))
+    monkeypatch.setattr(campaign.subprocess, "run", lambda *args, **kwargs:
+                        subprocess.CompletedProcess(args[0], 0, '[{"ClusterId": 9, "ProcId": 0}]', ""))
+    with pytest.raises(ValueError, match="another scheduler identity"):
+        campaign._query_monitor_job("1.0", "condor_q")
+
+
+def test_monitor_watch_reuses_observation_and_interrupts(tmp_path, monkeypatch, capsys):
+    diagnostics = _monitor_fixture(tmp_path)
+    seen = []
+    monkeypatch.setattr(campaign, "observe_monitor", lambda path: seen.append(path) or
+                        {"campaign_status": "ACTIVE_NO_IMMEDIATE_ATTENTION"})
+    monkeypatch.setattr(campaign, "_print_monitor", lambda snapshot, **kwargs: None)
+    def interrupt(interval):
+        raise KeyboardInterrupt
+    monkeypatch.setattr(campaign.time, "sleep", interrupt)
+    monkeypatch.setattr(campaign.sys, "argv", ["plot_campaign_condor.py", "monitor",
+                        "--diagnostics-dir", str(diagnostics), "--watch", "60"])
+    assert campaign.main() == 0
+    assert seen == [diagnostics]
+    source = inspect.getsource(campaign.observe_monitor) + inspect.getsource(campaign.main)
+    assert all(command not in source for command in ("condor_submit", "condor_rm",
+                "condor_release", "condor_hold", "condor_qedit"))
 
 
 _accepted_manifest = (

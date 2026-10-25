@@ -100,6 +100,30 @@ with the retained plot state and multiprocessing start method.
 
 ### Prepare one principal-PKL unit per SR campaign input
 
+For an already submitted maintained campaign, observe its exact jobs through
+the plotting frontend. Give the diagnostics directory containing
+`campaign_submission_map.json`; the monitor reads that map and the prepare
+descriptors, so job IDs and output paths need not be entered separately:
+
+```bash
+/users/apiccine/work/correction-lib/codex-run.sh /bin/bash --noprofile --norc -c \
+  'cd "$1" && "$2" analysis/topeft_run2/plot_campaign_condor.py monitor --diagnostics-dir "$3"' \
+  monitor "$PWD" /users/apiccine/work/miniconda3/envs/clib-env/bin/python /absolute/path/to/campaign_diagnostics
+
+/users/apiccine/work/correction-lib/codex-run.sh /bin/bash --noprofile --norc -c \
+  'cd "$1" && "$2" analysis/topeft_run2/plot_campaign_condor.py monitor --diagnostics-dir "$3" --watch 60' \
+  monitor "$PWD" /users/apiccine/work/miniconda3/envs/clib-env/bin/python /absolute/path/to/campaign_diagnostics
+```
+
+Add `--json` for one JSON snapshot per observation. Ctrl-C ends watching.
+For each exact job the monitor queries the queue, then exact history if absent;
+absence from both is `UNKNOWN`, not a success or failure inference. Held,
+removed, failed-exit and unknown units appear explicitly. PNG and receipt
+counts are informational: they do not reconcile receipt-v2, planned slots,
+visual review, or scientific acceptance. `ALL_TERMINAL_READY_FOR_COLLECTION`
+means a separate collection can begin, not that the campaign succeeded. The
+monitor never retries, resubmits, collects, or cleans campaign output.
+
 `plot_campaign_condor.py` derives execution units from the same accepted TSV
 used by the sequential wrapper. It groups all logical views of a principal PKL,
 selects their histogram-family union in one parent-side streaming load, and
