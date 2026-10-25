@@ -19,7 +19,6 @@ import re
 import shlex
 import subprocess
 import sys
-import time
 from typing import Optional
 
 
@@ -443,26 +442,37 @@ def _print_monitor(snapshot: dict, *, json_mode: bool) -> None:
     if json_mode:
         print(json.dumps(snapshot, sort_keys=True))
         return
-    print(f"Campaign: {snapshot['output_root']}  Status: {snapshot['campaign_status']}")
-    print("UNIT JOB PROFILE/workers STATE STARTS CPU MEM_REQ MEM_MB RSS_KIB HOST/EXIT")
+    def show(value: object, width: int) -> str:
+        value = "-" if value is None else " ".join(str(value).split())
+        return value if len(value) <= width else value[:width - 1] + "~"
+
+    counts = snapshot["counts"]
+    progress = snapshot["progress"]
+    print(f"PLOT CAMPAIGN  {snapshot.get('observed_at', '-')}  "
+          f"{Path(snapshot['output_root']).name}  {snapshot['campaign_status']}")
+    print("Units: " + "  ".join(f"{key}={counts.get(key, 0)}" for key in _monitor_counts))
+    print("Attention: " + (", ".join(snapshot["attention_units"]) or "none"))
+    print("Outputs (informational): "
+          f"PNG={progress.get('png_count', '-')}  receipt-v2={progress.get('receipt_v2_count', '-')}  "
+          f"slots={snapshot['planned_slots']}  bytes={progress.get('size_bytes', '-')}  "
+          f"free={progress.get('available_bytes', '-')}  "
+          f"scan={'complete' if progress.get('complete_scan', True) else 'partial'}")
+    headings = ("STATE", "UNIT", "JOB", "PROFILE/W", "STARTS", "CPU", "REQ_MB",
+                "MEM_MB", "RSS_KIB", "HOST/EXIT")
+    widths = (12, 22, 12, 12, 6, 4, 8, 16, 10, 24)
+    print(" ".join(f"{heading:<{width}}" for heading, width in zip(headings, widths)).rstrip())
+    print(" ".join("-" * width for width in widths))
     for unit in snapshot["units"]:
         ad = unit["ads"] or {}
-        show = lambda value: "-" if value is None else str(value)
         host_or_exit = unit["exit_result"] or ad.get("RemoteHost") or ad.get("LastRemoteHost")
-        print(" ".join((unit["unit_id"], unit["job"],
-              f"{unit['profile']}/{unit['workers']}", unit["state"],
-              show(ad.get("NumJobStarts")), show(ad.get("RequestCpus") or unit["request_cpus"]),
-              show(ad.get("RequestMemory") or unit["request_memory_mb"]),
-              show(ad.get("MemoryUsage")), show(ad.get("ResidentSetSize")),
-              show(host_or_exit))))
+        values = (unit["state"], unit["unit_id"], unit["job"],
+                  f"{unit['profile']}/{unit['workers']}", ad.get("NumJobStarts"),
+                  ad.get("RequestCpus") or unit["request_cpus"],
+                  ad.get("RequestMemory") or unit["request_memory_mb"],
+                  ad.get("MemoryUsage"), ad.get("ResidentSetSize"), host_or_exit)
+        print(" ".join(f"{show(value, width):<{width}}" for value, width in zip(values, widths)).rstrip())
         if unit["state"] in {"HELD", "REMOVED"}:
-            print("  reason:", show(ad.get("HoldReason") or ad.get("RemoveReason")))
-    print("Counts:", " ".join(f"{key}={value}" for key, value in snapshot["counts"].items()))
-    print("Attention units:", ", ".join(snapshot["attention_units"]) or "none")
-    print("Progress (informational only):", snapshot["progress"],
-          "planned_slots=", snapshot["planned_slots"])
-    print("Partial output counts are not receipt-v2 reconciliation, slot closure, visual or scientific acceptance.")
-    print("ALL_TERMINAL_READY_FOR_COLLECTION is a separate collection boundary, not campaign success.")
+            print("  reason:", show(ad.get("HoldReason") or ad.get("RemoveReason"), 100))
 
 
 def _selected_view(loaded: dict, report: dict, row: dict) -> tuple[dict, dict]:
@@ -719,22 +729,20 @@ def main() -> int:
     run_parser = subparsers.add_parser("run-unit")
     run_parser.add_argument("--descriptor", type=Path, required=True)
     run_parser.add_argument("--descriptor-sha256", required=True)
-    monitor_parser = subparsers.add_parser("monitor", help="Read-only campaign observation")
+    monitor_parser = subparsers.add_parser(
+        "monitor", help="One read-only campaign snapshot",
+        epilog=("Refresh with shell watch(1). Output counts are informational, not "
+                "receipt reconciliation or scientific acceptance. "
+                "ALL_TERMINAL_READY_FOR_COLLECTION marks a separate collection boundary, "
+                "not campaign success. MEM_MB is raw MemoryUsage; RSS_KIB is raw "
+                "ResidentSetSize. A trailing ~ marks truncated human display text; "
+                "--json preserves raw ClassAd values."))
     monitor_parser.add_argument("--diagnostics-dir", type=Path, required=True)
     monitor_parser.add_argument("--json", action="store_true")
-    monitor_parser.add_argument("--watch", type=float, metavar="SECONDS")
     args = parser.parse_args()
     if args.command == "monitor":
-        if args.watch is not None and args.watch <= 0:
-            parser.error("--watch requires a positive interval")
-        try:
-            while True:
-                _print_monitor(observe_monitor(args.diagnostics_dir), json_mode=args.json)
-                if args.watch is None:
-                    return 0
-                time.sleep(args.watch)
-        except KeyboardInterrupt:
-            return 0
+        _print_monitor(observe_monitor(args.diagnostics_dir), json_mode=args.json)
+        return 0
     if args.command == "prepare":
         result = prepare(args.manifest, args.dispatch_dir, args.output_root,
                          request_cpus=args.request_cpus,

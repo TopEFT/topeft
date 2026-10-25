@@ -105,17 +105,21 @@ the plotting frontend. Give the diagnostics directory containing
 `campaign_submission_map.json`; the monitor reads that map and the prepare
 descriptors, so job IDs and output paths need not be entered separately:
 
-```bash
-/users/apiccine/work/correction-lib/codex-run.sh /bin/bash --noprofile --norc -c \
-  'cd "$1" && "$2" analysis/topeft_run2/plot_campaign_condor.py monitor --diagnostics-dir "$3"' \
-  monitor "$PWD" /users/apiccine/work/miniconda3/envs/clib-env/bin/python /absolute/path/to/campaign_diagnostics
+From `analysis/topeft_run2`, run one snapshot or let GNU `watch` refresh the
+terminal display:
 
-/users/apiccine/work/correction-lib/codex-run.sh /bin/bash --noprofile --norc -c \
-  'cd "$1" && "$2" analysis/topeft_run2/plot_campaign_condor.py monitor --diagnostics-dir "$3" --watch 60' \
-  monitor "$PWD" /users/apiccine/work/miniconda3/envs/clib-env/bin/python /absolute/path/to/campaign_diagnostics
+```bash
+python plot_campaign_condor.py monitor --diagnostics-dir /absolute/path/to/campaign_diagnostics
+watch -n 5 -t 'python plot_campaign_condor.py monitor --diagnostics-dir /absolute/path/to/campaign_diagnostics'
 ```
 
-Add `--json` for one JSON snapshot per observation. Ctrl-C ends watching.
+Add `--json` to the direct command for one machine-readable snapshot. The
+Python monitor exits after one observation; Ctrl-C ends external `watch`.
+The compact human display shows scheduler states, attention units, and output
+counts. `MEM_MB` is raw Condor `MemoryUsage` in MB and `RSS_KIB` is raw
+`ResidentSetSize` in KiB. A `~` suffix marks truncated display text; JSON
+retains the complete raw ClassAd value. The output counts do not establish
+receipt-v2 reconciliation, slot closure, visual review, or scientific acceptance.
 For each exact job the monitor queries the queue, then exact history if absent;
 absence from both is `UNKNOWN`, not a success or failure inference. Held,
 removed, failed-exit and unknown units appear explicitly. PNG and receipt

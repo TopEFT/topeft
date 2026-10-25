@@ -66,7 +66,13 @@ def test_monitor_queue_history_unknown_and_progress(tmp_path, monkeypatch, capsy
     campaign._print_monitor(snapshot, json_mode=False)
     human = capsys.readouterr().out
     assert "ACTIVE_NO_IMMEDIATE_ATTENTION" in human
-    assert "idle=1 running=1" in human
+    assert "idle=1  running=1" in human
+    assert human.startswith("PLOT CAMPAIGN  ")
+    assert "Attention: none" in human
+    assert "Outputs (informational): PNG=1  receipt-v2=1  slots=6" in human
+    assert "STATE" in human and "PROFILE/W" in human and "HOST/EXIT" in human
+    campaign._print_monitor(snapshot, json_mode=False)
+    assert capsys.readouterr().out == human
     campaign._print_monitor(snapshot, json_mode=True)
     machine = json.loads(capsys.readouterr().out)
     assert machine["counts"] == snapshot["counts"]
@@ -83,16 +89,26 @@ def test_monitor_queue_history_unknown_and_progress(tmp_path, monkeypatch, capsy
     assert snapshot["attention_units"] == ["unit_1"]
     assert snapshot["units"][1]["source"] == "history"
     assert snapshot["units"][1]["exit_result"] == "exit 0"
+    campaign._print_monitor(snapshot, json_mode=False)
+    held_human = capsys.readouterr().out
+    assert "HELD" in held_human and "Attention: unit_1" in held_human
+    assert "reason: quota" in held_human
     ads[("condor_q", "1.0")]["JobStatus"] = 4
     ads[("condor_q", "1.0")]["ExitCode"] = 7
     snapshot = campaign.observe_monitor(diagnostics)
     assert snapshot["campaign_status"] == "ALL_TERMINAL_READY_FOR_COLLECTION"
     assert snapshot["units"][0]["exit_result"] == "exit 7"
     assert "unit_1" in snapshot["attention_units"]
+    campaign._print_monitor(snapshot, json_mode=False)
+    terminal_human = capsys.readouterr().out
+    assert "ALL_TERMINAL_READY_FOR_COLLECTION" in terminal_human
+    assert "Attention: unit_1" in terminal_human
+    assert "exit 7" in terminal_human
     del ads[("condor_history", "2.0")]
     snapshot = campaign.observe_monitor(diagnostics)
     assert snapshot["campaign_status"] == "MONITOR_INCOMPLETE_OR_UNRESOLVED"
     assert snapshot["units"][1]["state"] == "UNKNOWN"
+    assert "unit_2" in snapshot["attention_units"]
 
 
 def test_monitor_rejects_bad_mapping_and_scheduler_identity(tmp_path, monkeypatch):
@@ -111,6 +127,7 @@ def test_monitor_rejects_bad_mapping_and_scheduler_identity(tmp_path, monkeypatc
     (None, 4096, "-", "4096"),
     (0, 4096, "0", "4096"),
     (None, None, "-", "-"),
+    ("ifThenElse(MemoryUsage,42,0)", 4096, "ifThenElse(Memo~", "4096"),
 ])
 def test_monitor_human_memory_units(capsys, memory_usage, resident_set_size,
                                     expected_memory, expected_rss):
@@ -123,8 +140,8 @@ def test_monitor_human_memory_units(capsys, memory_usage, resident_set_size,
                 "planned_slots": 1}
     campaign._print_monitor(snapshot, json_mode=False)
     lines = capsys.readouterr().out.splitlines()
-    header = lines[1].split()
-    values = lines[2].split()
+    header = lines[4].split()
+    values = lines[6].split()
     assert "MEM_MB" in header and "RSS_KIB" in header
     assert "MEM_USE" not in header
     assert values[header.index("MEM_MB")] == expected_memory
@@ -134,7 +151,7 @@ def test_monitor_human_memory_units(capsys, memory_usage, resident_set_size,
     assert machine["units"][0]["ads"] == ads
 
 
-def test_monitor_watch_reuses_observation_and_interrupts(tmp_path, monkeypatch, capsys):
+def test_monitor_is_one_snapshot_without_internal_watch(tmp_path, monkeypatch, capsys):
     diagnostics = _monitor_fixture(tmp_path)
     observation_source = inspect.getsource(campaign.observe_monitor)
     query_source = inspect.getsource(campaign._query_monitor_job)
@@ -142,19 +159,30 @@ def test_monitor_watch_reuses_observation_and_interrupts(tmp_path, monkeypatch, 
     monkeypatch.setattr(campaign, "observe_monitor", lambda path: seen.append(path) or
                         {"campaign_status": "ACTIVE_NO_IMMEDIATE_ATTENTION"})
     monkeypatch.setattr(campaign, "_print_monitor", lambda snapshot, **kwargs: None)
-    def interrupt(interval):
-        raise KeyboardInterrupt
-    monkeypatch.setattr(campaign.time, "sleep", interrupt)
     monkeypatch.setattr(campaign.sys, "argv", ["plot_campaign_condor.py", "monitor",
-                        "--diagnostics-dir", str(diagnostics), "--watch", "60"])
+                        "--diagnostics-dir", str(diagnostics)])
     assert campaign.main() == 0
     assert seen == [diagnostics]
     source = observation_source + query_source + inspect.getsource(campaign.main)
+    assert "time.sleep" not in source
+    assert "while True" not in inspect.getsource(campaign.main)
+    assert "subprocess.run" not in inspect.getsource(campaign.main)
     assert observation_source.count('_query_monitor_job(unit["job"], "condor_q")') == 1
     assert observation_source.count('_query_monitor_job(unit["job"], "condor_history")') == 1
     assert "subprocess.run([command, job, \"-json\", \"-attributes\"" in query_source
     assert all(command not in source for command in ("condor_submit", "condor_rm",
                 "condor_release", "condor_hold", "condor_qedit"))
+    monkeypatch.setattr(campaign.sys, "argv", ["plot_campaign_condor.py", "monitor", "--help"])
+    with pytest.raises(SystemExit) as help_exit:
+        campaign.main()
+    assert help_exit.value.code == 0
+    assert "--watch" not in capsys.readouterr().out
+    monkeypatch.setattr(campaign.sys, "argv", ["plot_campaign_condor.py", "monitor",
+                        "--diagnostics-dir", str(diagnostics), "--watch", "5"])
+    with pytest.raises(SystemExit) as rejected:
+        campaign.main()
+    assert rejected.value.code == 2
+    assert seen == [diagnostics]
 
 
 _accepted_manifest = (
