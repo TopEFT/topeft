@@ -88,6 +88,7 @@ def test_monitor_queue_history_unknown_and_progress(tmp_path, monkeypatch, capsy
     snapshot = campaign.observe_monitor(diagnostics)
     assert snapshot["campaign_status"] == "ALL_TERMINAL_READY_FOR_COLLECTION"
     assert snapshot["units"][0]["exit_result"] == "exit 7"
+    assert "unit_1" in snapshot["attention_units"]
     del ads[("condor_history", "2.0")]
     snapshot = campaign.observe_monitor(diagnostics)
     assert snapshot["campaign_status"] == "MONITOR_INCOMPLETE_OR_UNRESOLVED"
@@ -105,8 +106,38 @@ def test_monitor_rejects_bad_mapping_and_scheduler_identity(tmp_path, monkeypatc
         campaign._query_monitor_job("1.0", "condor_q")
 
 
+@pytest.mark.parametrize("memory_usage,resident_set_size,expected_memory,expected_rss", [
+    (12, 4096, "12", "4096"),
+    (None, 4096, "-", "4096"),
+    (0, 4096, "0", "4096"),
+    (None, None, "-", "-"),
+])
+def test_monitor_human_memory_units(capsys, memory_usage, resident_set_size,
+                                    expected_memory, expected_rss):
+    ads = {"MemoryUsage": memory_usage, "ResidentSetSize": resident_set_size}
+    snapshot = {"output_root": "/campaign", "campaign_status": "ACTIVE_NO_IMMEDIATE_ATTENTION",
+                "units": [{"unit_id": "unit_1", "job": "1.0", "profile": "W1", "workers": 1,
+                           "state": "RUNNING", "request_cpus": 1, "request_memory_mb": 1000,
+                           "exit_result": None, "ads": ads}],
+                "counts": {"running": 1}, "attention_units": [], "progress": {},
+                "planned_slots": 1}
+    campaign._print_monitor(snapshot, json_mode=False)
+    lines = capsys.readouterr().out.splitlines()
+    header = lines[1].split()
+    values = lines[2].split()
+    assert "MEM_MB" in header and "RSS_KIB" in header
+    assert "MEM_USE" not in header
+    assert values[header.index("MEM_MB")] == expected_memory
+    assert values[header.index("RSS_KIB")] == expected_rss
+    campaign._print_monitor(snapshot, json_mode=True)
+    machine = json.loads(capsys.readouterr().out)
+    assert machine["units"][0]["ads"] == ads
+
+
 def test_monitor_watch_reuses_observation_and_interrupts(tmp_path, monkeypatch, capsys):
     diagnostics = _monitor_fixture(tmp_path)
+    observation_source = inspect.getsource(campaign.observe_monitor)
+    query_source = inspect.getsource(campaign._query_monitor_job)
     seen = []
     monkeypatch.setattr(campaign, "observe_monitor", lambda path: seen.append(path) or
                         {"campaign_status": "ACTIVE_NO_IMMEDIATE_ATTENTION"})
@@ -118,7 +149,10 @@ def test_monitor_watch_reuses_observation_and_interrupts(tmp_path, monkeypatch, 
                         "--diagnostics-dir", str(diagnostics), "--watch", "60"])
     assert campaign.main() == 0
     assert seen == [diagnostics]
-    source = inspect.getsource(campaign.observe_monitor) + inspect.getsource(campaign.main)
+    source = observation_source + query_source + inspect.getsource(campaign.main)
+    assert observation_source.count('_query_monitor_job(unit["job"], "condor_q")') == 1
+    assert observation_source.count('_query_monitor_job(unit["job"], "condor_history")') == 1
+    assert "subprocess.run([command, job, \"-json\", \"-attributes\"" in query_source
     assert all(command not in source for command in ("condor_submit", "condor_rm",
                 "condor_release", "condor_hold", "condor_qedit"))
 

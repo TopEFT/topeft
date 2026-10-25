@@ -444,7 +444,7 @@ def _print_monitor(snapshot: dict, *, json_mode: bool) -> None:
         print(json.dumps(snapshot, sort_keys=True))
         return
     print(f"Campaign: {snapshot['output_root']}  Status: {snapshot['campaign_status']}")
-    print("UNIT JOB PROFILE/workers STATE STARTS CPU MEM_REQ MEM_USE HOST/EXIT")
+    print("UNIT JOB PROFILE/workers STATE STARTS CPU MEM_REQ MEM_MB RSS_KIB HOST/EXIT")
     for unit in snapshot["units"]:
         ad = unit["ads"] or {}
         show = lambda value: "-" if value is None else str(value)
@@ -453,7 +453,8 @@ def _print_monitor(snapshot: dict, *, json_mode: bool) -> None:
               f"{unit['profile']}/{unit['workers']}", unit["state"],
               show(ad.get("NumJobStarts")), show(ad.get("RequestCpus") or unit["request_cpus"]),
               show(ad.get("RequestMemory") or unit["request_memory_mb"]),
-              show(ad.get("MemoryUsage") or ad.get("ResidentSetSize")), show(host_or_exit))))
+              show(ad.get("MemoryUsage")), show(ad.get("ResidentSetSize")),
+              show(host_or_exit))))
         if unit["state"] in {"HELD", "REMOVED"}:
             print("  reason:", show(ad.get("HoldReason") or ad.get("RemoveReason")))
     print("Counts:", " ".join(f"{key}={value}" for key, value in snapshot["counts"].items()))
