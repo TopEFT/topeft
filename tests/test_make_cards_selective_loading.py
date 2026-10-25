@@ -12,11 +12,87 @@ from tests.test_split_nominal_loader import (
 )
 from topeft.modules import datacard_tools, nominal_schema
 from topeft.modules.histogram_artifact import metadata_sidecar_path
+from topeft.modules.missing_parton_contract import (
+    infer_legacy_missing_parton_layout,
+    load_registry_payload_layout,
+    resolve_missing_parton_response_index,
+    validate_legacy_missing_parton_payload,
+)
+from topeft.modules.paths import topeft_path
 
 
 FAMILIES = ("njets", "ptz_wtau")
 TARGET = "3l_onZ_2b_4j"
 OTHER = "3l_onZ_1b_2j"
+
+
+@pytest.mark.parametrize("era,year", [("run2", "UL18"), ("run3", "2022")])
+def test_legacy_missing_parton_loads_for_current_sr_registry(era, year):
+    payload_path = topeft_path(f"data/missing_parton/missing_parton_{era}.root")
+    layout = infer_legacy_missing_parton_layout(payload_path)
+    assert layout.registry == "ALL_CH_LST_SR"
+    assert layout.public_lengths["2los_onZ_1tau"] == 6
+    values = validate_legacy_missing_parton_payload(
+        payload_path, sr_registry=layout.registry,
+    )
+    assert len(values["2los_onZ_1tau"]) == 4
+    assert resolve_missing_parton_response_index("2los_onZ_1tau_3j", 3) == 3
+    assert resolve_missing_parton_response_index("2los_onZ_1tau_5j", 5) == 3
+    assert resolve_missing_parton_response_index("3l_onZ_2b_5j", 5) == 5
+
+    card = datacard_tools.DatacardMaker.__new__(datacard_tools.DatacardMaker)
+    card.do_nuisance = True
+    card.year_lst = [year]
+    rate_systs = card.load_systematics(
+        f"params/rate_systs_{era}.json", payload_path,
+    )
+    nuisance_name = card.missing_parton_nuisance_name_for_years(
+        card.year_lst, payload_path=payload_path,
+    )
+    nuisance = rate_systs[nuisance_name]
+    for process in ("tllq", "tHq"):
+        np.testing.assert_allclose(
+            nuisance.get_process(process)["2los_onZ_1tau"][3],
+            1 + values["2los_onZ_1tau"][3],
+        )
+        assert len(nuisance.get_process(process)["2los_onZ_1tau"]) == 4
+    assert nuisance.get_process("ttll") == "-"
+
+
+@pytest.mark.parametrize("change", ["alias_length", "other_length", "tree_order", "tree_identity"])
+def test_legacy_missing_parton_rejects_unrelated_layout_mismatch(tmp_path, change):
+    import uproot
+
+    layout = load_registry_payload_layout("ALL_CH_LST_SR")
+    categories = list(layout.ordered_base_categories)
+    if change == "tree_order":
+        categories.reverse()
+    path = tmp_path / "invalid_missing_parton.root"
+    with uproot.recreate(path) as output:
+        for category in categories:
+            name = "unrelated_category" if change == "tree_identity" and category == categories[0] else category
+            length = layout.public_lengths[category]
+            if category == "2los_onZ_1tau":
+                length = 5 if change == "alias_length" else 4
+            elif change == "other_length" and category == "3l_onZ_2b":
+                length += 1
+            tree = output.mktree(name, {"tllq": "float64"})
+            tree.extend({"tllq": np.zeros(length)})
+    with pytest.raises(ValueError, match="No maintained missing-parton payload layout matches"):
+        infer_legacy_missing_parton_layout(path)
+
+
+def test_current_six_entry_missing_parton_layout_remains_valid(tmp_path):
+    import uproot
+
+    layout = load_registry_payload_layout("ALL_CH_LST_SR")
+    path = tmp_path / "current_missing_parton.root"
+    with uproot.recreate(path) as output:
+        for category in layout.categories:
+            tree = output.mktree(category.base_sr_category, {"tllq": "float64"})
+            tree.extend({"tllq": np.zeros(category.public_array_length)})
+    assert infer_legacy_missing_parton_layout(path).registry == "ALL_CH_LST_SR"
+    assert len(validate_legacy_missing_parton_payload(path)["2los_onZ_1tau"]) == 6
 
 
 def _payload(channels=(TARGET, OTHER), *, background=True, signal=True):
