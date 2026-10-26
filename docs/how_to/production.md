@@ -269,7 +269,8 @@ Use a maintained profile: `run2_prod`, `run3_prod`, `run2_prod_CR`,
 `run3_sr_ext`. Supply a fresh absolute
 output directory and a campaign tag for a new campaign. The SR-reco extension
 profiles have a separate [operator guide](sr_reco_pkl_campaign.md) for explicit
-plans, worker archives, and post-run qualification.
+plans, worker archives, and post-run qualification. That guide also describes
+shared `run_cr.sh` combined-profile resume and Work Queue port selection.
 
 The combined Run 2/Run 3 production SR route is `run2_run3_prod`; it
 orchestrates separate component states. With no `--env-file`, the wrapper resolves or

@@ -8,7 +8,7 @@ layer retains. It is a lookup page, not a production recipe. See the
 
 | Component | Kind and status | Inputs | Defaults and outputs | Failure boundary |
 | --- | --- | --- | --- | --- |
-| `analysis/topeft_run2/run_cr.sh` | Maintained production-profile launcher | `--production-profile`, an absolute `--output-dir`, and `--campaign-tag`; optional `--env-file`, `--resume`, `--plan`, `--selected-fragment`, and `--dry-run` | Fourteen public component/combined profiles; child commands and source/transformed PKLs | Rejects unknown profiles, reused fresh namespaces, invalid archives and child failures |
+| `analysis/topeft_run2/run_cr.sh` | Maintained production-profile launcher | `--production-profile`, an absolute `--output-dir`, and `--campaign-tag`; optional `--env-file`, `--resume`, `--wq-port`, paired combined-profile manager prefixes, `--plan`, `--selected-fragment`, and `--dry-run` | Public component/combined profiles; child commands and source/transformed PKLs | Rejects unknown profiles, reused fresh namespaces, invalid archives and child failures |
 | `analysis/topeft_run2/campaign_manifest.py` | Maintained schema-9 campaign engine | Resolved profile, plan, provenance and state operations from the launcher | Scientific and coverage digests, revisions, stage attempts, receipts and recovery transitions | Rejects scientific drift, invalid coverage, stale revisions, unverified artifacts and concurrent writers |
 | `analysis/topeft_run2/fullR3_run.sh` | Maintained command/configuration wrapper | Years, exactly one of `--cr` or `--sr`, optional histogram/input/output overrides, and forwarded analysis options | Year/config-dependent `run_analysis.py` command | Rejects conflicting input overrides, missing cfg/JSON inputs, and unsupported region/year combinations |
 | `analysis/topeft_run2/run_analysis.py` | Direct developer CLI | Sample JSON/cfg expression and CLI or YAML options | Executor `work_queue`; 8 workers; chunksize 100000; `histos/plotsTopEFT.pkl.gz` | Validates executor, active sample universe, categories, environment, policies, and artifact contracts at their owning boundaries |
@@ -38,16 +38,19 @@ state to resume without confusing partial, stale, or mismatched output.
 
 | Input | Type/requirement/default | Semantics |
 | --- | --- | --- |
-| `--production-profile` | Required: Run 2/3 `prod` or `stat_diagnostic` SR/CR component or combined profile, or `run2_sr_ext`/`run3_sr_ext` | Resolves the scientific profile once; combined profiles own child campaigns rather than a separate state. |
+| `--production-profile` | Required: Run 2/3 `prod` or `stat_diagnostic` SR/CR component or combined profile, or `run2_sr_ext`/`run3_sr_ext` | Resolves the scientific profile once; one combined invocation runs Run 2 then Run 3 with separate child state/output roots. |
 | `--output-dir` | Required absolute path; fresh for a new campaign root | Owns state, logs, and produced artifacts. Each component profile requires its own fresh initial root. Existing state follows generic schema-9 recovery checks. |
 | `--campaign-tag` | Required non-empty string | Portable campaign identity recorded with state. |
 | `--env-file` | Optional absolute path | When omitted, resolves or creates the current worker environment. When supplied, validates a frozen snapshot. An identical archive at a different path remains the same scientific runtime. |
-| `--resume` | Boolean, default false | Reopens compatible campaign state and mechanically selects incomplete blocks/stages. |
+| `--resume` | Boolean, default false | Reuses the existing campaign root and compatible state; retains verified work and attempt history, then selects eligible incomplete stages for the next attempt. Ambiguous writers or unexpected outputs require inspection. |
 | `--dry-run` | Boolean, default false | Skips campaign-block execution, but first resolves or validates the selected current environment or explicit snapshot. It then prints the resolved plan without running campaign blocks or creating the campaign namespace. |
 | `--plan` | JSON path for a fresh component campaign | Supplies a complete partition of the profile's approved scientific coverage; omitted means its scientific default. |
 | `--chunksize` | Positive integer, default 100000 | Source-attempt resource setting; a retry may change it without changing science. |
 | `--selected-fragment` | Exact component unit ID | Executes one unit while persisting the full plan. |
 | `--wq-manager-name` | Optional nonempty exact name | Passed unchanged to the single source Work Queue manager. Fails for zero or multiple pending sources and for combined profiles. |
+| `--wq-manager-prefix` | Optional component prefix | Derives source manager names from the prefix, unit ID and source attempt number; cannot be combined with an exact manager name. |
+| `--run2-wq-manager-prefix`, `--run3-wq-manager-prefix` | Optional paired prefixes for a combined profile | Select separate child manager-name families; both must be supplied together and cannot be combined with component/exact manager-name options. |
+| `--wq-port` | Optional literal `0` or decimal `1` through `65535`, without leading zeros | Forwarded to the source manager through `fullR3_run.sh`; `0` requests automatic allocation, a positive value requests that port, and omission preserves the lower-layer default. Manager names and TCP ports are separate. |
 | `--activate-pending-plan`, `--expected-plan-revision` | JSON path and exact observed active revision, with `--resume` | Under the exclusive lock, atomically repartitions untouched pending coverage while retaining verified source-ready/completed units. |
 
 The launcher derives full `fullR3_run.sh` invocations and calls

@@ -37,6 +37,46 @@ A real Work Queue run requires the guarded staging options described below.
 The `--dry-run` form resolves commands without creating a campaign root or
 submitting work.
 
+## Use the shared launcher for combined profiles
+
+`run_cr.sh` also owns combined Run 2/Run 3 production and statistical diagnostic
+profiles. Start or resume a combined profile with one top-level invocation;
+the launcher runs the Run 2 component before the Run 3 component. Each child
+has its own state and output root under the combined output directory, and the
+launcher derives separate component tags from the supplied campaign tag.
+Plan selection and revision remain component-only operations.
+
+For an existing combined production campaign, use the same profile, absolute
+root and tag that established its state. Supply both manager prefixes together
+when prefix-derived names are needed:
+
+```bash
+./run_cr.sh --production-profile run2_run3_prod --resume \
+  --output-dir "$existing_campaign_root" --campaign-tag "$same_campaign_tag" \
+  --env-file "$worker_archive" \
+  --run2-wq-manager-prefix "$run2_prefix" \
+  --run3-wq-manager-prefix "$run3_prefix" --wq-port 0 \
+  --wq-staging-base "$staging_base" --wq-quota-root "$quota_root" \
+  --wq-free-warning-bytes "$warning_bytes" \
+  --wq-min-free-bytes "$minimum_bytes" --wq-poll-seconds "$poll_seconds"
+```
+
+Set the variables to the existing campaign identity and site-reviewed paths
+and values. Supported common operational options, including `--resume`,
+`--env-file`, `--wq-port` and the Work Queue guard settings, are forwarded to
+each child. The paired prefixes select separate Run 2 and Run 3 manager-name
+families; a prefix-derived source name ends with its unit ID and attempt number.
+The manager name is distinct from its TCP port. `--wq-port 0` asks Work Queue
+to allocate an available manager port; inspect the port reported by that
+invocation rather than treating zero as the listening endpoint. Omit the flag
+to retain the lower layer's default port behavior.
+
+Resume validates the existing component state and receipts. Reusable source or
+completed work is retained; an eligible failed or incomplete stage receives a
+new attempt while earlier attempt records remain in state. An ambiguous running
+writer or unexpected output requires inspection before another invocation.
+Do not start a fresh campaign at an existing output root.
+
 ## Select a unit and resume
 
 `--selected-fragment run2_sr_ext_a_1` executes one named unit while the

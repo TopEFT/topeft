@@ -53,6 +53,15 @@ validates and resolves that setting before creating the executor. Read the
 printed manager name and port from this exact invocation rather than reusing a
 name from an older guide.
 
+For a maintained campaign, `run_cr.sh --wq-port PORT` accepts the literal `0`
+or decimal `1` through `65535` without leading zeros, then forwards it through
+`fullR3_run.sh` to the direct `--port` option. Zero requests
+automatic allocation of an available manager port; it is not the final
+listening port. A positive value requests an explicit port. With no
+`--wq-port`, the direct parser's default remains in effect. The manager name
+used for worker discovery is separate from this TCP port; read both from the
+current manager invocation.
+
 For a direct Work Queue invocation, the default native log directory is
 `<outpath>/work_queue_logs/<outname>/source_native/`. `--wq-log-dir PATH`
 selects an explicit native log directory. The runner refuses to overwrite any
