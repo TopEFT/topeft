@@ -44,8 +44,10 @@ if [[ "$action" == validate_environment || "$action" == prepare_environment ]]; 
 fi
 if [[ "$action" == run_block ]]; then
   unit="$1"; archive="$2"; stage="$3"; source="$4"; downstream="$5"; logs="$6"
+  printf '%s\\n' "$unit" >> "$CAMPAIGN_VALIDATION_ROOT/source_order.log"
   mkdir -p "$logs"
-  if [[ "$scenario" == source_fail_first && "$unit" == run2_prod_a ]]; then
+  if [[ "$scenario" == source_fail_first && "$unit" == run2_prod_a \
+    || "$scenario" == source_fail_run3_tau && "$unit" == run3_prod_2los_1tau_a ]]; then
     exit 23
   fi
   printf 'synthetic source\\n' > "$source"
@@ -261,6 +263,101 @@ def test_manager_prefix_combined_profile_still_rejected(tmp_path, backend):
     assert result.returncode != 0
     assert "requires one component campaign" in result.stderr
     assert not (tmp_path / "output").exists()
+
+
+def test_manager_prefix_combined_profile_uses_distinct_child_prefixes(tmp_path, backend):
+    result = launch(
+        tmp_path, backend,
+        "--run2-wq-manager-prefix", "top26006-l12-tau5j-run2-c261024-001-",
+        "--run3-wq-manager-prefix", "top26006-l12-tau5j-run3-c261024-001-",
+        profile="run2_run3_prod_2los_1tau",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (tmp_path / "source_order.log").read_text().splitlines() == [
+        "run2_prod_2los_1tau_a", "run3_prod_2los_1tau_a",
+    ]
+    output = tmp_path / "output"
+    for run_scope, prefix in (
+        ("run2", "top26006-l12-tau5j-run2-c261024-001-"),
+        ("run3", "top26006-l12-tau5j-run3-c261024-001-"),
+    ):
+        profile = f"{run_scope}_prod_2los_1tau"
+        state = manifest.load_state(output / run_scope / f".{profile}_campaign_state_v9.json")
+        assert state["schema_version"] == 9
+        assert state["campaign_identity"]["production_profile"] == profile
+        assert state["campaign_identity"]["campaign_tag"] == f"synthetic_{run_scope}"
+        assert len(state["units"]) == 1
+        source_attempts = state["units"][0]["stages"]["source"]["attempts"]
+        assert [attempt["number"] for attempt in source_attempts] == [1]
+        command = source_attempts[0]["command_argv"]
+        assert command[command.index("--wq-manager-name") + 1] == (
+            f"{prefix}{profile}_a-a1"
+        )
+    assert (output / "campaign_summary.tsv").is_file()
+
+
+@pytest.mark.parametrize("extra", (
+    ("--run2-wq-manager-prefix", "run2-"),
+    ("--run3-wq-manager-prefix", "run3-"),
+    ("--run2-wq-manager-prefix", "", "--run3-wq-manager-prefix", "run3-"),
+    ("--run2-wq-manager-prefix", "run2-", "--run3-wq-manager-prefix", "bad prefix"),
+    ("--run2-wq-manager-prefix", "run2-", "--run3-wq-manager-prefix", "run3-",
+     "--run2-wq-manager-prefix", "again-"),
+    ("--run2-wq-manager-prefix", "run2-", "--run3-wq-manager-prefix", "run3-",
+     "--wq-manager-prefix", "legacy-"),
+    ("--run2-wq-manager-prefix", "run2-", "--run3-wq-manager-prefix", "run3-",
+     "--wq-manager-name", "exact-name"),
+    ("--dry-run", "--run2-wq-manager-prefix", "run2-",
+     "--run3-wq-manager-prefix", "run3-"),
+))
+def test_manager_prefix_combined_invalid_pair_rejected_before_output(tmp_path, backend, extra):
+    result = launch(tmp_path, backend, *extra, profile="run2_run3_prod_2los_1tau")
+    assert result.returncode != 0
+    assert not (tmp_path / "output").exists()
+    assert not (tmp_path / "source_order.log").exists()
+
+
+def test_manager_prefix_paired_options_rejected_on_component(tmp_path, backend):
+    result = launch(
+        tmp_path, backend,
+        "--run2-wq-manager-prefix", "run2-",
+        "--run3-wq-manager-prefix", "run3-",
+        profile="run2_prod_2los_1tau",
+    )
+    assert result.returncode != 0
+    assert "require a combined profile" in result.stderr
+    assert not (tmp_path / "output").exists()
+    assert not (tmp_path / "source_order.log").exists()
+
+
+def test_manager_prefix_combined_resume_uses_next_run3_attempt(tmp_path, backend):
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "source_fail_run3_tau"
+    prefix_args = (
+        "--run2-wq-manager-prefix", "run2-",
+        "--run3-wq-manager-prefix", "run3-",
+    )
+    first = launch(tmp_path, backend, *prefix_args, profile="run2_run3_prod_2los_1tau")
+    assert first.returncode != 0
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "success"
+    resumed = launch(tmp_path, backend, "--resume", *prefix_args,
+                     profile="run2_run3_prod_2los_1tau")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    output = tmp_path / "output"
+    run2 = manifest.load_state(output / "run2" / ".run2_prod_2los_1tau_campaign_state_v9.json")
+    run3 = manifest.load_state(output / "run3" / ".run3_prod_2los_1tau_campaign_state_v9.json")
+    run2_attempts = run2["units"][0]["stages"]["source"]["attempts"]
+    run3_attempts = run3["units"][0]["stages"]["source"]["attempts"]
+    assert [attempt["number"] for attempt in run2_attempts] == [1]
+    assert [attempt["number"] for attempt in run3_attempts] == [1, 2]
+    assert run2_attempts[0]["command_argv"][
+        run2_attempts[0]["command_argv"].index("--wq-manager-name") + 1
+    ] == "run2-run2_prod_2los_1tau_a-a1"
+    assert run3_attempts[1]["command_argv"][
+        run3_attempts[1]["command_argv"].index("--wq-manager-name") + 1
+    ] == "run3-run3_prod_2los_1tau_a-a2"
+    assert (tmp_path / "source_order.log").read_text().splitlines() == [
+        "run2_prod_2los_1tau_a", "run3_prod_2los_1tau_a", "run3_prod_2los_1tau_a",
+    ]
 
 
 def test_manager_prefix_fresh_dry_run_requires_initialized_state(tmp_path, backend):

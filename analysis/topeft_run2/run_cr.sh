@@ -9,6 +9,7 @@ Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag
   [--dry-run] [--env-file PATH] [--resume] [--chunksize POSITIVE_INTEGER]
   [--selected-fragment ID] [--plan JSON]
   [--wq-manager-name EXACT_NAME | --wq-manager-prefix PREFIX]
+  [--run2-wq-manager-prefix PREFIX --run3-wq-manager-prefix PREFIX]
   [--activate-pending-plan JSON --expected-plan-revision ID]
   [Work Queue guard and resource options]
 
@@ -50,6 +51,10 @@ profile_wq_manager_name=""
 profile_wq_manager_name_provided=false
 profile_wq_manager_prefix=""
 profile_wq_manager_prefix_provided=false
+profile_run2_wq_manager_prefix=""
+profile_run2_wq_manager_prefix_provided=false
+profile_run3_wq_manager_prefix=""
+profile_run3_wq_manager_prefix_provided=false
 profile_selected_fragment=""
 profile_plan=""
 profile_activate_pending_plan=""
@@ -109,6 +114,24 @@ while (( $# > 0 )); do
       fi
       profile_wq_manager_prefix="$2"
       profile_wq_manager_prefix_provided=true
+      shift 2
+      ;;
+    --run2-wq-manager-prefix)
+      if (( $# < 2 )) || [[ -z "$2" ]] || [[ "${profile_run2_wq_manager_prefix_provided}" == "true" ]]; then
+        echo "ERROR: --run2-wq-manager-prefix requires one non-empty prefix." >&2
+        exit 1
+      fi
+      profile_run2_wq_manager_prefix="$2"
+      profile_run2_wq_manager_prefix_provided=true
+      shift 2
+      ;;
+    --run3-wq-manager-prefix)
+      if (( $# < 2 )) || [[ -z "$2" ]] || [[ "${profile_run3_wq_manager_prefix_provided}" == "true" ]]; then
+        echo "ERROR: --run3-wq-manager-prefix requires one non-empty prefix." >&2
+        exit 1
+      fi
+      profile_run3_wq_manager_prefix="$2"
+      profile_run3_wq_manager_prefix_provided=true
       shift 2
       ;;
     --chunksize|--wq-staging-base|--wq-quota-root|--wq-free-warning-bytes|--wq-min-free-bytes|--wq-poll-seconds|--wq-treereduction|--wq-processing-cores|--wq-accumulating-memory-mb|--wq-accumulating-cores)
@@ -185,6 +208,15 @@ if [[ "${profile_wq_manager_name_provided}" == "true" \
   echo "ERROR: --wq-manager-name and --wq-manager-prefix are mutually exclusive." >&2
   exit 1
 fi
+if [[ "${profile_run2_wq_manager_prefix_provided}" != "${profile_run3_wq_manager_prefix_provided}" ]]; then
+  echo "ERROR: combined profiles require both --run2-wq-manager-prefix and --run3-wq-manager-prefix." >&2
+  exit 1
+fi
+if [[ "${profile_run2_wq_manager_prefix_provided}" == "true" \
+  && ( "${profile_wq_manager_name_provided}" == "true" || "${profile_wq_manager_prefix_provided}" == "true" ) ]]; then
+  echo "ERROR: paired manager prefixes cannot be combined with --wq-manager-name or --wq-manager-prefix." >&2
+  exit 1
+fi
 if [[ "${profile_wq_manager_prefix_provided}" == "true" ]]; then
   if [[ ! "${profile_wq_manager_prefix}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
     echo "ERROR: --wq-manager-prefix requires a prefix of letters, digits, dots, underscores or hyphens." >&2
@@ -192,6 +224,18 @@ if [[ "${profile_wq_manager_prefix_provided}" == "true" ]]; then
   fi
   if [[ "${profile_dry_run}" == "true" && "${profile_resume}" == "false" ]]; then
     echo "ERROR: fresh --wq-manager-prefix requires initialized campaign state; --dry-run does not initialize state." >&2
+    exit 1
+  fi
+fi
+if [[ "${profile_run2_wq_manager_prefix_provided}" == "true" ]]; then
+  for paired_prefix in "${profile_run2_wq_manager_prefix}" "${profile_run3_wq_manager_prefix}"; do
+    if [[ ! "${paired_prefix}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+      echo "ERROR: paired manager prefixes require letters, digits, dots, underscores or hyphens." >&2
+      exit 1
+    fi
+  done
+  if [[ "${profile_dry_run}" == "true" && "${profile_resume}" == "false" ]]; then
+    echo "ERROR: fresh paired manager prefixes require initialized campaign state; --dry-run does not initialize state." >&2
     exit 1
   fi
 fi
@@ -217,6 +261,11 @@ elif [[ "${production_profile}" =~ ^(run2|run3)_(prod_2los_1tau|prod|stat_diagno
   fi
 else
   echo "ERROR: unsupported production profile '${production_profile}'." >&2
+  exit 1
+fi
+if [[ "${combined_profile}" == "false" \
+  && "${profile_run2_wq_manager_prefix_provided}" == "true" ]]; then
+  echo "ERROR: paired manager prefixes require a combined profile." >&2
   exit 1
 fi
 
@@ -371,11 +420,11 @@ fi
 
 if [[ "${combined_profile}" == "true" ]]; then
   if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
-    echo "ERROR: --wq-manager-name requires one component campaign; combined profiles span separate source managers." >&2
+    echo "ERROR: --wq-manager-name is unsupported for combined profiles." >&2
     exit 1
   fi
   if [[ "${profile_wq_manager_prefix_provided}" == "true" ]]; then
-    echo "ERROR: --wq-manager-prefix requires one component campaign." >&2
+    echo "ERROR: --wq-manager-prefix requires one component campaign; use paired Run 2 and Run 3 prefixes for combined profiles." >&2
     exit 1
   fi
   if [[ -n "${profile_plan}${profile_activate_pending_plan}${profile_expected_plan_revision}${profile_selected_fragment}" ]]; then
@@ -385,10 +434,19 @@ if [[ "${combined_profile}" == "true" ]]; then
   combined_suffix=""
   [[ "${profile_region}" != "CR" ]] || combined_suffix="_CR"
   component_args=()
+  run2_manager_args=()
+  run3_manager_args=()
+  if [[ "${profile_run2_wq_manager_prefix_provided}" == "true" ]]; then
+    run2_manager_args=(--wq-manager-prefix "${profile_run2_wq_manager_prefix}")
+    run3_manager_args=(--wq-manager-prefix "${profile_run3_wq_manager_prefix}")
+  fi
   remaining_args=("${original_arguments[@]}")
   while (( ${#remaining_args[@]} > 0 )); do
     case "${remaining_args[0]}" in
       --production-profile|--output-dir|--campaign-tag)
+        remaining_args=("${remaining_args[@]:2}")
+        ;;
+      --run2-wq-manager-prefix|--run3-wq-manager-prefix)
         remaining_args=("${remaining_args[@]:2}")
         ;;
       --dry-run|--resume)
@@ -409,7 +467,7 @@ if [[ "${combined_profile}" == "true" ]]; then
   run2_root="${output_dir}/run2${combined_suffix}"
   run3_root="${output_dir}/run3${combined_suffix}"
   if "$0" --production-profile "${run2_profile}" --output-dir "${run2_root}" \
-    --campaign-tag "${campaign_tag}_run2" "${component_args[@]}"; then
+    --campaign-tag "${campaign_tag}_run2" "${component_args[@]}" "${run2_manager_args[@]}"; then
     run2_exit=0
   else
     run2_exit=$?
@@ -427,7 +485,7 @@ if [[ "${combined_profile}" == "true" ]]; then
     fi
   fi
   if "$0" --production-profile "${run3_profile}" --output-dir "${run3_root}" \
-    --campaign-tag "${campaign_tag}_run3" "${component_args[@]}"; then
+    --campaign-tag "${campaign_tag}_run3" "${component_args[@]}" "${run3_manager_args[@]}"; then
     run3_exit=0
   else
     run3_exit=$?
