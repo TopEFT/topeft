@@ -91,6 +91,10 @@ def test_campaign_dry_run_orders_njets_before_other_without_output(tmp_path):
     assert all(command.count("-f") == 1 and "--sr" in command
                and "--unblind" in command and "--workers" in command
                for command in commands)
+    assert all(command[command.index("-n") + 1] == "merged" for command in commands)
+    assert all(command[command.index("-o") + 1] == str(root / "run3") for command in commands)
+    assert all("--suppress-merge-report" in command and "--canonical-period" in command
+               and "--merge-report" not in command for command in commands)
 
 
 def test_campaign_phase_selection_and_occupied_root_refusal(tmp_path):
@@ -124,7 +128,7 @@ def _inert_campaign_repo(tmp_path, *, failing_child=False, failing_tee=False,
         "import pathlib,sys\n"
         "args=sys.argv[1:]\n"
         "path=pathlib.Path(args[args.index('-o')+1])/args[args.index('-n')+1]\n"
-        "path.mkdir(parents=True,exist_ok=False)\n"
+        "path.mkdir(parents=True,exist_ok=True)\n"
         "print('inert child', path)\n"
         "sys.exit(17 if 'fail' in args[args.index('-f')+1] else 0)\n",
         encoding="utf-8",
@@ -133,6 +137,8 @@ def _inert_campaign_repo(tmp_path, *, failing_child=False, failing_tee=False,
     module_path = fixture_repo / "topeft/modules/node_memory_guard.py"
     module_path.parent.mkdir(parents=True)
     module_path.write_text("# inert source identity fixture\n", encoding="utf-8")
+    shutil.copyfile(real_repo / "topeft/modules/plot_output_layout.py",
+                    module_path.parent / "plot_output_layout.py")
     metadata = fixture_repo / "topeft/params/cr_sr_plots_metadata.yml"
     metadata.parent.mkdir(parents=True)
     metadata.write_text("# inert metadata fixture\n", encoding="utf-8")
@@ -153,7 +159,11 @@ def _inert_campaign_repo(tmp_path, *, failing_child=False, failing_tee=False,
     python_bin = "/users/apiccine/work/miniconda3/envs/clib-env/bin/python"
     if missing_guard:
         fake_python = bin_dir / "python_guard_fixture"
-        fake_python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        fake_python.write_text(
+            "#!/bin/sh\n"
+            "if [ \"$1\" = -m ] && [ \"$2\" = topeft.modules.plot_output_layout ]; then\n"
+            f"  exec {python_bin} \"$@\"\n"
+            "fi\nexit 0\n", encoding="utf-8")
         fake_python.chmod(0o755)
         python_bin = str(fake_python)
     digest = hashlib.sha256(b"").hexdigest()
@@ -191,11 +201,15 @@ def test_campaign_inert_execute_records_sequential_guarded_children(tmp_path):
     wrapper, manifest, root, env = _inert_campaign_repo(tmp_path)
     result = _run_inert_campaign(wrapper, manifest, root, env, "--execute")
     assert result.returncode == 0, result.stderr
-    assert (root / "first.guard.jsonl").is_file()
-    assert (root / "second.guard.jsonl").is_file()
-    assert (root / "first.log").is_file()
-    assert (root / "second.log").is_file()
-    ledger = (root / "units.tsv").read_text(encoding="utf-8")
+    diagnostics = root / "_metadata/diagnostics"
+    assert (diagnostics / "first.guard.jsonl").is_file()
+    assert (diagnostics / "second.guard.jsonl").is_file()
+    assert (diagnostics / "first.log").is_file()
+    assert (diagnostics / "second.log").is_file()
+    assert (diagnostics / "source_sha256.txt").is_file()
+    assert (diagnostics / "source_head.txt").is_file()
+    assert set(root.iterdir()) == {root / "_metadata", root / "run3"}
+    ledger = (diagnostics / "units.tsv").read_text(encoding="utf-8")
     assert ledger.index("first\tstart") < ledger.index("first\tresult")
     assert ledger.index("first\tresult") < ledger.index("second\tstart")
     assert "campaign\tcomplete\tunits=2" in ledger
@@ -211,7 +225,7 @@ def test_campaign_execute_accepts_repo_and_script_directory(tmp_path):
             cwd=cwd, env=env, capture_output=True, text=True, check=False,
         )
         assert result.returncode == 0, result.stderr
-        assert (root / "units.tsv").read_text(encoding="utf-8").count("\tresult\t") == 2
+        assert (root / "_metadata/diagnostics/units.tsv").read_text(encoding="utf-8").count("\tresult\t") == 2
 
 
 @pytest.mark.parametrize(
@@ -224,9 +238,10 @@ def test_campaign_inert_failure_stops_before_next_child(tmp_path, fixture_option
     wrapper, manifest, root, env = _inert_campaign_repo(tmp_path, **fixture_options)
     result = _run_inert_campaign(wrapper, manifest, root, env, "--execute")
     assert result.returncode != 0
-    assert expected in (root / "units.tsv").read_text(encoding="utf-8")
-    assert not (root / "second.guard.jsonl").exists()
-    assert "campaign\tstopped\tfirst" in (root / "units.tsv").read_text(encoding="utf-8")
+    ledger = (root / "_metadata/diagnostics/units.tsv").read_text(encoding="utf-8")
+    assert expected in ledger
+    assert not (root / "_metadata/diagnostics/second.guard.jsonl").exists()
+    assert "campaign\tstopped\tfirst" in ledger
 
 
 def test_campaign_rejects_dangling_output_symlink(tmp_path):

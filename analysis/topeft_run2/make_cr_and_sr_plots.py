@@ -8,6 +8,7 @@ import json
 import gzip
 import pickle
 import re
+import shutil
 from collections import OrderedDict
 from collections.abc import Mapping
 
@@ -71,6 +72,11 @@ from topeft.modules.histogram_artifact import (
 from topeft.modules.nominal_schema import (
     materialize_scalar_histogram_dict,
     validate_histogram_compatibility,
+)
+from topeft.modules.plot_output_layout import (
+    canonical_diagnostics_directory,
+    canonical_period_directory,
+    canonical_plot_destinations_for_period,
 )
 
 
@@ -7732,6 +7738,10 @@ def produce_region_plots(
                     outcome_collector["planned"].append(str(
                         Path(path).relative_to(save_dir_path)
                     ))
+                    if "planned_details" in outcome_collector:
+                        outcome_collector["planned_details"].append(
+                            (str(Path(path).relative_to(save_dir_path)), var_name)
+                        )
         if save_dir_path:
             category_dirs.update(
                 _resolve_output_category_name(region_ctx, category)
@@ -9944,6 +9954,7 @@ def run_plots_for_region(
     output_formats=("png",),
     channel_allowlist=None,
     outcome_collector=None,
+    diagnostics_output_dir=None,
 ):
     """Run one CR/SR plotting pass and write optional zero/negative reports."""
 
@@ -10079,7 +10090,7 @@ def run_plots_for_region(
     if negative_weight_report:
         report_paths = write_negative_weight_report(
             all_negative_rows,
-            save_dir_path,
+            diagnostics_output_dir or save_dir_path,
             binning_mode=binning_mode,
             name_suffix=negative_report_suffix,
         )
@@ -10306,6 +10317,11 @@ def build_arg_parser():
         default="-",
         help="Path for merge diagnostic report JSON, or '-' for stdout.",
     )
+    parser.add_argument("--suppress-merge-report", action="store_true",
+                        help="Do not serialize the optional composition report.")
+    parser.add_argument("--canonical-campaign-root", default="")
+    parser.add_argument("--canonical-period", default="")
+    parser.add_argument("--negative-report-suffix", default="")
     parser.add_argument(
         "--merge-only",
         action="store_true",
@@ -10730,6 +10746,23 @@ def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
     if args.include_timestamp_tag:
         outdir_name = outdir_name + "_" + timestamp_tag
     save_dir_path = os.path.join(save_dir_path,outdir_name)
+    canonical_root = Path(args.canonical_campaign_root) if args.canonical_campaign_root else None
+    if canonical_root is not None:
+        if (resolved_region != "SR" or not args.canonical_period
+                or args.channel_output != "merged" or args.output_formats != ["png"]
+                or not args.suppress_merge_report or args.cache_merged_pkl
+                or Path(save_dir_path) != canonical_period_directory(
+                    canonical_root, args.canonical_period)):
+            raise ValueError("Canonical SR campaign output arguments disagree")
+        if negative_report_suffix is None:
+            negative_report_suffix = args.negative_report_suffix or None
+        if negative_report_suffix is None:
+            raise ValueError("Canonical SR campaign requires a report identity")
+        if outcome_collector is None:
+            outcome_collector = {"planned": [], "skipped": []}
+        outcome_collector.setdefault("planned_details", [])
+    elif args.canonical_period or args.negative_report_suffix:
+        raise ValueError("Canonical period or report suffix requires a campaign root")
     dir_preexists = os.path.exists(save_dir_path)
     os.makedirs(save_dir_path, exist_ok=True)
     if dir_preexists:
@@ -10769,7 +10802,8 @@ def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
             pkl_paths, mixed_stage_sidecars, selected_load=selected_load,
             year_coverage_policy=args.year_coverage_policy,
         )
-    _emit_merge_report(merge_report, args.merge_report, save_dir_path)
+    if not args.suppress_merge_report:
+        _emit_merge_report(merge_report, args.merge_report, save_dir_path)
     if args.cache_merged_pkl:
         _cache_merged_histograms(
             hin_dict, args.cache_merged_pkl, save_dir_path, merge_report
@@ -10828,7 +10862,23 @@ def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
         output_formats=args.output_formats,
         channel_allowlist=channel_allowlist,
         outcome_collector=outcome_collector,
+        diagnostics_output_dir=(str(canonical_diagnostics_directory(canonical_root))
+                                if canonical_root is not None else None),
     )
+    if canonical_root is not None:
+        for relative, variable in outcome_collector["planned_details"]:
+            source = Path(save_dir_path) / relative
+            if not source.is_file():
+                continue
+            category, filename = Path(relative).parts
+            targets = canonical_plot_destinations_for_period(
+                canonical_root, args.canonical_period, category, filename, variable)
+            if source != targets[0]:
+                raise RuntimeError(f"Noncanonical plotted path: {source}")
+            for target in targets[1:]:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with source.open("rb") as input_file, target.open("xb") as output_file:
+                    shutil.copyfileobj(input_file, output_file)
     return 0
 
 

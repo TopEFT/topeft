@@ -163,13 +163,13 @@ the generated `plots.sub` after reviewing the output root and resources.
 
 Each `run-unit` checks its descriptor against the current TSV and campaign
 input set, requires its declared principal PKL to be readable, and refuses
-occupied row output directories. It does not substitute another PKL path or
+occupied figure and receipt paths. It does not substitute another PKL path or
 gate on checkout HEAD or prepare-time source hashes. Mixed units reduce each
 njets view to the established physical-channel selection without changing
-the parent mapping or opening the PKL again. Output uses the ordinary
-`run/view/owner/variables` layout under the caller's campaign root. The
+the parent mapping or opening the PKL again. Output uses the canonical
+period/view/category layout under the caller's campaign root. The
 plotter supplies exact planned paths and structured intentional undrawable
-outcomes. The unit writes a small receipt last only when every planned slot is
+outcomes. The unit writes a small receipt under `_metadata/receipts/` last only when every planned slot is
 one valid PNG or one explicit maintained skip, with no duplicates or unexpected
 paths. Zero-byte, unreadable, unclassified missing, or extra PNGs fail. Receipt
 success establishes structural completion, not visual or scientific acceptance. A failed

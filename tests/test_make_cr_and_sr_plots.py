@@ -4,6 +4,7 @@ import csv
 import os
 import re
 import warnings
+from pathlib import Path
 from types import SimpleNamespace
 
 import hist
@@ -14,6 +15,67 @@ from matplotlib.colors import to_rgb, to_rgba
 from matplotlib.transforms import Bbox
 
 from analysis.topeft_run2 import make_cr_and_sr_plots
+from topeft.modules.plot_output_layout import (
+    canonical_diagnostics_path,
+    canonical_plot_destinations,
+    canonical_receipt_path,
+    normalize_plot_period,
+)
+
+
+@pytest.mark.parametrize("run,view,period", [
+    ("run2", "combined", "run2"),
+    ("run2", "UL16APV", "2016APV"),
+    ("run2", "UL16", "2016"),
+    ("run2", "UL17", "2017"),
+    ("run2", "UL18", "2018"),
+    ("run3", "combined", "run3"),
+    ("run3", "2022", "2022"),
+    ("run3", "2022EE", "2022EE"),
+    ("run3", "2023", "2023"),
+    ("run3", "2023BPix", "2023BPix"),
+])
+def test_canonical_sr_plot_destinations(tmp_path, run, view, period):
+    assert normalize_plot_period(run, view) == period
+    normal = canonical_plot_destinations(
+        tmp_path, run, view, "2lss_p", "2lss_p_ptz_processing.png", "ptz")
+    njets = canonical_plot_destinations(
+        tmp_path, run, view, "2lss_p", "2lss_p_njets_processing.png", "njets")
+    assert normal == (tmp_path / period / "merged/2lss_p/2lss_p_ptz_processing.png",)
+    assert njets == (
+        tmp_path / period / "merged/2lss_p/2lss_p_njets_processing.png",
+        tmp_path / period / "merged_njets/2lss_p/2lss_p_njets_processing.png",
+    )
+    assert canonical_receipt_path(tmp_path, "unit") == tmp_path / "_metadata/receipts/unit.receipt.json"
+    assert canonical_diagnostics_path(tmp_path, "units.tsv") == tmp_path / "_metadata/diagnostics/units.tsv"
+
+
+def test_canonical_renderer_copies_only_produced_njets_and_suppresses_composition(tmp_path, monkeypatch):
+    root = tmp_path / "campaign"
+    parser = make_cr_and_sr_plots.build_arg_parser()
+    args = parser.parse_args([
+        "-f", str(tmp_path / "in_SR.pkl.gz"), "-o", str(root / "2022EE"),
+        "-n", "merged", "-y", "2022EE", "--sr", "--variables", "njets",
+        "--canonical-campaign-root", str(root), "--canonical-period", "2022EE",
+        "--negative-report-suffix", "row", "--suppress-merge-report",
+    ])
+    def inert_render(_region, _hists, _years, output, **kwargs):
+        assert kwargs["diagnostics_output_dir"] == str(root / "_metadata/diagnostics")
+        primary = Path(output) / "2lss_p/2lss_p_njets_processing.png"
+        primary.parent.mkdir(parents=True)
+        primary.write_bytes(b"inert png bytes")
+        kwargs["outcome_collector"]["planned_details"].append(
+            ("2lss_p/2lss_p_njets_processing.png", "njets"))
+        kwargs["outcome_collector"]["planned_details"].append(
+            ("2lss_p/skipped_njets_processing.png", "njets"))
+    monkeypatch.setattr(make_cr_and_sr_plots, "run_plots_for_region", inert_render)
+    make_cr_and_sr_plots.run_with_args(
+        args, parser, loaded_view=({"njets": object()}, {"schema": None}))
+    primary = root / "2022EE/merged/2lss_p/2lss_p_njets_processing.png"
+    convenience = root / "2022EE/merged_njets/2lss_p/2lss_p_njets_processing.png"
+    assert primary.read_bytes() == convenience.read_bytes() == b"inert png bytes"
+    assert not list(root.rglob("*.composition.json"))
+    assert set(root.iterdir()) == {root / "2022EE"}
 
 
 def _mixed_sr_histogram(process, *, companion=False, auxiliary=False,

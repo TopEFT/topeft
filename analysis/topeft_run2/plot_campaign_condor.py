@@ -21,6 +21,11 @@ import subprocess
 import sys
 from typing import Optional
 
+from topeft.modules.plot_output_layout import (
+    canonical_row_directory, canonical_receipt_path,
+    normalize_plot_period,
+)
+
 
 _header = (
     "unit", "kind", "run", "view", "owner", "years", "variables",
@@ -66,11 +71,7 @@ def _safe_absolute(path: Path) -> str:
 
 
 def _output_relative(row: dict) -> str:
-    parts = [row["run"], row["view"]]
-    if row["run"] == "run3":
-        parts.append(row["owner"])
-    parts.append(row["variables"].replace(",", "_"))
-    return "/".join(parts)
+    return canonical_row_directory(Path("."), row["run"], row["view"]).as_posix()
 
 
 def read_campaign(manifest_path: Path) -> tuple[list[dict], str]:
@@ -84,7 +85,6 @@ def read_campaign(manifest_path: Path) -> tuple[list[dict], str]:
     if not rows:
         raise ValueError("Empty SR campaign")
     seen_ids = set()
-    seen_outputs = set()
     for row in rows:
         if None in row or any(value is None or not value for value in row.values()):
             raise ValueError("Incomplete SR campaign row")
@@ -110,12 +110,9 @@ def read_campaign(manifest_path: Path) -> tuple[list[dict], str]:
         for key in ("historical_pkl_sha256", "historical_sidecar_sha256"):
             if not re.fullmatch(r"[0-9a-f]{64}", row[key]):
                 raise ValueError("Invalid historical digest")
-        relative = _output_relative(row)
-        output_identity = (relative, row["owner"]) if row["run"] == "run2" else relative
-        if row["unit"] in seen_ids or output_identity in seen_outputs:
-            raise ValueError("Duplicate logical row or output directory")
+        if row["unit"] in seen_ids:
+            raise ValueError("Duplicate logical row")
         seen_ids.add(row["unit"])
-        seen_outputs.add(output_identity)
     return rows, _sha256(manifest_path)
 
 
@@ -629,13 +626,11 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
     _histos_root(output_root)
     if descriptor["campaign_id"] != output_root.name:
         raise ValueError("Campaign output identity mismatch")
-    # Run 2 blocks may share a row directory after the technical owner is
-    # removed from its public path. Individual figure creation is exclusive.
+    # Logical rows share canonical period/merged directories. Figure creation
+    # is exclusive, while receipts retain the technical unit identity.
     occupied = []
-    receipt_path = output_root / (unit_id + ".receipt.json")
-    report_paths = [output_root / (row_id + ".composition.json")
-                    for row_id in descriptor["row_ids"]]
-    occupied.extend(str(path) for path in [receipt_path, *report_paths]
+    receipt_path = canonical_receipt_path(output_root, unit_id)
+    occupied.extend(str(path) for path in [receipt_path]
                     if path.exists() or path.is_symlink())
     if occupied:
         raise FileExistsError(f"Occupied campaign output: {occupied}")
@@ -658,21 +653,24 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
     for row in descriptor["rows"]:
         variables = row["variables"].split(",")
         relative = _output_relative(row)
-        parent = output_root / Path(relative).parent
+        period = normalize_plot_period(row["run"], row["view"])
+        row_directory = canonical_row_directory(output_root, row["run"], row["view"])
+        parent = row_directory.parent
         args = parser.parse_args([
             "-f", descriptor["principal_pkl"], "-o", str(parent),
-            "-n", Path(relative).name, "-y", *row["years"].split(","),
+            "-n", row_directory.name, "-y", *row["years"].split(","),
             "--sr", "--unblind", "--variables", *variables,
             "--channel-output", "merged", "--binning", "processing",
             "--workers", str(descriptor["workers"]), "--output-formats", "png",
-            "--year-coverage-policy", "warn", "--merge-report",
-            str(output_root / (row["unit"] + ".composition.json")),
+            "--year-coverage-policy", "warn", "--suppress-merge-report",
+            "--canonical-campaign-root", str(output_root),
+            "--canonical-period", period,
         ])
         outcomes = {"planned": [], "skipped": []}
         result = plotter.run_with_args(
             args, parser, loaded_view=_selected_view(loaded, merge_report, row),
             outcome_collector=outcomes,
-            negative_report_suffix=row["unit"] if row["run"] == "run2" else None,
+            negative_report_suffix=row["unit"],
         )
         if result != 0:
             raise RuntimeError(f"Plot view {row['unit']} returned {result}")
@@ -708,6 +706,7 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
         ])).hexdigest(),
         **accounting,
     }
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
     with receipt_path.open("x", encoding="utf-8") as target:
         target.write(_json_bytes(receipt).decode("utf-8"))
     return receipt

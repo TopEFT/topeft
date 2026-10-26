@@ -604,13 +604,12 @@ campaign_main() {
     fi
     local -a rows selected=()
     mapfile -t rows < "$manifest"
-    declare -A seen_units=() seen_outputs=() seen_inputs=() seen_sidecars=()
+    declare -A seen_units=() seen_inputs=() seen_sidecars=()
     local row unit kind run view owner years variables expected_figures pkl pkl_hash sidecar sidecar_hash
-    local output_rel year variable key count_njets=0 count_other=0 figures_njets=0 figures_other=0
+    local year variable key count_njets=0 count_other=0 figures_njets=0 figures_other=0
     local -a year_args variable_args
     for row in "${rows[@]:1}"; do
         IFS=$'\t' read -r unit kind run view owner years variables expected_figures pkl pkl_hash sidecar sidecar_hash <<< "$row"
-        output_rel="$run/$view/$owner/${variables//,/_}"
         if [[ ! $unit =~ ^[A-Za-z0-9_.+-]+$ || $unit == . || $unit == .. ||
               ! $kind =~ ^(njets|other)$ ||
               ! $run =~ ^(run2|run3)$ || ! $view =~ ^[A-Za-z0-9_.+-]+$ ||
@@ -622,10 +621,10 @@ campaign_main() {
               ! $pkl = /* || ! $sidecar = /* ||
               $sidecar != "$pkl.metadata.json" ||
               ! $pkl_hash =~ ^[0-9a-f]{64}$ || ! $sidecar_hash =~ ^[0-9a-f]{64}$ ||
-              -n ${seen_units[$unit]+x} || -n ${seen_outputs[$output_rel]+x} ]]; then
+              -n ${seen_units[$unit]+x} ]]; then
             echo "Invalid or duplicate campaign row: $unit" >&2; return 2
         fi
-        seen_units[$unit]=1; seen_outputs[$output_rel]=1
+        seen_units[$unit]=1
         IFS=, read -r -a year_args <<< "$years"
         IFS=, read -r -a variable_args <<< "$variables"
         for year in "${year_args[@]}"; do
@@ -681,12 +680,14 @@ campaign_main() {
             [[ -r $sidecar ]] && printf '%s  %s\n' "${seen_sidecars[$sidecar]}" "$sidecar" | sha256sum -c - || return 2
         done
         mkdir -m 700 -- "$output_root" || return 2
+        mkdir -m 700 -p -- "$output_root/_metadata/diagnostics" || return 2
         sha256sum "$manifest" "$PLOTTER_SCRIPT" "$SCRIPT_DIR/run_plotter.sh" \
+            "$repo_root/topeft/modules/plot_output_layout.py" \
             "$repo_root/topeft/modules/node_memory_guard.py" \
-            "$repo_root/topeft/params/cr_sr_plots_metadata.yml" > "$output_root/source_sha256.txt" || return 2
-        git -C "$repo_root" rev-parse HEAD > "$output_root/source_head.txt" || return 2
+            "$repo_root/topeft/params/cr_sr_plots_metadata.yml" > "$output_root/_metadata/diagnostics/source_sha256.txt" || return 2
+        git -C "$repo_root" rev-parse HEAD > "$output_root/_metadata/diagnostics/source_head.txt" || return 2
     fi
-    local output_parent output_name guard_path log_path ledger_path status_check
+    local output_parent output_name guard_path log_path ledger_path status_check period row_directory layout
     local -a child guard statuses
     for kind in njets other; do
         [[ $phase == all || $phase == "$kind" ]] || continue
@@ -695,23 +696,25 @@ campaign_main() {
             [[ $key == "$kind" ]] || continue
             IFS=, read -r -a year_args <<< "$years"
             IFS=, read -r -a variable_args <<< "$variables"
-            output_parent="$output_root/$run/$view/$owner"
-            output_name="${variables//,/_}"
-            guard_path="$output_root/${unit}.guard.jsonl"
-            log_path="$output_root/${unit}.log"
-            ledger_path="$output_root/units.tsv"
+            layout=$(PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_BIN" -m topeft.modules.plot_output_layout "$output_root" "$run" "$view") || return 2
+            IFS=$'\t' read -r period row_directory <<< "$layout"
+            output_parent="${row_directory%/*}"
+            output_name="${row_directory##*/}"
+            guard_path="$output_root/_metadata/diagnostics/${unit}.guard.jsonl"
+            log_path="$output_root/_metadata/diagnostics/${unit}.log"
+            ledger_path="$output_root/_metadata/diagnostics/units.tsv"
             child=("$SCRIPT_DIR/run_plotter.sh" -f "$pkl" -o "$output_parent" -n "$output_name"
                    -y "${year_args[@]}" --sr --unblind --variables "${variable_args[@]}"
                    --channel-output merged --binning processing --workers 1
                    --output-formats png --year-coverage-policy warn
-                   --merge-report "$output_root/${unit}.composition.json")
+                   --suppress-merge-report --canonical-campaign-root "$output_root"
+                   --canonical-period "$period" --negative-report-suffix "$unit")
             printf 'Unit: %s input=%s output=%s\n' "$unit" "$pkl" "$output_parent/$output_name"
             if [[ $action == --dry-run ]]; then
                 "${child[@]}" --dry-run || return $?
                 continue
             fi
-            if [[ -e $output_parent/$output_name || -L $output_parent/$output_name ||
-                  -e $guard_path || -L $guard_path || -e $log_path || -L $log_path ]]; then
+            if [[ -e $guard_path || -L $guard_path || -e $log_path || -L $log_path ]]; then
                 echo "Occupied campaign unit: $unit" >&2; return 2
             fi
             mkdir -p -- "$output_parent" || return 2

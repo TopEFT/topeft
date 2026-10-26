@@ -203,7 +203,7 @@ def _fixture_manifest(tmp_path, *, run="run3"):
     year = "2022" if run == "run3" else "2018"
     rows = [
         ("one_njets", "njets", run, "combined", "owner", year, "njets", "1"),
-        ("two_other", "other", run, year, "owner", year, "ptz", "1"),
+        ("two_other", "other", run, year if run == "run3" else "UL18", "owner", year, "ptz", "1"),
     ]
     manifest.write_text(header + "\n" + "\n".join("\t".join((
         *row, str(pkl), pkl_digest, str(sidecar), sidecar_digest,
@@ -223,14 +223,14 @@ def test_run2_public_row_path_omits_block_but_preserves_unit_identity(tmp_path):
                         + "\t".join(second) + "\n")
     rows, digest = campaign.read_campaign(manifest)
     assert [campaign._output_relative(row) for row in rows] == [
-        "run2/combined/njets", "run2/combined/njets"]
+        "run2/merged", "run2/merged"]
     unit = campaign.derive_units(rows, digest)[0]
     assert unit["row_ids"] == sorted(row["unit"] for row in rows)
-    assert unit["outputs"] == ["run2/combined/njets"] * 2
+    assert unit["outputs"] == ["run2/merged"] * 2
     assert all(row["owner"].startswith("run2_block") for row in unit["rows"])
     assert campaign._output_relative({**rows[0], "run": "run3"}) == (
-        "run3/combined/run2_block1/njets")
-    planned = ["run2/combined/njets/category/plot.png"]
+        "run3/merged")
+    planned = ["run2/merged/category/plot.png"]
     skip = {"outcome": "skipped", "reason": "empty-data-content",
             "region": "SR", "mode": "aggregate", "row_id": rows[0]["unit"],
             "variable": "njets", "paths": planned}
@@ -244,10 +244,10 @@ def test_run2_public_row_path_omits_block_but_preserves_unit_identity(tmp_path):
             [{**skip, "paths": ["run2/combined/run2_block1/njets/category/plot.png"]}],
             [], 0)
     duplicate_owner = second.copy()
-    duplicate_owner[4] = "run2_block1"
+    duplicate_owner[0] = first[0]
     manifest.write_text(fields[0] + "\n" + "\t".join(first) + "\n"
                         + "\t".join(duplicate_owner) + "\n")
-    with pytest.raises(ValueError, match="Duplicate logical row or output directory"):
+    with pytest.raises(ValueError, match="Duplicate logical row"):
         campaign.read_campaign(manifest)
 
 
@@ -384,16 +384,15 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
                negative_report_suffix):
         assert len(loader_calls) == 1
         family = args.variables[0]
-        assert negative_report_suffix == (next(
+        assert negative_report_suffix == next(
             row["unit"] for row in rows if row["variables"] == family)
-            if run == "run2" else None)
         mapping, report = loaded_view
         assert set(mapping) == {family + "__scalar_nominal", family + "_sumw2"}
         assert report["runtime_histogram_families"] == [family]
         rendered.append((family, float(ak.sum(mapping[family + "__scalar_nominal"].values())),
                          args.workers))
         path = Path(args.output_path) / args.output_name
-        path.mkdir(parents=True)
+        path.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (1, 1)).save(path / (family + ".png"))
         outcome_collector["planned"].append(family + ".png")
         return 0
@@ -410,6 +409,8 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
     assert receipt["zero_byte_or_unreadable_output_count"] == 0
     assert receipt["return_code"] == 0
     assert receipt["topeft_source_identity"] != receipt["runtime_topeft_source_identity"]
+    assert (output_root / "_metadata/receipts" / (unit["unit_id"] + ".receipt.json")).is_file()
+    assert not list(output_root.rglob("*.composition.json"))
     for row in rows:
         relative = campaign._output_relative(row)
         assert (output_root / relative / (row["variables"] + ".png")).is_file()

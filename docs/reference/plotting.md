@@ -48,13 +48,18 @@ The structured skip vocabulary is owned by the plotter's drawability branches:
 early returns, and exceptions do not become allowed skips.
 
 The dispatch requests explicit CPUs, memory, disk, runtime and render-worker
-count, with `request_cpus >= workers`. Run 2 figures use
-`histos/<campaign>/run2/<period>/<variables>/<category>/<figure>.png`;
-the technical unit owner remains in descriptors and receipts, not the figure
-path. Run 3 retains `run3/<period>/<owner>/<variables>` beneath the campaign
-root. Figure creation rejects an occupied file, and receipt accounting checks
-the planned paths for each unit. Negative-contribution report filenames retain
-the logical row identity when row directories are shared. No retry, resume,
+count, with `request_cpus >= workers`. SR campaign figures use
+`histos/<campaign>/<period>/merged/<category>/<figure>.png`. The period is
+`run2`, `run3`, or an individual year (`2016APV`, `2016`, `2017`, `2018`,
+`2022`, `2022EE`, `2023`, `2023BPix`). Every produced `njets` figure also has
+a regular-file copy at `<period>/merged_njets/<category>/<figure>.png`; the
+primary `merged` view retains that figure. Technical unit and variable-group
+identities remain in descriptors and receipts, not figure directories. Figure
+creation rejects an occupied file, and receipt accounting checks the primary
+planned paths for each unit. Receipt-v2 files live in `_metadata/receipts/`;
+negative-contribution reports and wrapper source hashes, logs, guards, and
+ledger live in `_metadata/diagnostics/`. The optional composition JSON is not
+automatically serialized by either SR campaign frontend. No retry, resume,
 staging, DAG, or Condor-specific output renaming is supplied.
 
 Campaign dry-run validates the TSV and prints resolved child commands without
