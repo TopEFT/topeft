@@ -1061,6 +1061,10 @@ def test_show_ratio_legend_cli_is_disabled_by_default_and_explicitly_enabled():
 def test_binning_cli_defaults_to_processing_and_accepts_fitting():
     parser = make_cr_and_sr_plots.build_arg_parser()
     assert parser.parse_args(["-f", "input.pkl.gz"]).binning == "processing"
+    assert parser.parse_args(["-f", "input.pkl.gz"]).debug_canvas_annotations is False
+    assert parser.parse_args([
+        "-f", "input.pkl.gz", "--debug-canvas-annotations"
+    ]).debug_canvas_annotations is True
     assert (
         parser.parse_args(["-f", "input.pkl.gz", "--binning", "fitting"]).binning
         == "fitting"
@@ -1418,11 +1422,12 @@ def _parallel_test_payload():
 
 def test_parallel_rendering_caps_worker_count_at_task_count(monkeypatch):
     variable_names = ["met", "lt"]
-    captured = {"max_workers": None, "submitted": []}
+    captured = {"max_workers": None, "submitted": [], "initargs": None}
 
     class _FakeExecutor:
         def __init__(self, *, max_workers, **_kwargs):
             captured["max_workers"] = max_workers
+            captured["initargs"] = _kwargs["initargs"]
 
         def __enter__(self):
             return self
@@ -1456,10 +1461,50 @@ def test_parallel_rendering_caps_worker_count_at_task_count(monkeypatch):
         False,
         False,
         workers=9,
+        debug_canvas_annotations=True,
     )
 
     assert captured["max_workers"] == 2
     assert captured["submitted"] == [(1, "met"), (2, "lt")]
+    assert captured["initargs"][-1] is True
+
+
+@pytest.mark.parametrize("debug_canvas_annotations", [False, True])
+def test_serial_and_worker_render_receive_canvas_mode(monkeypatch, debug_canvas_annotations):
+    region_ctx = _parallel_test_region_context(["met"])
+    region_ctx.apply_category_skips = False
+    seen = []
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "_resolve_requested_variables",
+        lambda *_args, **_kwargs: ["met"],
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "_prepare_variable_payload",
+        lambda *_args, **_kwargs: _parallel_test_payload(),
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "_ensure_variable_channel_coverage_validated",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        make_cr_and_sr_plots, "_render_variable",
+        lambda *_args, **kwargs: seen.append(kwargs["debug_canvas_annotations"])
+        or (0, 0, set(), []),
+    )
+    make_cr_and_sr_plots.produce_region_plots(
+        region_ctx, None, None, "none", False, False,
+        workers=1, debug_canvas_annotations=debug_canvas_annotations,
+    )
+    make_cr_and_sr_plots._initialize_render_worker(
+        None, "none", False, False, False, False,
+        shared_region_ctx=region_ctx,
+        debug_canvas_annotations=debug_canvas_annotations,
+    )
+    try:
+        make_cr_and_sr_plots._render_variable_from_worker(1, "met")
+    finally:
+        make_cr_and_sr_plots._WORKER_RENDER_CONTEXT = None
+    assert seen == [debug_canvas_annotations, debug_canvas_annotations]
 
 
 def test_parallel_rendering_propagates_worker_failure(monkeypatch):
@@ -4152,7 +4197,9 @@ def test_sr_positive_groups_use_filled_colored_stack_artists():
         make_cr_and_sr_plots.plt.close(fig)
 
 
-def test_sr_signed_fallback_keeps_colored_fills_and_negative_diagnostic():
+@pytest.mark.parametrize("debug_canvas_annotations", [False, True])
+def test_sr_signed_fallback_keeps_colored_fills_and_negative_diagnostic(
+        debug_canvas_annotations):
     h_mc, h_sumw2, h_data, groups = _make_sr_ttbar_display_inputs(negative=True)
     groups = OrderedDict((label, members) for label, members in groups.items())
     groups["ttbar"] = ["TTTo2L2Nu_centralUL16"]
@@ -4161,6 +4208,7 @@ def test_sr_signed_fallback_keeps_colored_fills_and_negative_diagnostic():
     fig = make_cr_and_sr_plots.make_region_stacked_ratio_fig(
         h_mc, h_data, False, var="njets", group=groups, h_mc_sumw2=h_sumw2,
         unblind=True, uncertainty_mode="stat", sr_flat_display=True,
+        debug_canvas_annotations=debug_canvas_annotations,
     )
     try:
         ax = fig.axes[0]
@@ -4174,8 +4222,16 @@ def test_sr_signed_fallback_keeps_colored_fills_and_negative_diagnostic():
         assert {"ttll", "ttbar", "Other"} <= {
             patch.get_label() for patch in ax.patches if patch.get_fill()}
         assert "MC total" not in [patch.get_label() for patch in ax.patches]
-        assert any(float(text.get_text()) < 0 for text in ax.texts
-                   if text.get_text().lstrip("- ").replace(".", "").isdigit())
+        canvas_texts = [text for axis in fig.axes for text in axis.texts] + list(fig.texts)
+        diagnostic_texts = [text.get_text() for text in canvas_texts
+                            if text.get_text().lstrip("- ").replace(".", "").isdigit()
+                            and float(text.get_text()) < 0]
+        assert bool(diagnostic_texts) is debug_canvas_annotations
+        assert any(np.any(values < 0) for _, values in
+                   fig._topeft_sr_signed_display_view["components"])
+        assert ax.get_xticks().size > 0
+        assert any("13" in text.get_text() and "TeV" in text.get_text()
+                   for text in canvas_texts)
     finally:
         make_cr_and_sr_plots.plt.close(fig)
 

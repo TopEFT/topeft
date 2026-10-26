@@ -22,7 +22,8 @@ def _monitor_fixture(tmp_path, *, duplicate=False, wrong_root=False):
         descriptor_path = diagnostics / "dispatch" / unit_id / "units" / f"{unit_id}.json"
         descriptor_path.parent.mkdir(parents=True)
         output_root = tmp_path / ("other" if wrong_root and index == 2 else "campaign")
-        descriptor = {"schema": "plot_campaign_unit_v1", "unit_id": unit_id,
+        descriptor = {"schema": "plot_campaign_unit_v2", "unit_id": unit_id,
+                      "binning": "fitting", "debug_canvas_annotations": False,
                       "principal_pkl": f"/input/{unit_id}.pkl.gz", "campaign_id": output_root.name,
                       "campaign_manifest": "/input/campaign.tsv", "output_root": str(output_root),
                       "workers": workers,
@@ -288,6 +289,10 @@ def test_accepted_manifest_partitions_exactly_and_prepare_never_opens_pkls(
     assert len(items) == 10
     descriptors = [json.loads(path.read_text()) for path in sorted((destination / "units").glob("*.json"))]
     assert len(descriptors) == 10
+    assert all(descriptor["schema"] == "plot_campaign_unit_v2"
+               and descriptor["binning"] == "fitting"
+               and descriptor["debug_canvas_annotations"] is False
+               for descriptor in descriptors)
     input_record = json.loads((destination / "campaign_inputs.json").read_text())
     assert set(input_record["campaign_principal_pkl_paths"]) == manifest_paths
     assert set(input_record["rows_by_principal_pkl"]) == manifest_paths
@@ -311,6 +316,44 @@ def test_accepted_manifest_partitions_exactly_and_prepare_never_opens_pkls(
     assert "allowed_execute_duration = 3600" in submit
     assert "queue unit_id, unit_sha256 from " in submit
     assert "condor_submit" not in submit
+
+
+def test_prepare_explicit_debug_mode_is_bound_in_descriptor(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaign, "_histos_root", lambda path: str(path))
+    destination = tmp_path / "dispatch"
+    campaign.prepare(
+        _accepted_manifest, destination, tmp_path / "histos" / "campaign",
+        request_cpus=1, request_memory="1GB", request_disk="1GB",
+        max_runtime=60, workers=1, unit_id="pkl_60965b09ae555381",
+        debug_canvas_annotations=True,
+    )
+    descriptor_path = next((destination / "units").glob("*.json"))
+    descriptor = json.loads(descriptor_path.read_text())
+    assert campaign._render_modes(descriptor) == ("fitting", True)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("schema", "plot_campaign_unit_v1"),
+    ("binning", None), ("binning", "processing"), ("binning", True),
+    ("debug_canvas_annotations", None),
+    ("debug_canvas_annotations", "false"),
+    ("debug_canvas_annotations", 0),
+])
+def test_old_or_invalid_descriptor_modes_fail_before_input_access(
+        tmp_path, monkeypatch, field, value):
+    descriptor = {"schema": "plot_campaign_unit_v2", "binning": "fitting",
+                  "debug_canvas_annotations": False, "workers": 1,
+                  "campaign_manifest": str(tmp_path / "missing.tsv")}
+    if value is None:
+        descriptor.pop(field)
+    else:
+        descriptor[field] = value
+    path = tmp_path / "unit.json"
+    path.write_bytes(campaign._json_bytes(descriptor))
+    monkeypatch.setattr(campaign, "read_campaign",
+                        lambda *_args: pytest.fail("invalid mode reached campaign input"))
+    with pytest.raises(ValueError, match="descriptor (schema|rendering modes)"):
+        campaign.run_unit(path, campaign._sha256(path))
 
 
 def test_one_unit_prepare_keeps_whole_campaign_input_set(tmp_path):
@@ -338,7 +381,9 @@ def test_one_unit_prepare_keeps_whole_campaign_input_set(tmp_path):
 
 @pytest.mark.parametrize("workers", [1, 3])
 @pytest.mark.parametrize("run", ["run2", "run3"])
-def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, workers, run):
+@pytest.mark.parametrize("debug_canvas_annotations", [False, True])
+def test_run_unit_selects_once_and_reuses_all_views(
+        tmp_path, monkeypatch, workers, run, debug_canvas_annotations):
     manifest = _fixture_manifest(tmp_path, run=run)
     rows, manifest_hash = campaign.read_campaign(manifest)
     unit = campaign.derive_units(rows, manifest_hash)[0]
@@ -346,7 +391,8 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
     monkeypatch.setattr(campaign, "_histos_root", lambda path: str(path))
     monkeypatch.setattr(campaign, "_source_identity", lambda: {"head": "fixture"})
     descriptor = {
-        "schema": "plot_campaign_unit_v1", "campaign_id": "campaign",
+        "schema": "plot_campaign_unit_v2", "binning": "fitting",
+        "debug_canvas_annotations": debug_canvas_annotations, "campaign_id": "campaign",
         "campaign_manifest": str(manifest), "output_root": str(output_root),
         "source_identity": {"head": "prepared, different from runtime",
                             "frontend_sha256": "0" * 64,
@@ -384,6 +430,8 @@ def test_run_unit_selects_once_and_reuses_all_views(tmp_path, monkeypatch, worke
                negative_report_suffix):
         assert len(loader_calls) == 1
         family = args.variables[0]
+        assert args.binning == "fitting"
+        assert args.debug_canvas_annotations is descriptor["debug_canvas_annotations"]
         assert negative_report_suffix == next(
             row["unit"] for row in rows if row["variables"] == family)
         mapping, report = loaded_view
@@ -426,7 +474,8 @@ def test_missing_declared_principal_pkl_fails_without_substitution(tmp_path, mon
     rows, manifest_hash = campaign.read_campaign(manifest)
     unit = campaign.derive_units(rows, manifest_hash)[0]
     descriptor = {
-        "schema": "plot_campaign_unit_v1", "campaign_id": "campaign",
+        "schema": "plot_campaign_unit_v2", "binning": "fitting",
+        "debug_canvas_annotations": False, "campaign_id": "campaign",
         "campaign_manifest": str(manifest),
         "output_root": str(tmp_path / "histos" / "campaign"),
         "source_identity": {"head": "old"},

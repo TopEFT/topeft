@@ -175,9 +175,23 @@ def _histos_root(output_root: Path) -> str:
     return value
 
 
+def _render_modes(descriptor: dict) -> tuple[str, bool]:
+    """Require the rendering contract on every runnable descriptor."""
+    if descriptor.get("schema") != "plot_campaign_unit_v2":
+        raise ValueError("Unexpected unit descriptor schema")
+    binning = descriptor.get("binning")
+    debug_canvas_annotations = descriptor.get("debug_canvas_annotations")
+    if binning != "fitting" or type(debug_canvas_annotations) is not bool:
+        raise ValueError("Invalid descriptor rendering modes")
+    return binning, debug_canvas_annotations
+
+
 def prepare(manifest_path: Path, destination: Path, output_root: Path, *,
             request_cpus: int, request_memory: str, request_disk: str,
-            max_runtime: int, workers: int, unit_id: Optional[str] = None) -> dict:
+            max_runtime: int, workers: int, unit_id: Optional[str] = None,
+            debug_canvas_annotations: bool = False) -> dict:
+    if type(debug_canvas_annotations) is not bool:
+        raise ValueError("Debug canvas annotation mode must be a boolean")
     rows, manifest_sha256 = read_campaign(manifest_path)
     units = derive_units(rows, manifest_sha256)
     campaign_principal_pkl_paths = sorted({row["pkl"] for row in rows})
@@ -213,7 +227,9 @@ def prepare(manifest_path: Path, destination: Path, output_root: Path, *,
     items = []
     for unit in units:
         descriptor = {
-            "schema": "plot_campaign_unit_v1",
+            "schema": "plot_campaign_unit_v2",
+            "binning": "fitting",
+            "debug_canvas_annotations": debug_canvas_annotations,
             "campaign_id": output_root.name,
             "campaign_manifest": str(manifest_path),
             "output_root": output_path,
@@ -305,7 +321,8 @@ def _monitor_units(diagnostics_dir: Path) -> tuple[list[dict], Path, int]:
             raise ValueError("Descriptor digest disagrees with campaign mapping")
         descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
         row_ids = descriptor.get("row_ids")
-        if (descriptor.get("schema") != "plot_campaign_unit_v1"
+        _render_modes(descriptor)
+        if (descriptor.get("schema") != "plot_campaign_unit_v2"
                 or descriptor.get("unit_id") != unit_id
                 or descriptor.get("principal_pkl") != entry.get("principal_pkl_path")
                 or descriptor.get("output_root") != entry.get("output_root")
@@ -603,8 +620,7 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
     if _sha256(descriptor_path) != descriptor_sha256:
         raise ValueError("Unit descriptor integrity mismatch")
     descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-    if descriptor.get("schema") != "plot_campaign_unit_v1":
-        raise ValueError("Unexpected unit descriptor schema")
+    binning, debug_canvas_annotations = _render_modes(descriptor)
     if type(descriptor.get("workers")) is not int or descriptor["workers"] < 1:
         raise ValueError("Invalid descriptor worker count")
     manifest = Path(descriptor["campaign_manifest"])
@@ -660,12 +676,12 @@ def run_unit(descriptor_path: Path, descriptor_sha256: str) -> dict:
             "-f", descriptor["principal_pkl"], "-o", str(parent),
             "-n", row_directory.name, "-y", *row["years"].split(","),
             "--sr", "--unblind", "--variables", *variables,
-            "--channel-output", "merged", "--binning", "processing",
+            "--channel-output", "merged", "--binning", binning,
             "--workers", str(descriptor["workers"]), "--output-formats", "png",
             "--year-coverage-policy", "warn", "--suppress-merge-report",
             "--canonical-campaign-root", str(output_root),
             "--canonical-period", period,
-        ])
+        ] + (["--debug-canvas-annotations"] if debug_canvas_annotations else []))
         outcomes = {"planned": [], "skipped": []}
         result = plotter.run_with_args(
             args, parser, loaded_view=_selected_view(loaded, merge_report, row),
@@ -725,6 +741,10 @@ def main() -> int:
     prepare_parser.add_argument("--max-runtime", type=int, required=True)
     prepare_parser.add_argument("--workers", type=int, required=True)
     prepare_parser.add_argument("--unit-id", help="Queue one manifest-derived principal-PKL unit")
+    prepare_parser.add_argument(
+        "--debug-canvas-annotations", action="store_true",
+        help="Show signed diagnostic numeric annotations on plot canvases (default: off).",
+    )
     run_parser = subparsers.add_parser("run-unit")
     run_parser.add_argument("--descriptor", type=Path, required=True)
     run_parser.add_argument("--descriptor-sha256", required=True)
@@ -748,7 +768,8 @@ def main() -> int:
                          request_memory=args.request_memory,
                          request_disk=args.request_disk,
                          max_runtime=args.max_runtime, workers=args.workers,
-                         unit_id=args.unit_id)
+                         unit_id=args.unit_id,
+                         debug_canvas_annotations=args.debug_canvas_annotations)
     else:
         result = run_unit(args.descriptor, args.descriptor_sha256)
     print(json.dumps(result, sort_keys=True))

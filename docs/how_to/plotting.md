@@ -75,6 +75,12 @@ source hashes and status under the new root. A failed child, log write or
 missing guard result stops later rows; inspect the partial output before any
 separate retry. The dry run neither creates that root nor hashes PKLs. The
 catalogue's figure counts are plans, not proof that any figure was rendered.
+Maintained nominal SR campaign children explicitly use fitting binning and
+omit extra diagnostic numeric canvas annotations. Add
+`--debug-canvas-annotations` to the campaign command only when those signed
+diagnostic values are needed; ordinary axis ticks, luminosity, collision
+energy and physics labels remain visible. This implementation does not
+produce or accept a corrected baseline.
 
 ## Plot directly
 
@@ -88,7 +94,10 @@ python make_cr_and_sr_plots.py \
 
 Repeat `-f` for coherent fragments or use `--pkl-list-file`. Direct plotting
 defaults to the processing-binning view, merged channel output, one worker,
-warning-only year coverage, and enabled negative-weight reports. A mixed Run 2
+warning-only year coverage, no extra diagnostic numeric canvas annotations,
+and enabled negative-weight reports. The direct CLI accepts
+`--debug-canvas-annotations` as an explicit diagnostic opt-in; signed yields,
+uncertainties and separate negative-weight reports do not depend on it. A mixed Run 2
 and Run 3 year selection is rejected.
 
 The plotter validates and merges repeated inputs before rendering. Choose
@@ -136,6 +145,13 @@ PKL digest separately before streaming. The generated Condor material uses
 shared paths and does not stage PKLs or submit jobs.
 `campaign_inputs.json` records the exact ten manifest-derived principal-PKL
 paths and their logical rows. Every descriptor carries that same input set.
+Fresh descriptors use schema `plot_campaign_unit_v2` and bind
+`binning: fitting` and a typed `debug_canvas_annotations: false` by default.
+`prepare --debug-canvas-annotations` binds `true` explicitly. The worker
+validates and obeys both fields before accessing campaign inputs; old
+descriptors and missing or invalid rendering modes are rejected. The monitor
+uses the same descriptor contract. This implementation alone does not render
+or accept a corrected baseline.
 
 Run `prepare` through the workspace Python wrapper, with a fresh dispatch
 directory and an ordinary TOPEFT `histos` campaign root:

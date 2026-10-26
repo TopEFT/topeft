@@ -562,7 +562,7 @@ main() {
 }
 
 campaign_main() {
-    local manifest="" phase="" output_root="" action=""
+    local manifest="" phase="" output_root="" action="" debug_canvas_annotations=0
     while (( $# )); do
         case "$1" in
             --campaign-manifest|--campaign-phase|-o|--output-dir)
@@ -576,6 +576,8 @@ campaign_main() {
             --dry-run|--execute)
                 if [[ -n $action ]]; then echo "Choose one campaign action" >&2; return 2; fi
                 action=$1; shift ;;
+            --debug-canvas-annotations)
+                debug_canvas_annotations=1; shift ;;
             *) echo "Unknown campaign argument: $1" >&2; return 2 ;;
         esac
     done
@@ -705,10 +707,13 @@ campaign_main() {
             ledger_path="$output_root/_metadata/diagnostics/units.tsv"
             child=("$SCRIPT_DIR/run_plotter.sh" -f "$pkl" -o "$output_parent" -n "$output_name"
                    -y "${year_args[@]}" --sr --unblind --variables "${variable_args[@]}"
-                   --channel-output merged --binning processing --workers 1
+                   --channel-output merged --binning fitting --workers 1
                    --output-formats png --year-coverage-policy warn
                    --suppress-merge-report --canonical-campaign-root "$output_root"
                    --canonical-period "$period" --negative-report-suffix "$unit")
+            if (( debug_canvas_annotations )); then
+                child+=(--debug-canvas-annotations)
+            fi
             printf 'Unit: %s input=%s output=%s\n' "$unit" "$pkl" "$output_parent/$output_name"
             if [[ $action == --dry-run ]]; then
                 "${child[@]}" --dry-run || return $?

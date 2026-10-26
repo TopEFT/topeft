@@ -88,6 +88,9 @@ def test_campaign_dry_run_orders_njets_before_other_without_output(tmp_path):
     commands = [shlex.split(line) for line in result.stdout.splitlines()
                 if line.startswith("  ")]
     assert len(commands) == 3
+    assert all(command[command.index("--binning") + 1] == "fitting"
+               for command in commands)
+    assert all("--debug-canvas-annotations" not in command for command in commands)
     assert all(command.count("-f") == 1 and "--sr" in command
                and "--unblind" in command and "--workers" in command
                for command in commands)
@@ -95,6 +98,22 @@ def test_campaign_dry_run_orders_njets_before_other_without_output(tmp_path):
     assert all(command[command.index("-o") + 1] == str(root / "run3") for command in commands)
     assert all("--suppress-merge-report" in command and "--canonical-period" in command
                and "--merge-report" not in command for command in commands)
+
+
+def test_campaign_debug_canvas_annotations_are_explicit(tmp_path):
+    manifest, root = _campaign_fixture(tmp_path)
+    result = _run_plotter(
+        tmp_path, "--campaign-manifest", str(manifest),
+        "--campaign-phase", "njets", "-o", str(root), "--dry-run",
+        "--debug-canvas-annotations",
+    )
+    assert result.returncode == 0, result.stderr
+    commands = [shlex.split(line) for line in result.stdout.splitlines()
+                if line.startswith("  ")]
+    assert len(commands) == 1
+    assert commands[0].count("--debug-canvas-annotations") == 1
+    assert commands[0][commands[0].index("--binning") + 1] == "fitting"
+    assert not root.exists()
 
 
 def test_campaign_phase_selection_and_occupied_root_refusal(tmp_path):

@@ -24,12 +24,20 @@ The wrapper also composes a sequential SR baseline from a validated TSV via
 single-input wrapper path for every row; the direct Python CLI has no campaign
 or display-group switch. Ordinary single-invocation wrapper options retain
 their behavior.
+Maintained nominal campaign child commands select fitting binning explicitly
+and omit `--debug-canvas-annotations` unless requested; the generic direct
+plotter default remains processing.
 
 `analysis/topeft_run2/plot_campaign_condor.py` is the plotting-owned
 shared-filesystem campaign frontend. `prepare` consumes that same TSV and emits
 one descriptor per principal PKL, an itemdata file, a worker script and one
 vanilla `plots.sub`. It never reads a production PKL, renders, or submits.
 An optional `--unit-id` queues exactly one manifest-derived unit for a pilot.
+`prepare` binds fitting binning and a default-false diagnostic canvas flag in
+each `plot_campaign_unit_v2` descriptor; its explicit
+`--debug-canvas-annotations` option binds true. `run-unit` validates and
+obeys both modes, rejecting v1, missing or invalid modes before PKL access.
+The monitor checks the same descriptor schema and mode fields.
 `run-unit` validates its descriptor against the manifest-derived ten-path
 campaign input set and checks declared-PKL availability. Prepare-time source
 identity is receipt provenance, not an execution gate. It loads the selected
@@ -83,6 +91,7 @@ configuration, not evidence of produced figures.
 | Region/blinding | Filename inference or explicit CR/SR; CR unblinded and SR blinded by default | Ambiguous filenames default to CR with a warning unless overridden. Explicit blind/unblind wins. |
 | Channel output | `merged`, `split`, `both`, or `-njets` variants; default `merged` | `merged` is aggregate presentation; `merged-njets` preserves metadata-defined jet/category subdivisions. These are presentation modes, not likelihood-bin counts. |
 | Binning | `processing` or `fitting`; default `processing` | Fitting uses the exact maintained category-aware aggregation when the variable has a fitting definition and otherwise keeps the identity view; it does not invent fitting edges. `--rebin-plot-vars` is separate integer-factor presentation rebinning. |
+| Diagnostic canvas annotations | `--debug-canvas-annotations`; default off | Extra signed numeric canvas text appears only by explicit opt-in. Standard ticks, luminosity, collision energy and physics labels remain visible. Signed yields, sumw2, uncertainty inputs and separate negative-weight CSV/Markdown diagnostics retain their semantics. |
 | Variables/workers | Optional variable list; workers integer default 1 | Invalid variables and channel coverage fail at context/coverage validation. |
 | Uncertainties/reports | Supported uncertainty switches; year coverage `warn`; negative report enabled | Controls presentation/reporting, never source artifact content. |
 | Merge/cache | Merge report/cache and merge-only controls | Merge-only stops after successful validation; cached output receives derived provenance. |
@@ -165,7 +174,9 @@ Scientific totals and nuisance responses are calculated before display
 grouping. Where negative group content would inflate a separately clipped
 stack, the display allocates `max(sum(raw groups), 0)` among its positive
 components in proportion to their positive content. Only groups with negative
-content receive auxiliary signed outlines and value labels. The Data/MC
+content receive auxiliary signed outlines; their numeric value labels require
+`--debug-canvas-annotations`. Nominal plots have no extra diagnostic numeric
+canvas annotations. The Data/MC
 denominator remains `max(sum(raw groups), 0)`; statistical variance and
 systematic band inputs remain attached to the original signed content. CR
 keeps its established drawing policy. Zero displayed denominators are masked.

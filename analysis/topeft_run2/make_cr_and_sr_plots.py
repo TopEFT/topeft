@@ -2953,6 +2953,7 @@ def _initialize_render_worker(
     output_formats=("png",),
     prepared_payloads=None,
     shared_region_ctx=None,
+    debug_canvas_annotations=False,
 ):
     """Store shared plotting context inside a worker process."""
 
@@ -2981,6 +2982,7 @@ def _initialize_render_worker(
         "verbose": bool(verbose),
         "rebin_plot_vars": dict(rebin_plot_vars or {}),
         "negative_weight_report": bool(negative_weight_report),
+        "debug_canvas_annotations": bool(debug_canvas_annotations),
         "output_formats": _normalize_output_formats(output_formats),
         "prepared_variables": prepared_variables,
     }
@@ -3042,6 +3044,7 @@ def _render_variable_from_worker(task_id, payload):
             variable_payload=variable_payload,
             rebin_plot_vars=ctx["rebin_plot_vars"],
             negative_weight_report=ctx["negative_weight_report"],
+            debug_canvas_annotations=ctx["debug_canvas_annotations"],
             output_formats=ctx["output_formats"],
             skip_outcomes=skip_outcomes,
         )
@@ -3085,6 +3088,7 @@ def _render_variable_from_worker(task_id, payload):
                     available_channels=variable_payload.get("available_channels"),
                     rebin_plot_vars=ctx["rebin_plot_vars"],
                     negative_weight_report=ctx["negative_weight_report"],
+                    debug_canvas_annotations=ctx["debug_canvas_annotations"],
                     output_formats=ctx["output_formats"],
                     skip_outcomes=skip_outcomes,
                 )
@@ -3324,6 +3328,7 @@ def _render_variable(
     variable_payload=None,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    debug_canvas_annotations=False,
     output_formats=("png",),
     skip_outcomes=None,
 ):
@@ -3395,6 +3400,7 @@ def _render_variable(
             available_channels=variable_payload.get("available_channels"),
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
+            debug_canvas_annotations=debug_canvas_annotations,
             output_formats=output_formats,
             skip_outcomes=skip_outcomes,
         )
@@ -3442,6 +3448,7 @@ def _render_variable_category(
     available_channels=None,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    debug_canvas_annotations=False,
     output_formats=("png",),
     skip_outcomes=None,
 ):
@@ -3882,6 +3889,7 @@ def _render_variable_category(
                 "style": region_ctx.stacked_ratio_style,
                 "uncertainty_mode": uncertainty_mode,
                 "diagnostic_context": plot_diagnostic_context,
+                "debug_canvas_annotations": debug_canvas_annotations,
             }
             if region_ctx.name.upper() == "SR":
                 stacked_kwargs["sr_flat_display"] = True
@@ -4221,6 +4229,7 @@ def _render_variable_category(
             "style": region_ctx.stacked_ratio_style,
             "uncertainty_mode": uncertainty_mode,
             "diagnostic_context": plot_diagnostic_context,
+            "debug_canvas_annotations": debug_canvas_annotations,
         }
         if region_ctx.name.upper() == "SR":
             stacked_kwargs["sr_flat_display"] = True
@@ -7632,6 +7641,7 @@ def produce_region_plots(
     verbose=False,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    debug_canvas_annotations=False,
     output_formats=("png",),
     outcome_collector=None,
 ):
@@ -7882,6 +7892,7 @@ def produce_region_plots(
                     output_formats,
                     prepared_payloads,
                     shared_region_ctx,
+                    debug_canvas_annotations,
                 ),
             ) as executor:
                 id_to_label = {
@@ -7931,6 +7942,7 @@ def produce_region_plots(
                     variable_payload=variable_payload,
                     rebin_plot_vars=rebin_plot_vars,
                     negative_weight_report=negative_weight_report,
+                    debug_canvas_annotations=debug_canvas_annotations,
                     output_formats=output_formats,
                     skip_outcomes=(outcome_collector["skipped"]
                                    if outcome_collector is not None else None),
@@ -7983,6 +7995,7 @@ def produce_region_plots(
                             semantic_category=semantic_category,
                             rebin_plot_vars=rebin_plot_vars,
                             negative_weight_report=negative_weight_report,
+                            debug_canvas_annotations=debug_canvas_annotations,
                             output_formats=output_formats,
                             skip_outcomes=(outcome_collector["skipped"]
                                            if outcome_collector is not None else None),
@@ -9188,6 +9201,7 @@ def make_region_stacked_ratio_fig(
     scope_label=None,
     diagnostic_context=None,
     sr_flat_display=False,
+    debug_canvas_annotations=False,
 ):
     if uncertainty_mode not in {"total", "stat", "none"}:
         raise ValueError(
@@ -9768,12 +9782,13 @@ def make_region_stacked_ratio_fig(
             color = SR_GROUP_INFO.get(label, {}).get("color") or default_colors[component_index % len(default_colors)]
             ax.stairs(values, plot_bins, label="_nolegend_", color=color,
                       linestyle=("--", ":", "-.")[component_index % 3], linewidth=1.5)
-            for bin_center, value in zip(bin_centers, values):
-                if value < 0:
-                    ax.text(bin_center, 0.04 + component_index * 0.06,
-                            f"{value:g}", transform=ax.get_xaxis_transform(),
-                            ha="center", va="bottom", color=color, fontsize=8,
-                            clip_on=True)
+            if debug_canvas_annotations:
+                for bin_center, value in zip(bin_centers, values):
+                    if value < 0:
+                        ax.text(bin_center, 0.04 + component_index * 0.06,
+                                f"{value:g}", transform=ax.get_xaxis_transform(),
+                                ha="center", va="bottom", color=color, fontsize=8,
+                                clip_on=True)
         ax.set_ylim(*original_y_limits)
     # Build a figure-anchored legend with a measured inset from the top edge
     legend_handles, legend_labels = ax.get_legend_handles_labels()
@@ -9948,6 +9963,7 @@ def run_plots_for_region(
     report_zero_yields=False,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    debug_canvas_annotations=False,
     negative_report_suffix=None,
     show_ratio_legend=False,
     binning_mode="processing",
@@ -10069,6 +10085,7 @@ def run_plots_for_region(
             verbose=verbose,
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
+            debug_canvas_annotations=debug_canvas_annotations,
             output_formats=output_formats,
             outcome_collector=outcome_collector,
         )
@@ -10259,6 +10276,11 @@ def build_arg_parser():
             "view before optional --rebin-plot-vars presentation rebinning "
             "(default: processing)."
         ),
+    )
+    parser.add_argument(
+        "--debug-canvas-annotations",
+        action="store_true",
+        help="Show signed diagnostic numeric annotations on the plot canvas (default: off).",
     )
     parser.add_argument(
         "--output-formats",
@@ -10859,6 +10881,7 @@ def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
         negative_report_suffix=negative_report_suffix,
         show_ratio_legend=args.show_ratio_legend,
         binning_mode=args.binning,
+        debug_canvas_annotations=args.debug_canvas_annotations,
         output_formats=args.output_formats,
         channel_allowlist=channel_allowlist,
         outcome_collector=outcome_collector,
