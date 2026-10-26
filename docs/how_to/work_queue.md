@@ -41,7 +41,8 @@ repository commit and environment identity recorded for the campaign.
 From `analysis/topeft_run2`, run `python3 wq_dashboard.py`, or refresh it with
 `watch -n 10 python3 wq_dashboard.py`. It uses only the Python 3.9+ standard
 library and read-only Work Queue, Condor, history and local process queries.
-Set `OWNER` and `SCHEDD` when their defaults are unsuitable. The global catalog
+Set `OWNER` and `SCHEDD` when their defaults are unsuitable. Local factory
+inspection is available only when `OWNER` is the current user. The global catalog
 section lists records that explicitly name that owner, with each record's age;
 stale records are labeled. A selected manager has a separate direct-query view.
 
@@ -62,7 +63,8 @@ visible factory PID may reflect process-namespace isolation.
 
 Recent worker exits come from an owner-scoped history query with default
 `HISTORY_LOOKBACK_SECONDS=300` and `HISTORY_MAX_JOBS=500`; the query also has
-a scan cap. `UNAVAILABLE` means history could not be read, not zero exits.
+a scan cap and a separate bounded `HISTORY_QUERY_TIMEOUT` (default 20 seconds).
+`UNAVAILABLE` means history could not be read, not zero exits.
 Exit codes and observed active jobs above a readable factory maximum are
 observations, not diagnoses or automatic repair instructions. The dashboard
 does not submit, remove, resize, start or stop jobs or factories.

@@ -7,6 +7,7 @@ import getpass
 import json
 import math
 import os
+import pwd
 import re
 import shlex
 import signal
@@ -146,12 +147,18 @@ def query(args, timeout):
         return None, 'INVALID_RESPONSE: ' + str(e)
 
 
-def manager_queries(host, port, timeout, task_details, task_timeout, query_fn=None):
+def manager_queries(host, port, timeout, task_details, task_timeout, query_fn=None,
+                    expected_project=None):
     query_fn = query_fn or query
     if host is None or port is None:
         return None, 'NO_SELECTED_ENDPOINT', None, 'DISABLED' if not task_details else 'NO_SELECTED_ENDPOINT'
     base = ['work_queue_status', '-l', '-t', str(math.ceil(timeout))]
     summary, summary_status = query_fn(base + [host, port], timeout)
+    if expected_project is not None:
+        if summary_status != 'OK' or summary is None or len(summary) != 1 or not isinstance(summary[0], dict):
+            return None, summary_status, None, ('DISABLED' if not task_details else 'SKIPPED_UNVERIFIED_DIRECT_PROJECT')
+        if summary[0].get('project') != expected_project:
+            return None, 'DIRECT_PROJECT_MISMATCH', None, ('DISABLED' if not task_details else 'SKIPPED_DIRECT_PROJECT_MISMATCH')
     if not task_details:
         return summary, summary_status, None, 'DISABLED'
     task_base = ['work_queue_status', '-l', '-t', str(math.ceil(task_timeout)), '-T', host, port]
@@ -162,8 +169,14 @@ def manager_queries(host, port, timeout, task_details, task_timeout, query_fn=No
 def worker_origin(job):
     cmd = job.get('Cmd', '')
     args = job.get('Args', job.get('Arguments', ''))
-    full = str(cmd) + ' ' + str(args)
-    if not ('work_queue_worker' in full or re.search(r'/wq-[^/]*factory[^/]*/condor\.sh$', str(cmd))):
+    try:
+        argv = shlex.split(str(args))
+    except ValueError:
+        argv = []
+    direct_worker = os.path.basename(str(cmd)) == 'work_queue_worker'
+    wrapped_worker = bool(argv) and os.path.basename(argv[0]) == 'work_queue_worker'
+    factory_wrapper = bool(re.search(r'/wq-[^/]*factory[^/]*/condor\.sh$', str(cmd)))
+    if not (direct_worker or wrapped_worker or factory_wrapper):
         return None
     # Provenance only; it does not imply a task category or manager assignment.
     return os.path.dirname(str(cmd)) or str(cmd)
@@ -357,6 +370,7 @@ Environment:
   QUERY_TIMEOUT=10 TASK_DETAILS=0 TASK_QUERY_TIMEOUT=10
   MAX_ACTIVE_TASKS=8            display limit only; not an RPC cost limit
   HISTORY_LOOKBACK_SECONDS=300 HISTORY_MAX_JOBS=500
+  HISTORY_QUERY_TIMEOUT=20        independent bounded history deadline
   LOGDIR=/path/to/source_native  optional shared, readable manager logs
   STATS_MAX_AGE=120              older stats never establish current health
 Prefer watch -n 10 python3 wq_dashboard.py. Task enumeration is opt-in and
@@ -379,6 +393,7 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
     limit = max(1, int(os.environ.get('MAX_ACTIVE_TASKS', '8')))
     timeout = max(1., float(os.environ.get('QUERY_TIMEOUT', '10')))
     task_timeout = max(1., float(os.environ.get('TASK_QUERY_TIMEOUT', '10')))
+    history_timeout = min(60., max(1., float(os.environ.get('HISTORY_QUERY_TIMEOUT', '20'))))
     task_setting = os.environ.get('TASK_DETAILS', '0')
     if task_setting not in ('0', '1'):
         raise ValueError('TASK_DETAILS must be 0 or 1')
@@ -402,7 +417,7 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
                                        '-json', '-attributes', attrs], timeout)
         history_f = pool.submit(query, ['condor_history', '-name', schedd, '-constraint', history_constraint,
                                         '-scanlimit', str(history_max * 10), '-limit', str(history_max),
-                                        '-json', '-attributes', history_attrs], timeout)
+                                        '-json', '-attributes', history_attrs], history_timeout)
         catalog, catalog_status = catalog_f.result()
         jobs, condor_status = condor_f.result()
         history, history_status = history_f.result()
@@ -413,12 +428,15 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
         history = [j for j in history if j.get('Owner') == owner and
                    number(j.get('CompletionDate')) is not None and
                    number(j.get('CompletionDate')) >= now - lookback]
-    owner_managers = owner_catalog(catalog, owner, now, age_limit)
+    owner_managers = owner_catalog(catalog, owner, time.time(), age_limit)
     selection_status = 'LEGACY_ENDPOINT'
     if project is not None:
         endpoint, selection_status = select_project(owner_managers, project)
         host, port = endpoint if endpoint else (None, None)
-    queues, queue_status, tasks, task_status = manager_queries(host, port, timeout, task_details, task_timeout)
+    queues, queue_status, tasks, task_status = manager_queries(
+        host, port, timeout, task_details, task_timeout, expected_project=project)
+    if queue_status == 'DIRECT_PROJECT_MISMATCH':
+        selection_status = queue_status
     queue = normalized_summary(queues[0]) if queues and len(queues) == 1 else None
     if queue is not None and (number(queue.get('tasks_waiting')) is None or number(queue.get('tasks_running')) is None):
         queue = None
@@ -539,7 +557,11 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
     section('condor_queue')
     print('query_status:', condor_status)
     worker_jobs = [j for j in jobs or [] if worker_origin(j) is not None]
-    rc, process_out, process_err = run(['pgrep', '-u', owner, '-af', '[w]ork_queue_factory'], timeout)
+    current_user = pwd.getpwuid(os.getuid()).pw_name
+    if owner == current_user:
+        rc, process_out, process_err = run(['pgrep', '-u', str(os.getuid()), '-af', '[w]ork_queue_factory'], timeout)
+    else:
+        rc, process_out, process_err = None, '', 'OWNER differs from current user'
     factories = [f for f in (factory_from_process(line) for line in process_out.splitlines()) if f] if rc == 0 else []
     factory_scratch = {f['scratch'] for f in factories if f['scratch']}
     if jobs is not None:
@@ -601,7 +623,9 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
                for j in held])
 
     section('work_queue_factories')
-    print('visibility:', 'VISIBLE' if factories else 'NO_VISIBLE_FACTORY; host PID namespace may be hidden' if rc == 1 else 'UNAVAILABLE')
+    print('visibility:', 'VISIBLE' if factories else
+          'NOT_OBSERVABLE_FOR_SELECTED_OWNER' if owner != current_user else
+          'NO_VISIBLE_FACTORY; host PID namespace may be hidden' if rc == 1 else 'UNAVAILABLE')
     table(['pid', 'selector', 'config_path', 'config_status', 'scratch', 'min_workers', 'max_workers',
            'workers_per_cycle', 'timeout', 'cores', 'memory', 'disk', 'active_condor_jobs',
            'running', 'idle', 'held', 'warning'],

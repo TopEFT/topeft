@@ -1,5 +1,6 @@
 """Focused, scheduler-free coverage for the read-only operator dashboard."""
 import contextlib
+import getpass
 import importlib.util
 import io
 import json
@@ -39,6 +40,9 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(rows[0]['workers_connected'], 4)
         self.assertEqual([r['_fresh'] for r in rows], [True, False])
         self.assertEqual(dashboard.matching_catalog(records, 'h', 3, 'operator'), [])
+        near_expiry = [dict(records[0], lastheardfrom=now - 119)]
+        self.assertTrue(dashboard.owner_catalog(near_expiry, 'operator', now, 120)[0]['_fresh'])
+        self.assertFalse(dashboard.owner_catalog(near_expiry, 'operator', now + 10, 120)[0]['_fresh'])
 
     def test_project_selection_exact_unique_zero_ambiguous(self):
         now = time.time()
@@ -68,6 +72,29 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('-T', calls[2])
         self.assertIn('7', calls[2])
 
+    def test_project_identity_is_rechecked_before_detail_or_tasks(self):
+        calls = []
+        def wrong_project(args, timeout):
+            calls.append(args)
+            return [{'project': 'other', 'tasks_waiting': 1, 'tasks_running': 0}], 'OK'
+        summary, status, tasks, task_status = dashboard.manager_queries(
+            'host', '9164', 5, True, 7, wrong_project, expected_project='wanted')
+        self.assertEqual((summary, status, tasks, task_status),
+                         (None, 'DIRECT_PROJECT_MISMATCH', None, 'SKIPPED_DIRECT_PROJECT_MISMATCH'))
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn('-T', calls[0])
+        def timed_out(args, timeout):
+            return None, 'TIMEOUT'
+        self.assertEqual(dashboard.manager_queries('host', '9164', 5, True, 7, timed_out,
+                                                   expected_project='wanted')[3],
+                         'SKIPPED_UNVERIFIED_DIRECT_PROJECT')
+        def correct_project(args, timeout):
+            calls.append(args)
+            return ([{'project': 'wanted', 'tasks_waiting': 1, 'tasks_running': 0}], 'OK')
+        dashboard.manager_queries('host', '9164', 5, True, 7, correct_project,
+                                  expected_project='wanted')
+        self.assertIn('-T', calls[-1])
+
     def test_worker_origin_selector_and_pool_identity(self):
         a = worker()
         b = worker(selector='other')
@@ -79,6 +106,8 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(dashboard.pool_counts([a, b, c, d])), 4)
         self.assertEqual(dashboard.pool_counts([d])[dashboard.pool_key(d)][5], 1)
         self.assertIsNone(dashboard.worker_origin({'Cmd': '/usr/bin/python', 'Args': 'analysis.py'}))
+        self.assertIsNone(dashboard.worker_origin({'Cmd': '/bin/bash',
+                                                   'Args': "-c 'echo work_queue_worker'"}))
 
     def test_factory_argv_config_and_correlation(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -104,7 +133,8 @@ class DashboardTests(unittest.TestCase):
         rows = [dict(worker(), ExitCode=0, RemoteWallClockTime=10),
                 dict(worker(), ExitCode=2, RemoteWallClockTime=20),
                 dict(worker(), ExitBySignal=True, ExitSignal=9, RemoteWallClockTime=30),
-                worker(), {'Cmd': '/bin/other', 'ExitCode': 1}]
+                worker(), {'Cmd': '/bin/other', 'ExitCode': 1},
+                {'Cmd': '/bin/bash', 'Args': "-c 'echo work_queue_worker'", 'ExitCode': 2}]
         exits = dashboard.recent_exits(rows)['/scratch/a']
         self.assertEqual(exits[:4], (4, 1, 1, 1))
         self.assertEqual(exits[4], 20)
@@ -119,9 +149,11 @@ class DashboardTests(unittest.TestCase):
 
     def test_rendered_history_unavailable_and_default_task_opt_out(self):
         calls = []
+        history_timeouts = []
         def query(args, timeout):
             calls.append(args)
             if args[0] == 'condor_history':
+                history_timeouts.append(timeout)
                 return None, 'TIMEOUT'
             if args[0] == 'condor_q':
                 return [], 'OK'
@@ -131,16 +163,48 @@ class DashboardTests(unittest.TestCase):
             return [], 'OK'
         output = io.StringIO()
         with mock.patch.object(dashboard, 'query', side_effect=query), \
-             mock.patch.object(dashboard, 'run', return_value=(1, '', '')), \
+             mock.patch.object(dashboard, 'run', return_value=(1, '', '')) as run_mock, \
              mock.patch.object(sys, 'argv', ['wq_dashboard.py']), \
              mock.patch.dict(os.environ, {'OWNER': 'operator', 'MANAGER_HOST': 'host',
                                           'MANAGER_PORT': '9164'}, clear=True), \
              contextlib.redirect_stdout(output):
             dashboard.main()
         self.assertFalse(any('-T' in args for args in calls))
+        history_args = [args for args in calls if args[0] == 'condor_history']
+        self.assertEqual(len(history_args), 1)
+        self.assertIn('-scanlimit', history_args[0])
+        self.assertEqual(history_timeouts, [20.0])
+        if getpass.getuser() != 'operator':
+            run_mock.assert_not_called()
+            self.assertIn('NOT_OBSERVABLE_FOR_SELECTED_OWNER', output.getvalue())
         self.assertIn('=== recent_worker_exits ===\nquery_status: TIMEOUT', output.getvalue())
         self.assertIn('recent_history: UNAVAILABLE', output.getvalue())
         self.assertIn('=== active_work_queue_tasks ===\nquery_status: DISABLED', output.getvalue())
+
+    def test_project_mismatch_keeps_owner_sections_and_skips_tasks(self):
+        calls = []
+        def query(args, timeout):
+            calls.append(args)
+            if args[0] == 'condor_history':
+                return [], 'OK'
+            if args[0] == 'condor_q':
+                return [], 'OK'
+            if args[-2:] == ['host', '9164']:
+                return [{'project': 'other', 'tasks_waiting': 1, 'tasks_running': 0}], 'OK'
+            return [{'owner': 'operator', 'project': 'wanted', 'name': 'host',
+                     'port': 9164, 'lastheardfrom': time.time()}], 'OK'
+        output = io.StringIO()
+        with mock.patch.object(dashboard, 'query', side_effect=query), \
+             mock.patch.object(dashboard, 'run', return_value=(1, '', '')), \
+             mock.patch.object(sys, 'argv', ['wq_dashboard.py']), \
+             mock.patch.dict(os.environ, {'OWNER': 'operator', 'MANAGER_PROJECT': 'wanted',
+                                          'TASK_DETAILS': '1'}, clear=True), \
+             contextlib.redirect_stdout(output):
+            dashboard.main()
+        self.assertFalse(any('-T' in args for args in calls))
+        self.assertIn('owner_records=1', output.getvalue())
+        self.assertIn('selection: DIRECT_PROJECT_MISMATCH', output.getvalue())
+        self.assertIn('query_status: SKIPPED_DIRECT_PROJECT_MISMATCH', output.getvalue())
 
     def test_held_and_health_alerts(self):
         held = worker(status=5)
