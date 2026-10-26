@@ -10,6 +10,7 @@ Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag
   [--selected-fragment ID] [--plan JSON]
   [--wq-manager-name EXACT_NAME | --wq-manager-prefix PREFIX]
   [--run2-wq-manager-prefix PREFIX --run3-wq-manager-prefix PREFIX]
+  [--wq-port PORT (0..65535; 0 selects a free manager port)]
   [--activate-pending-plan JSON --expected-plan-revision ID]
   [Work Queue guard and resource options]
 
@@ -48,6 +49,8 @@ profile_wq_processing_cores=""
 profile_wq_accumulating_memory_mb=""
 profile_wq_accumulating_cores=""
 profile_wq_manager_name=""
+profile_wq_port=""
+profile_wq_port_provided=false
 profile_wq_manager_name_provided=false
 profile_wq_manager_prefix=""
 profile_wq_manager_prefix_provided=false
@@ -105,6 +108,17 @@ while (( $# > 0 )); do
       fi
       profile_wq_manager_name="$2"
       profile_wq_manager_name_provided=true
+      shift 2
+      ;;
+    --wq-port)
+      if (( $# < 2 )) || [[ "${profile_wq_port_provided}" == "true" ]] \
+        || [[ ! "$2" =~ ^(0|[1-9][0-9]{0,4})$ ]] \
+        || (( 10#$2 > 65535 )); then
+        echo "ERROR: --wq-port requires one integer in [0, 65535]." >&2
+        exit 1
+      fi
+      profile_wq_port="$2"
+      profile_wq_port_provided=true
       shift 2
       ;;
     --wq-manager-prefix)
@@ -1325,6 +1339,9 @@ build_common_command_options() {
     cmd_ref+=(--options "${production_sumw2_options_path}")
   fi
   cmd_ref+=(-x work_queue)
+  if [[ "${profile_wq_port_provided}" == "true" ]]; then
+    cmd_ref+=(--port "${profile_wq_port}")
+  fi
 
   if [[ "${split_lep_flavor}" == "true" ]]; then
     cmd_ref+=(--split-lep-flavor)

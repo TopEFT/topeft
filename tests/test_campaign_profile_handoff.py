@@ -47,7 +47,8 @@ if [[ "$action" == run_block ]]; then
   printf '%s\\n' "$unit" >> "$CAMPAIGN_VALIDATION_ROOT/source_order.log"
   mkdir -p "$logs"
   if [[ "$scenario" == source_fail_first && "$unit" == run2_prod_a \
-    || "$scenario" == source_fail_run3_tau && "$unit" == run3_prod_2los_1tau_a ]]; then
+    || "$scenario" == source_fail_run3_tau && "$unit" == run3_prod_2los_1tau_a \
+    || "$scenario" == source_fail_both_tau ]]; then
     exit 23
   fi
   printf 'synthetic source\\n' > "$source"
@@ -339,7 +340,7 @@ def test_manager_prefix_combined_resume_uses_next_run3_attempt(tmp_path, backend
     first = launch(tmp_path, backend, *prefix_args, profile="run2_run3_prod_2los_1tau")
     assert first.returncode != 0
     backend["CAMPAIGN_VALIDATION_SCENARIO"] = "success"
-    resumed = launch(tmp_path, backend, "--resume", *prefix_args,
+    resumed = launch(tmp_path, backend, "--resume", "--wq-port", "0", *prefix_args,
                      profile="run2_run3_prod_2los_1tau")
     assert resumed.returncode == 0, resumed.stdout + resumed.stderr
     output = tmp_path / "output"
@@ -349,6 +350,9 @@ def test_manager_prefix_combined_resume_uses_next_run3_attempt(tmp_path, backend
     run3_attempts = run3["units"][0]["stages"]["source"]["attempts"]
     assert [attempt["number"] for attempt in run2_attempts] == [1]
     assert [attempt["number"] for attempt in run3_attempts] == [1, 2]
+    assert "--port" not in run2_attempts[0]["command_argv"]
+    assert run3_attempts[1]["command_argv"].count("--port") == 1
+    assert run3_attempts[1]["command_argv"][run3_attempts[1]["command_argv"].index("--port") + 1] == "0"
     assert run2_attempts[0]["command_argv"][
         run2_attempts[0]["command_argv"].index("--wq-manager-name") + 1
     ] == "run2-run2_prod_2los_1tau_a-a1"
@@ -358,6 +362,67 @@ def test_manager_prefix_combined_resume_uses_next_run3_attempt(tmp_path, backend
     assert (tmp_path / "source_order.log").read_text().splitlines() == [
         "run2_prod_2los_1tau_a", "run3_prod_2los_1tau_a", "run3_prod_2los_1tau_a",
     ]
+
+
+def test_wq_port_combined_resume_retries_both_failed_sources(tmp_path, backend):
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "source_fail_both_tau"
+    prefix_args = (
+        "--run2-wq-manager-prefix", "run2-",
+        "--run3-wq-manager-prefix", "run3-",
+    )
+    first = launch(tmp_path, backend, *prefix_args, profile="run2_run3_prod_2los_1tau")
+    assert first.returncode != 0
+    output = tmp_path / "output"
+    paths = [output / scope / f".{scope}_prod_2los_1tau_campaign_state_v9.json"
+             for scope in ("run2", "run3")]
+    before = [manifest.load_state(path)["units"][0]["stages"]["source"]["attempts"][0]
+              for path in paths]
+    assert all(attempt["result"] == "failed" for attempt in before)
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "success"
+    resumed = launch(tmp_path, backend, "--resume", "--wq-port", "0", *prefix_args,
+                     profile="run2_run3_prod_2los_1tau")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    for scope, path, original in zip(("run2", "run3"), paths, before):
+        attempts = manifest.load_state(path)["units"][0]["stages"]["source"]["attempts"]
+        assert [attempt["number"] for attempt in attempts] == [1, 2]
+        assert attempts[0] == original
+        assert attempts[1]["result"] == "success"
+        command = attempts[1]["command_argv"]
+        assert command.count("--port") == 1
+        assert command[command.index("--port") + 1] == "0"
+        assert command[command.index("--wq-manager-name") + 1] == (
+            f"{scope}-{scope}_prod_2los_1tau_a-a2"
+        )
+    assert (tmp_path / "source_order.log").read_text().splitlines() == [
+        "run2_prod_2los_1tau_a", "run3_prod_2los_1tau_a",
+        "run2_prod_2los_1tau_a", "run3_prod_2los_1tau_a",
+    ]
+
+
+@pytest.mark.parametrize("port", ("0", "1", "65535"))
+def test_wq_port_component_forwarding(tmp_path, backend, port):
+    result = launch(tmp_path, backend, "--wq-port", port,
+                    profile="run2_prod_2los_1tau")
+    assert result.returncode == 0, result.stdout + result.stderr
+    command = manifest.load_state(state_path(tmp_path, "run2_prod_2los_1tau"))["units"][0][
+        "stages"]["source"]["attempts"][0]["command_argv"]
+    assert command.count("--port") == 1
+    assert command[command.index("--port") + 1] == port
+
+
+@pytest.mark.parametrize("extra", (
+    ("--wq-port",),
+    ("--wq-port", "-1"),
+    ("--wq-port", "65536"),
+    ("--wq-port", "1.5"),
+    ("--wq-port", "abc"),
+    ("--wq-port", "0", "--wq-port", "1"),
+))
+def test_wq_port_rejects_invalid_value_before_output(tmp_path, backend, extra):
+    result = launch(tmp_path, backend, *extra, profile="run2_prod_2los_1tau")
+    assert result.returncode != 0
+    assert "--wq-port requires one integer" in result.stderr
+    assert not (tmp_path / "output").exists()
 
 
 def test_manager_prefix_fresh_dry_run_requires_initialized_state(tmp_path, backend):
