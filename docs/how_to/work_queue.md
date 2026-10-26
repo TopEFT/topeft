@@ -36,6 +36,37 @@ environment, but `run_analysis.py` remains the executor configuration owner.
 The worker environment transports code/dependencies; it does not replace the
 repository commit and environment identity recorded for the campaign.
 
+## Read-only operator dashboard
+
+From `analysis/topeft_run2`, run `python3 wq_dashboard.py`, or refresh it with
+`watch -n 10 python3 wq_dashboard.py`. It uses only the Python 3.9+ standard
+library and read-only Work Queue, Condor, history and local process queries.
+Set `OWNER` and `SCHEDD` when their defaults are unsuitable. The global catalog
+section lists records that explicitly name that owner, with each record's age;
+stale records are labeled. A selected manager has a separate direct-query view.
+
+Set `MANAGER_PROJECT` to one exact catalog project to resolve a fresh endpoint.
+Zero or multiple fresh owner matches leave selected-manager detail unavailable
+while owner-wide sections continue. Without `MANAGER_PROJECT`, the existing
+`MANAGER_HOST` and `MANAGER_PORT` endpoint path remains available. Catalog and
+direct results are separate snapshots and can time out independently.
+
+`TASK_DETAILS=0` is the default. Set `TASK_DETAILS=1` to request the selected
+manager's full task payload; `TASK_QUERY_TIMEOUT` bounds that query.
+`MAX_ACTIVE_TASKS` limits displayed rows only and does not bound the RPC
+payload. Condor worker profiles and pools cover identified owner WQ jobs across
+all managers. Pool origin matching a visible factory scratch directory is
+provenance correlation, not proof of a worker's Work Queue connection. Condor
+`RUNNING` likewise does not prove connection or task activity. A missing
+visible factory PID may reflect process-namespace isolation.
+
+Recent worker exits come from an owner-scoped history query with default
+`HISTORY_LOOKBACK_SECONDS=300` and `HISTORY_MAX_JOBS=500`; the query also has
+a scan cap. `UNAVAILABLE` means history could not be read, not zero exits.
+Exit codes and observed active jobs above a readable factory maximum are
+observations, not diagnoses or automatic repair instructions. The dashboard
+does not submit, remove, resize, start or stop jobs or factories.
+
 ## Start the manager
 
 From `analysis/topeft_run2`, choose the executor explicitly and give the output
