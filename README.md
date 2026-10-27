@@ -34,9 +34,9 @@ produces histogram PKLs with adjacent provenance sidecars. Data-driven
 transformation, plotting, datacard creation, scaling finalization, and the
 later EFTFit/Combine handoff are separate downstream responsibilities.
 
-For TOP-26-006 newcomers, `run3_test_mmerged` is the public baseline.
-Ongoing analysis development is on `te/datacard_sr_reco`; the
-`run3_test_mmerged_anpicci` line is a personal/reference branch.
+For new contributors, `run3_test_mmerged` is the public newcomer baseline.
+Ongoing local analysis development uses `te/datacard_sr_reco`;
+`run3_test_mmerged_anpicci` is the personal/reference line.
 
 Start with the [documentation index](docs/README.md). New analysts should use
 the [analysis workflow tutorial](docs/tutorials/analysis_workflow.md); it
