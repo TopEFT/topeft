@@ -20,8 +20,8 @@ spec.loader.exec_module(dashboard)
 
 
 def worker(origin='/scratch/a', selector='^project-.*', status=2, cores=2):
-    return {'Owner': 'operator', 'Cmd': origin + '/with_oasis_certs',
-            'Args': './work_queue_worker -M ' + selector, 'JobStatus': status,
+    return {'Owner': 'operator', 'Cmd': origin + '/condor.sh',
+            'Args': './with_oasis_certs ./work_queue_worker -M ' + selector, 'JobStatus': status,
             'RequestCpus': cores, 'RequestMemory': 8000, 'RequestDisk': 8192000}
 
 
@@ -109,14 +109,42 @@ class DashboardTests(unittest.TestCase):
         self.assertIsNone(dashboard.worker_origin({'Cmd': '/bin/bash',
                                                    'Args': "-c 'echo work_queue_worker'"}))
 
+    def test_worker_invocation_is_independent_of_scratch_name(self):
+        generic = worker(origin='/tmp/wq-apiccine-tau')
+        self.assertEqual(dashboard.worker_origin(generic), '/tmp/wq-apiccine-tau')
+        misleading = {'Cmd': '/tmp/wq-apiccine-factory-misc/condor.sh',
+                      'Args': '/bin/echo hello'}
+        self.assertIsNone(dashboard.worker_origin(misleading))
+        self.assertEqual(dashboard.worker_origin({'Cmd': '/some/path/work_queue_worker'}),
+                         '/some/path')
+        self.assertEqual(dashboard.worker_origin({'Cmd': '/some/path/work_queue_worker',
+                                                  'Args': "'malformed"}), '/some/path')
+        self.assertEqual(dashboard.worker_origin({'Cmd': generic['Cmd'],
+                                                  'Arguments': './work_queue_worker -M manager'}),
+                         '/tmp/wq-apiccine-tau')
+        self.assertIsNone(dashboard.worker_origin({'Cmd': generic['Cmd'],
+                                                   'Args': "'./with_oasis_certs ./work_queue_worker"}))
+        self.assertIsNone(dashboard.worker_origin({'Cmd': generic['Cmd'],
+                                                   'Args': '/bin/echo ./work_queue_worker'}))
+
     def test_factory_argv_config_and_correlation(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'factory.json'
             path.write_text(json.dumps({'manager-name': 'from-json', 'max-workers': 1,
-                                        'min-workers': 0, 'scratch-dir': '/scratch/a'}))
+                                        'min-workers': 0, 'scratch-dir': '/scratch/a',
+                                        'timeout': 900}))
             parsed = dashboard.factory_from_process('123 /bin/work_queue_factory -C %s -S /scratch/a' % path)
             self.assertEqual(parsed['selector'], 'from-json')
             self.assertEqual(parsed['config_status'], 'OK')
+            self.assertEqual(parsed['settings']['worker_timeout'], 900)
+            self.assertIsNone(parsed['settings']['factory_timeout'])
+            distinct = dashboard.factory_from_process(
+                '124 /bin/work_queue_factory -C %s --factory-timeout 0' % path)
+            self.assertEqual(distinct['settings']['worker_timeout'], 900)
+            self.assertEqual(distinct['settings']['factory_timeout'], '0')
+            cli_only = dashboard.factory_from_process('125 /bin/work_queue_factory --factory-timeout 0')
+            self.assertIsNone(cli_only['settings']['worker_timeout'])
+            self.assertEqual(cli_only['settings']['factory_timeout'], '0')
             self.assertEqual(dashboard.factory_warnings(parsed, [worker(), worker(status=1)])[1],
                              'OBSERVED_ACTIVE_JOBS_ABOVE_DECLARED_MAX')
             self.assertIsNone(dashboard.factory_warnings(parsed, [worker(origin='/scratch/b')])[1])
@@ -128,6 +156,84 @@ class DashboardTests(unittest.TestCase):
                             ['config_status'].startswith('UNAVAILABLE'))
             self.assertTrue(dashboard.factory_from_process('126 /bin/work_queue_factory -C %s' %
                              (Path(directory) / 'missing'))['config_status'].startswith('UNAVAILABLE'))
+
+    def test_cgroup_probe_requires_explicit_running_owner_snapshot_id(self):
+        jobs = [dict(worker(), ClusterId=12, ProcId=0),
+                dict(worker(status=1), ClusterId=13, ProcId=0),
+                dict(worker(), Owner='other', ClusterId=14, ProcId=0),
+                dict(worker(), ClusterId=15, ProcId=0)]
+        calls = []
+        def fake_run(args, timeout, input_text=None):
+            calls.append((args, timeout, input_text))
+            return 0, 'memory.current: 123\n', ''
+        self.assertEqual(dashboard.cgroup_probes('', jobs, 'operator', 'schedd', 4, 8, fake_run), [])
+        self.assertEqual(calls, [])
+        rows = dashboard.cgroup_probes('bad 99.0,13.0 14.0 12.0 12.0', jobs,
+                                      'operator', 'schedd', 4, 8, fake_run)
+        self.assertEqual([row[0] for row in rows], ['12.0'])
+        self.assertEqual(calls[0][:2],
+                         (['condor_ssh_to_job', '-name', 'schedd', '12.0', 'bash', '-s'], 8))
+        script = calls[0][2]
+        for name in ('_CONDOR_JOB_PIDS', 'memory.current', 'memory.peak',
+                     'memory.max', 'memory.events', '/proc/$pid/cgroup'):
+            self.assertIn(name, script)
+        self.assertEqual(dashboard.cgroup_probes('12.0', jobs, 'operator', 'schedd', 0, 8, fake_run), [])
+        self.assertEqual(len(calls), 1)
+        capped = dashboard.cgroup_probes('12.0 15.0', jobs, 'operator', 'schedd', 1, 8, fake_run)
+        self.assertEqual([row[0] for row in capped], ['12.0'])
+        self.assertEqual(len(calls), 2)
+
+    def test_cgroup_script_is_piped_through_bounded_subprocess(self):
+        process = mock.Mock(returncode=0)
+        process.communicate.return_value = ('memory.current: 123\n', '')
+        with mock.patch.object(dashboard.subprocess, 'Popen', return_value=process) as popen:
+            self.assertEqual(dashboard.run(['condor_ssh_to_job', 'bash', '-s'], 8,
+                                           input_text=dashboard.CGROUP_READ_SCRIPT),
+                             (0, 'memory.current: 123\n', ''))
+        self.assertEqual(popen.call_args.kwargs['stdin'], dashboard.subprocess.PIPE)
+        self.assertTrue(popen.call_args.kwargs['start_new_session'])
+        process.communicate.assert_called_once_with(input=dashboard.CGROUP_READ_SCRIPT, timeout=8)
+
+    def test_cgroup_probe_opt_out_and_rendered_timeout_labels(self):
+        def query(args, timeout):
+            if args[0] == 'condor_q':
+                return [dict(worker(), ClusterId=12, ProcId=0)], 'OK'
+            if args[0] == 'condor_history':
+                return [], 'OK'
+            if args[-2:] == ['host', '9164']:
+                return [{'tasks_waiting': 0, 'tasks_running': 0}], 'OK'
+            return [], 'OK'
+        factory = {'pid': '1', 'selector': '?', 'config_path': None, 'config_status': 'OK',
+                   'scratch': '/scratch/a', 'settings': {'worker_timeout': 900,
+                                                       'factory_timeout': '0'}}
+        output = io.StringIO()
+        with mock.patch.object(dashboard, 'query', side_effect=query), \
+             mock.patch.object(dashboard, 'run', return_value=(0, '1 work_queue_factory\n', '')) as run_mock, \
+             mock.patch.object(dashboard.pwd, 'getpwuid', return_value=mock.Mock(pw_name='operator')), \
+             mock.patch.object(dashboard, 'factory_from_process', return_value=factory), \
+             mock.patch.object(sys, 'argv', ['wq_dashboard.py']), \
+             mock.patch.dict(os.environ, {'OWNER': 'operator', 'MANAGER_HOST': 'host',
+                                          'MANAGER_PORT': '9164'}, clear=True), \
+             contextlib.redirect_stdout(output):
+            dashboard.main()
+        self.assertIn('DISABLED: CGROUP_JOB_IDS unset', output.getvalue())
+        self.assertIn('worker_timeout', output.getvalue())
+        self.assertIn('factory_timeout', output.getvalue())
+        self.assertRegex(output.getvalue(), r'900\s+0')
+        self.assertFalse(any(call.args[0][0] == 'condor_ssh_to_job' for call in run_mock.call_args_list))
+
+    def test_help_exits_before_any_queries_or_probes(self):
+        output = io.StringIO()
+        with mock.patch.object(dashboard, 'query') as query_mock, \
+             mock.patch.object(dashboard, 'run') as run_mock, \
+             mock.patch.object(sys, 'argv', ['wq_dashboard.py', '--help']), \
+             mock.patch.dict(os.environ, {'CGROUP_JOB_IDS': '12.0'}, clear=True), \
+             contextlib.redirect_stdout(output):
+            dashboard.main()
+        query_mock.assert_not_called()
+        run_mock.assert_not_called()
+        self.assertIn('CGROUP_JOB_IDS', output.getvalue())
+        self.assertIn('Host/task matching alone does not authorize', output.getvalue())
 
     def test_recent_exits_and_missing_fields(self):
         rows = [dict(worker(), ExitCode=0, RemoteWallClockTime=10),

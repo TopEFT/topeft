@@ -56,8 +56,10 @@ direct results are separate snapshots and can time out independently.
 manager's full task payload; `TASK_QUERY_TIMEOUT` bounds that query.
 `MAX_ACTIVE_TASKS` limits displayed rows only and does not bound the RPC
 payload. Condor worker profiles and pools cover identified owner WQ jobs across
-all managers. Pool origin matching a visible factory scratch directory is
-provenance correlation, not proof of a worker's Work Queue connection. Condor
+all managers. A wrapped worker is identified by its `condor.sh` invocation,
+regardless of scratch-directory naming. Pool origin matching a visible factory
+scratch directory is provenance correlation, not proof of a worker's Work Queue
+connection. Condor
 `RUNNING` likewise does not prove connection or task activity. A missing
 visible factory PID may reflect process-namespace isolation.
 
@@ -65,6 +67,14 @@ Recent worker exits come from an owner-scoped history query with default
 `HISTORY_LOOKBACK_SECONDS=300` and `HISTORY_MAX_JOBS=500`; the query also has
 a scan cap and a separate bounded `HISTORY_QUERY_TIMEOUT` (default 20 seconds).
 `UNAVAILABLE` means history could not be read, not zero exits.
+Set `CGROUP_JOB_IDS` to explicit comma- or space-separated Condor IDs to request
+read-only cgroup-v2 memory values for those jobs. Only `RUNNING` jobs in the
+current owner Condor snapshot are eligible. `MAX_CGROUP_PROBES=4` and
+`CGROUP_PROBE_TIMEOUT=8` bound the optional SSH reads. With the ID variable
+unset or empty, no cgroup SSH probe runs. Host or task matching alone does not
+authorize a probe.
+The live-factory table reports JSON `timeout` as `worker_timeout` and CLI
+`--factory-timeout` as `factory_timeout`; `?` means that value was not observed.
 Exit codes and observed active jobs above a readable factory maximum are
 observations, not diagnoses or automatic repair instructions. The dashboard
 does not submit, remove, resize, start or stop jobs or factories.

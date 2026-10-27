@@ -100,15 +100,15 @@ def section(name):
     print('\n=== %s ===' % name)
 
 
-def run(args, timeout):
+def run(args, timeout, input_text=None):
     try:
-        p = subprocess.Popen(args, stdin=subprocess.DEVNULL,
+        p = subprocess.Popen(args, stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                              encoding='utf-8', errors='replace', start_new_session=True)
     except OSError as e:
         return 127, '', str(e)
     try:
-        out, err = p.communicate(timeout=timeout)
+        out, err = p.communicate(input=input_text, timeout=timeout)
         return p.returncode, out, err
     except subprocess.TimeoutExpired:
         try:
@@ -168,15 +168,21 @@ def manager_queries(host, port, timeout, task_details, task_timeout, query_fn=No
 
 def worker_origin(job):
     cmd = job.get('Cmd', '')
+    direct_worker = os.path.basename(str(cmd)) == 'work_queue_worker'
+    if direct_worker:
+        return os.path.dirname(str(cmd)) or str(cmd)
+    if os.path.basename(str(cmd)) != 'condor.sh':
+        return None
     args = job.get('Args', job.get('Arguments', ''))
     try:
         argv = shlex.split(str(args))
     except ValueError:
-        argv = []
-    direct_worker = os.path.basename(str(cmd)) == 'work_queue_worker'
-    wrapped_worker = bool(argv) and os.path.basename(argv[0]) == 'work_queue_worker'
-    factory_wrapper = bool(re.search(r'/wq-[^/]*factory[^/]*/condor\.sh$', str(cmd)))
-    if not (direct_worker or wrapped_worker or factory_wrapper):
+        return None
+    wrapped_worker = (bool(argv) and
+                      (os.path.basename(argv[0]) == 'work_queue_worker' or
+                       (os.path.basename(argv[0]) == 'with_oasis_certs' and len(argv) > 1 and
+                        os.path.basename(argv[1]) == 'work_queue_worker')))
+    if not wrapped_worker:
         return None
     # Provenance only; it does not imply a task category or manager assignment.
     return os.path.dirname(str(cmd)) or str(cmd)
@@ -258,10 +264,11 @@ def factory_from_process(line):
     option_names = {'min-workers': ('-w', '--min-workers'),
                     'max-workers': ('-W', '--max-workers'),
                     'workers-per-cycle': ('--workers-per-cycle',),
-                    'timeout': ('--factory-timeout',),
                     'cores': ('--cores',), 'memory': ('--memory',), 'disk': ('--disk',)}
     settings = {key: option_value(argv, *names) or config.get(key)
                 for key, names in option_names.items()}
+    settings['worker_timeout'] = config.get('timeout')
+    settings['factory_timeout'] = option_value(argv, '--factory-timeout')
     return {'pid': match.group(1), 'argv': argv, 'config_path': config_path,
             'config_status': config_status, 'selector': option_value(argv, '-M', '-N', '--manager-name') or config.get('manager-name') or '?',
             'scratch': option_value(argv, '--scratch-dir', '-S') or config.get('scratch-dir'),
@@ -276,6 +283,54 @@ def factory_warnings(factory, jobs):
     warning = ('OBSERVED_ACTIVE_JOBS_ABOVE_DECLARED_MAX' if max_workers is not None
                and len(active) > max_workers else None)
     return counts, warning
+
+
+CGROUP_READ_SCRIPT = r'''
+set -f
+for pid in ${_CONDOR_JOB_PIDS-}; do
+  case "$pid" in ''|*[!0-9]*) continue ;; esac
+  while IFS=: read -r hierarchy controllers group; do
+    if [[ "$hierarchy" == 0 && -z "$controllers" && "$group" == /* ]]; then
+      base="/sys/fs/cgroup${group}"
+      for name in memory.current memory.peak memory.max memory.events; do
+        if [[ -r "$base/$name" ]]; then
+          printf '%s: ' "$name"
+          cat "$base/$name"
+        else
+          printf '%s: UNAVAILABLE\n' "$name"
+        fi
+      done
+      exit 0
+    fi
+  done < "/proc/$pid/cgroup"
+  exit 1
+done
+exit 1
+'''
+
+
+def cgroup_probes(requested_ids, jobs, owner, schedd, max_probes, timeout, run_fn=None):
+    """Probe only explicitly selected RUNNING jobs from this owner's snapshot."""
+    if not requested_ids or jobs is None or max_probes <= 0:
+        return []
+    run_fn = run_fn or run
+    eligible = {'%s.%s' % (j.get('ClusterId'), j.get('ProcId')) for j in jobs
+                if j.get('Owner') == owner and j.get('JobStatus') == 2
+                and isinstance(j.get('ClusterId'), int) and isinstance(j.get('ProcId'), int)
+                and not isinstance(j.get('ClusterId'), bool) and not isinstance(j.get('ProcId'), bool)
+                and j['ClusterId'] >= 0 and j['ProcId'] >= 0}
+    results = []
+    seen = set()
+    for job_id in re.split(r'[,\s]+', requested_ids.strip()):
+        if not re.fullmatch(r'\d+\.\d+', job_id) or job_id not in eligible or job_id in seen:
+            continue
+        seen.add(job_id)
+        rc, out, err = run_fn(['condor_ssh_to_job', '-name', schedd, job_id, 'bash', '-s'],
+                              timeout, input_text=CGROUP_READ_SCRIPT)
+        results.append((job_id, rc, out[:4096], clean(err)[:200]))
+        if len(results) >= max_probes:
+            break
+    return results
 
 
 def recent_exits(records):
@@ -371,6 +426,8 @@ Environment:
   MAX_ACTIVE_TASKS=8            display limit only; not an RPC cost limit
   HISTORY_LOOKBACK_SECONDS=300 HISTORY_MAX_JOBS=500
   HISTORY_QUERY_TIMEOUT=20        independent bounded history deadline
+  CGROUP_JOB_IDS=123.0,124.0    explicit RUNNING owner-snapshot jobs only
+  MAX_CGROUP_PROBES=4 CGROUP_PROBE_TIMEOUT=8  bounded opt-in SSH reads
   LOGDIR=/path/to/source_native  optional shared, readable manager logs
   STATS_MAX_AGE=120              older stats never establish current health
 Prefer watch -n 10 python3 wq_dashboard.py. Task enumeration is opt-in and
@@ -381,6 +438,7 @@ jobs across all managers; they are not manager-specific capacity.
 Catalog records lacking explicit owner are omitted. Stale records are labeled.
 Condor RUNNING does not prove Work Queue connection or task activity.
 Matching task hostname to Condor is advisory only, never proof of identity.
+Host/task matching alone does not authorize a cgroup probe.
 For running tasks, resources shown are allocated, not measured utilization.
 LOGDIR must refer to this manager/run; no automatic log discovery is done.
 No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
@@ -401,6 +459,9 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
     lookback = min(86400, max(1, int(os.environ.get('HISTORY_LOOKBACK_SECONDS', '300'))))
     history_max = min(5000, max(1, int(os.environ.get('HISTORY_MAX_JOBS', '500'))))
     age_limit = max(1., float(os.environ.get('STATS_MAX_AGE', '120')))
+    cgroup_ids = os.environ.get('CGROUP_JOB_IDS', '')
+    max_cgroup_probes = min(16, max(0, int(os.environ.get('MAX_CGROUP_PROBES', '4'))))
+    cgroup_probe_timeout = min(30., max(1., float(os.environ.get('CGROUP_PROBE_TIMEOUT', '8'))))
     now = time.time()
     print('timestamp:', datetime.datetime.now().astimezone().isoformat(timespec='seconds'))
     print('dashboard:', VERSION)
@@ -569,6 +630,20 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
         counts = collections.Counter(j.get('JobStatus') for j in jobs)
         print(' '.join('%s=%d' % (label, counts[state]) for state, label in
                       [(1,'idle'),(2,'running'),(3,'removing'),(4,'completed'),(5,'held'),(6,'transferring'),(7,'suspended')]))
+    section('explicit_cgroup_probes')
+    if not cgroup_ids.strip():
+        print('DISABLED: CGROUP_JOB_IDS unset')
+    elif jobs is None:
+        print('UNAVAILABLE: owner Condor snapshot unavailable')
+    else:
+        probes = cgroup_probes(cgroup_ids, jobs, owner, schedd,
+                               max_cgroup_probes, cgroup_probe_timeout)
+        if not probes:
+            print('<no eligible RUNNING owner-snapshot IDs>')
+        for job_id, probe_rc, probe_out, probe_err in probes:
+            print('job=%s status=%s' % (job_id, 'OK' if probe_rc == 0 else
+                                        'TIMEOUT' if probe_rc == 124 else 'FAILED'))
+            print(clean(probe_out).strip() if probe_rc == 0 else probe_err)
     section('condor_worker_profiles')
     print('Scope: identified WQ jobs of this owner across ALL managers; Condor RUNNING is not WQ busy.')
     profiles = collections.defaultdict(collections.Counter)
@@ -627,11 +702,11 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
           'NOT_OBSERVABLE_FOR_SELECTED_OWNER' if owner != current_user else
           'NO_VISIBLE_FACTORY; host PID namespace may be hidden' if rc == 1 else 'UNAVAILABLE')
     table(['pid', 'selector', 'config_path', 'config_status', 'scratch', 'min_workers', 'max_workers',
-           'workers_per_cycle', 'timeout', 'cores', 'memory', 'disk', 'active_condor_jobs',
+           'workers_per_cycle', 'worker_timeout', 'factory_timeout', 'cores', 'memory', 'disk', 'active_condor_jobs',
            'running', 'idle', 'held', 'warning'],
           [[f['pid'], f['selector'], f['config_path'] or '?', f['config_status'], f['scratch'] or '?'] +
            [fmt(f['settings'].get(k)) for k in ('min-workers', 'max-workers', 'workers-per-cycle',
-                                             'timeout', 'cores', 'memory', 'disk')] +
+                                             'worker_timeout', 'factory_timeout', 'cores', 'memory', 'disk')] +
            ([str(sum(counts.values())), str(counts[2]), str(counts[1]), str(counts[5]),
              warning or '-'] if jobs is not None else ['?', '?', '?', '?', 'CONDOR_UNAVAILABLE'])
            for f in factories for counts, warning in [factory_warnings(f, worker_jobs)]])
