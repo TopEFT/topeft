@@ -133,9 +133,10 @@ the cfg bundle for each era and region. Run 2 uses one aggregate cfg bundle;
 Run 3 uses per-year NDSkim cfgs. `--sample-json` and `--cfg-override` replace
 that derived bundle and are mutually exclusive.
 
-If omitted, the script currently supplies year `2022`, tag
-`fec79a60_PNet`, chunksize 100000, and the region histogram shorthand (`cr` or
-`ana`). Its built-in output root is a Glados-specific
+If omitted, the script currently supplies year `2022`, the tag defined by
+`DEFAULT_TAG` in `fullR3_run.sh` (`rebin_lj0pt350GeV` at the time of writing),
+chunksize 100000, and the region histogram shorthand (`cr` or `ana`). Its
+built-in output root is a Glados-specific
 `/groups/klannon/$USER/` path. For a reproducible invocation, set years, tag,
 histograms, and `--outpath` explicitly rather than inheriting those convenience
 values. The output name is derived from normalized years, region, and tag.

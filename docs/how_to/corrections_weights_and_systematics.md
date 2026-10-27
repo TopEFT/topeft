@@ -99,7 +99,7 @@ template policy must have an active caller-owned contract.
 If the required change is to a correctionlib boundary, JEC stack, corrected-
 jet/Type-1 MET mechanism, generic weight helper, or packaged shared payload,
 stop editing `topeft` and use the
-[`topcoffea` physics extension guide](https://github.com/TopEFT/topcoffea/blob/HEAD/docs/physics_extension_guides.md).
+[`topcoffea` physics extension guide](https://github.com/TopEFT/topcoffea/blob/run3_test_mmerged/docs/physics_extension_guides.md).
 After that change is validated, return here to select it explicitly for the
 analysis and update both repositories' ownership links.
 

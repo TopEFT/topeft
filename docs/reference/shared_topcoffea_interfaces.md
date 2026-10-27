@@ -49,11 +49,11 @@ infrastructure; it is not physics-bearing merely because `HistEFT` uses it.
 
 Analysis-policy changes route to the contextual `topeft` how-to guides.
 Reusable mechanism, payload-packaging, factory, or EFT-algebra changes route to
-[`topcoffea` physics extension guides](https://github.com/TopEFT/topcoffea/blob/HEAD/docs/physics_extension_guides.md).
+[`topcoffea` physics extension guides](https://github.com/TopEFT/topcoffea/blob/run3_test_mmerged/docs/physics_extension_guides.md).
 The owning shared references are
-[`topcoffea` correction interfaces](https://github.com/TopEFT/topcoffea/blob/HEAD/docs/correction_interfaces.md)
+[`topcoffea` correction interfaces](https://github.com/TopEFT/topcoffea/blob/run3_test_mmerged/docs/correction_interfaces.md)
 and
-[`topcoffea` EFT interfaces](https://github.com/TopEFT/topcoffea/blob/HEAD/docs/eft_interfaces.md).
+[`topcoffea` EFT interfaces](https://github.com/TopEFT/topcoffea/blob/run3_test_mmerged/docs/eft_interfaces.md).
 
 Analysis changes use the contextual guides for
 [objects and selections](../how_to/objects_selections_and_triggers.md),

@@ -14,7 +14,7 @@ coefficient algebra and `HistEFT` changes belong to `topcoffea`.
 - Sample metadata and roles:
   [sample roles and normalization](../reference/sample_roles_and_normalization.md)
 - Shared mechanism:
-  [`topcoffea` EFT interfaces](https://github.com/TopEFT/topcoffea/blob/HEAD/docs/eft_interfaces.md)
+  [`topcoffea` EFT interfaces](https://github.com/TopEFT/topcoffea/blob/run3_test_mmerged/docs/eft_interfaces.md)
 
 There is no universal WC default. The selected sample metadata and requested
 coefficient list are the concrete authority.
@@ -62,7 +62,7 @@ For a new data-driven, plot, card, or scaling consumer:
 ## Change shared EFT algebra or `HistEFT`
 
 Use the
-[`topcoffea` physics extension guide](https://github.com/TopEFT/topcoffea/blob/HEAD/docs/physics_extension_guides.md)
+[`topcoffea` physics extension guide](https://github.com/TopEFT/topcoffea/blob/run3_test_mmerged/docs/physics_extension_guides.md)
 for coefficient helpers, storage, evaluation, or SparseHist substrate changes.
 After shared validation, update the `topeft` consumer and reciprocal ownership
 links. Do not promote legacy `WCPoint` or `WCFit` as the current analysis owner.
