@@ -56,11 +56,11 @@ direct results are separate snapshots and can time out independently.
 manager's full task payload; `TASK_QUERY_TIMEOUT` bounds that query.
 `MAX_ACTIVE_TASKS` limits displayed rows only and does not bound the RPC
 payload. Condor worker profiles and pools cover identified owner WQ jobs across
-all managers. A wrapped worker is identified by its `condor.sh` invocation,
-regardless of scratch-directory naming. Pool origin matching a visible factory
-scratch directory is provenance correlation, not proof of a worker's Work Queue
-connection. Condor
-`RUNNING` likewise does not prove connection or task activity. A missing
+all managers. A wrapped worker is identified by its `condor.sh` or
+`with_oasis_certs` invocation, regardless of scratch-directory naming. Pool
+origin matching a visible factory scratch directory is provenance correlation,
+not proof of a worker's Work Queue connection. Condor `RUNNING` likewise does
+not prove connection or task activity. A missing
 visible factory PID may reflect process-namespace isolation.
 
 Recent worker exits come from an owner-scoped history query with default

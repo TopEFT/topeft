@@ -122,6 +122,17 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(dashboard.worker_origin({'Cmd': generic['Cmd'],
                                                   'Arguments': './work_queue_worker -M manager'}),
                          '/tmp/wq-apiccine-tau')
+        accepted_wrapper = {'Cmd': '/tmp/wq-apiccine-manual/with_oasis_certs',
+                            'Args': './work_queue_worker -M manager'}
+        self.assertEqual(dashboard.worker_origin(accepted_wrapper), '/tmp/wq-apiccine-manual')
+        self.assertEqual(dashboard.worker_selector(accepted_wrapper), 'manager')
+        self.assertIsNone(dashboard.worker_origin({'Cmd': accepted_wrapper['Cmd'],
+                                                   'Args': '/bin/echo ./work_queue_worker'}))
+        self.assertIsNone(dashboard.worker_origin({'Cmd': accepted_wrapper['Cmd'],
+                                                   'Args': "'./work_queue_worker"}))
+        fallback = {'Cmd': generic['Cmd'], 'Args': '', 'Arguments': './work_queue_worker -M fallback'}
+        self.assertEqual(dashboard.worker_origin(fallback), '/tmp/wq-apiccine-tau')
+        self.assertEqual(dashboard.worker_selector(fallback), 'fallback')
         self.assertIsNone(dashboard.worker_origin({'Cmd': generic['Cmd'],
                                                    'Args': "'./with_oasis_certs ./work_queue_worker"}))
         self.assertIsNone(dashboard.worker_origin({'Cmd': generic['Cmd'],

@@ -168,20 +168,20 @@ def manager_queries(host, port, timeout, task_details, task_timeout, query_fn=No
 
 def worker_origin(job):
     cmd = job.get('Cmd', '')
-    direct_worker = os.path.basename(str(cmd)) == 'work_queue_worker'
-    if direct_worker:
+    basename = os.path.basename(str(cmd))
+    if basename == 'work_queue_worker':
         return os.path.dirname(str(cmd)) or str(cmd)
-    if os.path.basename(str(cmd)) != 'condor.sh':
+    if basename not in ('condor.sh', 'with_oasis_certs'):
         return None
-    args = job.get('Args', job.get('Arguments', ''))
+    args = job.get('Args') or job.get('Arguments') or ''
     try:
         argv = shlex.split(str(args))
     except ValueError:
         return None
     wrapped_worker = (bool(argv) and
                       (os.path.basename(argv[0]) == 'work_queue_worker' or
-                       (os.path.basename(argv[0]) == 'with_oasis_certs' and len(argv) > 1 and
-                        os.path.basename(argv[1]) == 'work_queue_worker')))
+                       (basename == 'condor.sh' and os.path.basename(argv[0]) == 'with_oasis_certs'
+                        and len(argv) > 1 and os.path.basename(argv[1]) == 'work_queue_worker')))
     if not wrapped_worker:
         return None
     # Provenance only; it does not imply a task category or manager assignment.
@@ -200,7 +200,7 @@ def option_value(argv, *names):
 
 def worker_selector(job):
     try:
-        args = shlex.split(str(job.get('Args', job.get('Arguments', ''))))
+        args = shlex.split(str(job.get('Args') or job.get('Arguments') or ''))
     except ValueError:
         return '?'
     return option_value(args, '-M', '--manager-name') or '?'
