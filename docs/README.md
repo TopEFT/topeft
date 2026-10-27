@@ -68,8 +68,8 @@ and is not a substitute for these current tutorials.
 
 ## Reference
 
-Start with the [reference index](reference/README.md) when you need an exact
-contract rather than a procedure. The corpus is divided by authority:
+Use the [reference index](reference/README.md) to look up commands, interfaces,
+configuration, schemas, defaults, and failure behavior:
 
 - [Supported wrappers and direct entrypoints](reference/entrypoints.md)
 - [Analysis processor physics map](reference/analysis_processor.md)

@@ -64,8 +64,9 @@ columns `unit`, `kind`, `run`, `view`, `owner`, `years`, `variables`,
   --dry-run
 ```
 
-Replace `--dry-run` with `--execute` only after checking the resolved commands,
-checkout, inputs and destination. The root must be absent, including dangling
+Use `--execute` only in an environment where you are authorized to run the
+campaign, after verifying the plan, inputs, output root, and resources. The
+root must be absent, including dangling
 symlinks. `all` orders njets rows before other variables; `njets` and `other`
 select independent phases and each needs its own fresh root. Each selected row
 starts one guarded, single-PKL child with one worker. The wrapper verifies the
@@ -79,8 +80,8 @@ Maintained nominal SR campaign children explicitly use fitting binning and
 omit extra diagnostic numeric canvas annotations. Add
 `--debug-canvas-annotations` to the campaign command only when those signed
 diagnostic values are needed; ordinary axis ticks, luminosity, collision
-energy and physics labels remain visible. This implementation does not
-produce or accept a corrected baseline.
+energy and physics labels remain visible. Rendered figures still require
+visual and scientific review before they are used as a baseline.
 
 ## Plot directly
 
@@ -128,16 +129,18 @@ The compact human display shows scheduler states, attention units, and output
 counts. `MEM_MB` is raw Condor `MemoryUsage` in MB and `RSS_KIB` is raw
 `ResidentSetSize` in KiB. A `~` suffix marks truncated display text; JSON
 retains the complete raw ClassAd value. The output counts do not establish
-receipt-v2 reconciliation, slot closure, visual review, or scientific acceptance.
+that each planned figure is accounted for in its unit's receipt-v2 record of
+valid PNGs and explicit skips, or that every planned slot is closed. Review
+the figures for visual and scientific quality separately.
 For each exact job the monitor queries the queue, then exact history if absent;
 absence from both is `UNKNOWN`, not a success or failure inference. Held,
 removed, failed-exit and unknown units appear explicitly. PNG and receipt
-counts are informational: they do not reconcile receipt-v2, planned slots,
-visual review, or scientific acceptance. `ALL_TERMINAL_READY_FOR_COLLECTION`
+counts are informational: they do not match records to planned slots or establish
+visual or scientific quality. `ALL_TERMINAL_READY_FOR_COLLECTION`
 means a separate collection can begin, not that the campaign succeeded. The
 monitor never retries, resubmits, collects, or cleans campaign output.
 
-`plot_campaign_condor.py` derives execution units from the same accepted TSV
+`plot_campaign_condor.py` derives execution units from the same validated campaign TSV
 used by the sequential wrapper. It groups all logical views of a principal PKL,
 selects their histogram-family union in one parent-side streaming load, and
 renders each view from that retained mapping. The maintained loader checks the
@@ -150,22 +153,20 @@ Fresh descriptors use schema `plot_campaign_unit_v2` and bind
 `prepare --debug-canvas-annotations` binds `true` explicitly. The worker
 validates and obeys both fields before accessing campaign inputs; old
 descriptors and missing or invalid rendering modes are rejected. The monitor
-uses the same descriptor contract. This implementation alone does not render
-or accept a corrected baseline.
+uses the same descriptor contract. Preparing descriptors does not render figures;
+inspect rendered output and review its visual and scientific quality separately.
 
-Run `prepare` through the workspace Python wrapper, with a fresh dispatch
-directory and an ordinary TOPEFT `histos` campaign root:
+From an activated TOPEFT environment and checkout, run `prepare` with a fresh
+dispatch directory and an ordinary TOPEFT `histos` campaign root. These paths
+illustrate a checkout under `/home/alice/work/topeft`:
 
 ```bash
-/users/apiccine/work/correction-lib/codex-run.sh /bin/bash --noprofile --norc -c '
-  cd /users/apiccine/work/correction-lib/topeft &&
-  /users/apiccine/work/miniconda3/envs/clib-env/bin/python \
-    analysis/topeft_run2/plot_campaign_condor.py prepare \
-    --manifest /absolute/path/to/coverage_input_manifest.tsv \
-    --dispatch-dir /absolute/path/to/new_dispatch \
-    --output-root /users/apiccine/work/correction-lib/topeft/histos/new_campaign \
-    --request-cpus 2 --request-memory 8GB --request-disk 4GB \
-    --max-runtime 3600 --workers 2'
+python analysis/topeft_run2/plot_campaign_condor.py prepare \
+  --manifest /home/alice/work/topeft/campaigns/coverage_input_manifest.tsv \
+  --dispatch-dir /home/alice/work/topeft/campaigns/new_dispatch \
+  --output-root /home/alice/work/topeft/histos/new_campaign \
+  --request-cpus 2 --request-memory 8GB --request-disk 4GB \
+  --max-runtime 3600 --workers 2
 ```
 
 The resource quantities above illustrate syntax only. Select them from a real
@@ -174,8 +175,9 @@ pilot measurement before submission. Inspect `units/*.json`, `items.txt`,
 creates a separate one-unit queue while retaining the full campaign input-set
 record. The submit file requests one vanilla cluster with
 itemdata and `should_transfer_files = NO`. `prepare` never opens a production
-PKL or creates the campaign plot root. A later authorized submission would use
-the generated `plots.sub` after reviewing the output root and resources.
+PKL or creates the campaign plot root. If you are authorized to submit jobs at
+your site, inspect the output root, resource requests, and site queue
+requirements before submitting the generated `plots.sub`.
 
 Each `run-unit` checks its descriptor against the current TSV and campaign
 input set, requires its declared principal PKL to be readable, and refuses
@@ -377,8 +379,9 @@ private attempt roots, and resolved child arguments. It creates no campaign
 root/state, reads no PKL content, and does not predict categories, filenames,
 PNG counts, or a variable by region coverage matrix. Add `--selected-unit ID`
 to show or execute one unit while preserving the complete plan. Replace
-`--dry-run` with `--execute` only under a separately authorized production
-workflow. Fresh execution requires the root to be absent. For an existing
+`--dry-run` with `--execute` only when you are authorized to run the campaign
+in that environment, after verifying its plan, inputs, output root, and
+resources. Fresh execution requires the root to be absent. For an existing
 campaign use `--resume` with the same profile, tag, and root; it reconciles
 running attempts across both components before starting any new child, skips
 successes, and runs planned units. An unresolved running attempt blocks all

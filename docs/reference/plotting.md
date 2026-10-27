@@ -277,9 +277,9 @@ The profile CLI is `run_plotter.sh --campaign-profile PROFILE --campaign-tag
 TAG -o ROOT` with `--plan PLAN --dry-run|--execute`, `--resume`, optional
 `--selected-unit ID`, or `--activate-pending-plan PLAN
 --expected-plan-revision N`. Profile mode is mutually exclusive with the
-legacy TSV campaign mode. The owner is
-`analysis/topeft_run2/plot_campaign_manifest.py`; it does not change renderer,
-producer, Condor, or lane12 state semantics.
+legacy TSV campaign mode. Campaign state is implemented in
+`analysis/topeft_run2/plot_campaign_manifest.py` and does not change rendering,
+histogram production, or Condor job behavior.
 
 Plan v1 binds a complete unit catalogue. Unit source fields are `unit_id`,
 `component`, `producer_unit_id`, `input_path`, `sidecar_path`,
@@ -350,6 +350,6 @@ selected mode silently retries failed or interrupted units.
 
 The local backend runs one child at a time with one renderer worker, fitting
 binning, merged channels, total uncertainty, PNG output, SR/unblind flags and
-debug canvas annotations off. The memory guard and visible tee own terminal
-lifecycle evidence. Runtime success is a technical state, not lane13 visual
-or scientific acceptance; real rendering requires a later production grant.
+debug canvas annotations off. The memory guard and visible tee record terminal
+lifecycle evidence. Runtime success establishes that a child completed; inspect
+the rendered figures separately for visual and scientific quality.

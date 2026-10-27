@@ -1,6 +1,6 @@
 # Analysis workflow tutorial
 
-This tutorial follows the maintained TOP-26-006 path from sample selection to
+This tutorial follows the maintained analysis workflow from sample selection to
 the artifacts handed to EFTFit and Combine, the downstream statistical tools.
 It is written for a HEP analyst who knows why events are selected and
 histogrammed but does not yet know which `topeft` component owns each step.

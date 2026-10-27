@@ -6,7 +6,7 @@
 
 `topeft` contains the Coffea processors, workflow entrypoints, histogram and
 provenance contracts, plotting tools, and datacard utilities used by the
-current TOP-26-006 top-quark effective-field-theory analysis. The separately
+current top-quark effective-field-theory analysis. The separately
 installed `topcoffea` package provides shared corrections and utilities.
 
 ## Installation orientation
@@ -33,10 +33,6 @@ sample configuration and constructs a `run_analysis.py` request. The processor
 produces histogram PKLs with adjacent provenance sidecars. Data-driven
 transformation, plotting, datacard creation, scaling finalization, and the
 later EFTFit/Combine handoff are separate downstream responsibilities.
-
-For new contributors, `run3_test_mmerged` is the public newcomer baseline.
-Ongoing local analysis development uses `te/datacard_sr_reco`;
-`run3_test_mmerged_anpicci` is the personal/reference line.
 
 Start with the [documentation index](docs/README.md). New analysts should use
 the [analysis workflow tutorial](docs/tutorials/analysis_workflow.md); it
