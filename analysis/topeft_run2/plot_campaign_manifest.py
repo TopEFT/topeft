@@ -35,6 +35,7 @@ YEARS = {
 }
 SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+terminal_postprocessing_pending = "terminal postprocessing pending"
 UNIT_FIELDS = {
     "unit_id", "component", "producer_unit_id", "input_path",
     "sidecar_path", "qualification_source", "period_view",
@@ -53,6 +54,10 @@ class ChildDefinitelyNotStarted(CampaignError):
     """Prelaunch setup or the first process creation failed without a child."""
 
 
+class ChildDefinitelyTerminal(CampaignError):
+    """The guard was reaped and its evidence proves the managed child terminal."""
+
+
 class OutputCollision(CampaignError):
     """Canonical output cannot be written without risking another owner's bytes."""
 
@@ -64,6 +69,20 @@ def require(condition, message):
 
 def utc_now():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def best_effort_utc_now():
+    try:
+        return utc_now()
+    except Exception:
+        return None
+
+
+def error_description(error):
+    try:
+        return str(error)
+    except BaseException:
+        return type(error).__name__
 
 
 def sha256_file(path):
@@ -335,6 +354,7 @@ def lifecycle_receipt_path(attempt_root):
 
 
 def verify_lifecycle_receipt(receipt, attempt, argv):
+    require(isinstance(receipt, dict), "lifecycle receipt is not a JSON object")
     attempt_root = Path(attempt["private_unit_root"])
     guard_path = attempt_root / "_metadata" / "guard.jsonl"
     require(receipt.get("schema_version") == 1
@@ -411,6 +431,7 @@ def create_receipt(plan, unit, attempt, runtime):
 
 
 def verify_receipt(receipt, plan, unit, attempt, runtime):
+    require(isinstance(receipt, dict), "completion receipt is not a JSON object")
     require(receipt.get("schema_version") == 1
             and receipt.get("campaign_profile") == plan["campaign_profile"]
             and receipt.get("campaign_tag") == plan["campaign_tag"]
@@ -433,7 +454,8 @@ def verify_receipt(receipt, plan, unit, attempt, runtime):
                 (value, sum(row["variable"] == value for row in records)) for value in unit["variables"]),
             "completion receipt inventory contradiction")
     receipt_id = identity(receipt)
-    require(attempt.get("completion_receipt_identity") in {None, receipt_id},
+    require(attempt.get("completion_receipt_identity") is None
+            or attempt.get("completion_receipt_identity") == receipt_id,
             "state/receipt identity contradiction")
     return receipt_id
 
@@ -507,6 +529,7 @@ def materialize(plan, component, state, unit_state, attempt, receipt, root, runt
     attempt["materialization_status"] = "complete"
     attempt["completion_receipt_identity"] = receipt_id
     attempt["result"] = "success"
+    attempt["failure_classification"] = None
     unit_state["status"] = "success"
     atomic_json(state_path(root, plan["campaign_profile"], component), state)
 
@@ -517,9 +540,22 @@ def guard_terminal(path):
         rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     except (UnicodeError, json.JSONDecodeError) as error:
         raise CampaignError("guard evidence malformed") from error
+    require(all(isinstance(row, dict) for row in rows), "guard evidence malformed")
     results = [row for row in rows if row.get("event") == "result"]
     require(len(results) == 1 and rows[-1] is results[0], "guard terminal evidence ambiguous")
-    return results[0]
+    result = results[0]
+    require({"termination_kind", "returncode", "signal", "peak_pressure_used_bytes",
+             "minimum_mem_available_kb", "pid", "pgid", "start_ticks"} <= set(result)
+            and isinstance(result["termination_kind"], str)
+            and result["termination_kind"] in {"normal", "threshold_killed", "metric_failed"}
+            and type(result["returncode"]) is int
+            and all(type(result[key]) is int and result[key] > 0
+                    for key in ("pid", "pgid", "start_ticks"))
+            and (result["signal"] is None or type(result["signal"]) is int)
+            and all(result[key] is None or type(result[key]) is int
+                    for key in ("peak_pressure_used_bytes", "minimum_mem_available_kb")),
+            "guard terminal result malformed")
+    return result
 
 
 def run_guarded_child(argv, attempt_root):
@@ -539,30 +575,49 @@ def run_guarded_child(argv, attempt_root):
         guard_process = subprocess.Popen(guard, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                          env=environment)
     except (OSError, subprocess.SubprocessError) as error:
-        raise ChildDefinitelyNotStarted(f"guard process was not created: {error}") from error
+        raise ChildDefinitelyNotStarted(
+            f"guard process was not created: {error_description(error)}") from error
     try:
         tee_process = subprocess.Popen(["tee", "-a", str(log_path)],
                                        stdin=guard_process.stdout, env=environment)
-    except BaseException:
-        guard_process.wait()
-        raise
-    guard_process.stdout.close()
-    tee_result = tee_process.wait()
-    guard_result = guard_process.wait()
-    terminal = guard_terminal(guard_path)
-    child_result = terminal.get("returncode")
-    if terminal.get("termination_kind") != "normal":
-        child_result = None
-    lifecycle_path = lifecycle_receipt_path(attempt_root)
-    require(not lifecycle_path.exists() and not lifecycle_path.is_symlink(),
-            "lifecycle receipt already exists")
-    atomic_json(lifecycle_path, {
-        "schema_version": 1, "attempt_id": attempt_root.name,
-        "command_identity": identity(argv), "private_unit_root": str(attempt_root),
-        "terminal_guard_evidence": terminal, "guard_evidence_sha256": sha256_file(guard_path),
-        "guard_result": guard_result, "child_result": child_result,
-        "tee_result": tee_result, "ended_at_utc": utc_now(),
-    })
+    except Exception as error:
+        try:
+            guard_terminal(guard_path)
+        except Exception:
+            raise ActiveChildUnresolved(
+                f"tee setup failed with unresolved child: {error_description(error)}") from error
+        raise ChildDefinitelyTerminal(
+            f"tee setup failed after guard terminal: {error_description(error)}") from error
+    try:
+        guard_process.stdout.close()
+        tee_result = tee_process.wait()
+        guard_result = guard_process.wait()
+        terminal = guard_terminal(guard_path)
+    except Exception as error:
+        try:
+            guard_terminal(guard_path)
+        except Exception:
+            raise ActiveChildUnresolved(
+                f"guard terminal lifecycle is unresolved: {error_description(error)}") from error
+        raise ChildDefinitelyTerminal(
+            f"guard terminal but supervisor failed: {error_description(error)}") from error
+    try:
+        child_result = terminal.get("returncode")
+        if terminal.get("termination_kind") != "normal":
+            child_result = None
+        lifecycle_path = lifecycle_receipt_path(attempt_root)
+        require(not lifecycle_path.exists() and not lifecycle_path.is_symlink(),
+                "lifecycle receipt already exists")
+        atomic_json(lifecycle_path, {
+            "schema_version": 1, "attempt_id": attempt_root.name,
+            "command_identity": identity(argv), "private_unit_root": str(attempt_root),
+            "terminal_guard_evidence": terminal, "guard_evidence_sha256": sha256_file(guard_path),
+            "guard_result": guard_result, "child_result": child_result,
+            "tee_result": tee_result, "ended_at_utc": utc_now(),
+        })
+    except Exception as error:
+        raise ChildDefinitelyTerminal(
+            f"terminal lifecycle postprocessing failed: {error_description(error)}") from error
     return guard_result, child_result, tee_result
 
 
@@ -594,13 +649,18 @@ def execute_unit(plan, component, state, unit_state, root, runtime):
         attempt_root.mkdir(mode=0o700, parents=True)
         launch_possible = True
         guard_result, child_result, tee_result = run_guarded_child(argv, attempt_root)
+        attempt.update(guard_result=guard_result, child_result=child_result,
+                       tee_result=tee_result, result="interrupted",
+                       failure_classification=terminal_postprocessing_pending)
+        unit_state["status"] = "interrupted"
+        atomic_json(state_path(root, plan["campaign_profile"], component), state)
+        attempt["ended_at_utc"] = best_effort_utc_now()
         lifecycle = verify_lifecycle_receipt(read_json(lifecycle_receipt_path(attempt_root)),
                                             attempt, argv)
         require((guard_result, child_result, tee_result) == (
             lifecycle["guard_result"], lifecycle["child_result"], lifecycle["tee_result"]),
             "supervisor return contradicts lifecycle receipt")
-        attempt.update(ended_at_utc=lifecycle["ended_at_utc"], guard_result=guard_result,
-                       child_result=child_result, tee_result=tee_result)
+        attempt["ended_at_utc"] = lifecycle["ended_at_utc"]
         atomic_json(state_path(root, plan["campaign_profile"], component), state)
         require((guard_result, child_result, tee_result) == (0, 0, 0),
                 "terminal guard/child/tee failure")
@@ -608,61 +668,96 @@ def execute_unit(plan, component, state, unit_state, root, runtime):
         attempt["completion_receipt_identity"] = identity(receipt)
         atomic_json(state_path(root, plan["campaign_profile"], component), state)
         materialize(plan, component, state, unit_state, attempt, receipt, root, runtime)
-    except (CampaignError, OSError, subprocess.SubprocessError) as error:
-        if attempt["guard_result"] is None and launch_possible and not isinstance(error, ChildDefinitelyNotStarted):
-            attempt["failure_classification"] = str(error)
+    except Exception as error:
+        if (attempt["guard_result"] is None and launch_possible
+                and not isinstance(error, (ChildDefinitelyNotStarted, ChildDefinitelyTerminal))):
+            attempt["failure_classification"] = error_description(error)
             atomic_json(state_path(root, plan["campaign_profile"], component), state)
-            raise ActiveChildUnresolved(f"child terminal lifecycle is unresolved: {error}") from error
-        attempt["ended_at_utc"] = attempt["ended_at_utc"] or utc_now()
+            raise ActiveChildUnresolved(
+                f"child terminal lifecycle is unresolved: {error_description(error)}") from error
         attempt["result"] = "failed"
-        attempt["failure_classification"] = str(error)
         unit_state["status"] = "failed"
+        attempt["ended_at_utc"] = attempt["ended_at_utc"] or best_effort_utc_now()
+        attempt["failure_classification"] = error_description(error)
         atomic_json(state_path(root, plan["campaign_profile"], component), state)
-        raise
+        if isinstance(error, (CampaignError, OSError, subprocess.SubprocessError)):
+            raise
+        raise CampaignError(
+            f"terminal child postprocessing failed: {error_description(error)}") from error
 
 
 def reconcile_running(plan, component, state, unit_state, root, runtime):
-    require(unit_state["status"] == "running" and unit_state["attempts"],
-            "running unit lacks attempt")
+    require(unit_state["attempts"] and (
+        unit_state["status"] == "running" or (
+            unit_state["status"] == "interrupted" and
+            unit_state["attempts"][-1].get("failure_classification") == terminal_postprocessing_pending)),
+        "unit lacks a reconcilable attempt")
     attempt = unit_state["attempts"][-1]
-    attempt_root = Path(attempt["private_unit_root"])
-    argv = child_argv(unit_state["binding"], attempt_root)
-    require(attempt.get("command_identity") in {None, identity(argv)},
-            "running attempt command identity contradiction")
-    lifecycle_path = lifecycle_receipt_path(attempt_root)
-    if not lifecycle_path.exists() and not lifecycle_path.is_symlink():
+    try:
+        attempt_root = Path(attempt["private_unit_root"])
+        expected_root = private_root(root, plan["campaign_profile"],
+                                     unit_state["binding"]["unit_id"], component, "attempt_0001")
+        require(attempt.get("attempt_id") == "attempt_0001" and attempt_root == expected_root,
+                "running attempt root contradicts unit binding")
         guard_path = attempt_root / "_metadata" / "guard.jsonl"
-        if not guard_path.is_file() or guard_path.is_symlink():
-            raise ActiveChildUnresolved("terminal guard evidence unavailable")
+        reject_symlink_ancestors(guard_path,
+                                 component_root(root, plan["campaign_profile"], component))
+        argv = child_argv(unit_state["binding"], attempt_root)
+        require(attempt.get("command_identity") is None
+                or attempt.get("command_identity") == identity(argv),
+                "running attempt command identity contradiction")
+    except Exception as error:
+        raise ActiveChildUnresolved(
+            f"running child binding unresolved: {error_description(error)}") from error
+    try:
         guard_terminal(guard_path)
-        attempt["ended_at_utc"] = utc_now()
-        attempt["result"] = "interrupted"
-        attempt["failure_classification"] = "guard terminal but complete lifecycle unavailable"
-        unit_state["status"] = "interrupted"
-        atomic_json(state_path(root, plan["campaign_profile"], component), state)
-        return
-    lifecycle = verify_lifecycle_receipt(read_json(lifecycle_path), attempt, argv)
-    for key in ("guard_result", "child_result", "tee_result"):
-        require(attempt.get(key) in {None, lifecycle[key]},
-                f"running attempt {key} contradicts lifecycle receipt")
-        attempt[key] = lifecycle[key]
-    require(attempt.get("ended_at_utc") in {None, lifecycle["ended_at_utc"]},
-            "running attempt end time contradicts lifecycle receipt")
-    attempt["ended_at_utc"] = lifecycle["ended_at_utc"]
-    if (lifecycle["guard_result"], lifecycle["child_result"], lifecycle["tee_result"]) != (0, 0, 0):
-        attempt["result"] = "failed"
-        attempt["failure_classification"] = "terminal guard/child/tee failure"
-        unit_state["status"] = "failed"
-        atomic_json(state_path(root, plan["campaign_profile"], component), state)
-        return
+    except Exception as error:
+        raise ActiveChildUnresolved(
+            f"terminal guard evidence unavailable: {error_description(error)}") from error
+    attempt["result"] = "interrupted"
+    attempt["failure_classification"] = terminal_postprocessing_pending
+    unit_state["status"] = "interrupted"
     atomic_json(state_path(root, plan["campaign_profile"], component), state)
-    receipt_path = completion_receipt_path(attempt_root)
-    if receipt_path.is_file() and not receipt_path.is_symlink():
-        receipt = read_json(receipt_path)
+    try:
+        lifecycle_path = lifecycle_receipt_path(attempt_root)
+        if not lifecycle_path.exists() and not lifecycle_path.is_symlink():
+            attempt["failure_classification"] = "guard terminal but complete lifecycle unavailable"
+            attempt["ended_at_utc"] = attempt.get("ended_at_utc") or best_effort_utc_now()
+            atomic_json(state_path(root, plan["campaign_profile"], component), state)
+            return
+        lifecycle = verify_lifecycle_receipt(read_json(lifecycle_path), attempt, argv)
+        for key in ("guard_result", "child_result", "tee_result"):
+            require(attempt.get(key) is None or attempt.get(key) == lifecycle[key],
+                    f"running attempt {key} contradicts lifecycle receipt")
+            attempt[key] = lifecycle[key]
+        require(attempt.get("ended_at_utc") is None
+                or attempt.get("ended_at_utc") == lifecycle["ended_at_utc"],
+                "running attempt end time contradicts lifecycle receipt")
+        attempt["ended_at_utc"] = lifecycle["ended_at_utc"]
+        if (lifecycle["guard_result"], lifecycle["child_result"], lifecycle["tee_result"]) != (0, 0, 0):
+            attempt["result"] = "failed"
+            attempt["failure_classification"] = "terminal guard/child/tee failure"
+            unit_state["status"] = "failed"
+            atomic_json(state_path(root, plan["campaign_profile"], component), state)
+            return
+        atomic_json(state_path(root, plan["campaign_profile"], component), state)
+        receipt_path = completion_receipt_path(attempt_root)
+        if receipt_path.is_file() and not receipt_path.is_symlink():
+            receipt = read_json(receipt_path)
+            materialize(plan, component, state, unit_state, attempt, receipt, root, runtime)
+            return
+        receipt = create_receipt(plan, unit_state["binding"], attempt, runtime)
         materialize(plan, component, state, unit_state, attempt, receipt, root, runtime)
-        return
-    receipt = create_receipt(plan, unit_state["binding"], attempt, runtime)
-    materialize(plan, component, state, unit_state, attempt, receipt, root, runtime)
+    except OutputCollision:
+        raise
+    except Exception as error:
+        attempt["result"] = "interrupted"
+        unit_state["status"] = "interrupted"
+        attempt["ended_at_utc"] = attempt.get("ended_at_utc") or best_effort_utc_now()
+        attempt["failure_classification"] = error_description(error)
+        atomic_json(state_path(root, plan["campaign_profile"], component), state)
+        raise ChildDefinitelyTerminal(
+            f"terminal child postprocessing failed: {error_description(error)}") from error
 
 
 def check_root(root, *, fresh):
@@ -826,18 +921,25 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan):
         for component in PROFILES[profile]:
             state = states[component]
             for unit_id, unit_state in state["units"].items():
-                if unit_state["status"] == "running":
+                if unit_state["status"] == "running" or (
+                    unit_state["status"] == "interrupted" and unit_state["attempts"]
+                    and unit_state["attempts"][-1].get("failure_classification")
+                    == terminal_postprocessing_pending
+                ):
                     try:
                         reconcile_running(plan, component, state, unit_state, root, runtime)
                     except ActiveChildUnresolved as error:
-                        unresolved_running.append(f"{component}/{unit_id}: {error}")
+                        unresolved_running.append(
+                            f"{component}/{unit_id}: {error_description(error)}")
+                    except ChildDefinitelyTerminal as error:
+                        unit_errors.append(f"{component}/{unit_id}: {error_description(error)}")
                     except OutputCollision as error:
                         attempt = unit_state["attempts"][-1]
                         attempt["result"] = "failed"
-                        attempt["failure_classification"] = str(error)
+                        attempt["failure_classification"] = error_description(error)
                         unit_state["status"] = "failed"
                         atomic_json(state_path(root, profile, component), state)
-                        unit_errors.append(f"{component}/{unit_id}: {error}")
+                        unit_errors.append(f"{component}/{unit_id}: {error_description(error)}")
                 if unit_state["status"] == "running" and not any(
                         item.startswith(f"{component}/{unit_id}:") for item in unresolved_running):
                     unresolved_running.append(f"{component}/{unit_id}: remains running")
@@ -855,9 +957,11 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan):
                 try:
                     execute_unit(plan, component, state, unit_state, root, runtime)
                 except ActiveChildUnresolved as error:
-                    unresolved_running.append(f"{component}/{unit['unit_id']}: {error}")
+                    unresolved_running.append(
+                        f"{component}/{unit['unit_id']}: {error_description(error)}")
                 except (CampaignError, OSError, subprocess.SubprocessError) as error:
-                    unit_errors.append(f"{component}/{unit['unit_id']}: {error}")
+                    unit_errors.append(
+                        f"{component}/{unit['unit_id']}: {error_description(error)}")
     counts = Counter(unit["status"] for state in states.values()
                      for unit in state["units"].values())
     if unresolved_running:
@@ -925,7 +1029,7 @@ def main(argv=None):
                                   read_json(coordinator_path(root)).get("runtime_contract_identity"))
         return 0
     except (CampaignError, OSError, TypeError, KeyError) as error:
-        print(f"plot campaign: {error}", file=sys.stderr)
+        print(f"plot campaign: {error_description(error)}", file=sys.stderr)
         return 2
 
 

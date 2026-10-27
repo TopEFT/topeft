@@ -1,6 +1,7 @@
 """Inert transaction fixtures for the persistent SR plotting controller."""
 
 import importlib.util
+import io
 import json
 from pathlib import Path
 
@@ -11,6 +12,14 @@ MODULE_PATH = Path(__file__).resolve().parents[1] / "analysis/topeft_run2/plot_c
 SPEC = importlib.util.spec_from_file_location("plot_campaign_manifest", MODULE_PATH)
 campaign = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(campaign)
+
+
+def guard_result_line(returncode=0):
+    return json.dumps({
+        "event": "result", "termination_kind": "normal", "returncode": returncode,
+        "signal": None, "peak_pressure_used_bytes": None,
+        "minimum_mem_available_kb": None, "pid": 1, "pgid": 1, "start_ticks": 1,
+    }) + "\n"
 
 
 def fixture_plan(tmp_path, monkeypatch, *, profile="sr_crlike_run2", unit_count=1):
@@ -60,10 +69,7 @@ def fake_success(argv, attempt_root):
     metadata = attempt_root / "_metadata"
     metadata.mkdir()
     (metadata / "renderer.log").write_text("fwd0pt absent in this region\n", encoding="utf-8")
-    (metadata / "guard.jsonl").write_text(
-        '{"event":"result","termination_kind":"normal","returncode":0}\n',
-        encoding="utf-8",
-    )
+    (metadata / "guard.jsonl").write_text(guard_result_line(), encoding="utf-8")
     write_lifecycle(argv, attempt_root, 0, 0, 0)
     return 0, 0, 0
 
@@ -85,10 +91,7 @@ def fake_failure(argv, attempt_root):
     metadata = attempt_root / "_metadata"
     metadata.mkdir()
     (metadata / "renderer.log").write_text("fixture child failed\n", encoding="utf-8")
-    (metadata / "guard.jsonl").write_text(
-        '{"event":"result","termination_kind":"normal","returncode":7}\n',
-        encoding="utf-8",
-    )
+    (metadata / "guard.jsonl").write_text(guard_result_line(7), encoding="utf-8")
     write_lifecycle(argv, attempt_root, 7, 7, 0)
     return 7, 7, 0
 
@@ -301,8 +304,11 @@ def test_combined_component_isolation(tmp_path, monkeypatch):
 
 def test_guard_terminal_and_renderer_message_evidence(tmp_path, monkeypatch):
     guard = tmp_path / "guard.jsonl"
-    guard.write_text('{"event":"start"}\n{"event":"result","termination_kind":"normal","returncode":0}\n', encoding="utf-8")
+    guard.write_text('{"event":"start"}\n' + guard_result_line(), encoding="utf-8")
     assert campaign.guard_terminal(guard)["returncode"] == 0
+    guard.write_text('{"event":"result"}\n', encoding="utf-8")
+    with pytest.raises(campaign.CampaignError, match="malformed"):
+        campaign.guard_terminal(guard)
     guard.write_text('{"event":"result","returncode":0}\n{"event":"result","returncode":0}\n', encoding="utf-8")
     with pytest.raises(campaign.CampaignError, match="ambiguous"):
         campaign.guard_terminal(guard)
@@ -372,6 +378,53 @@ def test_lifecycle_crash_window_recovers_without_rerun(tmp_path, monkeypatch):
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert state["units"]["unit_0"]["status"] == "success"
     assert campaign.completion_receipt_path(attempt_root).is_file()
+
+
+def test_post_tuple_terminal_state_recovers_after_interruption_without_child_rerun(
+        tmp_path, monkeypatch):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch)
+    original_verify = campaign.verify_lifecycle_receipt
+    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+
+    def interrupt_after_terminal_persistence(*_args):
+        state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+        attempt = state["units"]["unit_0"]["attempts"][0]
+        assert state["units"]["unit_0"]["status"] == attempt["result"] == "interrupted"
+        assert (attempt["guard_result"], attempt["child_result"], attempt["tee_result"]) == (0, 0, 0)
+        raise KeyboardInterrupt("inert interruption after terminal tuple")
+
+    monkeypatch.setattr(campaign, "verify_lifecycle_receipt", interrupt_after_terminal_persistence)
+    with pytest.raises(KeyboardInterrupt, match="inert interruption"):
+        campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                              plan_path=plan_path, action="execute")
+    monkeypatch.setattr(campaign, "verify_lifecycle_receipt", original_verify)
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    assert campaign.main(resume_args(root)) == 0
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert state["units"]["unit_0"]["status"] == "success"
+    assert state["units"]["unit_0"]["attempts"][0]["failure_classification"] is None
+
+
+def test_post_guard_terminal_state_recovers_after_interruption_without_child_rerun(
+        tmp_path, monkeypatch):
+    root, _, _ = seed_running(tmp_path, monkeypatch)
+    original_path = campaign.lifecycle_receipt_path
+
+    def interrupt_after_terminal_persistence(attempt_root):
+        state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+        attempt = state["units"]["unit_0"]["attempts"][0]
+        assert state["units"]["unit_0"]["status"] == attempt["result"] == "interrupted"
+        raise KeyboardInterrupt("inert interruption after guard evidence")
+
+    monkeypatch.setattr(campaign, "lifecycle_receipt_path", interrupt_after_terminal_persistence)
+    with pytest.raises(KeyboardInterrupt, match="inert interruption"):
+        campaign.main(resume_args(root))
+    monkeypatch.setattr(campaign, "lifecycle_receipt_path", original_path)
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    assert campaign.main(resume_args(root)) == 0
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert state["units"]["unit_0"]["status"] == "success"
+    assert state["units"]["unit_0"]["attempts"][0]["failure_classification"] is None
 
 
 def test_failed_lifecycle_and_missing_lifecycle_are_terminal_without_rerun(tmp_path, monkeypatch):
@@ -463,6 +516,534 @@ def test_first_popen_failure_is_terminal_without_child(tmp_path, monkeypatch, ca
     assert len(calls) == 1
     assert state["units"]["unit_0"]["status"] == "failed"
     assert summary["waiting_on_active_child"] is False
+
+
+def test_second_popen_failure_with_terminal_guard_allows_other_unit(tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    original_run = campaign.run_guarded_child
+    launches = []
+
+    class TerminalGuard:
+        def __init__(self, guard_path):
+            self.guard_path = guard_path
+            self.stdout = io.BytesIO()
+            self.guard_path.write_text(guard_result_line(), encoding="utf-8")
+
+        def wait(self):
+            pytest.fail("tee creation failure must not wait for an undrained guard")
+
+    def run_child(argv, attempt_root):
+        launches.append(attempt_root.parent.name)
+        if attempt_root.parent.name != "unit_0":
+            return fake_success(argv, attempt_root)
+        calls = []
+
+        def popen(*args, **kwargs):
+            calls.append(args[0])
+            if len(calls) == 1:
+                return TerminalGuard(attempt_root / "_metadata" / "guard.jsonl")
+            raise OSError("inert tee creation failure")
+
+        with monkeypatch.context() as process_patch:
+            process_patch.setattr(campaign.subprocess, "Popen", popen)
+            result = original_run(argv, attempt_root)
+        return result
+
+    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute")
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert launches == ["unit_0", "unit_1"]
+    assert summary["campaign_status"] == "partial"
+    assert summary["waiting_on_active_child"] is False
+    assert summary["running_count"] == 0
+    assert state["units"]["unit_0"]["status"] == "failed"
+    assert state["units"]["unit_0"]["attempts"][0]["result"] == "failed"
+    assert state["units"]["unit_1"]["status"] == "success"
+
+
+@pytest.mark.parametrize("failure", ["stdout_close", "tee_wait", "guard_wait"])
+def test_terminal_guard_survives_supervisor_cleanup_failure(
+        failure, tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    original_run = campaign.run_guarded_child
+    launches = []
+
+    class GuardStdout(io.BytesIO):
+        def close(self):
+            if failure == "stdout_close":
+                raise OSError("inert stdout close failure")
+            super().close()
+
+    class TerminalGuard:
+        def __init__(self, guard_path):
+            self.stdout = GuardStdout()
+            guard_path.write_text(guard_result_line(), encoding="utf-8")
+
+        def wait(self):
+            if failure == "guard_wait":
+                raise OSError("inert guard wait failure")
+            return 0
+
+    class TerminalTee:
+        def wait(self):
+            if failure == "tee_wait":
+                raise OSError("inert tee wait failure")
+            return 0
+
+    def run_child(argv, attempt_root):
+        launches.append(attempt_root.parent.name)
+        if attempt_root.parent.name != "unit_0":
+            return fake_success(argv, attempt_root)
+        calls = []
+
+        def popen(*_args, **_kwargs):
+            calls.append(1)
+            return (TerminalGuard(attempt_root / "_metadata/guard.jsonl")
+                    if len(calls) == 1 else TerminalTee())
+
+        with monkeypatch.context() as process_patch:
+            process_patch.setattr(campaign.subprocess, "Popen", popen)
+            return original_run(argv, attempt_root)
+
+    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute")
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert launches == ["unit_0", "unit_1"]
+    assert summary["waiting_on_active_child"] is False
+    assert summary["running_count"] == 0
+    assert state["units"]["unit_0"]["status"] == "failed"
+    assert state["units"]["unit_1"]["status"] == "success"
+
+
+@pytest.mark.parametrize("guard_record", [None, '{"event":"result"}\n'])
+def test_tee_creation_without_terminal_guard_does_not_wait_or_launch_next(
+        guard_record, tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    original_run = campaign.run_guarded_child
+    launches = []
+
+    class UnresolvedGuard:
+        def __init__(self, guard_path):
+            self.stdout = io.BytesIO()
+            if guard_record is not None:
+                guard_path.write_text(guard_record, encoding="utf-8")
+
+        def wait(self):
+            pytest.fail("undrained guard wait would block")
+
+    def run_child(argv, attempt_root):
+        launches.append(attempt_root.parent.name)
+        calls = []
+
+        def popen(*_args, **_kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                return UnresolvedGuard(attempt_root / "_metadata/guard.jsonl")
+            raise OSError("inert tee creation failure")
+
+        with monkeypatch.context() as process_patch:
+            process_patch.setattr(campaign.subprocess, "Popen", popen)
+            return original_run(argv, attempt_root)
+
+    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute")
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert launches == ["unit_0"]
+    assert summary["campaign_status"] == "waiting"
+    assert summary["running_count"] == 1
+    assert state["units"]["unit_0"]["status"] == "running"
+    assert state["units"]["unit_1"]["status"] == "planned"
+
+
+def test_supervisor_lifecycle_write_failure_after_terminal_guard_is_failed(
+        tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    original_run = campaign.run_guarded_child
+    original_atomic = campaign.atomic_json
+    launches = []
+
+    class TerminalGuard:
+        def __init__(self, guard_path):
+            self.guard_path = guard_path
+            self.stdout = io.BytesIO()
+
+        def wait(self):
+            self.guard_path.write_text(guard_result_line(), encoding="utf-8")
+            return 0
+
+    class TerminalTee:
+        def wait(self):
+            return 0
+
+    def run_child(argv, attempt_root):
+        launches.append(attempt_root.parent.name)
+        if attempt_root.parent.name != "unit_0":
+            return fake_success(argv, attempt_root)
+        calls = []
+
+        def popen(*args, **kwargs):
+            calls.append(args[0])
+            if len(calls) == 1:
+                return TerminalGuard(attempt_root / "_metadata" / "guard.jsonl")
+            return TerminalTee()
+
+        def failed_lifecycle_write(path, value):
+            if path == campaign.lifecycle_receipt_path(attempt_root):
+                raise TypeError("inert lifecycle receipt write failure")
+            return original_atomic(path, value)
+
+        with monkeypatch.context() as supervisor_patch:
+            supervisor_patch.setattr(campaign.subprocess, "Popen", popen)
+            supervisor_patch.setattr(campaign, "atomic_json", failed_lifecycle_write)
+            return original_run(argv, attempt_root)
+
+    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute")
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert launches == ["unit_0", "unit_1"]
+    assert summary["campaign_status"] == "partial"
+    assert summary["waiting_on_active_child"] is False
+    assert state["units"]["unit_0"]["status"] == "failed"
+    assert "inert lifecycle receipt write failure" in (
+        state["units"]["unit_0"]["attempts"][0]["failure_classification"])
+    assert state["units"]["unit_1"]["status"] == "success"
+
+
+@pytest.mark.parametrize("source", ["supervisor_postproof", "terminal_exception"])
+def test_unprintable_terminal_error_cannot_leave_running(
+        source, tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    original_run = campaign.run_guarded_child
+    original_atomic = campaign.atomic_json
+    launches = []
+
+    class UnprintableError(OSError):
+        def __str__(self):
+            raise ValueError("inert error formatting failure")
+
+    class UnprintableTerminal(campaign.ChildDefinitelyTerminal):
+        def __str__(self):
+            raise ValueError("inert error formatting failure")
+
+    class TerminalGuard:
+        stdout = io.BytesIO()
+
+        def __init__(self, guard_path):
+            guard_path.write_text(guard_result_line(), encoding="utf-8")
+
+        def wait(self):
+            return 0
+
+    class TerminalTee:
+        def wait(self):
+            return 0
+
+    def run_child(argv, attempt_root):
+        launches.append(attempt_root.parent.name)
+        if attempt_root.parent.name != "unit_0":
+            return fake_success(argv, attempt_root)
+        if source == "terminal_exception":
+            raise UnprintableTerminal()
+        calls = []
+
+        def popen(*_args, **_kwargs):
+            calls.append(1)
+            return (TerminalGuard(attempt_root / "_metadata/guard.jsonl")
+                    if len(calls) == 1 else TerminalTee())
+
+        def failed_lifecycle_write(path, value):
+            if path == campaign.lifecycle_receipt_path(attempt_root):
+                raise UnprintableError()
+            return original_atomic(path, value)
+
+        with monkeypatch.context() as process_patch:
+            process_patch.setattr(campaign.subprocess, "Popen", popen)
+            process_patch.setattr(campaign, "atomic_json", failed_lifecycle_write)
+            return original_run(argv, attempt_root)
+
+    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute")
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert launches == ["unit_0", "unit_1"]
+    assert summary["running_count"] == 0
+    assert state["units"]["unit_0"]["status"] == "failed"
+    assert state["units"]["unit_0"]["attempts"][0]["failure_classification"]
+    assert state["units"]["unit_1"]["status"] == "success"
+
+
+@pytest.mark.parametrize("corruption, expected_error", [
+    ("binding", "lifecycle receipt binding"),
+    ("wrong_type", "lifecycle receipt is not a JSON object"),
+    ("postprocess_type_error", "inert postprocess type error"),
+])
+def test_terminal_tuple_survives_lifecycle_verification_failure(
+        corruption, expected_error, tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    launches = []
+    observed_before_verify = []
+    original_verify = campaign.verify_lifecycle_receipt
+
+    def invalid_lifecycle(argv, attempt_root):
+        launches.append(attempt_root.parent.name)
+        result = fake_success(argv, attempt_root)
+        if attempt_root.parent.name == "unit_0":
+            path = campaign.lifecycle_receipt_path(attempt_root)
+            if corruption == "wrong_type":
+                campaign.atomic_json(path, [])
+            else:
+                lifecycle = campaign.read_json(path)
+                lifecycle["command_identity"] = "0" * 64
+                campaign.atomic_json(path, lifecycle)
+        return result
+
+    def verify_after_persistence(receipt, attempt, argv):
+        if Path(attempt["private_unit_root"]).parent.name == "unit_0":
+            state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+            persisted = state["units"]["unit_0"]["attempts"][0]
+            observed_before_verify.append((state["units"]["unit_0"]["status"],
+                                           persisted["result"], persisted["guard_result"],
+                                           persisted["child_result"], persisted["tee_result"]))
+            if corruption == "postprocess_type_error":
+                raise TypeError("inert postprocess type error")
+        return original_verify(receipt, attempt, argv)
+
+    monkeypatch.setattr(campaign, "run_guarded_child", invalid_lifecycle)
+    monkeypatch.setattr(campaign, "verify_lifecycle_receipt", verify_after_persistence)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute")
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    assert launches == ["unit_0", "unit_1"]
+    assert observed_before_verify == [("interrupted", "interrupted", 0, 0, 0)]
+    assert summary["campaign_status"] == "partial"
+    assert summary["waiting_on_active_child"] is False
+    assert summary["running_count"] == 0
+    assert state["units"]["unit_0"]["status"] == attempt["result"] == "failed"
+    assert (attempt["guard_result"], attempt["child_result"], attempt["tee_result"]) == (0, 0, 0)
+    assert expected_error in attempt["failure_classification"]
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    assert campaign.main(resume_args(root)) == 0
+    assert len(campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+               ["units"]["unit_0"]["attempts"]) == 1
+
+
+def test_terminal_tuple_survives_clock_failure(tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch)
+    original_now = campaign.utc_now
+    calls = []
+
+    def fail_late_clock():
+        calls.append(1)
+        if len(calls) == 2:
+            raise OSError("inert timestamp failure")
+        return original_now()
+
+    monkeypatch.setattr(campaign, "utc_now", fail_late_clock)
+    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute")
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    assert len(calls) >= 2
+    assert summary["running_count"] == 0
+    assert state["units"]["unit_0"]["status"] == attempt["result"] == "success"
+    assert attempt["failure_classification"] is None
+    assert (attempt["guard_result"], attempt["child_result"], attempt["tee_result"]) == (0, 0, 0)
+
+
+def test_terminal_supervisor_error_survives_exception_clock_failure(
+        tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    original_now = campaign.utc_now
+    calls = []
+    launches = []
+
+    def fail_late_clock():
+        calls.append(1)
+        if len(calls) == 2:
+            raise OSError("inert timestamp failure")
+        return original_now()
+
+    def terminal_error(argv, attempt_root):
+        launches.append(attempt_root.parent.name)
+        if attempt_root.parent.name == "unit_0":
+            raise campaign.ChildDefinitelyTerminal("inert terminal supervisor failure")
+        return fake_success(argv, attempt_root)
+
+    monkeypatch.setattr(campaign, "utc_now", fail_late_clock)
+    monkeypatch.setattr(campaign, "run_guarded_child", terminal_error)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute")
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert launches == ["unit_0", "unit_1"]
+    assert summary["running_count"] == 0
+    assert state["units"]["unit_0"]["status"] == "failed"
+    assert state["units"]["unit_1"]["status"] == "success"
+
+
+def test_resume_terminal_guard_with_bad_lifecycle_is_interrupted(tmp_path, monkeypatch, capsys):
+    root, _, attempt_root = seed_running(tmp_path, monkeypatch)
+    campaign.atomic_json(campaign.lifecycle_receipt_path(attempt_root), [])
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    assert campaign.main(resume_args(root)) == 0
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    assert summary["campaign_status"] == "partial"
+    assert summary["waiting_on_active_child"] is False
+    assert summary["running_count"] == 0
+    assert state["units"]["unit_0"]["status"] == attempt["result"] == "interrupted"
+    assert "lifecycle receipt is not a JSON object" in attempt["failure_classification"]
+
+
+def test_resume_terminal_guard_with_receipt_creation_failure_is_interrupted(
+        tmp_path, monkeypatch, capsys):
+    root, _, _ = seed_running(tmp_path, monkeypatch)
+
+    def failed_receipt(*_):
+        raise OSError("inert receipt creation failure")
+
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign, "create_receipt", failed_receipt)
+    assert campaign.main(resume_args(root)) == 0
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    assert summary["campaign_status"] == "partial"
+    assert summary["waiting_on_active_child"] is False
+    assert summary["running_count"] == 0
+    assert state["units"]["unit_0"]["status"] == attempt["result"] == "interrupted"
+    assert "inert receipt creation failure" in summary["unit_errors"][0]
+
+
+@pytest.mark.parametrize("guard_record", ['[]\n', '{"event":"result"}\n'])
+def test_resume_malformed_guard_evidence_waits_without_launch(
+        guard_record, tmp_path, monkeypatch, capsys):
+    profile = "sr_crlike_run2_run3"
+    root, _, attempt_root = seed_running(tmp_path, monkeypatch, profile=profile)
+    campaign.lifecycle_receipt_path(attempt_root).unlink()
+    (attempt_root / "_metadata" / "guard.jsonl").write_text(guard_record, encoding="utf-8")
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("overlap"))
+    assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, profile, "run2"))
+    other_state = campaign.read_json(campaign.state_path(root, profile, "run3"))
+    assert summary["campaign_status"] == "waiting"
+    assert summary["waiting_on_active_child"] is True
+    assert summary["running_count"] == 1
+    assert state["units"]["unit_0"]["status"] == "running"
+    assert other_state["units"]["unit_1"]["status"] == "planned"
+
+
+@pytest.mark.parametrize("corruption", ["root", "command", "symlink", "metadata_symlink"])
+def test_resume_unbound_guard_evidence_waits_without_launch(
+        corruption, tmp_path, monkeypatch, capsys):
+    profile = "sr_crlike_run2_run3"
+    root, _, _ = seed_running(tmp_path, monkeypatch, profile=profile)
+    path = campaign.state_path(root, profile, "run2")
+    state = campaign.read_json(path)
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    if corruption in {"root", "symlink", "metadata_symlink"}:
+        foreign_root = tmp_path / "unbound_terminal_guard"
+        (foreign_root / "_metadata").mkdir(parents=True)
+        (foreign_root / "_metadata" / "guard.jsonl").write_text(
+            guard_result_line(), encoding="utf-8")
+        if corruption == "root":
+            attempt["private_unit_root"] = str(foreign_root)
+        elif corruption == "symlink":
+            bound_root = Path(attempt["private_unit_root"])
+            bound_root.rename(tmp_path / "detached_attempt")
+            bound_root.symlink_to(foreign_root, target_is_directory=True)
+        else:
+            bound_metadata = Path(attempt["private_unit_root"]) / "_metadata"
+            bound_metadata.rename(tmp_path / "detached_metadata")
+            bound_metadata.symlink_to(foreign_root / "_metadata", target_is_directory=True)
+    else:
+        attempt["command_identity"] = "0" * 64
+    campaign.atomic_json(path, state)
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("overlap"))
+    assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    run2 = campaign.read_json(path)
+    run3 = campaign.read_json(campaign.state_path(root, profile, "run3"))
+    assert summary["campaign_status"] == "waiting"
+    assert summary["waiting_on_active_child"] is True
+    assert summary["running_count"] == 1
+    assert run2["units"]["unit_0"]["status"] == "running"
+    assert run3["units"]["unit_1"]["status"] == "planned"
+
+
+@pytest.mark.parametrize("field", ["guard_result", "ended_at_utc", "completion_receipt_identity"])
+def test_resume_malformed_attempt_field_after_terminal_guard_is_interrupted(
+        field, tmp_path, monkeypatch, capsys):
+    root, _, _ = seed_running(tmp_path, monkeypatch)
+    path = campaign.state_path(root, "sr_crlike_run2", "run2")
+    state = campaign.read_json(path)
+    state["units"]["unit_0"]["attempts"][0][field] = []
+    campaign.atomic_json(path, state)
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    assert campaign.main(resume_args(root)) == 0
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(path)
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    assert summary["campaign_status"] == "partial"
+    assert summary["waiting_on_active_child"] is False
+    assert state["units"]["unit_0"]["status"] == attempt["result"] == "interrupted"
+    assert attempt["failure_classification"]
+
+
+def test_resume_lifecycle_path_inspection_failure_after_terminal_guard_is_interrupted(
+        tmp_path, monkeypatch, capsys):
+    root, _, attempt_root = seed_running(tmp_path, monkeypatch)
+    lifecycle_path = campaign.lifecycle_receipt_path(attempt_root)
+    original_exists = Path.exists
+
+    def failed_exists(path):
+        if path == lifecycle_path:
+            raise OSError("inert lifecycle path inspection failure")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", failed_exists)
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    assert campaign.main(resume_args(root)) == 0
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    assert summary["campaign_status"] == "partial"
+    assert summary["waiting_on_active_child"] is False
+    assert state["units"]["unit_0"]["status"] == attempt["result"] == "interrupted"
+    assert "inert lifecycle path inspection failure" in attempt["failure_classification"]
+
+
+def test_resume_terminal_guard_survives_clock_failure(tmp_path, monkeypatch, capsys):
+    root, _, attempt_root = seed_running(tmp_path, monkeypatch)
+    campaign.lifecycle_receipt_path(attempt_root).unlink()
+
+    def failed_clock():
+        raise OSError("inert timestamp failure")
+
+    monkeypatch.setattr(campaign, "utc_now", failed_clock)
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    assert campaign.main(resume_args(root)) == 0
+    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    assert summary["campaign_status"] == "partial"
+    assert summary["running_count"] == 0
+    assert state["units"]["unit_0"]["status"] == attempt["result"] == "interrupted"
 
 
 def test_ambiguous_launch_stays_running_and_blocks_other_child(tmp_path, monkeypatch, capsys):
