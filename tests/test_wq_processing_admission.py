@@ -2,13 +2,17 @@
 
 from collections import defaultdict
 import importlib
+import json
+import os
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
 
 import pytest
 from ndcctools import work_queue as wq
 
 from analysis.topeft_run2 import wq_processing_admission as admission
+from analysis.topeft_run2 import wq_staging_guard as staging_guard
 
 
 class fake_task:
@@ -778,3 +782,169 @@ def test_guarded_launcher_callback_is_composed(
     assert len(calls) == 1
     assert calls[0][1]["base"] == str(tmp_path)
     assert calls[0][1]["accumulating_memory_mb"] == 128000
+
+
+def test_quota_timeout_pauses_both_admissions_and_fresh_probe_recovers(
+    setup_queue, monkeypatch, tmp_path
+):
+    make, _ = setup_queue
+    queue, coordinator = make(8)
+    monkeypatch.setattr(admission, "_space", staging_guard._space)
+
+    def timed_out(*args, **kwargs):
+        raise subprocess.TimeoutExpired(["quota", "/groups/klannon"], 15)
+
+    monkeypatch.setattr(staging_guard.subprocess, "run", timed_out)
+    existing = [fake_task() for _ in range(4)]
+    for task in existing:
+        queue.submit(task)
+    for task, state in zip(existing, (
+        wq.WORK_QUEUE_TASK_READY, wq.WORK_QUEUE_TASK_RUNNING,
+        wq.WORK_QUEUE_TASK_WAITING_RETRIEVAL, wq.WORK_QUEUE_TASK_RETRIEVED,
+    )):
+        queue.states[task.id] = state
+    queued_before = dict(queue._task_table)
+    assert coordinator._decision(100, 1)[0:2] == (0, "headroom_unknown")
+    assert queue._task_table == queued_before
+    assert coordinator.measurement_error == "staging_guard_error"
+    pending = [fake_task(fout_size=1) for _ in range(3)]
+    queue.tasks_to_accumulate = pending[:]
+    queue._submit_accum_tasks("reducer")
+    assert queue.tasks_to_accumulate == pending
+    assert coordinator.deferred_accumulation
+    assert queue.stats_coffea["accumulations_submitted"] == 0
+    assert queue.stats_coffea["events_submitted"] == 0
+
+    # A previous successful sample is no authority after its freshness limit.
+    coordinator.available_bytes = 10**12
+    coordinator.last_measurement_at = -float("inf")
+    assert coordinator._decision(100, 1)[0] == 0
+    assert queue._task_table == queued_before
+
+    def recovered(*args, **kwargs):
+        return SimpleNamespace(returncode=0, stdout=(
+            "Filesystem quota used use available\n"
+            "/groups/klannon 5T 2T 40% 2T\n"))
+
+    monkeypatch.setattr(staging_guard.subprocess, "run", recovered)
+    coordinator.last_measurement_at = -float("inf")
+    assert coordinator._decision(100, 1)[0] > 0
+    coordinator.last_measurement_at = -float("inf")
+    queue._submit_accum_tasks("reducer")
+    assert queue.stats_coffea["accumulations_submitted"] > 0
+
+
+def _owned_invocation(base, name):
+    owned = base / name
+    owned.mkdir()
+    (owned / "guard.json").write_text(json.dumps({
+        "status": "completed_pending_receipt", "path": str(owned),
+        "owner_uid": os.getuid(), "owner_pid": os.getpid(),
+        "owner_start": staging_guard._process_start(os.getpid()),
+        "owner_inode": owned.stat().st_ino,
+    }))
+    return owned
+
+
+def test_invocation_closeout_preserves_only_pkl_and_matching_metadata(
+    tmp_path, monkeypatch
+):
+    base = tmp_path / "workers"
+    base.mkdir()
+    owned = _owned_invocation(base, "mine")
+    sibling = base / "other"
+    sibling.mkdir()
+    (sibling / "data.log").write_bytes(b"sibling")
+    outside = tmp_path / "outside.txt"
+    outside.write_bytes(b"outside")
+    (owned / "escape").symlink_to(outside)
+    nested = owned / "tmpabcwq-tmp-"
+    nested.mkdir()
+    (nested / "result.pkl.gz").write_bytes(b"pkl")
+    (nested / "result.pkl.gz.metadata.json").write_bytes(b"metadata")
+    for name in ("task.p", "debug.log", "failure.json", "note.txt",
+                 "orphan.pkl.gz.metadata.json", "env.tar.gz"):
+        (nested / name).write_bytes(b"transient")
+    cache = nested / "cache"
+    cache.mkdir()
+    (cache / "copy.py").write_bytes(b"transient")
+    monkeypatch.setattr(staging_guard, "_local_readers", lambda _: False)
+    inode = owned.stat().st_ino
+    staging_guard.closeout_invocation_staging(base, owned, inode)
+    assert base.is_dir() and (sibling / "data.log").read_bytes() == b"sibling"
+    assert outside.read_bytes() == b"outside"
+    assert sorted(path.name for path in nested.iterdir()) == [
+        "result.pkl.gz", "result.pkl.gz.metadata.json"]
+    assert not (owned / "guard.json").exists()
+    staging_guard.closeout_invocation_staging(base, owned, inode)
+    assert (nested / "result.pkl.gz").read_bytes() == b"pkl"
+    assert (nested / "result.pkl.gz.metadata.json").read_bytes() == b"metadata"
+
+
+def test_invocation_closeout_rejects_base_sibling_and_symlink_path(
+    tmp_path, monkeypatch
+):
+    base = tmp_path / "workers"
+    base.mkdir()
+    owned = _owned_invocation(base, "mine")
+    sibling = _owned_invocation(base, "other")
+    escape = base / "escape"
+    escape.symlink_to(owned, target_is_directory=True)
+    monkeypatch.setattr(staging_guard, "_local_readers", lambda _: False)
+    for target in (base, sibling, escape, tmp_path):
+        with pytest.raises(staging_guard.staging_guard_error):
+            staging_guard.closeout_invocation_staging(base, target,
+                                                       owned.stat().st_ino)
+    assert (owned / "guard.json").exists()
+    assert (sibling / "guard.json").exists()
+
+
+def test_failed_invocation_closeout_removes_all_transients_and_is_idempotent(
+    tmp_path, monkeypatch
+):
+    base = tmp_path / "workers"
+    base.mkdir()
+    owned = _owned_invocation(base, "failed")
+    marker = owned / "guard.json"
+    metadata = json.loads(marker.read_text())
+    metadata.update(status="cleanup_needed", reason="manager_failed")
+    marker.write_text(json.dumps(metadata))
+    (owned / "diagnostic.json").write_bytes(b"transient")
+    (owned / "orphan.pkl.gz.metadata.json").write_bytes(b"orphan")
+    nested = owned / "cache"
+    nested.mkdir()
+    (nested / "env_copy.whl").write_bytes(b"transient")
+    monkeypatch.setattr(staging_guard, "_local_readers", lambda _: False)
+    inode = owned.stat().st_ino
+    staging_guard.closeout_invocation_staging(base, owned, inode)
+    assert base.is_dir() and not owned.exists()
+    staging_guard.closeout_invocation_staging(base, owned, inode)
+
+
+def test_run_analysis_closeout_degradation_keeps_primary_failure_and_output(
+    tmp_path, monkeypatch, capsys
+):
+    module_dir = str(Path(__file__).resolve().parents[1] / "analysis" /
+                     "topeft_run2")
+    monkeypatch.syspath_prepend(module_dir)
+    run_analysis = importlib.import_module("analysis.topeft_run2.run_analysis")
+    pkl = tmp_path / "result.pkl.gz"
+    sidecar = tmp_path / "result.pkl.gz.metadata.json"
+    pkl.write_bytes(b"valid")
+    sidecar.write_bytes(b"metadata")
+    monkeypatch.setattr(run_analysis, "finish_guard", lambda *args, **kwargs: None)
+
+    def cleanup_failure(*args):
+        raise staging_guard.staging_guard_error("synthetic cleanup failure")
+
+    monkeypatch.setattr(run_analysis, "closeout_invocation_staging", cleanup_failure)
+    guard = (tmp_path / "owned", 1, object(), object())
+    with pytest.raises(ValueError, match="primary failure"):
+        try:
+            raise ValueError("primary failure")
+        finally:
+            run_analysis._finalize_work_queue_staging(guard, tmp_path, False)
+    run_analysis._finalize_work_queue_staging(guard, tmp_path, True)
+    assert "closeout degraded" in capsys.readouterr().err
+    assert pkl.read_bytes() == b"valid"
+    assert sidecar.read_bytes() == b"metadata"

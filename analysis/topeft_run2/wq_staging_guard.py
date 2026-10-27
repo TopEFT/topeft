@@ -30,10 +30,13 @@ def _process_start(pid):
 def _quota_available(quota_root):
     if not quota_root or not quota_root.startswith(("/groups/", "/users/")):
         raise staging_guard_error("an exact supported quota root is required")
-    result = subprocess.run(
-        ["quota", quota_root], capture_output=True, text=True, timeout=15,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["quota", quota_root], capture_output=True, text=True, timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise staging_guard_error("quota headroom could not be measured") from error
     if result.returncode or len(result.stdout.splitlines()) != 2:
         raise staging_guard_error("quota headroom could not be measured")
     fields = result.stdout.splitlines()[1].split()
@@ -379,10 +382,114 @@ def finish_guard(path, owner_inode, stop_event, watchdog, succeeded):
     marker.write_text(json.dumps(metadata) + "\n")
 
 
+def closeout_invocation_staging(base, path, owner_inode):
+    """Remove transient files from this finished invocation, keeping PKLs and sidecars."""
+    base = Path(base)
+    path = Path(path)
+    if (not base.is_absolute() or not path.is_absolute()
+            or path.parent != base or path.name in ("", ".", "..")):
+        raise staging_guard_error("closeout path is not one invocation inside its base")
+    for component in (base, *base.parents):
+        if component.is_symlink():
+            raise staging_guard_error("closeout base has a symlink component")
+    if not base.is_dir() or base.resolve(strict=True) != base:
+        raise staging_guard_error("closeout base identity changed")
+    if not os.path.lexists(path):
+        return  # Already closed; never widen the scope to the base.
+    info = path.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+            or info.st_ino != owner_inode or info.st_dev != base.stat().st_dev):
+        raise staging_guard_error("closeout invocation identity changed")
+    marker = path / "guard.json"
+    if os.path.lexists(marker):
+        marker_info = marker.lstat()
+        if (not stat.S_ISREG(marker_info.st_mode)
+                or marker_info.st_uid != os.getuid() or marker_info.st_nlink != 1):
+            raise staging_guard_error("closeout marker identity changed")
+        try:
+            metadata = json.loads(marker.read_text())
+        except (OSError, ValueError) as error:
+            raise staging_guard_error("closeout marker is unreadable") from error
+        if (not isinstance(metadata, dict) or metadata.get("path") != str(path)
+                or metadata.get("owner_inode") != owner_inode
+                or metadata.get("owner_uid") != os.getuid()
+                or metadata.get("owner_pid") != os.getpid()
+                or metadata.get("owner_start") != _process_start(os.getpid())
+                or metadata.get("status") not in
+                ("completed_pending_receipt", "cleanup_needed")
+                or (metadata.get("status") == "cleanup_needed"
+                    and metadata.get("reason") != "manager_failed")):
+            raise staging_guard_error("closeout marker does not identify this invocation")
+    if _local_readers(path):
+        raise staging_guard_error("local staging reader remains active")
+
+    root_device = info.st_dev
+
+    def remove_transients(directory_fd, *, root=False):
+        preserved = False
+        with os.scandir(directory_fd) as entries:
+            names = [entry.name for entry in entries]
+        for name in names:
+            if root and name == "guard.json":
+                continue
+            entry_info = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if entry_info.st_uid != os.getuid() or entry_info.st_dev != root_device:
+                raise staging_guard_error("foreign staging entry blocks closeout")
+            if stat.S_ISDIR(entry_info.st_mode):
+                child_fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                   dir_fd=directory_fd)
+                try:
+                    if os.fstat(child_fd).st_ino != entry_info.st_ino:
+                        raise staging_guard_error("staging directory changed during closeout")
+                    child_preserved = remove_transients(child_fd)
+                finally:
+                    os.close(child_fd)
+                if child_preserved:
+                    preserved = True
+                else:
+                    os.rmdir(name, dir_fd=directory_fd)
+            elif stat.S_ISREG(entry_info.st_mode):
+                is_pkl = name.endswith((".pkl", ".pkl.gz"))
+                is_sidecar = name.endswith((".pkl.metadata.json", ".pkl.gz.metadata.json"))
+                if is_sidecar:
+                    pkl_name = name.removesuffix(".metadata.json")
+                    try:
+                        pkl_info = os.stat(pkl_name, dir_fd=directory_fd,
+                                           follow_symlinks=False)
+                    except FileNotFoundError:
+                        pkl_info = None
+                    is_sidecar = (pkl_info is not None
+                                  and stat.S_ISREG(pkl_info.st_mode)
+                                  and pkl_info.st_uid == os.getuid())
+                if is_pkl or is_sidecar:
+                    preserved = True
+                else:
+                    os.unlink(name, dir_fd=directory_fd)
+            elif stat.S_ISLNK(entry_info.st_mode):
+                os.unlink(name, dir_fd=directory_fd)  # Never follow an escape.
+            else:
+                raise staging_guard_error("special staging entry blocks closeout")
+        return preserved
+
+    root_fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        if os.fstat(root_fd).st_ino != owner_inode:
+            raise staging_guard_error("closeout invocation changed before traversal")
+        preserved = remove_transients(root_fd, root=True)
+        if os.path.lexists(marker):
+            os.unlink("guard.json", dir_fd=root_fd)
+    finally:
+        os.close(root_fd)
+    if not preserved:
+        path.rmdir()
+
+
 def cleanup_owned_staging(path):
     """Called only after campaign state and native logs record source completion."""
     path = Path(path)
     marker = path / "guard.json"
+    if not os.path.lexists(path):
+        return  # run_analysis already closed the exact invocation.
     try:
         metadata = json.loads(marker.read_text())
         if not isinstance(metadata, dict):

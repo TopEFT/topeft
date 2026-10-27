@@ -8,6 +8,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 import traceback
 import uuid
 import resource
@@ -66,6 +67,7 @@ from topeft.modules.ttgamma_photon_history import (
 import analysis_processor
 from analysis.topeft_run2.wq_staging_guard import (
     _validate_base,
+    closeout_invocation_staging,
     finish_guard,
     staging_guard_error,
     start_guard,
@@ -76,6 +78,19 @@ from analysis.topeft_run2.analysis_processor import (
 )
 
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
+
+
+def _finalize_work_queue_staging(guard_state, base, succeeded):
+    """Finish the guard and close only the current invocation's staging tree."""
+    path, owner_inode, stop_event, watchdog = guard_state
+    try:
+        finish_guard(path, owner_inode, stop_event, watchdog, succeeded=succeeded)
+        closeout_invocation_staging(base, path, owner_inode)
+    except Exception as error:
+        # Cleanup is operational evidence; it must not replace a run failure or
+        # invalidate a published PKL and its metadata.
+        print(f"WARNING: Work Queue invocation closeout degraded: {error}",
+              file=sys.stderr, flush=True)
 
 
 def _resolve_wq_manager_name(override, executor_name, outname):
@@ -2369,7 +2384,7 @@ if __name__ == "__main__":
             )
         except BaseException:
             if wq_guard_state:
-                finish_guard(*wq_guard_state, succeeded=False)
+                _finalize_work_queue_staging(wq_guard_state, wq_staging_dir.parent, False)
                 wq_guard_state = None
             raise
     elif executor_name == "taskvine":
@@ -2519,7 +2534,5 @@ if __name__ == "__main__":
         raise
     finally:
         if wq_guard_state:
-            try:
-                finish_guard(*wq_guard_state, succeeded=run_succeeded)
-            except staging_guard_error as error:
-                raise RuntimeError(f"Work Queue staging cleanup_needed: {error}") from error
+            _finalize_work_queue_staging(wq_guard_state, wq_staging_dir.parent,
+                                         run_succeeded)
