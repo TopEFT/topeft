@@ -3,6 +3,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ def _run_plotter(tmp_path, *args):
         check=False,
         capture_output=True,
         text=True,
+        env=dict(os.environ, PYTHON_BIN=sys.executable),
     )
 
 
@@ -43,6 +45,27 @@ def _base_args(tmp_path, input_path, *extra_args):
         "--dry-run",
         *extra_args,
     )
+
+
+def test_profile_and_legacy_campaign_modes_are_mutually_exclusive(tmp_path):
+    result = _run_plotter(
+        tmp_path, "--campaign-profile", "sr_crlike_run2",
+        "--campaign-manifest", str(tmp_path / "legacy.tsv"),
+        "--campaign-tag", "fixture", "-o", str(tmp_path / "plots"),
+        "--dry-run",
+    )
+    assert result.returncode == 2
+    assert "mutually exclusive" in result.stderr
+
+
+def test_profile_missing_plan_fails_closed(tmp_path):
+    result = _run_plotter(
+        tmp_path, "--campaign-profile", "sr_crlike_run2",
+        "--campaign-tag", "fixture", "-o", str(tmp_path / "plots"),
+        "--dry-run",
+    )
+    assert result.returncode != 0
+    assert not (tmp_path / "plots").exists()
 
 
 def _campaign_fixture(tmp_path):
@@ -164,12 +187,7 @@ def _inert_campaign_repo(tmp_path, *, failing_child=False, failing_tee=False,
     bin_dir = fixture_repo / "bin"
     bin_dir.mkdir()
     fake_git = bin_dir / "git"
-    fake_git.write_text(
-        "#!/bin/sh\ncase \"$*\" in\n"
-        "  *'branch --show-current'*) echo te/datacard_sr_reco;;\n"
-        "  *'rev-parse HEAD'*) echo fixture_head;;\n"
-        "  *) exit 2;;\nesac\n", encoding="utf-8",
-    )
+    fake_git.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
     fake_git.chmod(0o755)
     if failing_tee:
         fake_tee = bin_dir / "tee"
@@ -225,8 +243,8 @@ def test_campaign_inert_execute_records_sequential_guarded_children(tmp_path):
     assert (diagnostics / "second.guard.jsonl").is_file()
     assert (diagnostics / "first.log").is_file()
     assert (diagnostics / "second.log").is_file()
-    assert (diagnostics / "source_sha256.txt").is_file()
-    assert (diagnostics / "source_head.txt").is_file()
+    assert not (diagnostics / "source_sha256.txt").exists()
+    assert not (diagnostics / "source_head.txt").exists()
     assert set(root.iterdir()) == {root / "_metadata", root / "run3"}
     ledger = (diagnostics / "units.tsv").read_text(encoding="utf-8")
     assert ledger.index("first\tstart") < ledger.index("first\tresult")

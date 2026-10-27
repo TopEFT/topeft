@@ -65,7 +65,7 @@ primary `merged` view retains that figure. Technical unit and variable-group
 identities remain in descriptors and receipts, not figure directories. Figure
 creation rejects an occupied file, and receipt accounting checks the primary
 planned paths for each unit. Receipt-v2 files live in `_metadata/receipts/`;
-negative-contribution reports and wrapper source hashes, logs, guards, and
+negative-contribution reports, logs, guards, and
 ledger live in `_metadata/diagnostics/`. The optional composition JSON is not
 automatically serialized by either SR campaign frontend. No retry, resume,
 staging, DAG, or Condor-specific output renaming is supplied.
@@ -75,8 +75,8 @@ creating a root or reading PKL contents. Execute requires a new root under
 `topeft/histos/`, verifies distinct selected PKL and sidecar digests, and runs
 one child at a time beneath `topeft.modules.node_memory_guard` with a
 245000000000-byte total-node-memory threshold and 0.5-second sampling. Each
-unit records input/output identity, a visible tee log, guard JSONL and status;
-the root records source hashes and checkout HEAD. A nonzero child or tee result,
+unit records input/output identity, a visible tee log, guard JSONL and status.
+The launcher makes no Git or source-manifest call. A nonzero child or tee result,
 missing/ambiguous terminal guard result, or occupied unit stops the remaining
 rows. There is no automatic retry or resume. A dry-run command is a validated
 configuration, not evidence of produced figures.
@@ -271,3 +271,85 @@ those mode-bearing names in separate namespaces to avoid collisions. A plot
 skipped for `empty-mc-content` records a rendering condition only. It is a
 separate evidence surface from the underlying bin content and cannot be used
 as a bin-content or statistical-adequacy oracle.
+# Persistent plot campaign state and receipt contract
+
+The profile CLI is `run_plotter.sh --campaign-profile PROFILE --campaign-tag
+TAG -o ROOT` with `--plan PLAN --dry-run|--execute`, `--resume`, optional
+`--selected-unit ID`, or `--activate-pending-plan PLAN
+--expected-plan-revision N`. Profile mode is mutually exclusive with the
+legacy TSV campaign mode. The owner is
+`analysis/topeft_run2/plot_campaign_manifest.py`; it does not change renderer,
+producer, Condor, or lane12 state semantics.
+
+Plan v1 binds a complete unit catalogue. Unit source fields are `unit_id`,
+`component`, `producer_unit_id`, `input_path`, `sidecar_path`,
+`qualification_source` (accepted status, evidence locator, accepted input and
+sidecar SHA-256 values), and `period_view`. Derived fields are unchanged
+sidecar histogram families, accepted input identity (sidecar SHA-256 and size),
+accepted sidecar SHA-256, and deterministic first private root. No pre-run
+output inventory, coverage matrix, or collision prediction is serialized.
+
+Each component state is schema v1 and lives in
+`.<sr_crlike_run2|sr_crlike_run3>_plot_campaign_state_v1.json` under its
+component root. Statuses are `planned`, `running`, `success`, `failed`, and
+`interrupted`. Attempts bind ID, times, child argv identity, private root,
+stored provenance through the state, guard/child/tee results, receipt
+identity, materialization status, result, and failure classification. State
+writes are atomic. A planned unit has no attempt; every other status has exactly
+one attempt with the matching result. Success also requires a completion receipt
+identity and complete materialization. Incoherent persisted state fails closed
+without retry. The root coordinator binds the full plan; combined status
+is derived from separate component states.
+
+Completion receipt v1 is created atomically after successful terminal
+guard/child/tee readback and private-root observation. It binds profile, tag,
+plan revision, unit, attempt, accepted input/sidecar identities, stored
+provenance, private root, lifecycle and UTC times. It inventories only
+actual emitted PNG relative paths, size, SHA-256, total count, per-variable
+counts, and selected renderer messages. Counts are observations and may be
+zero for any requested variable. Region-dependent absence is neutral. A
+regular renderer log is scanned in full; `renderer_log_status` records
+`present`, `missing`, `unreadable`, or `non_regular`, plus full-scan line and
+message counts when present. The stored `renderer_messages` summary is capped
+at 200 lines. Log presence and wording are evidence, never lifecycle authority.
+
+Before the higher-level state transition, the guarded-child supervisor writes
+`lifecycle_receipt_v1.json` atomically after guard, child, and tee terminate.
+It binds attempt ID, command identity, private root, terminal guard result and
+guard-log hash, three return codes, and terminal UTC time. A running attempt
+with a valid lifecycle receipt reconstructs success or failure without a child
+rerun. Guard-terminal evidence without the lifecycle receipt yields
+`interrupted`; missing terminal evidence leaves `running` and blocks every
+component from launching a new child. A known failure before guard creation
+instead leaves a terminal failed attempt and permits unrelated planned units to
+proceed. Malformed or contradictory state and
+terminal evidence fail closed.
+
+Canonical materialization uses only receipt-listed paths. The component state
+first records path ownership and expected bytes, then atomically links a
+completed copy into an absent destination. Reconciliation verifies receipt
+and private/canonical bytes and finishes only missing copies; it does not
+rerun a child. A destination with no ownership record or a mismatched record
+or bytes is a collision. Unit success requires terminal lifecycle, valid
+receipt, and completed materialization. Existing root or private directories
+alone never promote status. Resume skips success and does not retry failed or
+interrupted units. Revision N+1 appends units and retains all earlier bindings
+and history; it fails closed on revision mismatch or rewrite.
+
+New campaigns record a provenance-not-collected marker in the existing state
+field. Older Git/source-manifest values are preserved as historical provenance;
+coordinator, component, and receipt bindings must agree, but no current Git or
+source identity is queried or compared on resume or revision. Reconciliation
+of every running unit in all components precedes any new child. An invocation
+that completes orchestration returns zero even with failed, interrupted, or
+pending units. The JSON summary reports `campaign_status`, total
+`planned_count`, `success_count`, `failed_count`, `interrupted_count`,
+`running_count`, `pending_count`, and `waiting_on_active_child`. `waiting`
+means a possible live child prevented all new launches. Neither full nor
+selected mode silently retries failed or interrupted units.
+
+The local backend runs one child at a time with one renderer worker, fitting
+binning, merged channels, total uncertainty, PNG output, SR/unblind flags and
+debug canvas annotations off. The memory guard and visible tee own terminal
+lifecycle evidence. Runtime success is a technical state, not lane13 visual
+or scientific acceptance; real rendering requires a later production grant.

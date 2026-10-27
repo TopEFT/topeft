@@ -71,7 +71,7 @@ select independent phases and each needs its own fresh root. Each selected row
 starts one guarded, single-PKL child with one worker. The wrapper verifies the
 selected input and sidecar digests once before execution, uses the existing
 node-memory guard, shows child output, and records per-unit logs, guard events,
-source hashes and status under the new root. A failed child, log write or
+and status under the new root. A failed child, log write or
 missing guard result stops later rows; inspect the partial output before any
 separate retry. The dry run neither creates that root nor hashes PKLs. The
 catalogue's figure counts are plans, not proof that any figure was rendered.
@@ -343,3 +343,100 @@ worker provisioning.
 An `empty-mc-content` skip is a rendering diagnostic for the selected plot
 input. It does not establish the content of a bin, a statistical conclusion, or
 the adequacy of a fitting view.
+# Persistent SR CR-like plotting campaigns
+
+`analysis/topeft_run2/run_plotter.sh` also owns three local, sequential profiles:
+`sr_crlike_run2`, `sr_crlike_run3`, and `sr_crlike_run2_run3`. A fresh plan is a
+JSON object with `schema_version: 1`, `campaign_profile`, `campaign_tag`,
+`plan_revision: 1`, and a nonempty `units` array. Each unit has exactly
+`unit_id`, `component` (`run2` or `run3`), `producer_unit_id`, absolute
+`input_path`, absolute `sidecar_path` (`input_path + ".metadata.json"`), a
+`qualification_source` object, and `period_view`
+(`combined` or an individual year token). Combined plans contain both
+components. `qualification_source` has `status: "accepted"`, a nonempty
+`locator` for the accepted producer return, and accepted `input_sha256` and
+`sidecar_sha256` values. The controller checks those values against the bound
+sidecar without rehashing the PKL. Unit IDs and tags are safe path components. The sidecar's
+`sumw2_storage_provenance.runtime_histogram_families` supplies variable names
+unchanged; its `artifact` binds the PKL basename, accepted size, and accepted
+SHA-256. The planner checks input existence and size but does not deserialize
+or rehash the large PKL. The qualification locator must identify an actually
+accepted producer return; the launcher checks its declared identity but does
+not establish scientific qualification from the plan's claim alone.
+
+Use a fresh absolute root beneath `topeft/histos`:
+
+```bash
+./analysis/topeft_run2/run_plotter.sh --campaign-profile sr_crlike_run2_run3 \
+  --campaign-tag my_campaign -o /absolute/path/to/topeft/histos/my_campaign \
+  --plan /absolute/path/to/plan.json --dry-run
+```
+
+The dry run prints all bound units, variables, accepted identities, first
+private attempt roots, and resolved child arguments. It creates no campaign
+root/state, reads no PKL content, and does not predict categories, filenames,
+PNG counts, or a variable by region coverage matrix. Add `--selected-unit ID`
+to show or execute one unit while preserving the complete plan. Replace
+`--dry-run` with `--execute` only under a separately authorized production
+workflow. Fresh execution requires the root to be absent. For an existing
+campaign use `--resume` with the same profile, tag, and root; it reconciles
+running attempts across both components before starting any new child, skips
+successes, and runs planned units. An unresolved running attempt blocks all
+new children, including a selected resume in the other component. A terminal
+failed or interrupted unit does not block an eligible planned unit elsewhere;
+it is never silently retried. A successful controller invocation exits zero
+even when units remain planned, failed, or interrupted. Its JSON summary reports
+`campaign_status` (`complete`, `partial`, `in_progress`, or `waiting`), total
+`planned_count`, per-status counts, and `waiting_on_active_child`. An unresolved
+possibly live child returns `waiting` and starts no new child; malformed state
+or plan still makes the invocation fail.
+
+Each attempt writes only below its deterministic private
+`.campaign_units/<unit_id>/attempt_0001/` root. The local memory guard and
+visible tee record terminal status and renderer messages there. After terminal
+guard, child, and tee results, the supervisor atomically writes
+`lifecycle_receipt_v1.json` before updating campaign state. Resume reconstructs
+terminal state from that receipt without rerunning the child. If it is missing
+but guard evidence conclusively shows the child ended, resume marks the attempt
+interrupted. Without conclusive terminal evidence, it remains running and blocks
+new work. After terminal success, a separate atomic `completion_receipt_v1.json`
+records the exact observed PNG
+paths, counts, sizes, SHA-256 values, and counts by requested variable. Sparse
+or zero output for a variable in a region is ordinary renderer applicability;
+the controller does not call that absence a failure. Renderer log presence and
+message content are review evidence: a regular log is scanned in full and a
+bounded message summary is stored; a missing log is recorded explicitly in
+`renderer_log_status`. Neither changes successful guard/child/tee lifecycle
+status. The receipt proves operational child completion, not visual or
+scientific acceptance.
+
+The controller makes no Git or runtime source-manifest check. New state records
+that source provenance was not collected. Existing campaign provenance remains
+historical evidence and is internally bound across coordinator, component state,
+and receipts, but it is never compared with the current checkout. Git and source
+drift are review concerns and do not prevent safe resume or revision.
+
+Receipt-listed PNGs are copied without overwrite to the component's canonical
+period/merged paths. A combined campaign keeps separate
+`components/run2` and `components/run3` roots and state files. The state binds
+each destination to its unit, receipt, size, and SHA-256 before copying it.
+Resume can finish missing copies from a bound receipt without rerunning the
+child. Existing destinations are accepted only when ownership and binary
+identity match; unbound, different-owner, or different-byte destinations stop
+the affected component. Directory existence alone never means success.
+
+To append formally qualified units, submit a full plan whose revision is one
+greater and whose existing units are byte-equivalent in their source fields:
+
+```bash
+./analysis/topeft_run2/run_plotter.sh --campaign-profile sr_crlike_run2_run3 \
+  --campaign-tag my_campaign -o /absolute/path/to/topeft/histos/my_campaign \
+  --activate-pending-plan /absolute/path/to/revised_plan.json \
+  --expected-plan-revision 1
+```
+
+The guarded revision preserves existing unit states, attempts, receipts, and
+materialization history. A mismatch or attempted rewrite stops. Revisions do
+not run a child; `--resume` executes newly planned units. Direct single-PKL
+use and the older `--campaign-manifest` TSV interface remain available and are
+mutually exclusive with profile mode.

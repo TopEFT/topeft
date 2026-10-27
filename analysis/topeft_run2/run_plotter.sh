@@ -11,6 +11,9 @@ show_help() {
     cat <<'USAGE'
 Usage: run_plotter.sh -f PICKLE [-f PICKLE ...] -o OUTPUT_DIR -y YEAR [YEAR ...] [options]
        run_plotter.sh --campaign-manifest TSV --campaign-phase all|njets|other -o NEW_ROOT --dry-run|--execute
+       run_plotter.sh --campaign-profile PROFILE --campaign-tag TAG -o ROOT --plan PLAN.json --dry-run|--execute
+       run_plotter.sh --campaign-profile PROFILE --campaign-tag TAG -o ROOT --resume [--selected-unit ID]
+       run_plotter.sh --campaign-profile PROFILE --campaign-tag TAG -o ROOT --activate-pending-plan PLAN.json --expected-plan-revision N
 
 Wrapper around make_cr_and_sr_plots.py with filename-based region detection.
 Consult the "CR/SR plotting CLI quickstart" section of analysis/topeft_run2/README.md
@@ -62,6 +65,8 @@ Example:
 Campaign mode reads the SR baseline TSV as data, validates every row, and runs
 one principal input per guarded child. Dry-run prints each maintained child
 command without creating the output root. Execute requires an absent root.
+Persistent profiles: sr_crlike_run2, sr_crlike_run3, sr_crlike_run2_run3.
+Persistent plans are JSON; dry-run does not read PKLs or create campaign state.
 USAGE
 }
 
@@ -664,9 +669,6 @@ campaign_main() {
     printf 'Campaign TSV: %s\nPhase: %s\nRows: njets=%d other=%d\nPlanned figures: njets=%d other=%d\n' \
         "$manifest" "$phase" "$count_njets" "$count_other" "$figures_njets" "$figures_other"
     if [[ $action == --execute ]]; then
-        if [[ $(git -C "$repo_root" branch --show-current) != te/datacard_sr_reco ]]; then
-            echo "Execute requires the selected TOPEFT feature branch" >&2; return 2
-        fi
         local free_bytes free_inodes
         free_bytes=$(df -B1 --output=avail "$histos_root" | tail -n 1)
         free_inodes=$(df --output=iavail "$histos_root" | tail -n 1)
@@ -683,11 +685,6 @@ campaign_main() {
         done
         mkdir -m 700 -- "$output_root" || return 2
         mkdir -m 700 -p -- "$output_root/_metadata/diagnostics" || return 2
-        sha256sum "$manifest" "$PLOTTER_SCRIPT" "$SCRIPT_DIR/run_plotter.sh" \
-            "$repo_root/topeft/modules/plot_output_layout.py" \
-            "$repo_root/topeft/modules/node_memory_guard.py" \
-            "$repo_root/topeft/params/cr_sr_plots_metadata.yml" > "$output_root/_metadata/diagnostics/source_sha256.txt" || return 2
-        git -C "$repo_root" rev-parse HEAD > "$output_root/_metadata/diagnostics/source_head.txt" || return 2
     fi
     local output_parent output_name guard_path log_path ledger_path status_check period row_directory layout
     local -a child guard statuses
@@ -753,10 +750,24 @@ campaign_main() {
 }
 
 campaign_requested=0
+profile_requested=0
 for argument in "$@"; do
-    if [[ $argument == --campaign-manifest ]]; then campaign_requested=1; break; fi
+    if [[ $argument == --campaign-manifest ]]; then campaign_requested=1; fi
+    if [[ $argument == --campaign-profile ]]; then profile_requested=1; fi
 done
-if (( campaign_requested )); then
+if (( campaign_requested && profile_requested )); then
+    echo "Error: --campaign-manifest and --campaign-profile are mutually exclusive" >&2
+    exit_code=2
+elif (( profile_requested )); then
+    if [[ ! -f "$SCRIPT_DIR/plot_campaign_manifest.py" ]]; then
+        echo "Error: persistent plot campaign owner is missing" >&2
+        exit_code=2
+    elif "$PYTHON_BIN" "$SCRIPT_DIR/plot_campaign_manifest.py" "$@"; then
+        exit_code=0
+    else
+        exit_code=$?
+    fi
+elif (( campaign_requested )); then
     if campaign_main "$@"; then exit_code=0; else exit_code=$?; fi
 elif main "$@"; then
     exit_code=0
