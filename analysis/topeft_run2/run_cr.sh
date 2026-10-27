@@ -384,6 +384,7 @@ production_env_file=""
 production_env_file_sha256=""
 production_environment_fingerprint=""
 production_environment_mode=""
+production_initial_environment_mode=""
 production_environment_snapshot=false
 production_topcoffea_git_commit=""
 production_topcoffea_source_fingerprint=""
@@ -849,8 +850,9 @@ resolve_production_environment() {
     fi
     frozen_env_file=$(production_state_tool env_file \
       "${production_state_path}" "${production_profile}" "${campaign_tag}" "${output_dir}")
-    production_environment_mode=$(production_state_tool environment_mode \
+    production_initial_environment_mode=$(production_state_tool environment_mode \
       "${production_state_path}" "${production_profile}" "${campaign_tag}" "${output_dir}")
+    production_environment_mode="${production_initial_environment_mode}"
     if [[ -n "${requested_env_file}" ]]; then
       if [[ "${requested_env_file}" != /* ]]; then
         echo "ERROR: ${production_profile} --env-file must be an absolute path: ${requested_env_file}" >&2
@@ -883,10 +885,12 @@ resolve_production_environment() {
     fi
     canonical_requested_env_file=$(readlink -f -- "${requested_env_file}" || true)
     production_environment_mode=explicit_snapshot
+    production_initial_environment_mode=explicit_snapshot
     production_environment_snapshot=true
     validation_args=(--validate-env-file --env-integrity-only --env-file "${requested_env_file}")
   else
     production_environment_mode=current_resolved
+    production_initial_environment_mode=current_resolved
     validation_args=(--prepare-env-only)
   fi
 
@@ -917,10 +921,15 @@ resolve_production_environment() {
     || [[ ! -f "${production_env_file}" || ! -r "${production_env_file}" || ! -s "${production_env_file}" ]] \
     || [[ -z "${production_env_file_sha256}" ]] \
     || [[ -z "${production_environment_fingerprint}" ]] \
-    || [[ -z "${production_topcoffea_git_commit}" ]] \
-    || [[ -z "${production_topcoffea_source_fingerprint}" ]] \
     || [[ "${validation_status}" != "valid" ]]; then
     echo "ERROR: run_analysis.py did not return a complete valid environment identity." >&2
+    exit 1
+  fi
+
+  if [[ "${production_initial_environment_mode}" == "current_resolved" ]] \
+    && { [[ -z "${production_topcoffea_git_commit}" ]] \
+      || [[ -z "${production_topcoffea_source_fingerprint}" ]]; }; then
+    echo "ERROR: current environment resolution did not return complete TOPCOFFEA provenance." >&2
     exit 1
   fi
 
@@ -977,7 +986,7 @@ prepare_production_campaign() {
   local supplied_plan="${profile_plan:--}"
 
   production_assert_live_plan
-  production_git_commit=$(git -C "${repository_root}" rev-parse HEAD)
+  production_git_commit=$(git -C "${repository_root}" rev-parse HEAD 2>/dev/null || true)
   production_state_path="${output_dir}/${production_state_filename}"
   if [[ "${dry_run}" == "true" ]]; then
     plan_directory="${TMPDIR:-/tmp}"

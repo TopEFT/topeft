@@ -662,6 +662,12 @@ def validate_state(state, *, verify_artifacts=True):
         for key in ("initial", "last_resolved")
     ):
         fail("NEW_CAMPAIGN_REQUIRED: campaign provenance differs from its frozen tarball")
+    supported_environment_modes = {"current_resolved", "explicit_snapshot"}
+    if any(
+        provenance[key].get("environment_mode") not in supported_environment_modes
+        for key in ("initial", "last_resolved")
+    ):
+        fail("campaign provenance has an unsupported environment mode")
     if science["scientific_coverage_sha256"] != canonical_digest(science["scientific_coverage"]):
         fail("scientific coverage digest changed")
     if (not isinstance(science["scientific_contract_payload"], dict)
@@ -722,6 +728,10 @@ def validate_state(state, *, verify_artifacts=True):
                 for index, item in enumerate(attempts, 1)
             ):
                 fail(f"{unit['id']} {stage} attempt history is inconsistent")
+            if attempts and isinstance(attempts[0].get("provenance"), dict):
+                first_attempt_mode = attempts[0]["provenance"].get("environment_mode")
+                if first_attempt_mode is not None and first_attempt_mode != provenance["initial"]["environment_mode"]:
+                    fail(f"{unit['id']} {stage} initial environment mode contradicts first attempt provenance")
             if record["status"] in {"running", "failed", "success"} and not attempts:
                 fail(f"{unit['id']} {stage} lacks an attempt")
             if record["status"] == "running" and attempts[-1]["result"] != "running":
@@ -787,7 +797,8 @@ def validate_resume(state, identity, contract, provenance, approved):
         fail("scientific_contract_incompatible")
     if provenance["environment_file_sha256"] != recorded["source_stage_scientific_contract"]["frozen_environment_tarball_sha256"]:
         fail("NEW_CAMPAIGN_REQUIRED: frozen environment tarball differs")
-    if (provenance["topcoffea_relevant_source_fingerprint"]
+    if (state["provenance"]["initial"]["environment_mode"] == "current_resolved"
+            and provenance["topcoffea_relevant_source_fingerprint"]
             != state["provenance"]["initial"]["topcoffea_relevant_source_fingerprint"]):
         fail("NEW_CAMPAIGN_REQUIRED: frozen topcoffea source fingerprint differs")
     if current["source_stage_scientific_contract_sha256"] != recorded["source_stage_scientific_contract_sha256"]:

@@ -1,6 +1,7 @@
 """Synthetic launcher handoff checks without a producer or scheduler."""
 
 import hashlib
+import copy
 import importlib.util
 import json
 import os
@@ -33,13 +34,15 @@ action="$1"
 scenario="$2"
 shift 2
 if [[ "$action" == validate_environment || "$action" == prepare_environment ]]; then
-  archive="$1"
+  archive="${1:-$CAMPAIGN_DEFAULT_ARCHIVE}"
   printf 'env_file: %s\\n' "$archive"
   printf 'env_file_sha256: %s\\n' "$(sha256sum "$archive" | cut -d ' ' -f1)"
   printf 'environment_fingerprint: %064d\\n' 9
   printf 'environment_validation_status: valid\\n'
-  printf 'topcoffea_git_commit: %040d\\n' 8
-  printf 'topcoffea_relevant_source_fingerprint: %064d\\n' 7
+  if [[ "${CAMPAIGN_OMIT_TOPCOFFEA_PROVENANCE:-false}" != true ]]; then
+    printf 'topcoffea_git_commit: %040d\\n' "${CAMPAIGN_TOPCOFFEA_GIT_COMMIT:-8}"
+    printf 'topcoffea_relevant_source_fingerprint: %064d\\n' "${CAMPAIGN_TOPCOFFEA_SOURCE_FINGERPRINT:-7}"
+  fi
   exit 0
 fi
 if [[ "$action" == run_block ]]; then
@@ -82,6 +85,7 @@ printf '{"artifact":{"pkl_basename":"%s","pkl_size_bytes":%s,"pkl_sha256":"%s"},
     environment.update({
         "CAMPAIGN_VALIDATION_BACKEND": str(script),
         "CAMPAIGN_VALIDATION_ROOT": str(tmp_path),
+        "CAMPAIGN_DEFAULT_ARCHIVE": str(ARCHIVE),
         "CAMPAIGN_VALIDATION_SCENARIO": "success",
         "TMPDIR": str(tmp_path),
     })
@@ -89,10 +93,13 @@ printf '{"artifact":{"pkl_basename":"%s","pkl_size_bytes":%s,"pkl_sha256":"%s"},
 
 
 def launch(tmp_path, backend, *extra, profile="run2_prod", archive=ARCHIVE):
+    command = [str(RUN_CR), "--production-profile", profile,
+               "--output-dir", str(tmp_path / "output"), "--campaign-tag", "synthetic"]
+    if archive is not None:
+        command.extend(("--env-file", str(archive)))
+    command.extend(extra)
     return subprocess.run(
-        [str(RUN_CR), "--production-profile", profile,
-         "--output-dir", str(tmp_path / "output"), "--campaign-tag", "synthetic",
-         "--env-file", str(archive), *extra],
+        command,
         cwd=RUN_DIRECTORY, env=backend, capture_output=True, text=True, check=False,
     )
 
@@ -158,18 +165,129 @@ def test_selected_fragment_persists_complete_plan_and_receipts(tmp_path, backend
 
 
 def test_resume_accepts_chunksize_and_relocated_identical_archive(tmp_path, backend):
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "source_fail_first"
     first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
-    assert first.returncode == 0, first.stdout + first.stderr
+    assert first.returncode != 0
+    original = manifest.load_state(state_path(tmp_path))
+    original_locator = original["provenance"]["initial"]["environment_file"]
     relocated = tmp_path / "relocated.tar.gz"
     shutil.copyfile(ARCHIVE, relocated)
     assert hashlib.sha256(relocated.read_bytes()).hexdigest() == hashlib.sha256(ARCHIVE.read_bytes()).hexdigest()
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "success"
+    backend["CAMPAIGN_OMIT_TOPCOFFEA_PROVENANCE"] = "true"
     second = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a",
                     "--chunksize", "98765", archive=relocated)
     assert second.returncode == 0, second.stdout + second.stderr
-    assert "Skipping verified completed unit" in second.stdout
     state = manifest.load_state(state_path(tmp_path))
+    attempts = state["units"][0]["stages"]["source"]["attempts"]
+    assert [attempt["number"] for attempt in attempts] == [1, 2]
+    assert attempts[1]["provenance"]["environment_file"] == str(relocated)
+    assert state["provenance"]["initial"]["environment_file"] == original_locator
     assert state["provenance"]["last_resolved"]["environment_file"] == str(relocated)
-    assert len(state["units"][0]["stages"]["source"]["attempts"]) == 1
+    assert state["provenance"]["initial"]["environment_file"] != str(relocated)
+    assert state["provenance"]["last_resolved"]["topcoffea_git_commit"] == ""
+    assert state["provenance"]["last_resolved"]["topcoffea_relevant_source_fingerprint"] == ""
+
+
+def test_resume_does_not_authorize_from_live_git_or_manager_source_provenance(tmp_path, backend):
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
+    assert first.returncode == 0, first.stdout + first.stderr
+    state = manifest.load_state(state_path(tmp_path))
+    provenance = dict(state["provenance"]["last_resolved"])
+    provenance.update({
+        "topeft_git_commit": "f" * 40,
+        "topcoffea_git_commit": "e" * 40,
+        "topcoffea_relevant_source_fingerprint": "c" * 64,
+        "environment_fingerprint": "d" * 64,
+    })
+    resumed = manifest.validate_resume(
+        state, state["campaign_identity"], state["profile_contract"], provenance,
+        state["scientific_identity"]["scientific_coverage"],
+    )
+    assert resumed is state
+
+
+def test_current_resolved_resume_retains_manager_source_compatibility_gate(tmp_path, backend):
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a", archive=None)
+    assert first.returncode == 0, first.stdout + first.stderr
+    state = manifest.load_state(state_path(tmp_path))
+    assert state["provenance"]["initial"]["environment_mode"] == "current_resolved"
+    provenance = dict(state["provenance"]["last_resolved"])
+    provenance["topcoffea_relevant_source_fingerprint"] = "c" * 64
+    with pytest.raises(ValueError, match="frozen topcoffea source fingerprint differs"):
+        manifest.validate_resume(
+            state, state["campaign_identity"], state["profile_contract"], provenance,
+            state["scientific_identity"]["scientific_coverage"],
+        )
+
+    corrupted_mode = copy.deepcopy(state)
+    corrupted_mode["provenance"]["initial"]["environment_mode"] = "explicit_snapshot"
+    with pytest.raises(ValueError, match="initial environment mode contradicts first attempt provenance"):
+        manifest.validate_resume(
+            corrupted_mode, state["campaign_identity"], state["profile_contract"], provenance,
+            state["scientific_identity"]["scientific_coverage"],
+        )
+
+    unsupported_mode = copy.deepcopy(state)
+    unsupported_mode["provenance"]["initial"]["environment_mode"] = "unsupported"
+    with pytest.raises(ValueError, match="unsupported environment mode"):
+        manifest.validate_state(unsupported_mode)
+
+    backend["CAMPAIGN_OMIT_TOPCOFFEA_PROVENANCE"] = "true"
+    resume = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a")
+    assert resume.returncode != 0
+    assert "current environment resolution did not return complete TOPCOFFEA provenance" in resume.stderr
+
+
+def test_resume_keeps_frozen_sha_campaign_science_state_and_receipt_gates(
+    tmp_path, backend, monkeypatch
+):
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
+    assert first.returncode == 0, first.stdout + first.stderr
+    state = manifest.load_state(state_path(tmp_path))
+    provenance = dict(state["provenance"]["last_resolved"])
+    approved = state["scientific_identity"]["scientific_coverage"]
+
+    wrong_sha = dict(provenance, environment_file_sha256="0" * 64)
+    with pytest.raises(ValueError, match="frozen environment tarball differs"):
+        manifest.validate_resume(
+            state, state["campaign_identity"], state["profile_contract"], wrong_sha, approved,
+        )
+
+    wrong_identity = dict(state["campaign_identity"], campaign_tag="other-campaign")
+    with pytest.raises(ValueError, match="campaign identity or profile contract differs"):
+        manifest.validate_resume(
+            state, wrong_identity, state["profile_contract"], provenance, approved,
+        )
+
+    with pytest.raises(ValueError, match="scientific_coverage_incompatible"):
+        manifest.validate_resume(
+            state, state["campaign_identity"], state["profile_contract"], provenance, approved[:-1],
+        )
+
+    original_scientific_files = manifest.scientific_files
+
+    def changed_scientific_files(contract, stage):
+        files = original_scientific_files(contract, stage)
+        if stage == "source":
+            files = {**files, "input_samples/cfgs/changed.cfg": "a" * 64}
+        return files
+
+    monkeypatch.setattr(manifest, "scientific_files", changed_scientific_files)
+    with pytest.raises(ValueError, match="scientific_contract_incompatible"):
+        manifest.validate_resume(
+            state, state["campaign_identity"], state["profile_contract"], provenance, approved,
+        )
+
+    corrupt_state = copy.deepcopy(state)
+    corrupt_state["schema_version"] = 8
+    with pytest.raises(ValueError, match="normal maintained resume requires schema 9"):
+        manifest.validate_state(corrupt_state)
+
+    contradictory_receipt = copy.deepcopy(state)
+    contradictory_receipt["units"][0]["stages"]["source"]["receipt"]["artifact"]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="artifact sidecar identity mismatch"):
+        manifest.validate_state(contradictory_receipt)
 
 
 def test_failed_downstream_reuses_source_on_resume(tmp_path, backend):
