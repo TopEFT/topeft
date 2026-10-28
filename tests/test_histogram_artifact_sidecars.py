@@ -5,6 +5,7 @@ import gzip
 import json
 from pathlib import Path
 import pickle
+from types import SimpleNamespace
 
 import hist
 import numpy as np
@@ -1578,6 +1579,98 @@ def test_transformed_nominal_labels_must_match_generated_output_map(
         )
     assert not output_path.exists()
     assert not metadata_sidecar_path(output_path).exists()
+
+
+def test_opt_in_no_clobber_refuses_existing_pkl_or_sidecar(tmp_path, monkeypatch, policy):
+    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
+    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", "2")
+    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_INODES", "4")
+    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1")
+    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1")
+    path = tmp_path / "processor.pkl.gz"
+    sidecar = metadata_sidecar_path(path)
+    path.write_bytes(b"preexisting pkl")
+    with pytest.raises(histogram_artifact_error, match="already exists"):
+        _write_processor(path, policy)
+    assert path.read_bytes() == b"preexisting pkl"
+    assert not sidecar.exists()
+    path.unlink()
+    sidecar.write_bytes(b"preexisting sidecar")
+    with pytest.raises(histogram_artifact_error, match="already exists"):
+        _write_processor(path, policy)
+    assert sidecar.read_bytes() == b"preexisting sidecar"
+    assert not path.exists()
+
+
+def test_opt_in_no_clobber_rechecks_capacity_and_keeps_race_evidence(tmp_path, monkeypatch, policy):
+    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
+    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", str(10**30))
+    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_INODES", "4")
+    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1")
+    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1")
+    path = tmp_path / "processor.pkl.gz"
+    with pytest.raises(histogram_artifact_error, match="capacity"):
+        _write_processor(path, policy)
+    assert not path.exists()
+    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", "2")
+    original_link = histogram_artifact.os.link
+    sidecar = metadata_sidecar_path(path)
+
+    def competing_sidecar(source, destination, *args, **kwargs):
+        if Path(destination) == sidecar:
+            sidecar.write_bytes(b"competing sidecar")
+        return original_link(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr(histogram_artifact.os, "link", competing_sidecar)
+    with pytest.raises(FileExistsError):
+        _write_processor(path, policy)
+    assert path.is_file()
+    assert sidecar.read_bytes() == b"competing sidecar"
+
+
+@pytest.mark.parametrize("post_inodes, accepted", ((1, True), (0, False)))
+def test_no_clobber_publication_uses_remaining_reserve_and_preserves_pending(
+    tmp_path, monkeypatch, policy, post_inodes, accepted
+):
+    for name, value in (
+        ("TOPEFT_PKL_NO_CLOBBER", "1"),
+        ("TOPEFT_PKL_MIN_FREE_BYTES", "100"),
+        ("TOPEFT_PKL_MIN_FREE_INODES", "5"),
+        ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
+        ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
+        ("TOPEFT_PKL_PENDING_ID", "a" * 64),
+    ):
+        monkeypatch.setenv(name, value)
+    path = tmp_path / "processor.pkl.gz"
+    polls = []
+    synced_parent = []
+    original_fsync = histogram_artifact.os.fsync
+
+    def track_fsync(descriptor):
+        if Path(histogram_artifact.os.readlink(f"/proc/self/fd/{descriptor}")) == tmp_path:
+            synced_parent.append(None)
+        return original_fsync(descriptor)
+
+    def capacity(_):
+        polls.append(None)
+        if len(polls) == 1:
+            return SimpleNamespace(f_bavail=100, f_frsize=1, f_favail=5)
+        return SimpleNamespace(f_bavail=1, f_frsize=1, f_favail=post_inodes)
+
+    with monkeypatch.context() as capacity_patch:
+        capacity_patch.setattr(histogram_artifact.os, "statvfs", capacity)
+        capacity_patch.setattr(histogram_artifact.os, "fsync", track_fsync)
+        if accepted:
+            _write_processor(path, policy)
+        else:
+            with pytest.raises(histogram_artifact_error, match="capacity"):
+                _write_processor(path, policy)
+    pending = tmp_path / f".topeft-pending-{'a' * 64}" / path.name
+    assert len(polls) == 2
+    assert pending.is_file()
+    assert metadata_sidecar_path(pending).is_file()
+    assert path.is_file() is accepted
+    assert len(synced_parent) >= (2 if accepted else 1)
 
 
 def test_transformed_sidecar_roles_cannot_disagree_with_output_map(tmp_path, policy):

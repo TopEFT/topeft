@@ -18,6 +18,9 @@ class staging_guard_error(RuntimeError):
     pass
 
 
+LOCAL_STAGING_BASE = Path("/tmpscratch/users/apiccine/top26006-wq")
+
+
 def _process_start(pid):
     try:
         return Path(f"/proc/{pid}/stat").read_text().rsplit(") ", 1)[1].split()[19]
@@ -58,6 +61,8 @@ def _space(base, quota_root):
     values = os.statvfs(base)
     free_bytes = values.f_bavail * values.f_frsize
     free_inodes = values.f_favail
+    if Path(base) == LOCAL_STAGING_BASE:
+        return free_bytes, free_inodes
     quota_bytes = _quota_available(quota_root)
     return min(free_bytes, quota_bytes), free_inodes
 
@@ -79,7 +84,7 @@ def _validate_base(base):
     mount = real
     while mount.parent != mount and os.stat(mount.parent).st_dev == os.stat(mount).st_dev:
         mount = mount.parent
-    if mount == Path("/"):
+    if mount == Path("/") and real != LOCAL_STAGING_BASE:
         raise staging_guard_error("root-backed staging is forbidden")
     return real
 
@@ -169,6 +174,7 @@ def _watch(path, base, quota_root, owner_pid, owner_start, warning_bytes,
     marker = Path(path) / "guard.json"
     critical_signal_sent = False
     last_health_state = None
+    active_degraded_reasons = set()
     while not stop_event.is_set():
         if os.getppid() != owner_pid:
             raise staging_guard_error("manager parent exited during monitoring")
@@ -184,28 +190,38 @@ def _watch(path, base, quota_root, owner_pid, owner_start, warning_bytes,
         if observed_start is None:
             if telemetry_degraded is not None:
                 telemetry_degraded.set()
-            print(f"WARNING: Work Queue manager identity telemetry unavailable: "
-                  f"{identity_detail}; monitoring continues", flush=True)
+            if "manager_identity" not in active_degraded_reasons:
+                print(f"WARNING: Work Queue manager identity telemetry unavailable: "
+                      f"{identity_detail}; monitoring continues", flush=True)
+            active_degraded_reasons.add("manager_identity")
+        else:
+            active_degraded_reasons.discard("manager_identity")
         try:
             _verify_owned_tree(path, marker, owner_pid, owner_start, owner_inode, marker_inode)
         except OSError as error:
             if telemetry_degraded is not None:
                 telemetry_degraded.set()
-            print(f"WARNING: Work Queue staging identity read unavailable: "
-                  f"{type(error).__name__}: {str(error)[:240]}; monitoring continues",
-                  flush=True)
+            if "staging_identity" not in active_degraded_reasons:
+                print(f"WARNING: Work Queue staging identity read unavailable: "
+                      f"{type(error).__name__}: {str(error)[:240]}; monitoring continues",
+                      flush=True)
+            active_degraded_reasons.add("staging_identity")
             stop_event.wait(poll_seconds)
             continue
+        active_degraded_reasons.discard("staging_identity")
         measurement = None
         try:
             measurement = _space(base, quota_root)
         except Exception as error:
             if telemetry_degraded is not None:
                 telemetry_degraded.set()
-            print(f"WARNING: Work Queue staging telemetry unavailable: "
-                  f"{type(error).__name__}: {str(error)[:240]}; manager remains running",
-                  flush=True)
+            if "capacity_telemetry" not in active_degraded_reasons:
+                print(f"WARNING: Work Queue staging telemetry unavailable: "
+                      f"{type(error).__name__}: {str(error)[:240]}; manager remains running",
+                      flush=True)
+            active_degraded_reasons.add("capacity_telemetry")
         if measurement is not None:
+            active_degraded_reasons.discard("capacity_telemetry")
             available_bytes, free_inodes = measurement
             if available_bytes <= min_free_bytes:
                 health_state = "critical"
@@ -286,9 +302,13 @@ def _watch(path, base, quota_root, owner_pid, owner_start, warning_bytes,
         except OSError as error:
             if telemetry_degraded is not None:
                 telemetry_degraded.set()
-            print(f"WARNING: Work Queue staging identity read unavailable: "
-                  f"{type(error).__name__}: {str(error)[:240]}; monitoring continues",
-                  flush=True)
+            if "staging_identity" not in active_degraded_reasons:
+                print(f"WARNING: Work Queue staging identity read unavailable: "
+                      f"{type(error).__name__}: {str(error)[:240]}; monitoring continues",
+                      flush=True)
+            active_degraded_reasons.add("staging_identity")
+        else:
+            active_degraded_reasons.discard("staging_identity")
         stop_event.wait(poll_seconds)
     if shutdown_ack is not None:
         shutdown_ack.set()
@@ -302,10 +322,14 @@ def start_guard(base, invocation, quota_root, warning_bytes, min_free_bytes,
             and math.isfinite(poll_seconds) and poll_seconds > 0):
         raise staging_guard_error("invalid free-space warning/minimum/poll configuration")
     real_base = _validate_base(base)
-    if not quota_root or not quota_root.startswith(("/groups/", "/users/")):
-        raise staging_guard_error("an exact site quota root is required")
-    if os.path.commonpath((str(real_base), quota_root)) != quota_root:
-        raise staging_guard_error("quota root does not own the selected staging base")
+    if real_base == LOCAL_STAGING_BASE:
+        if quota_root is not None:
+            raise staging_guard_error("local staging uses statvfs without a remote quota root")
+    else:
+        if not quota_root or not quota_root.startswith(("/groups/", "/users/")):
+            raise staging_guard_error("an exact site quota root is required")
+        if os.path.commonpath((str(real_base), quota_root)) != quota_root:
+            raise staging_guard_error("quota root does not own the selected staging base")
     available, free_inodes = _space(real_base, quota_root)
     if available <= min_free_bytes or free_inodes < 1000:
         raise staging_guard_error("minimum free space or protective inode reserve unavailable")

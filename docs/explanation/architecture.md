@@ -72,6 +72,9 @@ data-driven unit to `run_data_driven.py`.
 profiles: scientific identity and coverage digests, plan revisions, attempts,
 receipts, namespace collision checks and interrupted-attempt reconciliation.
 The active partition can change while approved science remains exact.
+The launcher supplies structural defaults through the same plan handoff for
+ordinary, 5j and SR-extension profiles; SR-extension physical applicability
+remains a distinct coverage rule in the manifest.
 
 **Does not own.** It does not define selections, corrections, histogram axes,
 sample JSON contents, or statistical models. A profile must not duplicate
@@ -110,6 +113,14 @@ contract.
 **Failure boundary.** A missing or mismatched state, reused fresh namespace,
 invalid environment archive, unexpected partial output, or incompatible resume
 request fails before the wrapper declares a block complete.
+For new Project01 attempts, the wrapper keeps campaign state and historical
+plan output paths at the original control root. The attempt command records
+the new physical PKL root; the receipt records the accepted artifact path.
+Source-ready still means a verified durable source receipt. The state engine
+checks new-root byte and inode admission thresholds before recording a running
+attempt. A completed attempt-owned pending pair can be validated and published
+on exclusive resume under that same attempt; success still requires the final
+pair and receipt.
 
 ### `fullR3_run.sh`
 
@@ -250,6 +261,11 @@ transformation lineage.
 
 **Owns.** The artifact module owns sidecar schemas, validation, merge
 compatibility, lineage, and atomic PKL/sidecar publication.
+An invocation-scoped no-clobber policy uses exclusive final links and checks
+the remaining safety reserve after materialization. Attempt-identity-bound pending
+PKL and sidecar bytes remain discoverable until the final pair and receipt are
+durable. A target PKL or sidecar collision preserves pending evidence; callers
+cannot infer success from a partial pair.
 
 **Does not own.** A caller cannot invent provenance fields to make an
 incompatible payload pass. A sidecar also cannot certify a consumer-specific

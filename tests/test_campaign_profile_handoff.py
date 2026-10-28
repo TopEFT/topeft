@@ -771,6 +771,51 @@ def test_staging_guard_warns_and_keeps_running_after_telemetry_failures(
     assert json.loads(marker.read_text())["status"] == "running"
 
 
+def test_staging_guard_deduplicates_each_active_reason_independently(
+    tmp_path, monkeypatch, capsys
+):
+    path = tmp_path / "owned"
+    path.mkdir()
+    pid = os.getpid()
+    monkeypatch.setattr(staging_guard.os, "getppid", lambda: pid)
+    start = staging_guard._process_start(pid)
+    marker = path / "guard.json"
+    marker.write_text(json.dumps({"status": "running", "path": str(path),
+                                  "owner_uid": os.getuid(), "owner_pid": pid,
+                                  "owner_start": start, "owner_inode": path.stat().st_ino}))
+    observed_start = iter((None, None, start, None, None, start, None))
+    monkeypatch.setattr(staging_guard, "_process_start", lambda _: next(observed_start))
+    measurements = iter((None, None, None, (40000000000, 2000),
+                         (40000000000, 2000), (40000000000, 2000), None))
+
+    def measure(*_):
+        value = next(measurements)
+        if value is None:
+            raise OSError("capacity unavailable")
+        return value
+
+    monkeypatch.setattr(staging_guard, "_space", measure)
+    signals = []
+    monkeypatch.setattr(staging_guard.os, "kill", lambda target, sig: signals.append((target, sig)))
+
+    class stop_event:
+        polls = 0
+        def is_set(self):
+            return self.polls >= 7
+        def wait(self, _):
+            self.polls += 1
+            return self.is_set()
+
+    staging_guard._watch(path, tmp_path, "/groups/klannon", pid, start,
+                         30000000000, 10000000000, 1, stop_event(),
+                         path.stat().st_ino, marker.stat().st_ino)
+    output = capsys.readouterr().out
+    assert output.count("manager identity telemetry unavailable") == 3
+    assert output.count("staging telemetry unavailable") == 2
+    assert "CRITICAL:" not in output
+    assert signals == []
+
+
 def test_staging_guard_emits_only_health_state_transitions(
     tmp_path, monkeypatch, capsys
 ):

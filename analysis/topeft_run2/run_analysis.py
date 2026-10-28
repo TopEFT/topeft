@@ -2256,8 +2256,10 @@ if __name__ == "__main__":
             guard_values = (args.wq_invocation_id, args.wq_quota_root,
                             args.wq_free_warning_bytes, args.wq_min_free_bytes,
                             args.wq_poll_seconds)
-            if any(value is None for value in guard_values):
-                raise SystemExit("guarded Work Queue requires invocation, quota, free-space warning/minimum and poll arguments")
+            if any(value is None for value in (args.wq_invocation_id,
+                    args.wq_free_warning_bytes, args.wq_min_free_bytes,
+                    args.wq_poll_seconds)):
+                raise SystemExit("guarded Work Queue requires invocation, free-space warning/minimum and poll arguments")
             try:
                 wq_staging_dir, owner_inode, stop_event, watchdog = start_guard(
                     wq_filepath, *guard_values

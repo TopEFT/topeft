@@ -2958,9 +2958,50 @@ def write_histogram_artifact(
             )
     pkl_path = Path(pkl_path)
     pkl_path.parent.mkdir(parents=True, exist_ok=True)
+    no_clobber = os.environ.get("TOPEFT_PKL_NO_CLOBBER") == "1"
+    if no_clobber:
+        thresholds = []
+        for name in (
+            "TOPEFT_PKL_MIN_FREE_BYTES", "TOPEFT_PKL_MIN_FREE_INODES",
+            "TOPEFT_PKL_SAFETY_RESERVE_BYTES", "TOPEFT_PKL_SAFETY_RESERVE_INODES",
+        ):
+            value = os.environ.get(name, "")
+            if not value.isdigit() or int(value) <= 0:
+                raise histogram_artifact_error(f"invalid {name} for no-clobber publication")
+            thresholds.append(int(value))
+        if thresholds[0] <= thresholds[2] or thresholds[1] < thresholds[3] + 3:
+            raise histogram_artifact_error("no-clobber admission threshold lacks artifact budget or pending-entry inodes")
+
+        def check_publication_capacity(*, after_materialization=False):
+            available = os.statvfs(pkl_path.parent)
+            offset = 2 if after_materialization else 0
+            if (available.f_bavail * available.f_frsize < thresholds[offset]
+                    or available.f_favail < thresholds[offset + 1]):
+                raise histogram_artifact_error("publication capacity below explicit bytes/inodes threshold")
+
+        check_publication_capacity()
+        if os.path.lexists(pkl_path) or os.path.lexists(metadata_sidecar_path(pkl_path)):
+            raise histogram_artifact_error("no-clobber publication target or sidecar already exists")
     token = uuid.uuid4().hex
-    staged_pkl = pkl_path.parent / f".{pkl_path.name}.{token}.pkl.gz"
-    staged_sidecar = pkl_path.parent / f".{pkl_path.name}.{token}.metadata.json.tmp"
+    pending_id = os.environ.get("TOPEFT_PKL_PENDING_ID", "") if no_clobber else ""
+    if pending_id and (len(pending_id) != 64 or any(char not in "0123456789abcdef" for char in pending_id)):
+        raise histogram_artifact_error("invalid no-clobber pending identity")
+    pending_dir = (
+        pkl_path.parent / f".topeft-pending-{pending_id}"
+        if pending_id else None
+    )
+    if pending_dir is not None:
+        pending_dir.mkdir(mode=0o700)
+        parent_fd = os.open(pkl_path.parent, os.O_RDONLY)
+        try:
+            os.fsync(parent_fd)
+        finally:
+            os.close(parent_fd)
+        staged_pkl = pending_dir / pkl_path.name
+        staged_sidecar = metadata_sidecar_path(staged_pkl)
+    else:
+        staged_pkl = pkl_path.parent / f".{pkl_path.name}.{token}.pkl.gz"
+        staged_sidecar = pkl_path.parent / f".{pkl_path.name}.{token}.metadata.json.tmp"
     final_sidecar = metadata_sidecar_path(pkl_path)
     backup_pkl = pkl_path.parent / f".{pkl_path.name}.{token}.backup"
     backup_sidecar = pkl_path.parent / f".{final_sidecar.name}.{token}.backup"
@@ -3091,22 +3132,47 @@ def write_histogram_artifact(
         else:
             validate_flips_output(pkl_path, manifest_histograms, sidecar)
         _write_json(staged_sidecar, sidecar)
+        if pending_dir is not None:
+            for staged_path in (staged_pkl, staged_sidecar):
+                with staged_path.open("rb") as stream:
+                    os.fsync(stream.fileno())
+            directory_fd = os.open(pending_dir, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
 
-        if had_pkl:
-            os.replace(pkl_path, backup_pkl)
-        if had_sidecar:
-            os.replace(final_sidecar, backup_sidecar)
-        os.replace(staged_pkl, pkl_path)
-        published_pkl = True
-        os.replace(staged_sidecar, final_sidecar)
-        published_sidecar = True
+        if no_clobber:
+            check_publication_capacity(after_materialization=True)
+            if os.path.lexists(pkl_path) or os.path.lexists(final_sidecar):
+                raise histogram_artifact_error("no-clobber publication target or sidecar already exists")
+            os.link(staged_pkl, pkl_path)
+            published_pkl = True
+            # A sidecar collision leaves the linked PKL as recovery evidence.
+            os.link(staged_sidecar, final_sidecar)
+            published_sidecar = True
+            if pending_dir is not None:
+                parent_fd = os.open(pkl_path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(parent_fd)
+                finally:
+                    os.close(parent_fd)
+        else:
+            if had_pkl:
+                os.replace(pkl_path, backup_pkl)
+            if had_sidecar:
+                os.replace(final_sidecar, backup_sidecar)
+            os.replace(staged_pkl, pkl_path)
+            published_pkl = True
+            os.replace(staged_sidecar, final_sidecar)
+            published_sidecar = True
         backup_pkl.unlink(missing_ok=True)
         backup_sidecar.unlink(missing_ok=True)
         return sidecar
     except Exception:
-        if published_sidecar:
+        if published_sidecar and not no_clobber:
             final_sidecar.unlink(missing_ok=True)
-        if published_pkl:
+        if published_pkl and not no_clobber:
             pkl_path.unlink(missing_ok=True)
         if backup_pkl.exists():
             os.replace(backup_pkl, pkl_path)
@@ -3114,7 +3180,8 @@ def write_histogram_artifact(
             os.replace(backup_sidecar, final_sidecar)
         raise
     finally:
-        staged_pkl.unlink(missing_ok=True)
-        staged_sidecar.unlink(missing_ok=True)
+        if pending_dir is None:
+            staged_pkl.unlink(missing_ok=True)
+            staged_sidecar.unlink(missing_ok=True)
         backup_pkl.unlink(missing_ok=True)
         backup_sidecar.unlink(missing_ok=True)

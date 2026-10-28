@@ -15,6 +15,20 @@ from analysis.topeft_run2 import wq_processing_admission as admission
 from analysis.topeft_run2 import wq_staging_guard as staging_guard
 
 
+def test_local_staging_space_uses_statvfs_without_quota(monkeypatch):
+    calls = []
+
+    def local_space(path):
+        calls.append(path)
+        return SimpleNamespace(f_bavail=12, f_frsize=1024, f_favail=345)
+
+    monkeypatch.setattr(staging_guard.os, "statvfs", local_space)
+    monkeypatch.setattr(staging_guard, "_quota_available", lambda _: (_ for _ in ()).throw(
+        AssertionError("local staging must not query quota")))
+    assert staging_guard._space(staging_guard.LOCAL_STAGING_BASE, None) == (12 * 1024, 345)
+    assert calls == [staging_guard.LOCAL_STAGING_BASE]
+
+
 class fake_task:
     def __init__(self, category="processing", size=1, fout_size=0):
         self.category = category

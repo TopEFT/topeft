@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 from collections import Counter
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -39,6 +40,7 @@ DATA_DRIVEN_SCIENTIFIC_SYMBOLS = {
 SR_EXTENSION_VARIABLES = frozenset(
     ("fwd0pt", "j0pt", "b0pt", "met", "l0conept", "l1conept", "invmass", "tau0Tpt")
 )
+PROJECT01_NEW_PKL_ROOT = Path("/project01/ndcms/apiccine/top26006")
 
 
 def fail(message):
@@ -304,7 +306,8 @@ def read_default_tsv(path, profile):
 
 def default_units(profile, default_tsv):
     if profile.endswith("_sr_ext"):
-        raw = json.loads(DEFAULT_SR_PLAN.read_text(encoding="utf-8"))
+        source = DEFAULT_SR_PLAN if default_tsv == "-" else Path(default_tsv)
+        raw = json.loads(source.read_text(encoding="utf-8"))
         if set(raw) != {"units"} or not isinstance(raw["units"], list):
             fail("invalid SR-extension scientific default plan")
         years = ["run2"] if profile.startswith("run2_") else list(RUN3_YEARS)
@@ -615,13 +618,14 @@ def validate_receipt(state, unit, stage, *, verify_payload_sha256=False):
     expected = binding(state, unit, stage)
     if bound != expected:
         fail(f"{unit['id']} {stage} receipt binding changed")
+    path = effective_output_path(unit, stage)
     artifact = artifact_receipt(
-        unit["outputs"][stage], stored_receipt=receipt.get("artifact"),
+        path, stored_receipt=receipt.get("artifact"),
         verify_payload_sha256=verify_payload_sha256,
     )
     if stage == "data_driven":
         source = unit["stages"]["source"]["receipt"]["artifact"]
-        sidecar = json.loads(Path(f"{unit['outputs'][stage]}.metadata.json").read_text(encoding="utf-8"))
+        sidecar = json.loads(Path(f"{path}.metadata.json").read_text(encoding="utf-8"))
         if not sidecar.get("synthetic") and not any(
             isinstance(item, dict) and item.get("pkl_sha256") == source["sha256"]
             for item in sidecar["lineage"]["inputs"]
@@ -732,6 +736,8 @@ def validate_state(state, *, verify_artifacts=True):
                 first_attempt_mode = attempts[0]["provenance"].get("environment_mode")
                 if first_attempt_mode is not None and first_attempt_mode != provenance["initial"]["environment_mode"]:
                     fail(f"{unit['id']} {stage} initial environment mode contradicts first attempt provenance")
+            for attempt in attempts:
+                effective_output_path(unit, stage, attempt)
             if record["status"] in {"running", "failed", "success"} and not attempts:
                 fail(f"{unit['id']} {stage} lacks an attempt")
             if record["status"] == "running" and attempts[-1]["result"] != "running":
@@ -739,6 +745,8 @@ def validate_state(state, *, verify_artifacts=True):
             if record["status"] == "success":
                 if attempts[-1]["result"] not in {"success", "reconciled_success", "imported_success"}:
                     fail(f"{unit['id']} successful attempt is inconsistent")
+                if (record.get("receipt") or {}).get("artifact", {}).get("path") != effective_output_path(unit, stage):
+                    fail(f"{unit['id']} {stage} receipt path contradicts recorded attempt")
                 if verify_artifacts:
                     validate_receipt(state, unit, stage)
             elif record.get("receipt") is not None:
@@ -838,18 +846,176 @@ def output_exists(path):
     return os.path.lexists(path) or os.path.lexists(f"{path}.metadata.json")
 
 
+def effective_output_path(unit, stage, attempt=None):
+    """Resolve a durable path from recorded argv, retaining schema-9 legacy paths."""
+    if attempt is None:
+        attempts = unit["stages"][stage]["attempts"]
+        attempt = attempts[-1] if attempts else None
+    fallback = unit["outputs"][stage]
+    if attempt is None:
+        return fallback
+    command = attempt.get("command_argv")
+    if not isinstance(command, list):
+        fail("attempt command is not an argv list")
+    option = "-p" if stage == "source" else "--output-pkl"
+    if option not in command:
+        return fallback
+    values = command_values(command, option)
+    if len(values) != 1 or not values[0]:
+        fail(f"attempt {option} is not one path")
+    path = str(Path(values[0]) / Path(fallback).name) if stage == "source" else values[0]
+    if path != fallback and (
+        Path(path).parent != PROJECT01_NEW_PKL_ROOT
+        or Path(path).name != Path(fallback).name
+    ):
+        fail("attempt durable path contradicts the selected new-PKL root or basename")
+    return path
+
+
+def project01_thresholds(path):
+    if Path(path).parent != PROJECT01_NEW_PKL_ROOT:
+        return None
+    thresholds = []
+    for name in (
+        "TOPEFT_PKL_MIN_FREE_BYTES", "TOPEFT_PKL_MIN_FREE_INODES",
+        "TOPEFT_PKL_SAFETY_RESERVE_BYTES", "TOPEFT_PKL_SAFETY_RESERVE_INODES",
+    ):
+        value = os.environ.get(name, "")
+        if not value.isdigit() or int(value) <= 0:
+            fail(f"Project01 attempt requires explicit positive {name}")
+        thresholds.append(int(value))
+    if os.environ.get("TOPEFT_PKL_NO_CLOBBER") != "1":
+        fail("Project01 attempt requires no-clobber publication")
+    if thresholds[0] <= thresholds[2] or thresholds[1] < thresholds[3] + 3:
+        fail("Project01 admission threshold does not cover artifact budget and pending-entry inodes")
+    return thresholds
+
+
+def project01_capacity(path):
+    """Admit a new Project01 attempt before state consumption."""
+    thresholds = project01_thresholds(path)
+    if thresholds is None:
+        return
+    values = os.statvfs(PROJECT01_NEW_PKL_ROOT)
+    if values.f_bavail * values.f_frsize < thresholds[0] or values.f_favail < thresholds[1]:
+        fail("Project01 capacity admission refused before attempt creation")
+
+
+def pending_artifact_id(state, unit, stage, attempt=None):
+    if attempt is None:
+        attempts = unit["stages"][stage]["attempts"]
+        attempt = attempts[-1] if attempts else None
+    if attempt is None:
+        return None
+    path = Path(effective_output_path(unit, stage, attempt))
+    if path.parent != PROJECT01_NEW_PKL_ROOT:
+        return None
+    if type(attempt["number"]) is not int or attempt["number"] < 1:
+        fail("invalid pending artifact attempt number")
+    return canonical_digest({
+        "campaign_identity": state["campaign_identity"],
+        "unit_id": unit["id"],
+        "logical_output": unit["outputs"][stage],
+        "attempt_sha256": attempt_identity(attempt),
+    })
+
+
+def pending_artifact_path(state, unit, stage, attempt=None):
+    pending_id = pending_artifact_id(state, unit, stage, attempt)
+    if pending_id is None:
+        return None
+    path = Path(effective_output_path(unit, stage, attempt))
+    return path.parent / f".topeft-pending-{pending_id}" / path.name
+
+
+def project01_publication_capacity(path):
+    thresholds = project01_thresholds(path)
+    if thresholds is None:
+        return
+    values = os.statvfs(Path(path).parent)
+    if values.f_bavail * values.f_frsize < thresholds[2] or values.f_favail < thresholds[3]:
+        fail("Project01 publication safety reserve refused")
+
+
+def publish_pending_artifact(state, unit, stage):
+    """Validate completed same-attempt evidence before no-clobber publication."""
+    from topeft.modules.histogram_artifact import validate_histogram_artifact
+
+    pending = pending_artifact_path(state, unit, stage)
+    if pending is None or not os.path.lexists(pending.parent):
+        return False
+    if pending.parent.is_symlink() or not pending.parent.is_dir():
+        fail("recovery_evidence_insufficient: pending locator is not an owned directory")
+    owner = pending.parent.stat()
+    if owner.st_uid != os.getuid() or stat.S_IMODE(owner.st_mode) != 0o700:
+        fail("recovery_evidence_insufficient: pending directory ownership or mode differs")
+    final = Path(effective_output_path(unit, stage))
+    pending_sidecar = Path(f"{pending}.metadata.json")
+    final_sidecar = Path(f"{final}.metadata.json")
+    if pending.is_symlink() or pending_sidecar.is_symlink():
+        fail("recovery_evidence_insufficient: pending evidence is a symlink")
+    artifact_receipt(pending)
+    validated = validate_histogram_artifact(pending)
+    sidecar = validated["metadata"]
+    validate_recovery_sidecar(state, unit, stage, sidecar, artifact_path=pending)
+    project01_publication_capacity(final)
+    for source, destination in ((pending, final), (pending_sidecar, final_sidecar)):
+        if os.path.lexists(destination):
+            if destination.is_symlink() or not destination.is_file() or not os.path.samefile(source, destination):
+                fail("recovery_evidence_insufficient: final target collision preserves pending evidence")
+        else:
+            os.link(source, destination)
+    parent_fd = os.open(final.parent, os.O_RDONLY)
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
+    artifact_receipt(final)
+    return True
+
+
+def cleanup_published_pending(state, unit, stage):
+    pending = pending_artifact_path(state, unit, stage)
+    if pending is None or not pending.parent.is_dir() or pending.parent.is_symlink():
+        return
+    final = Path(effective_output_path(unit, stage))
+    pending_sidecar = Path(f"{pending}.metadata.json")
+    final_sidecar = Path(f"{final}.metadata.json")
+    if not all(path.is_file() and not path.is_symlink() for path in
+               (pending, pending_sidecar, final, final_sidecar)):
+        return
+    if not (os.path.samefile(pending, final) and os.path.samefile(pending_sidecar, final_sidecar)):
+        return
+    if set(os.listdir(pending.parent)) != {pending.name, pending_sidecar.name}:
+        return
+    pending_sidecar.unlink()
+    pending.unlink()
+    pending.parent.rmdir()
+    parent_fd = os.open(final.parent, os.O_RDONLY)
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
+
+
 def data_driven_command_artifact_kind(unit, command):
+    if command.count("--output-pkl") != 1:
+        fail("data-driven command requires one output path")
+    output_values = command_values(command, "--output-pkl")
+    if len(output_values) != 1:
+        fail("data-driven command requires one output path")
     expected = [
         "python", "./run_data_driven.py",
-        "--input-pkl", unit["outputs"]["source"],
-        "--output-pkl", unit["outputs"]["data_driven"],
+        "--input-pkl", unit["stages"]["source"]["receipt"]["artifact"]["path"],
+        "--output-pkl", output_values[0],
     ]
     if command != expected:
         fail("data-driven command contradicts the ordinary deferred nonprompt artifact contract")
+    effective_output_path(unit, "data_driven", {"command_argv": command})
     return "nonprompt_output"
 
 
-def validate_recovery_sidecar(state, unit, stage, sidecar):
+def validate_recovery_sidecar(state, unit, stage, sidecar, *, artifact_path=None):
     """Use fields emitted by the maintained artifact writers, not a campaign-only field."""
     from topeft.modules.histogram_artifact import read_histogram_sidecar
     from topeft.modules.data_driven_products import validate_requested_product_input
@@ -862,7 +1028,7 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
         fail("recovery_evidence_insufficient: synthetic metadata is not producer evidence")
     if stage == "source":
         try:
-            validated = read_histogram_sidecar(unit["outputs"]["source"])
+            validated = read_histogram_sidecar(artifact_path or effective_output_path(unit, "source"))
         except (OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
             fail(f"recovery_evidence_insufficient: invalid processor sidecar: {error}")
         if validated != sidecar:
@@ -872,12 +1038,12 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
             ("--category-groups", unit["category_groups"]),
             ("--hist-vars", unit["histograms"]),
             ("-t", [unit["output_tag"]]),
-            ("-p", [state["campaign_identity"]["output_dir"]]),
+            ("-p", [str(Path(effective_output_path(unit, "source")).parent)]),
             ("--env-file", [attempt["provenance"].get("environment_file") or state["provenance"]["initial"]["environment_file"]]),
         ):
             if command_values(command, option) != expected:
                 fail(f"recovery_evidence_insufficient: recorded source {option} differs")
-        if output_exists(unit["outputs"]["data_driven"]):
+        if output_exists(effective_output_path(unit, "data_driven")):
             fail("recovery_evidence_insufficient: downstream artifact precedes source receipt")
         if sidecar.get("artifact", {}).get("artifact_kind") != "processor_output" or sidecar.get("lineage", {}).get("inputs") != []:
             fail("recovery_evidence_insufficient: source producer lineage differs")
@@ -893,7 +1059,7 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
             fail("recovery_evidence_insufficient: source histogram applicability differs")
     else:
         try:
-            validated = read_histogram_sidecar(unit["outputs"]["data_driven"])
+            validated = read_histogram_sidecar(artifact_path or effective_output_path(unit, "data_driven"))
         except (OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
             fail(f"recovery_evidence_insufficient: invalid data-driven sidecar: {error}")
         if validated != sidecar:
@@ -903,7 +1069,7 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
             fail("recovery_evidence_insufficient: downstream artifact kind differs")
         source = unit["stages"]["source"]["receipt"]
         expected_lineage = [{
-            "pkl_basename": Path(unit["outputs"]["source"]).name,
+            "pkl_basename": Path(effective_output_path(unit, "source")).name,
             "artifact_kind": "processor_output",
             "pkl_sha256": source["artifact"]["sha256"],
         }] if source is not None else None
@@ -911,7 +1077,7 @@ def validate_recovery_sidecar(state, unit, stage, sidecar):
             fail("recovery_evidence_insufficient: downstream lineage mismatch")
         if sidecar["artifact"]["merged"] is not False:
             fail("recovery_evidence_insufficient: downstream artifact is unexpectedly merged")
-        source_sidecar = read_histogram_sidecar(unit["outputs"]["source"])
+        source_sidecar = read_histogram_sidecar(effective_output_path(unit, "source"))
         try:
             effective_source = validate_requested_product_input(
                 source_sidecar, artifact_kind=expected_kind,
@@ -999,7 +1165,10 @@ def validate_source_command(state, unit, command):
         ("--env-file", [state["provenance"]["last_resolved"]["environment_file"]]),
         ("--ttgamma-sample-role-policy", [contract["ttgamma_sample_role_policy"]]),
     ):
-        if command_values(command, option) != expected:
+        if option == "-p":
+            expected = [state["campaign_identity"]["output_dir"], str(PROJECT01_NEW_PKL_ROOT)]
+        observed = command_values(command, option)
+        if (option == "-p" and observed not in ([value] for value in expected)) or (option != "-p" and observed != expected):
             fail(f"source command {option} contradicts unit or science")
     chunksize_values = command_values(command, "-s")
     if len(chunksize_values) != 1 or not chunksize_values[0].isdigit() or int(chunksize_values[0]) <= 0:
@@ -1029,21 +1198,29 @@ def transition(state, unit_id, stage, status, exit_code, detail, extra=()):
     record = unit["stages"][stage]
     parsed_exit = None if exit_code == "none" else int(exit_code)
     if status == "running":
+        previous_pending = pending_artifact_path(state, unit, stage)
+        if previous_pending is not None and os.path.lexists(previous_pending.parent):
+            fail("unresolved pending evidence prevents a new attempt")
         if stage == "source":
             if record["status"] not in {"pending", "failed"}:
                 fail("source is not eligible for an attempt")
-            if output_exists(unit["outputs"]["source"]) or output_exists(unit["outputs"]["data_driven"]):
-                fail("unverified output collision prevents source retry")
             command = list(extra[1:] if extra[:1] == ("--",) else extra)
             chunksize = validate_source_command(state, unit, command)
+            path = effective_output_path(unit, stage, {"command_argv": command})
+            if (output_exists(unit["outputs"]["source"])
+                    or output_exists(unit["outputs"]["data_driven"])
+                    or output_exists(path)):
+                fail("unverified output collision prevents source retry")
         else:
             if record["status"] not in {"pending", "failed"} or unit["stages"]["source"]["status"] != "success":
                 fail("data-driven stage lacks verified reusable source")
-            if output_exists(unit["outputs"]["data_driven"]):
-                fail("unverified data-driven output collision")
             command = list(extra)
             data_driven_command_artifact_kind(unit, command)
+            path = effective_output_path(unit, stage, {"command_argv": command})
+            if output_exists(unit["outputs"]["data_driven"]) or output_exists(path):
+                fail("unverified data-driven output collision")
             chunksize = None
+        project01_capacity(path)
         attempt = {
             "number": len(record["attempts"]) + 1, "stage": stage,
             "started_at_utc": now_utc(), "ended_at_utc": None,
@@ -1062,13 +1239,20 @@ def transition(state, unit_id, stage, status, exit_code, detail, extra=()):
         if record["status"] != "running":
             fail("stage completion requires its recorded running attempt")
         attempt = record["attempts"][-1]
+        if status == "failed":
+            pending = pending_artifact_path(state, unit, stage)
+            if pending is not None and (
+                os.path.lexists(pending.parent)
+                or output_exists(effective_output_path(unit, stage))
+            ):
+                fail("unresolved Project01 output evidence prevents failed transition")
         attempt["ended_at_utc"] = now_utc()
         attempt["exit_code"] = parsed_exit
         attempt["result"] = "success" if status in {"ready", "success"} else "failed"
         if status in {"ready", "success"}:
             if parsed_exit != 0:
                 fail("successful stage requires zero exit code")
-            artifact = artifact_receipt(unit["outputs"][stage])
+            artifact = artifact_receipt(effective_output_path(unit, stage))
             record["receipt"] = {"artifact": artifact, "binding": binding(state, unit, stage)}
             record["status"] = "success"
             if stage == "source":
@@ -1095,7 +1279,10 @@ def reconcile_running(state):
             record = unit["stages"][stage]
             if record["status"] != "running":
                 continue
-            path = unit["outputs"][stage]
+            path = effective_output_path(unit, stage)
+            pending = pending_artifact_path(state, unit, stage)
+            if pending is not None and os.path.lexists(pending.parent):
+                publish_pending_artifact(state, unit, stage)
             if output_exists(path):
                 try:
                     artifact = artifact_receipt(path)
@@ -1291,7 +1478,7 @@ def report_text(state):
             " ".join(unit["years"]), unit["id"], unit["plan_revision"],
             " ".join(unit["category_groups"]), " ".join(unit["histograms"]),
             unit["stages"]["source"]["status"], unit["stages"]["data_driven"]["status"],
-            overall_status(unit), unit["outputs"]["source"], unit["outputs"]["data_driven"],
+            overall_status(unit), effective_output_path(unit, "source"), effective_output_path(unit, "data_driven"),
         ))
     tsv = "\t".join(headers) + "\n" + "".join("\t".join(clean(value) for value in row) + "\n" for row in rows)
     markdown = "\n".join((
@@ -1391,7 +1578,8 @@ def failure_snapshot(state, unit_id, stage):
         "end_time_utc": attempt.get("ended_at_utc"),
         "campaign_updated_at_utc": state["updated_at_utc"],
     }
-    for role, path in unit["outputs"].items():
+    for role in unit["outputs"]:
+        path = effective_output_path(unit, role)
         rows[f"{role}_path"] = path
         rows[f"{role}_exists"] = output_exists(path)
     return "field\tvalue\n" + "".join(f"{key}\t{value}\n" for key, value in rows.items())
@@ -1429,7 +1617,7 @@ def combined_summary(profile, tag, root, run2_path, run3_path, run2_exit, run3_e
                 item["label"], item["classification"], state["campaign_identity"]["production_profile"],
                 state["campaign_identity"]["campaign_tag"], " ".join(unit["years"]), unit["id"],
                 unit["stages"]["source"]["status"], unit["stages"]["data_driven"]["status"],
-                overall_status(unit), unit["outputs"]["source"], unit["outputs"]["data_driven"],
+                overall_status(unit), effective_output_path(unit, "source"), effective_output_path(unit, "data_driven"),
             ))
     classification = (
         "success" if all(item["classification"] == "success" for item in components)
@@ -1695,6 +1883,10 @@ def main():
             state = load_state(state_path)
             if reconcile_running(state):
                 atomic_json(state_path, state)
+                for unit in state["units"]:
+                    for stage in state["profile_contract"]["stages"]:
+                        if unit["stages"][stage]["status"] == "success":
+                            cleanup_published_pending(state, unit, stage)
             return
         if action in {"env_file", "environment_mode", "historical_source_commit"}:
             state = load_state(values[0], verify_artifacts=False)
@@ -1713,9 +1905,30 @@ def main():
                 fail("unknown campaign unit")
             print(status_line(matches[0]))
             return
+        if action == "effective-path":
+            state = load_state(values[0])
+            matches = [unit for unit in state["units"] if unit["id"] == values[1]]
+            if len(matches) != 1 or values[2] not in state["profile_contract"]["stages"]:
+                fail("unknown campaign unit or stage")
+            print(effective_output_path(matches[0], values[2]))
+            return
         if action == "next-attempt":
             state = load_state(values[0])
             print(next_attempt(state, values[1], values[2]))
+            return
+        if action == "pending-path":
+            state = load_state(values[0], verify_artifacts=False)
+            matches = [unit for unit in state["units"] if unit["id"] == values[1]]
+            if len(matches) != 1 or values[2] not in state["profile_contract"]["stages"]:
+                fail("unknown unit or stage")
+            print(pending_artifact_path(state, matches[0], values[2]) or "")
+            return
+        if action == "pending-id":
+            state = load_state(values[0], verify_artifacts=False)
+            matches = [unit for unit in state["units"] if unit["id"] == values[1]]
+            if len(matches) != 1 or values[2] not in state["profile_contract"]["stages"]:
+                fail("unknown unit or stage")
+            print(pending_artifact_id(state, matches[0], values[2]) or "")
             return
         if action == "next-source-attempt":
             state = load_state(values[0])
@@ -1745,6 +1958,9 @@ def main():
             state = load_state(state_path)
             transition(state, unit_id, stage, status, exit_code, detail, tuple(extra))
             atomic_json(state_path, state)
+            if status in {"ready", "success"}:
+                matches = [unit for unit in state["units"] if unit["id"] == unit_id]
+                cleanup_published_pending(state, matches[0], stage)
             return
         if action == "archive":
             state_path, unit_id, stage, archive_dir = values
