@@ -1,7 +1,5 @@
-import hashlib
 import os
 import shlex
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -47,246 +45,16 @@ def _base_args(tmp_path, input_path, *extra_args):
     )
 
 
-def test_profile_and_legacy_campaign_modes_are_mutually_exclusive(tmp_path):
-    result = _run_plotter(
-        tmp_path, "--campaign-profile", "sr_crlike_run2",
-        "--campaign-manifest", str(tmp_path / "legacy.tsv"),
-        "--campaign-tag", "fixture", "-o", str(tmp_path / "plots"),
-        "--dry-run",
-    )
-    assert result.returncode == 2
-    assert "mutually exclusive" in result.stderr
-
-
 def test_profile_missing_plan_fails_closed(tmp_path):
-    result = _run_plotter(
-        tmp_path, "--campaign-profile", "sr_crlike_run2",
-        "--campaign-tag", "fixture", "-o", str(tmp_path / "plots"),
-        "--dry-run",
-    )
+    result = _run_plotter(tmp_path, "--campaign-profile", "sr_crlike_run2",
+                          "--campaign-tag", "fixture", "-o", str(tmp_path / "plots"), "--dry-run")
     assert result.returncode != 0
     assert not (tmp_path / "plots").exists()
 
 
-def _campaign_fixture(tmp_path):
-    rows = []
-    for unit, kind, variable in (
-        ("first_other", "other", "lj0pt"),
-        ("middle_njets", "njets", "njets"),
-        ("last_other", "other", "ptz"),
-    ):
-        pkl = tmp_path / f"{unit} SR.pkl.gz"
-        sidecar = tmp_path / f"{unit} SR.pkl.gz.metadata.json"
-        pkl.touch()
-        sidecar.touch()
-        rows.append("\t".join((
-            unit, kind, "run3", "combined", unit, "2022", variable, "1",
-            str(pkl), "0" * 64, str(sidecar), "0" * 64,
-        )))
-    manifest = tmp_path / "campaign.tsv"
-    manifest.write_text(
-        "unit\tkind\trun\tview\towner\tyears\tvariables\texpected_figures\t"
-        "pkl\thistorical_pkl_sha256\tsidecar\thistorical_sidecar_sha256\n"
-        + "\n".join(rows) + "\n",
-        encoding="utf-8",
-    )
-    repo_root = Path(__file__).resolve().parents[3]
-    root = repo_root / "histos" / f"test_campaign_{tmp_path.name}"
-    assert not root.exists() and not root.is_symlink()
-    return manifest, root
-
-
-def test_campaign_dry_run_orders_njets_before_other_without_output(tmp_path):
-    manifest, root = _campaign_fixture(tmp_path)
-    result = _run_plotter(
-        tmp_path, "--campaign-manifest", str(manifest),
-        "--campaign-phase", "all", "-o", str(root), "--dry-run",
-    )
-    assert result.returncode == 0, result.stderr
-    units = [line.split()[1] for line in result.stdout.splitlines()
-             if line.startswith("Unit: ")]
-    assert units == ["middle_njets", "first_other", "last_other"]
-    assert "Rows: njets=1 other=2" in result.stdout
-    assert not root.exists() and not root.is_symlink()
-    commands = [shlex.split(line) for line in result.stdout.splitlines()
-                if line.startswith("  ")]
-    assert len(commands) == 3
-    assert all(command[command.index("--binning") + 1] == "fitting"
-               for command in commands)
-    assert all("--debug-canvas-annotations" not in command for command in commands)
-    assert all(command.count("-f") == 1 and "--sr" in command
-               and "--unblind" in command and "--workers" in command
-               for command in commands)
-    assert all(command[command.index("-n") + 1] == "merged" for command in commands)
-    assert all(command[command.index("-o") + 1] == str(root / "run3") for command in commands)
-    assert all("--suppress-merge-report" in command and "--canonical-period" in command
-               and "--merge-report" not in command for command in commands)
-
-
-def test_campaign_debug_canvas_annotations_are_explicit(tmp_path):
-    manifest, root = _campaign_fixture(tmp_path)
-    result = _run_plotter(
-        tmp_path, "--campaign-manifest", str(manifest),
-        "--campaign-phase", "njets", "-o", str(root), "--dry-run",
-        "--debug-canvas-annotations",
-    )
-    assert result.returncode == 0, result.stderr
-    commands = [shlex.split(line) for line in result.stdout.splitlines()
-                if line.startswith("  ")]
-    assert len(commands) == 1
-    assert commands[0].count("--debug-canvas-annotations") == 1
-    assert commands[0][commands[0].index("--binning") + 1] == "fitting"
-    assert not root.exists()
-
-
-def test_campaign_phase_selection_and_occupied_root_refusal(tmp_path):
-    manifest, root = _campaign_fixture(tmp_path)
-    selected = _run_plotter(
-        tmp_path, "--campaign-manifest", str(manifest),
-        "--campaign-phase", "njets", "-o", str(root), "--dry-run",
-    )
-    assert selected.returncode == 0, selected.stderr
-    assert selected.stdout.count("Unit: ") == 1
-    assert "Unit: middle_njets" in selected.stdout
-    repo_root = Path(__file__).resolve().parents[3]
-    occupied = _run_plotter(
-        tmp_path, "--campaign-manifest", str(manifest),
-        "--campaign-phase", "njets", "-o", str(repo_root / "histos"), "--dry-run",
-    )
-    assert occupied.returncode != 0
-    assert "must be absent" in occupied.stderr
-
-
-def _inert_campaign_repo(tmp_path, *, failing_child=False, failing_tee=False,
-                         missing_guard=False):
-    real_repo = Path(__file__).resolve().parents[3]
-    fixture_repo = tmp_path / "repo"
-    script_dir = fixture_repo / "analysis/topeft_run2"
-    script_dir.mkdir(parents=True)
-    shutil.copyfile(real_repo / "analysis/topeft_run2/run_plotter.sh",
-                    script_dir / "run_plotter.sh")
-    (script_dir / "run_plotter.sh").chmod(0o755)
-    (script_dir / "make_cr_and_sr_plots.py").write_text(
-        "import pathlib,sys\n"
-        "args=sys.argv[1:]\n"
-        "path=pathlib.Path(args[args.index('-o')+1])/args[args.index('-n')+1]\n"
-        "path.mkdir(parents=True,exist_ok=True)\n"
-        "print('inert child', path)\n"
-        "sys.exit(17 if 'fail' in args[args.index('-f')+1] else 0)\n",
-        encoding="utf-8",
-    )
-    (fixture_repo / "histos").mkdir()
-    module_path = fixture_repo / "topeft/modules/node_memory_guard.py"
-    module_path.parent.mkdir(parents=True)
-    module_path.write_text("# inert source identity fixture\n", encoding="utf-8")
-    shutil.copyfile(real_repo / "topeft/modules/plot_output_layout.py",
-                    module_path.parent / "plot_output_layout.py")
-    metadata = fixture_repo / "topeft/params/cr_sr_plots_metadata.yml"
-    metadata.parent.mkdir(parents=True)
-    metadata.write_text("# inert metadata fixture\n", encoding="utf-8")
-    bin_dir = fixture_repo / "bin"
-    bin_dir.mkdir()
-    fake_git = bin_dir / "git"
-    fake_git.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
-    fake_git.chmod(0o755)
-    if failing_tee:
-        fake_tee = bin_dir / "tee"
-        fake_tee.write_text("#!/bin/sh\nexit 7\n", encoding="utf-8")
-        fake_tee.chmod(0o755)
-    python_bin = "/users/apiccine/work/miniconda3/envs/clib-env/bin/python"
-    if missing_guard:
-        fake_python = bin_dir / "python_guard_fixture"
-        fake_python.write_text(
-            "#!/bin/sh\n"
-            "if [ \"$1\" = -m ] && [ \"$2\" = topeft.modules.plot_output_layout ]; then\n"
-            f"  exec {python_bin} \"$@\"\n"
-            "fi\nexit 0\n", encoding="utf-8")
-        fake_python.chmod(0o755)
-        python_bin = str(fake_python)
-    digest = hashlib.sha256(b"").hexdigest()
-    rows = []
-    for unit in ("first", "second"):
-        label = "fail" if failing_child and unit == "first" else unit
-        pkl = fixture_repo / f"{label} SR.pkl.gz"
-        sidecar = fixture_repo / f"{label} SR.pkl.gz.metadata.json"
-        pkl.touch()
-        sidecar.touch()
-        rows.append("\t".join((unit, "njets", "run3", "combined", unit,
-                               "2022", "njets", "1", str(pkl), digest,
-                               str(sidecar), digest)))
-    manifest = fixture_repo / "campaign.tsv"
-    manifest.write_text(
-        "unit\tkind\trun\tview\towner\tyears\tvariables\texpected_figures\t"
-        "pkl\thistorical_pkl_sha256\tsidecar\thistorical_sidecar_sha256\n"
-        + "\n".join(rows) + "\n", encoding="utf-8",
-    )
-    env = dict(os.environ, PYTHON_BIN=python_bin,
-               PYTHONPATH=str(real_repo), PATH=f"{bin_dir}:{os.environ['PATH']}")
-    return script_dir / "run_plotter.sh", manifest, fixture_repo / "histos/run", env
-
-
-def _run_inert_campaign(wrapper, manifest, root, env, *extra):
-    return subprocess.run(
-        [str(wrapper), "--campaign-manifest", str(manifest),
-         "--campaign-phase", "njets", "-o", str(root), *extra],
-        cwd=wrapper.parents[2], env=env, capture_output=True, text=True,
-        check=False,
-    )
-
-
-def test_campaign_inert_execute_records_sequential_guarded_children(tmp_path):
-    wrapper, manifest, root, env = _inert_campaign_repo(tmp_path)
-    result = _run_inert_campaign(wrapper, manifest, root, env, "--execute")
-    assert result.returncode == 0, result.stderr
-    diagnostics = root / "_metadata/diagnostics"
-    assert (diagnostics / "first.guard.jsonl").is_file()
-    assert (diagnostics / "second.guard.jsonl").is_file()
-    assert (diagnostics / "first.log").is_file()
-    assert (diagnostics / "second.log").is_file()
-    assert not (diagnostics / "source_sha256.txt").exists()
-    assert not (diagnostics / "source_head.txt").exists()
-    assert set(root.iterdir()) == {root / "_metadata", root / "run3"}
-    ledger = (diagnostics / "units.tsv").read_text(encoding="utf-8")
-    assert ledger.index("first\tstart") < ledger.index("first\tresult")
-    assert ledger.index("first\tresult") < ledger.index("second\tstart")
-    assert "campaign\tcomplete\tunits=2" in ledger
-
-
-def test_campaign_execute_accepts_repo_and_script_directory(tmp_path):
-    for location in ("repo", "script"):
-        wrapper, manifest, root, env = _inert_campaign_repo(tmp_path / location)
-        cwd = wrapper.parents[2] if location == "repo" else wrapper.parent
-        result = subprocess.run(
-            [str(wrapper), "--campaign-manifest", str(manifest),
-             "--campaign-phase", "njets", "-o", str(root), "--execute"],
-            cwd=cwd, env=env, capture_output=True, text=True, check=False,
-        )
-        assert result.returncode == 0, result.stderr
-        assert (root / "_metadata/diagnostics/units.tsv").read_text(encoding="utf-8").count("\tresult\t") == 2
-
-
-@pytest.mark.parametrize(
-    ("fixture_options", "expected"),
-    [({"failing_child": True}, "guard=17"),
-     ({"failing_tee": True}, "tee=7"),
-     ({"missing_guard": True}, "terminal=1")],
-)
-def test_campaign_inert_failure_stops_before_next_child(tmp_path, fixture_options, expected):
-    wrapper, manifest, root, env = _inert_campaign_repo(tmp_path, **fixture_options)
-    result = _run_inert_campaign(wrapper, manifest, root, env, "--execute")
+def test_retired_tsv_is_not_a_second_campaign_interface(tmp_path):
+    result = _run_plotter(tmp_path, "--campaign-manifest", "absent.tsv", "--execute")
     assert result.returncode != 0
-    ledger = (root / "_metadata/diagnostics/units.tsv").read_text(encoding="utf-8")
-    assert expected in ledger
-    assert not (root / "_metadata/diagnostics/second.guard.jsonl").exists()
-    assert "campaign\tstopped\tfirst" in ledger
-
-
-def test_campaign_rejects_dangling_output_symlink(tmp_path):
-    wrapper, manifest, root, env = _inert_campaign_repo(tmp_path)
-    root.symlink_to(root.parent / "missing")
-    result = _run_inert_campaign(wrapper, manifest, root, env, "--dry-run")
-    assert result.returncode != 0
-    assert "must be absent" in result.stderr
 
 
 def test_single_input_backward_compatibility(tmp_path):
@@ -489,3 +257,19 @@ def test_channel_output_forwarding_preserved(tmp_path):
     assert result.returncode == 0, result.stderr
     command = _dry_run_command(result)
     assert command[command.index("--channel-output") + 1] == "merged"
+
+
+@pytest.mark.parametrize('option,expected',[('--timestamp','-t'),('-q','--quiet'),('-v','--verbose')])
+def test_ordinary_aliases_preserve_renderer_translation(tmp_path,option,expected):
+    path=_input_path(tmp_path,'input_CR.pkl.gz')
+    result=_run_plotter(tmp_path,*_base_args(tmp_path,path,option))
+    assert result.returncode==0,result.stderr
+    assert expected in _dry_run_command(result)
+
+
+def test_ambiguous_single_filename_warns_and_preserves_cr_default(tmp_path):
+    path=_input_path(tmp_path,'input_CR_SR.pkl.gz')
+    result=_run_plotter(tmp_path,*_base_args(tmp_path,path))
+    assert result.returncode==0,result.stderr
+    assert 'Warning:' in result.stderr
+    assert '--cr' in _dry_run_command(result) and '--unblind' in _dry_run_command(result)

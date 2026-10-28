@@ -1,4 +1,4 @@
-"""Run one command under a fail-closed Linux node-memory pressure guard.
+"""Run one command under an explicitly selected Linux memory observer.
 
 The supervisor owns the evidence file and is outside the child's new session.
 One invocation runs one child only; callers must stop their campaign on any
@@ -22,6 +22,36 @@ import time
 
 DEFAULT_MEMINFO_PATH = Path("/proc/meminfo")
 DEFAULT_SAMPLING_INTERVAL_SECONDS = 0.5
+
+
+def read_cgroup_memory(cgroup_root=Path("/sys/fs/cgroup"), membership=Path("/proc/self/cgroup")):
+    """Observe the current allocation's cgroup v2 charge, never child RSS.
+
+    A finite allocation limit is required. A host-wide/unbounded root is not
+    silently accepted as allocation-local accounting.
+    """
+    rows = [line[3:] for line in Path(membership).read_text().splitlines()
+            if line.startswith("0::")]
+    if len(rows) != 1 or not rows[0].startswith("/") or ".." in Path(rows[0]).parts:
+        raise ValueError("No unique safe cgroup v2 membership")
+    directory = Path(cgroup_root) / rows[0].lstrip("/")
+    current = int((directory / "memory.current").read_text().strip())
+    maximum = (directory / "memory.max").read_text().strip()
+    if maximum == "max":
+        raise ValueError("cgroup v2 memory.max is unbounded; allocation accounting unavailable")
+    limit = int(maximum)
+    if current < 0 or limit <= 0:
+        raise ValueError("Invalid cgroup v2 memory accounting")
+    return {"cgroup_current_bytes": current, "cgroup_limit_bytes": limit,
+            "cgroup_path": str(directory)}
+
+
+def observe_memory(observer, meminfo_path=DEFAULT_MEMINFO_PATH):
+    if observer == "cgroup_v2":
+        return read_cgroup_memory()
+    if observer == "node_pressure":
+        return read_node_pressure(meminfo_path)
+    raise ValueError("Unknown resource observer")
 
 
 def read_node_pressure(meminfo_path=DEFAULT_MEMINFO_PATH):
@@ -110,10 +140,18 @@ def run_guarded(
     command, *, hard_limit_bytes, evidence_path,
     meminfo_path=DEFAULT_MEMINFO_PATH,
     sampling_interval_seconds=DEFAULT_SAMPLING_INTERVAL_SECONDS,
+    observer="node_pressure",
 ):
     """Supervise one child; persist threshold/failure evidence before signaling."""
     if not command or hard_limit_bytes <= 0 or sampling_interval_seconds <= 0:
         raise ValueError("A command, positive threshold, and positive interval are required")
+    # Fail before launch if the explicitly selected allocation interface is absent.
+    if observer == "cgroup_v2":
+        sample = observe_memory(observer, meminfo_path)
+        if hard_limit_bytes > sample["cgroup_limit_bytes"]:
+            raise ValueError("Requested hard limit exceeds cgroup memory.max")
+    elif observer != "node_pressure":
+        raise ValueError("Unknown resource observer")
     evidence_path = Path(evidence_path)
     # Exclusive creation prevents overwriting evidence from a previous unit.
     with evidence_path.open("x", encoding="utf-8") as evidence:
@@ -140,10 +178,12 @@ def run_guarded(
             _write_event(evidence, {"event": "identity_failure", "identity": identity})
             raise RuntimeError("Child did not enter its own process group/session")
         _persist_or_stop(evidence, {"event": "start", "identity": identity,
+                                    "observer": observer,
                                     "hard_limit_bytes": hard_limit_bytes,
                                     "sampling_interval_seconds": sampling_interval_seconds},
                          child, identity)
         peak_pressure = None
+        peak_cgroup = None
         minimum_available = None
         while True:
             if _child_exited_without_reaping(child.pid):
@@ -154,22 +194,28 @@ def run_guarded(
                     "minimum_mem_available_kb": minimum_available,
                     "pid": child.pid, "pgid": identity["pgid"],
                     "start_ticks": identity["start_ticks"],
+                    "observer": observer, "peak_cgroup_current_bytes": peak_cgroup,
                 }
                 _write_event(evidence, {"event": "result", **result})
                 return result
             try:
-                sample = read_node_pressure(meminfo_path)
+                sample = observe_memory(observer, meminfo_path)
             except (OSError, ValueError) as exc:
                 termination_kind = "metric_failed"
                 event = {"event": "metric_failure", "error": str(exc),
                          "identity": identity}
             else:
-                peak_pressure = max(peak_pressure or 0, sample["pressure_used_bytes"])
-                minimum_available = min(
-                    minimum_available if minimum_available is not None else sample["mem_available_kb"],
-                    sample["mem_available_kb"],
-                )
-                if sample["pressure_used_bytes"] < hard_limit_bytes:
+                if observer == "cgroup_v2":
+                    used_bytes = sample["cgroup_current_bytes"]
+                    peak_cgroup = max(peak_cgroup or 0, used_bytes)
+                else:
+                    used_bytes = sample["pressure_used_bytes"]
+                    peak_pressure = max(peak_pressure or 0, used_bytes)
+                    minimum_available = min(
+                        minimum_available if minimum_available is not None else sample["mem_available_kb"],
+                        sample["mem_available_kb"],
+                    )
+                if used_bytes < hard_limit_bytes:
                     time.sleep(sampling_interval_seconds)
                     continue
                 termination_kind = "threshold_killed"
@@ -189,6 +235,7 @@ def run_guarded(
                 "minimum_mem_available_kb": minimum_available,
                 "pid": child.pid, "pgid": identity["pgid"],
                 "start_ticks": identity["start_ticks"],
+                "observer": observer, "peak_cgroup_current_bytes": peak_cgroup,
             }
             _write_event(evidence, {"event": "result", **result})
             return result
@@ -196,21 +243,33 @@ def run_guarded(
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--hard-limit-bytes", type=int, required=True)
-    parser.add_argument("--evidence-path", type=Path, required=True)
+    parser.add_argument("--hard-limit-bytes", type=int)
+    parser.add_argument("--evidence-path", type=Path)
+    parser.add_argument("--observer", choices=("cgroup_v2", "node_pressure"), default="node_pressure",
+                        help="Metric policy; low-level compatibility default: node_pressure; campaigns select explicitly")
+    parser.add_argument("--probe", action="store_true", help="Read selected metric without launching a child")
     parser.add_argument("--meminfo-path", type=Path, default=DEFAULT_MEMINFO_PATH)
     parser.add_argument("--sampling-interval-seconds", type=float,
                         default=DEFAULT_SAMPLING_INTERVAL_SECONDS)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    if args.probe:
+        if args.command or args.evidence_path:
+            parser.error("--probe accepts no child or evidence output")
+        try:
+            print(json.dumps({"observer": args.observer, **observe_memory(args.observer, args.meminfo_path)}))
+        except (OSError, ValueError) as error:
+            parser.exit(125, f"resource observer unavailable: {error}\n")
+        return 0
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    if not command:
-        parser.error("a child command is required after --")
+    if not command or args.hard_limit_bytes is None or args.evidence_path is None:
+        parser.error("a child command, hard limit and evidence path are required")
     try:
         result = run_guarded(
             command, hard_limit_bytes=args.hard_limit_bytes,
             evidence_path=args.evidence_path, meminfo_path=args.meminfo_path,
             sampling_interval_seconds=args.sampling_interval_seconds,
+            observer=args.observer,
         )
     except (OSError, RuntimeError, ValueError) as exc:
         parser.exit(126, f"node-memory guard failed: {exc}\n")

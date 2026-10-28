@@ -16,9 +16,7 @@ from matplotlib.transforms import Bbox
 
 from analysis.topeft_run2 import make_cr_and_sr_plots
 from topeft.modules.plot_output_layout import (
-    canonical_diagnostics_path,
-    canonical_plot_destinations,
-    canonical_receipt_path,
+    canonical_plot_destinations_for_period,
     normalize_plot_period,
 )
 
@@ -37,17 +35,15 @@ from topeft.modules.plot_output_layout import (
 ])
 def test_canonical_sr_plot_destinations(tmp_path, run, view, period):
     assert normalize_plot_period(run, view) == period
-    normal = canonical_plot_destinations(
-        tmp_path, run, view, "2lss_p", "2lss_p_ptz_processing.png", "ptz")
-    njets = canonical_plot_destinations(
-        tmp_path, run, view, "2lss_p", "2lss_p_njets_processing.png", "njets")
+    normal = canonical_plot_destinations_for_period(
+        tmp_path, normalize_plot_period(run, view), "2lss_p", "2lss_p_ptz_processing.png", "ptz")
+    njets = canonical_plot_destinations_for_period(
+        tmp_path, normalize_plot_period(run, view), "2lss_p", "2lss_p_njets_processing.png", "njets")
     assert normal == (tmp_path / period / "merged/2lss_p/2lss_p_ptz_processing.png",)
     assert njets == (
         tmp_path / period / "merged/2lss_p/2lss_p_njets_processing.png",
         tmp_path / period / "merged_njets/2lss_p/2lss_p_njets_processing.png",
     )
-    assert canonical_receipt_path(tmp_path, "unit") == tmp_path / "_metadata/receipts/unit.receipt.json"
-    assert canonical_diagnostics_path(tmp_path, "units.tsv") == tmp_path / "_metadata/diagnostics/units.tsv"
 
 
 def test_canonical_renderer_copies_only_produced_njets_and_suppresses_composition(tmp_path, monkeypatch):

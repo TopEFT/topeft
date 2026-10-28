@@ -23,6 +23,8 @@ def guard_result_line(returncode=0):
 
 
 def fixture_plan(tmp_path, monkeypatch, *, profile="sr_crlike_run2", unit_count=1):
+    monkeypatch.setattr(campaign.backend.node_memory_guard, "read_cgroup_memory",
+                        lambda: {"cgroup_current_bytes": 0, "cgroup_limit_bytes": 10**15})
     repo = tmp_path / "repo"
     (repo / "histos").mkdir(parents=True)
     monkeypatch.setattr(campaign, "REPO_ROOT", repo)
@@ -60,7 +62,7 @@ def fixture_plan(tmp_path, monkeypatch, *, profile="sr_crlike_run2", unit_count=
     return root, plan_path
 
 
-def fake_success(argv, attempt_root):
+def fake_success(argv, attempt_root, **_options):
     chosen_period = argv[argv.index("--canonical-period") + 1]
     unit_id = argv[argv.index("--negative-report-suffix") + 1]
     output = attempt_root / chosen_period / "merged" / unit_id
@@ -87,7 +89,7 @@ def write_lifecycle(argv, attempt_root, guard_result, child_result, tee_result):
     })
 
 
-def fake_failure(argv, attempt_root):
+def fake_failure(argv, attempt_root, **_options):
     metadata = attempt_root / "_metadata"
     metadata.mkdir()
     (metadata / "renderer.log").write_text("fixture child failed\n", encoding="utf-8")
@@ -121,6 +123,8 @@ def seed_running(tmp_path, monkeypatch, *, profile="sr_crlike_run2", terminal="s
         "attempt_id": "attempt_0001", "plan_revision": 1,
         "started_at_utc": "2026-10-27T00:00:00Z", "ended_at_utc": None,
         "command_identity": campaign.identity(argv), "private_unit_root": str(attempt_root),
+        "execution_contract": {"version": 1, "backend": "local", "argv": argv,
+                               "observer": "node_pressure", "hard_limit_bytes": 245000000000},
         "completion_receipt_identity": None, "materialization_status": "pending",
         "guard_result": None, "child_result": None, "tee_result": None,
         "result": "running", "failure_classification": None,
@@ -191,7 +195,7 @@ def test_dry_run_uses_sidecar_variables_without_root_or_output_prediction(tmp_pa
 
 def test_selected_unit_keeps_full_plan_and_sparse_output_is_success(tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute", selected="unit_0")
     coordinator = campaign.read_json(campaign.coordinator_path(root))
@@ -224,7 +228,7 @@ def test_receipt_interruption_materializes_without_child_rerun(tmp_path, monkeyp
     unit = plan["units"][0]
     attempt_root = Path(unit["private_unit_root"])
     attempt_root.mkdir(parents=True)
-    fake_success(campaign.child_argv(unit, attempt_root), attempt_root)
+    fake_success(campaign.child_argv(unit, attempt_root, historical=True), attempt_root)
     attempt = {"attempt_id": "attempt_0001", "plan_revision": 1,
                "started_at_utc": "2026-10-27T00:00:00Z", "ended_at_utc": "2026-10-27T00:01:00Z",
                "private_unit_root": str(attempt_root), "guard_result": 0,
@@ -236,7 +240,7 @@ def test_receipt_interruption_materializes_without_child_rerun(tmp_path, monkeyp
     campaign.atomic_json(campaign.state_path(root, "sr_crlike_run2", "run2"), state)
     assert campaign.lifecycle_receipt_path(attempt_root).is_file()
     campaign.create_receipt(plan, unit, attempt, runtime)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign", action="resume")
     recovered = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert recovered["units"]["unit_0"]["status"] == "success"
@@ -247,7 +251,7 @@ def test_unbound_collision_fails_without_overwrite(tmp_path, monkeypatch, capsys
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
     relative = Path("run2/merged/unit_0/unit_0_invmass_fitting.png")
 
-    def collide(argv, attempt_root):
+    def collide(argv, attempt_root, **_options):
         fake_success(argv, attempt_root)
         if attempt_root.parent.name == "unit_0":
             destination = root / relative
@@ -255,7 +259,7 @@ def test_unbound_collision_fails_without_overwrite(tmp_path, monkeypatch, capsys
             destination.write_bytes(b"foreign")
         return 0, 0, 0
 
-    monkeypatch.setattr(campaign, "run_guarded_child", collide)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", collide)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     assert (root / relative).read_bytes() == b"foreign"
@@ -269,7 +273,7 @@ def test_unbound_collision_fails_without_overwrite(tmp_path, monkeypatch, capsys
 
 def test_failed_and_interrupted_are_not_retried(tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_failure)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_failure)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute", selected="unit_0")
     state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
@@ -278,7 +282,7 @@ def test_failed_and_interrupted_are_not_retried(tmp_path, monkeypatch):
     state["units"]["unit_1"]["attempts"] = [dict(
         state["units"]["unit_0"]["attempts"][0], result="interrupted")]
     campaign.atomic_json(state_path, state)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("silent retry"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("silent retry"))
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign", action="resume")
     state = campaign.read_json(state_path)
     assert state["units"]["unit_0"]["status"] == "failed"
@@ -287,7 +291,7 @@ def test_failed_and_interrupted_are_not_retried(tmp_path, monkeypatch):
 
 def test_revision_appends_and_preserves_history(tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute", selected="unit_0")
     before = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))["units"]["unit_0"]
@@ -318,12 +322,12 @@ def test_revision_appends_and_preserves_history(tmp_path, monkeypatch):
 def test_combined_component_isolation(tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, profile="sr_crlike_run2_run3", unit_count=2)
 
-    def selective(argv, attempt_root):
+    def selective(argv, attempt_root, **_options):
         if "run2" in attempt_root.parts:
             return fake_failure(argv, attempt_root)
         return fake_success(argv, attempt_root)
 
-    monkeypatch.setattr(campaign, "run_guarded_child", selective)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", selective)
     campaign.run_campaign(root, "sr_crlike_run2_run3", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     states = {component: campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", component))
@@ -389,7 +393,7 @@ def test_combined_unresolved_running_blocks_all_children(tmp_path, monkeypatch, 
     root, _, attempt_root = seed_running(tmp_path, monkeypatch, profile=profile)
     campaign.lifecycle_receipt_path(attempt_root).unlink()
     (attempt_root / "_metadata/guard.jsonl").unlink()
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("overlap"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("overlap"))
     assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert summary["campaign_status"] == "waiting"
@@ -403,7 +407,7 @@ def test_combined_unresolved_running_blocks_all_children(tmp_path, monkeypatch, 
 
 def test_lifecycle_crash_window_recovers_without_rerun(tmp_path, monkeypatch):
     root, _, attempt_root = seed_running(tmp_path, monkeypatch)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert state["units"]["unit_0"]["status"] == "success"
@@ -414,7 +418,7 @@ def test_post_tuple_terminal_state_recovers_after_interruption_without_child_rer
         tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch)
     original_verify = campaign.verify_lifecycle_receipt
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
 
     def interrupt_after_terminal_persistence(*_args):
         state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
@@ -428,7 +432,7 @@ def test_post_tuple_terminal_state_recovers_after_interruption_without_child_rer
         campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                               plan_path=plan_path, action="execute")
     monkeypatch.setattr(campaign, "verify_lifecycle_receipt", original_verify)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert state["units"]["unit_0"]["status"] == "success"
@@ -450,7 +454,7 @@ def test_post_guard_terminal_state_recovers_after_interruption_without_child_rer
     with pytest.raises(KeyboardInterrupt, match="inert interruption"):
         campaign.main(resume_args(root))
     monkeypatch.setattr(campaign, "lifecycle_receipt_path", original_path)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert state["units"]["unit_0"]["status"] == "success"
@@ -459,7 +463,7 @@ def test_post_guard_terminal_state_recovers_after_interruption_without_child_rer
 
 def test_failed_lifecycle_and_missing_lifecycle_are_terminal_without_rerun(tmp_path, monkeypatch):
     root, _, _ = seed_running(tmp_path / "failed", monkeypatch, terminal="failure")
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert state["units"]["unit_0"]["status"] == "failed"
@@ -474,7 +478,7 @@ def test_failed_lifecycle_and_missing_lifecycle_are_terminal_without_rerun(tmp_p
 def test_full_and_selected_resume_status_with_terminal_failure(tmp_path, monkeypatch, capsys):
     profile = "sr_crlike_run2_run3"
     root, _, _ = seed_running(tmp_path, monkeypatch, profile=profile, terminal="failure")
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     assert campaign.main(resume_args(root, profile)) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert summary["campaign_status"] == "partial"
@@ -483,7 +487,7 @@ def test_full_and_selected_resume_status_with_terminal_failure(tmp_path, monkeyp
     run3 = campaign.read_json(campaign.state_path(root, profile, "run3"))
     assert run2["units"]["unit_0"]["status"] == "failed"
     assert run3["units"]["unit_1"]["status"] == "success"
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("silent retry"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("silent retry"))
     assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
     assert campaign.main(resume_args(root, profile, selected="unit_0")) == 0
     assert campaign.main(resume_args(root, profile)) == 0
@@ -491,7 +495,7 @@ def test_full_and_selected_resume_status_with_terminal_failure(tmp_path, monkeyp
 
 def test_malformed_component_state_remains_invocation_error(tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     path = campaign.state_path(root, "sr_crlike_run2", "run2")
@@ -513,11 +517,11 @@ def test_private_root_setup_failure_is_terminal_and_other_unit_continues(tmp_pat
     monkeypatch.setattr(Path, "mkdir", fail_first_attempt_root)
     launched = []
 
-    def record_child(argv, attempt_root):
+    def record_child(argv, attempt_root, **_options):
         launched.append(attempt_root.parent.name)
         return fake_success(argv, attempt_root)
 
-    monkeypatch.setattr(campaign, "run_guarded_child", record_child)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", record_child)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -550,7 +554,7 @@ def test_first_popen_failure_is_terminal_without_child(tmp_path, monkeypatch, ca
 
 def test_second_popen_failure_with_terminal_guard_allows_other_unit(tmp_path, monkeypatch, capsys):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
-    original_run = campaign.run_guarded_child
+    original_run = campaign.backend.run_guarded_child
     launches = []
 
     class TerminalGuard:
@@ -562,7 +566,7 @@ def test_second_popen_failure_with_terminal_guard_allows_other_unit(tmp_path, mo
         def wait(self):
             pytest.fail("tee creation failure must not wait for an undrained guard")
 
-    def run_child(argv, attempt_root):
+    def run_child(argv, attempt_root, **_options):
         launches.append(attempt_root.parent.name)
         if attempt_root.parent.name != "unit_0":
             return fake_success(argv, attempt_root)
@@ -579,7 +583,7 @@ def test_second_popen_failure_with_terminal_guard_allows_other_unit(tmp_path, mo
             result = original_run(argv, attempt_root)
         return result
 
-    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", run_child)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -597,7 +601,7 @@ def test_second_popen_failure_with_terminal_guard_allows_other_unit(tmp_path, mo
 def test_terminal_guard_survives_supervisor_cleanup_failure(
         failure, tmp_path, monkeypatch, capsys):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
-    original_run = campaign.run_guarded_child
+    original_run = campaign.backend.run_guarded_child
     launches = []
 
     class GuardStdout(io.BytesIO):
@@ -622,7 +626,7 @@ def test_terminal_guard_survives_supervisor_cleanup_failure(
                 raise OSError("inert tee wait failure")
             return 0
 
-    def run_child(argv, attempt_root):
+    def run_child(argv, attempt_root, **_options):
         launches.append(attempt_root.parent.name)
         if attempt_root.parent.name != "unit_0":
             return fake_success(argv, attempt_root)
@@ -637,7 +641,7 @@ def test_terminal_guard_survives_supervisor_cleanup_failure(
             process_patch.setattr(campaign.subprocess, "Popen", popen)
             return original_run(argv, attempt_root)
 
-    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", run_child)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -653,7 +657,7 @@ def test_terminal_guard_survives_supervisor_cleanup_failure(
 def test_tee_creation_without_terminal_guard_does_not_wait_or_launch_next(
         guard_record, tmp_path, monkeypatch, capsys):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
-    original_run = campaign.run_guarded_child
+    original_run = campaign.backend.run_guarded_child
     launches = []
 
     class UnresolvedGuard:
@@ -665,7 +669,7 @@ def test_tee_creation_without_terminal_guard_does_not_wait_or_launch_next(
         def wait(self):
             pytest.fail("undrained guard wait would block")
 
-    def run_child(argv, attempt_root):
+    def run_child(argv, attempt_root, **_options):
         launches.append(attempt_root.parent.name)
         calls = []
 
@@ -679,7 +683,7 @@ def test_tee_creation_without_terminal_guard_does_not_wait_or_launch_next(
             process_patch.setattr(campaign.subprocess, "Popen", popen)
             return original_run(argv, attempt_root)
 
-    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", run_child)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -694,7 +698,7 @@ def test_tee_creation_without_terminal_guard_does_not_wait_or_launch_next(
 def test_supervisor_lifecycle_write_failure_after_terminal_guard_is_failed(
         tmp_path, monkeypatch, capsys):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
-    original_run = campaign.run_guarded_child
+    original_run = campaign.backend.run_guarded_child
     original_atomic = campaign.atomic_json
     launches = []
 
@@ -711,7 +715,7 @@ def test_supervisor_lifecycle_write_failure_after_terminal_guard_is_failed(
         def wait(self):
             return 0
 
-    def run_child(argv, attempt_root):
+    def run_child(argv, attempt_root, **_options):
         launches.append(attempt_root.parent.name)
         if attempt_root.parent.name != "unit_0":
             return fake_success(argv, attempt_root)
@@ -730,10 +734,10 @@ def test_supervisor_lifecycle_write_failure_after_terminal_guard_is_failed(
 
         with monkeypatch.context() as supervisor_patch:
             supervisor_patch.setattr(campaign.subprocess, "Popen", popen)
-            supervisor_patch.setattr(campaign, "atomic_json", failed_lifecycle_write)
+            supervisor_patch.setattr(campaign.backend, "atomic_json", failed_lifecycle_write)
             return original_run(argv, attempt_root)
 
-    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", run_child)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -751,7 +755,7 @@ def test_supervisor_lifecycle_write_failure_after_terminal_guard_is_failed(
 def test_unprintable_terminal_error_cannot_leave_running(
         source, tmp_path, monkeypatch, capsys):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
-    original_run = campaign.run_guarded_child
+    original_run = campaign.backend.run_guarded_child
     original_atomic = campaign.atomic_json
     launches = []
 
@@ -776,7 +780,7 @@ def test_unprintable_terminal_error_cannot_leave_running(
         def wait(self):
             return 0
 
-    def run_child(argv, attempt_root):
+    def run_child(argv, attempt_root, **_options):
         launches.append(attempt_root.parent.name)
         if attempt_root.parent.name != "unit_0":
             return fake_success(argv, attempt_root)
@@ -796,10 +800,10 @@ def test_unprintable_terminal_error_cannot_leave_running(
 
         with monkeypatch.context() as process_patch:
             process_patch.setattr(campaign.subprocess, "Popen", popen)
-            process_patch.setattr(campaign, "atomic_json", failed_lifecycle_write)
+            process_patch.setattr(campaign.backend, "atomic_json", failed_lifecycle_write)
             return original_run(argv, attempt_root)
 
-    monkeypatch.setattr(campaign, "run_guarded_child", run_child)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", run_child)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -823,7 +827,7 @@ def test_terminal_tuple_survives_lifecycle_verification_failure(
     observed_before_verify = []
     original_verify = campaign.verify_lifecycle_receipt
 
-    def invalid_lifecycle(argv, attempt_root):
+    def invalid_lifecycle(argv, attempt_root, **_options):
         launches.append(attempt_root.parent.name)
         result = fake_success(argv, attempt_root)
         if attempt_root.parent.name == "unit_0":
@@ -847,7 +851,7 @@ def test_terminal_tuple_survives_lifecycle_verification_failure(
                 raise TypeError("inert postprocess type error")
         return original_verify(receipt, attempt, argv)
 
-    monkeypatch.setattr(campaign, "run_guarded_child", invalid_lifecycle)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", invalid_lifecycle)
     monkeypatch.setattr(campaign, "verify_lifecycle_receipt", verify_after_persistence)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
@@ -862,7 +866,7 @@ def test_terminal_tuple_survives_lifecycle_verification_failure(
     assert state["units"]["unit_0"]["status"] == attempt["result"] == "failed"
     assert (attempt["guard_result"], attempt["child_result"], attempt["tee_result"]) == (0, 0, 0)
     assert expected_error in attempt["failure_classification"]
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
     assert len(campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
                ["units"]["unit_0"]["attempts"]) == 1
@@ -880,7 +884,7 @@ def test_terminal_tuple_survives_clock_failure(tmp_path, monkeypatch, capsys):
         return original_now()
 
     monkeypatch.setattr(campaign, "utc_now", fail_late_clock)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -906,14 +910,14 @@ def test_terminal_supervisor_error_survives_exception_clock_failure(
             raise OSError("inert timestamp failure")
         return original_now()
 
-    def terminal_error(argv, attempt_root):
+    def terminal_error(argv, attempt_root, **_options):
         launches.append(attempt_root.parent.name)
         if attempt_root.parent.name == "unit_0":
             raise campaign.ChildDefinitelyTerminal("inert terminal supervisor failure")
         return fake_success(argv, attempt_root)
 
     monkeypatch.setattr(campaign, "utc_now", fail_late_clock)
-    monkeypatch.setattr(campaign, "run_guarded_child", terminal_error)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", terminal_error)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -927,7 +931,7 @@ def test_terminal_supervisor_error_survives_exception_clock_failure(
 def test_resume_terminal_guard_with_bad_lifecycle_is_interrupted(tmp_path, monkeypatch, capsys):
     root, _, attempt_root = seed_running(tmp_path, monkeypatch)
     campaign.atomic_json(campaign.lifecycle_receipt_path(attempt_root), [])
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
@@ -946,7 +950,7 @@ def test_resume_terminal_guard_with_receipt_creation_failure_is_interrupted(
     def failed_receipt(*_):
         raise OSError("inert receipt creation failure")
 
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     monkeypatch.setattr(campaign, "create_receipt", failed_receipt)
     assert campaign.main(resume_args(root)) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -966,7 +970,7 @@ def test_resume_malformed_guard_evidence_waits_without_launch(
     root, _, attempt_root = seed_running(tmp_path, monkeypatch, profile=profile)
     campaign.lifecycle_receipt_path(attempt_root).unlink()
     (attempt_root / "_metadata" / "guard.jsonl").write_text(guard_record, encoding="utf-8")
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("overlap"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("overlap"))
     assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     state = campaign.read_json(campaign.state_path(root, profile, "run2"))
@@ -1004,7 +1008,7 @@ def test_resume_unbound_guard_evidence_waits_without_launch(
     else:
         attempt["command_identity"] = "0" * 64
     campaign.atomic_json(path, state)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("overlap"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("overlap"))
     assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     run2 = campaign.read_json(path)
@@ -1024,7 +1028,7 @@ def test_resume_malformed_attempt_field_after_terminal_guard_is_interrupted(
     state = campaign.read_json(path)
     state["units"]["unit_0"]["attempts"][0][field] = []
     campaign.atomic_json(path, state)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     state = campaign.read_json(path)
@@ -1047,7 +1051,7 @@ def test_resume_lifecycle_path_inspection_failure_after_terminal_guard_is_interr
         return original_exists(path)
 
     monkeypatch.setattr(Path, "exists", failed_exists)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
@@ -1066,7 +1070,7 @@ def test_resume_terminal_guard_survives_clock_failure(tmp_path, monkeypatch, cap
         raise OSError("inert timestamp failure")
 
     monkeypatch.setattr(campaign, "utc_now", failed_clock)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
@@ -1080,11 +1084,11 @@ def test_ambiguous_launch_stays_running_and_blocks_other_child(tmp_path, monkeyp
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
     calls = []
 
-    def ambiguous(argv, attempt_root):
+    def ambiguous(argv, attempt_root, **_options):
         calls.append(attempt_root.parent.name)
         raise OSError("possibly started")
 
-    monkeypatch.setattr(campaign, "run_guarded_child", ambiguous)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", ambiguous)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
@@ -1117,7 +1121,7 @@ def test_valid_status_attempt_history(status, tmp_path, monkeypatch):
                                         "success_without_receipt", "success_incomplete_materialization"])
 def test_corrupt_status_attempt_history_rejected_before_child(corruption, tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute", selected="unit_0")
     state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
@@ -1134,7 +1138,7 @@ def test_corrupt_status_attempt_history_rejected_before_child(corruption, tmp_pa
         else:
             unit_state["attempts"][0]["materialization_status"] = "pending"
     campaign.atomic_json(state_path, state)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child must not start"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child must not start"))
     assert campaign.main(resume_args(root)) == 2
     after = campaign.read_json(state_path)
     assert after == state
@@ -1147,7 +1151,7 @@ def test_git_and_source_drift_do_not_gate_resume(tmp_path, monkeypatch, capsys):
     source.write_text("initial", encoding="utf-8")
     historical = {"git_head": "a" * 40, "source_manifest": {str(source): "b" * 64}}
     monkeypatch.setattr(campaign, "runtime_identity", lambda: historical)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute", selected="unit_0")
     source.write_text("changed", encoding="utf-8")
@@ -1165,12 +1169,12 @@ def test_git_and_source_drift_do_not_gate_resume(tmp_path, monkeypatch, capsys):
 def test_missing_renderer_log_is_receipt_evidence(tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch)
 
-    def success_without_log(argv, attempt_root):
+    def success_without_log(argv, attempt_root, **_options):
         result = fake_success(argv, attempt_root)
         (attempt_root / "_metadata/renderer.log").unlink()
         return result
 
-    monkeypatch.setattr(campaign, "run_guarded_child", success_without_log)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", success_without_log)
     assert campaign.main(["--campaign-profile", "sr_crlike_run2", "--campaign-tag",
                           "fixture_campaign", "-o", str(root), "--plan", str(plan_path),
                           "--execute"]) == 0
@@ -1184,7 +1188,7 @@ def test_missing_renderer_log_is_receipt_evidence(tmp_path, monkeypatch):
 def test_inert_guard_and_visible_tee_lifecycle(tmp_path):
     attempt_root = tmp_path / "attempt_0001"
     attempt_root.mkdir()
-    assert campaign.run_guarded_child(["/bin/echo", "inert-renderer-fixture"], attempt_root) == (0, 0, 0)
+    assert campaign.backend.run_guarded_child(["/bin/echo", "inert-renderer-fixture"], attempt_root) == (0, 0, 0)
     assert "inert-renderer-fixture" in (attempt_root / "_metadata/renderer.log").read_text(encoding="utf-8")
     assert campaign.guard_terminal(attempt_root / "_metadata/guard.jsonl")["returncode"] == 0
 
@@ -1202,7 +1206,7 @@ def test_qualification_identity_mismatch_fails_before_root(tmp_path, monkeypatch
 
 def test_bound_destination_recovery_and_different_bytes(tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
@@ -1215,7 +1219,7 @@ def test_bound_destination_recovery_and_different_bytes(tmp_path, monkeypatch):
     unit_state["attempts"][0]["materialization_status"] = "pending"
     unit_state["attempts"][0]["result"] = "running"
     campaign.atomic_json(state_path, state)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign", action="resume")
     assert destination.read_bytes() == b"fixture-png"
     state = campaign.read_json(state_path)
@@ -1230,7 +1234,7 @@ def test_bound_destination_recovery_and_different_bytes(tmp_path, monkeypatch):
 
 def test_missing_lifecycle_recovery_is_no_launch_and_truthful(tmp_path, monkeypatch):
     root, _, attempt_root = seed_missing_lifecycle(tmp_path, monkeypatch)
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child launch"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child launch"))
     monkeypatch.setattr(campaign, "normalize_unit", lambda *_: pytest.fail("input read"))
     assert campaign.main(recovery_args(root)) == 0
     run2 = campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", "run2"))
@@ -1303,7 +1307,7 @@ def test_legacy_human_png_migrates_with_identity_proof(tmp_path, monkeypatch):
 def test_existing_normal_success_migrates_without_receipt_rewrite(tmp_path, monkeypatch):
     profile = "sr_crlike_run2_run3"
     root, plan_path = fixture_plan(tmp_path, monkeypatch, profile=profile, unit_count=2)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, profile, "fixture_campaign", plan_path=plan_path,
                           action="execute", selected="unit_0")
     canonical = root / "run2/merged/unit_0/unit_0_invmass_fitting.png"
@@ -1319,7 +1323,7 @@ def test_existing_normal_success_migrates_without_receipt_rewrite(tmp_path, monk
     receipt_path = campaign.completion_receipt_path(
         Path(unit_state["attempts"][0]["private_unit_root"]))
     receipt_before = receipt_path.read_bytes()
-    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child launch"))
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child launch"))
     campaign.migrate_successful_unit(plan, "run2", states["run2"], unit_state, root, runtime)
     assert canonical.read_bytes() == b"fixture-png" and not legacy.exists()
     assert receipt_path.read_bytes() == receipt_before
@@ -1330,7 +1334,7 @@ def test_existing_normal_success_migrates_without_receipt_rewrite(tmp_path, monk
 def test_pending_combined_revision_reconciles_after_interruption(tmp_path, monkeypatch):
     root, plan_path = fixture_plan(tmp_path, monkeypatch,
                                    profile="sr_crlike_run2_run3", unit_count=2)
-    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2_run3", "fixture_campaign",
                           plan_path=plan_path, action="execute", selected="unit_0")
     raw = json.loads(plan_path.read_text(encoding="utf-8"))
@@ -1364,3 +1368,61 @@ def test_pending_combined_revision_reconciles_after_interruption(tmp_path, monke
     assert all(state["plan_revision"] == 2 for state in states.values())
     assert states["run2"]["units"]["unit_0"]["status"] == "success"
     assert states["run3"]["units"]["unit_2"]["status"] == "success"
+
+
+@pytest.mark.parametrize('submission', ['123.0\n', '', '123.0 - 123.1\n'])
+def test_condor_waits_without_local_fallback_or_second_attempt(tmp_path, monkeypatch, capsys, submission):
+    from types import SimpleNamespace
+    from analysis.topeft_run2 import plot_campaign_condor as condor
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    calls = []
+    def fake(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(stdout=submission if command[0] == 'condor_submit' else '[]',
+                               stderr='', returncode=0)
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    monkeypatch.setattr(campaign.backend, 'run_guarded_child', lambda *a, **k: pytest.fail('local fallback'))
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', plan_path=plan_path,
+                          action='execute', backend_name='condor')
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', action='resume', backend_name='local')
+    state=campaign.read_json(campaign.state_path(root,'sr_crlike_run2','run2'))
+    assert state['units']['unit_0']['status']=='running'
+    assert len(state['units']['unit_0']['attempts'])==1
+    assert state['units']['unit_1']['attempts']==[]
+    assert sum(c[0]=='condor_submit' for c in calls)==1
+    assert json.loads(capsys.readouterr().out.splitlines()[-1])['campaign_status']=='waiting'
+
+
+@pytest.mark.parametrize('scheduler_state', ['terminal_success', 'terminal_failure', 'unresolved'])
+def test_condor_terminal_evidence_needs_controller_receipt_and_materialization(tmp_path, monkeypatch, scheduler_state):
+    root,plan,attempt_root=seed_running(tmp_path,monkeypatch)
+    path=campaign.state_path(root,'sr_crlike_run2','run2')
+    state=campaign.read_json(path); attempt=state['units']['unit_0']['attempts'][0]
+    attempt['execution_contract']['backend']='condor'; campaign.atomic_json(path,state)
+    monkeypatch.setattr(campaign.backend,'observe',lambda *a: {'state':scheduler_state})
+    monkeypatch.setattr(campaign.backend,'execute',lambda *a: pytest.fail('retry'))
+    campaign.run_campaign(root,'sr_crlike_run2','fixture_campaign',action='resume')
+    result=campaign.read_json(path)['units']['unit_0']
+    assert result['status']=={'terminal_success':'success','terminal_failure':'failed','unresolved':'running'}[scheduler_state]
+    assert len(result['attempts'])==1
+    if scheduler_state=='terminal_success':
+        assert (root/'run2/merged/unit_0/unit_0_invmass_fitting.png').read_bytes()==b'fixture-png'
+        assert result['attempts'][0]['materialization_status']=='complete'
+
+
+def test_historical_command_identity_is_verification_only(tmp_path, monkeypatch):
+    root,plan,attempt_root=seed_missing_lifecycle(tmp_path,monkeypatch)
+    path=campaign.state_path(root,'sr_crlike_run2_run3','run2')
+    state=campaign.read_json(path); attempt=state['units']['unit_0']['attempts'][0]
+    del attempt['execution_contract']
+    historical=campaign.child_argv(plan['units'][0],attempt_root,historical=True)
+    attempt['command_identity']=campaign.identity(historical)
+    campaign.atomic_json(path,state)
+    assert campaign.attempt_argv(plan['units'][0],attempt)==historical
+    assert historical[0].endswith('run_plotter.sh')
+    monkeypatch.setattr(campaign.backend,'execute',lambda *a: pytest.fail('historical command executed'))
+    assert campaign.main(recovery_args(root))==0
+    result=campaign.read_json(path)['units']['unit_0']
+    assert result['status']=='success'
+    assert result['attempts'][0]['command_identity']==campaign.identity(historical)
+    assert 'execution_contract' not in result['attempts'][0]

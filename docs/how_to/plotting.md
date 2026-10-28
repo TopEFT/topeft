@@ -7,10 +7,10 @@ artifact.
 
 | Interface | Owns | Delegates or derives | Default source | Downstream outputs |
 | --- | --- | --- | --- | --- |
-| `run_plotter.sh` | shell-level required-path/year checks, alias expansion, filename-based region fallback, wrapper option translation, dry run | delegates rendering to `make_cr_and_sr_plots.py`; derives normalized years and CR/SR flag | shell locals: quiet output, one worker; direct CLI supplies unset defaults | same figures/reports as direct CLI |
+| `run_plotter.sh` | Python bootstrap and forwarding to plot_campaign_manifest.py | controller owns CLI normalization and backend dispatch | controller: one worker; renderer supplies unset defaults | same figures/reports as direct CLI |
 | `make_cr_and_sr_plots.py` | artifact merge/coverage checks, region context, process grouping, blinding, systematics, binning view, rendering and reports | reads plotting metadata and canonical axis definitions | argparse: output `.`, name `plots`, merged channels, processing binning, one worker, year coverage `warn`, negative report enabled | plot directories, HTML indexes, optional zero-yield report, negative-contribution CSV/Markdown |
 
-The wrapper forwards unrecognized tokens, but forwarding does not make shell
+The controller forwards unrecognized ordinary plotting tokens, but forwarding does not make shell
 code the semantic owner of the option. Exact direct options stay in the Python
 parser and [plotting reference](../reference/plotting.md).
 
@@ -24,7 +24,7 @@ Run from `analysis/topeft_run2`:
   --variables lj0pt ptz ptll lt --channel-output merged --dry-run
 ```
 
-The wrapper validates paths and year tokens, expands `run2`/`run3`, resolves CR
+The controller validates paths and year tokens, expands `run2`/`run3`, resolves CR
 or SR from an explicit flag or filename, and forwards plotting options. It does
 not own channel maps, process grouping, styles, or binning definitions. Keep
 `--dry-run` until the resolved command and output destination are correct.
@@ -32,56 +32,16 @@ The wrapper's dry run checks input path readability and prints the resolved
 command without creating the output directory or reading the PKL contents.
 
 An explicit `--cr` or `--sr` is preferable for production plots. Filename
-detection is a convenience: if both `CR` and `SR` appear, the wrapper warns and
+detection is a convenience: if both `CR` and `SR` appear, the controller warns and
 uses its control-region fallback unless explicitly overridden. `--blind` and
 `--unblind` override the direct plotter's region-dependent data choice.
 `--channel-output` accepts `merged`, `split`, `both`, and their `-njets`
 variants; the latter retain per-jet bins defined by plotting metadata.
 
-When extending the wrapper, prefer transparent forwarding. A wrapper-owned
-option should exist only when the shell layer must derive or validate a value
-before calling Python. Preserve the contracts in
-`tests/test_make_cr_and_sr_plots.py` and focused wrapper/Condor tests.
-
-For a wrapper-owned option, update help, value validation, conflict handling,
-normalized command construction, and dry-run output. For a forwarded option,
-leave semantic validation in Python and test that token grouping survives the
-shell boundary. Do not copy a Python default into the wrapper unless the
-wrapper deliberately changes it. Check sourceability/return handling and the
-Condor forwarding path when the new option is relevant there.
-
-### Run a sequential SR baseline campaign
-
-The same wrapper accepts a tab-separated campaign catalogue with the exact
-columns `unit`, `kind`, `run`, `view`, `owner`, `years`, `variables`,
-`expected_figures`, `pkl`, `historical_pkl_sha256`, `sidecar`, and
-`historical_sidecar_sha256`. Use an absolute manifest path and a new root below
-`topeft/histos/`:
-
-```bash
-./run_plotter.sh --campaign-manifest /absolute/path/to/catalogue.tsv \
-  --campaign-phase all -o /absolute/path/to/topeft/histos/new_sr_baseline \
-  --dry-run
-```
-
-Use `--execute` only in an environment where you are authorized to run the
-campaign, after verifying the plan, inputs, output root, and resources. The
-root must be absent, including dangling
-symlinks. `all` orders njets rows before other variables; `njets` and `other`
-select independent phases and each needs its own fresh root. Each selected row
-starts one guarded, single-PKL child with one worker. The wrapper verifies the
-selected input and sidecar digests once before execution, uses the existing
-node-memory guard, shows child output, and records per-unit logs, guard events,
-and status under the new root. A failed child, log write or
-missing guard result stops later rows; inspect the partial output before any
-separate retry. The dry run neither creates that root nor hashes PKLs. The
-catalogue's figure counts are plans, not proof that any figure was rendered.
-Maintained nominal SR campaign children explicitly use fitting binning and
-omit extra diagnostic numeric canvas annotations. Add
-`--debug-canvas-annotations` to the campaign command only when those signed
-diagnostic values are needed; ordinary axis ticks, luminosity, collision
-energy and physics labels remain visible. Rendered figures still require
-visual and scientific review before they are used as a baseline.
+Extend ordinary CLI normalization in the controller and science options at the
+renderer. Keep the shell wrapper as bootstrap/forwarding only. Validate controller
+CLI behavior and backend descriptors in their focused tests; do not add a second
+campaign parser or state owner.
 
 ## Plot directly
 
@@ -107,99 +67,6 @@ structural gaps but continues, and `off` suppresses that check. More than one
 worker parallelizes variables and then categories when slots remain. The parent
 loads the PKL before creating render workers; worker memory use still grows
 with the retained plot state and multiprocessing start method.
-
-### Prepare one principal-PKL unit per SR campaign input
-
-For an already submitted maintained campaign, observe its exact jobs through
-the plotting frontend. Give the diagnostics directory containing
-`campaign_submission_map.json`; the monitor reads that map and the prepare
-descriptors, so job IDs and output paths need not be entered separately:
-
-From `analysis/topeft_run2`, run one snapshot or let GNU `watch` refresh the
-terminal display:
-
-```bash
-python plot_campaign_condor.py monitor --diagnostics-dir /absolute/path/to/campaign_diagnostics
-watch -n 5 -t 'python plot_campaign_condor.py monitor --diagnostics-dir /absolute/path/to/campaign_diagnostics'
-```
-
-Add `--json` to the direct command for one machine-readable snapshot. The
-Python monitor exits after one observation; Ctrl-C ends external `watch`.
-The compact human display shows scheduler states, attention units, and output
-counts. `MEM_MB` is raw Condor `MemoryUsage` in MB and `RSS_KIB` is raw
-`ResidentSetSize` in KiB. A `~` suffix marks truncated display text; JSON
-retains the complete raw ClassAd value. The output counts do not establish
-that each planned figure is accounted for in its unit's receipt-v2 record of
-valid PNGs and explicit skips, or that every planned slot is closed. Review
-the figures for visual and scientific quality separately.
-For each exact job the monitor queries the queue, then exact history if absent;
-absence from both is `UNKNOWN`, not a success or failure inference. Held,
-removed, failed-exit and unknown units appear explicitly. PNG and receipt
-counts are informational: they do not match records to planned slots or establish
-visual or scientific quality. `ALL_TERMINAL_READY_FOR_COLLECTION`
-means a separate collection can begin, not that the campaign succeeded. The
-monitor never retries, resubmits, collects, or cleans campaign output.
-
-`plot_campaign_condor.py` derives execution units from the same validated campaign TSV
-used by the sequential wrapper. It groups all logical views of a principal PKL,
-selects their histogram-family union in one parent-side streaming load, and
-renders each view from that retained mapping. The maintained loader checks the
-PKL digest separately before streaming. The generated Condor material uses
-shared paths and does not stage PKLs or submit jobs.
-`campaign_inputs.json` records the exact ten manifest-derived principal-PKL
-paths and their logical rows. Every descriptor carries that same input set.
-Fresh descriptors use schema `plot_campaign_unit_v2` and bind
-`binning: fitting` and a typed `debug_canvas_annotations: false` by default.
-`prepare --debug-canvas-annotations` binds `true` explicitly. The worker
-validates and obeys both fields before accessing campaign inputs; old
-descriptors and missing or invalid rendering modes are rejected. The monitor
-uses the same descriptor contract. Preparing descriptors does not render figures;
-inspect rendered output and review its visual and scientific quality separately.
-
-From an activated TOPEFT environment and checkout, run `prepare` with a fresh
-dispatch directory and an ordinary TOPEFT `histos` campaign root. These paths
-illustrate a checkout under `/home/alice/work/topeft`:
-
-```bash
-python analysis/topeft_run2/plot_campaign_condor.py prepare \
-  --manifest /home/alice/work/topeft/campaigns/coverage_input_manifest.tsv \
-  --dispatch-dir /home/alice/work/topeft/campaigns/new_dispatch \
-  --output-root /home/alice/work/topeft/histos/new_campaign \
-  --request-cpus 2 --request-memory 8GB --request-disk 4GB \
-  --max-runtime 3600 --workers 2
-```
-
-The resource quantities above illustrate syntax only. Select them from a real
-pilot measurement before submission. Inspect `units/*.json`, `items.txt`,
-`worker.sh`, and `plots.sub`; `prepare --unit-id <manifest-derived-unit-id>`
-creates a separate one-unit queue while retaining the full campaign input-set
-record. The submit file requests one vanilla cluster with
-itemdata and `should_transfer_files = NO`. `prepare` never opens a production
-PKL or creates the campaign plot root. If you are authorized to submit jobs at
-your site, inspect the output root, resource requests, and site queue
-requirements before submitting the generated `plots.sub`.
-
-Each `run-unit` checks its descriptor against the current TSV and campaign
-input set, requires its declared principal PKL to be readable, and refuses
-occupied figure and receipt paths. It does not substitute another PKL path or
-gate on checkout HEAD or prepare-time source hashes. Mixed units reduce each
-njets view to the established physical-channel selection without changing
-the parent mapping or opening the PKL again. Output uses the canonical
-period/view/category layout under the caller's campaign root. The
-plotter supplies exact planned paths and structured intentional undrawable
-outcomes. The unit writes a small receipt under `_metadata/receipts/` last only when every planned slot is
-one valid PNG or one explicit maintained skip, with no duplicates or unexpected
-paths. Zero-byte, unreadable, unclassified missing, or extra PNGs fail. Receipt
-success establishes structural completion, not visual or scientific acceptance. A failed
-unit leaves its partial outputs in place for inspection; it has no automatic
-retry, resume, or cleanup.
-
-The negative-contribution report is diagnostic, not a correction. It records
-signed process/group yields, sumw2-derived errors/effective entries when a
-companion exists, and total-MC context. `--no-negative-weight-report` disables
-only that report. `--rebin-plot-vars` is a presentation/report-time integer
-rebin after the selected processing or fitting view; it is not a new canonical
-axis definition.
 
 ## Change plotting configuration at its owner
 
@@ -278,43 +145,45 @@ plot metadata. See [change binning](flexible_binning.md). Exact plotting
 interfaces and metadata keys are in the
 [plotting reference](../reference/plotting.md).
 
-## Submit one standalone plot wrapper job to Glados HTCondor
+## Execution backends and resource observation
 
-`analysis/topeft_run2/submit_plotter_condor.sh` constructs a Condor description
-whose entry script calls `run_plotter.sh` from a shared checkout. It requires a
-worker-visible repository, environment, input PKLs, output directory, and log
-directory. It does not transfer the repository (`should_transfer_files = NO`)
-or produce histograms.
+Use the persistent campaign interface below with `--backend local` or
+`--backend condor`. Both execute exactly one controller-selected unit at a time.
+The public wrapper is never a batch payload. The Condor adapter sends a single
+immutable renderer command to `plot_campaign_backend.py --worker`; it has no
+standalone campaign CLI, plan parser, scientific view selection or output roster.
+The former TSV campaign interface and standalone Condor launchers are retired.
+Use the qualified persistent JSON plan, not a converted expected-output roster.
 
-Inspect the derived wrapper and submit description first:
+Local and Condor workers use the same guard and lifecycle evidence. The controller
+alone interprets receipts and materializes observed figures. Condor submission
+returns a waiting campaign; a later explicit resume observes that same execution.
+A nonzero, timed-out or ambiguous submit response does not prove that no job was
+created. It never causes resubmission or a local fallback. Missing scheduler
+identity requires separate reconciliation evidence. A worker start marker prevents
+rerender after scheduler eviction/restart; held jobs remain unresolved.
+
+Condor requires a shared checkout, interpreter and attempt directory. Each job
+requests one CPU, disk 10240 MB, runtime 86400 seconds and memory rounded up from
+`--hard-limit-bytes` to MiB. Those requests and fake-scheduler tests do not establish
+site/runtime qualification. No production execution is implied by these examples.
+
+The default `--resource-observer cgroup_v2` reads the current allocation's
+`memory.current` and requires a finite positive `memory.max`. This is allocation
+memory charge, not process RSS. Before a later authorized local run, use:
 
 ```bash
-./submit_plotter_condor.sh --dry-run \
-  --ceph-root /cephfs/GROUP/USER/topeft \
-  --conda-prefix /cephfs/GROUP/USER/mambaforge/envs/clib-env \
-  --request-cpus 2 --request-memory 6GB \
-  --log-dir /cephfs/GROUP/USER/topeft/logs \
-  -f /cephfs/GROUP/USER/topeft/pickles/plotsCR_Run3.pkl.gz \
-  -o /cephfs/GROUP/USER/topeft/plots/run3_combo \
-  -y run3 --variable lj0pt --variable ptz --variable ptll
+python -m topeft.modules.node_memory_guard --probe --observer cgroup_v2
 ```
 
-Remove `--dry-run` only when the checkout, environment, data, log, and output
-paths are visible from the execute node. The helper validates positive CPU and
-nonempty memory requests, records its commands, and forwards plotting options
-through `run_plotter.sh`. Site credentials, tokens, queue policy, and storage
-permissions remain operator responsibilities.
-
-Logs are written as `plotter.<cluster>.<proc>.{log,out,err}` below `--log-dir`.
-Use them to distinguish Condor/environment failures from plotter/PKL failures.
-The figures appear directly below the forwarded `--output-dir`; there is no
-separate retrieval step when shared storage is used.
-
-`submit_plotter_condor.sh` owns Condor resource/path validation and submit-file
-construction; `condor_plotter_entry.sh` owns worker-side directory/environment
-activation; `run_plotter.sh` and the direct plotter retain plotting semantics.
-An extension must preserve those boundaries and the invariants in
-`analysis/topeft_run2/test/test_submit_plotter_condor.py`.
+Choose an explicit positive `--hard-limit-bytes` no larger than the observed
+allocation limit, with suitable headroom. The default hard limit is
+245000000000 bytes and sampling is every 0.5 seconds. Missing or unlimited
+cgroup accounting fails closed; there is no silent fallback. An explicitly
+approved `--resource-observer node_pressure` instead observes whole-node
+`MemTotal - MemAvailable`. It requires a separately appropriate node-pressure
+threshold and must never be presented as job RSS. Open OnDemand is an environment
+for the **local** backend, not a third backend.
 
 ## Common failures
 
@@ -325,7 +194,7 @@ An extension must preserve those boundaries and the invariants in
 | combined channels resolve incompatible fitting axes | correct exact channel binning definitions or plot separately |
 | missing/ambiguous sumw2 dense axis | correct the companion artifact/schema; do not use a nominal histogram as variance |
 | memory growth with `--workers` | reduce workers; parallel processes each load input state |
-| Condor job starts but cannot import/read | fix worker-visible checkout, environment, payload, or storage permissions before resubmission |
+| Condor job starts but cannot import/read | inspect worker-visible checkout/environment/storage and execution evidence; do not blindly resubmit |
 
 To add a physics observable or category, use
 [categories and observables](categories_and_observables.md) before updating the
@@ -454,5 +323,9 @@ greater and whose existing units are byte-equivalent in their source fields:
 The guarded revision preserves existing unit states, attempts, receipts, and
 materialization history. A mismatch or attempted rewrite stops. Revisions do
 not run a child; `--resume` executes newly planned units. Direct single-PKL
-use and the older `--campaign-manifest` TSV interface remain available and are
-mutually exclusive with profile mode.
+use remains available through controller dispatch. The former TSV interface is
+retired; persistent JSON plans are the only campaign plan language.
+
+The low-level guard CLI retains its explicitly named `node_pressure` compatibility
+default. Campaign backends always pass the selected observer explicitly; the public
+campaign default is `cgroup_v2`. No fallback follows a failed cgroup probe.

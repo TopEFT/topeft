@@ -6,7 +6,6 @@ It does not read histograms or create directories.
 
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 
 
@@ -37,22 +36,10 @@ def normalize_plot_period(run: str, view: str) -> str:
         raise ValueError(f"Unsupported SR plot period: {run}/{view}") from error
 
 
-def canonical_row_directory(root: Path, run: str, view: str) -> Path:
-    return canonical_period_directory(root, normalize_plot_period(run, view))
-
-
 def canonical_period_directory(root: Path, period: str) -> Path:
     if period not in _periods.values():
         raise ValueError(f"Unsupported canonical plot period: {period!r}")
     return Path(root) / period / "merged"
-
-
-def canonical_plot_destinations(
-    root: Path, run: str, view: str, category: str, filename: str, variable: str,
-) -> tuple[Path, ...]:
-    return canonical_plot_destinations_for_period(
-        root, normalize_plot_period(run, view), category, filename, variable,
-    )
 
 
 def canonical_plot_destinations_for_period(
@@ -68,30 +55,21 @@ def canonical_plot_destinations_for_period(
     return (merged,)
 
 
-def canonical_receipt_path(root: Path, unit_id: str) -> Path:
-    return Path(root) / "_metadata" / "receipts" / (_component(unit_id) + ".receipt.json")
-
-
-def canonical_diagnostics_path(root: Path, *components: str) -> Path:
-    if not components:
-        raise ValueError("A diagnostics filename is required")
-    return canonical_diagnostics_directory(root) / Path(*(_component(part) for part in components))
-
-
 def canonical_diagnostics_directory(root: Path) -> Path:
     return Path(root) / "_metadata" / "diagnostics"
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("root", type=Path)
-    parser.add_argument("run", choices=("run2", "run3"))
-    parser.add_argument("view")
-    args = parser.parse_args()
-    period = normalize_plot_period(args.run, args.view)
-    print(f"{period}\t{canonical_row_directory(args.root, args.run, args.view)}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+def canonical_observed_path(root: Path, relative: str) -> Path:
+    """Resolve an observed PNG through the same authority used by the renderer."""
+    parts = Path(relative).parts
+    if Path(relative).is_absolute() or len(parts) != 4:
+        raise ValueError(f"Invalid canonical observed path: {relative!r}")
+    period, view, category, filename = parts
+    destinations = canonical_plot_destinations_for_period(
+        root, period, category, filename,
+        "njets" if filename.endswith("_njets_fitting.png") else "other",
+    )
+    target = Path(root) / relative
+    if view not in {"merged", "merged_njets"} or target not in destinations:
+        raise ValueError(f"Noncanonical observed path: {relative!r}")
+    return target

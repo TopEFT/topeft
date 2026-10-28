@@ -285,3 +285,16 @@ differences on new attempts. Interrupted states are reconciled under the
 exclusive campaign lock when ownership and artifact evidence suffice. Worker provisioning remains an
 external Work Queue concern; this wrapper does not forward a worker-count
 option.
+
+## Plotting control and execution ownership
+
+`run_plotter.sh` is the sole public plotting control wrapper. It forwards to
+`plot_campaign_manifest.py`, the ordinary CLI and persistent campaign owner.
+That controller dispatches one renderer argv through `plot_campaign_backend.py`
+using `--backend local|condor`; `plot_campaign_condor.py` owns only scheduler
+mechanics. Condor workers do not invoke the public wrapper or controller.
+`node_memory_guard.py` observes explicit cgroup-v2 allocation memory or whole-node
+pressure, and `plot_output_layout.py` defines all canonical human paths.
+The former standalone Condor launchers and TSV campaign interface are retired.
+See [plotting](plotting.md) for resource policies, historical state compatibility
+and the no-retry contract.

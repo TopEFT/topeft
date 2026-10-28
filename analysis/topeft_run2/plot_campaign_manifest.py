@@ -1,4 +1,4 @@
-"""Persistent local SR CR-like plotting campaigns.
+"""Public plotting control and persistent SR CR-like campaigns.
 
 Plans bind qualified producer sidecars, never a predicted figure inventory. A
 successful child is observed in its private root; a receipt then owns the exact
@@ -10,9 +10,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from contextlib import contextmanager
-from datetime import datetime, timezone
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -20,6 +18,15 @@ import re
 import shutil
 import subprocess
 import sys
+import shlex
+
+from analysis.topeft_run2 import plot_campaign_backend as backend
+from analysis.topeft_run2.plot_campaign_backend import (
+    CampaignError, ActiveChildUnresolved, ChildDefinitelyNotStarted,
+    ChildDefinitelyTerminal, require, utc_now, error_description, sha256_file,
+    identity, atomic_json, lifecycle_receipt_path, guard_terminal,
+)
+from topeft.modules.plot_output_layout import normalize_plot_period, canonical_observed_path
 
 
 RUN_DIRECTORY = Path(__file__).resolve().parent
@@ -42,33 +49,8 @@ UNIT_FIELDS = {
 }
 
 
-class CampaignError(ValueError):
-    """A bounded plan, state, receipt, or output contract failed."""
-
-
-class ActiveChildUnresolved(CampaignError):
-    """Terminal evidence is absent, so another heavy child cannot start."""
-
-
-class ChildDefinitelyNotStarted(CampaignError):
-    """Prelaunch setup or the first process creation failed without a child."""
-
-
-class ChildDefinitelyTerminal(CampaignError):
-    """The guard was reaped and its evidence proves the managed child terminal."""
-
-
 class OutputCollision(CampaignError):
     """Canonical output cannot be written without risking another owner's bytes."""
-
-
-def require(condition, message):
-    if not condition:
-        raise CampaignError(message)
-
-
-def utc_now():
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def best_effort_utc_now():
@@ -76,44 +58,6 @@ def best_effort_utc_now():
         return utc_now()
     except Exception:
         return None
-
-
-def error_description(error):
-    try:
-        return str(error)
-    except BaseException:
-        return type(error).__name__
-
-
-def sha256_file(path):
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def identity(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-
-
-def atomic_json(path, value):
-    path = Path(path)
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    try:
-        with temporary.open("x", encoding="utf-8") as stream:
-            json.dump(value, stream, indent=2, sort_keys=True)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        directory_fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
-    finally:
-        temporary.unlink(missing_ok=True)
 
 
 def read_json(path):
@@ -132,13 +76,10 @@ def safe_name(value, label):
 
 
 def safe_relative(value):
-    path = Path(value)
-    require(not path.is_absolute() and len(path.parts) >= 3
-            and all(part not in {".", ".."} and SAFE_NAME.fullmatch(part)
-                    for part in path.parts), f"unsafe output path: {value!r}")
-    require(path.suffix == ".png" and path.parts[1] in {"merged", "merged_njets"},
-            f"noncanonical PNG path: {value!r}")
-    return path
+    try:
+        return canonical_observed_path(Path(), value)
+    except ValueError as error:
+        raise CampaignError(f"noncanonical PNG path: {value!r}") from error
 
 
 def component_root(root, profile, component):
@@ -267,22 +208,37 @@ def year_args(unit):
 
 
 def period(unit):
-    return unit["component"] if unit["period_view"] == "combined" else (
-        "2016APV" if unit["period_view"] == "UL16APV" else
-        {"UL16": "2016", "UL17": "2017", "UL18": "2018"}.get(unit["period_view"], unit["period_view"]))
+    return normalize_plot_period(unit["component"], unit["period_view"])
 
 
-def child_argv(unit, attempt_root):
+def child_argv(unit, attempt_root, *, historical=False):
     chosen_period = period(unit)
+    prefix = ([str(RUN_DIRECTORY / "run_plotter.sh")] if historical else
+              [sys.executable, str(RUN_DIRECTORY / "make_cr_and_sr_plots.py")])
+    years = year_args(unit) if historical else normalize_year_tokens(year_args(unit))
     return [
-        str(RUN_DIRECTORY / "run_plotter.sh"), "-f", unit["input_path"],
+        *prefix, "-f", unit["input_path"],
         "-o", str(attempt_root / chosen_period), "-n", "merged",
-        "-y", *year_args(unit), "--sr", "--unblind", "--variables", *unit["variables"],
+        "-y", *years, "--sr", "--unblind", "--variables", *unit["variables"],
         "--channel-output", "merged", "--binning", "fitting", "--workers", "1",
         "--output-formats", "png", "--year-coverage-policy", "warn",
         "--suppress-merge-report", "--canonical-campaign-root", str(attempt_root),
         "--canonical-period", chosen_period, "--negative-report-suffix", unit["unit_id"],
     ]
+
+
+def attempt_argv(unit, attempt):
+    """Decode historical identity without ever launching the retired wrapper path."""
+    contract = attempt.get("execution_contract")
+    if contract is None:
+        return child_argv(unit, Path(attempt["private_unit_root"]), historical=True)
+    require(contract.get("version") == 1 and contract.get("backend") in {"local", "condor"},
+            "unsupported execution contract")
+    argv = child_argv(unit, Path(attempt["private_unit_root"]))
+    # Executable location is an observed execution identity, not today's interpreter.
+    argv[0] = contract["argv"][0]
+    require(contract["argv"] == argv, "execution argv contradicts unit binding")
+    return argv
 
 
 def new_component_state(plan, component, runtime):
@@ -353,10 +309,6 @@ def inventory_pngs(attempt_root, variables, expected_period):
 
 def completion_receipt_path(attempt_root):
     return attempt_root / "_metadata" / "completion_receipt_v1.json"
-
-
-def lifecycle_receipt_path(attempt_root):
-    return attempt_root / "_metadata" / "lifecycle_receipt_v1.json"
 
 
 def recovery_provenance_path(attempt_root):
@@ -533,7 +485,7 @@ def materialize(plan, component, state, unit_state, attempt, receipt, root, runt
     for relative in receipt["observed_png_relative_paths"]:
         safe_relative(relative)
         source = Path(attempt["private_unit_root"]) / relative
-        destination = root / relative
+        destination = canonical_observed_path(root, relative)
         reject_symlink_ancestors(destination.parent, root)
         digest = receipt["observed_png_sha256"][relative]
         binding = {"unit_id": unit["unit_id"], "receipt_identity": receipt_id,
@@ -572,94 +524,7 @@ def materialize(plan, component, state, unit_state, attempt, receipt, root, runt
     atomic_json(state_path(root, plan["campaign_profile"], component), state)
 
 
-def guard_terminal(path):
-    require(path.is_file() and not path.is_symlink(), "guard terminal evidence missing")
-    try:
-        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
-    except (UnicodeError, json.JSONDecodeError) as error:
-        raise CampaignError("guard evidence malformed") from error
-    require(all(isinstance(row, dict) for row in rows), "guard evidence malformed")
-    results = [row for row in rows if row.get("event") == "result"]
-    require(len(results) == 1 and rows[-1] is results[0], "guard terminal evidence ambiguous")
-    result = results[0]
-    require({"termination_kind", "returncode", "signal", "peak_pressure_used_bytes",
-             "minimum_mem_available_kb", "pid", "pgid", "start_ticks"} <= set(result)
-            and isinstance(result["termination_kind"], str)
-            and result["termination_kind"] in {"normal", "threshold_killed", "metric_failed"}
-            and type(result["returncode"]) is int
-            and all(type(result[key]) is int and result[key] > 0
-                    for key in ("pid", "pgid", "start_ticks"))
-            and (result["signal"] is None or type(result["signal"]) is int)
-            and all(result[key] is None or type(result[key]) is int
-                    for key in ("peak_pressure_used_bytes", "minimum_mem_available_kb")),
-            "guard terminal result malformed")
-    return result
-
-
-def run_guarded_child(argv, attempt_root):
-    try:
-        metadata = attempt_root / "_metadata"
-        metadata.mkdir(mode=0o700, exist_ok=True)
-        guard_path = metadata / "guard.jsonl"
-        log_path = metadata / "renderer.log"
-        guard = [sys.executable, "-m", "topeft.modules.node_memory_guard",
-                 "--hard-limit-bytes", "245000000000", "--sampling-interval-seconds", "0.5",
-                 "--evidence-path", str(guard_path), "--", *argv]
-        environment = os.environ.copy()
-        environment["PYTHONPATH"] = str(REPO_ROOT) + (":" + environment["PYTHONPATH"] if environment.get("PYTHONPATH") else "")
-        environment["PYTHON_BIN"] = sys.executable
-        with log_path.open("xb"):
-            pass
-        guard_process = subprocess.Popen(guard, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                         env=environment)
-    except (OSError, subprocess.SubprocessError) as error:
-        raise ChildDefinitelyNotStarted(
-            f"guard process was not created: {error_description(error)}") from error
-    try:
-        tee_process = subprocess.Popen(["tee", "-a", str(log_path)],
-                                       stdin=guard_process.stdout, env=environment)
-    except Exception as error:
-        try:
-            guard_terminal(guard_path)
-        except Exception:
-            raise ActiveChildUnresolved(
-                f"tee setup failed with unresolved child: {error_description(error)}") from error
-        raise ChildDefinitelyTerminal(
-            f"tee setup failed after guard terminal: {error_description(error)}") from error
-    try:
-        guard_process.stdout.close()
-        tee_result = tee_process.wait()
-        guard_result = guard_process.wait()
-        terminal = guard_terminal(guard_path)
-    except Exception as error:
-        try:
-            guard_terminal(guard_path)
-        except Exception:
-            raise ActiveChildUnresolved(
-                f"guard terminal lifecycle is unresolved: {error_description(error)}") from error
-        raise ChildDefinitelyTerminal(
-            f"guard terminal but supervisor failed: {error_description(error)}") from error
-    try:
-        child_result = terminal.get("returncode")
-        if terminal.get("termination_kind") != "normal":
-            child_result = None
-        lifecycle_path = lifecycle_receipt_path(attempt_root)
-        require(not lifecycle_path.exists() and not lifecycle_path.is_symlink(),
-                "lifecycle receipt already exists")
-        atomic_json(lifecycle_path, {
-            "schema_version": 1, "attempt_id": attempt_root.name,
-            "command_identity": identity(argv), "private_unit_root": str(attempt_root),
-            "terminal_guard_evidence": terminal, "guard_evidence_sha256": sha256_file(guard_path),
-            "guard_result": guard_result, "child_result": child_result,
-            "tee_result": tee_result, "ended_at_utc": utc_now(),
-        })
-    except Exception as error:
-        raise ChildDefinitelyTerminal(
-            f"terminal lifecycle postprocessing failed: {error_description(error)}") from error
-    return guard_result, child_result, tee_result
-
-
-def execute_unit(plan, component, state, unit_state, root, runtime):
+def execute_unit(plan, component, state, unit_state, root, runtime, execution_options):
     unit = unit_state["binding"]
     require(unit_state["status"] == "planned", "only planned units may start")
     current_binding = normalize_unit({key: unit[key] for key in UNIT_FIELDS},
@@ -673,6 +538,7 @@ def execute_unit(plan, component, state, unit_state, root, runtime):
         "attempt_id": attempt_id, "plan_revision": state["plan_revision"],
         "started_at_utc": utc_now(), "ended_at_utc": None,
         "command_identity": identity(argv), "private_unit_root": str(attempt_root),
+        "execution_contract": {"version": 1, "argv": argv, **execution_options},
         "completion_receipt_identity": None, "materialization_status": "pending",
         "guard_result": None, "child_result": None, "tee_result": None,
         "result": "running", "failure_classification": None,
@@ -686,7 +552,7 @@ def execute_unit(plan, component, state, unit_state, root, runtime):
                                  component_root(root, plan["campaign_profile"], component))
         attempt_root.mkdir(mode=0o700, parents=True)
         launch_possible = True
-        guard_result, child_result, tee_result = run_guarded_child(argv, attempt_root)
+        guard_result, child_result, tee_result = backend.execute(argv, attempt_root, attempt["execution_contract"])
         attempt.update(guard_result=guard_result, child_result=child_result,
                        tee_result=tee_result, result="interrupted",
                        failure_classification=terminal_postprocessing_pending)
@@ -740,7 +606,7 @@ def reconcile_running(plan, component, state, unit_state, root, runtime):
         guard_path = attempt_root / "_metadata" / "guard.jsonl"
         reject_symlink_ancestors(guard_path,
                                  component_root(root, plan["campaign_profile"], component))
-        argv = child_argv(unit_state["binding"], attempt_root)
+        argv = attempt_argv(unit_state["binding"], attempt)
         require(attempt.get("command_identity") is None
                 or attempt.get("command_identity") == identity(argv),
                 "running attempt command identity contradiction")
@@ -748,6 +614,16 @@ def reconcile_running(plan, component, state, unit_state, root, runtime):
         raise ActiveChildUnresolved(
             f"running child binding unresolved: {error_description(error)}") from error
     try:
+        if attempt.get("execution_contract", {}).get("backend") == "condor":
+            observation = backend.observe(argv, attempt_root, attempt["execution_contract"])
+            if observation["state"] == "terminal_failure":
+                guard_terminal(guard_path)
+                attempt.update(result="failed", failure_classification="scheduler terminal failure",
+                               ended_at_utc=best_effort_utc_now())
+                unit_state["status"] = "failed"
+                atomic_json(state_path(root, plan["campaign_profile"], component), state)
+                return
+            require(observation["state"] == "terminal_success", "scheduler execution unresolved")
         guard_terminal(guard_path)
     except Exception as error:
         raise ActiveChildUnresolved(
@@ -821,12 +697,14 @@ def require_terminal_process_gone(terminal):
 
 
 def observed_recovery_provenance(plan, unit, attempt):
+    require(attempt.get("execution_contract", {}).get("backend", "local") == "local",
+            "missing-lifecycle recovery requires local process identity; remote recovery is not inferred")
     attempt_root = Path(attempt["private_unit_root"])
     guard_path = attempt_root / "_metadata" / "guard.jsonl"
     log_path = attempt_root / "_metadata" / "renderer.log"
     require(attempt["attempt_id"] == "attempt_0001"
             and attempt["plan_revision"] <= plan["plan_revision"]
-            and attempt["command_identity"] == identity(child_argv(unit, attempt_root))
+            and attempt["command_identity"] == identity(attempt_argv(unit, attempt))
             and attempt["private_unit_root"] == unit["private_unit_root"],
             "recovery attempt binding contradiction")
     require(not lifecycle_receipt_path(attempt_root).exists()
@@ -1130,7 +1008,8 @@ def activate_revision(root, profile, tag, plan_path, expected, runtime):
     print(f"Activated plan revision {new_plan['plan_revision']}")
 
 
-def run_campaign(root, profile, tag, *, plan_path=None, action, selected=None):
+def run_campaign(root, profile, tag, *, plan_path=None, action, selected=None,
+                 backend_name="local", observer="cgroup_v2", hard_limit_bytes=245000000000):
     if action == "execute":
         check_root(root, fresh=True)
         prepared_plan = normalize_plan(plan_path, profile, tag, root)
@@ -1142,10 +1021,12 @@ def run_campaign(root, profile, tag, *, plan_path=None, action, selected=None):
         check_root(root, fresh=False)
         prepared_plan = None
     with campaign_lock(root):
-        return _run_campaign_locked(root, profile, tag, action, selected, prepared_plan)
+        return _run_campaign_locked(root, profile, tag, action, selected, prepared_plan,
+                                    {"backend": backend_name, "observer": observer,
+                                     "hard_limit_bytes": hard_limit_bytes})
 
 
-def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan):
+def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, execution_options):
     runtime = (runtime_identity() if action == "execute" else
                read_json(coordinator_path(root)).get("runtime_contract_identity"))
     if action == "execute":
@@ -1206,7 +1087,7 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan):
                 if unit_state["status"] != "planned":
                     continue
                 try:
-                    execute_unit(plan, component, state, unit_state, root, runtime)
+                    execute_unit(plan, component, state, unit_state, root, runtime, execution_options)
                 except ActiveChildUnresolved as error:
                     unresolved_running.append(
                         f"{component}/{unit['unit_id']}: {error_description(error)}")
@@ -1234,7 +1115,100 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan):
     }, sort_keys=True))
 
 
+def normalize_year_tokens(tokens):
+    aliases = {"2016": "2016", "ul16": "2016", "2016apv": "2016APV",
+               "ul16apv": "2016APV", "2017": "2017", "ul17": "2017",
+               "2018": "2018", "ul18": "2018", "2022": "2022",
+               "2022ee": "2022EE", "2023": "2023", "2023bpix": "2023BPix"}
+    normalized = []
+    for raw in tokens:
+        for token in raw.split(","):
+            token = token.strip()
+            for candidate in YEARS.get(token.lower(), (token,)):
+                value = aliases.get(candidate.lower(), candidate)
+                if value and value not in normalized:
+                    normalized.append(value)
+    return normalized
+
+
+def direct_main(argv):
+    """Established ordinary plotting CLI; no second campaign language or state."""
+    parser = argparse.ArgumentParser(description="Plot control: ordinary inputs or --campaign-profile.")
+    parser.add_argument("-f", "--input", action="append", required=True)
+    parser.add_argument("-o", "--output-dir", required=True)
+    parser.add_argument("-n", "--name")
+    parser.add_argument("-y", "--year", nargs="+", action="extend", required=True)
+    parser.add_argument("--variable", "--variables", nargs="+", action="extend", default=[])
+    parser.add_argument("--workers", default="1")
+    parser.add_argument("--channel-output", type=str.lower,
+                        choices=("merged", "split", "both", "merged-njets", "split-njets", "both-njets"))
+    parser.add_argument("--cr", dest="region", action="store_const", const="CR")
+    parser.add_argument("--sr", dest="region", action="store_const", const="SR")
+    parser.add_argument("--blind", dest="blinding", action="store_const", const="blind")
+    parser.add_argument("--unblind", dest="blinding", action="store_const", const="unblind")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("-t", "--timestamp", action="store_true")
+    parser.add_argument("-q", "--quiet", dest="verbosity", action="store_const", const="--quiet")
+    parser.add_argument("-v", "--verbose", dest="verbosity", action="store_const", const="--verbose")
+    args, extra = parser.parse_known_args([a for a in argv if a != "--"])
+    try:
+        for path in args.input:
+            require(os.access(path, os.R_OK), f"Input pickle '{path}' is missing or unreadable.")
+        region = args.region
+        if region is None:
+            detected = []
+            for path in args.input:
+                tokens = [r for r in ("CR", "SR")
+                          if re.search(r"(^|[^A-Z0-9])" + r, Path(path).name.upper())]
+                if len(tokens) > 1:
+                    if len(args.input) > 1:
+                        raise CampaignError("Ambiguous input filename; use --cr or --sr to override.")
+                    print("Warning: both CR and SR tokens; defaulting to CR.", file=sys.stderr)
+                detected.append(tokens[0] if len(tokens) == 1 else None)
+            if len(args.input) > 1:
+                require(len(set(detected)) == 1,
+                        "Input filenames resolve to conflicting regions; use --cr or --sr to override.")
+            region = detected[0] or "CR"
+            if detected[0]:
+                print(f"Auto-detected region '{region}' from input filename.")
+            else:
+                print("No unique region token detected; defaulting to 'CR'.")
+        command = [sys.executable, str(RUN_DIRECTORY / "make_cr_and_sr_plots.py")]
+        for path in args.input:
+            command.extend(("-f", path))
+        command.extend(("-o", args.output_dir))
+        if args.name:
+            command.extend(("-n", args.name))
+        command.extend(("-y", *normalize_year_tokens(args.year), "--" + region.lower(),
+                        "--" + (args.blinding or ("unblind" if region == "CR" else "blind"))))
+        if args.variable:
+            command.extend(("--variables", *args.variable))
+        command.extend(("--workers", args.workers))
+        if args.channel_output:
+            command.extend(("--channel-output", args.channel_output))
+        command.extend(extra)
+        if args.timestamp:
+            command.append("-t")
+        if args.verbosity:
+            command.append(args.verbosity)
+        print("Executing make_cr_and_sr_plots.py with command:\n  " + shlex.join(command))
+        if args.dry_run:
+            print("Dry-run requested; skipping execution.")
+            return 0
+        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+        return backend.run_direct(command)
+    except CampaignError as error:
+        print(str(error), file=sys.stderr)
+        return 2
+
+
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if any(a.split("=", 1)[0] in {"--campaign-manifest", "--campaign-phase"} for a in argv):
+        print("The TSV campaign interface is retired; use a qualified persistent JSON plan.", file=sys.stderr)
+        return 2
+    if "--campaign-profile" not in argv and not any(a.startswith("--campaign-profile=") for a in argv):
+        return direct_main(argv)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--campaign-profile", required=True, choices=sorted(PROFILES))
     parser.add_argument("--campaign-tag", required=True)
@@ -1248,9 +1222,13 @@ def main(argv=None):
     actions.add_argument("--activate-pending-plan", type=Path)
     parser.add_argument("--expected-plan-revision", type=int)
     parser.add_argument("--selected-unit")
+    parser.add_argument("--backend", choices=("local", "condor"), default="local")
+    parser.add_argument("--resource-observer", choices=("cgroup_v2", "node_pressure"), default="cgroup_v2")
+    parser.add_argument("--hard-limit-bytes", type=int, default=245000000000)
     args = parser.parse_args(argv)
     try:
         safe_name(args.campaign_tag, "campaign_tag")
+        require(args.hard_limit_bytes > 0, "hard limit must be positive")
         if args.selected_unit:
             safe_name(args.selected_unit, "selected_unit")
         root = args.output_dir
@@ -1264,7 +1242,8 @@ def main(argv=None):
                 dry_run(plan, root, args.selected_unit)
             else:
                 run_campaign(root, profile, args.campaign_tag, plan_path=args.plan,
-                             action="execute", selected=args.selected_unit)
+                             action="execute", selected=args.selected_unit, backend_name=args.backend,
+                             observer=args.resource_observer, hard_limit_bytes=args.hard_limit_bytes)
         elif args.recover_terminal_unit:
             require(args.plan is None and args.expected_plan_revision is None
                     and args.selected_unit is not None,
@@ -1274,7 +1253,8 @@ def main(argv=None):
             require(args.plan is None and args.expected_plan_revision is None,
                     "resume accepts neither --plan nor expected revision")
             run_campaign(root, profile, args.campaign_tag, action="resume",
-                         selected=args.selected_unit)
+                         selected=args.selected_unit, backend_name=args.backend,
+                         observer=args.resource_observer, hard_limit_bytes=args.hard_limit_bytes)
         else:
             require(args.plan is None and args.selected_unit is None
                     and args.expected_plan_revision is not None,

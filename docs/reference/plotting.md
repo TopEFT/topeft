@@ -2,84 +2,42 @@
 
 ## Entrypoints and defaults
 
-`analysis/topeft_run2/run_plotter.sh` is the maintained convenience wrapper.
-It maps year aliases, can infer CR/SR from the input filename, supplies wrapper
-defaults for blinding and output naming, and forwards unsupported options to
-`make_cr_and_sr_plots.py`.
+`analysis/topeft_run2/run_plotter.sh` is the sole public plotting control wrapper.
+It bootstraps Python and forwards to `plot_campaign_manifest.py`. The controller
+owns ordinary CLI normalization (years, filename CR/SR inference, blinding defaults)
+and persistent campaign plan/state/recovery/materialization. The direct scientific
+CLI `make_cr_and_sr_plots.py` remains available; its default binning is processing,
+channel output merged, workers one, year coverage warn and format PNG.
 
-`analysis/topeft_run2/make_cr_and_sr_plots.py` is the direct interface. Its
-inputs are repeatable `-f` paths or a list file. The default channel output is
-`merged`, the default binning view is `processing`, the default worker count is
-one, and year coverage defaults to `warn`. `--binning fitting` asks the plotter
-to resolve the same exact late aggregation used by cards; it does not rewrite
-the source PKL.
+The execution boundary is `plot_campaign_backend.py`: one immutable argv and one
+private attempt directory, with objective execution evidence only. The local backend
+runs a guarded renderer child. `plot_campaign_condor.py` supplies only descriptor,
+single-job submit and exact job/token observation. The Condor worker runs the same
+supervisor without importing the controller or constructing a scientific view.
+No standalone Condor campaign CLI or TSV campaign language remains.
 
-Both commands are public supported interfaces. The shell usage block and
-`make_cr_and_sr_plots.build_arg_parser()` are option authority. The direct CLI
-returns process status; its side effects are output-directory creation, plot
-files, optional merge caches/reports, and negative-contribution reports.
-The wrapper also composes a sequential SR baseline from a validated TSV via
-`--campaign-manifest`, `--campaign-phase all|njets|other`, `-o`, and an explicit
-`--dry-run` or `--execute`. This campaign interface calls the same maintained
-single-input wrapper path for every row; the direct Python CLI has no campaign
-or display-group switch. Ordinary single-invocation wrapper options retain
-their behavior.
-Maintained nominal campaign child commands select fitting binning explicitly
-and omit `--debug-canvas-annotations` unless requested; the generic direct
-plotter default remains processing.
+`--backend local|condor` defaults to local. `--resource-observer cgroup_v2|node_pressure`
+defaults to cgroup_v2; `--hard-limit-bytes` defaults to 245000000000. Cgroup v2 uses
+allocation-local `memory.current` with finite `memory.max`; absent/unlimited data
+fails closed. Node pressure is the explicit whole-node `MemTotal - MemAvailable`
+policy, never job RSS. There is no automatic fallback. Probe with
+`python -m topeft.modules.node_memory_guard --probe --observer cgroup_v2`.
 
-`analysis/topeft_run2/plot_campaign_condor.py` is the plotting-owned
-shared-filesystem campaign frontend. `prepare` consumes that same TSV and emits
-one descriptor per principal PKL, an itemdata file, a worker script and one
-vanilla `plots.sub`. It never reads a production PKL, renders, or submits.
-An optional `--unit-id` queues exactly one manifest-derived unit for a pilot.
-`prepare` binds fitting binning and a default-false diagnostic canvas flag in
-each `plot_campaign_unit_v2` descriptor; its explicit
-`--debug-canvas-annotations` option binds true. `run-unit` validates and
-obeys both modes, rejecting v1, missing or invalid modes before PKL access.
-The monitor checks the same descriptor schema and mode fields.
-`run-unit` validates its descriptor against the manifest-derived ten-path
-campaign input set and checks declared-PKL availability. Prepare-time source
-identity is receipt provenance, not an execution gate. It loads the selected
-family/channel union once in the parent, then calls `run_with_args` with a
-loaded view for each logical row. A mixed unit reduces each njets view using
-the same physical-channel patterns as the selective njets path. Render workers receive prepared plotting
-state and do not call the PKL loader. An integrity SHA read in the maintained
-loader precedes the selective streaming traversal. The v2 receipt records
-planned, valid PNG, allowed skip, and unaccounted counts; a path/size PNG
-inventory identity; a structured skip inventory identity and records; and no
-per-PNG hashes. The plotter owns the skip decision, while the frontend requires
-exact one-to-one output identities before writing the receipt.
-The structured skip vocabulary is owned by the plotter's drawability branches:
-`empty-mc-content`, `empty-data-content`, `empty-or-missing-input`, and
-`make_region_stacked_ratio_fig-returned-none`. Other absent files, silent
-early returns, and exceptions do not become allowed skips.
+State schema v1 remains readable without migration. New attempts carry an
+`execution_contract` version 1 with backend, exact argv and resource policy.
+Historical attempts lacking this field retain their original wrapper-command
+identity for recovery verification only. They are not dispatched through it.
+The backend writes one lifecycle receipt; only the controller determines campaign
+success from that evidence, observed PNGs and collision-safe canonical materialization.
+Submission ambiguity, unknown job identity, missing terminal evidence and held jobs
+block further execution. Resume observes existing attempts and never resubmits them.
+An exclusive worker-start marker prevents another renderer on a scheduler restart.
 
-The dispatch requests explicit CPUs, memory, disk, runtime and render-worker
-count, with `request_cpus >= workers`. SR campaign figures use
-`histos/<campaign>/<period>/merged/<category>/<figure>.png`. The period is
-`run2`, `run3`, or an individual year (`2016APV`, `2016`, `2017`, `2018`,
-`2022`, `2022EE`, `2023`, `2023BPix`). Every produced `njets` figure also has
-a regular-file copy at `<period>/merged_njets/<category>/<figure>.png`; the
-primary `merged` view retains that figure. Technical unit and variable-group
-identities remain in descriptors and receipts, not figure directories. Figure
-creation rejects an occupied file, and receipt accounting checks the primary
-planned paths for each unit. Receipt-v2 files live in `_metadata/receipts/`;
-negative-contribution reports, logs, guards, and
-ledger live in `_metadata/diagnostics/`. The optional composition JSON is not
-automatically serialized by either SR campaign frontend. No retry, resume,
-staging, DAG, or Condor-specific output renaming is supplied.
-
-Campaign dry-run validates the TSV and prints resolved child commands without
-creating a root or reading PKL contents. Execute requires a new root under
-`topeft/histos/`, verifies distinct selected PKL and sidecar digests, and runs
-one child at a time beneath `topeft.modules.node_memory_guard` with a
-245000000000-byte total-node-memory threshold and 0.5-second sampling. Each
-unit records input/output identity, a visible tee log, guard JSONL and status.
-The launcher makes no Git or source-manifest call. A nonzero child or tee result,
-missing/ambiguous terminal guard result, or occupied unit stops the remaining
-rows. There is no automatic retry or resume. A dry-run command is a validated
-configuration, not evidence of produced figures.
+`plot_output_layout.py` alone defines human paths:
+`<campaign>/<period>/merged/<category>/<figure>.png`, with an additional
+`merged_njets` copy for produced njets figures. Backends never add namespaces.
+Persistent lifecycle/guard/log evidence stays in each private attempt's `_metadata`.
+No real scheduler qualification follows from synthetic adapter tests.
 
 ### Stable direct option groups
 
@@ -127,7 +85,7 @@ extension depend on the monolithic call graph.
 | Fully qualified symbol | Kind/status; parameters and return | Contract, side effects, and failures |
 | --- | --- | --- |
 | `make_cr_and_sr_plots.build_arg_parser` | Public CLI builder; no inputs → `ArgumentParser` | Defines options/defaults. Parser acceptance does not bypass later artifact/year/channel validation. |
-| `make_cr_and_sr_plots.run_with_args` | Developer-facing; parsed namespace, parser, optional `channel_allowlist`, `loaded_view`, or `outcome_collector` → integer status | Resolves paths/region/blinding, creates output, validates/merges artifacts or consumes an already loaded selected mapping, materializes a consumer-local scalar view, and dispatches plots. The optional collector receives planned relative figure paths and structured maintained undrawable skips; the Condor frontend requests PNG only. A loaded view requires one input and render-only options. The allowlist is SR njets only, validated against base names and aliases; omission selects all channels. An output timestamp is added only on explicit request. |
+| `make_cr_and_sr_plots.run_with_args` | Developer-facing; parsed namespace, parser, optional `channel_allowlist`, `loaded_view`, or `outcome_collector` → integer status | Resolves paths/region/blinding, creates output, validates/merges artifacts or consumes an already loaded selected mapping, materializes a consumer-local scalar view, and dispatches plots. The optional collector receives planned relative figure paths and structured maintained undrawable skips; persistent campaign commands request PNG only. A loaded view requires one input and render-only options. The allowlist is SR njets only, validated against base names and aliases; omission selects all channels. An output timestamp is added only on explicit request. |
 | `make_cr_and_sr_plots._apply_plot_binning_view` | Internal extension; histogram, family, exact channels, mode → view | Processing returns physical view; fitting resolves a common exact-channel view and rebins. Does not mutate the source artifact. |
 | `make_cr_and_sr_plots.RegionContext` | Developer-facing class; region identity, histograms, years, channel/group/sample sets and optional policy/presentation fields → context | Normalizes one region's authority. Required values are normally produced by `build_region_context`; direct construction must supply coherent groups/channels. No I/O. |
 | `make_cr_and_sr_plots.build_region_context` | Developer-facing; region, histograms, years, optional unblind and output/binning keywords → `RegionContext` | Accepts CR/SR only; validates years and resolves metadata-owned channels, groups, luminosity, skips, and defaults. |
@@ -140,8 +98,7 @@ extension depend on the monolithic call graph.
 | `make_cr_and_sr_plots.run_plots_for_region` | Developer-facing high-level renderer | Coordinates context and region sweep. Extend shared region behavior through context/metadata, not copied CR/SR loops. |
 | `group_bins`, `make_region_stacked_ratio_fig` | Internal rendering extensions | Own grouped arrays and stacked-ratio construction; not independent public APIs/config owners. |
 
-Important callers are `run_plotter.sh`, direct CLI users, and the Condor
-plotting wrapper. Intended extension points are `cr_sr_plots_metadata.yml` for
+Important callers are the controller-selected local/Condor workers and direct CLI users. Intended extension points are `cr_sr_plots_metadata.yml` for
 configuration, context construction for maintained region semantics, and the
 relevant renderer for presentation. Histogram axes belong to `axes.py`;
 artifact compatibility belongs to merge/sidecar owners.
@@ -276,10 +233,9 @@ as a bin-content or statistical-adequacy oracle.
 The profile CLI is `run_plotter.sh --campaign-profile PROFILE --campaign-tag
 TAG -o ROOT` with `--plan PLAN --dry-run|--execute`, `--resume`, optional
 `--selected-unit ID`, or `--activate-pending-plan PLAN
---expected-plan-revision N`. Profile mode is mutually exclusive with the
-legacy TSV campaign mode. Campaign state is implemented in
+--expected-plan-revision N`. The former TSV campaign mode is retired. Campaign state is implemented in
 `analysis/topeft_run2/plot_campaign_manifest.py` and does not change rendering,
-histogram production, or Condor job behavior.
+histogram production, or renderer science; backend identity is recorded only on new attempts.
 
 Plan v1 binds a complete unit catalogue. Unit source fields are `unit_id`,
 `component`, `producer_unit_id`, `input_path`, `sidecar_path`,
@@ -357,3 +313,12 @@ binning, merged channels, total uncertainty, PNG output, SR/unblind flags and
 debug canvas annotations off. The memory guard and visible tee record terminal
 lifecycle evidence. Runtime success establishes that a child completed; inspect
 the rendered figures separately for visual and scientific quality.
+
+The Condor worker and submit intent markers sync their parent directories before
+external effects. Missing cgroup interfaces are checked before local guard launch.
+The low-level guard API/CLI retains its named node_pressure compatibility default;
+public campaign commands always pass their selected resource policy explicitly.
+Missing-lifecycle recovery that checks local PIDs is limited to local attempts;
+remote process liveness is not inferred from a submit-host PID. An ambiguous
+submission without a proven scheduler identity remains waiting and requires
+separately authorized reconciliation evidence; resume never guesses or resubmits.
