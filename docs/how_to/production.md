@@ -91,11 +91,12 @@ or invalid pending pair stops recovery with its evidence preserved.
 Work Queue staging is a separate configured capacity domain. Supply a safe,
 owned staging base with warning, minimum and poll inputs. Omit the quota root
 for local statvfs capacity; supply the exact owning quota root for quota-aware
-capacity. For an explicitly selected root-backed base under
-`/tmpscratch/users/$USER/`, pass `--wq-root-backed-local-statvfs` with no
-quota root. The guard checks the user namespace, ownership and path identity;
-without that flag it rejects root-backed bases. It always rejects `/tmp`,
-`/var/tmp`, unowned bases and symlink paths.
+capacity. For a selected base under `/tmpscratch/users/<login-user>/`, omit the
+quota root. The launcher resolves the authenticated local login identity and
+automatically passes its internal root-backed capability for that namespace.
+The guard checks ownership and path identity; other root-backed bases remain
+unauthorized by this launcher. It always rejects `/tmp`, `/var/tmp`, unowned
+bases and symlink paths.
 Local staging uses filesystem free bytes and
 inodes; it does not query `/groups` quota in the Work Queue admission loop.
 The staging base, durable PKL root and campaign control root have separate

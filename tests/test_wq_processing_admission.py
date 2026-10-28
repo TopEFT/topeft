@@ -4,7 +4,6 @@ from collections import defaultdict
 import importlib
 import json
 import os
-import pwd
 from pathlib import Path
 import subprocess
 from types import SimpleNamespace
@@ -17,8 +16,7 @@ from analysis.topeft_run2 import wq_staging_guard as staging_guard
 
 
 def test_root_backed_staging_requires_bounded_explicit_capability(monkeypatch):
-    user = pwd.getpwuid(os.getuid()).pw_name
-    base = Path(f"/tmpscratch/users/{user}/selected")
+    base = Path("/synthetic-root-backed/selected")
     fake_stat = SimpleNamespace(st_uid=os.getuid(), st_dev=1)
     with monkeypatch.context() as fixture:
         fixture.setattr(staging_guard.Path, "is_dir", lambda _: True)
@@ -30,9 +28,8 @@ def test_root_backed_staging_requires_bounded_explicit_capability(monkeypatch):
             staging_guard._validate_base(base)
         assert staging_guard._validate_base(
             base, allow_root_backed_local_statvfs=True) == base
-        with pytest.raises(staging_guard.staging_guard_error, match="user staging namespace"):
-            staging_guard._validate_base(
-                Path("/other/root-backed/selected"), allow_root_backed_local_statvfs=True)
+        with pytest.raises(staging_guard.staging_guard_error, match="filesystem root"):
+            staging_guard._validate_base(Path("/"), allow_root_backed_local_statvfs=True)
         with pytest.raises(staging_guard.staging_guard_error, match="root temporary staging"):
             staging_guard._validate_base(
                 Path("/tmp/selected"), allow_root_backed_local_statvfs=True)
@@ -49,8 +46,8 @@ def test_root_backed_staging_requires_bounded_explicit_capability(monkeypatch):
             staging_guard._validate_base(base, allow_root_backed_local_statvfs=True)
         fixture.setattr(staging_guard.Path, "is_symlink", lambda _: False)
         fixture.setattr(staging_guard.Path, "resolve", lambda path, strict=True:
-                        Path("/other/root-backed/selected") if path == base else path)
-        with pytest.raises(staging_guard.staging_guard_error, match="user staging namespace"):
+                        Path("/other-root-backed/selected") if path == base else path)
+        with pytest.raises(staging_guard.staging_guard_error, match="canonical path identity"):
             staging_guard._validate_base(base, allow_root_backed_local_statvfs=True)
 
 
@@ -67,6 +64,14 @@ def test_local_staging_space_uses_statvfs_without_quota(monkeypatch, tmp_path):
     selected_base = tmp_path / "selected_staging"
     assert staging_guard._space(selected_base, None) == (12 * 1024, 345)
     assert calls == [selected_base]
+
+
+@pytest.mark.parametrize("invocation", (".", "..", "../escape", "nested/escape"))
+def test_staging_guard_rejects_nonisolated_invocation(invocation):
+    with pytest.raises(staging_guard.staging_guard_error, match="one path component"):
+        staging_guard.start_guard("/synthetic-root-backed/selected", invocation, None,
+                                  20_000_000_000, 10_000_000_000, 1,
+                                  allow_root_backed_local_statvfs=True)
 
 
 def test_quota_staging_space_uses_exact_supplied_root(monkeypatch, tmp_path):

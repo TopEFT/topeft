@@ -13,7 +13,7 @@ Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag
   [--wq-manager-name EXACT_NAME | --wq-manager-prefix PREFIX]
   [--run2-wq-manager-prefix PREFIX --run3-wq-manager-prefix PREFIX]
   [--wq-port PORT (0..65535; 0 selects a free manager port)]
-  [--wq-staging-base PATH --wq-root-backed-local-statvfs]
+  [--wq-staging-base PATH]
   [--activate-pending-plan JSON --expected-plan-revision ID]
   [Work Queue guard and resource options]
 
@@ -183,10 +183,6 @@ while (( $# > 0 )); do
       fi
       shift 2
       ;;
-    --wq-root-backed-local-statvfs)
-      profile_wq_root_backed_local_statvfs=true
-      shift
-      ;;
     --wq-warning-bytes|--wq-stop-bytes|--wq-reserve-bytes)
       echo "ERROR: retired Work Queue staging-budget option $1; use --wq-free-warning-bytes and --wq-min-free-bytes." >&2
       exit 1
@@ -340,10 +336,15 @@ elif [[ -n "${profile_wq_quota_root}${profile_wq_warning_bytes}${profile_wq_min_
   echo "ERROR: Work Queue guard options require --wq-staging-base." >&2
   exit 1
 fi
-if [[ "${profile_wq_root_backed_local_statvfs}" == true ]] \
-  && { [[ -z "${profile_wq_staging_base}" ]] || [[ -n "${profile_wq_quota_root}" ]]; }; then
-  echo "ERROR: root-backed local statvfs requires a staging base and no quota root." >&2
-  exit 1
+if [[ -n "${profile_wq_staging_base}" && -z "${profile_wq_quota_root}" ]]; then
+  staging_login_user=$(id -un) || { echo "ERROR: local login identity is unavailable." >&2; exit 1; }
+  [[ -n "${staging_login_user}" && "${staging_login_user}" != */* ]] \
+    || { echo "ERROR: local login identity is invalid." >&2; exit 1; }
+  staging_selected_path=$(realpath -m -- "${profile_wq_staging_base}") || exit 1
+  staging_user_namespace="/tmpscratch/users/${staging_login_user}"
+  if [[ "${staging_selected_path}" == "${staging_user_namespace}"/* ]]; then
+    profile_wq_root_backed_local_statvfs=true
+  fi
 fi
 if [[ -n "${profile_wq_accumulating_memory_mb}" || -n "${profile_wq_accumulating_cores}" ]]; then
   if [[ ! "${profile_wq_accumulating_memory_mb}" =~ ^[1-9][0-9]*$ \
@@ -378,8 +379,9 @@ if [[ "${profile_dry_run}" == false && -z "${CAMPAIGN_VALIDATION_BACKEND:-}" \
   fi
   staging_real_path=$(realpath -e -- "${profile_wq_staging_base}") || exit 1
   if [[ "${staging_real_path}" == /tmp || "${staging_real_path}" == /tmp/* \
-    || "${staging_real_path}" == /var/tmp || "${staging_real_path}" == /var/tmp/* \
-    || "$(stat -c %d -- "${staging_real_path}")" == "$(stat -c %d -- /)" ]]; then
+    || "${staging_real_path}" == /var/tmp || "${staging_real_path}" == /var/tmp/* ]] \
+    || { [[ "$(stat -c %d -- "${staging_real_path}")" == "$(stat -c %d -- /)" ]] \
+      && [[ "${profile_wq_root_backed_local_statvfs}" != true ]]; }; then
     echo "ERROR: /tmp or root-backed manager staging is forbidden for Work Queue production." >&2
     exit 1
   fi

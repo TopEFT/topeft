@@ -123,7 +123,10 @@ No-clobber publication is independent of capacity policy. A completed
 attempt-owned pending pair can be validated and published by the artifact
 owner on exclusive resume under the same attempt; success still requires
 the final pair and receipt. Work Queue staging has its own caller-selected
-capacity mode and path.
+capacity mode and path. `run_cr.sh` selects the site-approved login namespace
+from the chosen staging base and passes an internal root-backed capability to
+`run_analysis.py`. The staging guard validates path identity, ownership,
+isolation and local capacity without selecting a deployment namespace.
 
 ### `fullR3_run.sh`
 

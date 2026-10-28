@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 import math
 import multiprocessing
 import os
-import pwd
 from pathlib import Path
 import re
 import signal
@@ -65,10 +64,6 @@ def _space(base, quota_root):
     return min(free_bytes, quota_bytes), free_inodes
 
 
-def _root_backed_user_root():
-    return Path("/tmpscratch/users") / pwd.getpwuid(os.getuid()).pw_name
-
-
 def _validate_base(base, *, allow_root_backed_local_statvfs=False):
     path = Path(base)
     if not path.is_absolute() or not path.is_dir():
@@ -77,6 +72,10 @@ def _validate_base(base, *, allow_root_backed_local_statvfs=False):
         if component.is_symlink():
             raise staging_guard_error("staging path has a symlink component")
     real = path.resolve(strict=True)
+    if real != path:
+        raise staging_guard_error("staging base must have canonical path identity")
+    if real == Path("/"):
+        raise staging_guard_error("filesystem root is not a staging base")
     if real == Path("/tmp") or real == Path("/var/tmp") or any(
         parent in (Path("/tmp"), Path("/var/tmp")) for parent in real.parents
     ):
@@ -86,11 +85,7 @@ def _validate_base(base, *, allow_root_backed_local_statvfs=False):
     mount = real
     while mount.parent != mount and os.stat(mount.parent).st_dev == os.stat(mount).st_dev:
         mount = mount.parent
-    if allow_root_backed_local_statvfs:
-        user_root = _root_backed_user_root()
-        if real == user_root or user_root not in real.parents:
-            raise staging_guard_error("root-backed capability requires the selected user staging namespace")
-    elif mount == Path("/"):
+    if mount == Path("/") and not allow_root_backed_local_statvfs:
         raise staging_guard_error("root-backed staging requires explicit bounded authorization")
     return real
 

@@ -178,6 +178,65 @@ def test_capacity_options_keep_plan_owned_output_paths(tmp_path, backend):
         assert manifest.output_safety_from_command(command) == (2, 4, 1, 1)
 
 
+def test_launcher_selects_login_namespace_without_operator_capability(tmp_path, backend):
+    login_user = subprocess.run(["id", "-un"], capture_output=True, text=True,
+                                check=True).stdout.strip()
+    backend["USER"] = "untrusted_environment_name"
+    selected_base = f"/tmpscratch/users/{login_user}/selected"
+    result = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a",
+                    "--wq-staging-base", selected_base,
+                    "--wq-free-warning-bytes", "20000000000",
+                    "--wq-min-free-bytes", "10000000000",
+                    "--wq-poll-seconds", "1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    command = manifest.load_state(state_path(tmp_path))["units"][0][
+        "stages"]["source"]["attempts"][0]["command_argv"]
+    assert command[command.index("--wq-filepath") + 1] == selected_base
+    assert "--wq-root-backed-local-statvfs" in command
+    assert "--pkl-no-clobber" in command
+
+
+def test_launcher_does_not_grant_root_capability_outside_login_namespace(tmp_path, backend):
+    result = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a",
+                    "--wq-staging-base", "/synthetic-root-backed/selected",
+                    "--wq-free-warning-bytes", "20000000000",
+                    "--wq-min-free-bytes", "10000000000",
+                    "--wq-poll-seconds", "1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    command = manifest.load_state(state_path(tmp_path))["units"][0][
+        "stages"]["source"]["attempts"][0]["command_argv"]
+    assert "--wq-root-backed-local-statvfs" not in command
+
+
+def test_internal_staging_and_output_options_stay_off_public_help(tmp_path):
+    launcher_help = subprocess.run([str(RUN_CR), "--help"], cwd=RUN_DIRECTORY,
+                                   capture_output=True, text=True, check=True).stdout
+    assert "--wq-staging-base" in launcher_help
+    assert "--wq-root-backed-local-statvfs" not in launcher_help
+
+    wrap_path = RUN_DIRECTORY.parents[2] / "codex-run.sh"
+    command = [str(wrap_path), sys.executable, str(RUN_ANALYSIS)]
+    analysis_help = subprocess.run(command + ["--help"], cwd=RUN_DIRECTORY,
+                                   capture_output=True, text=True, check=True).stdout
+    internal_options = ("--wq-root-backed-local-statvfs", "--pkl-no-clobber",
+                        "--pkl-min-free-bytes", "--pkl-min-free-inodes",
+                        "--pkl-safety-reserve-bytes", "--pkl-safety-reserve-inodes",
+                        "--pkl-pending-id")
+    assert all(option not in analysis_help for option in internal_options)
+
+    ordinary = subprocess.run(command + ["-p", str(tmp_path), "--debug-year-scan"],
+                              cwd=RUN_DIRECTORY, capture_output=True, text=True, check=False)
+    assert ordinary.returncode == 0, ordinary.stdout + ordinary.stderr
+    internal = subprocess.run(command + [
+        "-p", str(tmp_path), "--debug-year-scan", "--wq-guard",
+        "--wq-root-backed-local-statvfs", "--pkl-no-clobber",
+        "--pkl-min-free-bytes", "2", "--pkl-min-free-inodes", "4",
+        "--pkl-safety-reserve-bytes", "1", "--pkl-safety-reserve-inodes", "1",
+        "--pkl-pending-id", "synthetic_attempt",
+    ], cwd=RUN_DIRECTORY, capture_output=True, text=True, check=False)
+    assert internal.returncode == 0, internal.stdout + internal.stderr
+
+
 def test_resume_accepts_chunksize_and_relocated_identical_archive(tmp_path, backend):
     backend["CAMPAIGN_VALIDATION_SCENARIO"] = "source_fail_first"
     first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
