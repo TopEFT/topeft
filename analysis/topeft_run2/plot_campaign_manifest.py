@@ -2,7 +2,7 @@
 
 Plans bind qualified producer sidecars, never a predicted figure inventory. A
 successful child is observed in its private root; a receipt then owns the exact
-PNG bytes copied to the canonical component root. This module never loads a PKL.
+PNG bytes copied to the global canonical root. This module never loads a PKL.
 """
 
 from __future__ import annotations
@@ -326,6 +326,12 @@ def validate_state(state, plan, component, runtime):
                         and SHA256.fullmatch(attempt["completion_receipt_identity"])
                         and attempt.get("materialization_status") == "complete",
                         f"successful unit lacks receipt or complete materialization: {unit_id}")
+                if attempt.get("recovery_provenance_identity") is not None:
+                    require(isinstance(attempt["recovery_provenance_identity"], str)
+                            and SHA256.fullmatch(attempt["recovery_provenance_identity"])
+                            and all(attempt.get(key) is None for key in
+                                    ("guard_result", "child_result", "tee_result")),
+                            f"recovered success invents lifecycle results: {unit_id}")
 
 
 def inventory_pngs(attempt_root, variables, expected_period):
@@ -353,6 +359,10 @@ def lifecycle_receipt_path(attempt_root):
     return attempt_root / "_metadata" / "lifecycle_receipt_v1.json"
 
 
+def recovery_provenance_path(attempt_root):
+    return attempt_root / "_metadata" / "recovery_provenance_v1.json"
+
+
 def verify_lifecycle_receipt(receipt, attempt, argv):
     require(isinstance(receipt, dict), "lifecycle receipt is not a JSON object")
     attempt_root = Path(attempt["private_unit_root"])
@@ -376,10 +386,15 @@ def verify_lifecycle_receipt(receipt, attempt, argv):
     return receipt
 
 
-def create_receipt(plan, unit, attempt, runtime):
+def create_receipt(plan, unit, attempt, runtime, recovery_provenance=None):
     attempt_root = Path(attempt["private_unit_root"])
-    require(attempt.get("guard_result") == 0 and attempt.get("child_result") == 0
-            and attempt.get("tee_result") == 0, "terminal lifecycle is not successful")
+    if recovery_provenance is None:
+        require(attempt.get("guard_result") == 0 and attempt.get("child_result") == 0
+                and attempt.get("tee_result") == 0, "terminal lifecycle is not successful")
+    else:
+        require(all(attempt.get(key) is None for key in
+                    ("guard_result", "child_result", "tee_result")),
+                "recovery cannot claim unavailable lifecycle results")
     records = inventory_pngs(attempt_root, unit["variables"], period(unit))
     counts = Counter(record["variable"] for record in records)
     log_path = attempt_root / "_metadata" / "renderer.log"
@@ -423,6 +438,8 @@ def create_receipt(plan, unit, attempt, runtime):
         "renderer_log_status": log_status, "renderer_log_line_count": log_line_count,
         "renderer_message_count": log_message_count, "renderer_messages": messages,
     }
+    if recovery_provenance is not None:
+        receipt["recovery_provenance_identity"] = identity(recovery_provenance)
     path = completion_receipt_path(attempt_root)
     require(not path.exists() and not path.is_symlink(), "completion receipt already exists")
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -432,6 +449,26 @@ def create_receipt(plan, unit, attempt, runtime):
 
 def verify_receipt(receipt, plan, unit, attempt, runtime):
     require(isinstance(receipt, dict), "completion receipt is not a JSON object")
+    recovery_identity = receipt.get("recovery_provenance_identity")
+    if recovery_identity is None:
+        lifecycle_valid = all(receipt.get(key) == 0 for key in
+                              ("guard_result", "child_result", "tee_result"))
+    else:
+        provenance = read_json(recovery_provenance_path(Path(attempt["private_unit_root"])))
+        lifecycle_valid = (
+            isinstance(recovery_identity, str) and SHA256.fullmatch(recovery_identity)
+            and identity(provenance) == recovery_identity
+            and attempt.get("recovery_provenance_identity") == recovery_identity
+            and all(receipt.get(key) is None and attempt.get(key) is None for key in
+                    ("guard_result", "child_result", "tee_result"))
+            and provenance.get("guard_evidence_sha256") == sha256_file(
+                Path(attempt["private_unit_root"]) / "_metadata" / "guard.jsonl")
+            and provenance.get("command_identity") == attempt.get("command_identity")
+            and provenance.get("observed_png_count") == receipt.get("observed_png_count")
+            and provenance.get("observed_png_sizes") == receipt.get("observed_png_sizes")
+            and provenance.get("observed_png_sha256") == receipt.get("observed_png_sha256")
+            and provenance == observed_recovery_provenance(plan, unit, attempt)
+        )
     require(receipt.get("schema_version") == 1
             and receipt.get("campaign_profile") == plan["campaign_profile"]
             and receipt.get("campaign_tag") == plan["campaign_tag"]
@@ -442,7 +479,7 @@ def verify_receipt(receipt, plan, unit, attempt, runtime):
             and receipt.get("input_identity") == unit["accepted_input_identity"]
             and receipt.get("sidecar_identity") == unit["accepted_sidecar_identity"]
             and receipt.get("runtime_contract_identity") == runtime
-            and all(receipt.get(key) == 0 for key in ("guard_result", "child_result", "tee_result")),
+            and lifecycle_valid,
             "completion receipt binding/lifecycle contradiction")
     records = inventory_pngs(Path(attempt["private_unit_root"]), unit["variables"], period(unit))
     paths = [row["relative_path"] for row in records]
@@ -464,11 +501,11 @@ def reject_symlink_ancestors(path, boundary):
     current = Path(path)
     boundary = Path(boundary)
     require(current == boundary or boundary in current.parents,
-            "output path escapes component root")
+            "output path escapes campaign root")
     while current != boundary:
         require(not current.is_symlink(), f"symbolic-link output ancestor: {current}")
         current = current.parent
-    require(not boundary.is_symlink(), f"symbolic-link component root: {boundary}")
+    require(not boundary.is_symlink(), f"symbolic-link campaign root: {boundary}")
 
 
 def atomic_copy_without_overwrite(source, destination):
@@ -493,12 +530,11 @@ def atomic_copy_without_overwrite(source, destination):
 def materialize(plan, component, state, unit_state, attempt, receipt, root, runtime):
     unit = unit_state["binding"]
     receipt_id = verify_receipt(receipt, plan, unit, attempt, runtime)
-    component_path = component_root(root, plan["campaign_profile"], component)
     for relative in receipt["observed_png_relative_paths"]:
         safe_relative(relative)
         source = Path(attempt["private_unit_root"]) / relative
-        destination = component_path / relative
-        reject_symlink_ancestors(destination.parent, component_path)
+        destination = root / relative
+        reject_symlink_ancestors(destination.parent, root)
         digest = receipt["observed_png_sha256"][relative]
         binding = {"unit_id": unit["unit_id"], "receipt_identity": receipt_id,
                    "sha256": digest, "size_bytes": receipt["observed_png_sizes"][relative]}
@@ -511,26 +547,28 @@ def materialize(plan, component, state, unit_state, attempt, receipt, root, runt
                 prior = existing
         if prior is not None and prior != binding:
             raise OutputCollision(f"canonical ownership collision: {relative}")
-        if prior is None:
-            if destination.exists() or destination.is_symlink():
-                raise OutputCollision(f"unbound canonical destination collision: {destination}")
-            unit_state["materializations"][relative] = binding
-            atomic_json(state_path(root, plan["campaign_profile"], component), state)
         if destination.exists() or destination.is_symlink():
             if not (destination.is_file() and not destination.is_symlink()
                     and destination.stat().st_size == binding["size_bytes"]
                     and sha256_file(destination) == digest):
                 raise OutputCollision(f"different-byte canonical destination collision: {destination}")
-        else:
+        if prior is None:
+            unit_state["materializations"][relative] = binding
+            atomic_json(state_path(root, plan["campaign_profile"], component), state)
+        if not destination.exists():
             try:
                 atomic_copy_without_overwrite(source, destination)
             except FileExistsError as error:
                 raise OutputCollision(f"canonical destination collision: {destination}") from error
+        require(destination.stat().st_size == binding["size_bytes"]
+                and sha256_file(destination) == digest,
+                f"canonical destination changed after copy: {destination}")
     attempt["materialization_status"] = "complete"
     attempt["completion_receipt_identity"] = receipt_id
     attempt["result"] = "success"
     attempt["failure_classification"] = None
     unit_state["status"] = "success"
+    unit_state["human_output_root"] = str(root)
     atomic_json(state_path(root, plan["campaign_profile"], component), state)
 
 
@@ -758,6 +796,219 @@ def reconcile_running(plan, component, state, unit_state, root, runtime):
         atomic_json(state_path(root, plan["campaign_profile"], component), state)
         raise ChildDefinitelyTerminal(
             f"terminal child postprocessing failed: {error_description(error)}") from error
+
+
+def require_terminal_process_gone(terminal):
+    """Reject a still-live managed identity without launching or reaping anything."""
+    process_path = Path("/proc") / str(terminal["pid"]) / "stat"
+    try:
+        raw = process_path.read_text(encoding="ascii")
+    except FileNotFoundError:
+        raw = None
+    if raw is not None:
+        fields = raw[raw.rfind(")") + 2:].split()
+        require(len(fields) > 19, "managed process identity is unreadable")
+        require(not (int(fields[19]) == terminal["start_ticks"]
+                     and int(fields[2]) == terminal["pgid"]),
+                "managed child process identity is still live")
+    try:
+        os.killpg(terminal["pgid"], 0)
+    except ProcessLookupError:
+        return
+    except PermissionError as error:
+        raise CampaignError("managed process group liveness is unresolved") from error
+    raise CampaignError("managed process group is still live")
+
+
+def observed_recovery_provenance(plan, unit, attempt):
+    attempt_root = Path(attempt["private_unit_root"])
+    guard_path = attempt_root / "_metadata" / "guard.jsonl"
+    log_path = attempt_root / "_metadata" / "renderer.log"
+    require(attempt["attempt_id"] == "attempt_0001"
+            and attempt["plan_revision"] <= plan["plan_revision"]
+            and attempt["command_identity"] == identity(child_argv(unit, attempt_root))
+            and attempt["private_unit_root"] == unit["private_unit_root"],
+            "recovery attempt binding contradiction")
+    require(not lifecycle_receipt_path(attempt_root).exists()
+            and not lifecycle_receipt_path(attempt_root).is_symlink(),
+            "recovery requires absent lifecycle receipt")
+    require(all(attempt.get(key) is None for key in
+                ("guard_result", "child_result", "tee_result")),
+            "recovery cannot replace observed lifecycle results")
+    terminal = guard_terminal(guard_path)
+    guard_rows = [json.loads(line) for line in guard_path.read_text(encoding="utf-8").splitlines()]
+    start_identity = guard_rows[0].get("identity") if guard_rows else None
+    require(len(guard_rows) >= 2 and guard_rows[0].get("event") == "start"
+            and isinstance(start_identity, dict)
+            and start_identity.get("pid") == terminal["pid"]
+            and start_identity.get("pgid") == terminal["pgid"]
+            and start_identity.get("start_ticks") == terminal["start_ticks"],
+            "recovery guard start/result identity contradiction")
+    require(terminal["termination_kind"] == "normal"
+            and terminal["returncode"] == 0 and terminal["signal"] is None,
+            "recovery guard is not normal/0")
+    require_terminal_process_gone(terminal)
+    records = inventory_pngs(attempt_root, unit["variables"], period(unit))
+    require(records, "recovery has no observed PNGs")
+    require(log_path.is_file() and not log_path.is_symlink(),
+            "recovery renderer log is missing or unsafe")
+    lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    summaries = []
+    for index, line in enumerate(lines):
+        match = re.fullmatch(
+            r"\[SR\] Produced (\d+) plots with stat⊕syst uncertainties and "
+            r"(\d+) plots with stat-only bands after completing (\d+) rendering tasks in (.+)",
+            line)
+        if match:
+            summaries.append((index, match))
+    require(len(summaries) == 1, "recovery renderer completion summary is unavailable")
+    summary_index, summary = summaries[0]
+    require(int(summary[1]) + int(summary[2]) == len(records)
+            and int(summary[3]) > 0
+            and summary[4] == str(attempt_root / period(unit) / "merged"),
+            "recovery renderer summary contradicts observed PNGs")
+    require(not any(re.search(r"Traceback|\bFatal\b|\bError:", line, re.I)
+                    for line in lines[summary_index + 1:]),
+            "renderer failure follows completion summary")
+    return {
+        "schema_version": 1, "recovery_kind": "terminal_guard_missing_lifecycle",
+        "campaign_profile": plan["campaign_profile"], "campaign_tag": plan["campaign_tag"],
+        "unit_id": unit["unit_id"], "attempt_id": attempt["attempt_id"],
+        "plan_revision": attempt["plan_revision"],
+        "private_unit_root": str(attempt_root),
+        "command_identity": attempt["command_identity"],
+        "guard_evidence_sha256": sha256_file(guard_path),
+        "terminal_guard_evidence": terminal,
+        "renderer_log_sha256": sha256_file(log_path),
+        "renderer_completion_summary": lines[summary_index],
+        "prior_failure_classification": attempt.get(
+            "recovery_prior_failure_classification", attempt.get("failure_classification")),
+        "interrupted_at_utc": attempt.get("ended_at_utc"),
+        "observed_png_count": len(records),
+        "observed_png_sizes": {row["relative_path"]: row["size_bytes"] for row in records},
+        "observed_png_sha256": {row["relative_path"]: row["sha256"] for row in records},
+        "unavailable_lifecycle_fields": ["guard_result", "child_result", "tee_result",
+                                         "lifecycle_receipt_v1.json"],
+    }
+
+
+def migrate_successful_unit(plan, component, state, unit_state, root, runtime):
+    attempt = unit_state["attempts"][0]
+    attempt_root = Path(attempt["private_unit_root"])
+    receipt = read_json(completion_receipt_path(attempt_root))
+    verify_receipt(receipt, plan, unit_state["binding"], attempt, runtime)
+    legacy_root = component_root(root, plan["campaign_profile"], component)
+    legacy_paths = []
+    old_root = unit_state.get("human_output_root")
+    require(old_root in {None, str(root), str(legacy_root)},
+            "unit human-output root is unrecognized")
+    if legacy_root != root and old_root != str(root):
+        candidates = receipt["observed_png_relative_paths"]
+    else:
+        candidates = unit_state.get("legacy_cleanup_pending", [])
+    require(isinstance(candidates, list)
+            and len(candidates) == len(set(candidates))
+            and set(candidates) <= set(receipt["observed_png_relative_paths"]),
+            "legacy cleanup ownership is malformed")
+    if legacy_root != root:
+        for relative in candidates:
+            legacy = legacy_root / safe_relative(relative)
+            if legacy.exists() or legacy.is_symlink():
+                reject_symlink_ancestors(legacy.parent, legacy_root)
+                require(legacy.is_file() and not legacy.is_symlink()
+                        and legacy.stat().st_size == receipt["observed_png_sizes"][relative]
+                        and sha256_file(legacy) == receipt["observed_png_sha256"][relative],
+                        f"legacy human PNG contradicts receipt: {legacy}")
+                legacy_paths.append((legacy, root / relative, relative))
+    if old_root != str(root):
+        unit_state["legacy_cleanup_pending"] = [row[2] for row in legacy_paths]
+        atomic_json(state_path(root, plan["campaign_profile"], component), state)
+    materialize(plan, component, state, unit_state, attempt, receipt, root, runtime)
+    for legacy, canonical, relative in legacy_paths:
+        require(unit_state["materializations"].get(relative) is not None
+                and canonical.is_file() and not canonical.is_symlink()
+                and legacy.is_file() and not legacy.is_symlink()
+                and legacy.stat().st_size == canonical.stat().st_size
+                and sha256_file(legacy) == sha256_file(canonical),
+                f"legacy deletion identity proof failed: {legacy}")
+        legacy.unlink()
+        unit_state["legacy_cleanup_pending"].remove(relative)
+        atomic_json(state_path(root, plan["campaign_profile"], component), state)
+    for relative in list(unit_state.get("legacy_cleanup_pending", [])):
+        legacy = legacy_root / relative
+        canonical = root / relative
+        require(not legacy.exists() and not legacy.is_symlink()
+                and canonical.is_file() and not canonical.is_symlink()
+                and canonical.stat().st_size == receipt["observed_png_sizes"][relative]
+                and sha256_file(canonical) == receipt["observed_png_sha256"][relative],
+                f"pending legacy cleanup is unresolved: {legacy}")
+        unit_state["legacy_cleanup_pending"].remove(relative)
+        atomic_json(state_path(root, plan["campaign_profile"], component), state)
+
+
+def recover_terminal_unit(plan, component, state, unit_state, root, runtime):
+    require(unit_state["status"] == "interrupted"
+            and len(unit_state["attempts"]) == 1
+            and unit_state["attempts"][0].get("failure_classification")
+            == "guard terminal but complete lifecycle unavailable",
+            "selected unit is not eligible for no-launch recovery")
+    unit = unit_state["binding"]
+    attempt = unit_state["attempts"][0]
+    provenance = observed_recovery_provenance(plan, unit, attempt)
+    provenance_path = recovery_provenance_path(Path(attempt["private_unit_root"]))
+    if provenance_path.exists() or provenance_path.is_symlink():
+        require(read_json(provenance_path) == provenance,
+                "existing recovery provenance contradicts observed evidence")
+    else:
+        atomic_json(provenance_path, provenance)
+    attempt["recovery_prior_failure_classification"] = attempt["failure_classification"]
+    attempt["recovery_provenance_identity"] = identity(provenance)
+    receipt_path = completion_receipt_path(Path(attempt["private_unit_root"]))
+    if receipt_path.exists() or receipt_path.is_symlink():
+        receipt = read_json(receipt_path)
+    else:
+        receipt = create_receipt(plan, unit, attempt, runtime, provenance)
+    materialize(plan, component, state, unit_state, attempt, receipt, root, runtime)
+
+
+def repair_materializations(root, profile, tag, selected):
+    """Maintain existing outputs and one terminal unit; never enter execution."""
+    require(selected is not None, "no-launch recovery requires a selected unit")
+    check_root(root, fresh=False)
+    with campaign_lock(root):
+        runtime = read_json(coordinator_path(root)).get("runtime_contract_identity")
+        _, plan, states = load_campaign(root, profile, tag, runtime)
+        require(not any(unit["status"] == "running" for state in states.values()
+                        for unit in state["units"].values()),
+                "campaign has a running unit; maintenance is unsafe")
+        matches = [(component, states[component], states[component]["units"][selected])
+                   for component in PROFILES[profile]
+                   if selected in states[component]["units"]]
+        require(len(matches) == 1, "selected recovery unit is not in the campaign")
+        selected_component, selected_state, selected_unit = matches[0]
+        require(selected_unit["status"] in {"interrupted", "success"},
+                "selected recovery unit is neither interrupted nor recovered")
+        if selected_unit["status"] == "success":
+            require(selected_unit["attempts"][0].get("recovery_provenance_identity"),
+                    "selected success has no recovery provenance")
+        else:
+            require(selected_unit["attempts"][0].get("failure_classification")
+                    == "guard terminal but complete lifecycle unavailable",
+                    "selected interruption is not eligible for recovery")
+            observed_recovery_provenance(plan, selected_unit["binding"],
+                                         selected_unit["attempts"][0])
+        for component in PROFILES[profile]:
+            state = states[component]
+            for unit_state in state["units"].values():
+                if unit_state["status"] == "success":
+                    migrate_successful_unit(plan, component, state, unit_state, root, runtime)
+        if selected_unit["status"] == "interrupted":
+            recover_terminal_unit(plan, selected_component, selected_state,
+                                  selected_unit, root, runtime)
+        print(json.dumps({"recovered_unit": selected, "status": selected_unit["status"],
+                          "success_count": sum(u["status"] == "success"
+                                               for s in states.values() for u in s["units"].values())},
+                         sort_keys=True))
 
 
 def check_root(root, *, fresh):
@@ -993,6 +1244,7 @@ def main(argv=None):
     actions.add_argument("--dry-run", action="store_true")
     actions.add_argument("--execute", action="store_true")
     actions.add_argument("--resume", action="store_true")
+    actions.add_argument("--recover-terminal-unit", action="store_true")
     actions.add_argument("--activate-pending-plan", type=Path)
     parser.add_argument("--expected-plan-revision", type=int)
     parser.add_argument("--selected-unit")
@@ -1013,6 +1265,11 @@ def main(argv=None):
             else:
                 run_campaign(root, profile, args.campaign_tag, plan_path=args.plan,
                              action="execute", selected=args.selected_unit)
+        elif args.recover_terminal_unit:
+            require(args.plan is None and args.expected_plan_revision is None
+                    and args.selected_unit is not None,
+                    "recovery requires only --selected-unit")
+            repair_materializations(root, profile, args.campaign_tag, args.selected_unit)
         elif args.resume:
             require(args.plan is None and args.expected_plan_revision is None,
                     "resume accepts neither --plan nor expected revision")

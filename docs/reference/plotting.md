@@ -325,13 +325,17 @@ instead leaves a terminal failed attempt and permits unrelated planned units to
 proceed. Malformed or contradictory state and
 terminal evidence fail closed.
 
-Canonical materialization uses only receipt-listed paths. The component state
+Canonical human materialization uses only receipt-listed paths below the global
+campaign root; component roots retain private attempts and state. The component state
 first records path ownership and expected bytes, then atomically links a
 completed copy into an absent destination. Reconciliation verifies receipt
 and private/canonical bytes and finishes only missing copies; it does not
 rerun a child. A destination with no ownership record or a mismatched record
-or bytes is a collision. Unit success requires terminal lifecycle, valid
-receipt, and completed materialization. Existing root or private directories
+or bytes is a collision, except that a same-byte destination can be rebound to
+a verified receipt. Unit success requires a terminal lifecycle or separately
+verified missing-lifecycle recovery provenance, a valid receipt, and completed
+materialization. Recovery leaves unavailable lifecycle fields null and never
+creates a lifecycle receipt. Existing root or private directories
 alone never promote status. Resume skips success and does not retry failed or
 interrupted units. Revision N+1 appends units and retains all earlier bindings
 and history; it fails closed on revision mismatch or rewrite.

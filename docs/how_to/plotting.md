@@ -419,14 +419,27 @@ historical evidence and is internally bound across coordinator, component state,
 and receipts, but it is never compared with the current checkout. Git and source
 drift are review concerns and do not prevent safe resume or revision.
 
-Receipt-listed PNGs are copied without overwrite to the component's canonical
-period/merged paths. A combined campaign keeps separate
-`components/run2` and `components/run3` roots and state files. The state binds
+Receipt-listed PNGs are copied without overwrite below the global campaign
+root as `<period>/merged/<category>/<figure>.png` (and `merged_njets` when
+required by the layout owner). A combined campaign keeps separate private
+`components/run2` and `components/run3` attempt roots and state files. The state binds
 each destination to its unit, receipt, size, and SHA-256 before copying it.
 Resume can finish missing copies from a bound receipt without rerunning the
-child. Existing destinations are accepted only when ownership and binary
-identity match; unbound, different-owner, or different-byte destinations stop
-the affected component. Directory existence alone never means success.
+child. Same-byte canonical destinations can be rebound to a verified receipt;
+different-owner or different-byte destinations stop the affected component.
+Directory existence alone never means success.
+
+For a terminal attempt whose guard records normal exit zero but whose supervisor
+never wrote a lifecycle receipt, use the separate `--recover-terminal-unit
+--selected-unit UNIT_ID` action after checking that the managed process is gone.
+It never starts a renderer or advances planned units. It requires the bound
+guard, complete observed PNG inventory, and renderer completion summary, then
+writes distinct recovery provenance and a completion receipt with unavailable
+guard/child/tee lifecycle results left null. The missing lifecycle receipt
+remains missing. The same action migrates successful human PNG copies from
+component-relative paths, verifies canonical byte identity, rebinds state to
+the global root, and removes only verified redundant old PNG copies. Private
+attempts, logs, state, and receipts stay put.
 
 To append formally qualified units, submit a full plan whose revision is one
 greater and whose existing units are byte-equivalent in their source fields:

@@ -29,7 +29,7 @@ def fixture_plan(tmp_path, monkeypatch, *, profile="sr_crlike_run2", unit_count=
     root = repo / "histos" / "fixture_campaign"
     units = []
     for index in range(unit_count):
-        component = "run3" if profile == "sr_crlike_run2_run3" and index else "run2"
+        component = "run3" if profile == "sr_crlike_run2_run3" and index == 1 else "run2"
         input_path = tmp_path / f"unit_{index}_SR.pkl.gz"
         input_path.write_bytes(b"inert fixture")
         sidecar_path = Path(str(input_path) + ".metadata.json")
@@ -96,9 +96,11 @@ def fake_failure(argv, attempt_root):
     return 7, 7, 0
 
 
-def seed_running(tmp_path, monkeypatch, *, profile="sr_crlike_run2", terminal="success"):
+def seed_running(tmp_path, monkeypatch, *, profile="sr_crlike_run2", terminal="success",
+                 unit_count=None):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, profile=profile,
-                                   unit_count=2 if profile.endswith("run2_run3") else 1)
+                                   unit_count=(unit_count if unit_count is not None else
+                                               (2 if profile.endswith("run2_run3") else 1)))
     plan = campaign.normalize_plan(plan_path, profile, "fixture_campaign", root)
     runtime = campaign.runtime_identity()
     root.mkdir()
@@ -139,6 +141,34 @@ def resume_args(root, profile="sr_crlike_run2", selected=None):
     args = ["--campaign-profile", profile, "--campaign-tag", "fixture_campaign",
             "-o", str(root), "--resume"]
     return args + (["--selected-unit", selected] if selected else [])
+
+
+def seed_missing_lifecycle(tmp_path, monkeypatch, profile="sr_crlike_run2_run3"):
+    root, plan, attempt_root = seed_running(tmp_path, monkeypatch, profile=profile,
+                                            unit_count=3)
+    state_path = campaign.state_path(root, profile, "run2")
+    state = campaign.read_json(state_path)
+    unit_state = state["units"]["unit_0"]
+    unit_state["status"] = unit_state["attempts"][0]["result"] = "interrupted"
+    unit_state["attempts"][0]["failure_classification"] = (
+        "guard terminal but complete lifecycle unavailable")
+    campaign.atomic_json(state_path, state)
+    campaign.lifecycle_receipt_path(attempt_root).unlink()
+    (attempt_root / "_metadata/guard.jsonl").write_text(
+        json.dumps({"event": "start", "identity": {"pid": 99999999,
+                    "pgid": 99999999, "start_ticks": 1}}) + "\n" +
+        guard_result_line().replace('"pid": 1', '"pid": 99999999').replace(
+            '"pgid": 1', '"pgid": 99999999'), encoding="utf-8")
+    (attempt_root / "_metadata/renderer.log").write_text(
+        f"[SR] Produced 1 plots with stat⊕syst uncertainties and 0 plots with "
+        f"stat-only bands after completing 1 rendering tasks in "
+        f"{attempt_root / 'run2' / 'merged'}\n", encoding="utf-8")
+    return root, plan, attempt_root
+
+
+def recovery_args(root, profile="sr_crlike_run2_run3"):
+    return ["--campaign-profile", profile, "--campaign-tag", "fixture_campaign",
+            "-o", str(root), "--recover-terminal-unit", "--selected-unit", "unit_0"]
 
 
 def test_dry_run_uses_sidecar_variables_without_root_or_output_prediction(tmp_path, monkeypatch, capsys):
@@ -1196,6 +1226,105 @@ def test_bound_destination_recovery_and_different_bytes(tmp_path, monkeypatch):
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign", action="resume")
     assert destination.read_bytes() == b"changed"
     assert campaign.read_json(state_path)["units"]["unit_0"]["status"] == "failed"
+
+
+def test_missing_lifecycle_recovery_is_no_launch_and_truthful(tmp_path, monkeypatch):
+    root, _, attempt_root = seed_missing_lifecycle(tmp_path, monkeypatch)
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child launch"))
+    monkeypatch.setattr(campaign, "normalize_unit", lambda *_: pytest.fail("input read"))
+    assert campaign.main(recovery_args(root)) == 0
+    run2 = campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", "run2"))
+    run3 = campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", "run3"))
+    unit = run2["units"]["unit_0"]
+    attempt = unit["attempts"][0]
+    assert unit["status"] == "success" and len(unit["attempts"]) == 1
+    assert all(attempt[key] is None for key in ("guard_result", "child_result", "tee_result"))
+    assert not campaign.lifecycle_receipt_path(attempt_root).exists()
+    receipt = campaign.read_json(campaign.completion_receipt_path(attempt_root))
+    provenance = campaign.read_json(campaign.recovery_provenance_path(attempt_root))
+    assert receipt["recovery_provenance_identity"] == campaign.identity(provenance)
+    assert all(receipt[key] is None for key in ("guard_result", "child_result", "tee_result"))
+    relative = receipt["observed_png_relative_paths"][0]
+    assert (root / relative).read_bytes() == b"fixture-png"
+    assert not (root / "components/run2" / relative).exists()
+    assert run3["units"]["unit_1"]["status"] == "planned"
+    assert run3["units"]["unit_1"]["attempts"] == []
+    assert run2["units"]["unit_2"]["status"] == "planned"
+    assert run2["units"]["unit_2"]["attempts"] == []
+    assert campaign.main(recovery_args(root)) == 0
+
+
+def test_recovery_rejects_incomplete_output_and_different_byte_collision(tmp_path, monkeypatch):
+    root, _, attempt_root = seed_missing_lifecycle(tmp_path, monkeypatch)
+    log_path = attempt_root / "_metadata/renderer.log"
+    log_path.write_text("renderer stopped before completion\n", encoding="utf-8")
+    assert campaign.main(recovery_args(root)) == 2
+    assert not campaign.completion_receipt_path(attempt_root).exists()
+    assert campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", "run2"))[
+        "units"]["unit_0"]["status"] == "interrupted"
+    log_path.write_text(
+        f"[SR] Produced 1 plots with stat⊕syst uncertainties and 0 plots with "
+        f"stat-only bands after completing 1 rendering tasks in "
+        f"{attempt_root / 'run2' / 'merged'}\n", encoding="utf-8")
+    canonical = root / "run2/merged/unit_0/unit_0_invmass_fitting.png"
+    canonical.parent.mkdir(parents=True)
+    canonical.write_bytes(b"foreign")
+    assert campaign.main(recovery_args(root)) == 2
+    assert canonical.read_bytes() == b"foreign"
+    assert campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", "run2"))[
+        "units"]["unit_0"]["status"] == "interrupted"
+    canonical.write_bytes(b"fixture-png")
+    assert campaign.main(recovery_args(root)) == 0
+    assert canonical.read_bytes() == b"fixture-png"
+
+
+def test_legacy_human_png_migrates_with_identity_proof(tmp_path, monkeypatch):
+    root, _, attempt_root = seed_missing_lifecycle(tmp_path, monkeypatch)
+    assert campaign.main(recovery_args(root)) == 0
+    relative = "run2/merged/unit_0/unit_0_invmass_fitting.png"
+    canonical = root / relative
+    legacy = root / "components/run2" / relative
+    legacy.parent.mkdir(parents=True)
+    canonical.rename(legacy)
+    state_path = campaign.state_path(root, "sr_crlike_run2_run3", "run2")
+    state = campaign.read_json(state_path)
+    del state["units"]["unit_0"]["human_output_root"]
+    campaign.atomic_json(state_path, state)
+    assert campaign.main(recovery_args(root)) == 0
+    assert canonical.read_bytes() == b"fixture-png"
+    assert not legacy.exists()
+    assert campaign.read_json(state_path)["units"]["unit_0"]["human_output_root"] == str(root)
+    assert campaign.completion_receipt_path(attempt_root).is_file()
+    legacy.write_bytes(b"fixture-png")
+    assert campaign.main(recovery_args(root)) == 0
+    assert legacy.read_bytes() == b"fixture-png"
+
+
+def test_existing_normal_success_migrates_without_receipt_rewrite(tmp_path, monkeypatch):
+    profile = "sr_crlike_run2_run3"
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, profile=profile, unit_count=2)
+    monkeypatch.setattr(campaign, "run_guarded_child", fake_success)
+    campaign.run_campaign(root, profile, "fixture_campaign", plan_path=plan_path,
+                          action="execute", selected="unit_0")
+    canonical = root / "run2/merged/unit_0/unit_0_invmass_fitting.png"
+    legacy = root / "components/run2/run2/merged/unit_0/unit_0_invmass_fitting.png"
+    legacy.parent.mkdir(parents=True)
+    canonical.rename(legacy)
+    runtime = campaign.read_json(campaign.coordinator_path(root))["runtime_contract_identity"]
+    _, plan, states = campaign.load_campaign(root, profile, "fixture_campaign", runtime)
+    unit_state = states["run2"]["units"]["unit_0"]
+    del unit_state["human_output_root"]
+    state_path = campaign.state_path(root, profile, "run2")
+    campaign.atomic_json(state_path, states["run2"])
+    receipt_path = campaign.completion_receipt_path(
+        Path(unit_state["attempts"][0]["private_unit_root"]))
+    receipt_before = receipt_path.read_bytes()
+    monkeypatch.setattr(campaign, "run_guarded_child", lambda *_: pytest.fail("child launch"))
+    campaign.migrate_successful_unit(plan, "run2", states["run2"], unit_state, root, runtime)
+    assert canonical.read_bytes() == b"fixture-png" and not legacy.exists()
+    assert receipt_path.read_bytes() == receipt_before
+    assert campaign.read_json(campaign.state_path(root, profile, "run3"))[
+        "units"]["unit_1"]["attempts"] == []
 
 
 def test_pending_combined_revision_reconciles_after_interruption(tmp_path, monkeypatch):
