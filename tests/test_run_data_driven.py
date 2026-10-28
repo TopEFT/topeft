@@ -256,6 +256,18 @@ def test_run_data_driven_from_pkl_paths(tmp_path, monkeypatch):
     assert list(result["njets"].axes["process"]) == ["flipsUL17"]
 
 
+def test_explicit_output_safety_refuses_legacy_input_without_sidecar(tmp_path):
+    input_path = tmp_path / "input.pkl.gz"
+    output_path = tmp_path / "output.pkl.gz"
+    _write_histograms(input_path, {"seed": FakeHist(["dataUL17"])})
+    with pytest.raises(RuntimeError, match="requires a validated input sidecar"):
+        run_data_driven.main([
+            "--input-pkl", str(input_path), "--output-pkl", str(output_path),
+            "--pkl-no-clobber",
+        ])
+    assert not output_path.exists()
+
+
 def test_run_data_driven_rejects_deprecated_envelope_before_input_validation(tmp_path, monkeypatch):
     input_path = tmp_path / "input.pkl.gz"
     _write_histograms(input_path, {"seed": FakeHist(["dataUL18"])})

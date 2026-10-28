@@ -116,10 +116,12 @@ request fails before the wrapper declares a block complete.
 The campaign plan's `unit.outputs` is the durable source and data-driven path
 authority. Existing lane12 states retain their canonical `/groups` paths.
 Source-ready means a verified durable source receipt. When configured, the
-state engine checks byte and inode admission on the actual output parent before
-recording a running attempt. No-clobber publication is independent of that
-capacity policy. A completed attempt-owned pending pair can be validated and
-published on exclusive resume under the same attempt; success still requires
+state engine requests byte and inode admission from the artifact owner on the
+actual output parent before recording a running attempt. The launcher passes
+the policy explicitly through source and data-driven executor arguments.
+No-clobber publication is independent of capacity policy. A completed
+attempt-owned pending pair can be validated and published by the artifact
+owner on exclusive resume under the same attempt; success still requires
 the final pair and receipt. Work Queue staging has its own caller-selected
 capacity mode and path.
 

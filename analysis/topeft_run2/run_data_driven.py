@@ -81,6 +81,12 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         "--output-pkl",
         help="Destination for the histogram pickle with data-driven contributions applied.",
     )
+    parser.add_argument("--pkl-no-clobber", action="store_true")
+    parser.add_argument("--pkl-min-free-bytes", type=int)
+    parser.add_argument("--pkl-min-free-inodes", type=int)
+    parser.add_argument("--pkl-safety-reserve-bytes", type=int)
+    parser.add_argument("--pkl-safety-reserve-inodes", type=int)
+    parser.add_argument("--pkl-pending-id")
     parser.add_argument(
         "--legacy-campaign-state",
         help=(
@@ -1431,6 +1437,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     else:
         input_validation = validate_histogram_artifact(input_pkl)
     input_sidecar = input_validation["metadata"]
+    if input_sidecar is None and (
+        args.pkl_no_clobber or args.pkl_pending_id is not None
+        or any(value is not None for value in (
+            args.pkl_min_free_bytes, args.pkl_min_free_inodes,
+            args.pkl_safety_reserve_bytes, args.pkl_safety_reserve_inodes,
+        ))
+    ):
+        raise RuntimeError("explicit output-safety policy requires a validated input sidecar")
     finalize_kwargs = {
         "only_flips": args.only_flips,
         "nominal_only_reference": args.nominal_only_reference,
@@ -1492,6 +1506,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             sumw2_storage_provenance=effective_input_sidecar["sumw2_storage_provenance"],
             lineage_inputs=[lineage_input_from_sidecar(input_sidecar)],
             input_sidecar=effective_input_sidecar,
+            no_clobber=args.pkl_no_clobber,
+            min_free_bytes=args.pkl_min_free_bytes,
+            min_free_inodes=args.pkl_min_free_inodes,
+            safety_reserve_bytes=args.pkl_safety_reserve_bytes,
+            safety_reserve_inodes=args.pkl_safety_reserve_inodes,
+            pending_id=args.pkl_pending_id,
         )
 
     return 0

@@ -173,6 +173,9 @@ def test_capacity_options_keep_plan_owned_output_paths(tmp_path, backend):
     unit = state["units"][0]
     for stage in ("source", "data_driven"):
         assert unit["stages"][stage]["receipt"]["artifact"]["path"] == unit["outputs"][stage]
+        command = unit["stages"][stage]["attempts"][0]["command_argv"]
+        assert "--pkl-no-clobber" in command
+        assert manifest.output_safety_from_command(command) == (2, 4, 1, 1)
 
 
 def test_resume_accepts_chunksize_and_relocated_identical_archive(tmp_path, backend):

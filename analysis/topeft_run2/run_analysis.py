@@ -1170,8 +1170,16 @@ if __name__ == "__main__":
     parser.add_argument("--wq-guard", action="store_true", help="Enable owned staging preflight and runtime warnings")
     parser.add_argument("--wq-invocation-id", help="Unique profile/block/attempt staging identity")
     parser.add_argument("--wq-quota-root", help="Exact site quota root, e.g. /groups/klannon")
+    parser.add_argument("--wq-root-backed-local-statvfs", action="store_true",
+                        help="Authorize the selected /tmpscratch/users/$USER staging namespace")
     parser.add_argument("--wq-free-warning-bytes", type=int)
     parser.add_argument("--wq-min-free-bytes", type=int)
+    parser.add_argument("--pkl-no-clobber", action="store_true")
+    parser.add_argument("--pkl-min-free-bytes", type=int)
+    parser.add_argument("--pkl-min-free-inodes", type=int)
+    parser.add_argument("--pkl-safety-reserve-bytes", type=int)
+    parser.add_argument("--pkl-safety-reserve-inodes", type=int)
+    parser.add_argument("--pkl-pending-id")
     parser.add_argument("--wq-warning-bytes", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--wq-stop-bytes", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--wq-reserve-bytes", type=int, help=argparse.SUPPRESS)
@@ -1281,6 +1289,8 @@ if __name__ == "__main__":
     if any(value is not None for value in (args.wq_warning_bytes, args.wq_stop_bytes,
                                            args.wq_reserve_bytes)):
         parser.error("retired Work Queue staging-budget options; use --wq-free-warning-bytes and --wq-min-free-bytes")
+    if args.wq_root_backed_local_statvfs and (not args.wq_guard or args.wq_quota_root):
+        parser.error("root-backed local statvfs requires a guarded base and no quota root")
     if args.rebuild_env and args.env_file:
         parser.error("--rebuild-env cannot be combined with --env-file")
     if args.snapshot and not args.env_file:
@@ -2262,7 +2272,8 @@ if __name__ == "__main__":
                 raise SystemExit("guarded Work Queue requires invocation, free-space warning/minimum and poll arguments")
             try:
                 wq_staging_dir, owner_inode, stop_event, watchdog = start_guard(
-                    wq_filepath, *guard_values
+                    wq_filepath, *guard_values,
+                    allow_root_backed_local_statvfs=args.wq_root_backed_local_statvfs,
                 )
             except (OSError, staging_guard_error) as error:
                 raise SystemExit(f"Work Queue staging preflight failed: {error}") from error
@@ -2481,6 +2492,12 @@ if __name__ == "__main__":
             requested_data_driven_products=requested_data_driven_products,
             resolved_data_driven_contract=resolved_data_driven_contract,
             histogram_applicability=histogram_applicability,
+            no_clobber=args.pkl_no_clobber,
+            min_free_bytes=args.pkl_min_free_bytes,
+            min_free_inodes=args.pkl_min_free_inodes,
+            safety_reserve_bytes=args.pkl_safety_reserve_bytes,
+            safety_reserve_inodes=args.pkl_safety_reserve_inodes,
+            pending_id=args.pkl_pending_id,
         )
         print("Done!")
 
@@ -2506,6 +2523,11 @@ if __name__ == "__main__":
                     transformation_context=ddp.get_transformation_context(
                         inline_artifact_kind
                     ),
+                    no_clobber=args.pkl_no_clobber,
+                    min_free_bytes=args.pkl_min_free_bytes,
+                    min_free_inodes=args.pkl_min_free_inodes,
+                    safety_reserve_bytes=args.pkl_safety_reserve_bytes,
+                    safety_reserve_inodes=args.pkl_safety_reserve_inodes,
                 )
                 print("Done!")
             elif np_postprocess_mode == "defer":

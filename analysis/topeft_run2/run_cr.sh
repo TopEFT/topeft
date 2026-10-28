@@ -13,6 +13,7 @@ Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag
   [--wq-manager-name EXACT_NAME | --wq-manager-prefix PREFIX]
   [--run2-wq-manager-prefix PREFIX --run3-wq-manager-prefix PREFIX]
   [--wq-port PORT (0..65535; 0 selects a free manager port)]
+  [--wq-staging-base PATH --wq-root-backed-local-statvfs]
   [--activate-pending-plan JSON --expected-plan-revision ID]
   [Work Queue guard and resource options]
 
@@ -47,6 +48,7 @@ profile_pkl_safety_reserve_bytes=""
 profile_pkl_safety_reserve_inodes=""
 profile_wq_staging_base=""
 profile_wq_quota_root=""
+profile_wq_root_backed_local_statvfs=false
 profile_wq_warning_bytes=""
 profile_wq_min_free_bytes=""
 profile_wq_poll_seconds=""
@@ -180,6 +182,10 @@ while (( $# > 0 )); do
         exit 1
       fi
       shift 2
+      ;;
+    --wq-root-backed-local-statvfs)
+      profile_wq_root_backed_local_statvfs=true
+      shift
       ;;
     --wq-warning-bytes|--wq-stop-bytes|--wq-reserve-bytes)
       echo "ERROR: retired Work Queue staging-budget option $1; use --wq-free-warning-bytes and --wq-min-free-bytes." >&2
@@ -334,6 +340,11 @@ elif [[ -n "${profile_wq_quota_root}${profile_wq_warning_bytes}${profile_wq_min_
   echo "ERROR: Work Queue guard options require --wq-staging-base." >&2
   exit 1
 fi
+if [[ "${profile_wq_root_backed_local_statvfs}" == true ]] \
+  && { [[ -z "${profile_wq_staging_base}" ]] || [[ -n "${profile_wq_quota_root}" ]]; }; then
+  echo "ERROR: root-backed local statvfs requires a staging base and no quota root." >&2
+  exit 1
+fi
 if [[ -n "${profile_wq_accumulating_memory_mb}" || -n "${profile_wq_accumulating_cores}" ]]; then
   if [[ ! "${profile_wq_accumulating_memory_mb}" =~ ^[1-9][0-9]*$ \
     || ! "${profile_wq_accumulating_cores}" =~ ^[1-9][0-9]*$ ]]; then
@@ -432,15 +443,10 @@ if [[ -n "${profile_pkl_min_free_bytes}${profile_pkl_min_free_inodes}${profile_p
     echo "ERROR: persistent output admission must include an artifact budget and three pending-entry inodes beyond the safety reserve." >&2
     exit 1
   fi
-  export TOPEFT_PKL_MIN_FREE_BYTES="${profile_pkl_min_free_bytes}"
-  export TOPEFT_PKL_MIN_FREE_INODES="${profile_pkl_min_free_inodes}"
-  export TOPEFT_PKL_SAFETY_RESERVE_BYTES="${profile_pkl_safety_reserve_bytes}"
-  export TOPEFT_PKL_SAFETY_RESERVE_INODES="${profile_pkl_safety_reserve_inodes}"
-else
-  unset TOPEFT_PKL_MIN_FREE_BYTES TOPEFT_PKL_MIN_FREE_INODES TOPEFT_PKL_SAFETY_RESERVE_BYTES TOPEFT_PKL_SAFETY_RESERVE_INODES
 fi
-export TOPEFT_PKL_NO_CLOBBER=1
-unset TOPEFT_PKL_PENDING_ID
+unset TOPEFT_PKL_NO_CLOBBER TOPEFT_PKL_PENDING_ID \
+  TOPEFT_PKL_MIN_FREE_BYTES TOPEFT_PKL_MIN_FREE_INODES \
+  TOPEFT_PKL_SAFETY_RESERVE_BYTES TOPEFT_PKL_SAFETY_RESERVE_INODES
 
 for production_state_value in "${output_dir}" "${campaign_tag}"; do
   if [[ "${production_state_value}" == *$'\t'* || "${production_state_value}" == *$'\n'* ]]; then
@@ -1394,6 +1400,19 @@ build_common_command_options() {
   fi
 }
 
+append_pkl_safety_options() {
+  local -n pkl_cmd_ref="$1"
+  pkl_cmd_ref+=(--pkl-no-clobber)
+  if [[ -n "${profile_pkl_min_free_bytes}" ]]; then
+    pkl_cmd_ref+=(
+      --pkl-min-free-bytes "${profile_pkl_min_free_bytes}"
+      --pkl-min-free-inodes "${profile_pkl_min_free_inodes}"
+      --pkl-safety-reserve-bytes "${profile_pkl_safety_reserve_bytes}"
+      --pkl-safety-reserve-inodes "${profile_pkl_safety_reserve_inodes}"
+    )
+  fi
+}
+
 append_guard_options() {
   local -n guarded_cmd_ref="$1"
   local block_id="$2"
@@ -1408,6 +1427,9 @@ append_guard_options() {
   )
   if [[ -n "${profile_wq_quota_root}" ]]; then
     guarded_cmd_ref+=(--wq-quota-root "${profile_wq_quota_root}")
+  fi
+  if [[ "${profile_wq_root_backed_local_statvfs}" == true ]]; then
+    guarded_cmd_ref+=(--wq-root-backed-local-statvfs)
   fi
   if [[ -n "${profile_wq_treereduction}" ]]; then
     guarded_cmd_ref+=(--wq-treereduction "${profile_wq_treereduction}")
@@ -1702,6 +1724,8 @@ run_campaign_unit() {
   data_driven_cmd=(
     python ./run_data_driven.py --input-pkl "${source_path}" --output-pkl "${data_driven_path}"
   )
+  append_pkl_safety_options source_cmd
+  append_pkl_safety_options data_driven_cmd
 
   echo "Unit: ${block_id}"
   echo "Years: ${year_expr}; region: ${profile_region}"
@@ -1714,8 +1738,7 @@ run_campaign_unit() {
       production_state_tool mark "${production_state_path}" "${block_id}" \
         source running none source_child_started -- "${source_cmd[@]}"
       source_pending_path=$(production_state_tool pending-path "${production_state_path}" "${block_id}" source)
-      export TOPEFT_PKL_PENDING_ID
-      TOPEFT_PKL_PENDING_ID=$(production_state_tool pending-id "${production_state_path}" "${block_id}" source)
+      source_cmd+=(--pkl-pending-id "$(production_state_tool pending-id "${production_state_path}" "${block_id}" source)")
     fi
     print_command "${source_cmd[@]}"
     if [[ "${dry_run}" == "true" ]]; then
@@ -1726,7 +1749,6 @@ run_campaign_unit() {
     else
       source_exit_code=$?
     fi
-    unset TOPEFT_PKL_PENDING_ID
   else
     echo "Reusing verified source: ${source_path}"
   fi
@@ -1769,8 +1791,7 @@ run_campaign_unit() {
   production_state_tool mark "${production_state_path}" "${block_id}" \
     data_driven running none data_driven_child_started "${data_driven_cmd[@]}"
   data_driven_pending_path=$(production_state_tool pending-path "${production_state_path}" "${block_id}" data_driven)
-  export TOPEFT_PKL_PENDING_ID
-  TOPEFT_PKL_PENDING_ID=$(production_state_tool pending-id "${production_state_path}" "${block_id}" data_driven)
+  data_driven_cmd+=(--pkl-pending-id "$(production_state_tool pending-id "${production_state_path}" "${block_id}" data_driven)")
   print_command "${data_driven_cmd[@]}"
   if run_production_nonprompt_child "${block_id}" "${source_path}" \
     "${data_driven_path}" "${data_driven_cmd[@]}"; then
@@ -1778,7 +1799,6 @@ run_campaign_unit() {
   else
     data_driven_exit_code=$?
   fi
-  unset TOPEFT_PKL_PENDING_ID
   duration_seconds=$(($(date +%s) - start_epoch))
   if (( data_driven_exit_code == 0 )) \
     && [[ -s "${data_driven_path}" && -s "${data_driven_path}.metadata.json" ]]; then

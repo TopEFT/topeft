@@ -118,18 +118,14 @@ def test_canonical_output_capacity_refusal_and_dd_lineage(make_campaign, monkeyp
     state = make_campaign()
     unit = state["units"][0]
     outputs = copy.deepcopy(unit["outputs"])
-    for name, value in (
-        ("TOPEFT_PKL_MIN_FREE_BYTES", str(10**30)),
-        ("TOPEFT_PKL_MIN_FREE_INODES", "4"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
-    ):
-        monkeypatch.setenv(name, value)
-    command = source_command(state, unit)
+    command = source_command(state, unit) + [
+        "--pkl-min-free-bytes", str(10**30), "--pkl-min-free-inodes", "4",
+        "--pkl-safety-reserve-bytes", "1", "--pkl-safety-reserve-inodes", "1",
+    ]
     with pytest.raises(ValueError, match="capacity admission refused"):
         manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
     assert unit["stages"]["source"]["attempts"] == []
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", "2")
+    command[command.index("--pkl-min-free-bytes") + 1] = "2"
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
     assert manifest.effective_output_path(unit, "source") == outputs["source"]
     assert unit["outputs"] == outputs
@@ -147,20 +143,17 @@ def test_canonical_output_capacity_refusal_and_dd_lineage(make_campaign, monkeyp
 def test_canonical_inode_admission_refuses_without_attempt(make_campaign, monkeypatch):
     state = make_campaign()
     unit = state["units"][0]
-    for name, value in (
-        ("TOPEFT_PKL_MIN_FREE_BYTES", "2"),
-        ("TOPEFT_PKL_MIN_FREE_INODES", "4"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
-    ):
-        monkeypatch.setenv(name, value)
+    command = source_command(state, unit) + [
+        "--pkl-min-free-bytes", "2", "--pkl-min-free-inodes", "4",
+        "--pkl-safety-reserve-bytes", "1", "--pkl-safety-reserve-inodes", "1",
+    ]
     with monkeypatch.context() as capacity_patch:
         capacity_patch.setattr(manifest.os, "statvfs", lambda _: SimpleNamespace(
             f_bavail=100, f_frsize=1, f_favail=3,
         ))
         with pytest.raises(ValueError, match="capacity admission refused"):
             manifest.transition(state, unit["id"], "source", "running", "none", "test",
-                                tuple(source_command(state, unit)))
+                                tuple(command))
     assert unit["stages"]["source"] == {"status": "pending", "attempts": [], "receipt": None}
 
 
@@ -170,10 +163,8 @@ def test_canonical_pending_source_republishes_same_attempt(
 ):
     state = make_campaign("run2_stat_diagnostic", histograms=("ptll",))
     unit = state["units"][0]
-    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
     command = source_command(state, unit)
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
-    monkeypatch.setenv("TOPEFT_PKL_PENDING_ID", manifest.pending_artifact_id(state, unit, "source"))
     final = Path(manifest.effective_output_path(unit, "source"))
     pending = manifest.pending_artifact_path(state, unit, "source")
     original_link = histogram_artifact.os.link
@@ -186,13 +177,13 @@ def test_canonical_pending_source_republishes_same_attempt(
     with monkeypatch.context() as publication_patch:
         publication_patch.setattr(histogram_artifact.os, "link", interrupt_sidecar)
         with pytest.raises(OSError, match="publication interruption"):
-            write_artifact(final, state=state, unit=unit, real_payload=True)
+            write_artifact(final, state=state, unit=unit, real_payload=True,
+                           pending_id=manifest.pending_artifact_id(state, unit, "source"))
     assert pending.is_file()
     assert Path(f"{pending}.metadata.json").is_file()
     assert final.is_file()
     assert unit["stages"]["source"]["status"] == "running"
     assert len(unit["stages"]["source"]["attempts"]) == 1
-    monkeypatch.delenv("TOPEFT_PKL_NO_CLOBBER")
     with pytest.raises(ValueError, match="unresolved output evidence"):
         manifest.transition(state, unit["id"], "source", "failed", "1", "test")
     final_sidecar = Path(f"{final}.metadata.json")
@@ -221,12 +212,10 @@ def test_canonical_malformed_pending_locator_cannot_be_reclassified(
 ):
     state = make_campaign()
     unit = state["units"][0]
-    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
     command = source_command(state, unit)
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
     pending = manifest.pending_artifact_path(state, unit, "source")
     pending.parent.symlink_to(tmp_path, target_is_directory=True)
-    monkeypatch.delenv("TOPEFT_PKL_NO_CLOBBER")
     with pytest.raises(ValueError, match="pending locator is not an owned directory"):
         manifest.reconcile_running(state)
     with pytest.raises(ValueError, match="unresolved output evidence"):
@@ -245,7 +234,6 @@ def test_canonical_malformed_pending_locator_cannot_be_reclassified(
 def test_canonical_pending_identity_binds_control_root_and_attempt(
     make_campaign, tmp_path, monkeypatch
 ):
-    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
     states = (
         make_campaign(root_name="campaign_a"),
         make_campaign(root_name="campaign_b"),
@@ -273,14 +261,12 @@ def test_canonical_pending_data_driven_republishes_with_durable_receipt(
                         tuple(source_command(state, unit)))
     write_artifact(unit["outputs"]["source"], state=state, unit=unit, real_payload=True)
     manifest.transition(state, unit["id"], "source", "ready", "0", "test")
-    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
     final = Path(unit["outputs"]["data_driven"])
     command = ("python", "./run_data_driven.py", "--input-pkl",
                unit["stages"]["source"]["receipt"]["artifact"]["path"],
                "--output-pkl", str(final))
     manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
     pending = manifest.pending_artifact_path(state, unit, "data_driven")
-    monkeypatch.setenv("TOPEFT_PKL_PENDING_ID", manifest.pending_artifact_id(state, unit, "data_driven"))
     original_link = histogram_artifact.os.link
 
     def interrupt_sidecar(source, destination, *args, **kwargs):
@@ -292,9 +278,10 @@ def test_canonical_pending_data_driven_republishes_with_durable_receipt(
         publication_patch.setattr(histogram_artifact.os, "link", interrupt_sidecar)
         with pytest.raises(OSError, match="DD publication interruption"):
             run_data_driven.main(["--input-pkl", unit["outputs"]["source"],
-                                  "--output-pkl", str(final), "--quiet"])
+                                  "--output-pkl", str(final), "--quiet",
+                                  "--pkl-no-clobber", "--pkl-pending-id",
+                                  manifest.pending_artifact_id(state, unit, "data_driven")])
     assert pending.is_file() and final.is_file()
-    monkeypatch.delenv("TOPEFT_PKL_NO_CLOBBER")
     state_path = tmp_path / "recovery_state.json"
     state_path.write_text(json.dumps(state), encoding="utf-8")
     monkeypatch.setattr(manifest, "assert_writer_lock", lambda _: None)
@@ -309,7 +296,7 @@ def test_canonical_pending_data_driven_republishes_with_durable_receipt(
 
 
 def write_artifact(path, source_sha256=None, *, state=None, unit=None, real_payload=False,
-                   wrapper_identity="run_cr.sh -> fullR3_run.sh"):
+                   wrapper_identity="run_cr.sh -> fullR3_run.sh", pending_id=None):
     path = Path(path)
     if not real_payload:
         path.write_bytes(b"synthetic processor output")
@@ -395,6 +382,7 @@ def write_artifact(path, source_sha256=None, *, state=None, unit=None, real_payl
             requested_data_driven_products=requested,
             resolved_data_driven_contract=resolved,
             histogram_applicability=applicability,
+            **({"no_clobber": True, "pending_id": pending_id} if pending_id else {}),
         )
         return
     sidecar = {

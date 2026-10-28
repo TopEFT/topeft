@@ -266,6 +266,7 @@ def _write_processor(
     products_block=None,
     source_payload=None,
     histogram_applicability=_DEFAULT_HISTOGRAM_APPLICABILITY,
+    **output_safety,
 ):
     samples = {
         "data_dataset": {
@@ -325,6 +326,7 @@ def _write_processor(
         requested_data_driven_products=requested,
         resolved_data_driven_contract=contract,
         histogram_applicability=histogram_applicability,
+        **output_safety,
     )
 
 
@@ -1582,36 +1584,38 @@ def test_transformed_nominal_labels_must_match_generated_output_map(
 
 
 def test_opt_in_no_clobber_refuses_existing_pkl_or_sidecar(tmp_path, monkeypatch, policy):
-    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
-    for name in ("TOPEFT_PKL_MIN_FREE_BYTES", "TOPEFT_PKL_MIN_FREE_INODES",
-                 "TOPEFT_PKL_SAFETY_RESERVE_BYTES", "TOPEFT_PKL_SAFETY_RESERVE_INODES"):
-        monkeypatch.delenv(name, raising=False)
     path = tmp_path / "processor.pkl.gz"
     sidecar = metadata_sidecar_path(path)
     path.write_bytes(b"preexisting pkl")
     with pytest.raises(histogram_artifact_error, match="already exists"):
-        _write_processor(path, policy)
+        _write_processor(path, policy, no_clobber=True)
     assert path.read_bytes() == b"preexisting pkl"
     assert not sidecar.exists()
     path.unlink()
     sidecar.write_bytes(b"preexisting sidecar")
     with pytest.raises(histogram_artifact_error, match="already exists"):
-        _write_processor(path, policy)
+        _write_processor(path, policy, no_clobber=True)
     assert sidecar.read_bytes() == b"preexisting sidecar"
     assert not path.exists()
 
 
-def test_opt_in_no_clobber_rechecks_capacity_and_keeps_race_evidence(tmp_path, monkeypatch, policy):
+def test_process_environment_does_not_set_artifact_safety_policy(tmp_path, monkeypatch, policy):
     monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
     monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", str(10**30))
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_INODES", "4")
-    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1")
-    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1")
+    path = tmp_path / "processor.pkl.gz"
+    _write_processor(path, policy)
+    _write_processor(path, policy)
+    assert path.is_file()
+
+
+def test_opt_in_no_clobber_rechecks_capacity_and_keeps_race_evidence(tmp_path, monkeypatch, policy):
+    safety = dict(no_clobber=True, min_free_bytes=10**30, min_free_inodes=4,
+                  safety_reserve_bytes=1, safety_reserve_inodes=1)
     path = tmp_path / "processor.pkl.gz"
     with pytest.raises(histogram_artifact_error, match="capacity"):
-        _write_processor(path, policy)
+        _write_processor(path, policy, **safety)
     assert not path.exists()
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", "2")
+    safety["min_free_bytes"] = 2
     original_link = histogram_artifact.os.link
     sidecar = metadata_sidecar_path(path)
 
@@ -1622,7 +1626,7 @@ def test_opt_in_no_clobber_rechecks_capacity_and_keeps_race_evidence(tmp_path, m
 
     monkeypatch.setattr(histogram_artifact.os, "link", competing_sidecar)
     with pytest.raises(FileExistsError):
-        _write_processor(path, policy)
+        _write_processor(path, policy, **safety)
     assert path.is_file()
     assert sidecar.read_bytes() == b"competing sidecar"
 
@@ -1631,15 +1635,8 @@ def test_opt_in_no_clobber_rechecks_capacity_and_keeps_race_evidence(tmp_path, m
 def test_no_clobber_publication_uses_remaining_reserve_and_preserves_pending(
     tmp_path, monkeypatch, policy, post_inodes, accepted
 ):
-    for name, value in (
-        ("TOPEFT_PKL_NO_CLOBBER", "1"),
-        ("TOPEFT_PKL_MIN_FREE_BYTES", "100"),
-        ("TOPEFT_PKL_MIN_FREE_INODES", "5"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
-        ("TOPEFT_PKL_PENDING_ID", "a" * 64),
-    ):
-        monkeypatch.setenv(name, value)
+    safety = dict(no_clobber=True, min_free_bytes=100, min_free_inodes=5,
+                  safety_reserve_bytes=1, safety_reserve_inodes=1, pending_id="a" * 64)
     path = tmp_path / "processor.pkl.gz"
     polls = []
     synced_parent = []
@@ -1660,10 +1657,10 @@ def test_no_clobber_publication_uses_remaining_reserve_and_preserves_pending(
         capacity_patch.setattr(histogram_artifact.os, "statvfs", capacity)
         capacity_patch.setattr(histogram_artifact.os, "fsync", track_fsync)
         if accepted:
-            _write_processor(path, policy)
+            _write_processor(path, policy, **safety)
         else:
             with pytest.raises(histogram_artifact_error, match="capacity"):
-                _write_processor(path, policy)
+                _write_processor(path, policy, **safety)
     pending = tmp_path / f".topeft-pending-{'a' * 64}" / path.name
     assert len(polls) == 2
     assert pending.is_file()

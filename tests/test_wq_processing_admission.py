@@ -4,6 +4,7 @@ from collections import defaultdict
 import importlib
 import json
 import os
+import pwd
 from pathlib import Path
 import subprocess
 from types import SimpleNamespace
@@ -13,6 +14,44 @@ from ndcctools import work_queue as wq
 
 from analysis.topeft_run2 import wq_processing_admission as admission
 from analysis.topeft_run2 import wq_staging_guard as staging_guard
+
+
+def test_root_backed_staging_requires_bounded_explicit_capability(monkeypatch):
+    user = pwd.getpwuid(os.getuid()).pw_name
+    base = Path(f"/tmpscratch/users/{user}/selected")
+    fake_stat = SimpleNamespace(st_uid=os.getuid(), st_dev=1)
+    with monkeypatch.context() as fixture:
+        fixture.setattr(staging_guard.Path, "is_dir", lambda _: True)
+        fixture.setattr(staging_guard.Path, "is_symlink", lambda _: False)
+        fixture.setattr(staging_guard.Path, "resolve", lambda path, strict=True: path)
+        fixture.setattr(staging_guard.os, "stat", lambda _: fake_stat)
+        fixture.setattr(staging_guard.os, "access", lambda *_: True)
+        with pytest.raises(staging_guard.staging_guard_error, match="explicit bounded authorization"):
+            staging_guard._validate_base(base)
+        assert staging_guard._validate_base(
+            base, allow_root_backed_local_statvfs=True) == base
+        with pytest.raises(staging_guard.staging_guard_error, match="user staging namespace"):
+            staging_guard._validate_base(
+                Path("/other/root-backed/selected"), allow_root_backed_local_statvfs=True)
+        with pytest.raises(staging_guard.staging_guard_error, match="root temporary staging"):
+            staging_guard._validate_base(
+                Path("/tmp/selected"), allow_root_backed_local_statvfs=True)
+        with pytest.raises(staging_guard.staging_guard_error, match="root temporary staging"):
+            staging_guard._validate_base(
+                Path("/var/tmp/selected"), allow_root_backed_local_statvfs=True)
+        fixture.setattr(staging_guard.os, "stat", lambda _: SimpleNamespace(
+            st_uid=os.getuid() + 1, st_dev=1))
+        with pytest.raises(staging_guard.staging_guard_error, match="ownership"):
+            staging_guard._validate_base(base, allow_root_backed_local_statvfs=True)
+        fixture.setattr(staging_guard.os, "stat", lambda _: fake_stat)
+        fixture.setattr(staging_guard.Path, "is_symlink", lambda path: path == base)
+        with pytest.raises(staging_guard.staging_guard_error, match="symlink"):
+            staging_guard._validate_base(base, allow_root_backed_local_statvfs=True)
+        fixture.setattr(staging_guard.Path, "is_symlink", lambda _: False)
+        fixture.setattr(staging_guard.Path, "resolve", lambda path, strict=True:
+                        Path("/other/root-backed/selected") if path == base else path)
+        with pytest.raises(staging_guard.staging_guard_error, match="user staging namespace"):
+            staging_guard._validate_base(base, allow_root_backed_local_statvfs=True)
 
 
 def test_local_staging_space_uses_statvfs_without_quota(monkeypatch, tmp_path):

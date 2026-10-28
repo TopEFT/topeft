@@ -78,8 +78,9 @@ path. If persistent-output capacity thresholds are configured, pass all four
 positive `--pkl-min-free-bytes`, `--pkl-min-free-inodes`,
 `--pkl-safety-reserve-bytes` and `--pkl-safety-reserve-inodes` values. Select
 them during the later production preflight from the artifact budget and safety
-reserve. Admission checks the actual output parent before recording an attempt;
-after materialization only the remaining reserve is checked. The inode budget
+reserve. The launcher passes them explicitly to the source and data-driven
+executors. The artifact helper checks the actual output parent before an
+attempt is recorded; after materialization it checks only the remaining reserve. The inode budget
 includes the pending directory, PKL and sidecar; hard links reuse their source
 inodes. Source and data-driven publication requests no-clobber independently
 of capacity settings. A completed same-attempt pending pair sits beside the
@@ -90,7 +91,11 @@ or invalid pending pair stops recovery with its evidence preserved.
 Work Queue staging is a separate configured capacity domain. Supply a safe,
 owned staging base with warning, minimum and poll inputs. Omit the quota root
 for local statvfs capacity; supply the exact owning quota root for quota-aware
-capacity. The guard rejects temporary, unowned, symlink and root-backed bases.
+capacity. For an explicitly selected root-backed base under
+`/tmpscratch/users/$USER/`, pass `--wq-root-backed-local-statvfs` with no
+quota root. The guard checks the user namespace, ownership and path identity;
+without that flag it rejects root-backed bases. It always rejects `/tmp`,
+`/var/tmp`, unowned bases and symlink paths.
 Local staging uses filesystem free bytes and
 inodes; it does not query `/groups` quota in the Work Queue admission loop.
 The staging base, durable PKL root and campaign control root have separate

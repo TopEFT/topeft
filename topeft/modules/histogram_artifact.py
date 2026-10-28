@@ -7,6 +7,7 @@ import gzip
 import hashlib
 import json
 import os
+import stat
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 import uuid
@@ -2915,6 +2916,87 @@ def _default_pickle_writer(path: str, histograms: Mapping[str, Any]) -> None:
         cloudpickle.dump(histograms, stream)
 
 
+def output_capacity_thresholds(min_free_bytes, min_free_inodes,
+                               safety_reserve_bytes, safety_reserve_inodes):
+    values = (min_free_bytes, min_free_inodes, safety_reserve_bytes, safety_reserve_inodes)
+    if all(value is None for value in values):
+        return None
+    if any(type(value) is not int or value <= 0 for value in values):
+        raise histogram_artifact_error("persistent output requires four positive capacity values")
+    if min_free_bytes <= safety_reserve_bytes or min_free_inodes < safety_reserve_inodes + 3:
+        raise histogram_artifact_error(
+            "persistent output admission threshold lacks artifact budget or pending-entry inodes"
+        )
+    return values
+
+
+def check_output_capacity(path, thresholds, *, publication=False):
+    if thresholds is None:
+        return
+    values = os.statvfs(Path(path).parent)
+    offset = 2 if publication else 0
+    if values.f_bavail * values.f_frsize < thresholds[offset] or values.f_favail < thresholds[offset + 1]:
+        message = ("persistent output publication capacity safety reserve refused" if publication
+                   else "persistent output capacity admission refused before attempt creation")
+        raise histogram_artifact_error(message)
+
+
+def recover_pending_artifact(pending, final, *, validate_sidecar, thresholds=None):
+    """Publish only a validated same-attempt pending pair, preserving collision evidence."""
+    pending = Path(pending)
+    final = Path(final)
+    if not os.path.lexists(pending.parent):
+        return False
+    if pending.parent.is_symlink() or not pending.parent.is_dir():
+        raise histogram_artifact_error("recovery_evidence_insufficient: pending locator is not an owned directory")
+    owner = pending.parent.stat()
+    if owner.st_uid != os.getuid() or stat.S_IMODE(owner.st_mode) != 0o700:
+        raise histogram_artifact_error("recovery_evidence_insufficient: pending directory ownership or mode differs")
+    pending_sidecar = metadata_sidecar_path(pending)
+    final_sidecar = metadata_sidecar_path(final)
+    if pending.is_symlink() or pending_sidecar.is_symlink():
+        raise histogram_artifact_error("recovery_evidence_insufficient: pending evidence is a symlink")
+    validated = validate_histogram_artifact(pending)
+    validate_sidecar(validated["metadata"], pending)
+    check_output_capacity(final, thresholds, publication=True)
+    for source, destination in ((pending, final), (pending_sidecar, final_sidecar)):
+        if os.path.lexists(destination):
+            if destination.is_symlink() or not destination.is_file() or not os.path.samefile(source, destination):
+                raise histogram_artifact_error("recovery_evidence_insufficient: final target collision preserves pending evidence")
+        else:
+            os.link(source, destination)
+    parent_fd = os.open(final.parent, os.O_RDONLY)
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
+    return True
+
+
+def cleanup_pending_artifact(pending, final):
+    pending = Path(pending)
+    final = Path(final)
+    if not pending.parent.is_dir() or pending.parent.is_symlink():
+        return
+    pending_sidecar = metadata_sidecar_path(pending)
+    final_sidecar = metadata_sidecar_path(final)
+    if not all(path.is_file() and not path.is_symlink() for path in
+               (pending, pending_sidecar, final, final_sidecar)):
+        return
+    if not (os.path.samefile(pending, final) and os.path.samefile(pending_sidecar, final_sidecar)):
+        return
+    if set(os.listdir(pending.parent)) != {pending.name, pending_sidecar.name}:
+        return
+    pending_sidecar.unlink()
+    pending.unlink()
+    pending.parent.rmdir()
+    parent_fd = os.open(final.parent, os.O_RDONLY)
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
+
+
 def write_histogram_artifact(
     pkl_path: str | os.PathLike[str],
     *,
@@ -2933,6 +3015,12 @@ def write_histogram_artifact(
     production_sample_contract: Mapping[str, Any] | None = None,
     nominal_reference_contract: Mapping[str, Any] | None = None,
     histogram_applicability: Mapping[str, Any] | None = None,
+    no_clobber: bool = False,
+    min_free_bytes: int | None = None,
+    min_free_inodes: int | None = None,
+    safety_reserve_bytes: int | None = None,
+    safety_reserve_inodes: int | None = None,
+    pending_id: str | None = None,
 ) -> dict[str, Any]:
     """Stage, validate, and publish a PKL/sidecar pair as one logical output."""
 
@@ -2958,36 +3046,17 @@ def write_histogram_artifact(
             )
     pkl_path = Path(pkl_path)
     pkl_path.parent.mkdir(parents=True, exist_ok=True)
-    no_clobber = os.environ.get("TOPEFT_PKL_NO_CLOBBER") == "1"
-    capacity_names = (
-        "TOPEFT_PKL_MIN_FREE_BYTES", "TOPEFT_PKL_MIN_FREE_INODES",
-        "TOPEFT_PKL_SAFETY_RESERVE_BYTES", "TOPEFT_PKL_SAFETY_RESERVE_INODES",
+    thresholds = output_capacity_thresholds(
+        min_free_bytes, min_free_inodes, safety_reserve_bytes, safety_reserve_inodes
     )
-    thresholds = None
-    if any(name in os.environ for name in capacity_names):
-        thresholds = []
-        for name in capacity_names:
-            value = os.environ.get(name, "")
-            if not value.isdigit() or int(value) <= 0:
-                raise histogram_artifact_error(f"invalid {name} for persistent output")
-            thresholds.append(int(value))
-        if thresholds[0] <= thresholds[2] or thresholds[1] < thresholds[3] + 3:
-            raise histogram_artifact_error("persistent output admission threshold lacks artifact budget or pending-entry inodes")
-
-        def check_publication_capacity(*, after_materialization=False):
-            available = os.statvfs(pkl_path.parent)
-            offset = 2 if after_materialization else 0
-            if (available.f_bavail * available.f_frsize < thresholds[offset]
-                    or available.f_favail < thresholds[offset + 1]):
-                raise histogram_artifact_error("publication capacity below explicit bytes/inodes threshold")
-
-    if thresholds is not None:
-        check_publication_capacity()
+    check_output_capacity(pkl_path, thresholds, publication=False)
     if no_clobber:
         if os.path.lexists(pkl_path) or os.path.lexists(metadata_sidecar_path(pkl_path)):
             raise histogram_artifact_error("no-clobber publication target or sidecar already exists")
     token = uuid.uuid4().hex
-    pending_id = os.environ.get("TOPEFT_PKL_PENDING_ID", "") if no_clobber else ""
+    pending_id = pending_id or ""
+    if pending_id and not no_clobber:
+        raise histogram_artifact_error("pending identity requires no-clobber")
     if pending_id and (len(pending_id) != 64 or any(char not in "0123456789abcdef" for char in pending_id)):
         raise histogram_artifact_error("invalid no-clobber pending identity")
     pending_dir = (
@@ -3146,8 +3215,7 @@ def write_histogram_artifact(
             finally:
                 os.close(directory_fd)
 
-        if thresholds is not None:
-            check_publication_capacity(after_materialization=True)
+        check_output_capacity(pkl_path, thresholds, publication=True)
         if no_clobber:
             if os.path.lexists(pkl_path) or os.path.lexists(final_sidecar):
                 raise histogram_artifact_error("no-clobber publication target or sidecar already exists")

@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 import re
-import stat
 from collections import Counter
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -868,32 +867,29 @@ def effective_output_path(unit, stage, attempt=None):
     return fallback
 
 
-def pkl_capacity_thresholds():
-    names = (
-        "TOPEFT_PKL_MIN_FREE_BYTES", "TOPEFT_PKL_MIN_FREE_INODES",
-        "TOPEFT_PKL_SAFETY_RESERVE_BYTES", "TOPEFT_PKL_SAFETY_RESERVE_INODES",
+def output_safety_from_command(command):
+    """Read the recorded executor policy without owning filesystem admission."""
+    from topeft.modules.histogram_artifact import (
+        histogram_artifact_error, output_capacity_thresholds,
     )
-    if not any(name in os.environ for name in names):
+
+    names = ("--pkl-min-free-bytes", "--pkl-min-free-inodes",
+             "--pkl-safety-reserve-bytes", "--pkl-safety-reserve-inodes")
+    present = [name in command for name in names]
+    if not any(present):
         return None
-    thresholds = []
+    if not all(present):
+        fail("persistent output requires all four capacity options")
+    values = []
     for name in names:
-        value = os.environ.get(name, "")
-        if not value.isdigit() or int(value) <= 0:
-            fail(f"persistent output requires explicit positive {name}")
-        thresholds.append(int(value))
-    if thresholds[0] <= thresholds[2] or thresholds[1] < thresholds[3] + 3:
-        fail("persistent output admission threshold lacks artifact budget or pending-entry inodes")
-    return thresholds
-
-
-def pkl_attempt_capacity(path):
-    """Admit an attempt on the filesystem containing its durable output."""
-    thresholds = pkl_capacity_thresholds()
-    if thresholds is None:
-        return
-    values = os.statvfs(Path(path).parent)
-    if values.f_bavail * values.f_frsize < thresholds[0] or values.f_favail < thresholds[1]:
-        fail("persistent output capacity admission refused before attempt creation")
+        option_values = command_values(command, name)
+        if len(option_values) != 1 or not option_values[0].isdigit():
+            fail(f"invalid persistent output option {name}")
+        values.append(int(option_values[0]))
+    try:
+        return output_capacity_thresholds(*values)
+    except histogram_artifact_error as error:
+        fail(str(error))
 
 
 def pending_artifact_id(state, unit, stage, attempt=None):
@@ -921,74 +917,34 @@ def pending_artifact_path(state, unit, stage, attempt=None):
     return path.parent / f".topeft-pending-{pending_id}" / path.name
 
 
-def pkl_publication_capacity(path):
-    thresholds = pkl_capacity_thresholds()
-    if thresholds is None:
-        return
-    values = os.statvfs(Path(path).parent)
-    if values.f_bavail * values.f_frsize < thresholds[2] or values.f_favail < thresholds[3]:
-        fail("persistent output publication safety reserve refused")
-
-
 def publish_pending_artifact(state, unit, stage):
-    """Validate completed same-attempt evidence before no-clobber publication."""
-    from topeft.modules.histogram_artifact import validate_histogram_artifact
+    """Request publication with the recorded attempt identity and validate its semantics."""
+    from topeft.modules.histogram_artifact import (
+        histogram_artifact_error, recover_pending_artifact,
+    )
 
     pending = pending_artifact_path(state, unit, stage)
-    if pending is None or not os.path.lexists(pending.parent):
+    if pending is None:
         return False
-    if pending.parent.is_symlink() or not pending.parent.is_dir():
-        fail("recovery_evidence_insufficient: pending locator is not an owned directory")
-    owner = pending.parent.stat()
-    if owner.st_uid != os.getuid() or stat.S_IMODE(owner.st_mode) != 0o700:
-        fail("recovery_evidence_insufficient: pending directory ownership or mode differs")
     final = Path(effective_output_path(unit, stage))
-    pending_sidecar = Path(f"{pending}.metadata.json")
-    final_sidecar = Path(f"{final}.metadata.json")
-    if pending.is_symlink() or pending_sidecar.is_symlink():
-        fail("recovery_evidence_insufficient: pending evidence is a symlink")
-    artifact_receipt(pending)
-    validated = validate_histogram_artifact(pending)
-    sidecar = validated["metadata"]
-    validate_recovery_sidecar(state, unit, stage, sidecar, artifact_path=pending)
-    pkl_publication_capacity(final)
-    for source, destination in ((pending, final), (pending_sidecar, final_sidecar)):
-        if os.path.lexists(destination):
-            if destination.is_symlink() or not destination.is_file() or not os.path.samefile(source, destination):
-                fail("recovery_evidence_insufficient: final target collision preserves pending evidence")
-        else:
-            os.link(source, destination)
-    parent_fd = os.open(final.parent, os.O_RDONLY)
+    attempt = unit["stages"][stage]["attempts"][-1]
     try:
-        os.fsync(parent_fd)
-    finally:
-        os.close(parent_fd)
-    artifact_receipt(final)
-    return True
+        return recover_pending_artifact(
+            pending, final,
+            validate_sidecar=lambda sidecar, path: validate_recovery_sidecar(
+                state, unit, stage, sidecar, artifact_path=path),
+            thresholds=output_safety_from_command(attempt["command_argv"]),
+        )
+    except histogram_artifact_error as error:
+        fail(str(error))
 
 
 def cleanup_published_pending(state, unit, stage):
+    from topeft.modules.histogram_artifact import cleanup_pending_artifact
+
     pending = pending_artifact_path(state, unit, stage)
-    if pending is None or not pending.parent.is_dir() or pending.parent.is_symlink():
-        return
-    final = Path(effective_output_path(unit, stage))
-    pending_sidecar = Path(f"{pending}.metadata.json")
-    final_sidecar = Path(f"{final}.metadata.json")
-    if not all(path.is_file() and not path.is_symlink() for path in
-               (pending, pending_sidecar, final, final_sidecar)):
-        return
-    if not (os.path.samefile(pending, final) and os.path.samefile(pending_sidecar, final_sidecar)):
-        return
-    if set(os.listdir(pending.parent)) != {pending.name, pending_sidecar.name}:
-        return
-    pending_sidecar.unlink()
-    pending.unlink()
-    pending.parent.rmdir()
-    parent_fd = os.open(final.parent, os.O_RDONLY)
-    try:
-        os.fsync(parent_fd)
-    finally:
-        os.close(parent_fd)
+    if pending is not None:
+        cleanup_pending_artifact(pending, effective_output_path(unit, stage))
 
 
 def data_driven_command_artifact_kind(unit, command):
@@ -1002,7 +958,12 @@ def data_driven_command_artifact_kind(unit, command):
         "--input-pkl", unit["stages"]["source"]["receipt"]["artifact"]["path"],
         "--output-pkl", output_values[0],
     ]
-    if command != expected:
+    policy_suffix = ["--pkl-no-clobber"] if "--pkl-no-clobber" in command else []
+    for option in ("--pkl-min-free-bytes", "--pkl-min-free-inodes",
+                   "--pkl-safety-reserve-bytes", "--pkl-safety-reserve-inodes"):
+        if option in command:
+            policy_suffix.extend((option, *command_values(command, option)))
+    if command != expected + policy_suffix:
         fail("data-driven command contradicts the ordinary deferred nonprompt artifact contract")
     effective_output_path(unit, "data_driven", {"command_argv": command})
     return "nonprompt_output"
@@ -1213,7 +1174,13 @@ def transition(state, unit_id, stage, status, exit_code, detail, extra=()):
             if output_exists(unit["outputs"]["data_driven"]) or output_exists(path):
                 fail("unverified data-driven output collision")
             chunksize = None
-        pkl_attempt_capacity(path)
+        from topeft.modules.histogram_artifact import (
+            check_output_capacity, histogram_artifact_error,
+        )
+        try:
+            check_output_capacity(path, output_safety_from_command(command))
+        except histogram_artifact_error as error:
+            fail(str(error))
         attempt = {
             "number": len(record["attempts"]) + 1, "stage": stage,
             "started_at_utc": now_utc(), "ended_at_utc": None,
