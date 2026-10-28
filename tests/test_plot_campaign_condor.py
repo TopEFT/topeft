@@ -1,5 +1,8 @@
 """Synthetic per-unit scheduler protocol; never runs an HTCondor command."""
 import json
+import os
+import pwd
+import stat
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -7,6 +10,15 @@ from types import SimpleNamespace
 import pytest
 from analysis.topeft_run2 import plot_campaign_backend as backend
 from analysis.topeft_run2 import plot_campaign_condor as condor
+
+fixture_pool = 'collector.fixture.invalid'
+fixture_schedd = 'submit.fixture.invalid'
+real_resolve_target = condor.resolve_target
+
+
+@pytest.fixture(autouse=True)
+def fake_target(monkeypatch):
+    monkeypatch.setattr(condor, 'resolve_target', lambda: {'pool': fixture_pool, 'schedd': fixture_schedd})
 
 
 @pytest.fixture
@@ -45,14 +57,37 @@ def test_submit_records_identity_once(execution, monkeypatch, stdout):
     calls = []
     def fake(command, **kwargs):
         calls.append(command)
-        assert (path.parent / 'submission_intent.json').is_file()
+        intent = json.loads((path.parent / 'submission_intent.json').read_text())
+        assert intent == {'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
+        assert command == ['condor_submit', '-pool', fixture_pool, '-name', fixture_schedd,
+                           '-terse', str(path.parent / 'execution.sub')]
         return response(stdout)
     monkeypatch.setattr(condor.subprocess, 'run', fake)
     assert condor.submit(path, descriptor)['job'] == '123.0'
     with pytest.raises(backend.ActiveChildUnresolved):
         condor.submit(path, descriptor)
     assert len(calls) == 1
-    assert json.loads((path.parent / 'scheduler_identity.json').read_text())['token'] == descriptor['token']
+    assert json.loads((path.parent / 'scheduler_identity.json').read_text()) == {
+        'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd, 'job': '123.0'}
+
+
+def test_intent_directory_sync_precedes_submit(execution, monkeypatch):
+    events = []
+    original_fsync = backend.os.fsync
+    def sync(fd):
+        events.append('directory_sync' if stat.S_ISDIR(os.fstat(fd).st_mode) else 'file_sync')
+        return original_fsync(fd)
+    def fake(command, **kwargs):
+        assert command[0] == 'condor_submit'
+        assert json.loads((execution[0].parent / 'submission_intent.json').read_text()) == {
+            'token': execution[1]['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
+        assert events[:2] == ['file_sync', 'directory_sync']
+        events.append('submit')
+        return response('123.0\n')
+    monkeypatch.setattr(backend.os, 'fsync', sync)
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    assert condor.submit(*execution)['job'] == '123.0'
+    assert events.index('directory_sync') < events.index('submit')
 
 
 @pytest.mark.parametrize('stdout,code', [('', 0), ('123.0 - 123.1', 0), ('123.0\n456.0', 0),
@@ -63,7 +98,8 @@ def test_submit_nonzero_or_ambiguous_never_proves_failure(execution, monkeypatch
     with pytest.raises(backend.ActiveChildUnresolved):
         condor.submit(path, descriptor)
     assert not (path.parent / 'scheduler_identity.json').exists()
-    assert (path.parent / 'submission_intent.json').exists()
+    assert json.loads((path.parent / 'submission_intent.json').read_text()) == {
+        'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
 
 
 def test_submit_timeout_is_unknown(execution, monkeypatch):
@@ -72,13 +108,40 @@ def test_submit_timeout_is_unknown(execution, monkeypatch):
     monkeypatch.setattr(condor.subprocess, 'run', timeout)
     with pytest.raises(backend.ActiveChildUnresolved):
         condor.submit(*execution)
+    path, descriptor = execution
+    assert json.loads((path.parent / 'submission_intent.json').read_text()) == {
+        'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
+    assert not (path.parent / 'scheduler_identity.json').exists()
+
+
+def test_response_write_failure_after_submit_stays_unresolved(execution, monkeypatch):
+    calls = []
+    def fake(command, **kwargs):
+        calls.append(command)
+        return response('123.0\n')
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    def failed_response(path, value):
+        raise OSError('fake response write failure')
+    monkeypatch.setattr(backend, 'atomic_json', failed_response)
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.submit(*execution)
+    assert len(calls) == 1
+    assert json.loads((execution[0].parent / 'submission_intent.json').read_text()) == {
+        'token': execution[1]['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
+    assert not (execution[0].parent / 'scheduler_identity.json').exists()
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.submit(*execution)
+    assert len(calls) == 1
 
 
 def bind(execution):
     path, descriptor = execution
-    (path.parent / 'scheduler_identity.json').write_text(json.dumps({'job':'123.0','token':descriptor['token']}))
+    intent = {'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
+    (path.parent / 'submission_intent.json').write_text(json.dumps(intent))
+    (path.parent / 'scheduler_identity.json').write_text(json.dumps({**intent, 'job':'123.0'}))
     return dict(ClusterId=123, ProcId=0, PlotExecutionToken=descriptor['token'], JobStatus=4,
-                ExitCode=0, ExitBySignal=False, NumJobStarts=1)
+                Owner=pwd.getpwuid(os.getuid()).pw_name, ExitCode=0, ExitBySignal=False,
+                NumJobStarts=1)
 
 
 @pytest.mark.parametrize('fields,state', [({}, 'terminal_success'), ({'ExitCode':7}, 'terminal_failure'),
@@ -96,7 +159,8 @@ def test_query_history_and_unknown_do_not_resubmit(execution, monkeypatch):
     ad = bind(execution); calls = []
     def fake(command, **kwargs):
         calls.append(command[0])
-        return response(json.dumps([] if command[0] == 'condor_q' else [ad]))
+        assert command[1:5] == ['-pool', fixture_pool, '-name', fixture_schedd]
+        return response('' if command[0] == 'condor_q' else json.dumps([ad]))
     monkeypatch.setattr(condor.subprocess, 'run', fake)
     assert condor.observe(*execution)['state'] == 'terminal_success'
     assert calls == ['condor_q', 'condor_history']
@@ -132,3 +196,197 @@ def test_intent_directory_sync_failure_never_submits(execution,monkeypatch):
     monkeypatch.setattr(condor.subprocess,'run',lambda *a,**k:pytest.fail('submit after failed durable intent'))
     with pytest.raises(backend.ActiveChildUnresolved):condor.submit(*execution)
     assert (execution[0].parent/'submission_intent.json').exists()
+
+
+@pytest.mark.parametrize('configured,ads,valid', [
+    (None, [{'Name': fixture_schedd, 'Machine': 'local.fixture.invalid'}], True),
+    (fixture_schedd, [{'Name': fixture_schedd, 'Machine': 'local.fixture.invalid'}], True),
+    (None, [], False),
+    (None, [{'Name': fixture_schedd, 'Machine': 'local.fixture.invalid'}] * 2, False),
+    (fixture_schedd, [{'Name': 'other.fixture.invalid', 'Machine': 'local.fixture.invalid'}], False),
+])
+def test_resolver_uses_config_and_exact_local_ad(monkeypatch, configured, ads, valid):
+    calls = []
+    monkeypatch.setattr(condor, 'resolve_target', real_resolve_target)
+    def fake(command, **kwargs):
+        calls.append(command)
+        if command[0] == 'condor_config_val':
+            values = {'COLLECTOR_HOST': fixture_pool, 'FULL_HOSTNAME': 'local.fixture.invalid',
+                      'SCHEDD_NAME': configured}
+            value = values[command[1]]
+            return response(value + '\n') if value is not None else \
+                SimpleNamespace(stdout='', stderr='Not defined: SCHEDD_NAME', returncode=1)
+        assert command[:5] == ['condor_status', '-pool', fixture_pool, '-schedd', '-constraint']
+        expected = ('Name == ' + json.dumps(fixture_schedd) if configured else
+                    'Machine == ' + json.dumps('local.fixture.invalid'))
+        assert command[5] == expected
+        return response(json.dumps(ads))
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    if valid:
+        assert condor.resolve_target() == {'pool': fixture_pool, 'schedd': fixture_schedd}
+    else:
+        with pytest.raises(backend.ChildDefinitelyNotStarted):
+            condor.resolve_target()
+    assert len(calls) == 4
+
+
+@pytest.mark.parametrize('pool', ['', 'one.fixture.invalid,two.fixture.invalid',
+                                  'one.fixture.invalid two.fixture.invalid'])
+def test_ambiguous_pool_fails_before_submit(execution, monkeypatch, pool):
+    monkeypatch.setattr(condor, 'resolve_target', lambda: condor._target_value(pool, 'pool'))
+    monkeypatch.setattr(condor.subprocess, 'run', lambda *a, **k: pytest.fail('scheduler called'))
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.submit(*execution)
+    assert not (execution[0].parent / 'submission_intent.json').exists()
+
+
+@pytest.mark.parametrize('source', ['condor_q', 'condor_history'])
+def test_ambiguous_submit_recovery_is_bound_and_never_submits(execution, monkeypatch, source):
+    path, descriptor = execution
+    intent = {'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
+    (path.parent / 'submission_intent.json').write_text(json.dumps(intent))
+    ad = dict(ClusterId=123, ProcId=0, PlotExecutionToken=descriptor['token'],
+              Owner=pwd.getpwuid(os.getuid()).pw_name, JobStatus=2)
+    calls = []
+    def fake(command, **kwargs):
+        calls.append(command)
+        assert command[0] in ('condor_q', 'condor_history')
+        assert command[1:5] == ['-pool', fixture_pool, '-name', fixture_schedd]
+        if '-constraint' in command:
+            constraint = command[command.index('-constraint') + 1]
+            assert constraint == ('PlotExecutionToken == ' + json.dumps(descriptor['token']) +
+                                  ' && Owner == ' + json.dumps(ad['Owner']))
+            assert command[command.index('-limit') + 1] == '2'
+            return response(json.dumps([ad]) if command[0] == source else '')
+        assert command[5] == '123.0'
+        return response(json.dumps([ad]))
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    monkeypatch.setattr(condor, 'resolve_target', lambda: pytest.fail('resolver called on resume'))
+    assert condor.observe(path, descriptor)['state'] == 'pending'
+    assert json.loads((path.parent / 'scheduler_identity.json').read_text()) == {**intent, 'job': '123.0'}
+    assert [call[0] for call in calls] == (['condor_q', 'condor_q'] if source == 'condor_q'
+                                           else ['condor_q', 'condor_history', 'condor_q'])
+
+
+@pytest.mark.parametrize('ads', [[], [0, 1]])
+def test_recovery_zero_or_multiple_never_submits(execution, monkeypatch, ads):
+    path, descriptor = execution
+    (path.parent / 'submission_intent.json').write_text(json.dumps({
+        'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}))
+    ad = dict(ClusterId=123, ProcId=0, PlotExecutionToken=descriptor['token'],
+              Owner=pwd.getpwuid(os.getuid()).pw_name, JobStatus=2)
+    calls = []
+    def fake(command, **kwargs):
+        calls.append(command[0])
+        assert command[0] in ('condor_q', 'condor_history')
+        return response(json.dumps([{**ad, 'ClusterId': 123 + i} for i in ads]))
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    if ads:
+        with pytest.raises(backend.ActiveChildUnresolved):
+            condor.observe(path, descriptor)
+        assert calls == ['condor_q']
+    else:
+        assert condor.observe(path, descriptor)['state'] == 'unresolved'
+        assert calls == ['condor_q', 'condor_history']
+    assert not (path.parent / 'scheduler_identity.json').exists()
+
+
+@pytest.mark.parametrize('field,value', [('pool', 'other.fixture.invalid'),
+                                          ('pool', '-wrong-option'),
+                                          ('schedd', 'other.fixture.invalid'),
+                                          ('token', 'wrong'), ('job', '123.1')])
+def test_identity_contradiction_prevents_query(execution, monkeypatch, field, value):
+    bind(execution)
+    path, _ = execution
+    identity_path = path.parent / 'scheduler_identity.json'
+    identity = json.loads(identity_path.read_text())
+    identity[field] = value
+    identity_path.write_text(json.dumps(identity))
+    monkeypatch.setattr(condor.subprocess, 'run', lambda *a, **k: pytest.fail('query after contradiction'))
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.observe(*execution)
+
+
+def test_existing_binding_ignores_changed_default(execution, monkeypatch):
+    ad = bind(execution)
+    monkeypatch.setattr(condor, 'resolve_target', lambda: pytest.fail('resolver called on resume'))
+    def fake(command, **kwargs):
+        assert command[1:5] == ['-pool', fixture_pool, '-name', fixture_schedd]
+        return response(json.dumps([ad]))
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    assert condor.observe(*execution)['state'] == 'terminal_success'
+
+
+@pytest.mark.parametrize('field,value', [('Owner', 'other_owner'), ('ProcId', 1),
+                                          ('PlotExecutionToken', 'wrong')])
+def test_recovery_rejects_wrong_ad_identity(execution, monkeypatch, field, value):
+    path, descriptor = execution
+    (path.parent / 'submission_intent.json').write_text(json.dumps({
+        'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}))
+    ad = dict(ClusterId=123, ProcId=0, PlotExecutionToken=descriptor['token'],
+              Owner=pwd.getpwuid(os.getuid()).pw_name, JobStatus=2)
+    ad[field] = value
+    def fake(command, **kwargs):
+        assert command[0] == 'condor_q'
+        return response(json.dumps([ad]))
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.observe(*execution)
+    assert not (path.parent / 'scheduler_identity.json').exists()
+
+
+def test_old_token_only_intent_never_resolves_or_queries(execution, monkeypatch):
+    path, descriptor = execution
+    (path.parent / 'submission_intent.json').write_text(json.dumps({'token': descriptor['token']}))
+    monkeypatch.setattr(condor, 'resolve_target', lambda: pytest.fail('resolver called on old intent'))
+    monkeypatch.setattr(condor.subprocess, 'run', lambda *a, **k: pytest.fail('scheduler queried'))
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.observe(*execution)
+
+
+def test_occupied_submit_file_without_intent_is_unresolved(execution, monkeypatch):
+    path, _ = execution
+    (path.parent / 'execution.sub').write_text('another setup')
+    monkeypatch.setattr(condor.subprocess, 'run', lambda *a, **k: pytest.fail('scheduler called'))
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.submit(*execution)
+    assert not (path.parent / 'submission_intent.json').exists()
+
+
+def test_orphan_identity_prevents_any_new_submit(execution, monkeypatch):
+    path, descriptor = execution
+    (path.parent / 'scheduler_identity.json').write_text(json.dumps({
+        'token': descriptor['token'], 'job': '123.0'}))
+    monkeypatch.setattr(condor, 'resolve_target', lambda: pytest.fail('resolver called'))
+    monkeypatch.setattr(condor.subprocess, 'run', lambda *a, **k: pytest.fail('scheduler called'))
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.submit(*execution)
+    assert not (path.parent / 'submission_intent.json').exists()
+
+
+@pytest.mark.parametrize('pool', ['', 'one.fixture.invalid,two.fixture.invalid'])
+def test_bad_configured_pool_fails_before_intent(execution, monkeypatch, pool):
+    monkeypatch.setattr(condor, 'resolve_target', real_resolve_target)
+    def fake(command, **kwargs):
+        assert command[0] == 'condor_config_val'
+        values = {'COLLECTOR_HOST': pool, 'FULL_HOSTNAME': 'local.fixture.invalid',
+                  'SCHEDD_NAME': 'submit.fixture.invalid'}
+        return response(values[command[1]] + '\n')
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    with pytest.raises(backend.ChildDefinitelyNotStarted):
+        condor.submit(*execution)
+    assert not (execution[0].parent / 'submission_intent.json').exists()
+
+
+def test_unreachable_schedd_lookup_fails_before_intent(execution, monkeypatch):
+    monkeypatch.setattr(condor, 'resolve_target', real_resolve_target)
+    def fake(command, **kwargs):
+        if command[0] == 'condor_status':
+            raise subprocess.TimeoutExpired('condor_status', 60)
+        values = {'COLLECTOR_HOST': fixture_pool, 'FULL_HOSTNAME': 'local.fixture.invalid',
+                  'SCHEDD_NAME': fixture_schedd}
+        return response(values[command[1]] + '\n')
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    with pytest.raises(backend.ChildDefinitelyNotStarted):
+        condor.submit(*execution)
+    assert not (execution[0].parent / 'submission_intent.json').exists()

@@ -1375,9 +1375,13 @@ def test_condor_waits_without_local_fallback_or_second_attempt(tmp_path, monkeyp
     from types import SimpleNamespace
     from analysis.topeft_run2 import plot_campaign_condor as condor
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    pool = 'collector.fixture.invalid'
+    schedd = 'submit.fixture.invalid'
+    monkeypatch.setattr(condor, 'resolve_target', lambda: {'pool': pool, 'schedd': schedd})
     calls = []
     def fake(command, **kwargs):
         calls.append(command)
+        assert command[1:5] == ['-pool', pool, '-name', schedd]
         return SimpleNamespace(stdout=submission if command[0] == 'condor_submit' else '[]',
                                stderr='', returncode=0)
     monkeypatch.setattr(condor.subprocess, 'run', fake)
