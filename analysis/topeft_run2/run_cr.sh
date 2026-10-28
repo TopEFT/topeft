@@ -8,8 +8,7 @@ print_usage() {
 Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag TAG
   [--dry-run] [--env-file PATH] [--resume] [--chunksize POSITIVE_INTEGER]
   [--selected-fragment ID] [--plan JSON]
-  [--new-pkl-root /project01/ndcms/apiccine/top26006
-   --pkl-min-free-bytes POSITIVE_INTEGER --pkl-min-free-inodes POSITIVE_INTEGER
+  [--pkl-min-free-bytes POSITIVE_INTEGER --pkl-min-free-inodes POSITIVE_INTEGER
    --pkl-safety-reserve-bytes POSITIVE_INTEGER --pkl-safety-reserve-inodes POSITIVE_INTEGER]
   [--wq-manager-name EXACT_NAME | --wq-manager-prefix PREFIX]
   [--run2-wq-manager-prefix PREFIX --run3-wq-manager-prefix PREFIX]
@@ -42,7 +41,6 @@ profile_campaign_tag=""
 profile_env_file=""
 profile_resume=false
 profile_chunksize=""
-profile_new_pkl_root=""
 profile_pkl_min_free_bytes=""
 profile_pkl_min_free_inodes=""
 profile_pkl_safety_reserve_bytes=""
@@ -156,14 +154,13 @@ while (( $# > 0 )); do
       profile_run3_wq_manager_prefix_provided=true
       shift 2
       ;;
-    --chunksize|--new-pkl-root|--pkl-min-free-bytes|--pkl-min-free-inodes|--pkl-safety-reserve-bytes|--pkl-safety-reserve-inodes|--wq-staging-base|--wq-quota-root|--wq-free-warning-bytes|--wq-min-free-bytes|--wq-poll-seconds|--wq-treereduction|--wq-processing-cores|--wq-accumulating-memory-mb|--wq-accumulating-cores)
+    --chunksize|--pkl-min-free-bytes|--pkl-min-free-inodes|--pkl-safety-reserve-bytes|--pkl-safety-reserve-inodes|--wq-staging-base|--wq-quota-root|--wq-free-warning-bytes|--wq-min-free-bytes|--wq-poll-seconds|--wq-treereduction|--wq-processing-cores|--wq-accumulating-memory-mb|--wq-accumulating-cores)
       if (( $# < 2 )) || [[ -z "$2" || "$2" == -* ]]; then
         echo "ERROR: $1 requires a value." >&2
         exit 1
       fi
       case "$1" in
         --chunksize) profile_chunksize="$2" ;;
-        --new-pkl-root) profile_new_pkl_root="$2" ;;
         --pkl-min-free-bytes) profile_pkl_min_free_bytes="$2" ;;
         --pkl-min-free-inodes) profile_pkl_min_free_inodes="$2" ;;
         --pkl-safety-reserve-bytes) profile_pkl_safety_reserve_bytes="$2" ;;
@@ -333,11 +330,6 @@ if [[ -n "${profile_wq_staging_base}" ]]; then
     "${profile_wq_min_free_bytes}" "${profile_wq_poll_seconds}"; do
     [[ -n "${guard_value}" ]] || { echo "ERROR: guarded staging requires free-space warning/minimum and poll values." >&2; exit 1; }
   done
-  if [[ "${profile_wq_staging_base}" == "/tmpscratch/users/apiccine/top26006-wq" ]]; then
-    [[ -z "${profile_wq_quota_root}" ]] || { echo "ERROR: local staging uses statvfs, not remote quota." >&2; exit 1; }
-  else
-    [[ -n "${profile_wq_quota_root}" ]] || { echo "ERROR: remote staging requires an exact quota root." >&2; exit 1; }
-  fi
 elif [[ -n "${profile_wq_quota_root}${profile_wq_warning_bytes}${profile_wq_min_free_bytes}${profile_wq_poll_seconds}${profile_wq_treereduction}${profile_wq_processing_cores}${profile_wq_accumulating_memory_mb}${profile_wq_accumulating_cores}" ]]; then
   echo "ERROR: Work Queue guard options require --wq-staging-base." >&2
   exit 1
@@ -428,35 +420,27 @@ EOF
 fi
 output_dir="${profile_output_dir}"
 campaign_tag="${profile_campaign_tag}"
-production_pkl_root="${output_dir}"
-if [[ -n "${profile_new_pkl_root}" ]]; then
-  if [[ "${profile_new_pkl_root}" != "/project01/ndcms/apiccine/top26006" ]]; then
-    echo "ERROR: new PKL root differs from the owner-selected Project01 root." >&2
-    exit 1
-  fi
+if [[ -n "${profile_pkl_min_free_bytes}${profile_pkl_min_free_inodes}${profile_pkl_safety_reserve_bytes}${profile_pkl_safety_reserve_inodes}" ]]; then
   for capacity_value in "${profile_pkl_min_free_bytes}" "${profile_pkl_min_free_inodes}" "${profile_pkl_safety_reserve_bytes}" "${profile_pkl_safety_reserve_inodes}"; do
     if [[ ! "${capacity_value}" =~ ^[1-9][0-9]*$ ]]; then
-      echo "ERROR: new Project01 PKLs require explicit positive free-byte and inode thresholds." >&2
+      echo "ERROR: persistent output safety requires all four positive capacity thresholds." >&2
       exit 1
     fi
   done
   if (( profile_pkl_min_free_bytes <= profile_pkl_safety_reserve_bytes \
         || profile_pkl_min_free_inodes < profile_pkl_safety_reserve_inodes + 3 )); then
-    echo "ERROR: Project01 admission threshold must include an artifact budget and three pending-entry inodes beyond the safety reserve." >&2
+    echo "ERROR: persistent output admission must include an artifact budget and three pending-entry inodes beyond the safety reserve." >&2
     exit 1
   fi
-  production_pkl_root="${profile_new_pkl_root}"
-  export TOPEFT_PKL_NO_CLOBBER=1
   export TOPEFT_PKL_MIN_FREE_BYTES="${profile_pkl_min_free_bytes}"
   export TOPEFT_PKL_MIN_FREE_INODES="${profile_pkl_min_free_inodes}"
   export TOPEFT_PKL_SAFETY_RESERVE_BYTES="${profile_pkl_safety_reserve_bytes}"
   export TOPEFT_PKL_SAFETY_RESERVE_INODES="${profile_pkl_safety_reserve_inodes}"
-elif [[ -n "${profile_pkl_min_free_bytes}${profile_pkl_min_free_inodes}${profile_pkl_safety_reserve_bytes}${profile_pkl_safety_reserve_inodes}" ]]; then
-  echo "ERROR: PKL capacity thresholds require --new-pkl-root." >&2
-  exit 1
 else
-  unset TOPEFT_PKL_NO_CLOBBER TOPEFT_PKL_MIN_FREE_BYTES TOPEFT_PKL_MIN_FREE_INODES TOPEFT_PKL_SAFETY_RESERVE_BYTES TOPEFT_PKL_SAFETY_RESERVE_INODES TOPEFT_PKL_PENDING_ID
+  unset TOPEFT_PKL_MIN_FREE_BYTES TOPEFT_PKL_MIN_FREE_INODES TOPEFT_PKL_SAFETY_RESERVE_BYTES TOPEFT_PKL_SAFETY_RESERVE_INODES
 fi
+export TOPEFT_PKL_NO_CLOBBER=1
+unset TOPEFT_PKL_PENDING_ID
 
 for production_state_value in "${output_dir}" "${campaign_tag}"; do
   if [[ "${production_state_value}" == *$'\t'* || "${production_state_value}" == *$'\n'* ]]; then
@@ -1675,12 +1659,8 @@ run_campaign_unit() {
   fi
   if [[ "${source_reusable}" == "true" ]]; then
     source_path=$(production_state_tool effective-path "${production_state_path}" "${block_id}" source)
-  elif [[ -n "${profile_new_pkl_root}" ]]; then
-    source_path="${production_pkl_root}/$(basename -- "${legacy_source_path}")"
   fi
-  if [[ -n "${profile_new_pkl_root}" ]]; then
-    data_driven_path="${production_pkl_root}/$(basename -- "${legacy_data_driven_path}")"
-  fi
+  production_pkl_root="$(dirname -- "${source_path}")"
   if [[ "${source_reusable}" == "false" && "${source_path}" != "${legacy_source_path}" ]] \
     && { [[ -e "${source_path}" || -L "${source_path}" \
       || -e "${source_path}.metadata.json" || -L "${source_path}.metadata.json" ]]; }; then
@@ -1733,11 +1713,9 @@ run_campaign_unit() {
       assert_native_wq_logs_clean "${block_id}"
       production_state_tool mark "${production_state_path}" "${block_id}" \
         source running none source_child_started -- "${source_cmd[@]}"
-      if [[ -n "${profile_new_pkl_root}" ]]; then
-        source_pending_path=$(production_state_tool pending-path "${production_state_path}" "${block_id}" source)
-        export TOPEFT_PKL_PENDING_ID
-        TOPEFT_PKL_PENDING_ID=$(production_state_tool pending-id "${production_state_path}" "${block_id}" source)
-      fi
+      source_pending_path=$(production_state_tool pending-path "${production_state_path}" "${block_id}" source)
+      export TOPEFT_PKL_PENDING_ID
+      TOPEFT_PKL_PENDING_ID=$(production_state_tool pending-id "${production_state_path}" "${block_id}" source)
     fi
     print_command "${source_cmd[@]}"
     if [[ "${dry_run}" == "true" ]]; then
@@ -1790,11 +1768,9 @@ run_campaign_unit() {
   fi
   production_state_tool mark "${production_state_path}" "${block_id}" \
     data_driven running none data_driven_child_started "${data_driven_cmd[@]}"
-  if [[ -n "${profile_new_pkl_root}" ]]; then
-    data_driven_pending_path=$(production_state_tool pending-path "${production_state_path}" "${block_id}" data_driven)
-    export TOPEFT_PKL_PENDING_ID
-    TOPEFT_PKL_PENDING_ID=$(production_state_tool pending-id "${production_state_path}" "${block_id}" data_driven)
-  fi
+  data_driven_pending_path=$(production_state_tool pending-path "${production_state_path}" "${block_id}" data_driven)
+  export TOPEFT_PKL_PENDING_ID
+  TOPEFT_PKL_PENDING_ID=$(production_state_tool pending-id "${production_state_path}" "${block_id}" data_driven)
   print_command "${data_driven_cmd[@]}"
   if run_production_nonprompt_child "${block_id}" "${source_path}" \
     "${data_driven_path}" "${data_driven_cmd[@]}"; then

@@ -18,9 +18,6 @@ class staging_guard_error(RuntimeError):
     pass
 
 
-LOCAL_STAGING_BASE = Path("/tmpscratch/users/apiccine/top26006-wq")
-
-
 def _process_start(pid):
     try:
         return Path(f"/proc/{pid}/stat").read_text().rsplit(") ", 1)[1].split()[19]
@@ -61,7 +58,7 @@ def _space(base, quota_root):
     values = os.statvfs(base)
     free_bytes = values.f_bavail * values.f_frsize
     free_inodes = values.f_favail
-    if Path(base) == LOCAL_STAGING_BASE:
+    if quota_root is None:
         return free_bytes, free_inodes
     quota_bytes = _quota_available(quota_root)
     return min(free_bytes, quota_bytes), free_inodes
@@ -84,7 +81,7 @@ def _validate_base(base):
     mount = real
     while mount.parent != mount and os.stat(mount.parent).st_dev == os.stat(mount).st_dev:
         mount = mount.parent
-    if mount == Path("/") and real != LOCAL_STAGING_BASE:
+    if mount == Path("/"):
         raise staging_guard_error("root-backed staging is forbidden")
     return real
 
@@ -322,10 +319,7 @@ def start_guard(base, invocation, quota_root, warning_bytes, min_free_bytes,
             and math.isfinite(poll_seconds) and poll_seconds > 0):
         raise staging_guard_error("invalid free-space warning/minimum/poll configuration")
     real_base = _validate_base(base)
-    if real_base == LOCAL_STAGING_BASE:
-        if quota_root is not None:
-            raise staging_guard_error("local staging uses statvfs without a remote quota root")
-    else:
+    if quota_root is not None:
         if not quota_root or not quota_root.startswith(("/groups/", "/users/")):
             raise staging_guard_error("an exact site quota root is required")
         if os.path.commonpath((str(real_base), quota_root)) != quota_root:

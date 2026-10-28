@@ -15,7 +15,7 @@ from analysis.topeft_run2 import wq_processing_admission as admission
 from analysis.topeft_run2 import wq_staging_guard as staging_guard
 
 
-def test_local_staging_space_uses_statvfs_without_quota(monkeypatch):
+def test_local_staging_space_uses_statvfs_without_quota(monkeypatch, tmp_path):
     calls = []
 
     def local_space(path):
@@ -25,8 +25,20 @@ def test_local_staging_space_uses_statvfs_without_quota(monkeypatch):
     monkeypatch.setattr(staging_guard.os, "statvfs", local_space)
     monkeypatch.setattr(staging_guard, "_quota_available", lambda _: (_ for _ in ()).throw(
         AssertionError("local staging must not query quota")))
-    assert staging_guard._space(staging_guard.LOCAL_STAGING_BASE, None) == (12 * 1024, 345)
-    assert calls == [staging_guard.LOCAL_STAGING_BASE]
+    selected_base = tmp_path / "selected_staging"
+    assert staging_guard._space(selected_base, None) == (12 * 1024, 345)
+    assert calls == [selected_base]
+
+
+def test_quota_staging_space_uses_exact_supplied_root(monkeypatch, tmp_path):
+    selected_base = tmp_path / "selected_staging"
+    monkeypatch.setattr(staging_guard.os, "statvfs", lambda _: SimpleNamespace(
+        f_bavail=12, f_frsize=1024, f_favail=345))
+    roots = []
+    monkeypatch.setattr(staging_guard, "_quota_available", lambda root:
+                        roots.append(root) or 1000)
+    assert staging_guard._space(selected_base, "/groups/selected") == (1000, 345)
+    assert roots == ["/groups/selected"]
 
 
 class fake_task:

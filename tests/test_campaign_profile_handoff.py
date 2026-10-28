@@ -164,6 +164,17 @@ def test_selected_fragment_persists_complete_plan_and_receipts(tmp_path, backend
     assert unit["stages"]["data_driven"]["receipt"]["binding"]["source_artifact_sha256"] == unit["stages"]["source"]["receipt"]["artifact"]["sha256"]
 
 
+def test_capacity_options_keep_plan_owned_output_paths(tmp_path, backend):
+    result = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a",
+                    "--pkl-min-free-bytes", "2", "--pkl-min-free-inodes", "4",
+                    "--pkl-safety-reserve-bytes", "1", "--pkl-safety-reserve-inodes", "1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    state = manifest.load_state(state_path(tmp_path))
+    unit = state["units"][0]
+    for stage in ("source", "data_driven"):
+        assert unit["stages"][stage]["receipt"]["artifact"]["path"] == unit["outputs"][stage]
+
+
 def test_resume_accepts_chunksize_and_relocated_identical_archive(tmp_path, backend):
     backend["CAMPAIGN_VALIDATION_SCENARIO"] = "source_fail_first"
     first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")

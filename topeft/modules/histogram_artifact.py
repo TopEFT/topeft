@@ -2959,18 +2959,20 @@ def write_histogram_artifact(
     pkl_path = Path(pkl_path)
     pkl_path.parent.mkdir(parents=True, exist_ok=True)
     no_clobber = os.environ.get("TOPEFT_PKL_NO_CLOBBER") == "1"
-    if no_clobber:
+    capacity_names = (
+        "TOPEFT_PKL_MIN_FREE_BYTES", "TOPEFT_PKL_MIN_FREE_INODES",
+        "TOPEFT_PKL_SAFETY_RESERVE_BYTES", "TOPEFT_PKL_SAFETY_RESERVE_INODES",
+    )
+    thresholds = None
+    if any(name in os.environ for name in capacity_names):
         thresholds = []
-        for name in (
-            "TOPEFT_PKL_MIN_FREE_BYTES", "TOPEFT_PKL_MIN_FREE_INODES",
-            "TOPEFT_PKL_SAFETY_RESERVE_BYTES", "TOPEFT_PKL_SAFETY_RESERVE_INODES",
-        ):
+        for name in capacity_names:
             value = os.environ.get(name, "")
             if not value.isdigit() or int(value) <= 0:
-                raise histogram_artifact_error(f"invalid {name} for no-clobber publication")
+                raise histogram_artifact_error(f"invalid {name} for persistent output")
             thresholds.append(int(value))
         if thresholds[0] <= thresholds[2] or thresholds[1] < thresholds[3] + 3:
-            raise histogram_artifact_error("no-clobber admission threshold lacks artifact budget or pending-entry inodes")
+            raise histogram_artifact_error("persistent output admission threshold lacks artifact budget or pending-entry inodes")
 
         def check_publication_capacity(*, after_materialization=False):
             available = os.statvfs(pkl_path.parent)
@@ -2979,7 +2981,9 @@ def write_histogram_artifact(
                     or available.f_favail < thresholds[offset + 1]):
                 raise histogram_artifact_error("publication capacity below explicit bytes/inodes threshold")
 
+    if thresholds is not None:
         check_publication_capacity()
+    if no_clobber:
         if os.path.lexists(pkl_path) or os.path.lexists(metadata_sidecar_path(pkl_path)):
             raise histogram_artifact_error("no-clobber publication target or sidecar already exists")
     token = uuid.uuid4().hex
@@ -3142,8 +3146,9 @@ def write_histogram_artifact(
             finally:
                 os.close(directory_fd)
 
-        if no_clobber:
+        if thresholds is not None:
             check_publication_capacity(after_materialization=True)
+        if no_clobber:
             if os.path.lexists(pkl_path) or os.path.lexists(final_sidecar):
                 raise histogram_artifact_error("no-clobber publication target or sidecar already exists")
             os.link(staged_pkl, pkl_path)

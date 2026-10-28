@@ -114,113 +114,64 @@ def test_next_source_attempt_uses_validated_persisted_history(make_campaign):
         }}]}, unit_id)
 
 
-def test_project01_locator_capacity_refusal_and_dd_lineage(make_campaign, tmp_path, monkeypatch):
+def test_canonical_output_capacity_refusal_and_dd_lineage(make_campaign, monkeypatch):
     state = make_campaign()
     unit = state["units"][0]
-    legacy_outputs = copy.deepcopy(unit["outputs"])
-    project_root = tmp_path / "project01"
-    project_root.mkdir()
-    monkeypatch.setattr(manifest, "PROJECT01_NEW_PKL_ROOT", project_root)
-    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_INODES", "4")
-    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1")
-    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1")
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", str(10**30))
-    command = source_command(state, unit)
-    command[command.index("-p") + 1] = str(project_root)
-    with pytest.raises(ValueError, match="capacity admission refused"):
-        manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
-    assert unit["stages"]["source"]["attempts"] == []
-    assert unit["stages"]["source"]["status"] == "pending"
-
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", "2")
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_INODES", "4")
-    manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
-    source_path = project_root / Path(legacy_outputs["source"]).name
-    assert manifest.effective_output_path(unit, "source") == str(source_path)
-    assert unit["outputs"] == legacy_outputs
-    write_artifact(source_path)
-    manifest.transition(state, unit["id"], "source", "ready", "0", "test")
-    assert unit["stages"]["source"]["receipt"]["artifact"]["path"] == str(source_path)
-
-    dd_path = project_root / Path(legacy_outputs["data_driven"]).name
-    dd_command = ("python", "./run_data_driven.py", "--input-pkl", str(source_path),
-                  "--output-pkl", str(dd_path))
-    manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", dd_command)
-    assert manifest.effective_output_path(unit, "data_driven") == str(dd_path)
-    assert unit["stages"]["data_driven"]["attempts"][-1]["command_argv"] == list(dd_command)
-    assert unit["outputs"] == legacy_outputs
-
-
-def test_historical_groups_source_can_feed_new_project01_dd(make_campaign, tmp_path, monkeypatch):
-    state = make_campaign()
-    unit = state["units"][0]
-    manifest.transition(state, unit["id"], "source", "running", "none", "test",
-                        tuple(source_command(state, unit)))
-    write_artifact(unit["outputs"]["source"])
-    manifest.transition(state, unit["id"], "source", "ready", "0", "test")
-    project_root = tmp_path / "project01"
-    project_root.mkdir()
-    monkeypatch.setattr(manifest, "PROJECT01_NEW_PKL_ROOT", project_root)
-    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
-    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1")
-    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1")
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", "2")
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_INODES", "4")
-    dd_path = project_root / Path(unit["outputs"]["data_driven"]).name
-    command = ("python", "./run_data_driven.py", "--input-pkl",
-               unit["stages"]["source"]["receipt"]["artifact"]["path"],
-               "--output-pkl", str(dd_path))
-    manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
-    assert manifest.effective_output_path(unit, "source") == unit["outputs"]["source"]
-    assert manifest.effective_output_path(unit, "data_driven") == str(dd_path)
-
-
-def test_project01_inode_admission_refuses_without_attempt(make_campaign, tmp_path, monkeypatch):
-    state = make_campaign()
-    unit = state["units"][0]
-    project_root = tmp_path / "project01"
-    project_root.mkdir()
-    monkeypatch.setattr(manifest, "PROJECT01_NEW_PKL_ROOT", project_root)
+    outputs = copy.deepcopy(unit["outputs"])
     for name, value in (
-        ("TOPEFT_PKL_NO_CLOBBER", "1"),
-        ("TOPEFT_PKL_MIN_FREE_BYTES", "2"),
+        ("TOPEFT_PKL_MIN_FREE_BYTES", str(10**30)),
         ("TOPEFT_PKL_MIN_FREE_INODES", "4"),
         ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
         ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
     ):
         monkeypatch.setenv(name, value)
     command = source_command(state, unit)
-    command[command.index("-p") + 1] = str(project_root)
+    with pytest.raises(ValueError, match="capacity admission refused"):
+        manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
+    assert unit["stages"]["source"]["attempts"] == []
+    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", "2")
+    manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
+    assert manifest.effective_output_path(unit, "source") == outputs["source"]
+    assert unit["outputs"] == outputs
+    write_artifact(outputs["source"])
+    manifest.transition(state, unit["id"], "source", "ready", "0", "test")
+    receipt_path = unit["stages"]["source"]["receipt"]["artifact"]["path"]
+    assert receipt_path == outputs["source"]
+    dd_command = ("python", "./run_data_driven.py", "--input-pkl", receipt_path,
+                  "--output-pkl", outputs["data_driven"])
+    manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", dd_command)
+    assert manifest.effective_output_path(unit, "data_driven") == outputs["data_driven"]
+    assert unit["outputs"] == outputs
+
+
+def test_canonical_inode_admission_refuses_without_attempt(make_campaign, monkeypatch):
+    state = make_campaign()
+    unit = state["units"][0]
+    for name, value in (
+        ("TOPEFT_PKL_MIN_FREE_BYTES", "2"),
+        ("TOPEFT_PKL_MIN_FREE_INODES", "4"),
+        ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
+        ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
+    ):
+        monkeypatch.setenv(name, value)
     with monkeypatch.context() as capacity_patch:
         capacity_patch.setattr(manifest.os, "statvfs", lambda _: SimpleNamespace(
             f_bavail=100, f_frsize=1, f_favail=3,
         ))
         with pytest.raises(ValueError, match="capacity admission refused"):
-            manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
+            manifest.transition(state, unit["id"], "source", "running", "none", "test",
+                                tuple(source_command(state, unit)))
     assert unit["stages"]["source"] == {"status": "pending", "attempts": [], "receipt": None}
-    assert not any(item["action"] == "source_failed" for item in state["history"])
 
 
 @pytest.mark.parametrize("collision", (False, True))
-def test_project01_pending_source_republishes_same_attempt(
+def test_canonical_pending_source_republishes_same_attempt(
     make_campaign, tmp_path, monkeypatch, collision
 ):
     state = make_campaign("run2_stat_diagnostic", histograms=("ptll",))
     unit = state["units"][0]
-    project_root = tmp_path / "project01"
-    project_root.mkdir()
-    monkeypatch.setattr(manifest, "PROJECT01_NEW_PKL_ROOT", project_root)
-    for name, value in (
-        ("TOPEFT_PKL_NO_CLOBBER", "1"),
-        ("TOPEFT_PKL_MIN_FREE_BYTES", "2"),
-        ("TOPEFT_PKL_MIN_FREE_INODES", "4"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
-    ):
-        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
     command = source_command(state, unit)
-    command[command.index("-p") + 1] = str(project_root)
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
     monkeypatch.setenv("TOPEFT_PKL_PENDING_ID", manifest.pending_artifact_id(state, unit, "source"))
     final = Path(manifest.effective_output_path(unit, "source"))
@@ -241,7 +192,8 @@ def test_project01_pending_source_republishes_same_attempt(
     assert final.is_file()
     assert unit["stages"]["source"]["status"] == "running"
     assert len(unit["stages"]["source"]["attempts"]) == 1
-    with pytest.raises(ValueError, match="unresolved Project01 output evidence"):
+    monkeypatch.delenv("TOPEFT_PKL_NO_CLOBBER")
+    with pytest.raises(ValueError, match="unresolved output evidence"):
         manifest.transition(state, unit["id"], "source", "failed", "1", "test")
     final_sidecar = Path(f"{final}.metadata.json")
     if collision:
@@ -264,30 +216,20 @@ def test_project01_pending_source_republishes_same_attempt(
         assert not pending.parent.exists()
 
 
-def test_project01_malformed_pending_locator_cannot_be_reclassified(
+def test_canonical_malformed_pending_locator_cannot_be_reclassified(
     make_campaign, tmp_path, monkeypatch
 ):
     state = make_campaign()
     unit = state["units"][0]
-    project_root = tmp_path / "project01"
-    project_root.mkdir()
-    monkeypatch.setattr(manifest, "PROJECT01_NEW_PKL_ROOT", project_root)
-    for name, value in (
-        ("TOPEFT_PKL_NO_CLOBBER", "1"),
-        ("TOPEFT_PKL_MIN_FREE_BYTES", "2"),
-        ("TOPEFT_PKL_MIN_FREE_INODES", "4"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
-    ):
-        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
     command = source_command(state, unit)
-    command[command.index("-p") + 1] = str(project_root)
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
     pending = manifest.pending_artifact_path(state, unit, "source")
     pending.parent.symlink_to(tmp_path, target_is_directory=True)
+    monkeypatch.delenv("TOPEFT_PKL_NO_CLOBBER")
     with pytest.raises(ValueError, match="pending locator is not an owned directory"):
         manifest.reconcile_running(state)
-    with pytest.raises(ValueError, match="unresolved Project01 output evidence"):
+    with pytest.raises(ValueError, match="unresolved output evidence"):
         manifest.transition(state, unit["id"], "source", "failed", "1", "test")
     assert unit["stages"]["source"]["status"] == "running"
     record = unit["stages"]["source"]
@@ -300,20 +242,10 @@ def test_project01_malformed_pending_locator_cannot_be_reclassified(
     assert len(record["attempts"]) == 1
 
 
-def test_project01_pending_identity_binds_control_root_and_attempt(
+def test_canonical_pending_identity_binds_control_root_and_attempt(
     make_campaign, tmp_path, monkeypatch
 ):
-    project_root = tmp_path / "project01"
-    project_root.mkdir()
-    monkeypatch.setattr(manifest, "PROJECT01_NEW_PKL_ROOT", project_root)
-    for name, value in (
-        ("TOPEFT_PKL_NO_CLOBBER", "1"),
-        ("TOPEFT_PKL_MIN_FREE_BYTES", "2"),
-        ("TOPEFT_PKL_MIN_FREE_INODES", "4"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
-    ):
-        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
     states = (
         make_campaign(root_name="campaign_a"),
         make_campaign(root_name="campaign_b"),
@@ -322,7 +254,6 @@ def test_project01_pending_identity_binds_control_root_and_attempt(
     for state in states:
         unit = state["units"][0]
         command = source_command(state, unit)
-        command[command.index("-p") + 1] = str(project_root)
         manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
         pending.append(manifest.pending_artifact_path(state, unit, "source"))
     assert pending[0].name == pending[1].name
@@ -333,7 +264,7 @@ def test_project01_pending_identity_binds_control_root_and_attempt(
     assert pending[0].parent.is_dir()
 
 
-def test_project01_pending_data_driven_republishes_with_durable_receipt(
+def test_canonical_pending_data_driven_republishes_with_durable_receipt(
     make_campaign, tmp_path, monkeypatch
 ):
     state = make_campaign("run2_stat_diagnostic", histograms=("ptll",))
@@ -342,18 +273,8 @@ def test_project01_pending_data_driven_republishes_with_durable_receipt(
                         tuple(source_command(state, unit)))
     write_artifact(unit["outputs"]["source"], state=state, unit=unit, real_payload=True)
     manifest.transition(state, unit["id"], "source", "ready", "0", "test")
-    project_root = tmp_path / "project01"
-    project_root.mkdir()
-    monkeypatch.setattr(manifest, "PROJECT01_NEW_PKL_ROOT", project_root)
-    for name, value in (
-        ("TOPEFT_PKL_NO_CLOBBER", "1"),
-        ("TOPEFT_PKL_MIN_FREE_BYTES", "2"),
-        ("TOPEFT_PKL_MIN_FREE_INODES", "4"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1"),
-        ("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1"),
-    ):
-        monkeypatch.setenv(name, value)
-    final = project_root / Path(unit["outputs"]["data_driven"]).name
+    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
+    final = Path(unit["outputs"]["data_driven"])
     command = ("python", "./run_data_driven.py", "--input-pkl",
                unit["stages"]["source"]["receipt"]["artifact"]["path"],
                "--output-pkl", str(final))
@@ -373,6 +294,7 @@ def test_project01_pending_data_driven_republishes_with_durable_receipt(
             run_data_driven.main(["--input-pkl", unit["outputs"]["source"],
                                   "--output-pkl", str(final), "--quiet"])
     assert pending.is_file() and final.is_file()
+    monkeypatch.delenv("TOPEFT_PKL_NO_CLOBBER")
     state_path = tmp_path / "recovery_state.json"
     state_path.write_text(json.dumps(state), encoding="utf-8")
     monkeypatch.setattr(manifest, "assert_writer_lock", lambda _: None)

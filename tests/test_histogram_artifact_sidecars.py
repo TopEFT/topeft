@@ -1583,10 +1583,9 @@ def test_transformed_nominal_labels_must_match_generated_output_map(
 
 def test_opt_in_no_clobber_refuses_existing_pkl_or_sidecar(tmp_path, monkeypatch, policy):
     monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", "2")
-    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_INODES", "4")
-    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_BYTES", "1")
-    monkeypatch.setenv("TOPEFT_PKL_SAFETY_RESERVE_INODES", "1")
+    for name in ("TOPEFT_PKL_MIN_FREE_BYTES", "TOPEFT_PKL_MIN_FREE_INODES",
+                 "TOPEFT_PKL_SAFETY_RESERVE_BYTES", "TOPEFT_PKL_SAFETY_RESERVE_INODES"):
+        monkeypatch.delenv(name, raising=False)
     path = tmp_path / "processor.pkl.gz"
     sidecar = metadata_sidecar_path(path)
     path.write_bytes(b"preexisting pkl")

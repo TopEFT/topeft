@@ -40,7 +40,6 @@ DATA_DRIVEN_SCIENTIFIC_SYMBOLS = {
 SR_EXTENSION_VARIABLES = frozenset(
     ("fwd0pt", "j0pt", "b0pt", "met", "l0conept", "l1conept", "invmass", "tau0Tpt")
 )
-PROJECT01_NEW_PKL_ROOT = Path("/project01/ndcms/apiccine/top26006")
 
 
 def fail(message):
@@ -847,7 +846,7 @@ def output_exists(path):
 
 
 def effective_output_path(unit, stage, attempt=None):
-    """Resolve a durable path from recorded argv, retaining schema-9 legacy paths."""
+    """Validate recorded argv against the plan-owned durable output path."""
     if attempt is None:
         attempts = unit["stages"][stage]["attempts"]
         attempt = attempts[-1] if attempts else None
@@ -864,41 +863,37 @@ def effective_output_path(unit, stage, attempt=None):
     if len(values) != 1 or not values[0]:
         fail(f"attempt {option} is not one path")
     path = str(Path(values[0]) / Path(fallback).name) if stage == "source" else values[0]
-    if path != fallback and (
-        Path(path).parent != PROJECT01_NEW_PKL_ROOT
-        or Path(path).name != Path(fallback).name
-    ):
-        fail("attempt durable path contradicts the selected new-PKL root or basename")
-    return path
+    if path != fallback:
+        fail("attempt durable path contradicts unit.outputs")
+    return fallback
 
 
-def project01_thresholds(path):
-    if Path(path).parent != PROJECT01_NEW_PKL_ROOT:
-        return None
-    thresholds = []
-    for name in (
+def pkl_capacity_thresholds():
+    names = (
         "TOPEFT_PKL_MIN_FREE_BYTES", "TOPEFT_PKL_MIN_FREE_INODES",
         "TOPEFT_PKL_SAFETY_RESERVE_BYTES", "TOPEFT_PKL_SAFETY_RESERVE_INODES",
-    ):
+    )
+    if not any(name in os.environ for name in names):
+        return None
+    thresholds = []
+    for name in names:
         value = os.environ.get(name, "")
         if not value.isdigit() or int(value) <= 0:
-            fail(f"Project01 attempt requires explicit positive {name}")
+            fail(f"persistent output requires explicit positive {name}")
         thresholds.append(int(value))
-    if os.environ.get("TOPEFT_PKL_NO_CLOBBER") != "1":
-        fail("Project01 attempt requires no-clobber publication")
     if thresholds[0] <= thresholds[2] or thresholds[1] < thresholds[3] + 3:
-        fail("Project01 admission threshold does not cover artifact budget and pending-entry inodes")
+        fail("persistent output admission threshold lacks artifact budget or pending-entry inodes")
     return thresholds
 
 
-def project01_capacity(path):
-    """Admit a new Project01 attempt before state consumption."""
-    thresholds = project01_thresholds(path)
+def pkl_attempt_capacity(path):
+    """Admit an attempt on the filesystem containing its durable output."""
+    thresholds = pkl_capacity_thresholds()
     if thresholds is None:
         return
-    values = os.statvfs(PROJECT01_NEW_PKL_ROOT)
+    values = os.statvfs(Path(path).parent)
     if values.f_bavail * values.f_frsize < thresholds[0] or values.f_favail < thresholds[1]:
-        fail("Project01 capacity admission refused before attempt creation")
+        fail("persistent output capacity admission refused before attempt creation")
 
 
 def pending_artifact_id(state, unit, stage, attempt=None):
@@ -907,9 +902,7 @@ def pending_artifact_id(state, unit, stage, attempt=None):
         attempt = attempts[-1] if attempts else None
     if attempt is None:
         return None
-    path = Path(effective_output_path(unit, stage, attempt))
-    if path.parent != PROJECT01_NEW_PKL_ROOT:
-        return None
+    effective_output_path(unit, stage, attempt)
     if type(attempt["number"]) is not int or attempt["number"] < 1:
         fail("invalid pending artifact attempt number")
     return canonical_digest({
@@ -928,13 +921,13 @@ def pending_artifact_path(state, unit, stage, attempt=None):
     return path.parent / f".topeft-pending-{pending_id}" / path.name
 
 
-def project01_publication_capacity(path):
-    thresholds = project01_thresholds(path)
+def pkl_publication_capacity(path):
+    thresholds = pkl_capacity_thresholds()
     if thresholds is None:
         return
     values = os.statvfs(Path(path).parent)
     if values.f_bavail * values.f_frsize < thresholds[2] or values.f_favail < thresholds[3]:
-        fail("Project01 publication safety reserve refused")
+        fail("persistent output publication safety reserve refused")
 
 
 def publish_pending_artifact(state, unit, stage):
@@ -958,7 +951,7 @@ def publish_pending_artifact(state, unit, stage):
     validated = validate_histogram_artifact(pending)
     sidecar = validated["metadata"]
     validate_recovery_sidecar(state, unit, stage, sidecar, artifact_path=pending)
-    project01_publication_capacity(final)
+    pkl_publication_capacity(final)
     for source, destination in ((pending, final), (pending_sidecar, final_sidecar)):
         if os.path.lexists(destination):
             if destination.is_symlink() or not destination.is_file() or not os.path.samefile(source, destination):
@@ -1166,7 +1159,7 @@ def validate_source_command(state, unit, command):
         ("--ttgamma-sample-role-policy", [contract["ttgamma_sample_role_policy"]]),
     ):
         if option == "-p":
-            expected = [state["campaign_identity"]["output_dir"], str(PROJECT01_NEW_PKL_ROOT)]
+            expected = [str(Path(unit["outputs"]["source"]).parent)]
         observed = command_values(command, option)
         if (option == "-p" and observed not in ([value] for value in expected)) or (option != "-p" and observed != expected):
             fail(f"source command {option} contradicts unit or science")
@@ -1220,7 +1213,7 @@ def transition(state, unit_id, stage, status, exit_code, detail, extra=()):
             if output_exists(unit["outputs"]["data_driven"]) or output_exists(path):
                 fail("unverified data-driven output collision")
             chunksize = None
-        project01_capacity(path)
+        pkl_attempt_capacity(path)
         attempt = {
             "number": len(record["attempts"]) + 1, "stage": stage,
             "started_at_utc": now_utc(), "ended_at_utc": None,
@@ -1245,7 +1238,7 @@ def transition(state, unit_id, stage, status, exit_code, detail, extra=()):
                 os.path.lexists(pending.parent)
                 or output_exists(effective_output_path(unit, stage))
             ):
-                fail("unresolved Project01 output evidence prevents failed transition")
+                fail("unresolved output evidence prevents failed transition")
         attempt["ended_at_utc"] = now_utc()
         attempt["exit_code"] = parsed_exit
         attempt["result"] = "success" if status in {"ready", "success"} else "failed"

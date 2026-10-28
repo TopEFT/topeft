@@ -71,33 +71,27 @@ archive only when its SHA-256 is unchanged. That frozen byte digest is the
 source worker implementation authority; a different digest requires a new
 campaign. Checkout and manager fingerprints remain attempt provenance.
 
-For new source and data-driven PKLs under the selected Project01 root, pass
-`--new-pkl-root /project01/ndcms/apiccine/top26006` together with explicit
-positive `--pkl-min-free-bytes` and `--pkl-min-free-inodes` values. Choose those
-values during the separate production preflight from a next-artifact budget
-plus a safety reserve, and pass the separately selected positive
-`--pkl-safety-reserve-bytes` and `--pkl-safety-reserve-inodes`. The admission
-thresholds cover materialization; after the PKL and sidecar are complete, only
-the safety reserve is checked before same-filesystem hard-link publication.
-The inode admission threshold includes the pending directory, PKL and sidecar
-inodes beyond its safety reserve; hard links reuse their source inodes.
-The launcher keeps `--output-dir` as the campaign
-control root and leaves all accepted historical `/groups` paths untouched.
-It derives new source and DD physical paths from the unchanged output basenames,
-records them in attempt commands and receipts, and refuses a new attempt when
-Project01 capacity or output absence cannot be established. Final PKL and
-sidecar publication is also no-clobber for this invocation. A historical
-verified source can feed a new Project01 DD output.
-Completed Project01 outputs remain in a pending directory derived from the
-persisted campaign, unit, logical output and immutable attempt identity until
-the final pair and state receipt are durable. On exclusive resume, the
-recorded attempt's pending pair is validated and published without a new source
-or data-driven computation. A collision or invalid pending pair stops recovery
-with its evidence preserved for an explicit disposition.
+The campaign plan's `unit.outputs` owns each durable source and data-driven PKL
+path. Current lane12 plans therefore write to their existing canonical
+`/groups` paths. The launcher refuses a command whose output contradicts that
+path. If persistent-output capacity thresholds are configured, pass all four
+positive `--pkl-min-free-bytes`, `--pkl-min-free-inodes`,
+`--pkl-safety-reserve-bytes` and `--pkl-safety-reserve-inodes` values. Select
+them during the later production preflight from the artifact budget and safety
+reserve. Admission checks the actual output parent before recording an attempt;
+after materialization only the remaining reserve is checked. The inode budget
+includes the pending directory, PKL and sidecar; hard links reuse their source
+inodes. Source and data-driven publication requests no-clobber independently
+of capacity settings. A completed same-attempt pending pair sits beside the
+durable output and remains until the final pair and state receipt are durable.
+Exclusive resume validates and publishes it without recomputation. A collision
+or invalid pending pair stops recovery with its evidence preserved.
 
-For local Work Queue staging, use the exact
-`/tmpscratch/users/apiccine/top26006-wq` base with the guard's free-space
-warning, minimum and poll inputs. Local staging uses filesystem free bytes and
+Work Queue staging is a separate configured capacity domain. Supply a safe,
+owned staging base with warning, minimum and poll inputs. Omit the quota root
+for local statvfs capacity; supply the exact owning quota root for quota-aware
+capacity. The guard rejects temporary, unowned, symlink and root-backed bases.
+Local staging uses filesystem free bytes and
 inodes; it does not query `/groups` quota in the Work Queue admission loop.
 The staging base, durable PKL root and campaign control root have separate
 capacity and ownership checks.
