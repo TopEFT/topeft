@@ -114,6 +114,27 @@ def test_submit_timeout_is_unknown(execution, monkeypatch):
     assert not (path.parent / 'scheduler_identity.json').exists()
 
 
+def test_submit_spawn_oserror_is_definitely_not_started(execution, monkeypatch):
+    path, descriptor = execution
+    calls = []
+    def failed_spawn(command, **kwargs):
+        calls.append(command)
+        assert command == ['condor_submit', '-pool', fixture_pool, '-name', fixture_schedd,
+                           '-terse', str(path.parent / 'execution.sub')]
+        assert json.loads((path.parent / 'submission_intent.json').read_text()) == {
+            'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
+        raise OSError('fake local spawn failure')
+    monkeypatch.setattr(condor.subprocess, 'run', failed_spawn)
+    with pytest.raises(backend.ChildDefinitelyNotStarted):
+        condor.submit(path, descriptor)
+    assert len(calls) == 1
+    assert not (path.parent / 'scheduler_identity.json').exists()
+    assert not (path.parent / 'submission_response.json').exists()
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.submit(path, descriptor)
+    assert len(calls) == 1
+
+
 def test_response_write_failure_after_submit_stays_unresolved(execution, monkeypatch):
     calls = []
     def fake(command, **kwargs):

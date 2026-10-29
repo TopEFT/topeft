@@ -176,9 +176,12 @@ def submit(descriptor_path, descriptor):
         raise backend.ChildDefinitelyNotStarted(str(error)) from error
     intent = _read_intent(intent_path, descriptor['token'])
     try:
-        result = _run(['condor_submit', '-pool', intent['pool'], '-name', intent['schedd'],
-                       '-terse', str(submit_path)])
-    except backend.ActiveChildUnresolved as error:
+        result = subprocess.run(['condor_submit', '-pool', intent['pool'], '-name', intent['schedd'],
+                                 '-terse', str(submit_path)], capture_output=True, text=True,
+                                check=False, timeout=60)
+    except OSError as error:
+        raise backend.ChildDefinitelyNotStarted('condor_submit did not start') from error
+    except subprocess.SubprocessError as error:
         raise backend.ActiveChildUnresolved('submission outcome unknown') from error
     try:
         backend.atomic_json(metadata / 'submission_response.json', {
