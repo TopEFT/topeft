@@ -1170,8 +1170,6 @@ if __name__ == "__main__":
     parser.add_argument("--wq-guard", action="store_true", help="Enable owned staging preflight and runtime warnings")
     parser.add_argument("--wq-invocation-id", help="Unique profile/block/attempt staging identity")
     parser.add_argument("--wq-quota-root", help="Exact site quota root, e.g. /groups/klannon")
-    parser.add_argument("--wq-root-backed-local-statvfs", action="store_true",
-                        help=argparse.SUPPRESS)
     parser.add_argument("--wq-free-warning-bytes", type=int)
     parser.add_argument("--wq-min-free-bytes", type=int)
     parser.add_argument("--pkl-no-clobber", action="store_true", help=argparse.SUPPRESS)
@@ -1289,8 +1287,6 @@ if __name__ == "__main__":
     if any(value is not None for value in (args.wq_warning_bytes, args.wq_stop_bytes,
                                            args.wq_reserve_bytes)):
         parser.error("retired Work Queue staging-budget options; use --wq-free-warning-bytes and --wq-min-free-bytes")
-    if args.wq_root_backed_local_statvfs and (not args.wq_guard or args.wq_quota_root):
-        parser.error("root-backed local statvfs requires a guarded base and no quota root")
     if args.rebuild_env and args.env_file:
         parser.error("--rebuild-env cannot be combined with --env-file")
     if args.snapshot and not args.env_file:
@@ -2273,7 +2269,6 @@ if __name__ == "__main__":
             try:
                 wq_staging_dir, owner_inode, stop_event, watchdog = start_guard(
                     wq_filepath, *guard_values,
-                    allow_root_backed_local_statvfs=args.wq_root_backed_local_statvfs,
                 )
             except (OSError, staging_guard_error) as error:
                 raise SystemExit(f"Work Queue staging preflight failed: {error}") from error

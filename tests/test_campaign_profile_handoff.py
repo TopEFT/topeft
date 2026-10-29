@@ -178,7 +178,7 @@ def test_capacity_options_keep_plan_owned_output_paths(tmp_path, backend):
         assert manifest.output_safety_from_command(command) == (2, 4, 1, 1)
 
 
-def test_launcher_selects_login_namespace_without_operator_capability(tmp_path, backend):
+def test_launcher_forwards_staging_without_filesystem_capability(tmp_path, backend):
     login_user = subprocess.run(["id", "-un"], capture_output=True, text=True,
                                 check=True).stdout.strip()
     backend["USER"] = "untrusted_environment_name"
@@ -192,11 +192,12 @@ def test_launcher_selects_login_namespace_without_operator_capability(tmp_path, 
     command = manifest.load_state(state_path(tmp_path))["units"][0][
         "stages"]["source"]["attempts"][0]["command_argv"]
     assert command[command.index("--wq-filepath") + 1] == selected_base
-    assert "--wq-root-backed-local-statvfs" in command
+    assert "--wq-root-backed-local-statvfs" not in command
+    assert "--wq-quota-root" not in command
     assert "--pkl-no-clobber" in command
 
 
-def test_launcher_does_not_grant_root_capability_outside_login_namespace(tmp_path, backend):
+def test_launcher_forwards_arbitrary_selected_staging_path(tmp_path, backend):
     result = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a",
                     "--wq-staging-base", "/synthetic-root-backed/selected",
                     "--wq-free-warning-bytes", "20000000000",
@@ -206,6 +207,7 @@ def test_launcher_does_not_grant_root_capability_outside_login_namespace(tmp_pat
     command = manifest.load_state(state_path(tmp_path))["units"][0][
         "stages"]["source"]["attempts"][0]["command_argv"]
     assert "--wq-root-backed-local-statvfs" not in command
+    assert "--wq-quota-root" not in command
 
 
 def test_internal_staging_and_output_options_stay_off_public_help(tmp_path):
@@ -218,7 +220,7 @@ def test_internal_staging_and_output_options_stay_off_public_help(tmp_path):
     command = [str(wrap_path), sys.executable, str(RUN_ANALYSIS)]
     analysis_help = subprocess.run(command + ["--help"], cwd=RUN_DIRECTORY,
                                    capture_output=True, text=True, check=True).stdout
-    internal_options = ("--wq-root-backed-local-statvfs", "--pkl-no-clobber",
+    internal_options = ("--pkl-no-clobber",
                         "--pkl-min-free-bytes", "--pkl-min-free-inodes",
                         "--pkl-safety-reserve-bytes", "--pkl-safety-reserve-inodes",
                         "--pkl-pending-id")
@@ -229,7 +231,7 @@ def test_internal_staging_and_output_options_stay_off_public_help(tmp_path):
     assert ordinary.returncode == 0, ordinary.stdout + ordinary.stderr
     internal = subprocess.run(command + [
         "-p", str(tmp_path), "--debug-year-scan", "--wq-guard",
-        "--wq-root-backed-local-statvfs", "--pkl-no-clobber",
+        "--pkl-no-clobber",
         "--pkl-min-free-bytes", "2", "--pkl-min-free-inodes", "4",
         "--pkl-safety-reserve-bytes", "1", "--pkl-safety-reserve-inodes", "1",
         "--pkl-pending-id", "synthetic_attempt",
@@ -482,10 +484,15 @@ def test_manager_prefix_combined_profile_still_rejected(tmp_path, backend):
 
 
 def test_manager_prefix_combined_profile_uses_distinct_child_prefixes(tmp_path, backend):
+    selected_base = "/synthetic-root-backed/selected"
     result = launch(
         tmp_path, backend,
         "--run2-wq-manager-prefix", "top26006-l12-tau5j-run2-c261024-001-",
         "--run3-wq-manager-prefix", "top26006-l12-tau5j-run3-c261024-001-",
+        "--wq-staging-base", selected_base,
+        "--wq-free-warning-bytes", "20000000000",
+        "--wq-min-free-bytes", "10000000000",
+        "--wq-poll-seconds", "1",
         profile="run2_run3_prod_2los_1tau",
     )
     assert result.returncode == 0, result.stdout + result.stderr
@@ -506,6 +513,9 @@ def test_manager_prefix_combined_profile_uses_distinct_child_prefixes(tmp_path, 
         source_attempts = state["units"][0]["stages"]["source"]["attempts"]
         assert [attempt["number"] for attempt in source_attempts] == [1]
         command = source_attempts[0]["command_argv"]
+        assert command[command.index("--wq-filepath") + 1] == selected_base
+        assert "--wq-root-backed-local-statvfs" not in command
+        assert "--wq-quota-root" not in command
         assert command[command.index("--wq-manager-name") + 1] == (
             f"{prefix}{profile}_a-a1"
         )
@@ -1239,6 +1249,12 @@ def test_staging_preflight_rejects_insufficient_free_space_and_collision(tmp_pat
         with pytest.raises(staging_guard.staging_guard_error, match="minimum free space"):
             staging_guard.start_guard(tmp_path, "attempt", "/groups/klannon",
                                       20000000000, 10000000000, 1)
+    for free_inodes in (0, 999):
+        monkeypatch.setattr(staging_guard, "_space", lambda *_, value=free_inodes:
+                            (20000000000, value))
+        with pytest.raises(staging_guard.staging_guard_error, match="inode reserve"):
+            staging_guard.start_guard(tmp_path, "attempt", "/groups/klannon",
+                                      20000000000, 10000000000, 1)
     assert not (tmp_path / "attempt").exists()
     monkeypatch.setattr(staging_guard, "_space", lambda *_: (20000000000, 2000))
     (tmp_path / "attempt").mkdir()
@@ -1271,7 +1287,6 @@ def test_lost_watchdog_blocks_completion_without_signalling_manager(
     tmp_path, monkeypatch, watchdog_exitcode, reason
 ):
     monkeypatch.setattr(staging_guard, "_validate_base", lambda _: tmp_path)
-    monkeypatch.setattr(staging_guard.os.path, "commonpath", lambda _: "/groups/klannon")
     monkeypatch.setattr(staging_guard, "_space", lambda *_: (20000000000, 2000))
     signalled = []
     monkeypatch.setattr(staging_guard.os, "kill", lambda pid, sig: signalled.append((pid, sig)))
@@ -1300,7 +1315,7 @@ def test_lost_watchdog_blocks_completion_without_signalling_manager(
         def Process(self, **kwargs):
             return fake_process(**kwargs)
     monkeypatch.setattr(staging_guard.multiprocessing, "get_context", lambda _: fake_context())
-    state = staging_guard.start_guard(tmp_path, "attempt", "/groups/klannon",
+    state = staging_guard.start_guard(tmp_path, "attempt", None,
                                       20000000000, 10000000000, 1)
     with pytest.raises(staging_guard.staging_guard_error, match=reason):
         staging_guard.finish_guard(*state, succeeded=True)

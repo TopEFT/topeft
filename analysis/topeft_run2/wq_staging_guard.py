@@ -60,11 +60,15 @@ def _space(base, quota_root):
     free_inodes = values.f_favail
     if quota_root is None:
         return free_bytes, free_inodes
-    quota_bytes = _quota_available(quota_root)
+    try:
+        quota_bytes = _quota_available(quota_root)
+    except staging_guard_error:
+        # Quota is optional telemetry; statvfs remains the capacity baseline.
+        return free_bytes, free_inodes
     return min(free_bytes, quota_bytes), free_inodes
 
 
-def _validate_base(base, *, allow_root_backed_local_statvfs=False):
+def _validate_base(base):
     path = Path(base)
     if not path.is_absolute() or not path.is_dir():
         raise staging_guard_error("staging base must be an existing absolute directory")
@@ -82,11 +86,6 @@ def _validate_base(base, *, allow_root_backed_local_statvfs=False):
         raise staging_guard_error("root temporary staging is forbidden")
     if os.stat(real).st_uid != os.getuid() or not os.access(real, os.W_OK | os.X_OK):
         raise staging_guard_error("staging base ownership or write access is invalid")
-    mount = real
-    while mount.parent != mount and os.stat(mount.parent).st_dev == os.stat(mount).st_dev:
-        mount = mount.parent
-    if mount == Path("/") and not allow_root_backed_local_statvfs:
-        raise staging_guard_error("root-backed staging requires explicit bounded authorization")
     return real
 
 
@@ -316,16 +315,13 @@ def _watch(path, base, quota_root, owner_pid, owner_start, warning_bytes,
 
 
 def start_guard(base, invocation, quota_root, warning_bytes, min_free_bytes,
-                poll_seconds, *, allow_root_backed_local_statvfs=False):
+                poll_seconds):
     if not invocation or invocation in (".", "..") or Path(invocation).name != invocation:
         raise staging_guard_error("invocation must be one path component")
     if not (10000000000 <= min_free_bytes <= warning_bytes
             and math.isfinite(poll_seconds) and poll_seconds > 0):
         raise staging_guard_error("invalid free-space warning/minimum/poll configuration")
-    if allow_root_backed_local_statvfs and quota_root is not None:
-        raise staging_guard_error("root-backed local statvfs mode cannot use a quota root")
-    real_base = (_validate_base(base, allow_root_backed_local_statvfs=True)
-                 if allow_root_backed_local_statvfs else _validate_base(base))
+    real_base = _validate_base(base)
     if quota_root is not None:
         if not quota_root or not quota_root.startswith(("/groups/", "/users/")):
             raise staging_guard_error("an exact site quota root is required")

@@ -48,7 +48,6 @@ profile_pkl_safety_reserve_bytes=""
 profile_pkl_safety_reserve_inodes=""
 profile_wq_staging_base=""
 profile_wq_quota_root=""
-profile_wq_root_backed_local_statvfs=false
 profile_wq_warning_bytes=""
 profile_wq_min_free_bytes=""
 profile_wq_poll_seconds=""
@@ -336,16 +335,6 @@ elif [[ -n "${profile_wq_quota_root}${profile_wq_warning_bytes}${profile_wq_min_
   echo "ERROR: Work Queue guard options require --wq-staging-base." >&2
   exit 1
 fi
-if [[ -n "${profile_wq_staging_base}" && -z "${profile_wq_quota_root}" ]]; then
-  staging_login_user=$(id -un) || { echo "ERROR: local login identity is unavailable." >&2; exit 1; }
-  [[ -n "${staging_login_user}" && "${staging_login_user}" != */* ]] \
-    || { echo "ERROR: local login identity is invalid." >&2; exit 1; }
-  staging_selected_path=$(realpath -m -- "${profile_wq_staging_base}") || exit 1
-  staging_user_namespace="/tmpscratch/users/${staging_login_user}"
-  if [[ "${staging_selected_path}" == "${staging_user_namespace}"/* ]]; then
-    profile_wq_root_backed_local_statvfs=true
-  fi
-fi
 if [[ -n "${profile_wq_accumulating_memory_mb}" || -n "${profile_wq_accumulating_cores}" ]]; then
   if [[ ! "${profile_wq_accumulating_memory_mb}" =~ ^[1-9][0-9]*$ \
     || ! "${profile_wq_accumulating_cores}" =~ ^[1-9][0-9]*$ ]]; then
@@ -379,10 +368,8 @@ if [[ "${profile_dry_run}" == false && -z "${CAMPAIGN_VALIDATION_BACKEND:-}" \
   fi
   staging_real_path=$(realpath -e -- "${profile_wq_staging_base}") || exit 1
   if [[ "${staging_real_path}" == /tmp || "${staging_real_path}" == /tmp/* \
-    || "${staging_real_path}" == /var/tmp || "${staging_real_path}" == /var/tmp/* ]] \
-    || { [[ "$(stat -c %d -- "${staging_real_path}")" == "$(stat -c %d -- /)" ]] \
-      && [[ "${profile_wq_root_backed_local_statvfs}" != true ]]; }; then
-    echo "ERROR: /tmp or root-backed manager staging is forbidden for Work Queue production." >&2
+    || "${staging_real_path}" == /var/tmp || "${staging_real_path}" == /var/tmp/* ]]; then
+    echo "ERROR: root temporary staging is forbidden for Work Queue production." >&2
     exit 1
   fi
 fi
@@ -1429,9 +1416,6 @@ append_guard_options() {
   )
   if [[ -n "${profile_wq_quota_root}" ]]; then
     guarded_cmd_ref+=(--wq-quota-root "${profile_wq_quota_root}")
-  fi
-  if [[ "${profile_wq_root_backed_local_statvfs}" == true ]]; then
-    guarded_cmd_ref+=(--wq-root-backed-local-statvfs)
   fi
   if [[ -n "${profile_wq_treereduction}" ]]; then
     guarded_cmd_ref+=(--wq-treereduction "${profile_wq_treereduction}")

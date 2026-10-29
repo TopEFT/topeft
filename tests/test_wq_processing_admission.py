@@ -15,7 +15,7 @@ from analysis.topeft_run2 import wq_processing_admission as admission
 from analysis.topeft_run2 import wq_staging_guard as staging_guard
 
 
-def test_root_backed_staging_requires_bounded_explicit_capability(monkeypatch):
+def test_root_backed_staging_uses_concrete_path_checks(monkeypatch):
     base = Path("/synthetic-root-backed/selected")
     fake_stat = SimpleNamespace(st_uid=os.getuid(), st_dev=1)
     with monkeypatch.context() as fixture:
@@ -24,31 +24,26 @@ def test_root_backed_staging_requires_bounded_explicit_capability(monkeypatch):
         fixture.setattr(staging_guard.Path, "resolve", lambda path, strict=True: path)
         fixture.setattr(staging_guard.os, "stat", lambda _: fake_stat)
         fixture.setattr(staging_guard.os, "access", lambda *_: True)
-        with pytest.raises(staging_guard.staging_guard_error, match="explicit bounded authorization"):
-            staging_guard._validate_base(base)
-        assert staging_guard._validate_base(
-            base, allow_root_backed_local_statvfs=True) == base
+        assert staging_guard._validate_base(base) == base
         with pytest.raises(staging_guard.staging_guard_error, match="filesystem root"):
-            staging_guard._validate_base(Path("/"), allow_root_backed_local_statvfs=True)
+            staging_guard._validate_base(Path("/"))
         with pytest.raises(staging_guard.staging_guard_error, match="root temporary staging"):
-            staging_guard._validate_base(
-                Path("/tmp/selected"), allow_root_backed_local_statvfs=True)
+            staging_guard._validate_base(Path("/tmp/selected"))
         with pytest.raises(staging_guard.staging_guard_error, match="root temporary staging"):
-            staging_guard._validate_base(
-                Path("/var/tmp/selected"), allow_root_backed_local_statvfs=True)
+            staging_guard._validate_base(Path("/var/tmp/selected"))
         fixture.setattr(staging_guard.os, "stat", lambda _: SimpleNamespace(
             st_uid=os.getuid() + 1, st_dev=1))
         with pytest.raises(staging_guard.staging_guard_error, match="ownership"):
-            staging_guard._validate_base(base, allow_root_backed_local_statvfs=True)
+            staging_guard._validate_base(base)
         fixture.setattr(staging_guard.os, "stat", lambda _: fake_stat)
         fixture.setattr(staging_guard.Path, "is_symlink", lambda path: path == base)
         with pytest.raises(staging_guard.staging_guard_error, match="symlink"):
-            staging_guard._validate_base(base, allow_root_backed_local_statvfs=True)
+            staging_guard._validate_base(base)
         fixture.setattr(staging_guard.Path, "is_symlink", lambda _: False)
         fixture.setattr(staging_guard.Path, "resolve", lambda path, strict=True:
                         Path("/other-root-backed/selected") if path == base else path)
         with pytest.raises(staging_guard.staging_guard_error, match="canonical path identity"):
-            staging_guard._validate_base(base, allow_root_backed_local_statvfs=True)
+            staging_guard._validate_base(base)
 
 
 def test_local_staging_space_uses_statvfs_without_quota(monkeypatch, tmp_path):
@@ -70,8 +65,7 @@ def test_local_staging_space_uses_statvfs_without_quota(monkeypatch, tmp_path):
 def test_staging_guard_rejects_nonisolated_invocation(invocation):
     with pytest.raises(staging_guard.staging_guard_error, match="one path component"):
         staging_guard.start_guard("/synthetic-root-backed/selected", invocation, None,
-                                  20_000_000_000, 10_000_000_000, 1,
-                                  allow_root_backed_local_statvfs=True)
+                                  20_000_000_000, 10_000_000_000, 1)
 
 
 def test_quota_staging_space_uses_exact_supplied_root(monkeypatch, tmp_path):
@@ -83,6 +77,15 @@ def test_quota_staging_space_uses_exact_supplied_root(monkeypatch, tmp_path):
                         roots.append(root) or 1000)
     assert staging_guard._space(selected_base, "/groups/selected") == (1000, 345)
     assert roots == ["/groups/selected"]
+
+
+def test_quota_unavailable_falls_back_to_statvfs(monkeypatch, tmp_path):
+    monkeypatch.setattr(staging_guard.os, "statvfs", lambda path: SimpleNamespace(
+        f_bavail=12, f_frsize=1024, f_favail=345))
+    monkeypatch.setattr(staging_guard, "_quota_available", lambda root:
+                        (_ for _ in ()).throw(staging_guard.staging_guard_error(
+                            "quota headroom could not be measured")))
+    assert staging_guard._space(tmp_path, "/groups/selected") == (12 * 1024, 345)
 
 
 class fake_task:
@@ -854,7 +857,7 @@ def test_guarded_launcher_callback_is_composed(
     assert calls[0][1]["accumulating_memory_mb"] == 128000
 
 
-def test_quota_timeout_pauses_both_admissions_and_fresh_probe_recovers(
+def test_quota_timeout_uses_statvfs_for_admission(
     setup_queue, monkeypatch, tmp_path
 ):
     make, _ = setup_queue
@@ -865,6 +868,8 @@ def test_quota_timeout_pauses_both_admissions_and_fresh_probe_recovers(
         raise subprocess.TimeoutExpired(["quota", "/groups/klannon"], 15)
 
     monkeypatch.setattr(staging_guard.subprocess, "run", timed_out)
+    monkeypatch.setattr(staging_guard.os, "statvfs", lambda path: SimpleNamespace(
+        f_bavail=10**12, f_frsize=1, f_favail=2000))
     existing = [fake_task() for _ in range(4)]
     for task in existing:
         queue.submit(task)
@@ -874,22 +879,13 @@ def test_quota_timeout_pauses_both_admissions_and_fresh_probe_recovers(
     )):
         queue.states[task.id] = state
     queued_before = dict(queue._task_table)
-    assert coordinator._decision(100, 1)[0:2] == (0, "headroom_unknown")
+    assert coordinator._decision(100, 1)[0] > 0
     assert queue._task_table == queued_before
-    assert coordinator.measurement_error == "staging_guard_error"
+    assert coordinator.measurement_error is None
     pending = [fake_task(fout_size=1) for _ in range(3)]
     queue.tasks_to_accumulate = pending[:]
     queue._submit_accum_tasks("reducer")
-    assert queue.tasks_to_accumulate == pending
-    assert coordinator.deferred_accumulation
-    assert queue.stats_coffea["accumulations_submitted"] == 0
-    assert queue.stats_coffea["events_submitted"] == 0
-
-    # A previous successful sample is no authority after its freshness limit.
-    coordinator.available_bytes = 10**12
-    coordinator.last_measurement_at = -float("inf")
-    assert coordinator._decision(100, 1)[0] == 0
-    assert queue._task_table == queued_before
+    assert queue.stats_coffea["accumulations_submitted"] > 0
 
     def recovered(*args, **kwargs):
         return SimpleNamespace(returncode=0, stdout=(
@@ -899,9 +895,6 @@ def test_quota_timeout_pauses_both_admissions_and_fresh_probe_recovers(
     monkeypatch.setattr(staging_guard.subprocess, "run", recovered)
     coordinator.last_measurement_at = -float("inf")
     assert coordinator._decision(100, 1)[0] > 0
-    coordinator.last_measurement_at = -float("inf")
-    queue._submit_accum_tasks("reducer")
-    assert queue.stats_coffea["accumulations_submitted"] > 0
 
 
 def _owned_invocation(base, name):
