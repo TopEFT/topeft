@@ -51,6 +51,112 @@ def test_descriptor_one_direct_worker_no_control_plane(execution):
     assert 'request_cpus = 1' in text and 'should_transfer_files = NO' in text
 
 
+def test_submit_filename_syntax_keeps_string_fields_and_resources(execution):
+    path, descriptor = execution
+    descriptor['hard_limit_bytes'] = 192000000000
+    text = condor.submit_description(path, descriptor)
+    for key, value in {
+        'executable': descriptor['argv'][0], 'initialdir': str(backend.REPO_ROOT),
+        'output': str(path.parent / 'worker.out'), 'error': str(path.parent / 'worker.err'),
+        'log': str(path.parent / 'scheduler.log'),
+    }.items():
+        assert f'{key} = {value}\n' in text
+        assert f'{key} = "{value}"' not in text
+    assert f'environment = "PYTHONPATH={backend.REPO_ROOT}"\n' in text
+    assert f'+PlotExecutionToken = "{descriptor["token"]}"\n' in text
+    assert f"arguments = \"'-m' 'analysis.topeft_run2.plot_campaign_backend' '--worker' '{path}'\"\n" in text
+    for line in ('request_cpus = 1', 'request_memory = 183106', 'request_disk = 10240',
+                 '+MaxRuntime = 86400', 'queue 1'):
+        assert text.count(line + '\n') == 1
+
+
+@pytest.mark.parametrize('unsafe', ['/tmp/space in name', '/tmp/bad\nqueue 2', '/tmp/"quote'])
+def test_submit_rejects_unsafe_filename(execution, unsafe):
+    path, descriptor = execution
+    descriptor['argv'][0] = unsafe
+    with pytest.raises(ValueError, match='Unsafe Condor filename'):
+        condor.submit_description(path, descriptor)
+
+
+def rejected_execution(execution):
+    path, descriptor = execution
+    metadata = path.parent
+    root = str(backend.REPO_ROOT)
+    legacy = condor.submit_description(path, descriptor)
+    for key in ('executable', 'initialdir', 'output', 'error', 'log'):
+        line = next(line for line in legacy.splitlines() if line.startswith(key + ' = '))
+        value = line.split(' = ', 1)[1]
+        legacy = legacy.replace(line + '\n', f'{key} = "{value}"\n')
+    (metadata / 'execution.sub').write_text(legacy)
+    (metadata / 'submission_intent.json').write_text(json.dumps({
+        'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}))
+    (metadata / 'submission_response.json').write_text(json.dumps({
+        'returncode': 1, 'stdout': '',
+        'stderr': f'ERROR: No such directory: {root}/"{root}"\n'}))
+    return path, descriptor
+
+
+def test_rejected_submit_reuses_attempt_and_preserves_evidence(execution, monkeypatch):
+    path, descriptor = rejected_execution(execution)
+    original = {name: (path.parent / name).read_bytes()
+                for name in ('execution.sub', 'submission_response.json')}
+    calls = []
+    def fake(command, **kwargs):
+        calls.append(command)
+        assert command[1:5] == ['-pool', fixture_pool, '-name', fixture_schedd]
+        if command[0] == 'condor_submit':
+            assert (path.parent / 'recovery_submit_intent.json').is_file()
+            for name, content in original.items():
+                assert (path.parent / ('rejected_' + name)).read_bytes() == content
+            assert command[-1] == str(path.parent / 'recovery_execution.sub')
+            return response('123.0\n')
+        return response('[]')
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    assert condor.recover_rejected_submit(path, descriptor)['job'] == '123.0'
+    assert [call[0] for call in calls] == ['condor_q', 'condor_history', 'condor_submit']
+    assert json.loads((path.parent / 'scheduler_identity.json').read_text()) == {
+        'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd, 'job': '123.0'}
+    provenance = json.loads((path.parent / 'rejected_submission_provenance.json').read_text())
+    for name, content in original.items():
+        assert (path.parent / name).read_bytes() == content
+        assert provenance['sha256'][name] == backend.sha256_file(path.parent / name)
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.recover_rejected_submit(path, descriptor)
+    assert len(calls) == 3
+
+
+@pytest.mark.parametrize('reason', ['wrong_response', 'missing_response', 'queue_match',
+                                    'history_match', 'identity', 'ambiguous_submit'])
+def test_rejected_submit_fail_closed(execution, monkeypatch, reason):
+    path, descriptor = rejected_execution(execution)
+    if reason == 'wrong_response':
+        (path.parent / 'submission_response.json').write_text(json.dumps({
+            'returncode': 1, 'stdout': '', 'stderr': 'unrelated failure'}))
+    elif reason == 'missing_response':
+        (path.parent / 'submission_response.json').unlink()
+    elif reason == 'identity':
+        (path.parent / 'scheduler_identity.json').write_text('{}')
+    calls = []
+    def fake(command, **kwargs):
+        calls.append(command[0])
+        if command[0] == 'condor_submit':
+            assert reason == 'ambiguous_submit'
+            return response('', 1)
+        if reason == 'queue_match' or (reason == 'history_match' and command[0] == 'condor_history'):
+            ad = {'ClusterId': 123, 'ProcId': 0, 'Owner': pwd.getpwuid(os.getuid()).pw_name,
+                  'PlotExecutionToken': descriptor['token']}
+            return response(json.dumps([ad]))
+        return response('[]')
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.recover_rejected_submit(path, descriptor)
+    assert calls.count('condor_submit') == int(reason == 'ambiguous_submit')
+    if reason == 'ambiguous_submit':
+        with pytest.raises(backend.ActiveChildUnresolved):
+            condor.recover_rejected_submit(path, descriptor)
+        assert calls.count('condor_submit') == 1
+
+
 @pytest.mark.parametrize('stdout', ['123.0\n', '123.0 - 123.0\n'])
 def test_submit_records_identity_once(execution, monkeypatch, stdout):
     path, descriptor = execution

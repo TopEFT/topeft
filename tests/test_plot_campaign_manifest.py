@@ -1397,6 +1397,84 @@ def test_condor_waits_without_local_fallback_or_second_attempt(tmp_path, monkeyp
     assert json.loads(capsys.readouterr().out.splitlines()[-1])['campaign_status']=='waiting'
 
 
+def seed_rejected_condor_campaign(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from analysis.topeft_run2 import plot_campaign_condor as condor
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=1)
+    monkeypatch.setattr(condor, 'resolve_target', lambda: {
+        'pool': 'collector.fixture.invalid', 'schedd': 'submit.fixture.invalid'})
+    calls = []
+    submit_root = condor.backend.REPO_ROOT
+    rejected = f'ERROR: No such directory: {submit_root}/"{submit_root}"\n'
+    def fake(command, **kwargs):
+        calls.append(command[0])
+        if command[0] == 'condor_submit':
+            return SimpleNamespace(returncode=1, stdout='', stderr=rejected)
+        return SimpleNamespace(returncode=0, stdout='[]', stderr='')
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', plan_path=plan_path,
+                          action='execute', backend_name='condor')
+    state_path = campaign.state_path(root, 'sr_crlike_run2', 'run2')
+    state = campaign.read_json(state_path)
+    attempt = state['units']['unit_0']['attempts'][0]
+    metadata = Path(attempt['private_unit_root']) / '_metadata'
+    original = (metadata / 'execution.sub').read_text()
+    for key in ('executable', 'initialdir', 'output', 'error', 'log'):
+        line = next(line for line in original.splitlines() if line.startswith(key + ' = '))
+        value = line.split(' = ', 1)[1]
+        original = original.replace(line + '\n', f'{key} = "{value}"\n')
+    (metadata / 'execution.sub').write_text(original)
+    return root, state_path, metadata, calls
+
+
+def test_explicit_condor_recovery_selected_same_attempt_only(tmp_path, monkeypatch, capsys):
+    from types import SimpleNamespace
+    from analysis.topeft_run2 import plot_campaign_condor as condor
+    root, state_path, metadata, calls = seed_rejected_condor_campaign(tmp_path, monkeypatch)
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', action='resume')
+    assert calls.count('condor_submit') == 1
+    args = ['--campaign-profile', 'sr_crlike_run2', '--campaign-tag', 'fixture_campaign',
+            '-o', str(root), '--recover-rejected-condor-submit']
+    assert campaign.main(args) == 2
+    assert calls.count('condor_submit') == 1
+    def recovered(command, **kwargs):
+        calls.append(command[0])
+        return SimpleNamespace(returncode=0,
+                               stdout='123.0\n' if command[0] == 'condor_submit' else '[]',
+                               stderr='')
+    monkeypatch.setattr(condor.subprocess, 'run', recovered)
+    assert campaign.main(args + ['--selected-unit', 'unit_0']) == 0
+    state = campaign.read_json(state_path)['units']['unit_0']
+    assert state['status'] == 'running'
+    assert [item['attempt_id'] for item in state['attempts']] == ['attempt_0001']
+    assert (metadata / 'rejected_execution.sub').read_text() == (metadata / 'execution.sub').read_text()
+    assert (metadata / 'rejected_submission_response.json').read_bytes() == (metadata / 'submission_response.json').read_bytes()
+    assert calls.count('condor_submit') == 2
+    assert campaign.main(args + ['--selected-unit', 'unit_0']) == 2
+    assert calls.count('condor_submit') == 2
+    assert not (metadata.parent.parent / 'attempt_0002').exists()
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize('blocker', ['worker_started.json', 'renderer.log', 'worker.out',
+                                    'scheduler_identity.json', 'state'])
+def test_explicit_condor_recovery_blocks_execution_or_state_evidence(
+        tmp_path, monkeypatch, blocker):
+    from analysis.topeft_run2 import plot_campaign_condor as condor
+    root, state_path, metadata, calls = seed_rejected_condor_campaign(tmp_path, monkeypatch)
+    if blocker == 'state':
+        state = campaign.read_json(state_path)
+        state['units']['unit_0']['attempts'][0]['failure_classification'] = 'other'
+        campaign.atomic_json(state_path, state)
+    else:
+        (metadata / blocker).write_text('{}')
+    monkeypatch.setattr(condor.subprocess, 'run',
+                        lambda *a, **k: pytest.fail('scheduler or submit after blocker'))
+    with pytest.raises(campaign.CampaignError):
+        campaign.recover_rejected_condor_unit(root, 'sr_crlike_run2', 'fixture_campaign', 'unit_0')
+    assert calls.count('condor_submit') == 1
+
+
 @pytest.mark.parametrize('scheduler_state', ['terminal_success', 'terminal_failure', 'unresolved'])
 def test_condor_terminal_evidence_needs_controller_receipt_and_materialization(tmp_path, monkeypatch, scheduler_state):
     root,plan,attempt_root=seed_running(tmp_path,monkeypatch)

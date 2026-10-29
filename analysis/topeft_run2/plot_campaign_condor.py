@@ -20,6 +20,14 @@ def _quoted(value):
     return '"' + value.replace('"', '""') + '"'
 
 
+def _filename(value):
+    """Submit filename commands take bare paths, unlike ClassAd strings."""
+    value = str(value)
+    if not re.fullmatch(r'/[A-Za-z0-9_./+\-]+', value):
+        raise ValueError('Unsafe Condor filename')
+    return value
+
+
 def _run(command):
     try:
         return subprocess.run(command, capture_output=True, text=True, check=False, timeout=60)
@@ -94,9 +102,9 @@ def submit_description(descriptor_path, descriptor):
     arguments = '"' + ' '.join("'" + a.replace('"', '""').replace("'", "''") + "'" for a in argv) + '"'
     return '\n'.join([
         'universe = vanilla',
-        'executable = ' + _quoted(descriptor['argv'][0]),
+        'executable = ' + _filename(descriptor['argv'][0]),
         'arguments = ' + arguments,
-        'initialdir = ' + _quoted(backend.REPO_ROOT),
+        'initialdir = ' + _filename(backend.REPO_ROOT),
         'environment = ' + _quoted('PYTHONPATH=' + str(backend.REPO_ROOT)),
         'getenv = False',
         'should_transfer_files = NO',
@@ -107,9 +115,9 @@ def submit_description(descriptor_path, descriptor):
         '+PlotExecutionToken = ' + _quoted(descriptor['token']),
         'on_exit_hold = (ExitBySignal == True) || (ExitCode != 0)',
         'periodic_hold = (NumJobStarts > 1)',
-        'output = ' + _quoted(metadata / 'worker.out'),
-        'error = ' + _quoted(metadata / 'worker.err'),
-        'log = ' + _quoted(metadata / 'scheduler.log'),
+        'output = ' + _filename(metadata / 'worker.out'),
+        'error = ' + _filename(metadata / 'worker.err'),
+        'log = ' + _filename(metadata / 'scheduler.log'),
         'queue 1', '',
     ])
 
@@ -155,6 +163,29 @@ def _persist_identity(path, intent, job):
     return binding
 
 
+def _submit_once(submit_path, intent, response_path, identity_path):
+    try:
+        result = subprocess.run(['condor_submit', '-pool', intent['pool'], '-name', intent['schedd'],
+                                 '-terse', str(submit_path)], capture_output=True, text=True,
+                                check=False, timeout=60)
+    except OSError as error:
+        raise backend.ChildDefinitelyNotStarted('condor_submit did not start') from error
+    except subprocess.SubprocessError as error:
+        raise backend.ActiveChildUnresolved('submission outcome unknown') from error
+    try:
+        backend.atomic_json(response_path, {
+            'returncode': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr,
+        })
+    except OSError as error:
+        raise backend.ActiveChildUnresolved('submission response durability unavailable') from error
+    match = re.fullmatch(r'([0-9]+)\.0(?:\s*-\s*\1\.0)?\s*', result.stdout)
+    if result.returncode != 0 or match is None:
+        raise backend.ActiveChildUnresolved('submission response cannot prove a unique execution')
+    job = match[1] + '.0'
+    _persist_identity(identity_path, intent, job)
+    return {'state': 'pending', 'job': job}
+
+
 def submit(descriptor_path, descriptor):
     """Persist target and intent before one submit; later ambiguity never retries."""
     metadata = descriptor_path.parent
@@ -175,26 +206,95 @@ def submit(descriptor_path, descriptor):
             raise backend.ActiveChildUnresolved('submission setup occupied or incomplete') from error
         raise backend.ChildDefinitelyNotStarted(str(error)) from error
     intent = _read_intent(intent_path, descriptor['token'])
+    return _submit_once(submit_path, intent, metadata / 'submission_response.json', identity_path)
+
+
+def _preserve_rejection(metadata, originals):
+    """Keep exact first-submit bytes and hashes before opening a second submit boundary."""
+    hashes = {}
+    for name in originals:
+        source = metadata / name
+        if not source.is_file() or source.is_symlink():
+            raise backend.ActiveChildUnresolved('rejected submission evidence unavailable')
+        content = source.read_bytes()
+        saved = metadata / ('rejected_' + name)
+        if saved.exists() or saved.is_symlink():
+            if not saved.is_file() or saved.is_symlink() or saved.read_bytes() != content:
+                raise backend.ActiveChildUnresolved('rejected submission archive contradiction')
+        else:
+            with saved.open('xb') as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+        hashes[name] = backend.sha256_file(saved)
+    directory_fd = os.open(metadata, os.O_RDONLY)
     try:
-        result = subprocess.run(['condor_submit', '-pool', intent['pool'], '-name', intent['schedd'],
-                                 '-terse', str(submit_path)], capture_output=True, text=True,
-                                check=False, timeout=60)
-    except OSError as error:
-        raise backend.ChildDefinitelyNotStarted('condor_submit did not start') from error
-    except subprocess.SubprocessError as error:
-        raise backend.ActiveChildUnresolved('submission outcome unknown') from error
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+    provenance = {'schema_version': 1, 'kind': 'local_submitfile_rejection',
+                  'sha256': hashes}
+    path = metadata / 'rejected_submission_provenance.json'
+    if path.exists() or path.is_symlink():
+        if not path.is_file() or path.is_symlink() or json.loads(path.read_text()) != provenance:
+            raise backend.ActiveChildUnresolved('rejected submission provenance contradiction')
+    else:
+        backend.exclusive_json(path, provenance)
+    return provenance
+
+
+def recover_rejected_submit(descriptor_path, descriptor):
+    """One explicit same-attempt submit after a proved local parser rejection."""
+    metadata = descriptor_path.parent
+    intent = _read_intent(metadata / 'submission_intent.json', descriptor['token'])
+    identity_path = metadata / 'scheduler_identity.json'
+    marker = metadata / 'recovery_submit_intent.json'
+    response_path = metadata / 'submission_response.json'
+    original_path = metadata / 'execution.sub'
+    if any(path.exists() or path.is_symlink() for path in
+           (identity_path, marker, metadata / 'recovery_submission_response.json')):
+        raise backend.ActiveChildUnresolved('recovery submission already occupied')
+    if not response_path.is_file() or response_path.is_symlink():
+        raise backend.ActiveChildUnresolved('original submission response unavailable')
     try:
-        backend.atomic_json(metadata / 'submission_response.json', {
-            'returncode': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr,
-        })
-    except OSError as error:
-        raise backend.ActiveChildUnresolved('submission response durability unavailable') from error
-    match = re.fullmatch(r'([0-9]+)\.0(?:\s*-\s*\1\.0)?\s*', result.stdout)
-    if result.returncode != 0 or match is None:
-        raise backend.ActiveChildUnresolved('submission response cannot prove a unique execution')
-    job = match[1] + '.0'
-    _persist_identity(identity_path, intent, job)
-    return {'state': 'pending', 'job': job}
+        response = json.loads(response_path.read_text(encoding='utf-8'))
+        original = original_path.read_text(encoding='utf-8')
+    except (OSError, UnicodeError, ValueError) as error:
+        raise backend.ActiveChildUnresolved('original rejection evidence malformed') from error
+    root = str(backend.REPO_ROOT)
+    corrected = submit_description(descriptor_path, descriptor)
+    filename_fields = {'executable', 'initialdir', 'output', 'error', 'log'}
+    original_lines = []
+    for line in corrected.splitlines():
+        key, separator, value = line.partition(' = ')
+        original_lines.append(key + separator + _quoted(value)
+                              if key in filename_fields else line)
+    expected_original = '\n'.join(original_lines) + '\n'
+    if (response != {'returncode': 1, 'stdout': '',
+                     'stderr': f'ERROR: No such directory: {root}/"{root}"\n'} or
+            original != expected_original):
+        raise backend.ActiveChildUnresolved('not the proven local submitfile rejection')
+    _preserve_rejection(metadata, ('execution.sub', 'submission_response.json'))
+    if _recover('condor_q', intent) is not None or _recover('condor_history', intent) is not None:
+        raise backend.ActiveChildUnresolved('scheduler already has this execution token')
+    candidate = metadata / 'recovery_execution.sub'
+    if candidate.exists() or candidate.is_symlink():
+        if not candidate.is_file() or candidate.is_symlink() or candidate.read_text() != corrected:
+            raise backend.ActiveChildUnresolved('recovery submit description contradiction')
+    else:
+        with candidate.open('x', encoding='utf-8') as stream:
+            stream.write(corrected)
+            stream.flush()
+            os.fsync(stream.fileno())
+        directory_fd = os.open(metadata, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    backend.exclusive_json(marker, {'token': intent['token'], 'pool': intent['pool'],
+                                    'schedd': intent['schedd'],
+                                    'submit_sha256': backend.sha256_file(candidate)})
+    return _submit_once(candidate, intent, metadata / 'recovery_submission_response.json', identity_path)
 
 
 def _query(job, command, intent):

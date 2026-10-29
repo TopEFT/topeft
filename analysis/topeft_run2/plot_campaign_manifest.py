@@ -889,6 +889,62 @@ def repair_materializations(root, profile, tag, selected):
                          sort_keys=True))
 
 
+def recover_rejected_condor_unit(root, profile, tag, selected):
+    """Explicitly rearm one occupied attempt after a local submitfile rejection."""
+    require(selected is not None, "Condor rejection recovery requires --selected-unit")
+    check_root(root, fresh=False)
+    with campaign_lock(root):
+        runtime = read_json(coordinator_path(root)).get("runtime_contract_identity")
+        _, plan, states = load_campaign(root, profile, tag, runtime)
+        matches = [(component, states[component], states[component]["units"][selected])
+                   for component in PROFILES[profile]
+                   if selected in states[component]["units"]]
+        require(len(matches) == 1, "selected recovery unit is not in the campaign")
+        component, state, unit_state = matches[0]
+        require(unit_state["status"] == "running" and len(unit_state["attempts"]) == 1
+                and not unit_state["materializations"],
+                "selected unit is not one waiting Condor attempt")
+        attempt = unit_state["attempts"][0]
+        attempt_root = private_root(root, profile, selected, component, "attempt_0001")
+        next_attempt = attempt_root.parent / "attempt_0002"
+        require(not next_attempt.exists() and not next_attempt.is_symlink(),
+                "another attempt root blocks same-attempt recovery")
+        contract = attempt.get("execution_contract")
+        require(attempt.get("attempt_id") == "attempt_0001"
+                and attempt.get("private_unit_root") == str(attempt_root)
+                and attempt.get("result") == "running"
+                and attempt.get("failure_classification")
+                == "submission response cannot prove a unique execution"
+                and attempt.get("ended_at_utc") is None
+                and attempt.get("completion_receipt_identity") is None
+                and attempt.get("materialization_status") == "pending"
+                and all(attempt.get(key) is None for key in
+                        ("guard_result", "child_result", "tee_result"))
+                and isinstance(contract, dict) and contract.get("backend") == "condor",
+                "selected attempt state contradicts rejected Condor submit")
+        argv = attempt_argv(unit_state["binding"], attempt)
+        require(attempt.get("command_identity") == identity(argv),
+                "selected attempt command identity contradiction")
+        descriptor = backend.execution_descriptor(argv, attempt_root, contract)
+        metadata = attempt_root / "_metadata"
+        require(read_json(metadata / "execution.json") == descriptor,
+                "selected attempt descriptor identity contradiction")
+        for name in ("worker_started.json", "guard.jsonl", "lifecycle_receipt_v1.json",
+                     "renderer.log", "completion_receipt_v1.json", "worker.out", "worker.err",
+                     "scheduler.log"):
+            path = metadata / name
+            require(not path.exists() and not path.is_symlink(),
+                    f"worker or renderer evidence blocks recovery: {name}")
+        require(not any(attempt_root.rglob("*.png")),
+                "private PNG evidence blocks recovery")
+        from analysis.topeft_run2 import plot_campaign_condor as condor
+        result = condor.recover_rejected_submit(metadata / "execution.json", descriptor)
+        attempt["failure_classification"] = None
+        atomic_json(state_path(root, profile, component), state)
+        print(json.dumps({"recovered_unit": selected, "attempt_id": "attempt_0001",
+                          "submission_state": result["state"], "job": result["job"]}, sort_keys=True))
+
+
 def check_root(root, *, fresh):
     histos = REPO_ROOT / "histos"
     require(root.is_absolute() and ".." not in root.parts and root != histos
@@ -1219,6 +1275,8 @@ def main(argv=None):
     actions.add_argument("--execute", action="store_true")
     actions.add_argument("--resume", action="store_true")
     actions.add_argument("--recover-terminal-unit", action="store_true")
+    actions.add_argument("--recover-rejected-condor-submit", action="store_true",
+                         help="submit once on the same selected attempt after a proven local Condor submitfile rejection")
     actions.add_argument("--activate-pending-plan", type=Path)
     parser.add_argument("--expected-plan-revision", type=int)
     parser.add_argument("--selected-unit")
@@ -1249,6 +1307,11 @@ def main(argv=None):
                     and args.selected_unit is not None,
                     "recovery requires only --selected-unit")
             repair_materializations(root, profile, args.campaign_tag, args.selected_unit)
+        elif args.recover_rejected_condor_submit:
+            require(args.plan is None and args.expected_plan_revision is None
+                    and args.selected_unit is not None,
+                    "Condor rejection recovery requires only --selected-unit")
+            recover_rejected_condor_unit(root, profile, args.campaign_tag, args.selected_unit)
         elif args.resume:
             require(args.plan is None and args.expected_plan_revision is None,
                     "resume accepts neither --plan nor expected revision")
