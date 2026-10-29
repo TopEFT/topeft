@@ -280,6 +280,30 @@ def test_resume_does_not_authorize_from_live_git_or_manager_source_provenance(tm
     assert resumed is state
 
 
+def test_launcher_dry_resume_accepts_historical_dd_wrapper_binding(tmp_path, backend):
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
+    assert first.returncode == 0, first.stdout + first.stderr
+    path = state_path(tmp_path)
+    state = manifest.load_state(path)
+    assert state["units"][0]["stages"]["data_driven"]["status"] == "success"
+    assert state["units"][1]["stages"]["source"]["status"] == "pending"
+    wrapper = "analysis/topeft_run2/run_data_driven.py"
+    historical_sha = "724a46b07e1d9d7b17888fa79acd2fddb1a8cd057f9989a12029c516c4538746"
+    state["scientific_identity"]["data_driven_stage_scientific_contract"]["scientific_files"][wrapper] = historical_sha
+    stage_sha = manifest.canonical_digest(state["scientific_identity"]["data_driven_stage_scientific_contract"])
+    state["scientific_identity"]["data_driven_stage_scientific_contract_sha256"] = stage_sha
+    state["units"][0]["stages"]["data_driven"]["receipt"]["binding"]["stage_scientific_contract_sha256"] = stage_sha
+    path.write_text(json.dumps(state), encoding="utf-8")
+    before = path.read_bytes()
+    assert manifest.load_state(path)["scientific_identity"]["data_driven_stage_scientific_contract_sha256"] == stage_sha
+
+    resumed = launch(tmp_path, backend, "--resume", "--dry-run", "--selected-fragment", "run2_prod_b")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    assert "data_driven_scientific_contract_incompatible" not in resumed.stderr
+    assert "no campaign state, scheduler, or production action was created" in resumed.stdout
+    assert path.read_bytes() == before
+
+
 def test_current_resolved_resume_retains_manager_source_compatibility_gate(tmp_path, backend):
     first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a", archive=None)
     assert first.returncode == 0, first.stdout + first.stderr

@@ -1100,16 +1100,21 @@ def test_stage_science_is_local_and_topology_is_operational(make_campaign, monke
     def downstream_change(contract, stage="source"):
         files = original_files(contract, stage)
         if stage == "data_driven":
-            files["analysis/topeft_run2/run_data_driven.py"] = "f" * 64
+            files["topeft/modules/nonprompt_policy.py"] = "f" * 64
         return files
 
     monkeypatch.setattr(manifest, "scientific_files", downstream_change)
     manifest.validate_resume(state, state["campaign_identity"], state["profile_contract"],
                              provenance, state["scientific_identity"]["scientific_coverage"])
     source_binding = copy.deepcopy(unit["stages"]["source"]["receipt"]["binding"])
-    assert manifest.record_attempt_provenance(state, provenance)
+    assert not manifest.record_attempt_provenance(state, provenance)
     assert manifest.validate_receipt(state, unit, "source")
     assert unit["stages"]["source"]["receipt"]["binding"] == source_binding
+    command = ("python", "./run_data_driven.py", "--input-pkl", unit["outputs"]["source"],
+               "--output-pkl", unit["outputs"]["data_driven"])
+    with pytest.raises(ValueError, match="data_driven_scientific_contract_incompatible"):
+        manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
+    assert unit["stages"]["data_driven"]["attempts"] == []
     changed_topology = dict(state["profile_contract"], stages=["producer", "postprocess"])
     assert manifest.scientific_identity(changed_topology, provenance["environment_file_sha256"],
                                         provenance["topcoffea_relevant_source_fingerprint"],
@@ -1118,12 +1123,93 @@ def test_stage_science_is_local_and_topology_is_operational(make_campaign, monke
     def source_change(contract, stage="source"):
         files = original_files(contract, stage)
         if stage == "source":
-            files["analysis/topeft_run2/run_analysis.py"] = "f" * 64
+            name = next(name for name in files if name.startswith("input_samples/"))
+            files[name] = "f" * 64
         return files
 
     monkeypatch.setattr(manifest, "scientific_files", source_change)
+    with pytest.raises(ValueError, match="scientific_contract_incompatible"):
+        manifest.validate_resume(state, state["campaign_identity"], state["profile_contract"],
+                                 provenance, state["scientific_identity"]["scientific_coverage"])
+
+
+def test_historical_dd_wrapper_binding_survives_technical_change(make_campaign, monkeypatch):
+    state = make_campaign()
+    accepted, pending = state["units"]
+    wrapper = "analysis/topeft_run2/run_data_driven.py"
+    historical_sha = "724a46b07e1d9d7b17888fa79acd2fddb1a8cd057f9989a12029c516c4538746"
+    assert manifest.digest_file(manifest.REPOSITORY_ROOT / wrapper) != historical_sha
+    files = state["scientific_identity"]["data_driven_stage_scientific_contract"]["scientific_files"]
+    files[wrapper] = historical_sha
+    state["scientific_identity"]["data_driven_stage_scientific_contract_sha256"] = manifest.canonical_digest(
+        state["scientific_identity"]["data_driven_stage_scientific_contract"]
+    )
+    manifest.validate_state(state, verify_artifacts=False)
+
+    manifest.transition(state, accepted["id"], "source", "running", "none", "test",
+                        tuple(source_command(state, accepted)))
+    write_artifact(accepted["outputs"]["source"], state=state, unit=accepted)
+    manifest.transition(state, accepted["id"], "source", "ready", "0", "test")
+    dd_command = ("python", "./run_data_driven.py", "--input-pkl", accepted["outputs"]["source"],
+                  "--output-pkl", accepted["outputs"]["data_driven"])
+    manifest.transition(state, accepted["id"], "data_driven", "running", "none", "test", dd_command)
+    write_artifact(accepted["outputs"]["data_driven"],
+                   accepted["stages"]["source"]["receipt"]["artifact"]["sha256"],
+                   state=state, unit=accepted)
+    manifest.transition(state, accepted["id"], "data_driven", "success", "0", "test")
+    historical_science = copy.deepcopy(state["scientific_identity"])
+    historical_attempt = copy.deepcopy(accepted["stages"]["data_driven"]["attempts"])
+    historical_receipt = copy.deepcopy(accepted["stages"]["data_driven"]["receipt"])
+    artifact_sha = manifest.digest_file(accepted["outputs"]["data_driven"])
+
+    original_read_text = Path.read_text
+
+    def technical_only_wrapper_change(path, *args, **kwargs):
+        source = original_read_text(path, *args, **kwargs)
+        return source + "\n# technical output-path handling\n" if str(path).endswith(wrapper) else source
+
+    monkeypatch.setattr(Path, "read_text", technical_only_wrapper_change)
+    provenance = dict(state["provenance"]["last_resolved"], topeft_git_commit="technical-change")
     manifest.validate_resume(state, state["campaign_identity"], state["profile_contract"],
-                             provenance, state["scientific_identity"]["scientific_coverage"])
+                             provenance, historical_science["scientific_coverage"])
+    assert manifest.record_attempt_provenance(state, provenance)
+    manifest.transition(state, pending["id"], "source", "running", "none", "test",
+                        tuple(source_command(state, pending)))
+    write_artifact(pending["outputs"]["source"], state=state, unit=pending)
+    manifest.transition(state, pending["id"], "source", "ready", "0", "test")
+    pending_dd_command = ("python", "./run_data_driven.py", "--input-pkl", pending["outputs"]["source"],
+                          "--output-pkl", pending["outputs"]["data_driven"])
+    manifest.transition(state, pending["id"], "data_driven", "running", "none", "test", pending_dd_command)
+    assert state["scientific_identity"] == historical_science
+    assert accepted["stages"]["data_driven"]["attempts"] == historical_attempt
+    assert accepted["stages"]["data_driven"]["receipt"] == historical_receipt
+    assert manifest.digest_file(accepted["outputs"]["data_driven"]) == artifact_sha
+    assert manifest.validate_receipt(state, accepted, "data_driven")
+
+
+def test_wrapper_filter_science_change_fails_at_dd_boundary(make_campaign, monkeypatch):
+    state = make_campaign()
+    unit = state["units"][0]
+    manifest.transition(state, unit["id"], "source", "running", "none", "test",
+                        tuple(source_command(state, unit)))
+    write_artifact(unit["outputs"]["source"], state=state, unit=unit)
+    manifest.transition(state, unit["id"], "source", "ready", "0", "test")
+    original_read_text = Path.read_text
+
+    def changed_filter(path, *args, **kwargs):
+        source = original_read_text(path, *args, **kwargs)
+        if str(path).endswith("analysis/topeft_run2/run_data_driven.py"):
+            return source.replace("if not flips:\n", "if flips:\n", 1)
+        return source
+
+    monkeypatch.setattr(Path, "read_text", changed_filter)
+    manifest.validate_resume(state, state["campaign_identity"], state["profile_contract"],
+                             state["provenance"]["initial"], state["scientific_identity"]["scientific_coverage"])
+    command = ("python", "./run_data_driven.py", "--input-pkl", unit["outputs"]["source"],
+               "--output-pkl", unit["outputs"]["data_driven"])
+    with pytest.raises(ValueError, match="data_driven_scientific_contract_incompatible"):
+        manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
+    assert unit["stages"]["data_driven"]["attempts"] == []
 
 
 def test_frozen_tarball_cannot_be_replaced_by_provenance_or_plan(make_campaign, tmp_path):
@@ -1190,11 +1276,19 @@ def test_downstream_calculation_dependency_and_provenance_helper_boundaries(make
     )
     assert changed["source_stage_scientific_contract_sha256"] == baseline_source
     assert changed["data_driven_stage_scientific_contract_sha256"] != baseline_downstream
+    manifest.validate_resume(
+        state, state["campaign_identity"], state["profile_contract"],
+        state["provenance"]["initial"], state["scientific_identity"]["scientific_coverage"],
+    )
+    next_unit = state["units"][1]
+    manifest.transition(state, next_unit["id"], "source", "running", "none", "test",
+                        tuple(source_command(state, next_unit)))
+    write_artifact(next_unit["outputs"]["source"], state=state, unit=next_unit)
+    manifest.transition(state, next_unit["id"], "source", "ready", "0", "test")
+    command = ("python", "./run_data_driven.py", "--input-pkl", next_unit["outputs"]["source"],
+               "--output-pkl", next_unit["outputs"]["data_driven"])
     with pytest.raises(ValueError, match="data_driven_scientific_contract_incompatible"):
-        manifest.validate_resume(
-            state, state["campaign_identity"], state["profile_contract"],
-            state["provenance"]["initial"], state["scientific_identity"]["scientific_coverage"],
-        )
+        manifest.transition(state, next_unit["id"], "data_driven", "running", "none", "test", command)
     assert manifest.validate_receipt(state, unit, "source")
 
 
@@ -1231,6 +1325,7 @@ def test_downstream_science_uses_resolved_values_and_source_artifact(make_campai
                                         provenance["topcoffea_relevant_source_fingerprint"], coverage)[
         "data_driven_stage_scientific_contract_sha256"] != baseline[
         "data_driven_stage_scientific_contract_sha256"]
+    monkeypatch.setattr(Path, "read_text", original_read_text)
     unit = state["units"][0]
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(source_command(state, unit)))
     write_artifact(unit["outputs"]["source"], state=state, unit=unit)

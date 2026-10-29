@@ -29,12 +29,21 @@ RUN3_YEARS = ("2022", "2022EE", "2023", "2023BPix")
 DATA_DRIVEN_SCIENTIFIC_PATHS = (
     "topeft/modules/dataDrivenEstimation.py",
     "topeft/modules/nonprompt_policy.py",
-    "analysis/topeft_run2/run_data_driven.py",
 )
 DATA_DRIVEN_SCIENTIFIC_SYMBOLS = {
+    "analysis/topeft_run2/run_data_driven.py": (
+        "_filter_to_flips", "_filter_to_allowed_processes",
+    ),
     "topeft/modules/data_driven_products.py": (
         "DATA_DRIVEN_PRODUCT_NAMES", "generated_process_name",
     ),
+}
+# The accepted schema-9 DD receipts predate the symbol-level wrapper identity.
+# This exact historical file had the same two science-bearing filter functions;
+# its later edits only added output-safety CLI handling.
+LEGACY_DATA_DRIVEN_WRAPPER_SYMBOLS = {
+    "724a46b07e1d9d7b17888fa79acd2fddb1a8cd057f9989a12029c516c4538746":
+        "05b7f4dbca8bd027af2d4d2cdebb087580f14761b79547f5144c427375585530",
 }
 SR_EXTENSION_VARIABLES = frozenset(
     ("fwd0pt", "j0pt", "b0pt", "met", "l0conept", "l1conept", "invmass", "tau0Tpt")
@@ -491,6 +500,21 @@ def scientific_identity(contract, environment_file_sha256, _topcoffea_source_fin
     }
 
 
+def data_driven_science_matches(recorded, current):
+    recorded_files = recorded["data_driven_stage_scientific_contract"]["scientific_files"]
+    current_files = current["data_driven_stage_scientific_contract"]["scientific_files"]
+    wrapper = "analysis/topeft_run2/run_data_driven.py"
+    recorded_files = dict(recorded_files)
+    recorded_wrapper = recorded_files.get(wrapper)
+    if recorded_wrapper in LEGACY_DATA_DRIVEN_WRAPPER_SYMBOLS:
+        recorded_files[wrapper] = LEGACY_DATA_DRIVEN_WRAPPER_SYMBOLS[recorded_wrapper]
+    elif recorded_wrapper == digest_file(REPOSITORY_ROOT / wrapper):
+        # A legacy full-file binding remains valid when the exact file is still
+        # present; no historical receipt or state identity is rewritten.
+        recorded_files[wrapper] = current_files[wrapper]
+    return recorded_files == current_files
+
+
 def artifact_receipt(path, *, stored_receipt=None, verify_payload_sha256=True):
     path = Path(path)
     sidecar_path = Path(f"{path}.metadata.json")
@@ -809,9 +833,6 @@ def validate_resume(state, identity, contract, provenance, approved):
         fail("NEW_CAMPAIGN_REQUIRED: frozen topcoffea source fingerprint differs")
     if current["source_stage_scientific_contract_sha256"] != recorded["source_stage_scientific_contract_sha256"]:
         fail("source_scientific_contract_incompatible")
-    if current["data_driven_stage_scientific_contract_sha256"] != recorded["data_driven_stage_scientific_contract_sha256"]:
-        if any(unit["stages"]["data_driven"]["status"] in {"running", "success"} for unit in state["units"]):
-            fail("data_driven_scientific_contract_incompatible")
     return state
 
 
@@ -1168,6 +1189,14 @@ def transition(state, unit_id, stage, status, exit_code, detail, extra=()):
         else:
             if record["status"] not in {"pending", "failed"} or unit["stages"]["source"]["status"] != "success":
                 fail("data-driven stage lacks verified reusable source")
+            current_science = scientific_identity(
+                state["profile_contract"],
+                state["provenance"]["last_resolved"]["environment_file_sha256"],
+                state["provenance"]["last_resolved"]["topcoffea_relevant_source_fingerprint"],
+                state["scientific_identity"]["scientific_coverage"],
+            )
+            if not data_driven_science_matches(state["scientific_identity"], current_science):
+                fail("data_driven_scientific_contract_incompatible")
             command = list(extra)
             data_driven_command_artifact_kind(unit, command)
             path = effective_output_path(unit, stage, {"command_argv": command})
@@ -1386,23 +1415,14 @@ def next_source_attempt(state, unit_id):
 
 
 def record_attempt_provenance(state, provenance):
-    current = scientific_identity(
-        state["profile_contract"], provenance["environment_file_sha256"],
-        provenance["topcoffea_relevant_source_fingerprint"],
-        state["scientific_identity"]["scientific_coverage"],
-    )
     validate_resume(
         state, state["campaign_identity"], state["profile_contract"], provenance,
         state["scientific_identity"]["scientific_coverage"],
     )
-    changed_science = current["data_driven_stage_scientific_contract_sha256"] != state["scientific_identity"]["data_driven_stage_scientific_contract_sha256"]
-    if changed_science:
-        state["scientific_identity"]["data_driven_stage_scientific_contract"] = current["data_driven_stage_scientific_contract"]
-        state["scientific_identity"]["data_driven_stage_scientific_contract_sha256"] = current["data_driven_stage_scientific_contract_sha256"]
-    if state["provenance"]["last_resolved"] != provenance or changed_science:
+    if state["provenance"]["last_resolved"] != provenance:
         state["provenance"]["last_resolved"] = provenance
         timestamp = now_utc()
-        state["history"].append({"at_utc": timestamp, "action": "data_driven_science_changed" if changed_science else "operational_provenance_changed"})
+        state["history"].append({"at_utc": timestamp, "action": "operational_provenance_changed"})
         state["updated_at_utc"] = timestamp
         validate_state(state)
         return True
