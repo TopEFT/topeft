@@ -143,7 +143,7 @@ def seed_running(tmp_path, monkeypatch, *, profile="sr_crlike_run2", terminal="s
 
 def resume_args(root, profile="sr_crlike_run2", selected=None):
     args = ["--campaign-profile", profile, "--campaign-tag", "fixture_campaign",
-            "-o", str(root), "--resume"]
+            "-o", str(root), "--resume", "--format", "json", "--one-pass"]
     return args + (["--selected-unit", selected] if selected else [])
 
 
@@ -1392,9 +1392,129 @@ def test_condor_waits_without_local_fallback_or_second_attempt(tmp_path, monkeyp
     state=campaign.read_json(campaign.state_path(root,'sr_crlike_run2','run2'))
     assert state['units']['unit_0']['status']=='running'
     assert len(state['units']['unit_0']['attempts'])==1
-    assert state['units']['unit_1']['attempts']==[]
-    assert sum(c[0]=='condor_submit' for c in calls)==1
+    assert state['units']['unit_1']['status']=='running'
+    assert len(state['units']['unit_1']['attempts'])==1
+    assert sum(c[0]=='condor_submit' for c in calls)==2
     assert json.loads(capsys.readouterr().out.splitlines()[-1])['campaign_status']=='waiting'
+
+
+def test_condor_dispatches_all_planned_units_and_resume_does_not_retry(tmp_path, monkeypatch):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=4)
+    submitted = []
+    def fake_execute(argv, attempt_root, contract):
+        submitted.append((attempt_root.parent.name, attempt_root.name, contract['backend']))
+        raise campaign.ActiveChildUnresolved('synthetic independent Condor job')
+    monkeypatch.setattr(campaign.backend, 'execute', fake_execute)
+    monkeypatch.setattr(campaign.backend, 'observe', lambda *a: {'state': 'pending'})
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign',
+                          plan_path=plan_path, action='execute', backend_name='condor')
+    assert submitted == [(f'unit_{i}', 'attempt_0001', 'condor') for i in range(4)]
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign',
+                          action='resume', backend_name='condor')
+    assert len(submitted) == 4
+    state = campaign.read_json(campaign.state_path(root, 'sr_crlike_run2', 'run2'))
+    assert all(item['status'] == 'running' and len(item['attempts']) == 1
+               for item in state['units'].values())
+
+
+def test_selected_condor_resume_dispatches_only_selected_unit(tmp_path, monkeypatch):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=4)
+    submitted = []
+    def fake_execute(argv, attempt_root, contract):
+        submitted.append(attempt_root.parent.name)
+        raise campaign.ActiveChildUnresolved('synthetic submission')
+    monkeypatch.setattr(campaign.backend, 'execute', fake_execute)
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign',
+                          plan_path=plan_path, action='execute', selected='unit_0',
+                          backend_name='condor')
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign',
+                          action='resume', selected='unit_2', backend_name='condor')
+    assert submitted == ['unit_0', 'unit_2']
+
+
+def test_one_running_condor_unit_does_not_block_three_planned(tmp_path, monkeypatch):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=4)
+    submitted = []
+    def fake_execute(argv, attempt_root, contract):
+        submitted.append(attempt_root.parent.name)
+        raise campaign.ActiveChildUnresolved('synthetic submission')
+    monkeypatch.setattr(campaign.backend, 'execute', fake_execute)
+    monkeypatch.setattr(campaign.backend, 'observe', lambda *a: {'state': 'pending'})
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign',
+                          plan_path=plan_path, action='execute', selected='unit_0',
+                          backend_name='condor')
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign',
+                          action='resume', backend_name='condor')
+    assert submitted == [f'unit_{i}' for i in range(4)]
+
+
+def test_read_only_status_presentation_and_receipt_boundary(tmp_path, monkeypatch, capsys):
+    root, plan, attempt_root = seed_running(tmp_path, monkeypatch)
+    assert campaign.main(['--status', '-o', str(root), '--format', 'json']) == 0
+    pending = json.loads(capsys.readouterr().out)
+    assert pending['units'][0]['execution'] == 'completed'
+    assert pending['units'][0]['publish'] == 'publish pending'
+    assert pending['published_count'] == 0
+    before = campaign.state_path(root, 'sr_crlike_run2', 'run2').read_bytes()
+    assert campaign.main(['--status', '-o', str(root)]) == 0
+    human = capsys.readouterr().out
+    assert 'fixture_campaign' in human and str(root) in human
+    assert 'completed' in human and 'publish pending' in human
+    assert '.campaign_units' not in human
+    assert campaign.state_path(root, 'sr_crlike_run2', 'run2').read_bytes() == before
+    assert campaign.main(['--resume', '-o', str(root), '--format', 'json', '--one-pass']) == 0
+    capsys.readouterr()
+    assert campaign.main(['--status', '-o', str(root), '--format', 'yaml']) == 0
+    import yaml
+    published = yaml.safe_load(capsys.readouterr().out)
+    assert published['published_count'] == 1
+    assert published['units'][0]['publish'] == 'published'
+    assert all(path.startswith(str(root) + '/') for path in published['units'][0]['canonical_paths'])
+    assert campaign.main(['--status', '-o', str(root), '--format', 'human']) == 0
+    assert published['units'][0]['canonical_paths'][0] in capsys.readouterr().out
+    receipt = campaign.completion_receipt_path(attempt_root)
+    receipt.write_text('{}')
+    assert campaign.main(['--status', '-o', str(root), '--format', 'json']) == 0
+    invalid = json.loads(capsys.readouterr().out)
+    assert invalid['published_count'] == 0
+    assert invalid['units'][0]['publish'] != 'published'
+
+
+def test_follow_reports_changes_only_and_interrupt_is_nonmutating(tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    submitted = []
+    def fake_execute(argv, attempt_root, contract):
+        submitted.append(attempt_root.parent.name)
+        raise campaign.ActiveChildUnresolved(
+            'Condor execution submitted; resume observes this execution only')
+    monkeypatch.setattr(campaign.backend, 'execute', fake_execute)
+    observations = {'unit_0': 0, 'unit_1': 0}
+    def fake_observe(argv, attempt_root, contract):
+        unit_id = attempt_root.parent.name
+        observations[unit_id] += 1
+        if observations[unit_id] >= (2 if unit_id == 'unit_0' else 3):
+            fake_success(argv, attempt_root)
+            return {'state': 'terminal_success'}
+        return {'state': 'pending'}
+    monkeypatch.setattr(campaign.backend, 'observe', fake_observe)
+    monkeypatch.setattr(campaign.time, 'sleep', lambda _: None)
+    summary = campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign',
+                                    plan_path=plan_path, action='execute', backend_name='condor',
+                                    emit=False)
+    assert summary['running_count'] == 2
+    final = campaign.follow_campaign(summary, root, 'sr_crlike_run2', 'fixture_campaign',
+                                     None, 'condor', 'cgroup_v2', 245000000000, 'human', 1)
+    assert final['published_count'] == 2
+    assert submitted == ['unit_0', 'unit_1']
+    # Routine pending observations do not repeat the unchanged human summary.
+    assert capsys.readouterr().out.count('Campaign:') == 2
+    state_path = campaign.state_path(root, 'sr_crlike_run2', 'run2')
+    before = state_path.read_bytes()
+    monkeypatch.setattr(campaign.time, 'sleep', lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
+    with pytest.raises(KeyboardInterrupt):
+        campaign.follow_campaign(summary, root, 'sr_crlike_run2', 'fixture_campaign',
+                                 None, 'condor', 'cgroup_v2', 245000000000, 'human', 1)
+    assert state_path.read_bytes() == before
 
 
 def seed_rejected_condor_campaign(tmp_path, monkeypatch):

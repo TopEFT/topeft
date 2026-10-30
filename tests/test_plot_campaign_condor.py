@@ -462,6 +462,45 @@ def test_recovery_rejects_wrong_ad_identity(execution, monkeypatch, field, value
     assert not (path.parent / 'scheduler_identity.json').exists()
 
 
+def test_exact_history_query_has_one_ad_limit_and_short_timeout(execution, monkeypatch):
+    path, descriptor = execution
+    intent = {'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
+    (path.parent / 'submission_intent.json').write_text(json.dumps(intent))
+    (path.parent / 'scheduler_identity.json').write_text(json.dumps({**intent, 'job': '123.0'}))
+    owner = pwd.getpwuid(os.getuid()).pw_name
+    ad = dict(ClusterId=123, ProcId=0, PlotExecutionToken=descriptor['token'],
+              Owner=owner, JobStatus=4, ExitCode=0, ExitBySignal=False, NumJobStarts=1)
+    calls = []
+    def fake(command, **kwargs):
+        calls.append((command, kwargs))
+        if command[0] == 'condor_q':
+            return response('[]')
+        return response(json.dumps([ad]))
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    assert condor.observe(path, descriptor)['state'] == 'terminal_success'
+    history, options = calls[-1]
+    assert history[:6] == ['condor_history', '-pool', fixture_pool, '-name', fixture_schedd, '123.0']
+    assert history[history.index('-limit') + 1] == '1'
+    assert options['timeout'] == 10
+
+
+def test_history_timeout_is_unresolved_and_never_submits(execution, monkeypatch):
+    path, descriptor = execution
+    intent = {'token': descriptor['token'], 'pool': fixture_pool, 'schedd': fixture_schedd}
+    (path.parent / 'submission_intent.json').write_text(json.dumps(intent))
+    (path.parent / 'scheduler_identity.json').write_text(json.dumps({**intent, 'job': '123.0'}))
+    calls = []
+    def fake(command, **kwargs):
+        calls.append(command[0])
+        if command[0] == 'condor_history':
+            raise subprocess.TimeoutExpired(command, kwargs['timeout'])
+        return response('[]')
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    with pytest.raises(backend.ActiveChildUnresolved):
+        condor.observe(path, descriptor)
+    assert calls == ['condor_q', 'condor_history']
+
+
 def test_old_token_only_intent_never_resolves_or_queries(execution, monkeypatch):
     path, descriptor = execution
     (path.parent / 'submission_intent.json').write_text(json.dumps({'token': descriptor['token']}))

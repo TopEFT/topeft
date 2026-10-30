@@ -230,6 +230,29 @@ separate evidence surface from the underlying bin content and cannot be used
 as a bin-content or statistical-adequacy oracle.
 # Persistent plot campaign state and receipt contract
 
+The public launcher defaults to concise human output for campaign status and
+execution. `-o ROOT` names the final canonical root. The controller alone
+publishes receipt-verified observed plots through
+`topeft/modules/plot_output_layout.py`; the backend writes only into private
+attempt staging. `--status -o ROOT` is read-only and gets profile/tag from the
+coordinator. It distinguishes `completed / publish pending` from `completed /
+published`, shows the exact root and recorded scheduler job IDs, and never
+queries the scheduler. `--format json` retains the existing summary keys and
+adds identity, publication and per-unit fields; `--format yaml` is a bounded
+presentation of the same derived summary. Authoritative state and receipts
+remain JSON.
+
+The public Condor `--execute` and `--resume` path follows in the foreground by
+default and reconciles/publishes on state changes, with the lock released
+between passes. `--format json --one-pass` is the explicit machine route.
+Ctrl-C ends observation without cancelling jobs or changing attempts. Condor
+passes reconcile all active units, then submit every eligible planned unit
+independently. Local passes retain one active child. `--selected-unit` narrows
+only the requested unit; terminal failed/interrupted units never retry through
+ordinary resume. The query path binds pool, schedd, exact job, token and owner,
+limits history to one ad and uses a finite timeout; timeout leaves the attempt
+unresolved.
+
 The profile CLI is `run_plotter.sh --campaign-profile PROFILE --campaign-tag
 TAG -o ROOT` with `--plan PLAN --dry-run|--execute`, `--resume`, optional
 `--selected-unit ID`, or `--activate-pending-plan PLAN
@@ -275,9 +298,9 @@ It binds attempt ID, command identity, private root, terminal guard result and
 guard-log hash, three return codes, and terminal UTC time. A running attempt
 with a valid lifecycle receipt reconstructs success or failure without a child
 rerun. Guard-terminal evidence without the lifecycle receipt yields
-`interrupted`; missing terminal evidence leaves `running` and blocks every
-component from launching a new child. A known failure before guard creation
-instead leaves a terminal failed attempt and permits unrelated planned units to
+`interrupted`; missing terminal evidence leaves `running` and blocks further
+local children. Independent planned Condor units may still start. A known
+failure before guard creation instead leaves a terminal failed attempt and permits unrelated planned units to
 proceed. Malformed or contradictory state and
 terminal evidence fail closed.
 
@@ -300,12 +323,12 @@ New campaigns record a provenance-not-collected marker in the existing state
 field. Older Git/source-manifest values are preserved as historical provenance;
 coordinator, component, and receipt bindings must agree, but no current Git or
 source identity is queried or compared on resume or revision. Reconciliation
-of every running unit in all components precedes any new child. An invocation
+of every active unit in all components precedes new dispatch. An invocation
 that completes orchestration returns zero even with failed, interrupted, or
 pending units. The JSON summary reports `campaign_status`, total
 `planned_count`, `success_count`, `failed_count`, `interrupted_count`,
 `running_count`, `pending_count`, and `waiting_on_active_child`. `waiting`
-means a possible live child prevented all new launches. Neither full nor
+means a possible live child remains; only local dispatch waits. Neither full nor
 selected mode silently retries failed or interrupted units.
 
 The local backend runs one child at a time with one renderer worker, fitting

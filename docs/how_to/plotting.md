@@ -216,7 +216,61 @@ input. It does not establish the content of a bin, a statistical conclusion, or
 the adequacy of a fitting view.
 # Persistent SR CR-like plotting campaigns
 
-`analysis/topeft_run2/run_plotter.sh` also owns three local, sequential profiles:
+For a campaign, `-o ROOT` is the **final canonical output root**. The controller
+publishes verified plots under `<ROOT>/<period>/merged/<category>/<filename>.png`
+and, where the layout owner requires it, `merged_njets` beside `merged`. Private
+`components/` directories are automatic staging and are not the final plot
+destination. Execution completion and publication are separate: a finished
+Condor job can show `completed / publish pending` until the controller verifies
+its receipt and copies the observed plots without overwriting another owner's
+bytes. The controller uses `topeft/modules/plot_output_layout.py` for final
+paths.
+
+For an existing campaign, use the read-only status command:
+
+```bash
+./analysis/topeft_run2/run_plotter.sh --status -o /absolute/path/to/topeft/histos/my_campaign
+```
+
+It reads campaign identity from the root and shows the exact tag, plan
+revision, final root, unit execution and publication states, recorded job IDs,
+and action-needed warnings. `--format yaml` gives a bounded readable summary
+with exact published plot paths. `--format json` is the stable machine route and
+retains the established count/status fields. Status does not contact the
+scheduler or modify campaign files.
+
+Condor campaigns can submit independent planned units in parallel. A normal
+public `--resume --backend condor` reconciles every active unit, publishes each
+valid terminal success, submits every eligible planned unit once, and stays in
+the foreground to observe further completions. It prints only changed status
+and releases the campaign lock between polls. Ctrl-C stops observation without
+cancelling jobs; the same resume command continues their existing attempts.
+Use `--poll-seconds N` (1–300, default 15) to change observation cadence. Local
+execution remains sequential. `--selected-unit` is an advanced bounded action,
+and neither normal resume nor follow retries failed or interrupted units.
+
+```bash
+./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign \
+  --backend condor --resource-observer cgroup_v2 --hard-limit-bytes 192000000000
+```
+
+For a machine caller, request one JSON pass explicitly:
+
+```bash
+./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign \
+  --backend condor --resource-observer cgroup_v2 --hard-limit-bytes 192000000000 \
+  --format json --one-pass
+```
+
+An existing root supplies profile and tag. Resume still needs `--backend` when
+historical attempts do not identify one unambiguously. When planned Condor
+units remain, give `--resource-observer` and `--hard-limit-bytes` explicitly:
+attempt records bind earlier jobs but do not declare a campaign-wide resource
+policy for new units. Explicit profile or tag values must
+agree with the root. A fresh campaign still requires its qualified plan,
+profile, tag, root, and runtime choices.
+
+`analysis/topeft_run2/run_plotter.sh` owns three persistent profiles:
 `sr_crlike_run2`, `sr_crlike_run3`, and `sr_crlike_run2_run3`. A fresh plan is a
 JSON object with `schema_version: 1`, `campaign_profile`, `campaign_tag`,
 `plan_revision: 1`, and a nonempty `units` array. Each unit has exactly
@@ -251,17 +305,17 @@ to show or execute one unit while preserving the complete plan. Replace
 `--dry-run` with `--execute` only when you are authorized to run the campaign
 in that environment, after verifying its plan, inputs, output root, and
 resources. Fresh execution requires the root to be absent. For an existing
-campaign use `--resume` with the same profile, tag, and root; it reconciles
-running attempts across both components before starting any new child, skips
-successes, and runs planned units. An unresolved running attempt blocks all
-new children, including a selected resume in the other component. A terminal
-failed or interrupted unit does not block an eligible planned unit elsewhere;
+campaign use `--resume` with the existing root. It reconciles active attempts,
+skips published successes, and runs eligible planned units. A possibly live
+local child blocks other local launches. Independent Condor attempts do not
+block other planned Condor units. A terminal failed or interrupted unit does
+not block an eligible planned unit elsewhere;
 it is never silently retried. A successful controller invocation exits zero
 even when units remain planned, failed, or interrupted. Its JSON summary reports
 `campaign_status` (`complete`, `partial`, `in_progress`, or `waiting`), total
 `planned_count`, per-status counts, and `waiting_on_active_child`. An unresolved
-possibly live child returns `waiting` and starts no new child; malformed state
-or plan still makes the invocation fail.
+possibly live child returns `waiting`; only the local backend blocks other
+launches. Malformed state or plan still makes the invocation fail.
 
 Each attempt writes only below its deterministic private
 `.campaign_units/<unit_id>/attempt_0001/` root. The local memory guard and
@@ -270,8 +324,9 @@ guard, child, and tee results, the supervisor atomically writes
 `lifecycle_receipt_v1.json` before updating campaign state. Resume reconstructs
 terminal state from that receipt without rerunning the child. If it is missing
 but guard evidence conclusively shows the child ended, resume marks the attempt
-interrupted. Without conclusive terminal evidence, it remains running and blocks
-new work. After terminal success, a separate atomic `completion_receipt_v1.json`
+interrupted. Without conclusive terminal evidence, it remains running; local
+work waits, while independent planned Condor units may start. After terminal
+success, a separate atomic `completion_receipt_v1.json`
 records the exact observed PNG
 paths, counts, sizes, SHA-256 values, and counts by requested variable. Sparse
 or zero output for a variable in a region is ordinary renderer applicability;

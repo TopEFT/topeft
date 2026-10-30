@@ -28,9 +28,9 @@ def _filename(value):
     return value
 
 
-def _run(command):
+def _run(command, *, timeout=60):
     try:
-        return subprocess.run(command, capture_output=True, text=True, check=False, timeout=60)
+        return subprocess.run(command, capture_output=True, text=True, check=False, timeout=timeout)
     except (OSError, subprocess.SubprocessError) as error:
         raise backend.ActiveChildUnresolved(f'{command[0]} unavailable') from error
 
@@ -299,8 +299,10 @@ def recover_rejected_submit(descriptor_path, descriptor):
 
 def _query(job, command, intent):
     attributes = 'ClusterId,ProcId,Owner,JobStatus,ExitCode,ExitBySignal,PlotExecutionToken,NumJobStarts'
-    result = _run([command, '-pool', intent['pool'], '-name', intent['schedd'], job,
-                   '-json', '-attributes', attributes])
+    argv = [command, '-pool', intent['pool'], '-name', intent['schedd'], job]
+    if command == 'condor_history':
+        argv.extend(('-limit', '1'))
+    result = _run([*argv, '-json', '-attributes', attributes], timeout=10)
     if result.returncode:
         raise backend.ActiveChildUnresolved(f'{command} failed for {job}')
     try:
