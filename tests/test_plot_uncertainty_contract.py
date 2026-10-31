@@ -8,6 +8,7 @@ from topeft.modules import plot_uncertainty_contract as contract
 from topeft.modules.datacard_tools import (
     DatacardMaker, run2_luminosity_shape_factor,
     run3_luminosity_shape_factor,
+    resolve_missing_parton_response_index,
 )
 
 
@@ -127,12 +128,14 @@ def test_rate_factors_are_card_factors(process, nuisance, pair):
     np.testing.assert_allclose(up, [10 * (pair[1] - 1)])
 
 
-@pytest.mark.parametrize("run, process, channel, high", [
-    ("run2", "WZTo3LNu_centralUL18", "3l_onZ_1b_4j", 1.77),
-    ("run3", "WZTo3LNu_central2022", "3l_onZ_1b_4j", 1.43),
+@pytest.mark.parametrize("run, process, channel, jet_count, high", [
+    ("run2", "WZTo3LNu_centralUL18", "3l_onZ_1b_4j", 4, 1.77),
+    ("run3", "WZTo3LNu_central2022", "3l_onZ_1b_4j", 4, 1.43),
+    ("run2", "WZTo3LNu_centralUL18", "2los_onZ_1tau_5j", 5, 2.05),
+    ("run3", "WZTo3LNu_central2022", "2los_onZ_1tau_5j", 5, 1.72),
 ])
-def test_non_njets_diboson_rate_uses_card_jet_factor(run, process, channel, high):
-    card_factor = contract._card_rates(run, True)["diboson_njets"].get_process("Diboson", 4)
+def test_non_njets_diboson_rate_uses_card_jet_factor(run, process, channel, jet_count, high):
+    card_factor = contract._card_rates(run, True)["diboson_njets"].get_process("Diboson", jet_count)
     low_text, high_text = card_factor.split("/")
     assert float(high_text) == high
     low, up = contract.rate_responses(
@@ -144,16 +147,29 @@ def test_non_njets_diboson_rate_uses_card_jet_factor(run, process, channel, high
 
 
 @pytest.mark.parametrize("run, year", [("run2", "UL18"), ("run3", "2022")])
-def test_non_njets_missing_parton_uses_card_channel_and_jet(run, year):
-    process = f"tllq_private{year}"
-    channel = "3l_onZ_1b_3j"
+@pytest.mark.parametrize("card_name", ["tllq", "tHq"])
+@pytest.mark.parametrize("channel, response_index", [
+    ("2los_onZ_1tau_5j", 3),
+    ("2los_onZ_1tau_3j", 3),
+    ("3l_onZ_1b_3j", 3),
+    ("3l_onZ_1b_4j", 4),
+    ("3l_onZ_1b_5j", 5),
+])
+def test_non_njets_missing_parton_uses_card_channel_and_jet(
+    run, year, card_name, channel, response_index,
+):
+    process = f"{card_name}_private{year}"
     card = object.__new__(DatacardMaker)
     card.do_nuisance = True
     card.skip_missing_parton_rate_syst = False
     card.year_lst = [year]
     payload = card.resolve_missing_parton_payload_path(card.year_lst)
     rates = card.load_systematics(f"params/rate_systs_{run}.json", payload)
-    factor_high = float(rates["missing_parton"].get_process("tllq")["3l_onZ_1b"][3])
+    channel_key = channel.rsplit("_", 1)[0]
+    channel_rates = rates["missing_parton"].get_process(card_name)[channel_key]
+    if channel == "2los_onZ_1tau_5j":
+        assert len(channel_rates) == 4  # No stored index 5 to fall back to.
+    factor_high = float(channel_rates[response_index])
     factor_low = max(0.01, 2 - factor_high)
     expected_low = float(f"{factor_low:.6f}")
     expected_high = float(f"{factor_high:.6f}")
@@ -163,6 +179,47 @@ def test_non_njets_missing_parton_uses_card_channel_and_jet(run, year):
     np.testing.assert_allclose(down, [7 * (expected_low - 1)])
     np.testing.assert_allclose(up, [7 * (expected_high - 1)])
     assert "missing_parton" not in contract.rate_responses(process, np.array([7.0]))
+
+
+def test_missing_parton_adapter_calls_maintained_resolver(monkeypatch):
+    assert contract.resolve_missing_parton_response_index is resolve_missing_parton_response_index
+    calls = []
+
+    def record_resolution(channel, natural_index):
+        calls.append((channel, natural_index))
+        return resolve_missing_parton_response_index(channel, natural_index)
+
+    monkeypatch.setattr(contract, "resolve_missing_parton_response_index", record_resolution)
+    contract.rate_responses(
+        "tllq_privateUL18", np.array([7.0]),
+        channel="2los_onZ_1tau_5j", variable="lj0pt",
+    )
+    assert calls == [("2los_onZ_1tau_5j", 5)]
+
+
+@pytest.mark.parametrize("run, year", [("run2", "UL18"), ("run3", "2022")])
+def test_missing_parton_remains_inapplicable_to_ttll(run, year):
+    source = contract._card_rates(run, True)["missing_parton"]
+    assert set(source.corrs) == {"tllq", "tHq"}
+    assert not source.has_process("ttll")
+    assert "missing_parton" not in contract.rate_responses(
+        f"ttll_private{year}", np.array([7.0]),
+        channel="2los_onZ_1tau_5j", variable="lj0pt",
+    )
+
+
+@pytest.mark.parametrize("year", ["UL18", "2022"])
+@pytest.mark.parametrize("card_name", ["tllq", "tHq"])
+@pytest.mark.parametrize("variable", ["njets", None])
+def test_missing_parton_njets_skips_special_rate_lookup(monkeypatch, year, card_name, variable):
+    def unexpected_lookup(*args):
+        pytest.fail("njets must not request a channel/jet-specific rate")
+
+    monkeypatch.setattr(contract, "_special_rate_factor", unexpected_lookup)
+    assert "missing_parton" not in contract.rate_responses(
+        f"{card_name}_private{year}", np.array([7.0]),
+        channel="2los_onZ_1tau_5j", variable=variable,
+    )
 
 
 def test_non_njets_special_rate_requires_physical_jet_channel():

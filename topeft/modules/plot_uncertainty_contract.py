@@ -12,6 +12,7 @@ import numpy as np
 from topeft.modules.datacard_tools import (
     DatacardMaker,
     PRECISION,
+    resolve_missing_parton_response_index,
     resolve_shape_nuisance_identity,
     run2_luminosity_shape_factors,
     run3_luminosity_shape_factors,
@@ -103,8 +104,9 @@ def _special_rate_factor(source, card_name, channel, jet_count):
     channel_key = channel.replace(f"_{jet_count}j", "")
     if channel_key not in channel_rates:
         return "-"  # The card treats an absent payload channel as inapplicable.
+    response_index = resolve_missing_parton_response_index(channel, jet_count)
     try:
-        high = float(channel_rates[channel_key][jet_count])
+        high = float(channel_rates[channel_key][response_index])
     except (IndexError, KeyError, TypeError) as exc:
         raise ValueError(
             f"Missing card {source.name} factor for {card_name!r} "
