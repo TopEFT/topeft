@@ -96,25 +96,26 @@ tag, optional current environment archive, and resume/dry-run intent. It
 produces the campaign state and the source and transformed artifacts required
 by each block.
 
-**Owns.** It owns plan freezing, environment and repository identity checks,
+**Owns.** It owns plan freezing, environment and stage/input identity checks,
 fresh-output protection, ambiguous-interruption boundaries, block sequencing,
 and deferred nonprompt invocation after the processor child exits.
 
 **Does not own.** It does not own cfg internals or the `run_analysis.py`
 argument semantics that it forwards through `fullR3_run.sh`.
 
-**Current checkout boundary.** The maintained script changes into the
-correction-lib-managed `topeft/analysis/topeft_run2` checkout and reads Git
-identity from that managed repository. It therefore orchestrates that checkout,
-not an arbitrary clone or the caller's current working directory. Making the
-wrapper portable is an executable-interface change outside this documentation
-contract.
+**Current checkout boundary.** The script locates its repository from its own
+path and runs from that checkout, regardless of the caller's working directory.
+It records the repository commit as provenance. For stages using a frozen
+environment snapshot, the saved scientific contract and input identities
+govern reuse; matching the checkout's current HEAD is not a universal resume
+requirement. When a stage consumes live code or configuration, it validates
+the relevant inputs for that stage.
 
 **Failure boundary.** A missing or mismatched state, reused fresh namespace,
 invalid environment archive, unexpected partial output, or incompatible resume
 request fails before the wrapper declares a block complete.
 The campaign plan's `unit.outputs` is the durable source and data-driven path
-authority. Existing lane12 states retain their canonical `/groups` paths.
+authority. Existing states retain their canonical `/groups` paths.
 Source-ready means a verified durable source receipt. When configured, the
 state engine requests byte and inode admission from the artifact owner on the
 actual output parent before recording a running attempt. The launcher passes

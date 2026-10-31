@@ -72,32 +72,36 @@ source worker implementation authority; a different digest requires a new
 campaign. Checkout and manager fingerprints remain attempt provenance.
 
 The campaign plan's `unit.outputs` owns each durable source and data-driven PKL
-path. Current lane12 plans therefore write to their existing canonical
+path. Existing plans therefore write to their canonical
 `/groups` paths. The launcher refuses a command whose output contradicts that
 path. If persistent-output capacity thresholds are configured, pass all four
 positive `--pkl-min-free-bytes`, `--pkl-min-free-inodes`,
 `--pkl-safety-reserve-bytes` and `--pkl-safety-reserve-inodes` values. Select
-them during the later production preflight from the artifact budget and safety
-reserve. The launcher passes them explicitly to the source and data-driven
-executors. The artifact helper checks the actual output parent before an
-attempt is recorded; after materialization it checks only the remaining reserve. The inode budget
-includes the pending directory, PKL and sidecar; hard links reuse their source
-inodes. Source and data-driven publication requests no-clobber independently
+them during production preflight as capacity thresholds for the output location:
+the minimum free bytes and inodes needed before an attempt, plus the reserve
+that must remain when the result is published. These values do not set a hard
+size limit for an individual PKL. The launcher passes them explicitly to the
+source and data-driven executors. The artifact helper checks the actual output
+parent before an attempt is recorded; at publication it checks the remaining
+reserve. The pre-attempt inode threshold must account for the pending
+directory, PKL and sidecar; hard links reuse their source inodes. Source and
+data-driven publication requests no-clobber independently
 of capacity settings. A completed same-attempt pending pair sits beside the
 durable output and remains until the final pair and state receipt are durable.
 Exclusive resume validates and publishes it without recomputation. A collision
 or invalid pending pair stops recovery with its evidence preserved.
 
 Work Queue staging is a separate configured capacity domain. Supply
-`--wq-staging-base PATH` with the existing warning, minimum and poll inputs.
-The guard checks the selected path's ownership, canonical identity, private
-invocation namespace, and available bytes and inodes with local `statvfs`.
-Filesystem type and root-backed status require no operator selection or
-authorization. It rejects `/tmp`, `/var/tmp`, unowned bases and symlink paths.
-The optional legacy `--wq-quota-root` may provide an additional capacity
-bound when it owns the staging base and quota is available; absent or
-unavailable quota falls back to local `statvfs`. Local `/tmpscratch` staging
-does not query `/groups` quota in the Work Queue admission loop.
+`--wq-staging-base PATH` with a warning threshold for low staging space, the
+minimum free-space threshold required to start, and a poll interval for the
+run.
+Use an existing directory owned and writable by the current user, outside
+`/tmp` and `/var/tmp`, with no symlink components. The guard checks the path,
+creates a private invocation directory, and measures available bytes and
+inodes. No filesystem-type selection or extra staging authorization is needed.
+An explicitly configured site quota can supply additional capacity information
+for that site; its measurement behavior needs to be checked in that
+environment.
 The staging base, durable PKL root and campaign control root have separate
 capacity and ownership checks.
 

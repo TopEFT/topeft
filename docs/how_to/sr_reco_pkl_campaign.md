@@ -56,13 +56,14 @@ when prefix-derived names are needed:
   --env-file "$worker_archive" \
   --run2-wq-manager-prefix "$run2_prefix" \
   --run3-wq-manager-prefix "$run3_prefix" --wq-port 0 \
-  --wq-staging-base "$staging_base" --wq-quota-root "$quota_root" \
+  --wq-staging-base "$staging_base" \
   --wq-free-warning-bytes "$warning_bytes" \
   --wq-min-free-bytes "$minimum_bytes" --wq-poll-seconds "$poll_seconds"
 ```
 
-Set the variables to the existing campaign identity and site-reviewed paths
-and values. Supported common operational options, including `--resume`,
+Set the variables to the existing campaign identity and a dedicated local
+staging path selected for this run. Choose the warning, minimum and poll values
+for that path. Supported common operational options, including `--resume`,
 `--env-file`, `--wq-port` and the Work Queue guard settings, are forwarded to
 each child. The paired prefixes select separate Run 2 and Run 3 manager-name
 families; a prefix-derived source name ends with its unit ID and attempt number.
@@ -166,13 +167,16 @@ have no maintained import or resume alias.
 ## Work Queue staging and stop conditions
 
 Every real Work Queue route, including CR and direct `run_analysis.py`, needs
-an explicit guarded staging base. Through `run_cr.sh`, provide
-`--wq-staging-base`, `--wq-quota-root`, `--wq-free-warning-bytes`,
-`--wq-min-free-bytes 10000000000`, and `--wq-poll-seconds`. A direct
-`run_analysis.py -x work_queue` invocation requires `--wq-filepath`,
+an explicit guarded staging base. Choose a dedicated local directory for the
+run. Through `run_cr.sh`, provide `--wq-staging-base PATH`,
+`--wq-free-warning-bytes`, `--wq-min-free-bytes` (at least 10000000000),
+and `--wq-poll-seconds`. A direct `run_analysis.py -x work_queue`
+invocation requires `--wq-filepath`,
 `--wq-guard`, a unique invocation ID and the same free-space values. The
-base must be an existing owned writable directory on a non-root filesystem;
-implicit `/tmp` and root-backed staging are rejected by mount identity.
+guard requires an existing absolute path that resolves to a directory owned
+and usable by the current user. It rejects symlink paths and temporary
+locations under `/tmp` or `/var/tmp`; it also checks that enough free bytes
+and inodes remain for the configured thresholds.
 `--wq-treereduction` is optional and requires separate resource review.
 `--wq-processing-cores 1` is a separate opt-in processing-category reservation
 maximum. `--wq-accumulating-memory-mb 80000 --wq-accumulating-cores 2`
@@ -184,12 +188,14 @@ worker; a four-core worker may still run another task. Minimum memory is not a
 peak RSS cap or an OOM guarantee. Worker eligibility and packing depend on
 actual advertised resources.
 
-Before launch, the guard requires effective available bytes strictly above the
-selected minimum, calculated as the smaller of filesystem free availability
-and group quota remaining, plus 1,000 free inodes. The minimum is at least 10
-GB (decimal). The `Work Queue staging health` message reports available
-filesystem/quota space in bytes and free inodes, not worker RAM. During
-execution the guard reports these values without scanning the staging tree.
+Before launch, the guard requires available bytes strictly above the selected
+minimum and at least 1,000 free inodes. The minimum is at least 10 GB
+(decimal). The `Work Queue staging health` message reports available staging
+space in bytes and free inodes, not worker RAM. A site that explicitly
+configures quota telemetry may use that information in its capacity reading;
+check the site's quota configuration and measurement behavior before relying
+on it. During execution the guard reports these values without scanning the
+staging tree.
 Only a valid current measurement at or below
 `--wq-min-free-bytes` requests one controlled `SIGTERM` to the manager after
 its PID/start identity and owned marker are verified and the critical-space
