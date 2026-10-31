@@ -141,10 +141,155 @@ def seed_running(tmp_path, monkeypatch, *, profile="sr_crlike_run2", terminal="s
     return root, plan, attempt_root
 
 
-def resume_args(root, profile="sr_crlike_run2", selected=None):
+def resume_args(root, profile="sr_crlike_run2", selected=None, backend=None):
     args = ["--campaign-profile", profile, "--campaign-tag", "fixture_campaign",
             "-o", str(root), "--resume", "--format", "json", "--one-pass"]
-    return args + (["--selected-unit", selected] if selected else [])
+    return (args + (["--selected-unit", selected] if selected else [])
+            + (["--backend", backend] if backend else []))
+
+
+def test_action_scope_limits_legacy_policy_binding(tmp_path, monkeypatch, capsys):
+    root, plan, _ = seed_running(tmp_path, monkeypatch, unit_count=2)
+    coordinator_path = campaign.coordinator_path(root)
+    before = coordinator_path.read_bytes()
+    assert campaign.main(resume_args(root, selected="unit_0")) == 0
+    capsys.readouterr()
+    assert coordinator_path.read_bytes() == before
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert state["units"]["unit_0"]["status"] == "success"
+    assert state["units"]["unit_1"]["status"] == "planned"
+    assert campaign.main(resume_args(root, selected="unit_0")) == 0
+    assert coordinator_path.read_bytes() == before
+
+
+def test_legacy_condor_policy_binds_once_before_selected_submit(tmp_path, monkeypatch, capsys):
+    root, _, _ = seed_running(tmp_path, monkeypatch, unit_count=3)
+    submitted = []
+
+    def fake_execute(argv, attempt_root, contract):
+        bound = campaign.read_json(campaign.coordinator_path(root))["execution_policy_v1"]
+        assert bound["backend"] == "condor"
+        assert bound["resource_observer"] == "node_pressure"
+        assert bound["hard_limit_bytes"] == 123456789
+        submitted.append(attempt_root.parent.name)
+        raise campaign.ActiveChildUnresolved("synthetic submitted child")
+
+    monkeypatch.setattr(campaign.backend, "execute", fake_execute)
+    base = resume_args(root, selected="unit_1") + ["--backend", "condor"]
+    assert campaign.main(base) == 2
+    assert submitted == []
+    assert "execution_policy_v1" not in campaign.read_json(campaign.coordinator_path(root))
+    assert campaign.main(base + ["--resource-observer", "node_pressure",
+                                "--hard-limit-bytes", "123456789"]) == 0
+    assert submitted == ["unit_1"]
+    assert campaign.read_json(campaign.coordinator_path(root))["execution_policy_v1"][
+        "source"] == "explicitly_bound"
+    assert campaign.main(resume_args(root, selected="unit_2")) == 0
+    assert submitted == ["unit_1", "unit_2"]
+    assert campaign.main(resume_args(root, selected="unit_2") + ["--backend", "local"]) == 2
+    assert submitted == ["unit_1", "unit_2"]
+    capsys.readouterr()
+
+
+def test_unselected_legacy_condor_requires_complete_policy(tmp_path, monkeypatch, capsys):
+    root, _, _ = seed_running(tmp_path, monkeypatch, unit_count=2)
+    assert campaign.main(resume_args(root) + ["--backend", "condor"]) == 2
+    assert "execution_policy_v1" not in campaign.read_json(campaign.coordinator_path(root))
+    capsys.readouterr()
+
+
+def test_status_axes_and_dispatch_blocking_are_orthogonal(tmp_path, monkeypatch):
+    root, plan, attempt_root = seed_running(tmp_path, monkeypatch, unit_count=2)
+    campaign.lifecycle_receipt_path(attempt_root).unlink()
+    state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
+    state = campaign.read_json(state_path)
+    states = {"run2": state}
+    scope = campaign.derive_action_scope(plan, states)
+    local = campaign.campaign_summary(root, plan, states, action_scope=scope,
+                                      execution_policy={"backend": "local"})
+    assert local["summary_schema_version"] == 2
+    assert local["active_child_present"] is True
+    assert local["dispatch_blocked"] is True
+    assert local["waiting_on_active_child"] is True
+    assert local["campaign_status"] == "waiting"
+    state["units"]["unit_0"]["attempts"][0]["execution_contract"]["backend"] = "condor"
+    condor = campaign.campaign_summary(root, plan, states, action_scope=scope,
+                                       execution_policy={"backend": "condor"})
+    assert condor["active_child_present"] is True
+    assert condor["dispatch_blocked"] is False
+    assert condor["waiting_on_active_child"] is False
+    assert condor["waiting_reasons"] == []
+    assert condor["campaign_status"] == "in_progress"
+    state["units"]["unit_0"]["status"] = "interrupted"
+    state["units"]["unit_0"]["attempts"][0]["result"] = "interrupted"
+    ordinary = campaign.campaign_summary(root, plan, states)
+    assert ordinary["units"][0]["publish"] == "not published"
+    state["units"]["unit_0"]["attempts"][0]["failure_classification"] = (
+        campaign.terminal_postprocessing_pending)
+    recovery = campaign.campaign_summary(root, plan, states)
+    assert recovery["units"][0]["publish"] == "publish pending"
+
+
+def test_published_content_verification_is_read_only_and_detects_same_size_change(
+        tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute", emit=False)
+    state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
+    coordinator_path = campaign.coordinator_path(root)
+    before = (state_path.read_bytes(), coordinator_path.read_bytes())
+    original_sha = campaign.sha256_file
+    monkeypatch.setattr(campaign, "sha256_file",
+                        lambda *_: pytest.fail("ordinary status hashed content"))
+    assert campaign.main(["--status", "-o", str(root), "--format", "json"]) == 0
+    ordinary = json.loads(capsys.readouterr().out)
+    assert ordinary["units"][0]["integrity"] == "metadata_consistent"
+    assert ordinary["units"][0]["publish"] == "published"
+    monkeypatch.setattr(campaign, "sha256_file", original_sha)
+    assert campaign.main(["--status", "-o", str(root), "--verify-published",
+                          "--format", "json"]) == 0
+    verified = json.loads(capsys.readouterr().out)
+    assert verified["units"][0]["integrity"] == "content_verified"
+    canonical = Path(verified["units"][0]["canonical_paths"][0])
+    original_bytes = canonical.read_bytes()
+    canonical.write_bytes(original_bytes[:-1] + bytes([original_bytes[-1] ^ 1]))
+    assert canonical.stat().st_size == len(original_bytes)
+    assert campaign.main(["--status", "-o", str(root), "--verify-published",
+                          "--format", "json"]) == 0
+    mismatched = json.loads(capsys.readouterr().out)
+    assert mismatched["units"][0]["publish"] == "published"
+    assert mismatched["units"][0]["integrity"] == "content_mismatch"
+    assert mismatched["content_mismatch_count"] == 1
+    assert (state_path.read_bytes(), coordinator_path.read_bytes()) == before
+    canonical.unlink()
+    canonical.symlink_to(Path(campaign.read_json(state_path)["units"]["unit_0"][
+        "attempts"][0]["private_unit_root"]) / canonical.relative_to(root))
+    monkeypatch.setattr(campaign, "sha256_canonical_file",
+                        lambda *_: pytest.fail("verification followed a canonical symlink"))
+    assert campaign.main(["--status", "-o", str(root), "--verify-published",
+                          "--format", "json"]) == 0
+    unsafe = json.loads(capsys.readouterr().out)
+    assert unsafe["units"][0]["integrity"] == "unavailable"
+    assert (state_path.read_bytes(), coordinator_path.read_bytes()) == before
+
+
+def test_fresh_policy_defaults_and_help_docs_agree(tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute", emit=False)
+    bound = campaign.read_json(campaign.coordinator_path(root))["execution_policy_v1"]
+    assert {key: bound[key] for key in campaign.DEFAULT_EXECUTION_POLICY} == (
+        campaign.DEFAULT_EXECUTION_POLICY)
+    assert bound["source"] == "fresh_defaults"
+    with pytest.raises(SystemExit) as exit_info:
+        campaign.main(["--campaign-profile", "sr_crlike_run2", "--help"])
+    assert exit_info.value.code == 0
+    help_text = capsys.readouterr().out
+    for value in ("local", "cgroup_v2", "245000000000"):
+        assert value in help_text
+        assert value in (MODULE_PATH.parents[2] / "docs/how_to/plotting.md").read_text()
 
 
 def seed_missing_lifecycle(tmp_path, monkeypatch, profile="sr_crlike_run2_run3"):
@@ -394,7 +539,7 @@ def test_combined_unresolved_running_blocks_all_children(tmp_path, monkeypatch, 
     campaign.lifecycle_receipt_path(attempt_root).unlink()
     (attempt_root / "_metadata/guard.jsonl").unlink()
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("overlap"))
-    assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
+    assert campaign.main(resume_args(root, profile, selected="unit_1", backend="local")) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert summary["campaign_status"] == "waiting"
     assert summary["waiting_on_active_child"] is True
@@ -479,7 +624,7 @@ def test_full_and_selected_resume_status_with_terminal_failure(tmp_path, monkeyp
     profile = "sr_crlike_run2_run3"
     root, _, _ = seed_running(tmp_path, monkeypatch, profile=profile, terminal="failure")
     monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
-    assert campaign.main(resume_args(root, profile)) == 0
+    assert campaign.main(resume_args(root, profile, backend="local")) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert summary["campaign_status"] == "partial"
     assert (summary["planned_count"], summary["success_count"], summary["failed_count"]) == (2, 1, 1)
@@ -971,7 +1116,7 @@ def test_resume_malformed_guard_evidence_waits_without_launch(
     campaign.lifecycle_receipt_path(attempt_root).unlink()
     (attempt_root / "_metadata" / "guard.jsonl").write_text(guard_record, encoding="utf-8")
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("overlap"))
-    assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
+    assert campaign.main(resume_args(root, profile, selected="unit_1", backend="local")) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     state = campaign.read_json(campaign.state_path(root, profile, "run2"))
     other_state = campaign.read_json(campaign.state_path(root, profile, "run3"))
@@ -1009,7 +1154,7 @@ def test_resume_unbound_guard_evidence_waits_without_launch(
         attempt["command_identity"] = "0" * 64
     campaign.atomic_json(path, state)
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("overlap"))
-    assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
+    assert campaign.main(resume_args(root, profile, selected="unit_1", backend="local")) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     run2 = campaign.read_json(path)
     run3 = campaign.read_json(campaign.state_path(root, profile, "run3"))
@@ -1388,14 +1533,17 @@ def test_condor_waits_without_local_fallback_or_second_attempt(tmp_path, monkeyp
     monkeypatch.setattr(campaign.backend, 'run_guarded_child', lambda *a, **k: pytest.fail('local fallback'))
     campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', plan_path=plan_path,
                           action='execute', backend_name='condor')
-    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', action='resume', backend_name='local')
+    with pytest.raises(campaign.CampaignError, match="contradicts bound"):
+        campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign',
+                              action='resume', backend_name='local')
     state=campaign.read_json(campaign.state_path(root,'sr_crlike_run2','run2'))
     assert state['units']['unit_0']['status']=='running'
     assert len(state['units']['unit_0']['attempts'])==1
     assert state['units']['unit_1']['status']=='running'
     assert len(state['units']['unit_1']['attempts'])==1
     assert sum(c[0]=='condor_submit' for c in calls)==2
-    assert json.loads(capsys.readouterr().out.splitlines()[-1])['campaign_status']=='waiting'
+    assert campaign.read_json(campaign.coordinator_path(root))["execution_policy_v1"]["backend"] == "condor"
+    capsys.readouterr()
 
 
 def test_condor_dispatches_all_planned_units_and_resume_does_not_retry(tmp_path, monkeypatch):

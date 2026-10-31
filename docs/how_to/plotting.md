@@ -147,8 +147,9 @@ interfaces and metadata keys are in the
 
 ## Execution backends and resource observation
 
-Use the persistent campaign interface below with `--backend local` or
-`--backend condor`. Both execute exactly one controller-selected unit at a time.
+Use the persistent campaign interface below. Fresh execution defaults to
+`--backend local`; select `--backend condor` for a Condor campaign. Local
+execution is sequential; independent Condor units may overlap.
 The public wrapper is never a batch payload. The Condor adapter sends a single
 immutable renderer command to `plot_campaign_backend.py --worker`; it has no
 standalone campaign CLI, plan parser, scientific view selection or output roster.
@@ -157,7 +158,8 @@ Use the qualified persistent JSON plan, not a converted expected-output roster.
 
 Local and Condor workers use the same guard and lifecycle evidence. The controller
 alone interprets receipts and materializes observed figures. Condor submission
-returns a waiting campaign; a later explicit resume observes that same execution.
+can leave active jobs while independent planned units remain dispatchable; a
+later resume observes those same attempts.
 A nonzero, timed-out or ambiguous submit response does not prove that no job was
 created. It never causes resubmission or a local fallback. Missing scheduler
 identity requires separate reconciliation evidence. A worker start marker prevents
@@ -232,16 +234,22 @@ For an existing campaign, use the read-only status command:
 ./analysis/topeft_run2/run_plotter.sh --status -o /absolute/path/to/topeft/histos/my_campaign
 ```
 
+For a current-content check, add `--verify-published` to that status command.
+
 It reads campaign identity from the root and shows the exact tag, plan
-revision, final root, unit execution and publication states, recorded job IDs,
-and action-needed warnings. `--format yaml` gives a bounded readable summary
-with exact published plot paths. `--format json` is the stable machine route and
-retains the established count/status fields. Status does not contact the
-scheduler or modify campaign files.
+revision, final root, separate execution, publication and integrity states,
+recorded job IDs, and action-needed warnings. Ordinary status checks receipt
+identity, canonical presence and recorded sizes without hashing PNG content.
+Add `--verify-published` to hash recorded canonical PNGs against their stored
+SHA-256 values. It is read-only, and historical publication remains `published`
+even if current content mismatches. `--format yaml` gives a bounded readable
+summary with exact published plot paths. `--format json` is the stable machine
+route and retains the established count/status fields. Status does not contact
+the scheduler or modify campaign files.
 
 Condor campaigns can submit independent planned units in parallel. A normal
-public `--resume --backend condor` reconciles every active unit, publishes each
-valid terminal success, submits every eligible planned unit once, and stays in
+public `--resume` on a policy-bound Condor root reconciles every active unit,
+publishes each valid terminal success, submits every eligible planned unit once, and stays in
 the foreground to observe further completions. It prints only changed status
 and releases the campaign lock between polls. Ctrl-C stops observation without
 cancelling jobs; the same resume command continues their existing attempts.
@@ -250,25 +258,37 @@ execution remains sequential. `--selected-unit` is an advanced bounded action,
 and neither normal resume nor follow retries failed or interrupted units.
 
 ```bash
-./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign \
-  --backend condor --resource-observer cgroup_v2 --hard-limit-bytes 192000000000
+./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign
 ```
 
 For a machine caller, request one JSON pass explicitly:
 
 ```bash
 ./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign \
-  --backend condor --resource-observer cgroup_v2 --hard-limit-bytes 192000000000 \
   --format json --one-pass
 ```
 
-An existing root supplies profile and tag. Resume still needs `--backend` when
-historical attempts do not identify one unambiguously. When planned Condor
-units remain, give `--resource-observer` and `--hard-limit-bytes` explicitly:
-attempt records bind earlier jobs but do not declare a campaign-wide resource
-policy for new units. Explicit profile or tag values must
-agree with the root. A fresh campaign still requires its qualified plan,
-profile, tag, root, and runtime choices.
+An existing root supplies profile and tag. A fresh campaign requires a qualified
+plan, profile, tag and root. It binds the resolved future-attempt policy once:
+local, `cgroup_v2`, and `245000000000` bytes by default. A policy-bound root
+reuses it on resume; matching explicit values are accepted and contradictory
+values fail before dispatch. Legacy roots without this field can run status or
+reconcile a selected completed/running unit without resource flags. To launch
+a planned unit on a legacy root, explicitly select `--backend local` or
+`--backend condor`. Local resolves missing resource values from the fresh
+defaults. Condor requires `--backend condor`, `--resource-observer` and
+`--hard-limit-bytes` together once; they are stored before the first submit.
+A selected unit that cannot launch does not inherit resource requirements from
+unrelated planned units. Historical attempt contracts are unchanged. Explicit
+profile or tag values must agree with the root.
+
+For the first planned Condor launch on a legacy root, supply the chosen policy
+once; later resumes need only the root:
+
+```bash
+./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign \
+  --backend condor --resource-observer cgroup_v2 --hard-limit-bytes 192000000000
+```
 
 `analysis/topeft_run2/run_plotter.sh` owns three persistent profiles:
 `sr_crlike_run2`, `sr_crlike_run3`, and `sr_crlike_run2_run3`. A fresh plan is a
@@ -313,9 +333,11 @@ not block an eligible planned unit elsewhere;
 it is never silently retried. A successful controller invocation exits zero
 even when units remain planned, failed, or interrupted. Its JSON summary reports
 `campaign_status` (`complete`, `partial`, `in_progress`, or `waiting`), total
-`planned_count`, per-status counts, and `waiting_on_active_child`. An unresolved
-possibly live child returns `waiting`; only the local backend blocks other
-launches. Malformed state or plan still makes the invocation fail.
+`planned_count`, per-status counts, and `waiting_on_active_child`. The derived
+`active_child_present` and `dispatch_blocked` fields separate job presence
+from dispatch blocking; `waiting_on_active_child` means dispatch is blocked.
+Only the local backend blocks other launches. Malformed state or plan still
+makes the invocation fail.
 
 Each attempt writes only below its deterministic private
 `.campaign_units/<unit_id>/attempt_0001/` root. The local memory guard and

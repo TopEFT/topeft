@@ -11,11 +11,13 @@ import argparse
 from collections import Counter
 from contextlib import contextmanager
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import shlex
@@ -46,6 +48,11 @@ YEARS = {
 SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 terminal_postprocessing_pending = "terminal postprocessing pending"
+DEFAULT_EXECUTION_POLICY = {
+    "backend": "local", "resource_observer": "cgroup_v2",
+    "hard_limit_bytes": 245000000000,
+}
+SUMMARY_SCHEMA_VERSION = 2
 UNIT_FIELDS = {
     "unit_id", "component", "producer_unit_id", "input_path",
     "sidecar_path", "qualification_source", "period_view",
@@ -985,6 +992,9 @@ def load_campaign(root, profile, tag, runtime):
     require(isinstance(coordinator.get("runtime_contract_identity"), dict),
             "campaign coordinator provenance field is malformed")
     require("pending_plan" not in coordinator, "pending plan requires reconciliation")
+    if "execution_policy_v1" in coordinator:
+        resolve_execution_policy(coordinator, dict.fromkeys(DEFAULT_EXECUTION_POLICY),
+                                 {"can_start_new_attempt": False})
     plan = coordinator.get("plan")
     require(isinstance(plan, dict) and plan.get("campaign_profile") == profile
             and plan.get("campaign_tag") == tag, "campaign plan binding mismatch")
@@ -998,7 +1008,95 @@ def load_campaign(root, profile, tag, runtime):
     return coordinator, plan, states
 
 
-def campaign_summary(root, plan, states, *, unit_errors=(), waiting_reasons=()):
+def derive_action_scope(plan, states, selected=None):
+    """The only units this invocation can reconcile or start."""
+    selected_ids = [unit["unit_id"] for unit in plan["units"]
+                    if selected is None or unit["unit_id"] == selected]
+    require(selected is None or selected_ids, "unknown selected unit")
+    reconcilable = []
+    launchable = []
+    for unit in plan["units"]:
+        unit_id = unit["unit_id"]
+        if unit_id not in selected_ids:
+            continue
+        unit_state = states[unit["component"]]["units"][unit_id]
+        if unit_state["status"] == "planned":
+            launchable.append(unit_id)
+        elif unit_state["status"] == "running" or (
+                unit_state["status"] == "interrupted" and unit_state["attempts"]
+                and unit_state["attempts"][-1].get("failure_classification")
+                == terminal_postprocessing_pending):
+            reconcilable.append(unit_id)
+    return {"selected_unit_ids": selected_ids,
+            "reconcilable_unit_ids": reconcilable,
+            "launchable_planned_unit_ids": launchable,
+            "can_start_new_attempt": bool(launchable)}
+
+
+def resolve_execution_policy(coordinator, supplied, scope, *, fresh=False):
+    """Bind future attempts once; historical attempt contracts remain authoritative."""
+    require(set(supplied) == set(DEFAULT_EXECUTION_POLICY),
+            "future execution policy input is malformed")
+    require(supplied["backend"] in {None, "local", "condor"}
+            and supplied["resource_observer"] in {None, "cgroup_v2", "node_pressure"}
+            and (supplied["hard_limit_bytes"] is None or
+                 (isinstance(supplied["hard_limit_bytes"], int)
+                  and not isinstance(supplied["hard_limit_bytes"], bool)
+                  and supplied["hard_limit_bytes"] > 0)),
+            "future execution policy input is invalid")
+    bound = coordinator.get("execution_policy_v1")
+    if bound is not None:
+        require(isinstance(bound, dict) and set(bound) == {
+            "backend", "resource_observer", "hard_limit_bytes", "source"}
+            and bound["backend"] in {"local", "condor"}
+            and bound["resource_observer"] in {"cgroup_v2", "node_pressure"}
+            and isinstance(bound["hard_limit_bytes"], int)
+            and not isinstance(bound["hard_limit_bytes"], bool)
+            and bound["hard_limit_bytes"] > 0
+            and bound["source"] in {"fresh_defaults", "explicitly_bound"},
+            "future execution policy is malformed")
+        for key, value in supplied.items():
+            require(value is None or value == bound[key],
+                    f"supplied {key} contradicts bound future execution policy")
+        return bound, False
+    if fresh:
+        values = {key: supplied[key] if supplied[key] is not None else default
+                  for key, default in DEFAULT_EXECUTION_POLICY.items()}
+        return {**values, "source": ("explicitly_bound" if any(
+            value is not None for value in supplied.values()) else "fresh_defaults")}, True
+    if scope["can_start_new_attempt"]:
+        if supplied["backend"] == "condor":
+            require(all(value is not None for value in supplied.values()),
+                    "legacy Condor launch needs --backend, --resource-observer and --hard-limit-bytes")
+        elif supplied["backend"] is None:
+            require(False, "legacy planned launch needs --backend to bind future execution policy")
+        values = {key: supplied[key] if supplied[key] is not None else default
+                  for key, default in DEFAULT_EXECUTION_POLICY.items()}
+        return {**values, "source": "explicitly_bound"}, True
+    # Reconciliation alone needs no new policy and never mutates the coordinator.
+    values = {key: supplied[key] if supplied[key] is not None else default
+              for key, default in DEFAULT_EXECUTION_POLICY.items()}
+    return values, False
+
+
+def sha256_canonical_file(path, root):
+    """Hash the recorded canonical file without following its final symlink."""
+    reject_symlink_ancestors(path.parent, root)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        require(stat.S_ISREG(os.fstat(descriptor).st_mode),
+                f"canonical publication is not regular: {path}")
+        digest = hashlib.sha256()
+        with os.fdopen(descriptor, "rb", closefd=False) as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    finally:
+        os.close(descriptor)
+
+
+def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
+                     execution_policy=None, action_scope=None, verify_published=False):
     """Read-only presentation derived from the bound plan and component states."""
     from analysis.topeft_run2 import plot_campaign_condor as condor
 
@@ -1010,7 +1108,11 @@ def campaign_summary(root, plan, states, *, unit_errors=(), waiting_reasons=()):
         execution = {"planned": "pending", "running": "running",
                      "success": "completed", "failed": "failed",
                      "interrupted": "interrupted"}[state]
-        publish = "not published" if state in {"planned", "failed"} else "publish pending"
+        publish = ("publish pending" if state == "running" or
+                   (state == "interrupted" and attempt and
+                    attempt.get("failure_classification") == terminal_postprocessing_pending)
+                   else "not published")
+        integrity = "not_applicable"
         warning = attempt.get("failure_classification") if attempt else None
         if warning and "Condor execution submitted; resume observes this execution only" in warning:
             warning = None
@@ -1040,6 +1142,7 @@ def campaign_summary(root, plan, states, *, unit_errors=(), waiting_reasons=()):
                     except (CampaignError, OSError, ValueError) as error:
                         warning = f"terminal evidence unavailable: {error_description(error)}"
             if state == "success":
+                integrity = "unavailable"
                 try:
                     receipt = read_json(completion_receipt_path(attempt_root))
                     require(identity(receipt) == attempt["completion_receipt_identity"],
@@ -1051,6 +1154,7 @@ def campaign_summary(root, plan, states, *, unit_errors=(), waiting_reasons=()):
                     for relative in receipt["observed_png_relative_paths"]:
                         binding = unit_state["materializations"][relative]
                         path = canonical_observed_path(root, relative)
+                        reject_symlink_ancestors(path.parent, root)
                         require(binding == {
                             "unit_id": unit["unit_id"],
                             "receipt_identity": attempt["completion_receipt_identity"],
@@ -1061,15 +1165,51 @@ def campaign_summary(root, plan, states, *, unit_errors=(), waiting_reasons=()):
                                 f"canonical publication unavailable: {relative}")
                         paths.append(str(path))
                     publish = "published"
+                    integrity = "metadata_consistent"
+                    if verify_published:
+                        integrity = "content_verified"
+                        for relative in receipt["observed_png_relative_paths"]:
+                            path = canonical_observed_path(root, relative)
+                            if sha256_canonical_file(path, root) != (
+                                    unit_state["materializations"][relative]["sha256"]):
+                                integrity = "content_mismatch"
+                                warning = f"canonical content mismatch: {relative}"
+                                break
                 except (CampaignError, OSError, KeyError, TypeError, ValueError) as error:
-                    paths = []
-                    warning = f"publication needs review: {error_description(error)}"
+                    if publish != "published":
+                        paths = []
+                        warning = f"publication needs review: {error_description(error)}"
+                    else:
+                        integrity = "unavailable"
+                        warning = f"content verification unavailable: {error_description(error)}"
         units.append({"unit_id": unit["unit_id"], "component": unit["component"],
-                      "execution": execution, "publish": publish, "job": job,
+                      "execution": execution, "publish": publish,
+                      "publication": publish, "integrity": integrity, "job": job,
                       "canonical_paths": paths, "warning": warning})
     counts = Counter(unit["status"] for state in states.values()
                      for unit in state["units"].values())
-    if waiting_reasons:
+    running_view_ids = {unit["unit_id"] for unit in units if unit["execution"] == "running"}
+    active_reasons = list(active_reasons)
+    active_ids = {item.split(":", 1)[0] for item in active_reasons}
+    for unit in plan["units"]:
+        unit_state = states[unit["component"]]["units"][unit["unit_id"]]
+        label = f"{unit['component']}/{unit['unit_id']}"
+        if unit["unit_id"] in running_view_ids and label not in active_ids:
+            active_reasons.append(f"{label}: remains running")
+    planned = (any(states[unit["component"]]["units"][unit["unit_id"]]["status"]
+                   == "planned" for unit in plan["units"]
+                   if unit["unit_id"] in action_scope["selected_unit_ids"])
+               if action_scope is not None else counts["planned"] > 0)
+    active_local = any(
+        (states[unit["component"]]["units"][unit["unit_id"]]["attempts"][0]
+         .get("execution_contract") or {}).get("backend", "local") == "local"
+        for unit in plan["units"]
+        if unit["unit_id"] in running_view_ids or
+        f"{unit['component']}/{unit['unit_id']}" in active_ids)
+    dispatch_blocked = bool(planned and active_local and active_reasons and
+                            (execution_policy or {}).get("backend", "local") == "local")
+    waiting_reasons = active_reasons if dispatch_blocked else []
+    if dispatch_blocked:
         campaign_status = "waiting"
     elif counts["failed"] or counts["interrupted"] or unit_errors:
         campaign_status = "partial"
@@ -1081,17 +1221,26 @@ def campaign_summary(root, plan, states, *, unit_errors=(), waiting_reasons=()):
                 for state in states.values() for item in state["units"].values()
                 for attempt in item["attempts"]}
     return {
+        "summary_schema_version": SUMMARY_SCHEMA_VERSION,
         "campaign_status": campaign_status,
         "planned_count": sum(counts.values()),
         "success_count": counts["success"], "failed_count": counts["failed"],
         "interrupted_count": counts["interrupted"], "running_count": counts["running"],
         "pending_count": counts["planned"],
-        "waiting_on_active_child": bool(waiting_reasons),
+        "active_child_present": bool(active_reasons),
+        "active_child_reasons": active_reasons,
+        "dispatch_blocked": dispatch_blocked,
+        "dispatch_blocked_reasons": waiting_reasons,
+        "waiting_on_active_child": dispatch_blocked,
         "unit_errors": list(unit_errors), "waiting_reasons": list(waiting_reasons),
         "campaign_profile": plan["campaign_profile"], "campaign_tag": plan["campaign_tag"],
         "plan_revision": plan["plan_revision"], "canonical_output_root": str(root),
         "backend": next(iter(backends)) if len(backends) == 1 else ("mixed" if backends else "none"),
+        "execution_policy": execution_policy,
+        "action_scope": action_scope,
         "published_count": sum(item["publish"] == "published" for item in units),
+        "content_verified_count": sum(item["integrity"] == "content_verified" for item in units),
+        "content_mismatch_count": sum(item["integrity"] == "content_mismatch" for item in units),
         "units": units,
     }
 
@@ -1115,9 +1264,10 @@ def show_summary(summary, output_format):
         print(f"Units: {summary['published_count']} published / {summary['planned_count']} planned"
               f" | Running: {summary['running_count']} | Pending: {summary['pending_count']}"
               f" | Failed: {summary['failed_count']} | Interrupted: {summary['interrupted_count']}")
-        print(f"{'UNIT':32} {'EXECUTION':13} {'PUBLISH':16} {'JOB':12} PLOTS")
+        print(f"{'UNIT':32} {'EXECUTION':13} {'PUBLICATION':16} {'INTEGRITY':20} {'JOB':12} PLOTS")
         for unit in summary["units"]:
             print(f"{unit['unit_id']:32} {unit['execution']:13} {unit['publish']:16} "
+                  f"{unit['integrity']:20} "
                   f"{unit['job'] or '-':12} {len(unit['canonical_paths'])}")
             if unit["warning"]:
                 print(f"  {unit['unit_id']}: {unit['warning']}")
@@ -1233,7 +1383,7 @@ def activate_revision(root, profile, tag, plan_path, expected, runtime):
 
 
 def run_campaign(root, profile, tag, *, plan_path=None, action, selected=None,
-                 backend_name="local", observer="cgroup_v2", hard_limit_bytes=245000000000,
+                 backend_name=None, observer=None, hard_limit_bytes=None,
                  output_format="json", emit=True):
     if action == "execute":
         check_root(root, fresh=True)
@@ -1247,7 +1397,7 @@ def run_campaign(root, profile, tag, *, plan_path=None, action, selected=None,
         prepared_plan = None
     with campaign_lock(root):
         summary = _run_campaign_locked(root, profile, tag, action, selected, prepared_plan,
-                                       {"backend": backend_name, "observer": observer,
+                                       {"backend": backend_name, "resource_observer": observer,
                                         "hard_limit_bytes": hard_limit_bytes})
     if emit:
         show_summary(summary, output_format)
@@ -1266,18 +1416,26 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, ex
             component_path.mkdir(mode=0o700, parents=True, exist_ok=True)
             states[component] = new_component_state(plan, component, runtime)
             atomic_json(state_path(root, profile, component), states[component])
-        atomic_json(coordinator_path(root), {
+        coordinator = {
             "schema_version": 1, "campaign_profile": profile, "campaign_tag": tag,
             "runtime_contract_identity": runtime, "plan": plan,
-        })
+        }
     else:
         finish_pending_revision(root, profile, tag, runtime)
-        _, plan, states = load_campaign(root, profile, tag, runtime)
-        if selected:
-            require(selected in {unit["unit_id"] for unit in plan["units"]}, "unknown selected unit")
+        coordinator, plan, states = load_campaign(root, profile, tag, runtime)
+    scope = derive_action_scope(plan, states, selected)
+    policy, should_bind = resolve_execution_policy(
+        coordinator, execution_options, scope, fresh=action == "execute")
+    if should_bind:
+        coordinator["execution_policy_v1"] = policy
+        atomic_json(coordinator_path(root), coordinator)
+    effective_options = {
+        "backend": policy["backend"], "observer": policy["resource_observer"],
+        "hard_limit_bytes": policy["hard_limit_bytes"],
+    }
     unit_errors = []
     unresolved_running = []
-    if selected and execution_options["backend"] == "local":
+    if selected and effective_options["backend"] == "local":
         for component in PROFILES[profile]:
             for unit_id, unit_state in states[component]["units"].items():
                 if unit_id != selected and unit_state["status"] == "running":
@@ -1286,44 +1444,39 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, ex
         for component in PROFILES[profile]:
             state = states[component]
             for unit_id, unit_state in state["units"].items():
-                if selected and unit_id != selected:
+                if unit_id not in scope["reconcilable_unit_ids"]:
                     continue
-                if unit_state["status"] == "running" or (
-                    unit_state["status"] == "interrupted" and unit_state["attempts"]
-                    and unit_state["attempts"][-1].get("failure_classification")
-                    == terminal_postprocessing_pending
-                ):
-                    try:
-                        reconcile_running(plan, component, state, unit_state, root, runtime)
-                    except ActiveChildUnresolved as error:
-                        unresolved_running.append(
-                            f"{component}/{unit_id}: {error_description(error)}")
-                    except ChildDefinitelyTerminal as error:
-                        unit_errors.append(f"{component}/{unit_id}: {error_description(error)}")
-                    except OutputCollision as error:
-                        attempt = unit_state["attempts"][-1]
-                        attempt["result"] = "failed"
-                        attempt["failure_classification"] = error_description(error)
-                        unit_state["status"] = "failed"
-                        atomic_json(state_path(root, profile, component), state)
-                        unit_errors.append(f"{component}/{unit_id}: {error_description(error)}")
+                try:
+                    reconcile_running(plan, component, state, unit_state, root, runtime)
+                except ActiveChildUnresolved as error:
+                    unresolved_running.append(
+                        f"{component}/{unit_id}: {error_description(error)}")
+                except ChildDefinitelyTerminal as error:
+                    unit_errors.append(f"{component}/{unit_id}: {error_description(error)}")
+                except OutputCollision as error:
+                    attempt = unit_state["attempts"][-1]
+                    attempt["result"] = "failed"
+                    attempt["failure_classification"] = error_description(error)
+                    unit_state["status"] = "failed"
+                    atomic_json(state_path(root, profile, component), state)
+                    unit_errors.append(f"{component}/{unit_id}: {error_description(error)}")
                 if unit_state["status"] == "running" and not any(
                         item.startswith(f"{component}/{unit_id}:") for item in unresolved_running):
                     unresolved_running.append(f"{component}/{unit_id}: remains running")
-    can_start = not unresolved_running or execution_options["backend"] == "condor"
+    can_start = not unresolved_running or effective_options["backend"] == "condor"
     if can_start:
         for component in PROFILES[profile]:
             state = states[component]
             for unit in plan["units"]:
-                if unresolved_running and execution_options["backend"] == "local":
+                if unresolved_running and effective_options["backend"] == "local":
                     break
-                if unit["component"] != component or (selected and unit["unit_id"] != selected):
+                if unit["component"] != component or unit["unit_id"] not in scope["launchable_planned_unit_ids"]:
                     continue
                 unit_state = state["units"][unit["unit_id"]]
                 if unit_state["status"] != "planned":
                     continue
                 try:
-                    execute_unit(plan, component, state, unit_state, root, runtime, execution_options)
+                    execute_unit(plan, component, state, unit_state, root, runtime, effective_options)
                 except ActiveChildUnresolved as error:
                     unresolved_running.append(
                         f"{component}/{unit['unit_id']}: {error_description(error)}")
@@ -1331,7 +1484,9 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, ex
                     unit_errors.append(
                         f"{component}/{unit['unit_id']}: {error_description(error)}")
     return campaign_summary(root, plan, states, unit_errors=unit_errors,
-                            waiting_reasons=unresolved_running)
+                            active_reasons=unresolved_running,
+                            execution_policy=coordinator.get("execution_policy_v1"),
+                            action_scope=scope)
 
 
 def normalize_year_tokens(tokens):
@@ -1444,6 +1599,8 @@ def main(argv=None):
     actions.add_argument("--execute", action="store_true")
     actions.add_argument("--resume", action="store_true")
     actions.add_argument("--status", action="store_true", help="read-only status for an existing root")
+    parser.add_argument("--verify-published", action="store_true",
+                        help="with --status, hash recorded canonical PNGs against publication SHA-256")
     actions.add_argument("--recover-terminal-unit", action="store_true")
     actions.add_argument("--recover-rejected-condor-submit", action="store_true",
                          help="submit once on the same selected attempt after a proven local Condor submitfile rejection")
@@ -1451,9 +1608,14 @@ def main(argv=None):
     parser.add_argument("--expected-plan-revision", type=int)
     parser.add_argument("--selected-unit")
     parser.add_argument("--backend", choices=("local", "condor"),
-                        help="execution backend; required on resume if existing attempts do not identify one")
-    parser.add_argument("--resource-observer", choices=("cgroup_v2", "node_pressure"))
-    parser.add_argument("--hard-limit-bytes", type=int)
+                        help=f"fresh default: {DEFAULT_EXECUTION_POLICY['backend']}; "
+                             "legacy planned launch requires explicit backend; bound roots reuse policy")
+    parser.add_argument("--resource-observer", choices=("cgroup_v2", "node_pressure"),
+                        help=f"fresh default: {DEFAULT_EXECUTION_POLICY['resource_observer']}; "
+                             "legacy Condor planned launch requires explicit value")
+    parser.add_argument("--hard-limit-bytes", type=int,
+                        help=f"fresh default: {DEFAULT_EXECUTION_POLICY['hard_limit_bytes']}; "
+                             "legacy Condor planned launch requires explicit value")
     parser.add_argument("--format", choices=("human", "yaml", "json"),
                         help="campaign CLI defaults to human; use json for machine output")
     follow = parser.add_mutually_exclusive_group()
@@ -1471,6 +1633,8 @@ def main(argv=None):
         root = args.output_dir
         profile = args.campaign_profile
         output_format = args.format or "human"
+        require(args.status or not args.verify_published,
+                "--verify-published requires --status")
         if not (args.dry_run or args.execute):
             check_root(root, fresh=False)
             coordinator = read_json(coordinator_path(root))
@@ -1494,8 +1658,10 @@ def main(argv=None):
                     and args.hard_limit_bytes is None,
                     "status accepts only an existing output root and optional identity/format")
             runtime = coordinator.get("runtime_contract_identity")
-            _, plan, states = load_campaign(root, profile, args.campaign_tag, runtime)
-            summary = campaign_summary(root, plan, states)
+            coordinator, plan, states = load_campaign(root, profile, args.campaign_tag, runtime)
+            summary = campaign_summary(root, plan, states,
+                                       execution_policy=coordinator.get("execution_policy_v1"),
+                                       verify_published=args.verify_published)
             show_summary(summary, output_format)
             return 0
         if args.dry_run or args.execute:
@@ -1506,7 +1672,11 @@ def main(argv=None):
                 plan = normalize_plan(args.plan, profile, args.campaign_tag, root)
                 dry_run(plan, root, args.selected_unit)
             else:
-                backend_name = args.backend or "local"
+                fresh_policy, _ = resolve_execution_policy(
+                    {}, {"backend": args.backend, "resource_observer": args.resource_observer,
+                         "hard_limit_bytes": args.hard_limit_bytes},
+                    {"can_start_new_attempt": True}, fresh=True)
+                backend_name = fresh_policy["backend"]
                 use_follow = args.follow or (
                     not args.one_pass and output_format == "human" and backend_name == "condor")
                 require(not use_follow or backend_name == "condor", "follow requires Condor backend")
@@ -1514,16 +1684,16 @@ def main(argv=None):
                     print(f"Final output before execution: {root}", flush=True)
                 summary = run_campaign(root, profile, args.campaign_tag, plan_path=args.plan,
                                        action="execute", selected=args.selected_unit,
-                                       backend_name=backend_name,
-                                       observer=args.resource_observer or "cgroup_v2",
-                                       hard_limit_bytes=args.hard_limit_bytes or 245000000000,
+                                       backend_name=args.backend,
+                                       observer=args.resource_observer,
+                                       hard_limit_bytes=args.hard_limit_bytes,
                                        output_format=output_format)
                 if use_follow:
                     try:
                         follow_campaign(summary, root, profile, args.campaign_tag,
                                         args.selected_unit, backend_name,
-                                        args.resource_observer or "cgroup_v2",
-                                        args.hard_limit_bytes or 245000000000,
+                                        fresh_policy["resource_observer"],
+                                        fresh_policy["hard_limit_bytes"],
                                         output_format, args.poll_seconds)
                     except KeyboardInterrupt:
                         print("Observation stopped; Condor jobs and campaign state remain recoverable.",
@@ -1543,40 +1713,29 @@ def main(argv=None):
             require(args.plan is None and args.expected_plan_revision is None,
                     "resume accepts neither --plan nor expected revision")
             runtime = coordinator.get("runtime_contract_identity")
-            _, plan, states = load_campaign(root, profile, args.campaign_tag, runtime)
-            existing_backends = {attempt["execution_contract"].get("backend")
-                                 for state in states.values() for unit in state["units"].values()
-                                 for attempt in unit["attempts"] if attempt.get("execution_contract")}
-            legacy_attempts = any(attempt.get("execution_contract") is None
-                                  for state in states.values() for unit in state["units"].values()
-                                  for attempt in unit["attempts"])
-            if args.backend is None:
-                require(len(existing_backends) == 1 and not legacy_attempts,
-                        "resume needs --backend when existing attempts do not bind one backend")
-                backend_name = next(iter(existing_backends))
-            else:
-                backend_name = args.backend
-            if backend_name == "condor" and any(unit["status"] == "planned"
-                                                for state in states.values()
-                                                for unit in state["units"].values()):
-                require(args.resource_observer is not None and args.hard_limit_bytes is not None,
-                        "Condor resume with planned units needs --resource-observer and --hard-limit-bytes")
+            coordinator, plan, states = load_campaign(root, profile, args.campaign_tag, runtime)
+            scope = derive_action_scope(plan, states, args.selected_unit)
+            resume_policy, _ = resolve_execution_policy(
+                coordinator, {"backend": args.backend,
+                              "resource_observer": args.resource_observer,
+                              "hard_limit_bytes": args.hard_limit_bytes}, scope)
+            backend_name = resume_policy["backend"]
             use_follow = args.follow or (
                 not args.one_pass and output_format == "human" and backend_name == "condor")
             require(not use_follow or backend_name == "condor", "follow requires Condor backend")
             if output_format == "human":
                 print(f"Final output before execution: {root}", flush=True)
             summary = run_campaign(root, profile, args.campaign_tag, action="resume",
-                                   selected=args.selected_unit, backend_name=backend_name,
-                                   observer=args.resource_observer or "cgroup_v2",
-                                   hard_limit_bytes=args.hard_limit_bytes or 245000000000,
+                                   selected=args.selected_unit, backend_name=args.backend,
+                                   observer=args.resource_observer,
+                                   hard_limit_bytes=args.hard_limit_bytes,
                                    output_format=output_format)
             if use_follow:
                 try:
                     follow_campaign(summary, root, profile, args.campaign_tag,
                                 args.selected_unit, backend_name,
-                                args.resource_observer or "cgroup_v2",
-                                args.hard_limit_bytes or 245000000000,
+                                resume_policy["resource_observer"],
+                                resume_policy["hard_limit_bytes"],
                                 output_format, args.poll_seconds)
                 except KeyboardInterrupt:
                     print("Observation stopped; Condor jobs and campaign state remain recoverable.",
