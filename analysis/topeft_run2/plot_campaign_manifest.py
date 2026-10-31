@@ -623,19 +623,39 @@ def reconcile_running(plan, component, state, unit_state, root, runtime):
     except Exception as error:
         raise ActiveChildUnresolved(
             f"running child binding unresolved: {error_description(error)}") from error
+    scheduler_terminal_success = False
     try:
         if attempt.get("execution_contract", {}).get("backend") == "condor":
-            observation = backend.observe(argv, attempt_root, attempt["execution_contract"])
+            try:
+                observation = backend.observe(argv, attempt_root, attempt["execution_contract"])
+            except (CampaignError, OSError, subprocess.SubprocessError) as error:
+                observation = {"state": "unresolved", "reason": error_description(error)}
             if observation["state"] == "terminal_failure":
-                guard_terminal(guard_path)
                 attempt.update(result="failed", failure_classification="scheduler terminal failure",
                                ended_at_utc=best_effort_utc_now())
                 unit_state["status"] = "failed"
                 atomic_json(state_path(root, plan["campaign_profile"], component), state)
                 return
-            require(observation["state"] == "terminal_success", "scheduler execution unresolved")
+            scheduler_terminal_success = observation["state"] == "terminal_success"
+            # OnExitHold can leave a finished, failed worker in a pending job.
+            # A bound failure receipt closes that attempt independently of the
+            # scheduler; successful publication still needs its existing gates.
+            lifecycle_path = lifecycle_receipt_path(attempt_root)
+            lifecycle = (verify_lifecycle_receipt(read_json(lifecycle_path), attempt, argv)
+                         if lifecycle_path.exists() or lifecycle_path.is_symlink() else None)
+            failed_lifecycle = lifecycle is not None and any(
+                lifecycle[key] != 0 for key in ("guard_result", "child_result", "tee_result"))
+            if not failed_lifecycle:
+                require(observation["state"] == "terminal_success",
+                        f"scheduler execution unresolved: {observation.get('reason') or observation['state']}")
         guard_terminal(guard_path)
     except Exception as error:
+        if scheduler_terminal_success:
+            attempt.update(result="interrupted", failure_classification=terminal_postprocessing_pending)
+            unit_state["status"] = "interrupted"
+            atomic_json(state_path(root, plan["campaign_profile"], component), state)
+            raise ChildDefinitelyTerminal(
+                f"terminal child postprocessing pending: {error_description(error)}") from error
         raise ActiveChildUnresolved(
             f"terminal guard evidence unavailable: {error_description(error)}") from error
     attempt["result"] = "interrupted"
@@ -1136,6 +1156,7 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
     from analysis.topeft_run2 import plot_campaign_condor as condor
 
     units = []
+    active_warnings = dict(item.split(": ", 1) for item in active_reasons if ": " in item)
     for unit in plan["units"]:
         unit_state = states[unit["component"]]["units"][unit["unit_id"]]
         state = unit_state["status"]
@@ -1149,6 +1170,8 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
                    else "not published")
         integrity = "not_applicable"
         warning = attempt.get("failure_classification") if attempt else None
+        if state == "running":
+            warning = active_warnings.get(f"{unit['component']}/{unit['unit_id']}", warning)
         if warning and "Condor execution submitted; resume observes this execution only" in warning:
             warning = None
         job = None
@@ -1378,6 +1401,15 @@ def routine_waiting_reason(message):
             or message.endswith(": remains running"))
 
 
+def show_monitor_command(root, output_format):
+    # Absolute, shell-quoted paths keep the handoff usable from any directory.
+    command = (f"PYTHON_BIN={shlex.quote(sys.executable)} "
+               f"{shlex.quote(str(RUN_DIRECTORY / 'run_plotter.sh'))} "
+               f"--status -o {shlex.quote(str(root.resolve()))} --observe-scheduler")
+    stream = sys.stdout if output_format == "human" else sys.stderr
+    print(f"Monitor with:\n  {command}", file=stream, flush=True)
+
+
 def presentation_key(summary):
     return (
         summary["campaign_status"], summary["published_count"],
@@ -1530,17 +1562,20 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, ex
     }
     unit_errors = []
     unresolved_running = []
-    if action == "resume":
+
+    def reconcile_units(unit_ids):
         for component in PROFILES[profile]:
             state = states[component]
             for unit_id, unit_state in state["units"].items():
-                if unit_id not in scope["reconcilable_unit_ids"]:
+                if unit_id not in unit_ids:
                     continue
+                unresolved_running[:] = [item for item in unresolved_running
+                                         if not item.startswith(f"{component}/{unit_id}:")]
                 try:
                     reconcile_running(plan, component, state, unit_state, root, runtime)
                 except ActiveChildUnresolved as error:
-                    unresolved_running.append(
-                        f"{component}/{unit_id}: {error_description(error)}")
+                    messages = unresolved_running if unit_state["status"] == "running" else unit_errors
+                    messages.append(f"{component}/{unit_id}: {error_description(error)}")
                 except ChildDefinitelyTerminal as error:
                     unit_errors.append(f"{component}/{unit_id}: {error_description(error)}")
                 except OutputCollision as error:
@@ -1553,6 +1588,10 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, ex
                 if unit_state["status"] == "running" and not any(
                         item.startswith(f"{component}/{unit_id}:") for item in unresolved_running):
                     unresolved_running.append(f"{component}/{unit_id}: remains running")
+
+    if action == "resume":
+        reconcile_units(scope["reconcilable_unit_ids"])
+    launched_unit_ids = []
     for component in PROFILES[profile]:
         state = states[component]
         for unit in plan["units"]:
@@ -1561,6 +1600,7 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, ex
                     "launchable_planned_unit_ids"]:
                 continue
             unit_state = state["units"][unit["unit_id"]]
+            launched_unit_ids.append(unit["unit_id"])
             try:
                 execute_unit(plan, component, state, unit_state, root, runtime, effective_options)
             except ActiveChildUnresolved as error:
@@ -1569,6 +1609,9 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, ex
             except (CampaignError, OSError, subprocess.SubprocessError) as error:
                 unit_errors.append(
                     f"{component}/{unit['unit_id']}: {error_description(error)}")
+    if policy["backend"] == "condor":
+        reconcilable = derive_action_scope(plan, states, selected)["reconcilable_unit_ids"]
+        reconcile_units([unit_id for unit_id in launched_unit_ids if unit_id in reconcilable])
     decision = dispatch_decision(plan, states, scope, policy, unresolved_running)
     return campaign_summary(root, plan, states, unit_errors=unit_errors,
                             active_reasons=unresolved_running,
@@ -1708,8 +1751,8 @@ def main(argv=None):
     parser.add_argument("--format", choices=("human", "yaml", "json"),
                         help="campaign CLI defaults to human; use json for machine output")
     follow = parser.add_mutually_exclusive_group()
-    follow.add_argument("--follow", action="store_true", help="observe and publish Condor units in the foreground")
-    follow.add_argument("--one-pass", action="store_true", help="return after one controller pass")
+    follow.add_argument("--follow", action="store_true", help="opt in to foreground Condor observation and publication")
+    follow.add_argument("--one-pass", action="store_true", help="return after one controller pass (default)")
     parser.add_argument("--poll-seconds", type=int, default=15,
                         help="foreground Condor observation interval (1..300 seconds)")
     args = parser.parse_args(argv)
@@ -1769,8 +1812,7 @@ def main(argv=None):
                          "hard_limit_bytes": args.hard_limit_bytes},
                     {"can_start_new_attempt": True}, fresh=True)
                 backend_name = fresh_policy["backend"]
-                use_follow = args.follow or (
-                    not args.one_pass and output_format == "human" and backend_name == "condor")
+                use_follow = args.follow
                 require(not use_follow or backend_name == "condor", "follow requires Condor backend")
                 if output_format == "human":
                     print(f"Final output before execution: {root}", flush=True)
@@ -1780,6 +1822,8 @@ def main(argv=None):
                                        observer=args.resource_observer,
                                        hard_limit_bytes=args.hard_limit_bytes,
                                        output_format=output_format)
+                if backend_name == "condor":
+                    show_monitor_command(root, output_format)
                 if use_follow:
                     try:
                         follow_campaign(summary, root, profile, args.campaign_tag,
@@ -1812,8 +1856,7 @@ def main(argv=None):
                               "resource_observer": args.resource_observer,
                               "hard_limit_bytes": args.hard_limit_bytes}, scope)
             backend_name = resume_policy["backend"]
-            use_follow = args.follow or (
-                not args.one_pass and output_format == "human" and backend_name == "condor")
+            use_follow = args.follow
             require(not use_follow or backend_name == "condor", "follow requires Condor backend")
             if output_format == "human":
                 print(f"Final output before execution: {root}", flush=True)
@@ -1822,6 +1865,8 @@ def main(argv=None):
                                    observer=args.resource_observer,
                                    hard_limit_bytes=args.hard_limit_bytes,
                                    output_format=output_format)
+            if backend_name == "condor":
+                show_monitor_command(root, output_format)
             if use_follow:
                 try:
                     follow_campaign(summary, root, profile, args.campaign_tag,

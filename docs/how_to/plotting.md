@@ -163,7 +163,8 @@ later resume observes those same attempts.
 A nonzero, timed-out or ambiguous submit response does not prove that no job was
 created. It never causes resubmission or a local fallback. Missing scheduler
 identity requires separate reconciliation evidence. A worker start marker prevents
-rerender after scheduler eviction/restart; held jobs remain unresolved.
+rerender after scheduler eviction/restart. A held job remains unresolved unless
+its bound lifecycle receipt proves a terminal worker failure.
 
 Condor requires a shared checkout, interpreter and attempt directory. Each job
 requests one CPU, disk 10240 MB, runtime 86400 seconds and memory rounded up from
@@ -275,20 +276,39 @@ route and retains the established count/status fields. Status does not contact
 the scheduler or modify campaign files.
 
 Condor campaigns can submit independent planned units in parallel. A normal
-public `--resume` on a policy-bound Condor root reconciles every active unit,
-publishes each valid terminal success, submits every eligible planned unit once, and stays in
-the foreground to observe further completions. It prints only changed status
-and releases the campaign lock between polls. Ctrl-C stops observation without
-cancelling jobs; the same resume command continues their existing attempts.
-Use `--poll-seconds N` (1–300, default 15) to change observation cadence. Local
-execution remains sequential. `--selected-unit` is an advanced bounded action,
-and neither normal resume nor follow retries failed or interrupted units.
+public `--execute` submits the selected planned units, performs one initial
+readback/reconciliation for each submitted attempt, prints current status and a
+copy-pastable monitoring command, then exits even while jobs remain active or
+unresolved. A normal `--resume` on a policy-bound Condor root reconciles every
+selected active unit, publishes each valid terminal success, submits every
+eligible planned unit once, reads back the newly submitted attempts once, and
+exits. Terminal nonzero results become failed attempts, including workers held
+by OnExitHold with a verified failure receipt. Neither action retries failed or
+interrupted attempts or creates a second attempt for them. Scheduler success
+alone does not establish publication: the receipt/materialization checks still
+apply. Local execution remains foreground and sequential.
+
+Use the printed command for a separate, read-only scheduler observation:
+
+```bash
+PYTHON_BIN=/absolute/path/to/python ./analysis/topeft_run2/run_plotter.sh \
+  --status -o "$ROOT" --observe-scheduler
+```
+
+The handoff uses the actual interpreter, absolute wrapper path and quoted output
+root. It is printed on stderr for JSON/YAML so stdout remains machine-readable.
+Status never reconciles or publishes. The existing `--follow` option explicitly
+opts into foreground reconciliation/publication; only this option polls.
+It prints changed status and releases the lock between polls. Ctrl-C stops
+observation without cancelling jobs. `--poll-seconds N` (1–300, default 15)
+controls this optional cadence. `--selected-unit` remains a bounded action;
+follow also never retries failed or interrupted units.
 
 ```bash
 ./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign
 ```
 
-For a machine caller, request one JSON pass explicitly:
+For a machine caller, request JSON; `--one-pass` remains accepted and is the default:
 
 ```bash
 ./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign \

@@ -440,13 +440,14 @@ def test_legacy_unselected_four_condor_units_bind_before_submit_once(
                                  "--hard-limit-bytes", "192000000000"]) == 0
     capsys.readouterr()
     assert submitted == [(f"unit_{index}", "attempt_0001") for index in range(3, 7)]
+    assert observed == [(f"unit_{index}", "condor") for index in range(3, 7)]
     state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
     state = campaign.read_json(state_path)
     assert [state["units"][f"unit_{index}"]["status"] for index in range(3)] == [
         "success"] * 3
     assert campaign.main(base) == 0
     assert submitted == [(f"unit_{index}", "attempt_0001") for index in range(3, 7)]
-    assert observed == [(f"unit_{index}", "condor") for index in range(3, 7)]
+    assert observed == [(f"unit_{index}", "condor") for index in range(3, 7)] * 2
     state = campaign.read_json(state_path)
     assert all(len(state["units"][f"unit_{index}"]["attempts"]) == 1
                for index in range(7))
@@ -465,6 +466,8 @@ def test_fresh_policy_defaults_and_help_docs_agree(tmp_path, monkeypatch, capsys
         campaign.main(["--campaign-profile", "sr_crlike_run2", "--help"])
     assert exit_info.value.code == 0
     help_text = capsys.readouterr().out
+    assert 'opt in to foreground Condor' in help_text
+    assert 'return after one controller pass (default)' in ' '.join(help_text.split())
     for value in ("local", "cgroup_v2", "245000000000"):
         assert value in help_text
         assert value in (MODULE_PATH.parents[2] / "docs/how_to/plotting.md").read_text()
@@ -1841,9 +1844,6 @@ def test_scheduler_status_opt_in_is_read_only_and_shared(tmp_path, monkeypatch, 
         (metadata / 'scheduler_identity.json').write_text(json.dumps({**intent, 'job': '123.0'}))
         raise campaign.ActiveChildUnresolved('fixture submitted')
     monkeypatch.setattr(campaign.backend, 'execute', fake_execute)
-    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', plan_path=plan_path,
-                          action='execute', backend_name='condor', emit=False)
-    before = {str(p): p.read_bytes() for p in root.rglob('*') if p.is_file()}
     calls = []
     def fake(command, **kwargs):
         calls.append(command[0])
@@ -1855,6 +1855,11 @@ def test_scheduler_status_opt_in_is_read_only_and_shared(tmp_path, monkeypatch, 
                   MemoryUsage=0, ResidentSetSize=123456)
         return SimpleNamespace(returncode=0, stdout=json.dumps([ad]), stderr='')
     monkeypatch.setattr(condor, '_run', fake)
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', plan_path=plan_path,
+                          action='execute', backend_name='condor', emit=False)
+    assert calls == ['condor_q']
+    calls.clear()
+    before = {str(p): p.read_bytes() for p in root.rglob('*') if p.is_file()}
     assert campaign.main(['--status', '-o', str(root), '--format', 'json']) == 0
     assert json.loads(capsys.readouterr().out)['units'][0]['scheduler'] is None
     assert calls == []
@@ -2037,3 +2042,209 @@ def test_historical_command_identity_is_verification_only(tmp_path, monkeypatch)
     assert result['status']=='success'
     assert result['attempts'][0]['command_identity']==campaign.identity(historical)
     assert 'execution_contract' not in result['attempts'][0]
+
+
+@pytest.mark.parametrize('outcomes', [
+    ('idle', 'running'), ('success', 'running'), ('success', 'success'),
+    ('failure', 'running'), ('failure', 'failure'), ('unknown', 'unknown'),
+    ('held_failure', 'held_failure'), ('signal', 'running'),
+    ('success_without_receipt', 'running'), ('invalid_receipt', 'unknown'),
+])
+@pytest.mark.parametrize('output_format', ['human', 'json', 'yaml'])
+def test_condor_execute_one_shot_handoff_and_terminal_states(
+        tmp_path, monkeypatch, capsys, outcomes, output_format):
+    import shlex
+    import yaml
+
+    profile = 'sr_crlike_run2_run3'
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, profile=profile, unit_count=2)
+    # Exercise shell quoting without executing the printed scheduler command.
+    root = root.with_name("campaign output 'quoted' $literal")
+    submitted, observed, reconciled = [], [], []
+    original_reconcile = campaign.reconcile_running
+
+    def record_reconcile(*args):
+        reconciled.append(args[3]['binding']['unit_id'])
+        return original_reconcile(*args)
+
+    def fake_execute(argv, attempt_root, contract):
+        submitted.append((attempt_root.parent.name, attempt_root.name))
+        raise campaign.ActiveChildUnresolved(
+            'Condor execution submitted; resume observes this execution only')
+
+    def fake_observe(argv, attempt_root, contract):
+        assert len(submitted) == 2  # Both submissions precede the initial readback.
+        unit_id = attempt_root.parent.name
+        observed.append(unit_id)
+        outcome = outcomes[int(unit_id[-1])]
+        if outcome == 'success':
+            fake_success(argv, attempt_root)
+            return {'state': 'terminal_success'}
+        if outcome in {'failure', 'signal'}:
+            # Backend terminality is sufficient for failure, even without guard files.
+            return {'state': 'terminal_failure', 'ad': {
+                'JobStatus': 4, 'ExitCode': 1, 'ExitBySignal': outcome == 'signal'}}
+        if outcome in {'held_failure', 'invalid_receipt'}:
+            metadata = attempt_root / '_metadata'
+            metadata.mkdir()
+            (metadata / 'guard.jsonl').write_text(guard_result_line(1))
+            write_lifecycle(argv, attempt_root, 1, 1, 0)
+            if outcome == 'invalid_receipt':
+                receipt_path = campaign.lifecycle_receipt_path(attempt_root)
+                receipt = campaign.read_json(receipt_path)
+                receipt['command_identity'] = 'wrong'
+                campaign.atomic_json(receipt_path, receipt)
+            return {'state': 'pending', 'ad': {
+                'JobStatus': 5, 'ExitCode': 1, 'ExitBySignal': False,
+                'NumJobStarts': 1, 'HoldReason': 'OnExitHold expression is true'}}
+        if outcome == 'success_without_receipt':
+            return {'state': 'terminal_success'}
+        return {'state': 'unresolved' if outcome == 'unknown' else 'pending',
+                'ad': {'JobStatus': 1 if outcome == 'idle' else 2}}
+
+    monkeypatch.setattr(campaign, 'reconcile_running', record_reconcile)
+    monkeypatch.setattr(campaign.backend, 'execute', fake_execute)
+    monkeypatch.setattr(campaign.backend, 'observe', fake_observe)
+    monkeypatch.setattr(campaign.time, 'sleep', lambda *_: pytest.fail('implicit polling'))
+    monkeypatch.setattr(campaign, 'follow_campaign', lambda *_: pytest.fail('implicit follow'))
+    assert campaign.main([
+        '--campaign-profile', profile, '--campaign-tag', 'fixture_campaign',
+        '--plan', str(plan_path), '-o', str(root), '--backend', 'condor',
+        '--execute', '--format', output_format]) == 0
+    captured = capsys.readouterr()
+    assert submitted == [('unit_0', 'attempt_0001'), ('unit_1', 'attempt_0001')]
+    assert observed == reconciled == ['unit_0', 'unit_1']
+    handoff = captured.out if output_format == 'human' else captured.err
+    assert handoff.count('Monitor with:') == 1
+    command = handoff.split('Monitor with:\n  ')[1].strip()
+    assert shlex.split(command) == [
+        f'PYTHON_BIN={campaign.sys.executable}',
+        str(campaign.RUN_DIRECTORY / 'run_plotter.sh'),
+        '--status', '-o', str(root.resolve()), '--observe-scheduler']
+    if output_format == 'human':
+        assert 'Units:' in captured.out and 'Running:' in captured.out
+        assert 'Failed:' in captured.out and 'Pending:' in captured.out
+    else:
+        summary = yaml.safe_load(captured.out)
+        assert summary['summary_schema_version'] == campaign.SUMMARY_SCHEMA_VERSION
+        assert summary['planned_count'] == 2
+        assert 'Monitor with:' not in captured.out
+
+    terminal = {'failure', 'signal', 'held_failure', 'success'}
+    _, plan, states = campaign.load_campaign(root, profile, 'fixture_campaign',
+                                            campaign.runtime_identity())
+    final_summary = campaign.campaign_summary(root, plan, states)
+    assert final_summary['published_count'] == outcomes.count('success')
+    assert final_summary['failed_count'] == sum(outcome in terminal - {'success'} for outcome in outcomes)
+    assert final_summary['running_count'] == sum(
+        outcome not in terminal | {'success_without_receipt'} for outcome in outcomes)
+    assert final_summary['active_child_present'] == bool(final_summary['running_count'])
+    for index, outcome in enumerate(outcomes):
+        component = 'run2' if index == 0 else 'run3'
+        unit = campaign.read_json(campaign.state_path(root, profile, component))['units'][f'unit_{index}']
+        expected = ('success' if outcome == 'success' else 'failed' if outcome in terminal
+                    else 'interrupted' if outcome == 'success_without_receipt' else 'running')
+        assert unit['status'] == expected
+        assert len(unit['attempts']) == 1
+        attempt = unit['attempts'][0]
+        if outcome == 'held_failure':
+            assert attempt['child_result'] == 1
+            assert attempt['failure_classification'] == 'terminal guard/child/tee failure'
+        if outcome == 'success_without_receipt':
+            assert attempt['failure_classification'] == campaign.terminal_postprocessing_pending
+            assert final_summary['units'][index]['publish'] == 'publish pending'
+        if outcome == 'success':
+            assert attempt['materialization_status'] == 'complete'
+            assert attempt['completion_receipt_identity']
+            assert len(unit['materializations']) == 1
+        else:
+            assert not unit['materializations']
+            assert attempt['completion_receipt_identity'] is None
+        if expected == 'running':
+            if output_format == 'human':
+                assert 'terminal guard evidence unavailable' in captured.out
+            else:
+                expected_warning = ('terminal evidence unavailable' if outcome == 'invalid_receipt'
+                                    else 'terminal guard evidence unavailable')
+                assert expected_warning in summary['units'][index]['warning']
+
+    # An ordinary resume does not follow or retry terminal units. Unknown jobs
+    # remain explicit; no synthetic output is written on this second observation.
+    monkeypatch.setattr(campaign.backend, 'execute', lambda *_: pytest.fail('retry'))
+    monkeypatch.setattr(campaign.backend, 'observe', lambda *a: {'state': 'unresolved'})
+    assert campaign.main(['--resume', '-o', str(root), '--format', output_format]) == 0
+    capsys.readouterr()
+    for index, component in enumerate(('run2', 'run3')):
+        unit = campaign.read_json(campaign.state_path(root, profile, component))['units'][f'unit_{index}']
+        assert len(unit['attempts']) == 1
+        assert unit['attempts'][0]['attempt_id'] == 'attempt_0001'
+        if outcomes[index] in terminal:
+            assert unit['status'] == ('success' if outcomes[index] == 'success' else 'failed')
+        elif outcomes[index] == 'success_without_receipt':
+            assert unit['status'] == 'interrupted'
+    assert not list(root.rglob('attempt_0002'))
+
+
+@pytest.mark.parametrize('scheduler_failure', [False, True])
+def test_condor_resume_closes_held_failure_without_retry(tmp_path, monkeypatch, capsys, scheduler_failure):
+    root, _, attempt_root = seed_running(tmp_path, monkeypatch, terminal='failure')
+    path = campaign.state_path(root, 'sr_crlike_run2', 'run2')
+    state = campaign.read_json(path)
+    state['units']['unit_0']['attempts'][0]['execution_contract']['backend'] = 'condor'
+    campaign.atomic_json(path, state)
+
+    def observe(*args):
+        if scheduler_failure:
+            raise campaign.CampaignError('synthetic scheduler unavailable')
+        return {'state': 'pending', 'ad': {'JobStatus': 5, 'ExitCode': 7}}
+
+    monkeypatch.setattr(campaign.backend, 'observe', observe)
+    monkeypatch.setattr(campaign.backend, 'execute', lambda *_: pytest.fail('retry'))
+    monkeypatch.setattr(campaign.time, 'sleep', lambda *_: pytest.fail('implicit polling'))
+    assert campaign.main(['--resume', '-o', str(root)]) == 0
+    unit = campaign.read_json(path)['units']['unit_0']
+    assert unit['status'] == unit['attempts'][0]['result'] == 'failed'
+    assert unit['attempts'][0]['child_result'] == 7
+    assert len(unit['attempts']) == 1
+    assert not (attempt_root.parent / 'attempt_0002').exists()
+    assert 'reconciliation needed' not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('action', ['execute', 'resume'])
+def test_condor_follow_requires_explicit_opt_in(tmp_path, monkeypatch, action):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch)
+    monkeypatch.setattr(campaign.backend, 'execute', lambda *_: (_ for _ in ()).throw(
+        campaign.ActiveChildUnresolved('synthetic submission')))
+    monkeypatch.setattr(campaign.backend, 'observe', lambda *_: {'state': 'pending'})
+    followed = []
+    monkeypatch.setattr(campaign, 'follow_campaign', lambda *args: followed.append(args))
+    if action == 'resume':
+        campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign',
+                              plan_path=plan_path, action='execute', backend_name='condor', emit=False)
+        args = ['--resume', '-o', str(root)]
+    else:
+        args = ['--campaign-profile', 'sr_crlike_run2', '--campaign-tag', 'fixture_campaign',
+                '--execute', '--plan', str(plan_path), '-o', str(root), '--backend', 'condor']
+    assert campaign.main(args + ['--follow']) == 0
+    assert len(followed) == 1
+
+
+def test_local_execute_keeps_foreground_sequential_semantics(tmp_path, monkeypatch, capsys):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    calls = []
+
+    def execute(argv, attempt_root, contract):
+        if calls:
+            state = campaign.read_json(campaign.state_path(root, 'sr_crlike_run2', 'run2'))
+            assert state['units']['unit_0']['status'] == 'success'
+        calls.append(attempt_root.parent.name)
+        return fake_success(argv, attempt_root)
+
+    monkeypatch.setattr(campaign.backend, 'execute', execute)
+    monkeypatch.setattr(campaign.backend, 'observe', lambda *_: pytest.fail('local scheduler observation'))
+    assert campaign.main(['--campaign-profile', 'sr_crlike_run2', '--campaign-tag', 'fixture_campaign',
+                          '--execute', '--plan', str(plan_path), '-o', str(root)]) == 0
+    assert calls == ['unit_0', 'unit_1']
+    output = capsys.readouterr().out
+    assert 'Units: 2 published / 2 planned' in output
+    assert 'Monitor with:' not in output
