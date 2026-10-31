@@ -236,6 +236,28 @@ For an existing campaign, use the read-only status command:
 
 For a current-content check, add `--verify-published` to that status command.
 
+For one live scheduler observation, add `--observe-scheduler`. This explicitly
+queries each bound Condor job in the queue, then history on a queue miss. It
+does not reconcile, publish, submit, retry, or write recovered scheduler IDs.
+Missing or contradictory evidence requires attention; HELD remains nonterminal.
+The scheduler row includes HELD/removal reasons, exit/signal evidence, and raw
+`MEM_MB` (`MemoryUsage`) and `RSS_KIB` (`ResidentSetSize`) as distinct quantities.
+JSON and YAML retain the requested raw ClassAd attributes under each unit's
+`scheduler.raw_classad`; scheduler completion alone never establishes publication.
+Scheduler reads require the relevant site/network authorization.
+
+Refresh externally when those reads are authorized:
+
+```bash
+watch -n 5 -t './analysis/topeft_run2/run_plotter.sh --status -o /absolute/path/to/topeft/histos/my_campaign --observe-scheduler'
+```
+
+The former `plot_campaign_condor.py monitor --diagnostics-dir ...` route returns
+a migration error. Use the persistent canonical root with the status command
+above and `--format json` for machine callers. Historical TSV submission maps
+remain evidence and are not persistent campaign roots; they are not silently
+converted. Ordinary status remains offline.
+
 It reads campaign identity from the root and shows the exact tag, plan
 revision, final root, separate execution, publication and integrity states,
 recorded job IDs, and action-needed warnings. Human status distinguishes

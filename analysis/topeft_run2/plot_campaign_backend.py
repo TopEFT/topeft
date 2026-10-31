@@ -230,12 +230,14 @@ def execute(argv, attempt_root, contract):
     raise ActiveChildUnresolved("Condor execution submitted; resume observes this execution only")
 
 
-def observe(argv, attempt_root, contract):
+def observe(argv, attempt_root, contract, *, read_only=False):
     from analysis.topeft_run2 import plot_campaign_condor
     expected = execution_descriptor(argv, attempt_root, contract)
     path = attempt_root / "_metadata/execution.json"
     require(path.is_file() and not path.is_symlink(), "execution descriptor missing or unsafe")
     require(json.loads(path.read_text()) == expected, "execution descriptor changed")
+    if read_only:
+        return plot_campaign_condor.observe(path, expected, read_only=True)
     return plot_campaign_condor.observe(path, expected)
 
 

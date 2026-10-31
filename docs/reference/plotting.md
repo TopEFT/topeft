@@ -362,3 +362,23 @@ Missing-lifecycle recovery that checks local PIDs is limited to local attempts;
 remote process liveness is not inferred from a submit-host PID. An ambiguous
 submission without a proven scheduler identity remains waiting and requires
 separately authorized reconciliation evidence; resume never guesses or resubmits.
+
+# Scheduler observations in campaign status
+
+`--status --observe-scheduler -o ROOT` is a one-shot, read-only projection through
+the campaign controller and its backend. Default `--status` makes no scheduler
+calls. The option is valid only with status, and can be combined with human,
+JSON or YAML output and `--verify-published`. It does not change the persisted
+campaign or recover scheduler identity to disk.
+
+Each Condor unit's optional `scheduler` object contains `state`, `backend_state`,
+`source`, `observed_at`, `attention`, `reason`, `mem_mb`, `rss_kib`, and
+`raw_classad`. Queue miss falls back to history; unresolved or contradictory
+identity is UNKNOWN with attention. HELD, removal, nonzero exit and signal
+termination require attention. A scheduler observation never overrides the
+separate execution, publication, integrity or dispatch axes. MEM_MB and RSS_KIB
+preserve raw scheduler values, including zero; unavailable values are null.
+
+`plot_campaign_condor.py` is an internal observation/submission adapter. Its
+retired standalone command exits with a migration message; legacy diagnostics
+and submission maps are not implicitly adopted by a persistent campaign.

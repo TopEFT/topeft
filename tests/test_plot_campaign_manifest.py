@@ -1806,6 +1806,89 @@ def test_read_only_status_presentation_and_receipt_boundary(tmp_path, monkeypatc
     assert invalid['units'][0]['publish'] != 'published'
 
 
+@pytest.mark.parametrize('ad,state,attention', [
+    ({'JobStatus': 2}, 'pending', False),
+    ({'JobStatus': 4, 'ExitCode': 0, 'ExitBySignal': False}, 'terminal_success', False),
+    (None, 'unresolved', True),
+    ({'JobStatus': 5, 'HoldReason': 'fixture held'}, 'pending', True),
+    ({'JobStatus': 4, 'ExitCode': 7}, 'terminal_failure', True),
+    ({'JobStatus': 4, 'ExitBySignal': True, 'ExitSignal': 9}, 'terminal_failure', True),
+])
+def test_scheduler_status_is_observation_not_publication(ad, state, attention):
+    observation = {'state': state, 'ad': ad, 'source': 'history'}
+    result = campaign.scheduler_status(observation)
+    assert result['attention'] is attention
+    assert result['raw_classad'] == ad
+    assert result['state'] == ('UNKNOWN' if ad is None else {
+        2: 'RUNNING', 4: 'COMPLETED', 5: 'HELD'}[ad['JobStatus']])
+    assert 'publication' not in result and 'dispatch' not in result
+
+
+def test_scheduler_status_opt_in_is_read_only_and_shared(tmp_path, monkeypatch, capsys):
+    from analysis.topeft_run2 import plot_campaign_condor as condor
+    from types import SimpleNamespace
+    import pwd
+    import os
+    import yaml
+    root, plan_path = fixture_plan(tmp_path, monkeypatch)
+    def fake_execute(argv, attempt_root, contract):
+        descriptor = campaign.backend.execution_descriptor(argv, attempt_root, contract)
+        metadata = attempt_root / '_metadata'
+        metadata.mkdir(exist_ok=True)
+        (metadata / 'execution.json').write_text(json.dumps(descriptor))
+        intent = dict(token=descriptor['token'], pool='fixture.invalid', schedd='fixture.invalid')
+        (metadata / 'submission_intent.json').write_text(json.dumps(intent))
+        (metadata / 'scheduler_identity.json').write_text(json.dumps({**intent, 'job': '123.0'}))
+        raise campaign.ActiveChildUnresolved('fixture submitted')
+    monkeypatch.setattr(campaign.backend, 'execute', fake_execute)
+    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', plan_path=plan_path,
+                          action='execute', backend_name='condor', emit=False)
+    before = {str(p): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+    calls = []
+    def fake(command, **kwargs):
+        calls.append(command[0])
+        assert command[0] in ('condor_q', 'condor_history')
+        descriptor_path = next(root.rglob('execution.json'))
+        token = json.loads(descriptor_path.read_text())['token']
+        ad = dict(ClusterId=123, ProcId=0, Owner=pwd.getpwuid(os.getuid()).pw_name,
+                  PlotExecutionToken=token, JobStatus=5, HoldReason='fixture held',
+                  MemoryUsage=0, ResidentSetSize=123456)
+        return SimpleNamespace(returncode=0, stdout=json.dumps([ad]), stderr='')
+    monkeypatch.setattr(condor, '_run', fake)
+    assert campaign.main(['--status', '-o', str(root), '--format', 'json']) == 0
+    assert json.loads(capsys.readouterr().out)['units'][0]['scheduler'] is None
+    assert calls == []
+    for output_format in ('json', 'yaml', 'human'):
+        assert campaign.main(['--status', '-o', str(root), '--observe-scheduler',
+                              '--format', output_format]) == 0
+        output = capsys.readouterr().out
+        if output_format == 'human':
+            assert 'HELD' in output and 'fixture held' in output
+            assert 'MEM_MB=0 RSS_KIB=123456' in output
+        else:
+            summary = yaml.safe_load(output)
+            assert summary['published_count'] == 0
+            assert summary['units'][0]['execution'] == 'running'
+            scheduler = summary['units'][0]['scheduler']
+            assert scheduler['attention'] and scheduler['mem_mb'] == 0
+            assert scheduler['rss_kib'] == 123456
+    assert calls == ['condor_q'] * 3
+    def mismatched(command, **kwargs):
+        result = fake(command, **kwargs)
+        ads = json.loads(result.stdout)
+        ads[0]['PlotExecutionToken'] = 'wrong'
+        result.stdout = json.dumps(ads)
+        return result
+    monkeypatch.setattr(condor, '_run', mismatched)
+    assert campaign.main(['--status', '-o', str(root), '--observe-scheduler',
+                          '--format', 'json']) == 0
+    unresolved = json.loads(capsys.readouterr().out)['units'][0]['scheduler']
+    assert unresolved['state'] == 'UNKNOWN' and unresolved['attention']
+    assert unresolved['raw_classad'] is None
+    assert 'identity/token/owner contradiction' in unresolved['reason']
+    assert {str(p): p.read_bytes() for p in root.rglob('*') if p.is_file()} == before
+
+
 def test_follow_reports_changes_only_and_interrupt_is_nonmutating(tmp_path, monkeypatch, capsys):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
     submitted = []

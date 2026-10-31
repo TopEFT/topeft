@@ -1131,7 +1131,7 @@ def sha256_canonical_file(path, root):
 
 def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
                      execution_policy=None, action_scope=None, dispatch=None,
-                     verify_published=False):
+                     verify_published=False, observe_scheduler=False):
     """Read-only presentation derived from the bound plan and component states."""
     from analysis.topeft_run2 import plot_campaign_condor as condor
 
@@ -1152,6 +1152,7 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
         if warning and "Condor execution submitted; resume observes this execution only" in warning:
             warning = None
         job = None
+        scheduler = None
         paths = []
         if attempt:
             attempt_root = Path(attempt["private_unit_root"])
@@ -1164,6 +1165,15 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
                     job = condor._read_identity(metadata / "scheduler_identity.json", intent)["job"]
                 except (CampaignError, OSError, KeyError, ValueError) as error:
                     warning = warning or f"scheduler identity unavailable: {error_description(error)}"
+                if observe_scheduler:
+                    try:
+                        observation = backend.observe(
+                            attempt_argv(unit, attempt), attempt_root,
+                            attempt["execution_contract"], read_only=True)
+                    except (CampaignError, OSError, KeyError, ValueError) as error:
+                        observation = {"state": "unresolved", "reason": error_description(error)}
+                    scheduler = scheduler_status(observation)
+                    job = observation.get("job", job)
             if state == "running":
                 lifecycle_path = lifecycle_receipt_path(attempt_root)
                 if lifecycle_path.is_file() and not lifecycle_path.is_symlink():
@@ -1250,7 +1260,8 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
         units.append({"unit_id": unit["unit_id"], "component": unit["component"],
                       "execution": execution, "publish": publish,
                       "publication": publish, "integrity": integrity, "job": job,
-                      "canonical_paths": paths, "warning": warning})
+                      "canonical_paths": paths, "warning": warning,
+                      "scheduler": scheduler})
     counts = Counter(unit["status"] for state in states.values()
                      for unit in state["units"].values())
     dispatch = dispatch or dispatch_decision(
@@ -1294,6 +1305,23 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
     }
 
 
+def scheduler_status(observation):
+    """Present objective backend evidence without reconciling campaign state."""
+    ad = observation.get("ad") or {}
+    label = {1: "IDLE", 2: "RUNNING", 3: "REMOVED", 4: "COMPLETED",
+             5: "HELD", 6: "TRANSFERRING", 7: "SUSPENDED"}.get(ad.get("JobStatus"), "UNKNOWN")
+    attention = (label in {"HELD", "REMOVED", "UNKNOWN"}
+                 or observation["state"] in {"unresolved", "terminal_failure"}
+                 or ad.get("ExitCode") not in (None, 0)
+                 or ad.get("ExitSignal") is not None or ad.get("ExitBySignal") is True)
+    return {"state": label, "backend_state": observation["state"],
+            "source": observation.get("source", "unresolved"),
+            "observed_at": best_effort_utc_now(), "attention": attention,
+            "reason": observation.get("reason") or ad.get("HoldReason") or ad.get("RemoveReason"),
+            "mem_mb": ad.get("MemoryUsage"), "rss_kib": ad.get("ResidentSetSize"),
+            "raw_classad": observation.get("ad")}
+
+
 def show_summary(summary, output_format):
     if output_format == "json":
         print(json.dumps(summary, sort_keys=True))
@@ -1327,6 +1355,17 @@ def show_summary(summary, output_format):
                   f"{unit['job'] or '-':12} {len(unit['canonical_paths'])}")
             if unit["warning"]:
                 print(f"  {unit['unit_id']}: {unit['warning']}")
+            scheduler = unit.get("scheduler")
+            if scheduler is not None:
+                ad = scheduler["raw_classad"] or {}
+                shown = lambda value: "-" if value is None else str(value)
+                print(f"  Scheduler: {scheduler['state']} ({scheduler['source']})"
+                      f" | Attention: {scheduler['attention']}"
+                      f" | MEM_MB={shown(scheduler['mem_mb'])} RSS_KIB={shown(scheduler['rss_kib'])}"
+                      f" | exit={shown(ad.get('ExitCode'))} signal={shown(ad.get('ExitSignal'))}"
+                      f" ExitBySignal={shown(ad.get('ExitBySignal'))}")
+                if scheduler["reason"]:
+                    print(f"  Scheduler reason: {scheduler['reason']}")
         for message in [*summary["unit_errors"], *summary["waiting_reasons"]]:
             if routine_waiting_reason(message):
                 continue
@@ -1649,6 +1688,8 @@ def main(argv=None):
     actions.add_argument("--status", action="store_true", help="read-only status for an existing root")
     parser.add_argument("--verify-published", action="store_true",
                         help="with --status, hash recorded canonical PNGs against publication SHA-256")
+    parser.add_argument("--observe-scheduler", action="store_true",
+                        help="with --status, query bound Condor jobs once; no reconciliation or writes")
     actions.add_argument("--recover-terminal-unit", action="store_true")
     actions.add_argument("--recover-rejected-condor-submit", action="store_true",
                          help="submit once on the same selected attempt after a proven local Condor submitfile rejection")
@@ -1683,6 +1724,8 @@ def main(argv=None):
         output_format = args.format or "human"
         require(args.status or not args.verify_published,
                 "--verify-published requires --status")
+        require(args.status or not args.observe_scheduler,
+                "--observe-scheduler requires --status")
         if not (args.dry_run or args.execute):
             check_root(root, fresh=False)
             coordinator = read_json(coordinator_path(root))
@@ -1709,7 +1752,8 @@ def main(argv=None):
             coordinator, plan, states = load_campaign(root, profile, args.campaign_tag, runtime)
             summary = campaign_summary(root, plan, states,
                                        execution_policy=coordinator.get("execution_policy_v1"),
-                                       verify_published=args.verify_published)
+                                       verify_published=args.verify_published,
+                                       observe_scheduler=args.observe_scheduler)
             show_summary(summary, output_format)
             return 0
         if args.dry_run or args.execute:

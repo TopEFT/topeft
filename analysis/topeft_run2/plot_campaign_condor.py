@@ -9,6 +9,20 @@ from pathlib import Path
 import pwd
 import re
 import subprocess
+import sys
+
+def main(argv=None):
+    """Fail visibly for the retired public CLI, without observing or mutating."""
+    print('The standalone plotting monitor is retired. Use run_plotter.sh --status '
+          '-o CANONICAL_ROOT --observe-scheduler [--format json|yaml]. '
+          'Legacy --diagnostics-dir/campaign_submission_map.json cannot be used '
+          'as a persistent campaign root; retain that historical evidence.', file=sys.stderr)
+    return 2
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
+
 
 from analysis.topeft_run2 import plot_campaign_backend as backend
 
@@ -298,7 +312,10 @@ def recover_rejected_submit(descriptor_path, descriptor):
 
 
 def _query(job, command, intent):
-    attributes = 'ClusterId,ProcId,Owner,JobStatus,ExitCode,ExitBySignal,PlotExecutionToken,NumJobStarts'
+    attributes = ('ClusterId,ProcId,Owner,JobStatus,ExitCode,ExitBySignal,ExitSignal,'
+                  'PlotExecutionToken,NumJobStarts,HoldReason,RemoveReason,MemoryUsage,'
+                  'ResidentSetSize,RequestCpus,RequestMemory,RequestDisk,RemoteHost,'
+                  'LastRemoteHost,RemoteWallClockTime')
     argv = [command, '-pool', intent['pool'], '-name', intent['schedd'], job]
     if command == 'condor_history':
         argv.extend(('-limit', '1'))
@@ -349,7 +366,7 @@ def _recover(command, intent):
     return f"{ad['ClusterId']}.0"
 
 
-def observe(descriptor_path, descriptor):
+def observe(descriptor_path, descriptor, *, read_only=False):
     """Observe only the persisted target; missing identity reconciles without submit."""
     intent_path = descriptor_path.parent / 'submission_intent.json'
     identity_path = descriptor_path.parent / 'scheduler_identity.json'
@@ -366,12 +383,15 @@ def observe(descriptor_path, descriptor):
             job = _recover('condor_history', intent)
         if job is None:
             return {'state': 'unresolved', 'reason': 'no unique scheduler identity; no resubmit'}
-        _persist_identity(identity_path, intent, job)
+        if not read_only:
+            _persist_identity(identity_path, intent, job)
+    source = 'queue'
     ad = _query(job, 'condor_q', intent)
     if ad is None:
+        source = 'history'
         ad = _query(job, 'condor_history', intent)
     if ad is None:
-        return {'state': 'unresolved', 'job': job}
+        return {'state': 'unresolved', 'job': job, 'source': 'unresolved', 'ad': None}
     status = ad.get('JobStatus')
     # Held jobs are not terminal: they can be released externally.
     if status == 3:
@@ -385,4 +405,4 @@ def observe(descriptor_path, descriptor):
                      not ad['ExitBySignal'] and ad['NumJobStarts'] == 1 else 'terminal_failure')
     else:
         state = 'pending' if status in {1, 2, 5, 6, 7} else 'unresolved'
-    return {'state': state, 'job': job, 'ad': ad}
+    return {'state': state, 'job': job, 'source': source, 'ad': ad}

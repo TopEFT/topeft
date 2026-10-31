@@ -295,6 +295,42 @@ def test_query_history_and_unknown_do_not_resubmit(execution, monkeypatch):
     assert condor.observe(*execution)['state'] == 'unresolved'
 
 
+@pytest.mark.parametrize('in_history', [False, True])
+def test_read_only_observation_preserves_raw_metrics_and_files(execution, monkeypatch, in_history):
+    ad = {**bind(execution), 'JobStatus': 5, 'HoldReason': 'memory exceeded',
+          'MemoryUsage': 0, 'ResidentSetSize': 123456, 'ExitSignal': 9}
+    path, descriptor = execution
+    # Read-only recovery may find the job but must not persist its identity.
+    (path.parent / 'scheduler_identity.json').unlink()
+    before = {p.name: p.read_bytes() for p in path.parent.iterdir()}
+    calls = []
+    def fake(command, **kwargs):
+        calls.append(command)
+        assert command[0] in {'condor_q', 'condor_history'}
+        if '-constraint' not in command:
+            attrs = command[command.index('-attributes') + 1].split(',')
+            assert {'HoldReason', 'MemoryUsage', 'ResidentSetSize', 'ExitSignal'} <= set(attrs)
+        return response('[]' if in_history and command[0] == 'condor_q' else json.dumps([ad]))
+    monkeypatch.setattr(condor.subprocess, 'run', fake)
+    observation = condor.observe(path, descriptor, read_only=True)
+    assert observation['ad'] == ad
+    assert observation['source'] == ('history' if in_history else 'queue')
+    assert observation['state'] == 'pending'
+    assert {p.name: p.read_bytes() for p in path.parent.iterdir()} == before
+    assert len(calls) == (4 if in_history else 2)
+
+
+def test_retired_monitor_direct_invocation_has_migration_error(tmp_path):
+    import sys
+    result = subprocess.run([sys.executable, condor.__file__, 'monitor',
+                             '--diagnostics-dir', str(tmp_path)], cwd=tmp_path,
+                            capture_output=True, text=True)
+    assert result.returncode == 2
+    assert 'run_plotter.sh --status' in result.stderr
+    assert '--observe-scheduler' in result.stderr
+    assert not list(tmp_path.iterdir())
+
+
 @pytest.mark.parametrize('corruption', ['job', 'token', 'duplicate', 'json', 'error'])
 def test_query_contradictions_fail_closed(execution, monkeypatch, corruption):
     ad = bind(execution)
