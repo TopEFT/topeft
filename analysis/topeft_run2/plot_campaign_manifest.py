@@ -1033,6 +1033,40 @@ def derive_action_scope(plan, states, selected=None):
             "can_start_new_attempt": bool(launchable)}
 
 
+def dispatch_decision(plan, states, action_scope, execution_policy, active_reasons=()):
+    """One backend-aware decision for both launches and status presentation."""
+    reasons_by_unit = {item.split(":", 1)[0]: item for item in active_reasons}
+    active_local = False
+    for unit in plan["units"]:
+        unit_state = states[unit["component"]]["units"][unit["unit_id"]]
+        if unit_state["status"] != "running":
+            continue
+        label = f"{unit['component']}/{unit['unit_id']}"
+        reasons_by_unit.setdefault(label, f"{label}: remains running")
+        attempt = unit_state["attempts"][-1]
+        contract = attempt.get("execution_contract")
+        require(contract is None or (isinstance(contract, dict) and
+                                     contract.get("version") == 1 and
+                                     contract.get("backend") in {"local", "condor"} and
+                                     isinstance(contract.get("argv"), list) and
+                                     bool(contract["argv"])),
+                f"active attempt backend is invalid: {label}")
+        if contract is None or contract["backend"] == "local":
+            active_local = True
+    reasons = list(reasons_by_unit.values())
+    launchable = [unit_id for unit_id in action_scope["launchable_planned_unit_ids"]
+                  if any(unit["unit_id"] == unit_id and
+                         states[unit["component"]]["units"][unit_id]["status"] == "planned"
+                         for unit in plan["units"])]
+    blocked = bool(launchable and active_local and
+                   (execution_policy or {}).get("backend", "local") == "local")
+    return {"active_child_present": bool(reasons),
+            "active_child_reasons": reasons,
+            "dispatch_blocked": blocked,
+            "dispatch_blocked_reasons": reasons if blocked else [],
+            "launchable_planned_unit_ids": [] if blocked else launchable}
+
+
 def resolve_execution_policy(coordinator, supplied, scope, *, fresh=False):
     """Bind future attempts once; historical attempt contracts remain authoritative."""
     require(set(supplied) == set(DEFAULT_EXECUTION_POLICY),
@@ -1096,7 +1130,8 @@ def sha256_canonical_file(path, root):
 
 
 def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
-                     execution_policy=None, action_scope=None, verify_published=False):
+                     execution_policy=None, action_scope=None, dispatch=None,
+                     verify_published=False):
     """Read-only presentation derived from the bound plan and component states."""
     from analysis.topeft_run2 import plot_campaign_condor as condor
 
@@ -1104,7 +1139,7 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
     for unit in plan["units"]:
         unit_state = states[unit["component"]]["units"][unit["unit_id"]]
         state = unit_state["status"]
-        attempt = unit_state["attempts"][0] if unit_state["attempts"] else None
+        attempt = unit_state["attempts"][-1] if unit_state["attempts"] else None
         execution = {"planned": "pending", "running": "running",
                      "success": "completed", "failed": "failed",
                      "interrupted": "interrupted"}[state]
@@ -1145,30 +1180,60 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
                 integrity = "unavailable"
                 try:
                     receipt = read_json(completion_receipt_path(attempt_root))
-                    require(identity(receipt) == attempt["completion_receipt_identity"],
+                    require(isinstance(receipt, dict), "completion receipt is malformed")
+                    receipt_id = attempt.get("completion_receipt_identity")
+                    require(attempt.get("result") == "success"
+                            and attempt.get("materialization_status") == "complete"
+                            and isinstance(receipt_id, str) and SHA256.fullmatch(receipt_id),
+                            "successful publication provenance is incomplete")
+                    require(identity(receipt) == receipt_id,
                             "completion receipt identity changed")
+                    relatives = receipt.get("observed_png_relative_paths")
                     require(receipt.get("unit_id") == unit["unit_id"]
-                            and receipt.get("observed_png_relative_paths") ==
-                            list(unit_state["materializations"]),
+                            and receipt.get("attempt_id") == attempt["attempt_id"]
+                            and isinstance(relatives, list) and relatives
+                            and len(relatives) == len(set(relatives))
+                            and set(relatives) == set(unit_state["materializations"])
+                            and receipt.get("observed_png_count") == len(relatives)
+                            and isinstance(receipt.get("observed_png_sha256"), dict)
+                            and isinstance(receipt.get("observed_png_sizes"), dict)
+                            and set(receipt["observed_png_sha256"]) == set(relatives)
+                            and set(receipt["observed_png_sizes"]) == set(relatives),
                             "publication records contradict receipt")
-                    for relative in receipt["observed_png_relative_paths"]:
+                    for relative in relatives:
                         binding = unit_state["materializations"][relative]
                         path = canonical_observed_path(root, relative)
-                        reject_symlink_ancestors(path.parent, root)
                         require(binding == {
                             "unit_id": unit["unit_id"],
-                            "receipt_identity": attempt["completion_receipt_identity"],
+                            "receipt_identity": receipt_id,
                             "sha256": receipt["observed_png_sha256"][relative],
                             "size_bytes": receipt["observed_png_sizes"][relative],
-                        } and path.is_file() and not path.is_symlink()
-                                and path.stat().st_size == binding["size_bytes"],
-                                f"canonical publication unavailable: {relative}")
+                        } and isinstance(binding["sha256"], str)
+                                and SHA256.fullmatch(binding["sha256"])
+                                and isinstance(binding["size_bytes"], int)
+                                and not isinstance(binding["size_bytes"], bool)
+                                and binding["size_bytes"] > 0,
+                                f"publication provenance invalid: {relative}")
                         paths.append(str(path))
                     publish = "published"
                     integrity = "metadata_consistent"
-                    if verify_published:
+                    for relative in relatives:
+                        path = canonical_observed_path(root, relative)
+                        try:
+                            reject_symlink_ancestors(path.parent, root)
+                            require(not path.is_symlink(), f"unsafe canonical symlink: {relative}")
+                            require(path.is_file(), f"canonical file unavailable: {relative}")
+                            if path.stat().st_size != unit_state["materializations"][relative]["size_bytes"]:
+                                integrity = "content_mismatch"
+                                warning = f"canonical size mismatch: {relative}"
+                                break
+                        except (CampaignError, OSError, ValueError) as error:
+                            integrity = "unavailable"
+                            warning = f"canonical file unavailable: {error_description(error)}"
+                            break
+                    if verify_published and integrity == "metadata_consistent":
                         integrity = "content_verified"
-                        for relative in receipt["observed_png_relative_paths"]:
+                        for relative in relatives:
                             path = canonical_observed_path(root, relative)
                             if sha256_canonical_file(path, root) != (
                                     unit_state["materializations"][relative]["sha256"]):
@@ -1178,7 +1243,7 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
                 except (CampaignError, OSError, KeyError, TypeError, ValueError) as error:
                     if publish != "published":
                         paths = []
-                        warning = f"publication needs review: {error_description(error)}"
+                        warning = f"publication provenance unavailable: {error_description(error)}"
                     else:
                         integrity = "unavailable"
                         warning = f"content verification unavailable: {error_description(error)}"
@@ -1188,27 +1253,11 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
                       "canonical_paths": paths, "warning": warning})
     counts = Counter(unit["status"] for state in states.values()
                      for unit in state["units"].values())
-    running_view_ids = {unit["unit_id"] for unit in units if unit["execution"] == "running"}
-    active_reasons = list(active_reasons)
-    active_ids = {item.split(":", 1)[0] for item in active_reasons}
-    for unit in plan["units"]:
-        unit_state = states[unit["component"]]["units"][unit["unit_id"]]
-        label = f"{unit['component']}/{unit['unit_id']}"
-        if unit["unit_id"] in running_view_ids and label not in active_ids:
-            active_reasons.append(f"{label}: remains running")
-    planned = (any(states[unit["component"]]["units"][unit["unit_id"]]["status"]
-                   == "planned" for unit in plan["units"]
-                   if unit["unit_id"] in action_scope["selected_unit_ids"])
-               if action_scope is not None else counts["planned"] > 0)
-    active_local = any(
-        (states[unit["component"]]["units"][unit["unit_id"]]["attempts"][0]
-         .get("execution_contract") or {}).get("backend", "local") == "local"
-        for unit in plan["units"]
-        if unit["unit_id"] in running_view_ids or
-        f"{unit['component']}/{unit['unit_id']}" in active_ids)
-    dispatch_blocked = bool(planned and active_local and active_reasons and
-                            (execution_policy or {}).get("backend", "local") == "local")
-    waiting_reasons = active_reasons if dispatch_blocked else []
+    dispatch = dispatch or dispatch_decision(
+        plan, states, action_scope or derive_action_scope(plan, states),
+        execution_policy, active_reasons)
+    dispatch_blocked = dispatch["dispatch_blocked"]
+    waiting_reasons = dispatch["dispatch_blocked_reasons"]
     if dispatch_blocked:
         campaign_status = "waiting"
     elif counts["failed"] or counts["interrupted"] or unit_errors:
@@ -1227,8 +1276,8 @@ def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
         "success_count": counts["success"], "failed_count": counts["failed"],
         "interrupted_count": counts["interrupted"], "running_count": counts["running"],
         "pending_count": counts["planned"],
-        "active_child_present": bool(active_reasons),
-        "active_child_reasons": active_reasons,
+        "active_child_present": dispatch["active_child_present"],
+        "active_child_reasons": dispatch["active_child_reasons"],
         "dispatch_blocked": dispatch_blocked,
         "dispatch_blocked_reasons": waiting_reasons,
         "waiting_on_active_child": dispatch_blocked,
@@ -1253,7 +1302,14 @@ def show_summary(summary, output_format):
     else:
         print(f"Campaign: {summary['campaign_profile']}")
         print(f"Tag: {summary['campaign_tag']}")
-        print(f"Backend: {summary['backend']} | Plan revision: {summary['plan_revision']}")
+        print(f"Historical backends: {summary['backend']} | Plan revision: {summary['plan_revision']}")
+        policy = summary["execution_policy"]
+        if policy is None:
+            print("Future attempts: unbound (legacy campaign)")
+        else:
+            print("Future attempts: "
+                  f"{policy['backend']} / {policy['resource_observer']} / "
+                  f"{policy['hard_limit_bytes']} bytes")
         print(f"Final output: {summary['canonical_output_root']}")
         published_paths = [path for unit in summary["units"] for path in unit["canonical_paths"]]
         if published_paths:
@@ -1435,11 +1491,6 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, ex
     }
     unit_errors = []
     unresolved_running = []
-    if selected and effective_options["backend"] == "local":
-        for component in PROFILES[profile]:
-            for unit_id, unit_state in states[component]["units"].items():
-                if unit_id != selected and unit_state["status"] == "running":
-                    unresolved_running.append(f"{component}/{unit_id}: local child remains active")
     if action == "resume":
         for component in PROFILES[profile]:
             state = states[component]
@@ -1463,30 +1514,27 @@ def _run_campaign_locked(root, profile, tag, action, selected, prepared_plan, ex
                 if unit_state["status"] == "running" and not any(
                         item.startswith(f"{component}/{unit_id}:") for item in unresolved_running):
                     unresolved_running.append(f"{component}/{unit_id}: remains running")
-    can_start = not unresolved_running or effective_options["backend"] == "condor"
-    if can_start:
-        for component in PROFILES[profile]:
-            state = states[component]
-            for unit in plan["units"]:
-                if unresolved_running and effective_options["backend"] == "local":
-                    break
-                if unit["component"] != component or unit["unit_id"] not in scope["launchable_planned_unit_ids"]:
-                    continue
-                unit_state = state["units"][unit["unit_id"]]
-                if unit_state["status"] != "planned":
-                    continue
-                try:
-                    execute_unit(plan, component, state, unit_state, root, runtime, effective_options)
-                except ActiveChildUnresolved as error:
-                    unresolved_running.append(
-                        f"{component}/{unit['unit_id']}: {error_description(error)}")
-                except (CampaignError, OSError, subprocess.SubprocessError) as error:
-                    unit_errors.append(
-                        f"{component}/{unit['unit_id']}: {error_description(error)}")
+    for component in PROFILES[profile]:
+        state = states[component]
+        for unit in plan["units"]:
+            decision = dispatch_decision(plan, states, scope, policy, unresolved_running)
+            if unit["component"] != component or unit["unit_id"] not in decision[
+                    "launchable_planned_unit_ids"]:
+                continue
+            unit_state = state["units"][unit["unit_id"]]
+            try:
+                execute_unit(plan, component, state, unit_state, root, runtime, effective_options)
+            except ActiveChildUnresolved as error:
+                unresolved_running.append(
+                    f"{component}/{unit['unit_id']}: {error_description(error)}")
+            except (CampaignError, OSError, subprocess.SubprocessError) as error:
+                unit_errors.append(
+                    f"{component}/{unit['unit_id']}: {error_description(error)}")
+    decision = dispatch_decision(plan, states, scope, policy, unresolved_running)
     return campaign_summary(root, plan, states, unit_errors=unit_errors,
                             active_reasons=unresolved_running,
                             execution_policy=coordinator.get("execution_policy_v1"),
-                            action_scope=scope)
+                            action_scope=scope, dispatch=decision)
 
 
 def normalize_year_tokens(tokens):

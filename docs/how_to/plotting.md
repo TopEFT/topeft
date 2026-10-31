@@ -238,11 +238,16 @@ For a current-content check, add `--verify-published` to that status command.
 
 It reads campaign identity from the root and shows the exact tag, plan
 revision, final root, separate execution, publication and integrity states,
-recorded job IDs, and action-needed warnings. Ordinary status checks receipt
-identity, canonical presence and recorded sizes without hashing PNG content.
+recorded job IDs, and action-needed warnings. Human status distinguishes
+historical backends from the policy bound for future attempts, or says that a
+legacy campaign remains unbound. Ordinary status derives publication from
+persisted success, receipt, and materialization provenance, then checks current
+canonical presence and recorded sizes without hashing PNG content.
 Add `--verify-published` to hash recorded canonical PNGs against their stored
 SHA-256 values. It is read-only, and historical publication remains `published`
-even if current content mismatches. `--format yaml` gives a bounded readable
+even if a current file is missing, truncated, or unsafe; its recorded canonical
+path remains listed, while current integrity reports `unavailable` or
+`content_mismatch`. `--format yaml` gives a bounded readable
 summary with exact published plot paths. `--format json` is the stable machine
 route and retains the established count/status fields. Status does not contact
 the scheduler or modify campaign files.

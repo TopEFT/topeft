@@ -237,10 +237,15 @@ publishes receipt-verified observed plots through
 attempt staging. `--status -o ROOT` is read-only and gets profile/tag from the
 coordinator. It reports execution, publication and integrity separately,
 shows the exact root and recorded scheduler job IDs, and never queries the
-scheduler. Ordinary status checks receipt identity, canonical presence and
-recorded sizes; `--verify-published` additionally hashes only recorded
-canonical PNGs against materialization SHA-256 values. A current mismatch does
-not erase historical publication. `--format json` retains the existing summary
+scheduler. Historical publication requires coherent persisted success, receipt,
+and materialization provenance, independently of current canonical files.
+Ordinary status checks current canonical presence and recorded sizes without
+hashing; `--verify-published` additionally hashes available recorded PNGs
+against materialization SHA-256 values. Missing or unsafe paths report
+`unavailable`, while changed sizes report `content_mismatch`; neither erases
+historical publication or its recorded canonical paths. Human status labels
+historical backends separately from the policy for future attempts.
+`--format json` retains the existing summary
 keys and adds `summary_schema_version: 2`, `execution_policy`, `action_scope`,
 active/blocked facts, and per-unit `publication` and `integrity` fields;
 `--format yaml` presents the same derived summary. Authoritative state and
