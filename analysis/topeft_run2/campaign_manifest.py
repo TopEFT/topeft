@@ -1259,11 +1259,15 @@ def transition(state, unit_id, stage, status, exit_code, detail, extra=()):
     return state
 
 
-def reconcile_running(state):
+def reconcile_running(state, selected_unit=None):
     """Reconcile interrupted attempts only after the caller proves exclusive writer ownership."""
     validate_state(state)
+    if selected_unit and not any(unit["id"] == selected_unit for unit in state["units"]):
+        fail("unknown selected recovery unit")
     changed = False
     for unit in state["units"]:
+        if selected_unit and unit["id"] != selected_unit:
+            continue
         for stage in state["profile_contract"]["stages"]:
             record = unit["stages"][stage]
             if record["status"] != "running":
@@ -1861,9 +1865,12 @@ def main():
             state_path = values[0]
             assert_writer_lock(state_path)
             state = load_state(state_path)
-            if reconcile_running(state):
+            selected_unit = values[1] if len(values) > 1 else None
+            if reconcile_running(state, selected_unit):
                 atomic_json(state_path, state)
                 for unit in state["units"]:
+                    if selected_unit and unit["id"] != selected_unit:
+                        continue
                     for stage in state["profile_contract"]["stages"]:
                         if unit["stages"][stage]["status"] == "success":
                             cleanup_published_pending(state, unit, stage)

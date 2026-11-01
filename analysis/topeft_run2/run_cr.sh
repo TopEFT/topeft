@@ -1085,7 +1085,15 @@ prepare_production_campaign() {
   validate_wq_manager_name_scope
   if [[ "${dry_run}" == "false" ]]; then
     if [[ "${profile_resume}" == "true" ]]; then
-      production_state_tool reconcile "${production_state_path}"
+      if [[ -n "${profile_wq_staging_base}" ]]; then
+        CAMPAIGN_LOCK_FD="${campaign_lock_fd}" python ./wq_staging_guard.py check-recovery \
+          "${production_state_path}" "${profile_selected_fragment}" "${profile_wq_staging_base}"
+      fi
+      production_state_tool reconcile "${production_state_path}" "${profile_selected_fragment}"
+      if [[ -n "${profile_wq_staging_base}" ]]; then
+        CAMPAIGN_LOCK_FD="${campaign_lock_fd}" python ./wq_staging_guard.py recover \
+          "${production_state_path}" "${profile_selected_fragment}" "${profile_wq_staging_base}"
+      fi
       production_state_tool record-provenance \
         "${production_state_path}" "${production_git_commit}" \
         "${production_env_file}" "${production_env_file_sha256}" \

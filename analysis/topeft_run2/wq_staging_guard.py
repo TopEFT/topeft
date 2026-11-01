@@ -89,8 +89,15 @@ def _validate_base(base):
     return real
 
 
-def _local_readers(path, max_processes=32768):
+def _local_readers(path, max_processes=32768, *, relevant_tokens=()):
+    """Observed tree readers block; unrelated process opacity is telemetry only.
+
+    A process bound by argv to this private invocation remains fail-closed if
+    its descriptors cannot be inspected. The recorded owner is checked
+    separately by cleanup callers using PID/start identity.
+    """
     scanned = 0
+    opaque = 0
     prefix = str(path) + os.sep
     for item in Path("/proc").iterdir():
         if not item.name.isdigit():
@@ -101,14 +108,36 @@ def _local_readers(path, max_processes=32768):
         try:
             if item.stat().st_uid != os.getuid():
                 continue
+            pertinent = False
+            try:
+                argv = (item / "cmdline").read_bytes().split(b"\0")
+                pertinent = int(item.name) != os.getpid() and any(
+                    arg.decode(errors="replace") in (str(path), path.name, *relevant_tokens)
+                    or arg.decode(errors="replace").startswith(prefix)
+                    for arg in argv if arg
+                )
+            except PermissionError:
+                pass
+            for link in ("cwd", "root"):
+                try:
+                    target = os.readlink(item / link)
+                    if target == str(path) or target.startswith(prefix):
+                        return True
+                except PermissionError:
+                    pass
+            if pertinent:
+                return True
             for descriptor in (item / "fd").iterdir():
                 target = os.readlink(descriptor)
                 if target == str(path) or target.startswith(prefix):
                     return True
         except FileNotFoundError:
             continue
-        except PermissionError as error:
-            raise staging_guard_error("local reader state is inaccessible") from error
+        except PermissionError:
+            opaque += 1
+    if opaque:
+        print(f"WARNING: {opaque} unrelated same-UID process descriptor scans "
+              "inaccessible; no observed binding to this invocation", flush=True)
     return False
 
 
@@ -505,6 +534,217 @@ def closeout_invocation_staging(base, path, owner_inode):
         path.rmdir()
 
 
+def recover_interrupted_staging(state_path, selected_unit, base, *, check_only=False):
+    """Internal resume composition: state owns lineage, this module owns removal.
+
+    Never reconciles state or allocates an attempt. Requires the inherited
+    campaign writer lock; check_only runs before native reconciliation so a
+    live old owner cannot be relabelled interrupted. All deletion is confined
+    to argv-bound, private guarded invocation roots after reconciliation.
+    """
+    from analysis.topeft_run2 import campaign_manifest as manifest
+
+    state_path = Path(state_path)
+    manifest.assert_writer_lock(state_path)
+    state_bytes = state_path.read_bytes()
+    state = manifest.load_state(state_path, verify_artifacts=False)
+    units = [unit for unit in state["units"]
+             if not selected_unit or unit["id"] == selected_unit]
+    if not units:
+        raise staging_guard_error("unknown selected recovery unit")
+    base = _validate_base(base)
+    for unit in units:
+        source = unit["stages"]["source"]
+        if source["status"] == "success":
+            continue
+        if source["status"] not in ("pending", "failed", "running"):
+            raise staging_guard_error("source is not eligible for recovery")
+        if not check_only and source["status"] == "running":
+            raise staging_guard_error("native reconciliation required before cleanup")
+        tag = state["campaign_identity"]["campaign_tag"]
+        next_root = base / f"{tag}_{unit['id']}_source_attempt_{len(source['attempts']) + 1}"
+
+        def publication_gate():
+            manifest.assert_writer_lock(state_path)
+            if state_path.read_bytes() != state_bytes:
+                raise staging_guard_error("campaign state changed during recovery")
+            if os.path.lexists(next_root):
+                raise staging_guard_error("next attempt staging root already exists")
+            for stage, record in unit["stages"].items():
+                if (record.get("receipt") is not None
+                        or manifest.output_exists(unit["outputs"][stage])):
+                    raise staging_guard_error("authoritative output/sidecar blocks stale cleanup")
+                for attempt in record["attempts"]:
+                    pending = manifest.pending_artifact_path(state, unit, stage, attempt)
+                    if pending is not None and os.path.lexists(pending.parent):
+                        raise staging_guard_error("attempt-bound pending publication blocks stale cleanup")
+
+        for attempt in source["attempts"]:
+            command = attempt["command_argv"]
+            if "--wq-guard" not in command:
+                continue  # Historical unguarded attempts have no owned guard root.
+            invocation = f"{tag}_{unit['id']}_source_attempt_{attempt['number']}"
+            if (Path(invocation).name != invocation
+                    or manifest.command_values(command, "--wq-invocation-id") != [invocation]
+                    or manifest.command_values(command, "--wq-filepath") != [str(base)]
+                    or command.count("--wq-guard") != 1):
+                raise staging_guard_error("guarded attempt argv/root lineage is ambiguous")
+            if attempt["result"] not in ("running", "interrupted", "failed"):
+                continue
+            path = base / invocation
+            if (path == state_path or path in state_path.parents
+                    or any(path == Path(output) or path in Path(output).parents
+                           for output in unit["outputs"].values())):
+                raise staging_guard_error("staging root overlaps durable campaign evidence")
+            if not os.path.lexists(path):
+                continue
+            if not check_only and attempt["result"] not in ("interrupted", "failed"):
+                raise staging_guard_error("attempt is not interrupted or failed")
+            manager_names = manifest.command_values(command, "--wq-manager-name")
+            if len(manager_names) > 1:
+                raise staging_guard_error("attempt manager identity is ambiguous")
+            _recover_guarded_tree(path, invocation, publication_gate,
+                                  check_only=check_only, manager_names=manager_names)
+        # Check collisions even when the old root was already removed.
+        if not check_only:
+            publication_gate()
+
+
+def _recover_guarded_tree(path, invocation, publication_gate, *, check_only=False,
+                          manager_names=()):
+    """Validate the whole tree before deleting; never preserve transient PKLs.
+
+    Traversal and removal use O_NOFOLLOW directory descriptors and recheck
+    inode/device/owner/type/link identity. A detected mutation stops recovery
+    before next-attempt allocation, including after partial transient removal.
+    """
+    root_info = path.lstat()
+    marker = path / "guard.json"
+    marker_info = marker.lstat()
+    if (not stat.S_ISDIR(root_info.st_mode) or root_info.st_uid != os.getuid()
+            or stat.S_IMODE(root_info.st_mode) != 0o700
+            or root_info.st_dev != path.parent.stat().st_dev
+            or not stat.S_ISREG(marker_info.st_mode)
+            or marker_info.st_uid != os.getuid() or marker_info.st_nlink != 1):
+        raise staging_guard_error("stale root/marker ownership or device is invalid")
+    marker_bytes = marker.read_bytes()
+    metadata = json.loads(marker_bytes)
+    if (not isinstance(metadata, dict) or metadata.get("path") != str(path)
+            or metadata.get("invocation") != invocation
+            or metadata.get("owner_uid") != os.getuid()
+            or metadata.get("owner_inode") != root_info.st_ino
+            or type(metadata.get("owner_pid")) is not int
+            or metadata["owner_pid"] <= 0
+            or not isinstance(metadata.get("owner_start"), str)
+            or not metadata["owner_start"].isdigit()
+            or metadata.get("status") not in ("running", "cleanup_needed")):
+        raise staging_guard_error("stale guard invocation/owner identity is ambiguous")
+
+    def identity(info):
+        return (info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink)
+
+    def path_identity_gate():
+        if (path.resolve(strict=True) != path
+                or any(component.is_symlink() for component in (path, *path.parents))
+                or identity(path.lstat())[:4] != identity(root_info)[:4]
+                or identity(marker.lstat()) != identity(marker_info)
+                or marker.read_bytes() != marker_bytes):
+            raise staging_guard_error("stale staging path/marker identity changed")
+
+    def safety_gate():
+        path_identity_gate()
+        if _process_start(metadata["owner_pid"]) == metadata["owner_start"]:
+            raise staging_guard_error("pertinent attempt owner is still live")
+        if _local_readers(path, relevant_tokens=manager_names):
+            raise staging_guard_error("pertinent staging reader remains active")
+        path_identity_gate()
+
+    safety_gate()
+    if check_only:
+        return
+    publication_gate()
+    tree = {}
+
+    def scan(directory_fd, relative=()):
+        entries = {}
+        with os.scandir(directory_fd) as iterator:
+            for entry in iterator:
+                info = entry.stat(follow_symlinks=False)
+                if (info.st_uid != os.getuid() or info.st_dev != root_info.st_dev
+                        or not (stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode))
+                        or (stat.S_ISREG(info.st_mode) and info.st_nlink != 1)):
+                    raise staging_guard_error("foreign, linked, symlink or special staging entry")
+                entries[entry.name] = identity(info)
+                if stat.S_ISDIR(info.st_mode):
+                    child = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                    dir_fd=directory_fd)
+                    try:
+                        if identity(os.fstat(child)) != identity(info):
+                            raise staging_guard_error("staging directory identity changed")
+                        scan(child, relative + (entry.name,))
+                    finally:
+                        os.close(child)
+        tree[relative] = entries
+
+    def remove(directory_fd, relative=()):
+        with os.scandir(directory_fd) as iterator:
+            if {entry.name for entry in iterator} != set(tree[relative]):
+                raise staging_guard_error("staging entries changed before removal")
+        for name, expected in tree[relative].items():
+            if not relative and name == "guard.json":
+                continue  # Keep ownership evidence until all payload removal succeeds.
+            path_identity_gate()
+            info = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if identity(info) != expected:
+                raise staging_guard_error("staging entry identity changed before removal")
+            if stat.S_ISDIR(info.st_mode):
+                child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                dir_fd=directory_fd)
+                try:
+                    if identity(os.fstat(child)) != expected:
+                        raise staging_guard_error("staging directory changed before removal")
+                    remove(child, relative + (name,))
+                finally:
+                    os.close(child)
+                current = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+                if identity(current)[:4] != expected[:4]:
+                    raise staging_guard_error("staging directory changed during removal")
+                os.rmdir(name, dir_fd=directory_fd)
+            else:
+                os.unlink(name, dir_fd=directory_fd)
+
+    root_fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        if identity(os.fstat(root_fd)) != identity(root_info):
+            raise staging_guard_error("stale root changed before traversal")
+        scan(root_fd)
+    finally:
+        os.close(root_fd)
+    # Do not misclassify our traversal descriptor as an external reader.
+    safety_gate()
+    publication_gate()  # Fresh state/output/pending readback immediately before deletion.
+    root_fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        if identity(os.fstat(root_fd)) != identity(root_info):
+            raise staging_guard_error("stale root changed before removal")
+        remove(root_fd)
+        # Directory link counts change as children are removed; compare fixed identity.
+        current = path.lstat()
+        if (current.st_ino, current.st_dev, current.st_uid, current.st_mode) != (
+                root_info.st_ino, root_info.st_dev, root_info.st_uid, root_info.st_mode):
+            raise staging_guard_error("stale root changed during removal")
+        publication_gate()
+        if identity(marker.lstat()) != identity(marker_info) or marker.read_bytes() != marker_bytes:
+            raise staging_guard_error("stale marker changed during removal")
+        os.unlink("guard.json", dir_fd=root_fd)
+        path.rmdir()
+    finally:
+        os.close(root_fd)
+    if os.path.lexists(path):
+        raise staging_guard_error("stale invocation root remains after cleanup")
+    print(f"Recovered interrupted Work Queue staging: removed {path}", flush=True)
+
+
 def cleanup_owned_staging(path):
     """Called only after campaign state and native logs record source completion."""
     path = Path(path)
@@ -599,11 +839,19 @@ def cleanup_owned_staging(path):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Finalize one completed owned Work Queue staging directory")
-    parser.add_argument("action", choices=("cleanup",))
+    parser = argparse.ArgumentParser(description="Internal owned Work Queue staging lifecycle")
+    parser.add_argument("action", choices=("cleanup", "check-recovery", "recover"))
     parser.add_argument("path")
+    parser.add_argument("selected_unit", nargs="?")
+    parser.add_argument("base", nargs="?")
     arguments = parser.parse_args()
     try:
-        cleanup_owned_staging(arguments.path)
-    except staging_guard_error as error:
+        if arguments.action == "cleanup":
+            cleanup_owned_staging(arguments.path)
+        else:
+            if arguments.selected_unit is None or arguments.base is None:
+                parser.error("internal recovery requires campaign state, selection and base")
+            recover_interrupted_staging(arguments.path, arguments.selected_unit, arguments.base,
+                                        check_only=arguments.action == "check-recovery")
+    except (staging_guard_error, OSError, ValueError, KeyError) as error:
         parser.exit(1, f"cleanup_needed: {error}\n")

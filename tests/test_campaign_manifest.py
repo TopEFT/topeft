@@ -2,6 +2,7 @@
 
 import copy
 import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ import numpy as np
 import pytest
 
 from analysis.topeft_run2 import campaign_manifest as manifest
+from analysis.topeft_run2 import wq_staging_guard as staging_guard
 from analysis.topeft_run2 import analysis_processor
 from analysis.topeft_run2 import run_data_driven
 from topcoffea.modules.sparseHist import SparseHist
@@ -67,6 +69,260 @@ def source_command(state, unit, chunksize="12345"):
     if policy["raw_counts"]:
         command.append("--record-raw-count")
     return command
+
+
+@pytest.fixture
+def stale_guarded_attempt(make_campaign, tmp_path, monkeypatch):
+    state = make_campaign()
+    unit = state["units"][0]
+    base = tmp_path / "staging"
+    base.mkdir()
+    invocation = f"synthetic_{unit['id']}_source_attempt_1"
+    root = base / invocation
+    root.mkdir(mode=0o700)
+    command = source_command(state, unit) + [
+        "--wq-guard", "--wq-filepath", str(base), "--wq-invocation-id", invocation,
+        "--wq-manager-name", "synthetic-manager-a1",
+    ]
+    manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
+    marker = {"status": "running", "path": str(root), "invocation": invocation,
+              "owner_uid": os.getuid(), "owner_inode": root.stat().st_ino,
+              "owner_pid": 1_000_000_000, "owner_start": "1"}
+    (root / "guard.json").write_text(json.dumps(marker))
+    payload = root / "tmpordinarywq-tmp-" / "nested"
+    payload.mkdir(parents=True)
+    for name in ("accum_large.p", "transfer", "cache", "partial.pkl.gz", "catalog"):
+        (payload / name).write_bytes(b"transient")
+    path = tmp_path / ".run2_prod_campaign_state_v9.json"
+    manifest.atomic_json(path, state)
+    monkeypatch.setattr(staging_guard, "_validate_base", lambda _: base)
+    monkeypatch.setattr(staging_guard, "_local_readers", lambda *_, **__: False)
+    lock = path.with_name(".run2_prod_campaign.lock")
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    monkeypatch.setenv("CAMPAIGN_LOCK_FD", str(fd))
+    manifest.assert_writer_lock(path)
+    yield SimpleNamespace(state=state, unit=unit, root=root, base=base, path=path, marker=marker)
+    os.close(fd)
+
+
+def reconcile_stale(fixture):
+    staging_guard.recover_interrupted_staging(
+        fixture.path, fixture.unit["id"], fixture.base, check_only=True)
+    assert manifest.reconcile_running(fixture.state, fixture.unit["id"])
+    manifest.atomic_json(fixture.path, fixture.state)
+
+
+def test_stale_guard_recovery_removes_whole_tree_before_distinct_attempt(stale_guarded_attempt):
+    f = stale_guarded_attempt
+    sibling = copy.deepcopy(f.state["units"][1])
+    sibling_root = f.base / "unrelated_source_attempt_1"
+    sibling_root.mkdir()
+    (sibling_root / "foreign.p").write_text("preserve")
+    reconcile_stale(f)
+    staging_guard.recover_interrupted_staging(f.path, f.unit["id"], f.base)
+    assert not f.root.exists()
+    assert (sibling_root / "foreign.p").read_text() == "preserve"
+    assert f.state["units"][1] == sibling
+    record = manifest.load_state(f.path)["units"][0]["stages"]["source"]
+    assert record["status"] == "failed"
+    assert len(record["attempts"]) == 1 and record["attempts"][0]["result"] == "interrupted"
+    assert f.unit["stages"]["data_driven"]["status"] == "blocked"
+    assert manifest.next_source_attempt(f.state, f.unit["id"]) == 2
+    # An already-absent root is safe, but the next namespace must still be absent.
+    staging_guard.recover_interrupted_staging(f.path, f.unit["id"], f.base)
+    next_root = f.base / f"synthetic_{f.unit['id']}_source_attempt_2"
+    next_root.mkdir()
+    with pytest.raises(staging_guard.staging_guard_error, match="next attempt"):
+        staging_guard.recover_interrupted_staging(f.path, f.unit["id"], f.base)
+
+
+@pytest.mark.parametrize("blocker", ("owner", "reader", "owner_unknown", "symlink", "fifo",
+                                    "hardlink", "marker", "lineage", "next_root", "lock"))
+def test_stale_guard_material_blockers_preserve_tree(stale_guarded_attempt, monkeypatch, blocker):
+    f = stale_guarded_attempt
+    reconcile_stale(f)
+    if blocker == "owner":
+        monkeypatch.setattr(staging_guard, "_process_start", lambda _: "1")
+    elif blocker == "owner_unknown":
+        monkeypatch.setattr(staging_guard, "_process_start", lambda _: (_ for _ in ()).throw(
+            staging_guard.staging_guard_error("identity cannot be read")))
+    elif blocker == "reader":
+        monkeypatch.setattr(staging_guard, "_local_readers", lambda *_, **__: True)
+    elif blocker == "symlink":
+        (f.root / "escape").symlink_to(f.base)
+    elif blocker == "fifo":
+        os.mkfifo(f.root / "special")
+    elif blocker == "hardlink":
+        os.link(f.root / "guard.json", f.root / "linked")
+    elif blocker == "marker":
+        (f.root / "guard.json").write_text(json.dumps({**f.marker, "owner_inode": -1}))
+    elif blocker == "lineage":
+        command = f.unit["stages"]["source"]["attempts"][0]["command_argv"]
+        command[command.index("--wq-invocation-id") + 1] = "different"
+        manifest.atomic_json(f.path, f.state)
+    elif blocker == "next_root":
+        (f.base / f"synthetic_{f.unit['id']}_source_attempt_2").mkdir()
+    else:
+        monkeypatch.delenv("CAMPAIGN_LOCK_FD")
+    with pytest.raises((staging_guard.staging_guard_error, ValueError)):
+        staging_guard.recover_interrupted_staging(f.path, f.unit["id"], f.base)
+    assert (f.root / "tmpordinarywq-tmp-/nested/accum_large.p").exists()
+    assert len(f.unit["stages"]["source"]["attempts"]) == 1
+
+
+@pytest.mark.parametrize("collision", ("final", "sidecar", "pending", "late_final", "late_pending"))
+def test_stale_guard_rechecks_publication_after_reader_scan(stale_guarded_attempt, monkeypatch, collision):
+    f = stale_guarded_attempt
+    reconcile_stale(f)
+    def insert():
+        if collision in ("pending", "late_pending"):
+            manifest.pending_artifact_path(f.state, f.unit, "source").parent.mkdir(exist_ok=True)
+        else:
+            name = f.unit["outputs"]["source"] + (".metadata.json" if collision == "sidecar" else "")
+            Path(name).write_text("collision")
+    if collision.startswith("late_"):
+        calls = []
+        def reader(_, **kwargs):
+            calls.append(1)
+            if len(calls) == 2:
+                insert()
+            return False
+        monkeypatch.setattr(staging_guard, "_local_readers", reader)
+    else:
+        insert()
+    with pytest.raises(staging_guard.staging_guard_error, match="output|pending"):
+        staging_guard.recover_interrupted_staging(f.path, f.unit["id"], f.base)
+    assert (f.root / "tmpordinarywq-tmp-/nested/accum_large.p").exists()
+
+
+def test_selected_reconcile_does_not_touch_other_running_unit(make_campaign):
+    state = make_campaign()
+    for unit in state["units"]:
+        manifest.transition(state, unit["id"], "source", "running", "none", "test",
+                            tuple(source_command(state, unit)))
+    sibling = copy.deepcopy(state["units"][1])
+    assert manifest.reconcile_running(state, state["units"][0]["id"])
+    assert state["units"][1] == sibling
+
+
+@pytest.mark.parametrize("field", ("st_uid", "st_dev"))
+def test_stale_guard_rejects_foreign_entry_before_any_deletion(stale_guarded_attempt, monkeypatch, field):
+    f = stale_guarded_attempt
+    reconcile_stale(f)
+    original = staging_guard.os.scandir
+    class entry:
+        def __init__(self, value):
+            self.value = value
+            self.name = value.name
+        def stat(self, **kwargs):
+            info = self.value.stat(**kwargs)
+            if self.name != "accum_large.p":
+                return info
+            values = {name: getattr(info, name) for name in (
+                "st_uid", "st_dev", "st_ino", "st_mode", "st_nlink")}
+            values[field] += 1
+            return SimpleNamespace(**values)
+    class scan:
+        def __init__(self, path):
+            self.iterator = original(path)
+        def __enter__(self):
+            return (entry(value) for value in self.iterator)
+        def __exit__(self, *_):
+            self.iterator.close()
+    monkeypatch.setattr(staging_guard.os, "scandir", scan)
+    with pytest.raises(staging_guard.staging_guard_error, match="foreign"):
+        staging_guard.recover_interrupted_staging(f.path, f.unit["id"], f.base)
+    assert (f.root / "tmpordinarywq-tmp-/nested/accum_large.p").exists()
+
+
+def test_stale_guard_pid_reuse_is_not_old_owner(stale_guarded_attempt, monkeypatch):
+    f = stale_guarded_attempt
+    reconcile_stale(f)
+    monkeypatch.setattr(staging_guard, "_process_start", lambda _: "999999")
+    staging_guard.recover_interrupted_staging(f.path, f.unit["id"], f.base)
+    assert not f.root.exists()
+
+
+@pytest.mark.parametrize("change", ("root_swap", "symlink_swap", "insert", "state"))
+def test_stale_guard_revalidates_after_scan(stale_guarded_attempt, monkeypatch, change):
+    f = stale_guarded_attempt
+    reconcile_stale(f)
+    calls = []
+    def reader(_, **kwargs):
+        calls.append(1)
+        if len(calls) == 2:
+            if change in ("root_swap", "symlink_swap"):
+                f.root.rename(f.base / "preserved_old")
+                if change == "symlink_swap":
+                    f.root.symlink_to(f.base / "preserved_old")
+                else:
+                    f.root.mkdir(mode=0o700)
+            elif change == "insert":
+                (f.root / "inserted").symlink_to(f.base)
+            else:
+                f.path.write_text(f.path.read_text() + "\n")
+        return False
+    monkeypatch.setattr(staging_guard, "_local_readers", reader)
+    with pytest.raises((staging_guard.staging_guard_error, OSError)):
+        staging_guard.recover_interrupted_staging(f.path, f.unit["id"], f.base)
+    preserved = f.base / "preserved_old" if change in ("root_swap", "symlink_swap") else f.root
+    assert (preserved / "tmpordinarywq-tmp-/nested/accum_large.p").exists()
+
+
+def test_live_stale_guard_blocks_before_native_reconcile(stale_guarded_attempt, monkeypatch):
+    f = stale_guarded_attempt
+    original = f.path.read_bytes()
+    monkeypatch.setattr(staging_guard, "_process_start", lambda _: "1")
+    with pytest.raises(staging_guard.staging_guard_error, match="owner is still live"):
+        staging_guard.recover_interrupted_staging(f.path, f.unit["id"], f.base, check_only=True)
+    assert f.path.read_bytes() == original
+    assert f.unit["stages"]["source"]["attempts"][0]["result"] == "running"
+
+
+def test_selected_reconcile_keeps_successful_sibling_pending_alias(make_campaign, tmp_path, monkeypatch):
+    state = make_campaign()
+    selected, sibling = state["units"]
+    for unit in (selected, sibling):
+        manifest.transition(state, unit["id"], "source", "running", "none", "test",
+                            tuple(source_command(state, unit)))
+    write_artifact(sibling["outputs"]["source"], state=state, unit=sibling)
+    manifest.transition(state, sibling["id"], "source", "ready", "0", "test")
+    alias = manifest.pending_artifact_path(state, sibling, "source").parent
+    alias.mkdir()
+    (alias / "preserve").write_text("sibling pending alias")
+    preserved = copy.deepcopy(sibling)
+    path = tmp_path / "selected_reconcile_state.json"
+    manifest.atomic_json(path, state)
+    monkeypatch.setattr(manifest, "assert_writer_lock", lambda _: None)
+    monkeypatch.setattr(sys, "argv", ["campaign_manifest.py", "reconcile", str(path), selected["id"]])
+    manifest.main()
+    assert manifest.load_state(path)["units"][1] == preserved
+    assert (alias / "preserve").read_text() == "sibling pending alias"
+
+
+def test_recovery_accepts_massive_invocation_shape(tmp_path, monkeypatch):
+    invocation = "sr-reco-run3-18-261019-001_run3_sr_ext_size25_18_09_source_attempt_1"
+    root = tmp_path / invocation
+    root.mkdir(mode=0o700)
+    (root / "guard.json").write_text(json.dumps({
+        "status": "running", "path": str(root), "invocation": invocation,
+        "owner_inode": root.stat().st_ino, "owner_uid": os.getuid(),
+        "owner_pid": 1_000_000_000, "owner_start": "1",
+    }))
+    nested = root / "tmpaccumulationwq-tmp-" / "merge" / "cache"
+    nested.mkdir(parents=True)
+    for name in ("accum_huge.p", "args_transfer.p", "partial.pkl.gz", "catalog", "temporary"):
+        (nested / name).write_text("transient")
+    staging_guard._recover_guarded_tree(root, invocation, lambda: None)
+    assert not root.exists()
+
+
+def test_recovery_has_no_incident_specific_branch_or_public_bypass():
+    guard_source = Path(staging_guard.__file__).read_text()
+    shell_source = (Path(manifest.__file__).parent / "run_cr.sh").read_text()
+    assert "18_09" not in guard_source
+    for option in ("--force-clean", "--ignore-readers", "--cleanup-attempt", "--recover-1809"):
+        assert option not in shell_source
 
 
 def test_manager_name_changes_attempt_provenance_only(make_campaign):

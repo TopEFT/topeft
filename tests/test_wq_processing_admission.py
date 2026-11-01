@@ -15,6 +15,35 @@ from analysis.topeft_run2 import wq_processing_admission as admission
 from analysis.topeft_run2 import wq_staging_guard as staging_guard
 
 
+@pytest.mark.parametrize("visibility", ("unrelated_opaque", "bound_opaque", "manager_opaque",
+                                        "observed_fd", "observed_cwd", "self_argv"))
+def test_reader_scan_requires_invocation_relevance(tmp_path, monkeypatch, capsys, visibility):
+    root = tmp_path / "exact_invocation"
+    proc = tmp_path / (str(os.getpid()) if visibility == "self_argv" else "12345")
+    proc.mkdir()
+    (proc / "fd").mkdir()
+    (proc / "cmdline").write_bytes(
+        b"python\0--wq-invocation-id\0" + root.name.encode() + b"\0"
+        if visibility in ("bound_opaque", "self_argv") else b"python\0--wq-manager-name\0exact-manager-a1\0"
+        if visibility == "manager_opaque" else b"sshd\0session\0")
+    (proc / "cwd").symlink_to(root if visibility == "observed_cwd" else tmp_path)
+    (proc / "root").symlink_to(Path("/"))
+    if visibility == "observed_fd":
+        (proc / "fd" / "4").symlink_to(root / "nested" / "accum.p")
+    original = Path.iterdir
+    def iterdir(path):
+        if path == Path("/proc"):
+            return iter([proc])
+        if path == proc / "fd" and visibility.endswith("opaque"):
+            raise PermissionError("unreadable SSH/SFTP descriptors")
+        return original(path)
+    monkeypatch.setattr(Path, "iterdir", iterdir)
+    assert staging_guard._local_readers(root, relevant_tokens=("exact-manager-a1",)) == (
+        visibility not in ("unrelated_opaque", "self_argv"))
+    if visibility == "unrelated_opaque":
+        assert "WARNING" in capsys.readouterr().out
+
+
 def test_root_backed_staging_uses_concrete_path_checks(monkeypatch):
     base = Path("/synthetic-root-backed/selected")
     fake_stat = SimpleNamespace(st_uid=os.getuid(), st_dev=1)

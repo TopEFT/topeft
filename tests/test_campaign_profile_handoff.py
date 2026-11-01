@@ -691,6 +691,75 @@ def test_manager_prefix_retry_uses_next_attempt_and_selected_unit(tmp_path, back
     assert all(unit["stages"]["source"]["status"] == "pending" for unit in state["units"][1:])
 
 
+@pytest.mark.parametrize("blocker", (None, "owner", "reader", "next_root", "lock"))
+def test_normal_guarded_resume_recovers_before_synthetic_source_and_dd(tmp_path, backend, blocker):
+    # This backend writes inert text artifacts; it cannot start a manager or submit.
+    sibling = launch(tmp_path, backend, "--selected-fragment", "run2_prod_b")
+    assert sibling.returncode == 0, sibling.stdout + sibling.stderr
+    base = tmp_path / "staging"
+    base.mkdir()
+    args = ("--wq-staging-base", str(base), "--wq-free-warning-bytes", "30000000000",
+            "--wq-min-free-bytes", "10000000000", "--wq-poll-seconds", "30",
+            "--wq-manager-prefix", "synthetic-resume-")
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "source_fail_first"
+    failed = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a", *args)
+    assert failed.returncode != 0
+    path = state_path(tmp_path)
+    state = manifest.load_state(path)
+    unit = state["units"][0]
+    record = unit["stages"]["source"]
+    assert len(record["attempts"]) == 1
+    record["status"] = "running"
+    record["attempts"][0].update(result="running", ended_at_utc=None, exit_code=None)
+    manifest.atomic_json(path, state)  # Synthetic reboot fixture only.
+    preserved_siblings = copy.deepcopy(state["units"][1:])
+    old = base / "synthetic_run2_prod_a_source_attempt_1"
+    old.mkdir(mode=0o700)
+    payload = old / "tmpsyntheticwq-tmp-" / "nested"
+    payload.mkdir(parents=True)
+    (payload / "accum_large.p").write_bytes(b"transient accumulation")
+    marker = {"path": str(old), "invocation": old.name, "status": "running",
+              "owner_uid": os.getuid(), "owner_inode": old.stat().st_ino,
+              "owner_pid": os.getpid() if blocker == "owner" else 1_000_000_000,
+              "owner_start": staging_guard._process_start(os.getpid()) if blocker == "owner" else "1"}
+    (old / "guard.json").write_text(json.dumps(marker))
+    if blocker == "next_root":
+        (base / "synthetic_run2_prod_a_source_attempt_2").mkdir()
+    script = Path(backend["CAMPAIGN_VALIDATION_BACKEND"])
+    script.write_text(script.read_text().replace(
+        'if [[ "$action" == run_block ]]; then',
+        'if [[ "$action" == run_block ]]; then\n  [[ ! -e "$OLD_STAGING_ROOT" ]] || exit 99'))
+    backend["OLD_STAGING_ROOT"] = str(old)
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "success"
+    reader = (payload / "accum_large.p").open("rb") if blocker == "reader" else None
+    try:
+        if blocker == "lock":
+            with manifest.campaign_lock(path):
+                resumed = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a", *args)
+        else:
+            resumed = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a", *args)
+    finally:
+        if reader is not None:
+            reader.close()
+    durable = manifest.load_state(path)
+    assert durable["units"][1:] == preserved_siblings
+    attempts = durable["units"][0]["stages"]["source"]["attempts"]
+    if blocker:
+        assert resumed.returncode != 0, resumed.stdout + resumed.stderr
+        assert len(attempts) == 1 and (payload / "accum_large.p").exists()
+        if blocker in ("owner", "reader", "lock"):
+            assert attempts[0]["result"] == "running"
+    else:
+        assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+        assert not old.exists()
+        assert [attempt["result"] for attempt in attempts] == ["interrupted", "success"]
+        assert [attempt["number"] for attempt in attempts] == [1, 2]
+        command = attempts[1]["command_argv"]
+        assert command[command.index("--wq-invocation-id") + 1] == "synthetic_run2_prod_a_source_attempt_2"
+        assert command[command.index("--wq-manager-name") + 1] == "synthetic-resume-run2_prod_a-a2"
+        assert durable["units"][0]["stages"]["data_driven"]["status"] == "success"
+
+
 def test_manager_prefix_does_not_name_reused_source(tmp_path, backend):
     backend["CAMPAIGN_VALIDATION_SCENARIO"] = "downstream_fail_once"
     first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a")
