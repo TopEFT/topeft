@@ -224,10 +224,13 @@ publishes verified plots under `<ROOT>/<period>/merged/<category>/<filename>.png
 and, where the layout owner requires it, `merged_njets` beside `merged`. Private
 `components/` directories are automatic staging and are not the final plot
 destination. Execution completion and publication are separate: a finished
-Condor job can show `completed / publish pending` after `--resume` records
-terminal success. `--finalize` creates or verifies the completion receipt and
-copies the observed plots without overwriting another owner's bytes. The
-controller uses `topeft/modules/plot_output_layout.py` for final paths.
+Condor job can show `completed / publish pending` while persisted campaign state
+still says `running`. For an already terminal existing child, `--finalize` itself
+verifies the bound scheduler and lifecycle evidence, records terminal success,
+and creates or verifies the completion receipt in one invocation. A preparatory
+`--resume` is not required; `--resume` remains for recovery and resumption.
+`--finalize` then copies the observed plots without overwriting another owner's
+bytes. The controller uses `topeft/modules/plot_output_layout.py` for final paths.
 
 For an existing campaign, use the read-only status command:
 
@@ -440,9 +443,11 @@ finalize also reuses the existing verified component-to-canonical PNG migration
 when its old human-output binding remains. Private attempts and logs stay put.
 
 Use `--finalize -o ROOT` for all eligible terminal-success units, or add
-`--selected-unit UNIT_ID` to require one eligible unit. Planned, running,
-failed, and ambiguous units are not finalized. An already published unit is
-left alone unless its verified legacy output binding needs migration. There
+`--selected-unit UNIT_ID` to require one eligible unit. A stale persisted
+`running` unit is finalized only when its existing attempt passes the bound
+terminal-success proof. Planned, actively running, failed, and ambiguous units
+are not finalized. An already published unit is left alone unless its verified
+legacy output binding needs migration. There
 is no separate `--publish` or `--reconcile` action.
 
 To append formally qualified units, submit a full plan whose revision is one

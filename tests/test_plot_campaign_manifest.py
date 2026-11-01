@@ -182,12 +182,120 @@ def test_lifecycle_unification_resume_defers_and_finalize_publishes(
     capsys.readouterr()
 
 
-def test_lifecycle_unification_finalize_rejects_ineligible_selection(
+def test_lifecycle_unification_finalize_reconciles_only_selected_running_unit(
         tmp_path, monkeypatch, capsys):
     root, _, attempt_root = seed_running(tmp_path, monkeypatch, unit_count=2)
-    assert campaign.main(finalize_args(root, "unit_0")) == 2
     assert campaign.main(finalize_args(root, "unit_1")) == 2
     assert not campaign.completion_receipt_path(attempt_root).exists()
+    assert campaign.main(finalize_args(root, "unit_0")) == 0
+    assert campaign.completion_receipt_path(attempt_root).is_file()
+    state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
+    assert state["units"]["unit_0"]["status"] == "success"
+    assert state["units"]["unit_1"]["status"] == "planned"
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("selected", [None, "unit_0"])
+def test_finalize_stale_running_condor_success_publishes_without_dispatch(
+        tmp_path, monkeypatch, capsys, selected):
+    root, _, attempt_root = seed_running(tmp_path, monkeypatch)
+    state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
+    state = campaign.read_json(state_path)
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    attempt["execution_contract"]["backend"] = "condor"
+    campaign.atomic_json(state_path, state)
+    observed = []
+
+    def terminal_observation(argv, observed_root, contract):
+        observed.append((argv, observed_root, contract))
+        assert observed_root == attempt_root
+        assert campaign.identity(argv) == attempt["command_identity"]
+        return {"state": "terminal_success"}
+
+    monkeypatch.setattr(campaign.backend, "observe", terminal_observation)
+    monkeypatch.setattr(campaign.backend, "execute",
+                        lambda *_: pytest.fail("finalize submitted a worker"))
+    monkeypatch.setattr(campaign, "run_campaign",
+                        lambda *_args, **_kwargs: pytest.fail("finalize entered resume/dispatch"))
+    assert campaign.main(finalize_args(root, selected)) == 0
+    state = campaign.read_json(state_path)
+    unit = state["units"]["unit_0"]
+    assert len(observed) == 1
+    assert unit["status"] == "success"
+    assert len(unit["attempts"]) == 1
+    assert unit["attempts"][0]["attempt_id"] == "attempt_0001"
+    assert unit["attempts"][0]["guard_result"] == 0
+    assert unit["attempts"][0]["child_result"] == 0
+    assert unit["attempts"][0]["tee_result"] == 0
+    assert campaign.completion_receipt_path(attempt_root).is_file()
+    assert (root / "run2/merged/unit_0/unit_0_invmass_fitting.png").read_bytes() == b"fixture-png"
+    capsys.readouterr()
+
+
+def test_finalize_all_skips_active_running_without_dispatch(
+        tmp_path, monkeypatch, capsys):
+    root, _, attempt_root = seed_running(tmp_path, monkeypatch, unit_count=2)
+    state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
+    state = campaign.read_json(state_path)
+    state["units"]["unit_0"]["attempts"][0]["execution_contract"]["backend"] = "condor"
+    campaign.atomic_json(state_path, state)
+    monkeypatch.setattr(campaign.backend, "observe", lambda *_: {"state": "pending"})
+    monkeypatch.setattr(campaign.backend, "execute",
+                        lambda *_: pytest.fail("finalize submitted a worker"))
+    assert campaign.main(finalize_args(root)) == 0
+    state = campaign.read_json(state_path)
+    assert state["units"]["unit_0"]["status"] == "running"
+    assert state["units"]["unit_1"]["status"] == "planned"
+    assert not campaign.completion_receipt_path(attempt_root).exists()
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("case", ["active", "unresolved", "missing_lifecycle",
+                                  "missing_guard", "bad_command", "bad_root",
+                                  "duplicate_attempt", "nonzero_guard_child",
+                                  "nonzero_tee", "bad_token"])
+def test_finalize_stale_running_fails_closed(
+        tmp_path, monkeypatch, capsys, case):
+    root, _, attempt_root = seed_running(
+        tmp_path, monkeypatch, terminal="failure" if case == "nonzero_guard_child" else "success")
+    state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
+    state = campaign.read_json(state_path)
+    attempt = state["units"]["unit_0"]["attempts"][0]
+    attempt["execution_contract"]["backend"] = "condor"
+    if case == "missing_lifecycle":
+        campaign.lifecycle_receipt_path(attempt_root).unlink()
+    elif case == "missing_guard":
+        (attempt_root / "_metadata/guard.jsonl").unlink()
+    elif case == "bad_command":
+        attempt["command_identity"] = "0" * 64
+    elif case == "bad_root":
+        lifecycle_path = campaign.lifecycle_receipt_path(attempt_root)
+        lifecycle = campaign.read_json(lifecycle_path)
+        lifecycle["private_unit_root"] = str(root / "wrong_root")
+        campaign.atomic_json(lifecycle_path, lifecycle)
+    elif case == "duplicate_attempt":
+        state["units"]["unit_0"]["attempts"].append(dict(attempt))
+    elif case == "nonzero_tee":
+        argv = campaign.attempt_argv(state["units"]["unit_0"]["binding"], attempt)
+        write_lifecycle(argv, attempt_root, 0, 0, 9)
+    campaign.atomic_json(state_path, state)
+
+    def observation(*_args):
+        if case == "bad_token":
+            raise campaign.CampaignError("scheduler token contradiction")
+        return {"state": "pending" if case == "active" else
+                "unresolved" if case == "unresolved" else "terminal_success"}
+
+    monkeypatch.setattr(campaign.backend, "observe", observation)
+    monkeypatch.setattr(campaign.backend, "execute",
+                        lambda *_: pytest.fail("finalize submitted a worker"))
+    monkeypatch.setattr(campaign, "run_campaign",
+                        lambda *_args, **_kwargs: pytest.fail("finalize entered resume/dispatch"))
+    assert campaign.main(finalize_args(root, "unit_0")) == 2
+    assert not campaign.completion_receipt_path(attempt_root).exists()
+    assert not (root / "run2/merged/unit_0/unit_0_invmass_fitting.png").exists()
+    assert len(campaign.read_json(state_path)["units"]["unit_0"]["attempts"]) == (
+        2 if case == "duplicate_attempt" else 1)
     capsys.readouterr()
 
 

@@ -281,9 +281,12 @@ A backend-proven terminal failure closes the attempt as failed even without a
 worker guard file. A verified nonzero lifecycle receipt also closes a failed
 worker whose scheduler job remains held or whose scheduler query is unavailable.
 An unbound or contradictory receipt cannot establish this terminality. A
-terminal-success attempt waits for `--finalize`, which alone creates or verifies
-the completion receipt and materializes/publishes canonical PNGs. Missing or
-ambiguous evidence never becomes successful publication or a retry.
+terminal-success attempt waits for `--finalize`, which can reconcile an existing
+attempt whose persisted state is still `running` when bound scheduler, guard,
+and lifecycle evidence independently prove terminal success. It then creates or
+verifies the completion receipt and materializes/publishes canonical PNGs in the
+same invocation. `--resume` is not a prerequisite for this finalization. Missing
+or ambiguous evidence never becomes successful publication or a retry.
 A backend-proven terminal success with incomplete worker evidence remains
 `interrupted` / `publish pending`, available for later reconciliation without
 launching another child. It is not counted as an active child.
@@ -301,8 +304,9 @@ uses the existing one-replacement recovery, and a proven local submit rejection
 rearms the same attempt; a terminal missing-lifecycle case records recovery
 provenance and waits; terminal success waits for `--finalize`; ambiguous
 evidence stays unresolved. `--finalize` accepts selected or all eligible
-terminal-success units, reuses the existing receipt/materialization machinery,
-and never starts a worker or retries. Already published units are skipped
+terminal-success units, including proven stale `running` units, reuses the
+existing receipt/materialization machinery, and never starts a worker or retries.
+Already published units are skipped
 unless a verified legacy output binding needs migration.
 There is no separate `--publish`, `--reconcile`, public `--recover-*`, or
 `--one-pass` action. `--status --observe-scheduler -o ROOT` remains the

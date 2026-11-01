@@ -1157,6 +1157,13 @@ def finalize_campaign(root, profile, tag, selected=None, *, output_format="json"
                     migrate_successful_unit(plan, unit["component"], state,
                                             unit_state, root, runtime)
                 continue
+            if unit_state["status"] == "running":
+                try:
+                    reconcile_running(plan, unit["component"], state, unit_state, root, runtime)
+                except (ActiveChildUnresolved, ChildDefinitelyTerminal):
+                    if selected is not None:
+                        raise
+                    continue
             attempt = unit_state["attempts"][-1] if unit_state["attempts"] else None
             eligible = (unit_state["status"] == "interrupted" and attempt is not None
                         and attempt.get("failure_classification")
