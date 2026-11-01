@@ -143,9 +143,112 @@ def seed_running(tmp_path, monkeypatch, *, profile="sr_crlike_run2", terminal="s
 
 def resume_args(root, profile="sr_crlike_run2", selected=None, backend=None):
     args = ["--campaign-profile", profile, "--campaign-tag", "fixture_campaign",
-            "-o", str(root), "--resume", "--format", "json", "--one-pass"]
+            "-o", str(root), "--resume", "--format", "json"]
     return (args + (["--selected-unit", selected] if selected else [])
             + (["--backend", backend] if backend else []))
+
+
+def finalize_args(root, selected=None):
+    args = ["--finalize", "-o", str(root), "--format", "json"]
+    return args + (["--selected-unit", selected] if selected else [])
+
+
+def finalize_ready(root, profile="sr_crlike_run2", selected=None):
+    return campaign.finalize_campaign(root, profile, "fixture_campaign", selected,
+                                      emit=False)
+
+
+def test_lifecycle_unification_resume_defers_and_finalize_publishes(
+        tmp_path, monkeypatch, capsys):
+    root, _, attempt_root = seed_running(tmp_path, monkeypatch)
+    assert campaign.main(resume_args(root, selected="unit_0")) == 0
+    state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
+    unit_state = campaign.read_json(state_path)["units"]["unit_0"]
+    assert unit_state["status"] == "interrupted"
+    assert unit_state["attempts"][0]["failure_classification"] == (
+        campaign.terminal_postprocessing_pending)
+    assert not campaign.completion_receipt_path(attempt_root).exists()
+    assert not (root / "run2/merged/unit_0/unit_0_invmass_fitting.png").exists()
+    assert campaign.main(finalize_args(root, "unit_0")) == 0
+    unit_state = campaign.read_json(state_path)["units"]["unit_0"]
+    assert unit_state["status"] == "success"
+    assert campaign.completion_receipt_path(attempt_root).is_file()
+    canonical = root / "run2/merged/unit_0/unit_0_invmass_fitting.png"
+    assert canonical.read_bytes() == b"fixture-png"
+    state_bytes = state_path.read_bytes()
+    assert campaign.main(finalize_args(root, "unit_0")) == 0
+    assert state_path.read_bytes() == state_bytes
+    assert canonical.read_bytes() == b"fixture-png"
+    capsys.readouterr()
+
+
+def test_lifecycle_unification_finalize_rejects_ineligible_selection(
+        tmp_path, monkeypatch, capsys):
+    root, _, attempt_root = seed_running(tmp_path, monkeypatch, unit_count=2)
+    assert campaign.main(finalize_args(root, "unit_0")) == 2
+    assert campaign.main(finalize_args(root, "unit_1")) == 2
+    assert not campaign.completion_receipt_path(attempt_root).exists()
+    capsys.readouterr()
+
+
+def test_lifecycle_unification_execute_defers_and_finalize_all(
+        tmp_path, monkeypatch):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
+    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
+                          plan_path=plan_path, action="execute", emit=False)
+    state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
+    state = campaign.read_json(state_path)
+    assert all(item["status"] == "interrupted" for item in state["units"].values())
+    assert not list(root.rglob("completion_receipt_v1.json"))
+    assert not list(root.glob("run2/merged/**/*.png"))
+    monkeypatch.setattr(campaign.backend, "execute", lambda *_: pytest.fail("finalize launched worker"))
+    summary = finalize_ready(root)
+    assert summary["published_count"] == 2
+    assert all(item["status"] == "success" for item in
+               campaign.read_json(state_path)["units"].values())
+
+
+def test_lifecycle_unification_finalize_blocks_failed_and_ambiguous(
+        tmp_path, monkeypatch, capsys):
+    failed_root, _, failed_attempt = seed_running(tmp_path / "failed", monkeypatch,
+                                                   terminal="failure")
+    assert campaign.main(resume_args(failed_root)) == 0
+    assert campaign.main(finalize_args(failed_root, "unit_0")) == 2
+    assert not campaign.completion_receipt_path(failed_attempt).exists()
+    ambiguous_root, _, ambiguous_attempt = seed_running(tmp_path / "ambiguous", monkeypatch)
+    campaign.lifecycle_receipt_path(ambiguous_attempt).unlink()
+    (ambiguous_attempt / "_metadata/guard.jsonl").unlink()
+    assert campaign.main(resume_args(ambiguous_root)) == 0
+    assert campaign.main(finalize_args(ambiguous_root, "unit_0")) == 2
+    assert not campaign.completion_receipt_path(ambiguous_attempt).exists()
+    capsys.readouterr()
+
+
+def test_lifecycle_unification_help_action_inventory(capsys):
+    with pytest.raises(SystemExit) as outcome:
+        campaign.main(["--campaign-profile", "sr_crlike_run2", "--help"])
+    assert outcome.value.code == 0
+    help_text = capsys.readouterr().out
+    for option in ("--execute", "--resume", "--finalize", "--status", "--dry-run",
+                   "--activate-pending-plan", "--selected-unit", "--format",
+                   "--follow", "--verify-published", "--observe-scheduler",
+                   "--backend", "--resource-observer", "--hard-limit-bytes"):
+        assert option in help_text
+    for option in ("--recover-terminal-unit", "--recover-rejected-condor-submit",
+                   "--recover-failed-unit", "--one-pass", "--publish", "--reconcile"):
+        assert option not in help_text
+
+
+@pytest.mark.parametrize("removed", ["--recover-terminal-unit",
+                                      "--recover-rejected-condor-submit",
+                                      "--recover-failed-unit", "--one-pass"])
+def test_lifecycle_unification_removed_options_are_unsupported(
+        tmp_path, monkeypatch, removed):
+    root, _, _ = seed_running(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit) as outcome:
+        campaign.main(["--resume", "-o", str(root), removed])
+    assert outcome.value.code == 2
 
 
 def test_action_scope_limits_legacy_policy_binding(tmp_path, monkeypatch, capsys):
@@ -156,7 +259,7 @@ def test_action_scope_limits_legacy_policy_binding(tmp_path, monkeypatch, capsys
     capsys.readouterr()
     assert coordinator_path.read_bytes() == before
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
-    assert state["units"]["unit_0"]["status"] == "success"
+    assert state["units"]["unit_0"]["status"] == "interrupted"
     assert state["units"]["unit_1"]["status"] == "planned"
     assert campaign.main(resume_args(root, selected="unit_0")) == 0
     assert coordinator_path.read_bytes() == before
@@ -236,6 +339,7 @@ def test_published_content_verification_is_read_only_and_detects_same_size_chang
     monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute", emit=False)
+    finalize_ready(root)
     state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
     coordinator_path = campaign.coordinator_path(root)
     before = (state_path.read_bytes(), coordinator_path.read_bytes())
@@ -351,6 +455,7 @@ def test_publication_history_survives_current_file_damage(tmp_path, monkeypatch,
     monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute", emit=False)
+    finalize_ready(root)
     state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
     coordinator_path = campaign.coordinator_path(root)
     before = (state_path.read_bytes(), coordinator_path.read_bytes())
@@ -444,7 +549,7 @@ def test_legacy_unselected_four_condor_units_bind_before_submit_once(
     state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
     state = campaign.read_json(state_path)
     assert [state["units"][f"unit_{index}"]["status"] for index in range(3)] == [
-        "success"] * 3
+        "interrupted"] * 3
     assert campaign.main(base) == 0
     assert submitted == [(f"unit_{index}", "attempt_0001") for index in range(3, 7)]
     assert observed == [(f"unit_{index}", "condor") for index in range(3, 7)] * 2
@@ -467,7 +572,7 @@ def test_fresh_policy_defaults_and_help_docs_agree(tmp_path, monkeypatch, capsys
     assert exit_info.value.code == 0
     help_text = capsys.readouterr().out
     assert 'opt in to foreground Condor' in help_text
-    assert 'return after one controller pass (default)' in ' '.join(help_text.split())
+    assert '--finalize' in help_text and '--one-pass' not in help_text
     for value in ("local", "cgroup_v2", "245000000000"):
         assert value in help_text
         assert value in (MODULE_PATH.parents[2] / "docs/how_to/plotting.md").read_text()
@@ -498,7 +603,7 @@ def seed_missing_lifecycle(tmp_path, monkeypatch, profile="sr_crlike_run2_run3")
 
 def recovery_args(root, profile="sr_crlike_run2_run3"):
     return ["--campaign-profile", profile, "--campaign-tag", "fixture_campaign",
-            "-o", str(root), "--recover-terminal-unit", "--selected-unit", "unit_0"]
+            "-o", str(root), "--resume", "--selected-unit", "unit_0"]
 
 
 def test_dry_run_uses_sidecar_variables_without_root_or_output_prediction(tmp_path, monkeypatch, capsys):
@@ -524,6 +629,7 @@ def test_selected_unit_keeps_full_plan_and_sparse_output_is_success(tmp_path, mo
     monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute", selected="unit_0")
+    finalize_ready(root, selected="unit_0")
     coordinator = campaign.read_json(campaign.coordinator_path(root))
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert len(coordinator["plan"]["units"]) == 2
@@ -568,6 +674,7 @@ def test_receipt_interruption_materializes_without_child_rerun(tmp_path, monkeyp
     campaign.create_receipt(plan, unit, attempt, runtime)
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign", action="resume")
+    finalize_ready(root)
     recovered = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert recovered["units"]["unit_0"]["status"] == "success"
     assert recovered["units"]["unit_0"]["attempts"][0]["materialization_status"] == "complete"
@@ -589,12 +696,16 @@ def test_unbound_collision_fails_without_overwrite(tmp_path, monkeypatch, capsys
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
     assert (root / relative).read_bytes() == b"foreign"
+    with pytest.raises(campaign.OutputCollision):
+        finalize_ready(root, selected="unit_0")
+    finalize_ready(root, selected="unit_1")
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
-    assert state["units"]["unit_0"]["status"] == "failed"
+    assert state["units"]["unit_0"]["status"] == "interrupted"
     assert state["units"]["unit_1"]["status"] == "success"
-    summary = json.loads(capsys.readouterr().out.splitlines()[-1])
+    summary = campaign.campaign_summary(root, campaign.read_json(campaign.coordinator_path(root))["plan"],
+                                        {"run2": state})
     assert summary["campaign_status"] == "partial"
-    assert (summary["planned_count"], summary["success_count"], summary["failed_count"]) == (2, 1, 1)
+    assert (summary["planned_count"], summary["success_count"], summary["interrupted_count"]) == (2, 1, 1)
 
 
 def test_failed_and_interrupted_are_not_retried(tmp_path, monkeypatch):
@@ -656,6 +767,7 @@ def test_combined_component_isolation(tmp_path, monkeypatch):
     monkeypatch.setattr(campaign.backend, "run_guarded_child", selective)
     campaign.run_campaign(root, "sr_crlike_run2_run3", "fixture_campaign",
                           plan_path=plan_path, action="execute")
+    finalize_ready(root, profile="sr_crlike_run2_run3", selected="unit_1")
     states = {component: campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", component))
               for component in ("run2", "run3")}
     assert states["run2"]["units"]["unit_0"]["status"] == "failed"
@@ -735,6 +847,7 @@ def test_lifecycle_crash_window_recovers_without_rerun(tmp_path, monkeypatch):
     root, _, attempt_root = seed_running(tmp_path, monkeypatch)
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
+    finalize_ready(root)
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert state["units"]["unit_0"]["status"] == "success"
     assert campaign.completion_receipt_path(attempt_root).is_file()
@@ -760,6 +873,7 @@ def test_post_tuple_terminal_state_recovers_after_interruption_without_child_rer
     monkeypatch.setattr(campaign, "verify_lifecycle_receipt", original_verify)
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
+    finalize_ready(root)
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert state["units"]["unit_0"]["status"] == "success"
     assert state["units"]["unit_0"]["attempts"][0]["failure_classification"] is None
@@ -782,6 +896,7 @@ def test_post_guard_terminal_state_recovers_after_interruption_without_child_rer
     monkeypatch.setattr(campaign, "lifecycle_receipt_path", original_path)
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
     assert campaign.main(resume_args(root)) == 0
+    finalize_ready(root)
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
     assert state["units"]["unit_0"]["status"] == "success"
     assert state["units"]["unit_0"]["attempts"][0]["failure_classification"] is None
@@ -808,11 +923,11 @@ def test_full_and_selected_resume_status_with_terminal_failure(tmp_path, monkeyp
     assert campaign.main(resume_args(root, profile, backend="local")) == 0
     summary = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert summary["campaign_status"] == "partial"
-    assert (summary["planned_count"], summary["success_count"], summary["failed_count"]) == (2, 1, 1)
+    assert (summary["planned_count"], summary["success_count"], summary["failed_count"]) == (2, 0, 1)
     run2 = campaign.read_json(campaign.state_path(root, profile, "run2"))
     run3 = campaign.read_json(campaign.state_path(root, profile, "run3"))
     assert run2["units"]["unit_0"]["status"] == "failed"
-    assert run3["units"]["unit_1"]["status"] == "success"
+    assert run3["units"]["unit_1"]["status"] == "interrupted"
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("silent retry"))
     assert campaign.main(resume_args(root, profile, selected="unit_1")) == 0
     assert campaign.main(resume_args(root, profile, selected="unit_0")) == 0
@@ -857,7 +972,7 @@ def test_private_root_setup_failure_is_terminal_and_other_unit_continues(tmp_pat
     assert launched == ["unit_1"]
     assert state["units"]["unit_0"]["status"] == "failed"
     assert state["units"]["unit_0"]["attempts"][0]["result"] == "failed"
-    assert state["units"]["unit_1"]["status"] == "success"
+    assert state["units"]["unit_1"]["status"] == "interrupted"
 
 
 def test_first_popen_failure_is_terminal_without_child(tmp_path, monkeypatch, capsys):
@@ -920,7 +1035,7 @@ def test_second_popen_failure_with_terminal_guard_allows_other_unit(tmp_path, mo
     assert summary["running_count"] == 0
     assert state["units"]["unit_0"]["status"] == "failed"
     assert state["units"]["unit_0"]["attempts"][0]["result"] == "failed"
-    assert state["units"]["unit_1"]["status"] == "success"
+    assert state["units"]["unit_1"]["status"] == "interrupted"
 
 
 @pytest.mark.parametrize("failure", ["stdout_close", "tee_wait", "guard_wait"])
@@ -976,7 +1091,7 @@ def test_terminal_guard_survives_supervisor_cleanup_failure(
     assert summary["waiting_on_active_child"] is False
     assert summary["running_count"] == 0
     assert state["units"]["unit_0"]["status"] == "failed"
-    assert state["units"]["unit_1"]["status"] == "success"
+    assert state["units"]["unit_1"]["status"] == "interrupted"
 
 
 @pytest.mark.parametrize("guard_record", [None, '{"event":"result"}\n'])
@@ -1074,7 +1189,7 @@ def test_supervisor_lifecycle_write_failure_after_terminal_guard_is_failed(
     assert state["units"]["unit_0"]["status"] == "failed"
     assert "inert lifecycle receipt write failure" in (
         state["units"]["unit_0"]["attempts"][0]["failure_classification"])
-    assert state["units"]["unit_1"]["status"] == "success"
+    assert state["units"]["unit_1"]["status"] == "interrupted"
 
 
 @pytest.mark.parametrize("source", ["supervisor_postproof", "terminal_exception"])
@@ -1138,7 +1253,7 @@ def test_unprintable_terminal_error_cannot_leave_running(
     assert summary["running_count"] == 0
     assert state["units"]["unit_0"]["status"] == "failed"
     assert state["units"]["unit_0"]["attempts"][0]["failure_classification"]
-    assert state["units"]["unit_1"]["status"] == "success"
+    assert state["units"]["unit_1"]["status"] == "interrupted"
 
 
 @pytest.mark.parametrize("corruption, expected_error", [
@@ -1218,8 +1333,8 @@ def test_terminal_tuple_survives_clock_failure(tmp_path, monkeypatch, capsys):
     attempt = state["units"]["unit_0"]["attempts"][0]
     assert len(calls) >= 2
     assert summary["running_count"] == 0
-    assert state["units"]["unit_0"]["status"] == attempt["result"] == "success"
-    assert attempt["failure_classification"] is None
+    assert state["units"]["unit_0"]["status"] == attempt["result"] == "interrupted"
+    assert attempt["failure_classification"] == campaign.terminal_postprocessing_pending
     assert (attempt["guard_result"], attempt["child_result"], attempt["tee_result"]) == (0, 0, 0)
 
 
@@ -1251,7 +1366,7 @@ def test_terminal_supervisor_error_survives_exception_clock_failure(
     assert launches == ["unit_0", "unit_1"]
     assert summary["running_count"] == 0
     assert state["units"]["unit_0"]["status"] == "failed"
-    assert state["units"]["unit_1"]["status"] == "success"
+    assert state["units"]["unit_1"]["status"] == "interrupted"
 
 
 def test_resume_terminal_guard_with_bad_lifecycle_is_interrupted(tmp_path, monkeypatch, capsys):
@@ -1286,7 +1401,9 @@ def test_resume_terminal_guard_with_receipt_creation_failure_is_interrupted(
     assert summary["waiting_on_active_child"] is False
     assert summary["running_count"] == 0
     assert state["units"]["unit_0"]["status"] == attempt["result"] == "interrupted"
-    assert "inert receipt creation failure" in summary["unit_errors"][0]
+    assert summary["unit_errors"] == []
+    assert campaign.main(finalize_args(root, "unit_0")) == 2
+    assert "inert receipt creation failure" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("guard_record", ['[]\n', '{"event":"result"}\n'])
@@ -1450,6 +1567,7 @@ def test_corrupt_status_attempt_history_rejected_before_child(corruption, tmp_pa
     monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute", selected="unit_0")
+    finalize_ready(root, selected="unit_0")
     state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
     state = campaign.read_json(state_path)
     if corruption == "planned_with_attempt":
@@ -1487,9 +1605,9 @@ def test_git_and_source_drift_do_not_gate_resume(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(campaign, "runtime_identity", lambda: pytest.fail("runtime provenance queried"))
     assert campaign.main(resume_args(root)) == 0
     state = campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))
-    assert state["units"]["unit_1"]["status"] == "success"
+    assert state["units"]["unit_1"]["status"] == "interrupted"
     assert state["runtime_contract_identity"] == historical
-    assert json.loads(capsys.readouterr().out.splitlines()[-1])["campaign_status"] == "complete"
+    assert json.loads(capsys.readouterr().out.splitlines()[-1])["campaign_status"] == "partial"
 
 
 def test_missing_renderer_log_is_receipt_evidence(tmp_path, monkeypatch):
@@ -1504,6 +1622,7 @@ def test_missing_renderer_log_is_receipt_evidence(tmp_path, monkeypatch):
     assert campaign.main(["--campaign-profile", "sr_crlike_run2", "--campaign-tag",
                           "fixture_campaign", "-o", str(root), "--plan", str(plan_path),
                           "--execute"]) == 0
+    finalize_ready(root)
     receipt = campaign.read_json(campaign.completion_receipt_path(
         root / ".campaign_units/unit_0/attempt_0001"))
     assert receipt["renderer_log_status"] == "missing"
@@ -1535,27 +1654,32 @@ def test_bound_destination_recovery_and_different_bytes(tmp_path, monkeypatch):
     monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign",
                           plan_path=plan_path, action="execute")
+    finalize_ready(root)
     state_path = campaign.state_path(root, "sr_crlike_run2", "run2")
     state = campaign.read_json(state_path)
     unit_state = state["units"]["unit_0"]
     receipt = campaign.read_json(campaign.completion_receipt_path(
         Path(unit_state["attempts"][0]["private_unit_root"])))
     destination = root / receipt["observed_png_relative_paths"][0]
-    unit_state["status"] = "running"
+    unit_state["status"] = "interrupted"
     unit_state["attempts"][0]["materialization_status"] = "pending"
-    unit_state["attempts"][0]["result"] = "running"
+    unit_state["attempts"][0]["result"] = "interrupted"
+    unit_state["attempts"][0]["failure_classification"] = campaign.terminal_postprocessing_pending
     campaign.atomic_json(state_path, state)
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child rerun"))
-    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign", action="resume")
+    finalize_ready(root)
     assert destination.read_bytes() == b"fixture-png"
     state = campaign.read_json(state_path)
-    state["units"]["unit_0"]["status"] = "running"
-    state["units"]["unit_0"]["attempts"][0]["result"] = "running"
+    state["units"]["unit_0"]["status"] = "interrupted"
+    state["units"]["unit_0"]["attempts"][0]["result"] = "interrupted"
+    state["units"]["unit_0"]["attempts"][0]["failure_classification"] = campaign.terminal_postprocessing_pending
+    state["units"]["unit_0"]["attempts"][0]["materialization_status"] = "pending"
     campaign.atomic_json(state_path, state)
     destination.write_bytes(b"changed")
-    campaign.run_campaign(root, "sr_crlike_run2", "fixture_campaign", action="resume")
+    with pytest.raises(campaign.OutputCollision):
+        finalize_ready(root)
     assert destination.read_bytes() == b"changed"
-    assert campaign.read_json(state_path)["units"]["unit_0"]["status"] == "failed"
+    assert campaign.read_json(state_path)["units"]["unit_0"]["status"] == "interrupted"
 
 
 def test_missing_lifecycle_recovery_is_no_launch_and_truthful(tmp_path, monkeypatch):
@@ -1567,9 +1691,11 @@ def test_missing_lifecycle_recovery_is_no_launch_and_truthful(tmp_path, monkeypa
     run3 = campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", "run3"))
     unit = run2["units"]["unit_0"]
     attempt = unit["attempts"][0]
-    assert unit["status"] == "success" and len(unit["attempts"]) == 1
+    assert unit["status"] == "interrupted" and len(unit["attempts"]) == 1
     assert all(attempt[key] is None for key in ("guard_result", "child_result", "tee_result"))
     assert not campaign.lifecycle_receipt_path(attempt_root).exists()
+    assert not campaign.completion_receipt_path(attempt_root).exists()
+    finalize_ready(root, profile="sr_crlike_run2_run3", selected="unit_0")
     receipt = campaign.read_json(campaign.completion_receipt_path(attempt_root))
     provenance = campaign.read_json(campaign.recovery_provenance_path(attempt_root))
     assert receipt["recovery_provenance_identity"] == campaign.identity(provenance)
@@ -1588,7 +1714,7 @@ def test_recovery_rejects_incomplete_output_and_different_byte_collision(tmp_pat
     root, _, attempt_root = seed_missing_lifecycle(tmp_path, monkeypatch)
     log_path = attempt_root / "_metadata/renderer.log"
     log_path.write_text("renderer stopped before completion\n", encoding="utf-8")
-    assert campaign.main(recovery_args(root)) == 2
+    assert campaign.main(recovery_args(root)) == 0
     assert not campaign.completion_receipt_path(attempt_root).exists()
     assert campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", "run2"))[
         "units"]["unit_0"]["status"] == "interrupted"
@@ -1599,18 +1725,20 @@ def test_recovery_rejects_incomplete_output_and_different_byte_collision(tmp_pat
     canonical = root / "run2/merged/unit_0/unit_0_invmass_fitting.png"
     canonical.parent.mkdir(parents=True)
     canonical.write_bytes(b"foreign")
-    assert campaign.main(recovery_args(root)) == 2
+    assert campaign.main(recovery_args(root)) == 0
+    assert campaign.main(finalize_args(root, "unit_0")) == 2
     assert canonical.read_bytes() == b"foreign"
     assert campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", "run2"))[
         "units"]["unit_0"]["status"] == "interrupted"
     canonical.write_bytes(b"fixture-png")
-    assert campaign.main(recovery_args(root)) == 0
+    assert campaign.main(finalize_args(root, "unit_0")) == 0
     assert canonical.read_bytes() == b"fixture-png"
 
 
 def test_legacy_human_png_migrates_with_identity_proof(tmp_path, monkeypatch):
     root, _, attempt_root = seed_missing_lifecycle(tmp_path, monkeypatch)
     assert campaign.main(recovery_args(root)) == 0
+    finalize_ready(root, profile="sr_crlike_run2_run3", selected="unit_0")
     relative = "run2/merged/unit_0/unit_0_invmass_fitting.png"
     canonical = root / relative
     legacy = root / "components/run2" / relative
@@ -1620,7 +1748,7 @@ def test_legacy_human_png_migrates_with_identity_proof(tmp_path, monkeypatch):
     state = campaign.read_json(state_path)
     del state["units"]["unit_0"]["human_output_root"]
     campaign.atomic_json(state_path, state)
-    assert campaign.main(recovery_args(root)) == 0
+    finalize_ready(root, profile="sr_crlike_run2_run3", selected="unit_0")
     assert canonical.read_bytes() == b"fixture-png"
     assert not legacy.exists()
     assert campaign.read_json(state_path)["units"]["unit_0"]["human_output_root"] == str(root)
@@ -1636,6 +1764,7 @@ def test_existing_normal_success_migrates_without_receipt_rewrite(tmp_path, monk
     monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
     campaign.run_campaign(root, profile, "fixture_campaign", plan_path=plan_path,
                           action="execute", selected="unit_0")
+    finalize_ready(root, profile=profile, selected="unit_0")
     canonical = root / "run2/merged/unit_0/unit_0_invmass_fitting.png"
     legacy = root / "components/run2/run2/merged/unit_0/unit_0_invmass_fitting.png"
     legacy.parent.mkdir(parents=True)
@@ -1650,7 +1779,7 @@ def test_existing_normal_success_migrates_without_receipt_rewrite(tmp_path, monk
         Path(unit_state["attempts"][0]["private_unit_root"]))
     receipt_before = receipt_path.read_bytes()
     monkeypatch.setattr(campaign.backend, "run_guarded_child", lambda *_: pytest.fail("child launch"))
-    campaign.migrate_successful_unit(plan, "run2", states["run2"], unit_state, root, runtime)
+    finalize_ready(root, profile=profile, selected="unit_0")
     assert canonical.read_bytes() == b"fixture-png" and not legacy.exists()
     assert receipt_path.read_bytes() == receipt_before
     assert campaign.read_json(campaign.state_path(root, profile, "run3"))[
@@ -1692,8 +1821,8 @@ def test_pending_combined_revision_reconciles_after_interruption(tmp_path, monke
     states = {component: campaign.read_json(campaign.state_path(root, "sr_crlike_run2_run3", component))
               for component in ("run2", "run3")}
     assert all(state["plan_revision"] == 2 for state in states.values())
-    assert states["run2"]["units"]["unit_0"]["status"] == "success"
-    assert states["run3"]["units"]["unit_2"]["status"] == "success"
+    assert states["run2"]["units"]["unit_0"]["status"] == "interrupted"
+    assert states["run3"]["units"]["unit_2"]["status"] == "interrupted"
 
 
 @pytest.mark.parametrize('submission', ['123.0\n', '', '123.0 - 123.1\n'])
@@ -1791,7 +1920,9 @@ def test_read_only_status_presentation_and_receipt_boundary(tmp_path, monkeypatc
     assert 'completed' in human and 'publish pending' in human
     assert '.campaign_units' not in human
     assert campaign.state_path(root, 'sr_crlike_run2', 'run2').read_bytes() == before
-    assert campaign.main(['--resume', '-o', str(root), '--format', 'json', '--one-pass']) == 0
+    assert campaign.main(['--resume', '-o', str(root), '--format', 'json']) == 0
+    capsys.readouterr()
+    assert campaign.main(['--finalize', '-o', str(root), '--format', 'json']) == 0
     capsys.readouterr()
     assert campaign.main(['--status', '-o', str(root), '--format', 'yaml']) == 0
     import yaml
@@ -1918,7 +2049,8 @@ def test_follow_reports_changes_only_and_interrupt_is_nonmutating(tmp_path, monk
     assert summary['running_count'] == 2
     final = campaign.follow_campaign(summary, root, 'sr_crlike_run2', 'fixture_campaign',
                                      None, 'condor', 'cgroup_v2', 245000000000, 'human', 1)
-    assert final['published_count'] == 2
+    assert final['published_count'] == 0
+    assert final['interrupted_count'] == 2
     assert submitted == ['unit_0', 'unit_1']
     # Routine pending observations do not repeat the unchanged human summary.
     assert capsys.readouterr().out.count('Campaign:') == 2
@@ -1965,26 +2097,23 @@ def test_explicit_condor_recovery_selected_same_attempt_only(tmp_path, monkeypat
     from types import SimpleNamespace
     from analysis.topeft_run2 import plot_campaign_condor as condor
     root, state_path, metadata, calls = seed_rejected_condor_campaign(tmp_path, monkeypatch)
-    campaign.run_campaign(root, 'sr_crlike_run2', 'fixture_campaign', action='resume')
     assert calls.count('condor_submit') == 1
     args = ['--campaign-profile', 'sr_crlike_run2', '--campaign-tag', 'fixture_campaign',
-            '-o', str(root), '--recover-rejected-condor-submit']
-    assert campaign.main(args) == 2
-    assert calls.count('condor_submit') == 1
+            '-o', str(root), '--resume', '--selected-unit', 'unit_0']
     def recovered(command, **kwargs):
         calls.append(command[0])
         return SimpleNamespace(returncode=0,
                                stdout='123.0\n' if command[0] == 'condor_submit' else '[]',
                                stderr='')
     monkeypatch.setattr(condor.subprocess, 'run', recovered)
-    assert campaign.main(args + ['--selected-unit', 'unit_0']) == 0
+    assert campaign.main(args) == 0
     state = campaign.read_json(state_path)['units']['unit_0']
     assert state['status'] == 'running'
     assert [item['attempt_id'] for item in state['attempts']] == ['attempt_0001']
     assert (metadata / 'rejected_execution.sub').read_text() == (metadata / 'execution.sub').read_text()
     assert (metadata / 'rejected_submission_response.json').read_bytes() == (metadata / 'submission_response.json').read_bytes()
     assert calls.count('condor_submit') == 2
-    assert campaign.main(args + ['--selected-unit', 'unit_0']) == 2
+    assert campaign.main(args) == 0
     assert calls.count('condor_submit') == 2
     assert not (metadata.parent.parent / 'attempt_0002').exists()
     capsys.readouterr()
@@ -2019,11 +2148,13 @@ def test_condor_terminal_evidence_needs_controller_receipt_and_materialization(t
     monkeypatch.setattr(campaign.backend,'execute',lambda *a: pytest.fail('retry'))
     campaign.run_campaign(root,'sr_crlike_run2','fixture_campaign',action='resume')
     result=campaign.read_json(path)['units']['unit_0']
-    assert result['status']=={'terminal_success':'success','terminal_failure':'failed','unresolved':'running'}[scheduler_state]
+    assert result['status']=={'terminal_success':'interrupted','terminal_failure':'failed','unresolved':'running'}[scheduler_state]
     assert len(result['attempts'])==1
     if scheduler_state=='terminal_success':
+        assert not campaign.completion_receipt_path(attempt_root).exists()
+        finalize_ready(root)
         assert (root/'run2/merged/unit_0/unit_0_invmass_fitting.png').read_bytes()==b'fixture-png'
-        assert result['attempts'][0]['materialization_status']=='complete'
+        assert campaign.read_json(path)['units']['unit_0']['attempts'][0]['materialization_status']=='complete'
 
 
 def test_historical_command_identity_is_verification_only(tmp_path, monkeypatch):
@@ -2039,7 +2170,8 @@ def test_historical_command_identity_is_verification_only(tmp_path, monkeypatch)
     monkeypatch.setattr(campaign.backend,'execute',lambda *a: pytest.fail('historical command executed'))
     assert campaign.main(recovery_args(root))==0
     result=campaign.read_json(path)['units']['unit_0']
-    assert result['status']=='success'
+    assert result['status']=='interrupted'
+    finalize_ready(root, profile='sr_crlike_run2_run3', selected='unit_0')
     assert result['attempts'][0]['command_identity']==campaign.identity(historical)
     assert 'execution_contract' not in result['attempts'][0]
 
@@ -2134,7 +2266,7 @@ def test_condor_execute_one_shot_handoff_and_terminal_states(
     _, plan, states = campaign.load_campaign(root, profile, 'fixture_campaign',
                                             campaign.runtime_identity())
     final_summary = campaign.campaign_summary(root, plan, states)
-    assert final_summary['published_count'] == outcomes.count('success')
+    assert final_summary['published_count'] == 0
     assert final_summary['failed_count'] == sum(outcome in terminal - {'success'} for outcome in outcomes)
     assert final_summary['running_count'] == sum(
         outcome not in terminal | {'success_without_receipt'} for outcome in outcomes)
@@ -2142,8 +2274,9 @@ def test_condor_execute_one_shot_handoff_and_terminal_states(
     for index, outcome in enumerate(outcomes):
         component = 'run2' if index == 0 else 'run3'
         unit = campaign.read_json(campaign.state_path(root, profile, component))['units'][f'unit_{index}']
-        expected = ('success' if outcome == 'success' else 'failed' if outcome in terminal
-                    else 'interrupted' if outcome == 'success_without_receipt' else 'running')
+        expected = ('failed' if outcome in terminal - {'success'}
+                    else 'interrupted' if outcome in {'success', 'success_without_receipt'}
+                    else 'running')
         assert unit['status'] == expected
         assert len(unit['attempts']) == 1
         attempt = unit['attempts'][0]
@@ -2154,9 +2287,9 @@ def test_condor_execute_one_shot_handoff_and_terminal_states(
             assert attempt['failure_classification'] == campaign.terminal_postprocessing_pending
             assert final_summary['units'][index]['publish'] == 'publish pending'
         if outcome == 'success':
-            assert attempt['materialization_status'] == 'complete'
-            assert attempt['completion_receipt_identity']
-            assert len(unit['materializations']) == 1
+            assert attempt['materialization_status'] == 'pending'
+            assert attempt['completion_receipt_identity'] is None
+            assert final_summary['units'][index]['publish'] == 'publish pending'
         else:
             assert not unit['materializations']
             assert attempt['completion_receipt_identity'] is None
@@ -2179,7 +2312,7 @@ def test_condor_execute_one_shot_handoff_and_terminal_states(
         assert len(unit['attempts']) == 1
         assert unit['attempts'][0]['attempt_id'] == 'attempt_0001'
         if outcomes[index] in terminal:
-            assert unit['status'] == ('success' if outcomes[index] == 'success' else 'failed')
+            assert unit['status'] == ('interrupted' if outcomes[index] == 'success' else 'failed')
         elif outcomes[index] == 'success_without_receipt':
             assert unit['status'] == 'interrupted'
     assert not list(root.rglob('attempt_0002'))
@@ -2284,11 +2417,9 @@ def test_failed_recovery_is_selected_one_shot_and_preserves_first_attempt(
     if old_absent:
         monkeypatch.setattr(campaign.backend, 'observe', lambda *a, **k: {
             'state': 'unresolved', 'job': '123.0', 'source': 'unresolved', 'ad': None})
-    args = ['--recover-failed-unit', '-o', str(root), '--selected-unit', selected]
+    args = ['--resume', '-o', str(root), '--selected-unit', selected]
     assert campaign.main(args) == 0
-    result = json.loads(capsys.readouterr().out)
-    assert result['attempt_id'] == 'attempt_0002'
-    assert result['scheduler_readback_required'] is True
+    capsys.readouterr()
     state = campaign.read_json(state_path)['units'][selected]
     assert state['status'] == 'running'
     assert state['attempts'][0] == before
@@ -2303,11 +2434,11 @@ def test_failed_recovery_is_selected_one_shot_and_preserves_first_attempt(
     other = 'run3' if component == 'run2' else 'run2'
     assert len(next(iter(campaign.read_json(campaign.state_path(root, profile, other))
                          ['units'].values()))['attempts']) == 1
-    assert campaign.main(args) == 2
-    other_unit = 'unit_1' if selected == 'unit_0' else 'unit_0'
-    assert campaign.main(['--recover-failed-unit', '-o', str(root),
-                          '--selected-unit', other_unit]) == 2
     monkeypatch.setattr(campaign.backend, 'observe', lambda *a, **k: {'state': 'pending'})
+    assert campaign.main(args) == 0
+    other_unit = 'unit_1' if selected == 'unit_0' else 'unit_0'
+    assert campaign.main(['--resume', '-o', str(root),
+                          '--selected-unit', other_unit]) == 0
     assert campaign.main(['--resume', '-o', str(root), '--selected-unit', selected]) == 0
     assert len(calls) == 1
     assert not list(root.rglob('attempt_0003'))
@@ -2318,7 +2449,7 @@ def test_failed_recovery_is_selected_one_shot_and_preserves_first_attempt(
     'held', 'running', 'restart', 'unknown', 'descriptor', 'command', 'success_lifecycle',
 ])
 def test_failed_recovery_rejects_unbound_or_active_evidence_without_new_attempt(
-        tmp_path, monkeypatch, blocker):
+        tmp_path, monkeypatch, capsys, blocker):
     root, _, profile = seed_failed_condor_attempts(tmp_path, monkeypatch)
     state_path = campaign.state_path(root, profile, 'run2')
     state = campaign.read_json(state_path)
@@ -2360,8 +2491,9 @@ def test_failed_recovery_rejects_unbound_or_active_evidence_without_new_attempt(
     monkeypatch.setattr(campaign.backend, 'observe', lambda *a, **k: observation)
     monkeypatch.setattr(campaign.backend, 'execute', lambda *a: pytest.fail('unsafe launch'))
     before = state_path.read_bytes()
-    assert campaign.main(['--recover-failed-unit', '-o', str(root),
-                          '--selected-unit', 'unit_0']) == 2
+    assert campaign.main(['--resume', '-o', str(root),
+                          '--selected-unit', 'unit_0']) == 0
+    assert 'Action needed:' in capsys.readouterr().out
     assert state_path.read_bytes() == before
     assert not (old_root.parent / 'attempt_0002').exists() or blocker == 'occupied_second'
 
@@ -2371,7 +2503,7 @@ def test_failed_recovery_second_attempt_reconciles_without_retry(
         tmp_path, monkeypatch, capsys, returncode):
     root, _, profile = seed_failed_condor_attempts(tmp_path, monkeypatch)
     calls = queued_recovery(monkeypatch)
-    args = ['--recover-failed-unit', '-o', str(root), '--selected-unit', 'unit_0']
+    args = ['--resume', '-o', str(root), '--selected-unit', 'unit_0']
     assert campaign.main(args) == 0
     argv, attempt_root, _ = calls[0]
     metadata = attempt_root / '_metadata'
@@ -2387,11 +2519,16 @@ def test_failed_recovery_second_attempt_reconciles_without_retry(
         'ad': {'JobStatus': 4 if returncode == 0 else 5, 'ExitCode': returncode}})
     assert campaign.main(['--resume', '-o', str(root), '--selected-unit', 'unit_0']) == 0
     unit = campaign.read_json(campaign.state_path(root, profile, 'run2'))['units']['unit_0']
-    assert unit['status'] == ('success' if returncode == 0 else 'failed')
+    assert unit['status'] == ('interrupted' if returncode == 0 else 'failed')
     assert unit['attempts'][0]['result'] == 'failed'
     assert unit['attempts'][1]['child_result'] == returncode
     assert len(unit['attempts']) == 2
-    assert campaign.main(args) == 2
+    if returncode == 0:
+        assert not campaign.completion_receipt_path(attempt_root).exists()
+        assert campaign.main(finalize_args(root, 'unit_0')) == 0
+        assert campaign.read_json(campaign.state_path(root, profile, 'run2'))[
+            'units']['unit_0']['status'] == 'success'
+    assert campaign.main(args) == 0
     assert len(calls) == 1
     assert not list(root.rglob('attempt_0003'))
     capsys.readouterr()
@@ -2423,7 +2560,7 @@ def test_local_execute_keeps_foreground_sequential_semantics(tmp_path, monkeypat
     def execute(argv, attempt_root, contract):
         if calls:
             state = campaign.read_json(campaign.state_path(root, 'sr_crlike_run2', 'run2'))
-            assert state['units']['unit_0']['status'] == 'success'
+            assert state['units']['unit_0']['status'] == 'interrupted'
         calls.append(attempt_root.parent.name)
         return fake_success(argv, attempt_root)
 
@@ -2433,5 +2570,5 @@ def test_local_execute_keeps_foreground_sequential_semantics(tmp_path, monkeypat
                           '--execute', '--plan', str(plan_path), '-o', str(root)]) == 0
     assert calls == ['unit_0', 'unit_1']
     output = capsys.readouterr().out
-    assert 'Units: 2 published / 2 planned' in output
+    assert 'Units: 0 published / 2 planned' in output
     assert 'Monitor with:' not in output

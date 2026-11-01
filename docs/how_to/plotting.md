@@ -224,10 +224,10 @@ publishes verified plots under `<ROOT>/<period>/merged/<category>/<filename>.png
 and, where the layout owner requires it, `merged_njets` beside `merged`. Private
 `components/` directories are automatic staging and are not the final plot
 destination. Execution completion and publication are separate: a finished
-Condor job can show `completed / publish pending` until the controller verifies
-its receipt and copies the observed plots without overwriting another owner's
-bytes. The controller uses `topeft/modules/plot_output_layout.py` for final
-paths.
+Condor job can show `completed / publish pending` after `--resume` records
+terminal success. `--finalize` creates or verifies the completion receipt and
+copies the observed plots without overwriting another owner's bytes. The
+controller uses `topeft/modules/plot_output_layout.py` for final paths.
 
 For an existing campaign, use the read-only status command:
 
@@ -280,13 +280,16 @@ public `--execute` submits the selected planned units, performs one initial
 readback/reconciliation for each submitted attempt, prints current status and a
 copy-pastable monitoring command, then exits even while jobs remain active or
 unresolved. A normal `--resume` on a policy-bound Condor root reconciles every
-selected active unit, publishes each valid terminal success, submits every
-eligible planned unit once, reads back the newly submitted attempts once, and
-exits. Terminal nonzero results become failed attempts, including workers held
-by OnExitHold with a verified failure receipt. Neither action retries failed or
-interrupted attempts or creates a second attempt for them. Scheduler success
-alone does not establish publication: the receipt/materialization checks still
-apply. Local execution remains foreground and sequential.
+selected active unit, records proven terminal success as publish pending,
+submits every eligible planned unit once, reads back the newly submitted
+attempts once, and exits. Terminal nonzero results become failed attempts,
+including workers held by OnExitHold with a verified failure receipt. `--resume`
+selects the existing guarded recovery for eligible failed or interrupted attempts. A failed Condor
+attempt may create only one replacement after its nonzero lifecycle and retired
+old scheduler identity are verified; a proven local submit rejection may rearm
+only the same attempt. Ambiguous evidence never authorizes retry. `--finalize`
+alone publishes proven terminal success. Local execution remains foreground
+and sequential.
 
 Use the printed command for a separate, read-only scheduler observation:
 
@@ -298,21 +301,22 @@ PYTHON_BIN=/absolute/path/to/python ./analysis/topeft_run2/run_plotter.sh \
 The handoff uses the actual interpreter, absolute wrapper path and quoted output
 root. It is printed on stderr for JSON/YAML so stdout remains machine-readable.
 Status never reconciles or publishes. The existing `--follow` option explicitly
-opts into foreground reconciliation/publication; only this option polls.
+opts into foreground observation and reconciliation; only this option polls.
 It prints changed status and releases the lock between polls. Ctrl-C stops
 observation without cancelling jobs. `--poll-seconds N` (1–300, default 15)
 controls this optional cadence. `--selected-unit` remains a bounded action;
-follow also never retries failed or interrupted units.
+follow uses the same bounded resume recovery rules and stops when only
+terminal-success finalization remains.
 
 ```bash
 ./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign
 ```
 
-For a machine caller, request JSON; `--one-pass` remains accepted and is the default:
+For a machine caller, request JSON. A single controller pass is the default:
 
 ```bash
 ./analysis/topeft_run2/run_plotter.sh --resume -o /absolute/path/to/topeft/histos/my_campaign \
-  --format json --one-pass
+  --format json
 ```
 
 An existing root supplies profile and tag. A fresh campaign requires a qualified
@@ -376,8 +380,8 @@ campaign use `--resume` with the existing root. It reconciles active attempts,
 skips published successes, and runs eligible planned units. A possibly live
 local child blocks other local launches. Independent Condor attempts do not
 block other planned Condor units. A terminal failed or interrupted unit does
-not block an eligible planned unit elsewhere;
-it is never silently retried. A successful controller invocation exits zero
+not block an eligible planned unit elsewhere. An ineligible or ambiguous attempt
+is never retried. A successful controller invocation exits zero
 even when units remain planned, failed, or interrupted. Its JSON summary reports
 `campaign_status` (`complete`, `partial`, `in_progress`, or `waiting`), total
 `planned_count`, per-status counts, and `waiting_on_active_child`. The derived
@@ -395,11 +399,12 @@ terminal state from that receipt without rerunning the child. If it is missing
 but guard evidence conclusively shows the child ended, resume marks the attempt
 interrupted. Without conclusive terminal evidence, it remains running; local
 work waits, while independent planned Condor units may start. After terminal
-success, a separate atomic `completion_receipt_v1.json`
-records the exact observed PNG
-paths, counts, sizes, SHA-256 values, and counts by requested variable. Sparse
-or zero output for a variable in a region is ordinary renderer applicability;
-the controller does not call that absence a failure. Renderer log presence and
+success, resume leaves terminal postprocessing pending. `--finalize` creates
+or verifies the separate atomic `completion_receipt_v1.json`, which records
+the exact observed PNG paths, counts, sizes, SHA-256 values, and counts by
+requested variable. Sparse or zero output for a variable in a region is
+ordinary renderer applicability; the controller does not call that absence a
+failure. Renderer log presence and
 message content are review evidence: a regular log is scanned in full and a
 bounded message summary is stored; a missing log is recorded explicitly in
 `renderer_log_status`. Neither changes successful guard/child/tee lifecycle
@@ -417,22 +422,28 @@ root as `<period>/merged/<category>/<figure>.png` (and `merged_njets` when
 required by the layout owner). A combined campaign keeps separate private
 `components/run2` and `components/run3` attempt roots and state files. The state binds
 each destination to its unit, receipt, size, and SHA-256 before copying it.
-Resume can finish missing copies from a bound receipt without rerunning the
+Finalize can finish missing copies from a bound receipt without rerunning the
 child. Same-byte canonical destinations can be rebound to a verified receipt;
 different-owner or different-byte destinations stop the affected component.
 Directory existence alone never means success.
 
 For a terminal attempt whose guard records normal exit zero but whose supervisor
-never wrote a lifecycle receipt, use the separate `--recover-terminal-unit
---selected-unit UNIT_ID` action after checking that the managed process is gone.
-It never starts a renderer or advances planned units. It requires the bound
-guard, complete observed PNG inventory, and renderer completion summary, then
-writes distinct recovery provenance and a completion receipt with unavailable
-guard/child/tee lifecycle results left null. The missing lifecycle receipt
-remains missing. The same action migrates successful human PNG copies from
-component-relative paths, verifies canonical byte identity, rebinds state to
-the global root, and removes only verified redundant old PNG copies. Private
-attempts, logs, state, and receipts stay put.
+never wrote a lifecycle receipt, use `--resume --selected-unit UNIT_ID` after
+checking that the managed process is gone. The existing recovery proof requires
+the bound guard, complete observed PNG inventory, and renderer completion
+summary. Resume writes distinct recovery provenance and leaves publication
+pending; the missing lifecycle receipt remains missing. `--finalize` then
+creates or verifies the completion receipt with unavailable guard/child/tee
+results left null and materializes the canonical PNGs. It never starts a
+renderer or advances planned units. For an already successful legacy unit,
+finalize also reuses the existing verified component-to-canonical PNG migration
+when its old human-output binding remains. Private attempts and logs stay put.
+
+Use `--finalize -o ROOT` for all eligible terminal-success units, or add
+`--selected-unit UNIT_ID` to require one eligible unit. Planned, running,
+failed, and ambiguous units are not finalized. An already published unit is
+left alone unless its verified legacy output binding needs migration. There
+is no separate `--publish` or `--reconcile` action.
 
 To append formally qualified units, submit a full plan whose revision is one
 greater and whose existing units are byte-equivalent in their source fields:

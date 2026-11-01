@@ -258,8 +258,8 @@ reads back newly submitted attempts once. Both return while jobs are active or
 unresolved, after printing current status and one shell-quoted
 `PYTHON_BIN=... /absolute/path/to/run_plotter.sh --status -o ROOT --observe-scheduler`
 handoff. JSON/YAML stdout retains its schema; the handoff goes to stderr.
-`--one-pass` explicitly selects the default. Only `--follow` opts into repeated
-foreground reconciliation/publication, with the lock released between passes.
+Only `--follow` opts into repeated foreground observation/reconciliation, with
+the lock released between passes. It stops when only finalization remains.
 Ctrl-C ends that observation without cancelling jobs or changing attempts. Fresh
 execution resolves one future-attempt policy from code-owned defaults
 (`local`, `cgroup_v2`, `245000000000` bytes) and stores it in the coordinator.
@@ -270,27 +270,43 @@ planned Condor launch needs explicit backend, observer and hard limit once.
 The policy governs future attempts only. Condor passes reconcile all active
 units, then submit every eligible planned unit independently and reconcile each
 new attempt once. Local passes retain one active child. `--selected-unit` narrows
-only the requested unit; terminal failed/interrupted units never retry through
-ordinary resume. The query path binds pool, schedd, exact job, token and owner,
-limits history to one ad and uses a finite timeout; timeout leaves the attempt
+only the requested unit. Resume selects existing bounded recovery for a proven
+failed attempt, a proven local Condor submit rejection, or a terminal
+missing-lifecycle case. Ambiguity never becomes a retry. The query path binds
+pool, schedd, exact job, token and owner, limits history to one ad and uses a
+finite timeout; timeout leaves the attempt
 unresolved.
 
 A backend-proven terminal failure closes the attempt as failed even without a
 worker guard file. A verified nonzero lifecycle receipt also closes a failed
 worker whose scheduler job remains held or whose scheduler query is unavailable.
-An unbound or contradictory receipt cannot establish this terminality. Success
-still requires the existing scheduler, guard, receipt and materialization gates;
-missing or ambiguous evidence never becomes successful publication or a retry.
+An unbound or contradictory receipt cannot establish this terminality. A
+terminal-success attempt waits for `--finalize`, which alone creates or verifies
+the completion receipt and materializes/publishes canonical PNGs. Missing or
+ambiguous evidence never becomes successful publication or a retry.
 A backend-proven terminal success with incomplete worker evidence remains
 `interrupted` / `publish pending`, available for later reconciliation without
 launching another child. It is not counted as an active child.
 
 The profile CLI is `run_plotter.sh --campaign-profile PROFILE --campaign-tag
-TAG -o ROOT` with `--plan PLAN --dry-run|--execute`, `--resume`, optional
-`--selected-unit ID`, or `--activate-pending-plan PLAN
+TAG -o ROOT` with `--plan PLAN --dry-run|--execute`, `--resume`, `--finalize`,
+optional `--selected-unit ID`, or `--activate-pending-plan PLAN
 --expected-plan-revision N`. The former TSV campaign mode is retired. Campaign state is implemented in
 `analysis/topeft_run2/plot_campaign_manifest.py` and does not change rendering,
 histogram production, or renderer science; backend identity is recorded only on new attempts.
+
+The public lifecycle is: planned coverage dispatches through `--execute` or
+`--resume`; active attempts are observed by `--resume`; a proven failed attempt
+uses the existing one-replacement recovery, and a proven local submit rejection
+rearms the same attempt; a terminal missing-lifecycle case records recovery
+provenance and waits; terminal success waits for `--finalize`; ambiguous
+evidence stays unresolved. `--finalize` accepts selected or all eligible
+terminal-success units, reuses the existing receipt/materialization machinery,
+and never starts a worker or retries. Already published units are skipped
+unless a verified legacy output binding needs migration.
+There is no separate `--publish`, `--reconcile`, public `--recover-*`, or
+`--one-pass` action. `--status --observe-scheduler -o ROOT` remains the
+canonical read-only monitoring command.
 
 Plan v1 binds a complete unit catalogue. Unit source fields are `unit_id`,
 `component`, `producer_unit_id`, `input_path`, `sidecar_path`,
