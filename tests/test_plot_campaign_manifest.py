@@ -2210,6 +2210,193 @@ def test_condor_resume_closes_held_failure_without_retry(tmp_path, monkeypatch, 
     assert 'reconciliation needed' not in capsys.readouterr().out
 
 
+def seed_failed_condor_attempts(tmp_path, monkeypatch):
+    profile = 'sr_crlike_run2_run3'
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, profile=profile, unit_count=2)
+    raw = campaign.read_json(plan_path)
+    for unit in raw['units']:
+        sidecar_path = Path(unit['sidecar_path'])
+        sidecar = campaign.read_json(sidecar_path)
+        digest = campaign.sha256_file(Path(unit['input_path']))
+        sidecar['artifact']['pkl_sha256'] = digest
+        campaign.atomic_json(sidecar_path, sidecar)
+        unit['qualification_source'].update(
+            input_sha256=digest, sidecar_sha256=campaign.sha256_file(sidecar_path))
+    campaign.atomic_json(plan_path, raw)
+
+    def first_failure(argv, attempt_root, contract):
+        result = fake_failure(argv, attempt_root)
+        descriptor = campaign.backend.execution_descriptor(argv, attempt_root, contract)
+        metadata = attempt_root / '_metadata'
+        campaign.atomic_json(metadata / 'execution.json', descriptor)
+        campaign.atomic_json(metadata / 'scheduler_identity.json', {
+            'job': '123.0', 'pool': 'fixture_pool', 'schedd': 'fixture_schedd',
+            'token': descriptor['token'],
+        })
+        return result
+
+    monkeypatch.setattr(campaign.backend, 'execute', first_failure)
+    monkeypatch.setattr(campaign.backend, 'observe',
+                        lambda *a, **k: pytest.fail('unexpected scheduler query'))
+    campaign.run_campaign(root, profile, 'fixture_campaign', action='execute',
+                          plan_path=plan_path, backend_name='condor',
+                          observer='cgroup_v2', hard_limit_bytes=192000000000, emit=False)
+    return root, raw, profile
+
+
+def retired_failed_observation(*args, **kwargs):
+    return {'state': 'terminal_failure', 'job': '123.0', 'source': 'history',
+            'ad': {'JobStatus': 3, 'NumJobStarts': 1, 'ExitCode': 7, 'ExitBySignal': False}}
+
+
+def queued_recovery(monkeypatch):
+    calls = []
+
+    def submit(argv, attempt_root, contract):
+        calls.append((argv, attempt_root, contract))
+        metadata = attempt_root / '_metadata'
+        metadata.mkdir()
+        descriptor = campaign.backend.execution_descriptor(argv, attempt_root, contract)
+        campaign.atomic_json(metadata / 'execution.json', descriptor)
+        campaign.atomic_json(metadata / 'scheduler_identity.json', {
+            'job': '124.0', 'pool': 'fixture_pool', 'schedd': 'fixture_schedd',
+            'token': descriptor['token'],
+        })
+        raise campaign.ActiveChildUnresolved('synthetic ambiguous submit response')
+
+    monkeypatch.setattr(campaign.backend, 'execute', submit)
+    monkeypatch.setattr(campaign.backend, 'observe', retired_failed_observation)
+    return calls
+
+
+@pytest.mark.parametrize('selected,component', [('unit_0', 'run2'), ('unit_1', 'run3')])
+@pytest.mark.parametrize('old_absent', [False, True])
+def test_failed_recovery_is_selected_one_shot_and_preserves_first_attempt(
+        tmp_path, monkeypatch, capsys, selected, component, old_absent):
+    root, _, profile = seed_failed_condor_attempts(tmp_path, monkeypatch)
+    state_path = campaign.state_path(root, profile, component)
+    before = campaign.read_json(state_path)['units'][selected]['attempts'][0]
+    old_root = Path(before['private_unit_root'])
+    old_bytes = {str(p.relative_to(old_root)): p.read_bytes()
+                 for p in old_root.rglob('*') if p.is_file()}
+    coordinator_bytes = campaign.coordinator_path(root).read_bytes()
+    calls = queued_recovery(monkeypatch)
+    if old_absent:
+        monkeypatch.setattr(campaign.backend, 'observe', lambda *a, **k: {
+            'state': 'unresolved', 'job': '123.0', 'source': 'unresolved', 'ad': None})
+    args = ['--recover-failed-unit', '-o', str(root), '--selected-unit', selected]
+    assert campaign.main(args) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result['attempt_id'] == 'attempt_0002'
+    assert result['scheduler_readback_required'] is True
+    state = campaign.read_json(state_path)['units'][selected]
+    assert state['status'] == 'running'
+    assert state['attempts'][0] == before
+    assert [a['attempt_id'] for a in state['attempts']] == ['attempt_0001', 'attempt_0002']
+    old_descriptor = campaign.read_json(old_root / '_metadata/execution.json')
+    new_root = Path(state['attempts'][1]['private_unit_root'])
+    new_descriptor = campaign.read_json(new_root / '_metadata/execution.json')
+    assert old_descriptor['token'] != new_descriptor['token']
+    assert coordinator_bytes == campaign.coordinator_path(root).read_bytes()
+    assert old_bytes == {str(p.relative_to(old_root)): p.read_bytes()
+                         for p in old_root.rglob('*') if p.is_file()}
+    other = 'run3' if component == 'run2' else 'run2'
+    assert len(next(iter(campaign.read_json(campaign.state_path(root, profile, other))
+                         ['units'].values()))['attempts']) == 1
+    assert campaign.main(args) == 2
+    other_unit = 'unit_1' if selected == 'unit_0' else 'unit_0'
+    assert campaign.main(['--recover-failed-unit', '-o', str(root),
+                          '--selected-unit', other_unit]) == 2
+    monkeypatch.setattr(campaign.backend, 'observe', lambda *a, **k: {'state': 'pending'})
+    assert campaign.main(['--resume', '-o', str(root), '--selected-unit', selected]) == 0
+    assert len(calls) == 1
+    assert not list(root.rglob('attempt_0003'))
+
+
+@pytest.mark.parametrize('blocker', [
+    'missing_receipt', 'bad_guard_hash', 'occupied_second', 'input_bytes', 'sidecar_bytes',
+    'held', 'running', 'restart', 'unknown', 'descriptor', 'command', 'success_lifecycle',
+])
+def test_failed_recovery_rejects_unbound_or_active_evidence_without_new_attempt(
+        tmp_path, monkeypatch, blocker):
+    root, _, profile = seed_failed_condor_attempts(tmp_path, monkeypatch)
+    state_path = campaign.state_path(root, profile, 'run2')
+    state = campaign.read_json(state_path)
+    unit = state['units']['unit_0']
+    attempt = unit['attempts'][0]
+    old_root = Path(attempt['private_unit_root'])
+    receipt_path = campaign.lifecycle_receipt_path(old_root)
+    if blocker == 'missing_receipt':
+        receipt_path.unlink()
+    elif blocker == 'bad_guard_hash':
+        receipt = campaign.read_json(receipt_path)
+        receipt['guard_evidence_sha256'] = '0' * 64
+        campaign.atomic_json(receipt_path, receipt)
+    elif blocker == 'occupied_second':
+        (old_root.parent / 'attempt_0002').mkdir()
+    elif blocker == 'input_bytes':
+        path = Path(unit['binding']['input_path'])
+        path.write_bytes(b'x' * path.stat().st_size)
+    elif blocker == 'sidecar_bytes':
+        Path(unit['binding']['sidecar_path']).write_text('{}')
+    elif blocker == 'descriptor':
+        campaign.atomic_json(old_root / '_metadata/execution.json', {})
+    elif blocker == 'command':
+        attempt['command_identity'] = '0' * 64
+        campaign.atomic_json(state_path, state)
+    elif blocker == 'success_lifecycle':
+        (old_root / '_metadata/guard.jsonl').write_text(guard_result_line())
+        write_lifecycle(attempt['execution_contract']['argv'], old_root, 0, 0, 0)
+        attempt.update(guard_result=0, child_result=0, tee_result=0)
+        campaign.atomic_json(state_path, state)
+    observation = retired_failed_observation()
+    if blocker in {'held', 'running'}:
+        observation['state'] = 'pending'
+        observation['ad']['JobStatus'] = 5 if blocker == 'held' else 2
+    elif blocker == 'restart':
+        observation['ad']['NumJobStarts'] = 2
+    elif blocker == 'unknown':
+        observation = {'state': 'unresolved', 'reason': 'query unavailable'}
+    monkeypatch.setattr(campaign.backend, 'observe', lambda *a, **k: observation)
+    monkeypatch.setattr(campaign.backend, 'execute', lambda *a: pytest.fail('unsafe launch'))
+    before = state_path.read_bytes()
+    assert campaign.main(['--recover-failed-unit', '-o', str(root),
+                          '--selected-unit', 'unit_0']) == 2
+    assert state_path.read_bytes() == before
+    assert not (old_root.parent / 'attempt_0002').exists() or blocker == 'occupied_second'
+
+
+@pytest.mark.parametrize('returncode', [0, 7])
+def test_failed_recovery_second_attempt_reconciles_without_retry(
+        tmp_path, monkeypatch, capsys, returncode):
+    root, _, profile = seed_failed_condor_attempts(tmp_path, monkeypatch)
+    calls = queued_recovery(monkeypatch)
+    args = ['--recover-failed-unit', '-o', str(root), '--selected-unit', 'unit_0']
+    assert campaign.main(args) == 0
+    argv, attempt_root, _ = calls[0]
+    metadata = attempt_root / '_metadata'
+    (metadata / 'guard.jsonl').write_text(guard_result_line(returncode))
+    (metadata / 'renderer.log').write_text('fwd0pt absent in this region\n')
+    if returncode == 0:
+        output = attempt_root / 'run2/merged/unit_0'
+        output.mkdir(parents=True)
+        (output / 'unit_0_invmass_fitting.png').write_bytes(b'fixture-png')
+    write_lifecycle(argv, attempt_root, returncode, returncode, 0)
+    monkeypatch.setattr(campaign.backend, 'observe', lambda *a, **k: {
+        'state': 'terminal_success' if returncode == 0 else 'pending',
+        'ad': {'JobStatus': 4 if returncode == 0 else 5, 'ExitCode': returncode}})
+    assert campaign.main(['--resume', '-o', str(root), '--selected-unit', 'unit_0']) == 0
+    unit = campaign.read_json(campaign.state_path(root, profile, 'run2'))['units']['unit_0']
+    assert unit['status'] == ('success' if returncode == 0 else 'failed')
+    assert unit['attempts'][0]['result'] == 'failed'
+    assert unit['attempts'][1]['child_result'] == returncode
+    assert len(unit['attempts']) == 2
+    assert campaign.main(args) == 2
+    assert len(calls) == 1
+    assert not list(root.rglob('attempt_0003'))
+    capsys.readouterr()
+
+
 @pytest.mark.parametrize('action', ['execute', 'resume'])
 def test_condor_follow_requires_explicit_opt_in(tmp_path, monkeypatch, action):
     root, plan_path = fixture_plan(tmp_path, monkeypatch)

@@ -281,10 +281,18 @@ def validate_state(state, plan, component, runtime):
                 f"unit binding/status contradiction: {unit_id}")
         attempts = unit_state.get("attempts")
         status = unit_state["status"]
-        require(isinstance(attempts, list) and len(attempts) == (0 if status == "planned" else 1),
+        require(isinstance(attempts, list) and (
+            len(attempts) == 0 if status == "planned" else len(attempts) in {1, 2}),
                 f"unit status/attempt history contradiction: {unit_id}")
         if attempts:
-            attempt = attempts[0]
+            require(all(isinstance(item, dict) for item in attempts),
+                    f"unit attempt history is malformed: {unit_id}")
+            if len(attempts) == 2:
+                require(attempts[0].get("attempt_id") == "attempt_0001"
+                        and attempts[0].get("result") == "failed"
+                        and attempts[1].get("attempt_id") == "attempt_0002",
+                        f"failed-attempt recovery history contradiction: {unit_id}")
+            attempt = attempts[-1]
             require(isinstance(attempt, dict) and attempt.get("result") == status,
                     f"unit status/attempt result contradiction: {unit_id}")
             if status == "success":
@@ -534,9 +542,14 @@ def materialize(plan, component, state, unit_state, attempt, receipt, root, runt
     atomic_json(state_path(root, plan["campaign_profile"], component), state)
 
 
-def execute_unit(plan, component, state, unit_state, root, runtime, execution_options):
+def execute_unit(plan, component, state, unit_state, root, runtime, execution_options,
+                 *, failed_attempt_recovery=False):
     unit = unit_state["binding"]
-    require(unit_state["status"] == "planned", "only planned units may start")
+    if failed_attempt_recovery:
+        verify_failed_attempt(plan, component, state, unit_state, root)
+    else:
+        require(unit_state["status"] == "planned" and not unit_state["attempts"],
+                "only unattempted planned units may start")
     current_binding = normalize_unit({key: unit[key] for key in UNIT_FIELDS},
                                      plan["campaign_profile"], root)
     require(current_binding == unit, "input or sidecar identity changed since planning")
@@ -609,9 +622,11 @@ def reconcile_running(plan, component, state, unit_state, root, runtime):
     attempt = unit_state["attempts"][-1]
     try:
         attempt_root = Path(attempt["private_unit_root"])
+        expected_id = f"attempt_{len(unit_state['attempts']):04d}"
         expected_root = private_root(root, plan["campaign_profile"],
-                                     unit_state["binding"]["unit_id"], component, "attempt_0001")
-        require(attempt.get("attempt_id") == "attempt_0001" and attempt_root == expected_root,
+                                     unit_state["binding"]["unit_id"], component, expected_id)
+        require(expected_id in {"attempt_0001", "attempt_0002"}
+                and attempt.get("attempt_id") == expected_id and attempt_root == expected_root,
                 "running attempt root contradicts unit binding")
         guard_path = attempt_root / "_metadata" / "guard.jsonl"
         reject_symlink_ancestors(guard_path,
@@ -973,6 +988,93 @@ def recover_rejected_condor_unit(root, profile, tag, selected):
         atomic_json(state_path(root, profile, component), state)
         print(json.dumps({"recovered_unit": selected, "attempt_id": "attempt_0001",
                           "submission_state": result["state"], "job": result["job"]}, sort_keys=True))
+
+
+def verify_failed_attempt(plan, component, state, unit_state, root):
+    """Bind one terminal Condor failure before appending its sole replacement."""
+    require(unit_state["status"] == "failed" and len(unit_state["attempts"]) == 1
+            and not unit_state["materializations"],
+            "recovery requires exactly one failed, unpublished attempt")
+    unit = unit_state["binding"]
+    attempt = unit_state["attempts"][0]
+    attempt_root = private_root(root, plan["campaign_profile"], unit["unit_id"],
+                                component, "attempt_0001")
+    reject_symlink_ancestors(attempt_root, component_root(root, plan["campaign_profile"], component))
+    require(attempt.get("attempt_id") == "attempt_0001"
+            and attempt.get("private_unit_root") == str(attempt_root)
+            and attempt.get("result") == "failed"
+            and attempt.get("plan_revision") == state["plan_revision"] == plan["plan_revision"]
+            and attempt.get("completion_receipt_identity") is None,
+            "failed attempt identity contradicts campaign")
+    require(attempt_root.is_dir()
+            and {path.name for path in attempt_root.parent.iterdir()} == {"attempt_0001"},
+            "another attempt or recovery path already exists")
+    contract = attempt.get("execution_contract")
+    require(isinstance(contract, dict) and contract.get("backend") == "condor",
+            "failed-attempt recovery requires an existing Condor execution")
+    argv = attempt_argv(unit, attempt)
+    require(attempt.get("command_identity") == identity(argv),
+            "failed attempt command identity contradiction")
+    receipt = verify_lifecycle_receipt(
+        read_json(lifecycle_receipt_path(attempt_root)), attempt, argv)
+    require(all(attempt.get(key) == receipt[key] for key in
+                ("guard_result", "child_result", "tee_result", "ended_at_utc"))
+            and any(receipt[key] != 0 for key in ("guard_result", "child_result", "tee_result")),
+            "failed attempt lacks coherent nonzero lifecycle")
+    descriptor = backend.execution_descriptor(argv, attempt_root, contract)
+    metadata = attempt_root / "_metadata"
+    require(read_json(metadata / "execution.json") == descriptor,
+            "failed execution descriptor identity contradiction")
+    scheduler = read_json(metadata / "scheduler_identity.json")
+    require(scheduler.get("token") == descriptor["token"],
+            "failed scheduler token contradiction")
+    observation = backend.observe(argv, attempt_root, contract, read_only=True)
+    ad = observation.get("ad")
+    absent = observation == {"state": "unresolved", "job": scheduler.get("job"),
+                             "source": "unresolved", "ad": None}
+    retired = (observation.get("state") == "terminal_failure"
+               and observation.get("job") == scheduler.get("job")
+               and isinstance(ad, dict) and ad.get("JobStatus") in {3, 4}
+               and ad.get("NumJobStarts") == 1
+               and (ad.get("ExitBySignal") is True or
+                    type(ad.get("ExitCode")) is int and ad["ExitCode"] != 0))
+    require(absent or retired, "old scheduler execution is not retired or proven absent")
+    require(sha256_file(Path(unit["input_path"])) == unit["accepted_input_identity"]["sha256"],
+            "producer input bytes changed since qualification")
+
+
+def recover_failed_unit(root, profile, tag, selected):
+    """Explicit one-pass restart; preserve attempt_0001, never create attempt_0003."""
+    require(selected is not None, "failed-attempt recovery requires --selected-unit")
+    check_root(root, fresh=False)
+    with campaign_lock(root):
+        runtime = read_json(coordinator_path(root)).get("runtime_contract_identity")
+        coordinator, plan, states = load_campaign(root, profile, tag, runtime)
+        matches = [(component, states[component], states[component]["units"][selected])
+                   for component in PROFILES[profile] if selected in states[component]["units"]]
+        require(len(matches) == 1, "selected recovery unit is not in the campaign")
+        require(not any(unit["status"] in {"running", "interrupted"}
+                        for state in states.values() for unit in state["units"].values()),
+                "active or unresolved campaign execution blocks recovery")
+        component, state, unit_state = matches[0]
+        policy, should_bind = resolve_execution_policy(
+            coordinator, dict.fromkeys(DEFAULT_EXECUTION_POLICY), {"can_start_new_attempt": True})
+        require(not should_bind and policy["backend"] == "condor",
+                "recovery requires the existing bound Condor policy")
+        options = {"backend": policy["backend"], "observer": policy["resource_observer"],
+                   "hard_limit_bytes": policy["hard_limit_bytes"]}
+        warning = None
+        try:
+            execute_unit(plan, component, state, unit_state, root, runtime, options,
+                         failed_attempt_recovery=True)
+        except ActiveChildUnresolved as error:
+            if len(unit_state["attempts"]) != 2:
+                raise
+            warning = error_description(error)
+        print(json.dumps({"recovered_unit": selected,
+                          "attempt_id": unit_state["attempts"][-1]["attempt_id"],
+                          "status": unit_state["status"], "warning": warning,
+                          "scheduler_readback_required": True}, sort_keys=True))
 
 
 def check_root(root, *, fresh):
@@ -1714,6 +1816,7 @@ def main(argv=None):
         return 2
     campaign_switches = {"--campaign-profile", "--status", "--resume",
                          "--recover-terminal-unit", "--recover-rejected-condor-submit",
+                         "--recover-failed-unit",
                          "--activate-pending-plan"}
     if not any(a.split("=", 1)[0] in campaign_switches for a in argv):
         return direct_main(argv)
@@ -1736,6 +1839,8 @@ def main(argv=None):
     actions.add_argument("--recover-terminal-unit", action="store_true")
     actions.add_argument("--recover-rejected-condor-submit", action="store_true",
                          help="submit once on the same selected attempt after a proven local Condor submitfile rejection")
+    actions.add_argument("--recover-failed-unit", action="store_true",
+                        help="restart one verified failed Condor attempt once, after retiring its old job")
     actions.add_argument("--activate-pending-plan", type=Path)
     parser.add_argument("--expected-plan-revision", type=int)
     parser.add_argument("--selected-unit")
@@ -1835,6 +1940,12 @@ def main(argv=None):
                         print("Observation stopped; Condor jobs and campaign state remain recoverable.",
                               file=sys.stderr)
                         return 130
+        elif args.recover_failed_unit:
+            require(args.plan is None and args.expected_plan_revision is None
+                    and not args.follow and args.backend is None
+                    and args.resource_observer is None and args.hard_limit_bytes is None,
+                    "failed-attempt recovery accepts only a selected unit and existing policy")
+            recover_failed_unit(root, profile, args.campaign_tag, args.selected_unit)
         elif args.recover_terminal_unit:
             require(args.plan is None and args.expected_plan_revision is None
                     and args.selected_unit is not None,
