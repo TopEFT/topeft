@@ -407,6 +407,15 @@ calls. The option is valid only with status, and can be combined with human,
 JSON or YAML output and `--verify-published`. It does not change the persisted
 campaign or recover scheduler identity to disk.
 
+`--selected-unit UNIT_ID` scopes the status projection and both optional
+scheduler observation and published-content hashing to exactly one existing
+unit. Counts, aggregate status, historical backends and active/dispatch facts
+describe that projection; campaign profile/tag, plan revision, canonical root
+and future execution policy retain their campaign identity. Unknown or
+nonunique unit IDs fail before observation or content hashing. Without a
+selector, status and both checks remain campaign-wide. Selection does not
+reconcile, persist recovered identity, create attempts or publish.
+
 Each Condor unit's optional `scheduler` object contains `state`, `backend_state`,
 `source`, `observed_at`, `attention`, `reason`, `mem_mb`, `rss_kib`, and
 `raw_classad`. Queue miss falls back to history; unresolved or contradictory

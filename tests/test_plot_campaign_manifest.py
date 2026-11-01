@@ -2133,6 +2133,161 @@ def test_scheduler_status_opt_in_is_read_only_and_shared(tmp_path, monkeypatch, 
     assert {str(p): p.read_bytes() for p in root.rglob('*') if p.is_file()} == before
 
 
+def seed_condor_status_units(tmp_path, monkeypatch):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch,
+                                   profile="sr_crlike_run2_run3", unit_count=2)
+
+    def fake_execute(argv, attempt_root, contract):
+        descriptor = campaign.backend.execution_descriptor(argv, attempt_root, contract)
+        metadata = attempt_root / "_metadata"
+        metadata.mkdir(exist_ok=True)
+        intent = dict(token=descriptor["token"], pool="fixture.invalid", schedd="fixture.invalid")
+        (metadata / "execution.json").write_text(json.dumps(descriptor))
+        (metadata / "submission_intent.json").write_text(json.dumps(intent))
+        job = "123.0" if attempt_root.parent.name == "unit_0" else "124.0"
+        (metadata / "scheduler_identity.json").write_text(json.dumps({**intent, "job": job}))
+        raise campaign.ActiveChildUnresolved("fixture submitted")
+
+    monkeypatch.setattr(campaign.backend, "execute", fake_execute)
+    monkeypatch.setattr(campaign.backend, "observe", lambda *a: {"state": "pending"})
+    campaign.run_campaign(root, "sr_crlike_run2_run3", "fixture_campaign",
+                          plan_path=plan_path, action="execute", backend_name="condor",
+                          emit=False)
+    return root
+
+
+@pytest.mark.parametrize("selected,expected_ids", [
+    ("unit_0", ["unit_0"]), ("unit_1", ["unit_1"]), (None, ["unit_0", "unit_1"]),
+])
+@pytest.mark.parametrize("output_format", ["json", "yaml", "human"])
+def test_status_selection_scopes_observer_and_projection_without_writes(
+        tmp_path, monkeypatch, capsys, selected, expected_ids, output_format):
+    from analysis.topeft_run2 import plot_campaign_condor as condor
+    import yaml
+
+    root = seed_condor_status_units(tmp_path, monkeypatch)
+    before = {str(p.relative_to(root)): p.read_bytes() if p.is_file() else None
+              for p in root.rglob("*")}
+    calls = []
+
+    def observe(argv, attempt_root, contract, *, read_only):
+        descriptor = json.loads((attempt_root / "_metadata/execution.json").read_text())
+        assert descriptor == campaign.backend.execution_descriptor(argv, attempt_root, contract)
+        assert read_only is True
+        unit_id = attempt_root.parent.name
+        calls.append(unit_id)
+        job = "123.0" if unit_id == "unit_0" else "124.0"
+        return {"state": "pending", "job": job, "source": "queue",
+                "ad": {"JobStatus": 2, "PlotExecutionToken": descriptor["token"]}}
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("read-only status reached a mutation or direct scheduler call")
+
+    monkeypatch.setattr(campaign.backend, "observe", observe)
+    for module, name in [(campaign, "atomic_json"), (campaign, "reconcile_running"),
+                         (campaign, "finalize_campaign"), (campaign.backend, "execute"),
+                         (campaign.backend, "atomic_json"), (condor, "_persist_identity"),
+                         (condor, "_run"), (campaign, "sha256_canonical_file")]:
+        monkeypatch.setattr(module, name, unexpected)
+    args = ["--status", "-o", str(root), "--observe-scheduler", "--format", output_format]
+    if selected is not None:
+        args += ["--selected-unit", selected]
+    assert campaign.main(args) == 0
+    output = capsys.readouterr().out
+    assert calls == expected_ids
+    if output_format == "human":
+        assert f"Units: 0 published / {len(expected_ids)} planned" in output
+        assert f"Running: {len(expected_ids)} | Pending: 0" in output
+        assert "fixture_campaign" in output and str(root) in output
+        for unit_id in ["unit_0", "unit_1"]:
+            assert (unit_id in output) == (unit_id in expected_ids)
+    else:
+        summary = yaml.safe_load(output)
+        assert [unit["unit_id"] for unit in summary["units"]] == expected_ids
+        assert [unit["job"] for unit in summary["units"]] == [
+            "123.0" if unit_id == "unit_0" else "124.0" for unit_id in expected_ids]
+        assert all(unit["scheduler"]["state"] == "RUNNING" for unit in summary["units"])
+        assert summary["planned_count"] == summary["running_count"] == len(expected_ids)
+        assert summary["pending_count"] == summary["published_count"] == 0
+        assert summary["campaign_status"] == "in_progress"
+        assert summary["campaign_profile"] == "sr_crlike_run2_run3"
+        assert summary["campaign_tag"] == "fixture_campaign" and summary["plan_revision"] == 1
+        assert summary["canonical_output_root"] == str(root)
+        assert summary["execution_policy"]["backend"] == "condor"
+        assert len(summary["active_child_reasons"]) == len(expected_ids)
+        if selected is not None:
+            assert summary["action_scope"]["selected_unit_ids"] == expected_ids
+        else:
+            assert summary["action_scope"] is None  # Existing no-selector schema.
+    calls.clear()
+    assert campaign.main(["--status", "-o", str(root), "--selected-unit", "unknown",
+                          "--observe-scheduler", "--verify-published"]) == 2
+    assert "unknown selected unit" in capsys.readouterr().err
+    assert calls == []
+    assert {str(p.relative_to(root)): p.read_bytes() if p.is_file() else None
+            for p in root.rglob("*")} == before
+
+
+@pytest.mark.parametrize("selected,expected_ids", [
+    ("unit_0", ["unit_0"]), ("unit_1", ["unit_1"]), (None, ["unit_0", "unit_1"]),
+])
+@pytest.mark.parametrize("verify", [False, True])
+def test_status_selection_scopes_canonical_hashes(
+        tmp_path, monkeypatch, capsys, selected, expected_ids, verify):
+    root, plan_path = fixture_plan(tmp_path, monkeypatch,
+                                   profile="sr_crlike_run2_run3", unit_count=2)
+    monkeypatch.setattr(campaign.backend, "run_guarded_child", fake_success)
+    campaign.run_campaign(root, "sr_crlike_run2_run3", "fixture_campaign",
+                          plan_path=plan_path, action="execute", emit=False)
+    finalize_ready(root, "sr_crlike_run2_run3")
+    before = {str(p.relative_to(root)): p.read_bytes() if p.is_file() else None
+              for p in root.rglob("*")}
+    original_hash = campaign.sha256_canonical_file
+    calls = []
+
+    def hash_content(path, canonical_root):
+        calls.append(path)
+        return original_hash(path, canonical_root)
+
+    monkeypatch.setattr(campaign, "sha256_canonical_file", hash_content)
+    monkeypatch.setattr(campaign.backend, "observe", lambda *a, **kw: pytest.fail("observer"))
+    monkeypatch.setattr(campaign, "atomic_json", lambda *a, **kw: pytest.fail("state write"))
+    args = ["--status", "-o", str(root), "--format", "json"]
+    if selected is not None:
+        args += ["--selected-unit", selected]
+    if verify:
+        args += ["--verify-published"]
+    assert campaign.main(args) == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert [unit["unit_id"] for unit in summary["units"]] == expected_ids
+    assert summary["campaign_status"] == "complete"
+    assert summary["planned_count"] == summary["success_count"] == len(expected_ids)
+    assert summary["published_count"] == len(expected_ids)
+    assert summary["content_verified_count"] == (len(expected_ids) if verify else 0)
+    expected_paths = [Path(path) for unit in summary["units"] for path in unit["canonical_paths"]]
+    assert len(expected_paths) == len(expected_ids)
+    assert calls == (expected_paths if verify else [])
+    assert [path.parent.name for path in expected_paths] == expected_ids
+    calls.clear()
+    assert campaign.main(["--status", "-o", str(root), "--selected-unit", "unknown",
+                          "--observe-scheduler", "--verify-published"]) == 2
+    assert "unknown selected unit" in capsys.readouterr().err
+    assert calls == []
+    assert {str(p.relative_to(root)): p.read_bytes() if p.is_file() else None
+            for p in root.rglob("*")} == before
+
+
+def test_selected_status_rejects_nonunique_unit_before_deep_checks(tmp_path, monkeypatch):
+    root, plan, _ = seed_running(tmp_path, monkeypatch)
+    states = {"run2": campaign.read_json(campaign.state_path(root, "sr_crlike_run2", "run2"))}
+    plan["units"].append(dict(plan["units"][0]))
+    monkeypatch.setattr(campaign.backend, "observe", lambda *a, **kw: pytest.fail("observer"))
+    monkeypatch.setattr(campaign, "sha256_canonical_file", lambda *a: pytest.fail("hash"))
+    with pytest.raises(campaign.CampaignError, match="selected unit is not unique"):
+        campaign.campaign_summary(root, plan, states, selected="unit_0",
+                                   observe_scheduler=True, verify_published=True)
+
+
 def test_follow_reports_changes_only_and_interrupt_is_nonmutating(tmp_path, monkeypatch, capsys):
     root, plan_path = fixture_plan(tmp_path, monkeypatch, unit_count=2)
     submitted = []

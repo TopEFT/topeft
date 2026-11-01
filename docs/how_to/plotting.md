@@ -240,8 +240,14 @@ For an existing campaign, use the read-only status command:
 
 For a current-content check, add `--verify-published` to that status command.
 
+Add `--selected-unit UNIT_ID` to report one existing unit. Its counts, status,
+rows and optional `--observe-scheduler` / `--verify-published` checks cover only
+that unit; campaign identity, plan revision, root and future execution policy
+remain available. An unknown unit fails before scheduler or content checks.
+Omitting the selector preserves campaign-wide status and checks.
+
 For one live scheduler observation, add `--observe-scheduler`. This explicitly
-queries each bound Condor job in the queue, then history on a queue miss. It
+queries each bound Condor job in the status scope, then history on a queue miss. It
 does not reconcile, publish, submit, retry, or write recovered scheduler IDs.
 Missing or contradictory evidence requires attention; HELD remains nonterminal.
 The scheduler row includes HELD/removal reasons, exit/signal evidence, and raw

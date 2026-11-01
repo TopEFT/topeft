@@ -1356,8 +1356,18 @@ def sha256_canonical_file(path, root):
 
 def campaign_summary(root, plan, states, *, unit_errors=(), active_reasons=(),
                      execution_policy=None, action_scope=None, dispatch=None,
-                     verify_published=False, observe_scheduler=False):
+                     verify_published=False, observe_scheduler=False, selected=None):
     """Read-only presentation derived from the bound plan and component states."""
+    if selected is not None:
+        action_scope = derive_action_scope(plan, states, selected)
+        require(len(action_scope["selected_unit_ids"]) == 1, "selected unit is not unique")
+        # Scope before per-unit reads and deep checks, without altering bound state.
+        plan = {**plan, "units": [unit for unit in plan["units"]
+                                 if unit["unit_id"] == selected]}
+        states = {component: {**state, "units": {
+            unit_id: unit for unit_id, unit in state["units"].items()
+            if unit_id == selected}} for component, state in states.items()}
+
     from analysis.topeft_run2 import plot_campaign_condor as condor
 
     units = []
@@ -1994,17 +2004,18 @@ def main(argv=None):
                     "fresh campaign requires --campaign-profile and --campaign-tag")
         safe_name(args.campaign_tag, "campaign_tag")
         if args.status:
-            require(args.plan is None and args.selected_unit is None
+            require(args.plan is None
                     and args.expected_plan_revision is None and not args.follow
                     and args.backend is None and args.resource_observer is None
                     and args.hard_limit_bytes is None,
-                    "status accepts only an existing output root and optional identity/format")
+                    "status accepts only an existing output root and optional identity/selection/format")
             runtime = coordinator.get("runtime_contract_identity")
             coordinator, plan, states = load_campaign(root, profile, args.campaign_tag, runtime)
             summary = campaign_summary(root, plan, states,
                                        execution_policy=coordinator.get("execution_policy_v1"),
                                        verify_published=args.verify_published,
-                                       observe_scheduler=args.observe_scheduler)
+                                       observe_scheduler=args.observe_scheduler,
+                                       selected=args.selected_unit)
             show_summary(summary, output_format)
             return 0
         if args.dry_run or args.execute:
