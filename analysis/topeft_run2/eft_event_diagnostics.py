@@ -86,6 +86,126 @@ def diagonal_index(wc_names, operator):
     return int(quadratic_factors_to_term(np.asarray([factor, factor])))
 
 
+def combined_producer_views(components, family, years, channels):
+    """Transport origin tags through the native combined process universe.
+
+    Zero-valued tags retain every combined category AND sparse key. Removing
+    the other origin's categories changes native group ownership (notably
+    Run3 ttll); isolated component makers cannot define physical S/E0.
+    Returned histograms are in-memory evidence, never written as payloads.
+    """
+    import copy
+    import numpy as np
+    from topeft.modules.datacard_tools import DatacardMaker
+    from topeft.modules.nominal_schema import materialize_nominal_family
+
+    require(bool(channels) and len(channels) == len(set(channels)), "Explicit unique channels required")
+    full = materialize_nominal_family(components, family)
+    require(not full.empty(), "Empty combined family")
+    full_keys = set(full.view(flow=True))
+    tagged = {"combined": full}
+    origin_keys = {}
+    for origin in ("scalar", "eft"):
+        key = f"{family}__{origin}_nominal"
+        tag = copy.deepcopy(full)
+        tag.reset()
+        if key in components:
+            component = materialize_nominal_family(
+                {key: components[key]}, family, wc_names=full.wc_names)
+            views = component.view(flow=True)
+            require(set(views) <= full_keys, "Origin support outside combined family")
+            origin_keys[origin] = [dict(k._asdict()) for k in views]
+            destination = tag.view(flow=True)
+            for coordinate, values in views.items():
+                require(values.shape == destination[coordinate].shape, "Origin shape mismatch")
+                destination[coordinate][...] = values
+        else:
+            origin_keys[origin] = []
+        require(set(tag.view(flow=True)) == full_keys, "Origin tag lost combined sparse support")
+        require(tuple(tag.axes['process']) == tuple(full.axes['process']), "Origin tag lost process order")
+        tagged[origin] = tag
+    for key, values in full.view(flow=True).items():
+        require(np.allclose(values, tagged['scalar'].view(flow=True)[key] +
+                            tagged['eft'].view(flow=True)[key], rtol=1e-10, atol=1e-10),
+                "Source origin tags do not reconstruct combined coefficients")
+
+    class period_observer(DatacardMaker):
+        def read(self, fpath=None, hists=None):
+            self.diagnostic_periods = {}
+            for name in self._prepare_source_periods(fpath=fpath, hists=hists):
+                self.diagnostic_periods[name] = self.hists[name]
+                self.hists[name] = self.correlate_years(self.hists[name], add_luminosity_shapes=False)
+
+    result = {"wc_names": list(full.wc_names), "origin_source_keys": origin_keys,
+              "family": family, "views": {}}
+    for origin, source in tagged.items():
+        # Native empty-family skipping is retained; an all-zero tag contributes zero.
+        if source.empty():
+            result['views'][origin] = None
+            continue
+        maker = period_observer(hists={family: source}, year_lst=list(years),
+                                do_nuisance=False, var_lst=[family],
+                                channel_patterns=['^' + c + '$' for c in channels],
+                                verbose=False, binning_mode='fitting')
+        result['views'][origin] = maker
+    return result
+
+
+def combined_bin_coefficients(bundle, channel, process, period=None):
+    """Physical bins include the native overflow and exclude source underflow.
+
+    Missing origin/period support is zero only relative to a present combined
+    final process; missing combined support raises instead of inventing a bin.
+    """
+    import numpy as np
+
+    family = bundle['family']
+    arrays = {}
+    for origin in ('combined', 'scalar', 'eft'):
+        maker = bundle['views'][origin]
+        arrays[origin] = None
+        if maker is None:
+            continue
+        histogram = (maker.hists if period is None else maker.diagnostic_periods)[family]
+        label = process if period is None else f'{process}_{period}'
+        selected = histogram.integrate('channel', [channel])
+        selected = maker.binning_view(selected, family, channel)
+        labels = {maker._sparse_key_mapping(k).get('process') for k in selected.categorical_keys}
+        if label not in labels:
+            continue
+        projection = maker._scaling_histogram_for_json(selected, channel, label)
+        require(list(projection.wc_names) == bundle['wc_names'], 'WC order changed')
+        arrays[origin] = np.asarray(projection.values(flow=True), dtype=float)[1:, 1:-1]
+    require(arrays['combined'] is not None, 'Combined final process/period absent')
+    full = arrays['combined']
+    for origin in ('scalar', 'eft'):
+        if arrays[origin] is None:
+            arrays[origin] = np.zeros_like(full)
+        require(arrays[origin].shape == full.shape, 'Origin final bin shape differs')
+    require(np.isfinite(full).all(), 'Nonfinite combined coefficients')
+    require(np.allclose(arrays['scalar'] + arrays['eft'], full, atol=1e-10, rtol=1e-10),
+            'Combined origin transport does not close')
+    require((arrays['scalar'][:, 1:] == 0).all(), 'Scalar nonconstant coefficient')
+    return arrays
+
+
+def package_bin_representation(signed_a0, nominal_value):
+    """Describe representation only; sanitation does not redefine signed A0.
+
+    None denotes a directly established absent template, never a failed read.
+    A sanitation-compatible state needs package lineage before acceptance.
+    """
+    require(math.isfinite(signed_a0), 'Nonfinite signed A0')
+    if nominal_value is None:
+        return 'ABSENT_TEMPLATE_REQUIRES_LINEAGE'
+    require(math.isfinite(nominal_value), 'Nonfinite ROOT nominal')
+    if math.isclose(signed_a0, nominal_value, rel_tol=1e-10, abs_tol=1e-10):
+        return 'SIGNED_A0_REPRESENTED'
+    if signed_a0 < 0 and nominal_value == 0:
+        return 'SANITIZED_ZERO_REQUIRES_LINEAGE'
+    return 'REPRESENTATION_MISMATCH'
+
+
 def event_products(coefficients, weights):
     """Preserve the flatten/repeat/multiply dtype semantics of HistEFT.fill."""
     import numpy as np

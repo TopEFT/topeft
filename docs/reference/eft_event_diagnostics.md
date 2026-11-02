@@ -19,6 +19,35 @@ python -m analysis.topeft_run2.eft_event_diagnostics --help
 
 The five operations are:
 
+The in-memory `combined_producer_views(components, family, years, channels)`
+and `combined_bin_coefficients(bundle, channel, process, period=None)` APIs
+also expose aggregate and source-period coefficients through the maintained
+DatacardMaker selection and fitting binning. They do not open analysis PKLs.
+Callers bind exact source-unit/channel/process/physical-bin/WC-order tuples
+and deserialize only their separately authorized inputs.
+
+Scalar and EFT origin tags retain the complete combined categorical order and
+sparse support, including zero-valued coordinates. Native process grouping
+therefore sees the same process universe for both tags. In Run3 ttll, the
+combined producer retains the direct private ttll process rather than the
+scalar samples mapped to the same group name. Independent scalar-only and
+EFT-only makers have different ownership and cannot define physical S/E0.
+The tags close coefficient by coefficient against the combined result.
+S is scalar coefficient zero, E0 is EFT coefficient zero, A0 is combined
+coefficient zero, and Eii uses `diagonal_index` in the returned native WC order.
+Eii/E0 is defined only for exact nonzero E0; Eii/A0 is the package scaling.
+
+The returned physical-bin arrays remove source underflow once and retain the
+native overflow as the final physical bin, matching the maintained scaling
+writer. Missing combined process/period support raises; origin absence is zero
+only relative to a present combined process. Signed A0 is preserved even when
+a package nominal template is sanitized or absent, as in the ch235 evidence.
+ROOT nominal contents and TXT process-integral rates remain separate package
+readbacks; neither is silently substituted for signed A0.
+`package_bin_representation` describes equality, absence, or a negative signed
+denominator with a zero template; the latter two require exact package lineage
+before scientific acceptance. An I/O failure must never be passed as absence.
+
 | Operation | Inputs and output |
 | --- | --- |
 | `discover` | Accepted year/era TSV, prior ownership/context/group evidence, source binding, calibration read scope, exact exclusion channel/variable; emits the retained and excluded worklists and immutable manifest. |

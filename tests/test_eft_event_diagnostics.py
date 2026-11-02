@@ -18,6 +18,77 @@ from topcoffea.modules import corrections, eft_helper
 from topcoffea.modules.histEFT import HistEFT
 
 
+def combined_fixture(channel, family, scalar_process, eft_process, scalar, constant, quadratic):
+    from topcoffea.modules.sparseHist import SparseHist
+    from topeft.modules.axis_binning import resolve_axis_edges
+    edges = resolve_axis_edges(family, mode='fitting', channel=channel)
+    axes = [hist.axis.StrCategory([], growth=True, name=n)
+            for n in ('process', 'channel', 'systematic')]
+    scalar_hist = SparseHist(*axes, hist.axis.Variable(edges, name=family))
+    scalar_hist.fill(process=scalar_process, channel=channel, systematic='nominal',
+                     **{family: np.array([edges[0] + 1]), 'weight': np.array([scalar])})
+    eft_hist = HistEFT(*axes, hist.axis.Variable(edges, name=family), wc_names=['ctp'])
+    eft_hist.fill(process=eft_process, channel=channel, systematic='nominal',
+                  **{family: np.array([edges[0] + 1]), 'weight': np.array([1.]),
+                     'eft_coeff': np.array([[constant, 0., quadratic]])})
+    return {family+'__scalar_nominal': scalar_hist, family+'__eft_nominal': eft_hist}
+
+
+@pytest.mark.parametrize('scalar,constant', [(0.06582480208393333, 0.22830001192466315),
+                                            (3., 2.)])
+def test_combined_run3_ttll_preserves_ownership_counterexamples(scalar, constant):
+    channel = '2lss_4t_m_4j'
+    components = combined_fixture(channel, 'lj0pt', 'TTto2L2Nu_central2022',
+                                  'ttll_private2022', scalar, constant, -1.)
+    bundle = diag.combined_producer_views(components, 'lj0pt', ['2022'], [channel])
+    values = diag.combined_bin_coefficients(bundle, channel, 'ttll')
+    assert values['combined'][0, 0] == pytest.approx(constant)
+    assert values['scalar'][0, 0] == 0
+    assert values['eft'][0, 0] == pytest.approx(constant)
+    assert values['combined'][0, 0] != pytest.approx(scalar + constant)
+    period = diag.combined_bin_coefficients(bundle, channel, 'ttll', period='2022')
+    np.testing.assert_array_equal(period['combined'], values['combined'])
+
+
+def test_combined_run2_block5_additive_route():
+    channel = '3l_fwd_p_2j'
+    components = combined_fixture(channel, 'lt', 'TTTo2L2Nu_centralUL18',
+                                  'ttllJet_privateUL18', 3., 2., -1.)
+    bundle = diag.combined_producer_views(components, 'lt', ['UL18'], [channel])
+    values = diag.combined_bin_coefficients(bundle, channel, 'ttll')
+    assert values['combined'][0, 0] == 5.
+    assert values['scalar'][0, 0] == 3.
+    assert values['eft'][0, 0] == 2.
+
+
+def test_combined_ch145_period_ownership_route():
+    channel = '2lss_fwd_p_6j'
+    components = combined_fixture(channel, 'lt', 'TTto2L2Nu_central2022',
+                                  'ttll_private2022', 3., 2., -1.)
+    bundle = diag.combined_producer_views(components, 'lt', ['2022'], [channel])
+    period = diag.combined_bin_coefficients(bundle, channel, 'ttll', period='2022')
+    assert period['scalar'][0, 0] == 0
+    assert period['eft'][0, 0] == 2.
+    with pytest.raises(ValueError, match='absent'):
+        diag.combined_bin_coefficients(bundle, channel, 'ttll', period='2023')
+
+
+def test_combined_ch235_signed_denominator_is_preserved():
+    channel = '3l_p_offZ_high_1b_5j'
+    components = combined_fixture(channel, 'ptll', 'TTto2L2Nu_central2022',
+                                  'tHq_private2022', 3., -2., 1.)
+    bundle = diag.combined_producer_views(components, 'ptll', ['2022'], [channel])
+    values = diag.combined_bin_coefficients(bundle, channel, 'tHq')
+    assert values['combined'][0, 0] == -2.
+    assert values['combined'][0, 2] == 1.
+    # A sanitized package template must not redefine the signed denominator.
+    assert values['combined'][0, 2] / values['combined'][0, 0] == -.5
+    assert diag.package_bin_representation(-2., 0.) == 'SANITIZED_ZERO_REQUIRES_LINEAGE'
+    assert diag.package_bin_representation(-2., None) == 'ABSENT_TEMPLATE_REQUIRES_LINEAGE'
+    assert diag.package_bin_representation(2., 3.) == 'REPRESENTATION_MISMATCH'
+    assert diag.package_bin_representation(2., 2.) == 'SIGNED_A0_REPRESENTED'
+
+
 def test_mapping_follows_permuted_wc_names_and_native_remap():
     names = ["cpt", "cQq13", "ctG"]
     coeff = np.arange(20, dtype=float).reshape(2, 10)
