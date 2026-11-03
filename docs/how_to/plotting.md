@@ -475,3 +475,15 @@ retired; persistent JSON plans are the only campaign plan language.
 The low-level guard CLI retains its explicitly named `node_pressure` compatibility
 default. Campaign backends always pass the selected observer explicitly; the public
 campaign default is `cgroup_v2`. No fallback follows a failed cgroup probe.
+
+### Plan a separate datacard campaign
+
+Use `--campaign-profile sr_datacard_run2_run3` with a new campaign tag and an
+absolute fresh output root to keep datacard inputs separate from CR-like
+campaigns. Bind five qualified inputs per run in the reference campaign plan;
+use `--dry-run --plan /absolute/path/to/plan.json` to validate it without creating
+state. The single-run profiles are `sr_datacard_run2` and `sr_datacard_run3`.
+The combined profile preserves each run's durable state and failure boundary.
+A fit-target manifest and its reviewer mask select future delivered figures;
+extra native renderer outputs remain technical byproducts. Validate required
+fit variables as a subset of sidecar families, without overriding native variables.

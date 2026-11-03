@@ -427,3 +427,14 @@ preserve raw scheduler values, including zero; unavailable values are null.
 `plot_campaign_condor.py` is an internal observation/submission adapter. Its
 retired standalone command exits with a migration message; legacy diagnostics
 and submission maps are not implicitly adopted by a persistent campaign.
+
+### Dedicated datacard campaign profiles
+
+`sr_datacard_run2`, `sr_datacard_run3`, and `sr_datacard_run2_run3` use the
+existing schema-v1 qualified-input plan and campaign controller. Each component
+owns its own `.sr_datacard_<run>_plot_campaign_state_v1.json`; the combined
+profile keeps independent states under `components/run2` and `components/run3`.
+The plan binds the input roster; the profile binds the run components. Variables
+remain derived from each accepted sidecar's `runtime_histogram_families`.
+No category or variable selection field is added. Existing `sr_crlike_*` roots
+and state names retain their meaning and are not migrated.

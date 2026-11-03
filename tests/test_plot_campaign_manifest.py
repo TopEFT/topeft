@@ -31,7 +31,8 @@ def fixture_plan(tmp_path, monkeypatch, *, profile="sr_crlike_run2", unit_count=
     root = repo / "histos" / "fixture_campaign"
     units = []
     for index in range(unit_count):
-        component = "run3" if profile == "sr_crlike_run2_run3" and index == 1 else "run2"
+        components = campaign.PROFILES[profile]
+        component = components[index % len(components)]
         input_path = tmp_path / f"unit_{index}_SR.pkl.gz"
         input_path.write_bytes(b"inert fixture")
         sidecar_path = Path(str(input_path) + ".metadata.json")
@@ -2835,3 +2836,42 @@ def test_local_execute_keeps_foreground_sequential_semantics(tmp_path, monkeypat
     output = capsys.readouterr().out
     assert 'Units: 0 published / 2 planned' in output
     assert 'Monitor with:' not in output
+
+
+@pytest.mark.parametrize('family', ['sr_crlike', 'sr_datacard'])
+@pytest.mark.parametrize('view', ['run2', 'run3', 'run2_run3'])
+def test_profile_component_binding_and_native_variables(tmp_path, monkeypatch, family, view):
+    profile = f'{family}_{view}'
+    components = ('run2', 'run3') if view == 'run2_run3' else (view,)
+    root, plan_path = fixture_plan(tmp_path, monkeypatch, profile=profile,
+                                  unit_count=5 * len(components))
+    plan = campaign.normalize_plan(plan_path, profile, 'fixture_campaign', root)
+    assert campaign.PROFILES[profile] == components
+    for component in components:
+        owned = [u for u in plan['units'] if u['component'] == component]
+        assert len(owned) == 5
+        assert all(u['variables'] == ['invmass', 'fwd0pt'] for u in owned)
+        state = campaign.new_component_state(plan, component, campaign.runtime_identity())
+        assert set(state['units']) == {u['unit_id'] for u in owned}
+        expected_parent = root / 'components' / component if len(components) > 1 else root
+        assert campaign.state_path(root, profile, component) == (
+            expected_parent / f'.{family}_{component}_plot_campaign_state_v1.json')
+        wrong = 'run3' if component == 'run2' else 'run2'
+        assert all(u['component'] != wrong for u in owned)
+    assert campaign.main(['--campaign-profile', profile, '--campaign-tag', 'fixture_campaign',
+                          '-o', str(root), '--plan', str(plan_path), '--dry-run']) == 0
+    assert not root.exists()
+
+
+def test_datacard_combined_component_failure_isolation(tmp_path, monkeypatch):
+    root, path = fixture_plan(tmp_path, monkeypatch, profile='sr_datacard_run2_run3', unit_count=10)
+    plan = campaign.normalize_plan(path, 'sr_datacard_run2_run3', 'fixture_campaign', root)
+    states = {c: campaign.new_component_state(plan, c, campaign.runtime_identity())
+              for c in ('run2', 'run3')}
+    for unit in states['run2']['units'].values():
+        unit['status'] = 'success'
+    for unit in states['run3']['units'].values():
+        unit['status'] = 'failed'
+    assert all(u['status'] == 'success' for u in states['run2']['units'].values())
+    assert campaign.state_path(root, plan['campaign_profile'], 'run2') != campaign.state_path(
+        root, plan['campaign_profile'], 'run3')

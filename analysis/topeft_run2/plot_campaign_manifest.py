@@ -40,6 +40,9 @@ PROFILES = {
     "sr_crlike_run2": ("run2",),
     "sr_crlike_run3": ("run3",),
     "sr_crlike_run2_run3": ("run2", "run3"),
+    "sr_datacard_run2": ("run2",),
+    "sr_datacard_run3": ("run3",),
+    "sr_datacard_run2_run3": ("run2", "run3"),
 }
 YEARS = {
     "run2": ("UL16", "UL16APV", "UL17", "UL18"),
@@ -97,7 +100,8 @@ def component_root(root, profile, component):
 
 
 def state_path(root, profile, component):
-    name = f".sr_crlike_{component}_plot_campaign_state_v1.json"
+    family = "sr_datacard" if profile.startswith("sr_datacard_") else "sr_crlike"
+    name = f".{family}_{component}_plot_campaign_state_v1.json"
     return component_root(root, profile, component) / name
 
 
