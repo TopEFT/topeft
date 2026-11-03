@@ -256,8 +256,10 @@ Execute submits eligible units and performs one initial reconciliation per
 new attempt. Resume reconciles selected active attempts before dispatch and
 reads back newly submitted attempts once. Both return while jobs are active or
 unresolved, after printing current status and one shell-quoted
-`PYTHON_BIN=... /absolute/path/to/run_plotter.sh --status -o ROOT --observe-scheduler`
-handoff. JSON/YAML stdout retains its schema; the handoff goes to stderr.
+`./analysis/topeft_run2/run_plotter.sh --status -o ROOT --observe-scheduler`
+handoff. It assumes execution from the TOPEFT checkout with the intended Conda
+environment already active; only the campaign root is resolved to an absolute
+path. JSON/YAML stdout retains its schema; the handoff goes to stderr.
 Only `--follow` opts into repeated foreground observation/reconciliation, with
 the lock released between passes. It stops when only finalization remains.
 Ctrl-C ends that observation without cancelling jobs or changing attempts. Fresh
@@ -422,7 +424,21 @@ Each Condor unit's optional `scheduler` object contains `state`, `backend_state`
 identity is UNKNOWN with attention. HELD, removal, nonzero exit and signal
 termination require attention. A scheduler observation never overrides the
 separate execution, publication, integrity or dispatch axes. MEM_MB and RSS_KIB
-preserve raw scheduler values, including zero; unavailable values are null.
+in JSON/YAML (`mem_mb` and `rss_kib`) preserve raw scheduler values, including
+zero; unavailable values are null. Human `MEM_MB` uses finite nonnegative numeric
+`MemoryUsage` first, then numeric `ResidentSetSize` in KiB rounded up to whole
+MiB (1024 KiB), else `-`. Booleans and expression strings are not numeric memory
+sources; expression text is never evaluated. `RSS_KIB` remains the raw value.
+
+Human `Campaign state (persisted)` counts retain the meaning of the stable
+machine count fields, including `running_count` and `success_count`, under
+`summary_schema_version: 2`. The per-unit `CAMPAIGN VIEW` is the existing
+controller execution view and may reflect a bound lifecycle receipt without
+persisting a transition. `Scheduler observed` is a separate aggregate of exactly
+the non-null per-unit `scheduler` objects rendered below it. COMPLETED, RUNNING,
+IDLE and HELD are counted individually; every other state, including UNKNOWN
+and unresolved evidence, contributes to OTHER/UNKNOWN. This presentation makes
+no extra scheduler query and performs no reconciliation or state write.
 
 `plot_campaign_condor.py` is an internal observation/submission adapter. Its
 retired standalone command exits with a migration message; legacy diagnostics

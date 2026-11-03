@@ -2067,6 +2067,60 @@ def test_scheduler_status_is_observation_not_publication(ad, state, attention):
     assert 'publication' not in result and 'dispatch' not in result
 
 
+@pytest.mark.parametrize('output_format', ['human', 'json', 'yaml'])
+def test_monitor_command_uses_active_environment_and_relative_launcher(
+        tmp_path, monkeypatch, capsys, output_format):
+    import shlex
+
+    root = tmp_path / "campaign output 'quoted' $literal"
+    monkeypatch.setattr(campaign.sys, 'executable', '/foreign/env/bin/python')
+    monkeypatch.setattr(campaign, 'RUN_DIRECTORY', Path('/foreign/checkout/analysis/topeft_run2'))
+    monkeypatch.setattr(campaign, 'REPO_ROOT', Path('/foreign/checkout'))
+    monkeypatch.setenv('PYTHON_BIN', '/foreign/override/bin/python')
+    monkeypatch.setenv('CONDA_PREFIX', '/foreign/env')
+    campaign.show_monitor_command(root, output_format)
+    captured = capsys.readouterr()
+    handoff = captured.out if output_format == 'human' else captured.err
+    assert (captured.err if output_format == 'human' else captured.out) == ''
+    assert 'From the TOPEFT checkout with the intended Conda environment already active:' in handoff
+    assert 'PYTHON_BIN' not in handoff and '/foreign/' not in handoff
+    assert shlex.split(handoff.split('Monitor with:\n  ')[1].strip()) == [
+        './analysis/topeft_run2/run_plotter.sh', '--status', '-o', str(root.resolve()),
+        '--observe-scheduler']
+    assert not root.exists()
+
+
+@pytest.mark.parametrize('memory,rss,expected', [
+    (0, 75000000, '0'), (123, 75000000, '123'), (12.5, None, '12.5'),
+    ('/Expr(((ResidentSetSize + 1023) / 1024))/', 75000000, '73243'),
+    ('expression', 0, '0'), (None, 1023, '1'), (None, 1024, '1'),
+    (None, 1025, '2'), (None, 0.5, '1'), (False, 1025, '2'),
+    (float('inf'), 1025, '2'), (float('nan'), 1025, '2'), (-1, 1025, '2'),
+    (None, None, '-'), ('expression', 'expression', '-'),
+    ('123', None, '-'), (None, False, '-'), (None, -1, '-'),
+    (None, float('inf'), '-'), (None, float('nan'), '-'),
+])
+def test_human_scheduler_memory_is_numeric_without_changing_machine_values(
+        tmp_path, monkeypatch, capsys, memory, rss, expected):
+    ad = {'JobStatus': 2, 'MemoryUsage': memory, 'ResidentSetSize': rss}
+    scheduler = campaign.scheduler_status({'state': 'pending', 'ad': ad})
+    plan = {'campaign_profile': 'sr_crlike_run2', 'campaign_tag': 'memory_fixture',
+            'plan_revision': 1, 'units': [{'unit_id': 'unit_0', 'component': 'run2'}]}
+    states = {'run2': {'units': {'unit_0': {'status': 'planned', 'attempts': []}}}}
+    summary = campaign.campaign_summary(tmp_path, plan, states)
+    summary['units'][0]['scheduler'] = scheduler
+    before = json.dumps(summary, sort_keys=True)
+    monkeypatch.setattr(campaign, 'eval', lambda *_: pytest.fail('expression evaluated'), raising=False)
+    campaign.show_summary(summary, 'human')
+    output = capsys.readouterr().out
+    assert f'MEM_MB={expected} RSS_KIB=' in output
+    assert json.dumps(summary, sort_keys=True) == before
+    assert scheduler['mem_mb'] is memory and scheduler['rss_kib'] is rss
+    assert scheduler['raw_classad'] is ad
+    campaign.show_summary(summary, 'json')
+    assert capsys.readouterr().out.strip() == before
+
+
 def test_scheduler_status_opt_in_is_read_only_and_shared(tmp_path, monkeypatch, capsys):
     from analysis.topeft_run2 import plot_campaign_condor as condor
     from types import SimpleNamespace
@@ -2134,9 +2188,9 @@ def test_scheduler_status_opt_in_is_read_only_and_shared(tmp_path, monkeypatch, 
     assert {str(p): p.read_bytes() for p in root.rglob('*') if p.is_file()} == before
 
 
-def seed_condor_status_units(tmp_path, monkeypatch):
+def seed_condor_status_units(tmp_path, monkeypatch, *, unit_count=2):
     root, plan_path = fixture_plan(tmp_path, monkeypatch,
-                                   profile="sr_crlike_run2_run3", unit_count=2)
+                                   profile="sr_crlike_run2_run3", unit_count=unit_count)
 
     def fake_execute(argv, attempt_root, contract):
         descriptor = campaign.backend.execution_descriptor(argv, attempt_root, contract)
@@ -2145,7 +2199,7 @@ def seed_condor_status_units(tmp_path, monkeypatch):
         intent = dict(token=descriptor["token"], pool="fixture.invalid", schedd="fixture.invalid")
         (metadata / "execution.json").write_text(json.dumps(descriptor))
         (metadata / "submission_intent.json").write_text(json.dumps(intent))
-        job = "123.0" if attempt_root.parent.name == "unit_0" else "124.0"
+        job = f"{123 + int(attempt_root.parent.name.split('_')[-1])}.0"
         (metadata / "scheduler_identity.json").write_text(json.dumps({**intent, "job": job}))
         raise campaign.ActiveChildUnresolved("fixture submitted")
 
@@ -2155,6 +2209,85 @@ def seed_condor_status_units(tmp_path, monkeypatch):
                           plan_path=plan_path, action="execute", backend_name="condor",
                           emit=False)
     return root
+
+
+@pytest.mark.parametrize('statuses,expected', [
+    ([4] * 9 + [2], {'COMPLETED': 9, 'RUNNING': 1, 'IDLE': 0, 'HELD': 0, 'OTHER/UNKNOWN': 0}),
+    ([1, 2, 4, 5, None, 3, 6, 7, 99, 2],
+     {'COMPLETED': 1, 'RUNNING': 2, 'IDLE': 1, 'HELD': 1, 'OTHER/UNKNOWN': 5}),
+])
+def test_scheduler_aggregate_matches_rows_and_preserves_persisted_counts(
+        tmp_path, monkeypatch, capsys, statuses, expected):
+    from collections import Counter
+    from analysis.topeft_run2 import plot_campaign_condor as condor
+    import yaml
+
+    root = seed_condor_status_units(tmp_path, monkeypatch, unit_count=len(statuses))
+    before = {str(p.relative_to(root)): p.read_bytes() if p.is_file() else None
+              for p in root.rglob('*')}
+    calls = []
+
+    def unexpected(*args, **kwargs):
+        pytest.fail('status attempted mutation or direct scheduler access')
+
+    def observe(argv, attempt_root, contract, *, read_only):
+        assert read_only is True
+        unit_id = attempt_root.parent.name
+        calls.append(unit_id)
+        status = statuses[int(unit_id.split('_')[-1])]
+        if status is None:
+            raise campaign.CampaignError('synthetic scheduler unavailable')
+        return {'state': 'terminal_success' if status == 4 else 'pending',
+                'source': 'synthetic', 'ad': {'JobStatus': status,
+                    'MemoryUsage': '/Expr(((ResidentSetSize + 1023) / 1024))/',
+                    'ResidentSetSize': 75000000}}
+
+    for module, name in [(campaign, 'atomic_json'), (campaign, 'reconcile_running'),
+                         (campaign, 'finalize_campaign'), (campaign.backend, 'execute'),
+                         (campaign.backend, 'atomic_json'), (condor, '_persist_identity'),
+                         (condor, '_run'), (condor, 'submit')]:
+        monkeypatch.setattr(module, name, unexpected)
+    monkeypatch.setattr(campaign.backend, 'observe', unexpected)
+    assert campaign.main(['--status', '-o', str(root), '--format', 'json']) == 0
+    offline = json.loads(capsys.readouterr().out)
+    assert all(unit['scheduler'] is None for unit in offline['units'])
+    assert calls == []
+    monkeypatch.setattr(campaign.backend, 'observe', observe)
+    for output_format in ('json', 'yaml', 'human'):
+        assert campaign.main(['--status', '-o', str(root), '--observe-scheduler',
+                              '--format', output_format]) == 0
+        output = capsys.readouterr().out
+        if output_format == 'human':
+            assert (f'Campaign state (persisted): 0 published / {len(statuses)} planned'
+                    f' | Running: {len(statuses)} | Pending: 0 | Failed: 0 | Interrupted: 0') in output
+            assert 'CAMPAIGN VIEW' in output and 'EXECUTION' not in output
+            aggregate = next(line for line in output.splitlines()
+                             if line.startswith('Scheduler observed: '))
+            shown = dict(part.rsplit(' ', 1) for part in
+                         aggregate.removeprefix('Scheduler observed: ').split(' | '))
+            assert {key: int(value) for key, value in shown.items()} == expected
+            rows = Counter(line.strip().split()[1] for line in output.splitlines()
+                           if line.startswith('  Scheduler: '))
+            assert sum(rows.values()) == len(statuses) == sum(expected.values())
+            for label in ('COMPLETED', 'RUNNING', 'IDLE', 'HELD'):
+                assert rows[label] == expected[label]
+            assert sum(count for label, count in rows.items()
+                       if label not in {'COMPLETED', 'RUNNING', 'IDLE', 'HELD'}) == expected['OTHER/UNKNOWN']
+            assert 'MEM_MB=/Expr(' not in output
+            assert 'MEM_MB=73243 RSS_KIB=75000000' in output
+        else:
+            summary = yaml.safe_load(output)
+            assert summary['summary_schema_version'] == 2
+            assert summary.keys() == offline.keys()
+            assert {k: v for k, v in summary.items() if k.endswith('_count')} == {
+                k: v for k, v in offline.items() if k.endswith('_count')}
+            assert summary['planned_count'] == summary['running_count'] == len(statuses)
+            assert summary['success_count'] == summary['published_count'] == 0
+            assert summary['campaign_status'] == offline['campaign_status'] == 'in_progress'
+            assert all(unit['execution'] == 'running' for unit in summary['units'])
+    assert calls == [f'unit_{i}' for i in range(len(statuses))] * 3
+    assert {str(p.relative_to(root)): p.read_bytes() if p.is_file() else None
+            for p in root.rglob('*')} == before
 
 
 @pytest.mark.parametrize("selected,expected_ids", [
@@ -2197,7 +2330,7 @@ def test_status_selection_scopes_observer_and_projection_without_writes(
     output = capsys.readouterr().out
     assert calls == expected_ids
     if output_format == "human":
-        assert f"Units: 0 published / {len(expected_ids)} planned" in output
+        assert f"Campaign state (persisted): 0 published / {len(expected_ids)} planned" in output
         assert f"Running: {len(expected_ids)} | Pending: 0" in output
         assert "fixture_campaign" in output and str(root) in output
         for unit_id in ["unit_0", "unit_1"]:
@@ -2514,11 +2647,10 @@ def test_condor_execute_one_shot_handoff_and_terminal_states(
     assert handoff.count('Monitor with:') == 1
     command = handoff.split('Monitor with:\n  ')[1].strip()
     assert shlex.split(command) == [
-        f'PYTHON_BIN={campaign.sys.executable}',
-        str(campaign.RUN_DIRECTORY / 'run_plotter.sh'),
+        './analysis/topeft_run2/run_plotter.sh',
         '--status', '-o', str(root.resolve()), '--observe-scheduler']
     if output_format == 'human':
-        assert 'Units:' in captured.out and 'Running:' in captured.out
+        assert 'Campaign state (persisted):' in captured.out and 'Running:' in captured.out
         assert 'Failed:' in captured.out and 'Pending:' in captured.out
     else:
         summary = yaml.safe_load(captured.out)
@@ -2834,7 +2966,7 @@ def test_local_execute_keeps_foreground_sequential_semantics(tmp_path, monkeypat
                           '--execute', '--plan', str(plan_path), '-o', str(root)]) == 0
     assert calls == ['unit_0', 'unit_1']
     output = capsys.readouterr().out
-    assert 'Units: 0 published / 2 planned' in output
+    assert 'Campaign state (persisted): 0 published / 2 planned' in output
     assert 'Monitor with:' not in output
 
 

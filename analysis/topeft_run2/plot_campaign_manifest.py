@@ -13,6 +13,7 @@ from contextlib import contextmanager
 import fcntl
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -1564,6 +1565,22 @@ def scheduler_status(observation):
             "raw_classad": observation.get("ad")}
 
 
+def scheduler_memory_mb(scheduler):
+    """Numeric human display; raw scheduler fields remain available to machines."""
+    def numeric(value):
+        return (isinstance(value, (int, float)) and not isinstance(value, bool)
+                and value >= 0 and (isinstance(value, int) or math.isfinite(value)))
+
+    memory = scheduler.get("mem_mb")
+    if numeric(memory):
+        return memory
+    rss = scheduler.get("rss_kib")
+    if numeric(rss):
+        # ResidentSetSize is KiB; round up to whole MiB, as MemoryUsage does.
+        return (rss + 1023) // 1024 if isinstance(rss, int) else math.ceil(rss / 1024)
+    return None
+
+
 def show_summary(summary, output_format):
     if output_format == "json":
         print(json.dumps(summary, sort_keys=True))
@@ -1587,10 +1604,18 @@ def show_summary(summary, output_format):
                   f"({len(published_paths)} exact paths in --format yaml/json)")
         else:
             print("Plot destinations will appear after receipt-verified publication.")
-        print(f"Units: {summary['published_count']} published / {summary['planned_count']} planned"
+        print(f"Campaign state (persisted): {summary['published_count']} published / {summary['planned_count']} planned"
               f" | Running: {summary['running_count']} | Pending: {summary['pending_count']}"
               f" | Failed: {summary['failed_count']} | Interrupted: {summary['interrupted_count']}")
-        print(f"{'UNIT':32} {'EXECUTION':13} {'PUBLICATION':16} {'INTEGRITY':20} {'JOB':12} PLOTS")
+        observations = [unit['scheduler'] for unit in summary['units']
+                        if unit.get('scheduler') is not None]
+        if observations:
+            counts = Counter(observation['state'] for observation in observations)
+            labels = ('COMPLETED', 'RUNNING', 'IDLE', 'HELD')
+            other = sum(count for label, count in counts.items() if label not in labels)
+            print("Scheduler observed: " + " | ".join(
+                [*(f"{label} {counts[label]}" for label in labels), f"OTHER/UNKNOWN {other}"]))
+        print(f"{'UNIT':32} {'CAMPAIGN VIEW':13} {'PUBLICATION':16} {'INTEGRITY':20} {'JOB':12} PLOTS")
         for unit in summary["units"]:
             print(f"{unit['unit_id']:32} {unit['execution']:13} {unit['publish']:16} "
                   f"{unit['integrity']:20} "
@@ -1603,7 +1628,7 @@ def show_summary(summary, output_format):
                 shown = lambda value: "-" if value is None else str(value)
                 print(f"  Scheduler: {scheduler['state']} ({scheduler['source']})"
                       f" | Attention: {scheduler['attention']}"
-                      f" | MEM_MB={shown(scheduler['mem_mb'])} RSS_KIB={shown(scheduler['rss_kib'])}"
+                      f" | MEM_MB={shown(scheduler_memory_mb(scheduler))} RSS_KIB={shown(scheduler['rss_kib'])}"
                       f" | exit={shown(ad.get('ExitCode'))} signal={shown(ad.get('ExitSignal'))}"
                       f" ExitBySignal={shown(ad.get('ExitBySignal'))}")
                 if scheduler["reason"]:
@@ -1621,12 +1646,11 @@ def routine_waiting_reason(message):
 
 
 def show_monitor_command(root, output_format):
-    # Absolute, shell-quoted paths keep the handoff usable from any directory.
-    command = (f"PYTHON_BIN={shlex.quote(sys.executable)} "
-               f"{shlex.quote(str(RUN_DIRECTORY / 'run_plotter.sh'))} "
+    command = ("./analysis/topeft_run2/run_plotter.sh "
                f"--status -o {shlex.quote(str(root.resolve()))} --observe-scheduler")
     stream = sys.stdout if output_format == "human" else sys.stderr
-    print(f"Monitor with:\n  {command}", file=stream, flush=True)
+    print("From the TOPEFT checkout with the intended Conda environment already active:\n"
+          f"Monitor with:\n  {command}", file=stream, flush=True)
 
 
 def presentation_key(summary):

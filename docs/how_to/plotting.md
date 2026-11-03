@@ -250,10 +250,24 @@ For one live scheduler observation, add `--observe-scheduler`. This explicitly
 queries each bound Condor job in the status scope, then history on a queue miss. It
 does not reconcile, publish, submit, retry, or write recovered scheduler IDs.
 Missing or contradictory evidence requires attention; HELD remains nonterminal.
-The scheduler row includes HELD/removal reasons, exit/signal evidence, and raw
-`MEM_MB` (`MemoryUsage`) and `RSS_KIB` (`ResidentSetSize`) as distinct quantities.
+Human output labels persisted lifecycle counts as `Campaign state (persisted)`
+and shows a separate `Scheduler observed` aggregate computed from the same
+per-unit observations as the scheduler rows. A persisted Running count of 10
+can coexist with COMPLETED 9 and RUNNING 1: status does not reconcile state.
+`OTHER/UNKNOWN` includes all observed states outside COMPLETED, RUNNING, IDLE
+and HELD, including unresolved observations. Only units with an observation
+contribute to that aggregate. The `CAMPAIGN VIEW` column retains the controller's
+execution view, which can also reflect an existing lifecycle receipt.
+
+The scheduler row includes HELD/removal reasons, exit/signal evidence, and
+`MEM_MB` and `RSS_KIB` (`ResidentSetSize`) as distinct quantities. Human `MEM_MB`
+uses numeric `MemoryUsage` when available; otherwise it rounds numeric RSS in
+KiB up to whole MiB (1024 KiB), or shows `-` when neither is usable. ClassAd
+expression text is never evaluated. Zero is a valid numeric value.
 JSON and YAML retain the requested raw ClassAd attributes under each unit's
-`scheduler.raw_classad`; scheduler completion alone never establishes publication.
+`scheduler.raw_classad` and the existing raw `mem_mb`/`rss_kib` values; scheduler
+completion alone never establishes publication. Machine campaign count fields
+continue to describe persisted controller state.
 Scheduler reads require the relevant site/network authorization.
 
 Refresh externally when those reads are authorized:
@@ -300,15 +314,16 @@ only the same attempt. Ambiguous evidence never authorizes retry. `--finalize`
 alone publishes proven terminal success. Local execution remains foreground
 and sequential.
 
-Use the printed command for a separate, read-only scheduler observation:
+From the TOPEFT checkout with the intended Conda environment already active,
+use the printed command for a separate, read-only scheduler observation:
 
 ```bash
-PYTHON_BIN=/absolute/path/to/python ./analysis/topeft_run2/run_plotter.sh \
+./analysis/topeft_run2/run_plotter.sh \
   --status -o "$ROOT" --observe-scheduler
 ```
 
-The handoff uses the actual interpreter, absolute wrapper path and quoted output
-root. It is printed on stderr for JSON/YAML so stdout remains machine-readable.
+The handoff uses the relative launcher and shell-quoted campaign output root.
+It is printed on stderr for JSON/YAML so stdout remains machine-readable.
 Status never reconciles or publishes. The existing `--follow` option explicitly
 opts into foreground observation and reconciliation; only this option polls.
 It prints changed status and releases the lock between polls. Ctrl-C stops
