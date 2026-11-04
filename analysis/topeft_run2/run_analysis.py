@@ -34,9 +34,10 @@ from topeft.modules.histogram_artifact import (
     lineage_input_from_sidecar,
     write_histogram_artifact,
 )
+from topeft.modules.embedded_sumw2 import (
+    EMBEDDED_SCHEMA_VERSION, EMBEDDED_LAYOUT,
+)
 from topeft.modules.nominal_schema import (
-    NOMINAL_CONTAINER_LAYOUT,
-    NOMINAL_CONTAINER_SCHEMA_VERSION,
     canonicalize_nominal_keys,
     validate_nominal_mapping,
 )
@@ -2077,8 +2078,8 @@ if __name__ == "__main__":
     )
     print(
         "Resolved nominal container: version={} layout={}".format(
-            NOMINAL_CONTAINER_SCHEMA_VERSION,
-            NOMINAL_CONTAINER_LAYOUT,
+            EMBEDDED_SCHEMA_VERSION,
+            EMBEDDED_LAYOUT,
         )
     )
     print(
@@ -2383,7 +2384,7 @@ if __name__ == "__main__":
         validate_nominal_mapping(
             output,
             runtime_families=runtime_histogram_families,
-            schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
+            schema_version=EMBEDDED_SCHEMA_VERSION,
             policy=sumw2_policy,
             histogram_applicability=histogram_applicability,
         )
@@ -2391,7 +2392,7 @@ if __name__ == "__main__":
         output = canonicalize_nominal_keys(
             output,
             runtime_families=runtime_histogram_families,
-            schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
+            schema_version=EMBEDDED_SCHEMA_VERSION,
         )
 
         diagnostic_phase = "event_summary"
