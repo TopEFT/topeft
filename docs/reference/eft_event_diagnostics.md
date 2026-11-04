@@ -1,5 +1,80 @@
 # EFT event diagnostics
 
+## Single-source scans and Condor execution
+
+`analysis.topeft_run2.event_scan` composes the existing native fill observer for
+one physical ROOT source and one explicit entry range. Run every command through
+the wrapper and interpreter resolved by the installation profile, from the TOPEFT
+repository. The direct interface is:
+
+```text
+python -m analysis.topeft_run2.event_scan scan \
+  --source-root SOURCE.root --sample-json SAMPLE.json \
+  --analysis-config SAMPLE.cfg --target-manifest TARGETS.json \
+  --entry-start START --entry-stop STOP --output-dir ABSENT_DIRECTORY
+```
+
+Start is inclusive, defaults to zero and must be an integer >= 0. Stop is
+exclusive and optional: omission means the tree end. Empty, reversed, negative
+and beyond-tree ranges fail before scientific output. The sample CFG is the
+hash-bound sample configuration; the SR registry is separately bound in TARGETS.
+There are no filename-dependent resume rules. An output directory must be absent;
+there is no overwrite, automatic retry or resume operation.
+
+The version-1 target JSON contains `group` (group_id, dataset, native process,
+metadata_year, year_or_era, tree_name), `ownership` (the existing native observer
+rows, including term, native_term_index, source_channel, fit_variable, source_bin,
+source_edges and negative_row_id), `sr_config_path`, `calibrations` (path/SHA-256
+pairs), and `input_sha256`. Bind sample JSON, sample CFG, SR registry, processor,
+diagnostic helper, scanner and all scientific dependencies/calibrations actually
+used. The worker verifies native WC order, selects the bound SR categories and
+uses the existing `observed_processor`, `fill_capture` and HistEFT product logic.
+
+`event_scan.make_unit(source, sample, cfg, targets, entry_start=0, entry_stop=None)`
+performs metadata-only source binding and returns an immutable unit with source
+path/size/mtime, ROOT UUID, tree entries, target hash and range. Device/inode check
+local replacement during each header read; they are not cross-node identifiers. A
+version-1 execution manifest is `{"schema_version":1,"units":[UNIT,...]}`. Run one
+unit with `event_scan run --manifest FILE --unit-id ID --output-dir ABSENT_DIR`.
+Both interfaces invoke the same range worker and serialize the same science.
+
+Each result contains the native `events.tsv.gz`, signed per-target partial
+`sums.json`, `runtime.log` and `receipt.json`. Native event fields retain identities,
+ordinary weight, constant/diagonal coefficients, products and dtypes. Receipts
+bind source/config/code, requested and processed ranges, completed chunks, target
+identities, calibration opens and artifact hashes. A completed strict subrange
+has `range_complete=true`, `whole_file_complete=false`; interrupted chunks never
+complete coverage. Default bounds are 10,000 entries/chunk, 3,600 seconds, 256 MiB
+event output and a 1 GiB free-space reserve. No intra-job parallelism is added.
+
+`event_scan coverage --receipt RECEIPT ...` revalidates source identity and
+artifact hashes and requires contiguous coverage of the whole tree. Optional
+`--entry-start/--entry-stop` restrict the required interval. It rejects failed
+receipts, incompatible target/code contracts, duplicate/overlapping ranges and
+unexplained gaps. Source identity must be revalidated before reusing a receipt.
+Zero selected rows prove only the completed requested range; a period zero also
+requires the independently known complete source set.
+
+`analysis.topeft_run2.event_scan_condor prepare --manifest FILE --unit-id ID
+--output-dir ABSENT_ATTEMPT --wrapper WRAPPER --python INTERPRETER` prepares one
+unit without querying or submitting. `submit --execution ATTEMPT/_metadata/execution.json`
+submits that unit at most once; `status --execution ...` observes it without
+resubmission. Default resources are one CPU, 8 GiB memory, 1 GiB disk and 3,600
+seconds; preparation exposes memory/runtime options. One ROOT file is the normal
+unit; exceptional or previously partial sources use ordinary nonoverlapping ranges.
+
+The adapter reuses `plot_campaign_condor` target resolution, durable intent,
+submit/identity parsing and terminal reconciliation, plus durable JSON helpers.
+Its inherited `PlotExecutionToken` ClassAd attribute is an execution identity,
+not a plot request. Its separate worker is necessary because the existing plot
+worker accepts only the renderer. The event worker runs through the configured
+wrapper, verifies descriptor/code/input identity and persists an exclusive start
+marker before invoking the same scanner. Eviction/restart cannot start a second
+scientific attempt. A failed or ambiguous submit requires bounded queue/history
+readback and stops; this adapter exposes no retry or recovery submission API.
+Scheduler terminal success and scientific receipt qualification remain separate.
+Commands and manifests never grant execution authority or imply campaign closure.
+
 `analysis/topeft_run2/eft_event_diagnostics.py` provides one local diagnostic CLI
 for nominal EFT event contributions. It observes the maintained
 `AnalysisProcessor` immediately before `HistEFT.fill`; it does not reconstruct
