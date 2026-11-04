@@ -1,5 +1,56 @@
 # EFT event diagnostics
 
+## Manifest campaigns
+
+`analysis.topeft_run2.event_scan_condor` owns multi-unit orchestration around
+its existing per-unit `prepare`, `submit` and the scheduler's `observe` protocol.
+From the repository, using the installation wrapper and interpreter:
+
+```text
+python -m analysis.topeft_run2.event_scan_condor plan-manifest --manifest MANIFEST
+python -m analysis.topeft_run2.event_scan_condor prepare-manifest \
+  --manifest MANIFEST --campaign-root OWNER_SELECTED_ABSENT_ROOT \
+  --wrapper WRAPPER --python PYTHON --request-memory-mb 8192 --max-runtime 3600
+python -m analysis.topeft_run2.event_scan_condor submit-manifest --campaign-root OWNER_SELECTED_ROOT
+python -m analysis.topeft_run2.event_scan_condor status-manifest --campaign-root OWNER_SELECTED_ROOT
+```
+
+The campaign root is mandatory, has no default, and is selected by the caller
+for operational storage. Diagnostic handoff wrappers are historical evidence;
+launch through the maintained module. `plan-manifest` only reads manifest bytes,
+checks structural unit identities/ranges, and returns sorted units and the exact
+SHA-256. It does not validate scientific inputs, read ROOT files, prepare outputs,
+or contact the scheduler.
+
+`prepare-manifest` freezes the exact manifest bytes and prepares units in sorted
+unit-ID order using canonical per-unit descriptors. Version-1 `campaign.json`
+binds the original manifest path/hash, root, ordered unit IDs, runtime and resource
+bounds with a content token. It is published last. Each `units/UNIT_ID` owns its
+attempt metadata, intents/responses, scheduler identity, worker receipts and
+`science` outputs. Preparation re-entry accepts only a fully prepared, exactly
+matching campaign; partial preparation and unknown collisions fail closed and
+remain for inspection. Moving the campaign, changing runtime/resource choices,
+or changing/removing either original or frozen manifest invalidates re-entry.
+
+`submit-manifest` locks the campaign and checks every unit before new effects.
+A durable exclusive `campaign_submit_intent.json` precedes each canonical
+per-unit `submit` call. Any existing partial attempt blocks the campaign, even
+if interruption happened before scheduler contact. No automatic retry or intent
+removal is supported. Consistent prior submissions are skipped regardless of
+worker success/failure; skipping never asserts completion. After interruption,
+re-entry can continue only provably never-attempted units, provided all earlier
+attempts have consistent identities/responses. Contradictions block new effects.
+All controllers require the same filesystem's working exclusive flock protocol;
+direct per-unit operations must not run concurrently with campaign control.
+
+`status-manifest` requires separately authorized scheduler access. It observes
+each canonical descriptor with `read_only=True`, returns individual scheduler
+states/ads plus worker receipts and local ambiguity, and never submits, retries,
+or persists recovered identities. Save its JSON stdout as a campaign readback
+when authorized. Scheduler terminal success alone does not establish scientific
+coverage. Synthetic tests qualify orchestration; production execution and
+scientific closure require separate evidence and authorization.
+
 ## Single-source scans and Condor execution
 
 `analysis.topeft_run2.event_scan` composes the existing native fill observer for
