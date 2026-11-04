@@ -1192,3 +1192,27 @@ def test_phase_telemetry_covers_load_producer_finalization_and_publication(
     assert all(record["filename"].endswith("input.pkl.gz") for record in records)
     assert all(type(value) in (str, int, float, bool, type(None))
                for record in records for value in record.values())
+    sidecar = Path(str(output) + ".phase_telemetry.jsonl")
+    assert sidecar.exists() is enabled
+    if enabled:
+        retained = [json.loads(line) for line in sidecar.read_text().splitlines()]
+        assert [row["phase"] for row in retained] == expected
+        assert all(set(row) == {"schema_version", "phase", "wall_ns", "cpu_ns",
+                                "wall_elapsed_ns", "cpu_elapsed_ns", "rss_mib", "peak_rss_mib"}
+                   for row in retained)
+
+
+def test_optional_dd_sidecar_failure_does_not_change_output(tmp_path, monkeypatch, capsys):
+    DummyProducer.output_hist = {"result": FakeHist(["flipsUL17"])}
+    monkeypatch.setattr(run_data_driven, "DataDrivenProducer", DummyProducer)
+    real_open = open
+
+    def fail_only_sidecar(path, *args, **kwargs):
+        if str(path).endswith(".phase_telemetry.jsonl"):
+            raise OSError("simulated optional sink failure")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(run_data_driven, "open", fail_only_sidecar, raising=False)
+    output = _run_histograms(tmp_path, {"seed": FakeHist(["dataUL17"])}, "--phase-telemetry")
+    assert set(_load_pkl(output)) == {"result"}
+    assert "optional DD phase telemetry persistence failed" in capsys.readouterr().err

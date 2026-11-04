@@ -107,7 +107,8 @@ def _resolve_wq_manager_name(override, executor_name, outname):
 
 def _configure_wq_categories(queue, processing_cores=None, accumulating_memory_mb=None, accumulating_cores=None,
                              admission_base=None, admission_quota_root=None,
-                             admission_warning_bytes=None, admission_min_free_bytes=None):
+                             admission_warning_bytes=None, admission_min_free_bytes=None,
+                             phase_telemetry=False):
     """Apply selected category reservations after Coffea declares categories."""
     if processing_cores == 1:
         queue.specify_category_max_resources("processing", {"cores": 1})
@@ -124,6 +125,62 @@ def _configure_wq_categories(queue, processing_cores=None, accumulating_memory_m
             accumulating_memory_mb=accumulating_memory_mb,
             accumulating_cores=accumulating_cores,
         )
+    if phase_telemetry:
+        _install_phase_telemetry_persistence(queue)
+
+
+def _persist_task_phase_telemetry(task, path):
+    """Stream only accepted scalar phase observations; optional IO never fails a task."""
+    fields = ("schema_version", "phase", "wall_ns", "cpu_ns", "wall_elapsed_ns",
+              "cpu_elapsed_ns", "rss_mib", "peak_rss_mib")
+    try:
+        with open(task.outfile_stdout, encoding="utf-8", errors="replace") as source:
+            sink = None
+            try:
+                for line in source:
+                    if not line.startswith("[phase_telemetry] "):
+                        continue
+                    try:
+                        record = json.loads(line[len("[phase_telemetry] "):])
+                        payload = {key: record[key] for key in fields}
+                        if (payload["schema_version"] != 1 or
+                                not isinstance(payload["phase"], str) or
+                                not payload["phase"].startswith("processor_") or
+                                any(type(payload[key]) not in (int, float, type(None))
+                                    for key in fields[2:])):
+                            raise ValueError("invalid phase observation")
+                        encoded = json.dumps(dict(task_id=task.id, **payload),
+                                             allow_nan=False, sort_keys=True) + "\n"
+                    except (ValueError, KeyError, TypeError):
+                        print("WARNING: skipped malformed phase telemetry record", file=sys.stderr)
+                        continue
+                    if sink is None:
+                        sink = open(path, "a", encoding="utf-8")
+                    sink.write(encoded)
+            finally:
+                if sink is not None:
+                    sink.close()
+    except Exception as error:
+        print(f"WARNING: optional phase telemetry persistence failed: {error}",
+              file=sys.stderr, flush=True)
+
+
+def _install_phase_telemetry_persistence(queue):
+    """Compose with this queue's maintained wait path, before staging teardown."""
+    if getattr(queue, "_phase_telemetry_installed", False):
+        return
+    original_wait = queue.wait
+
+    def wait_with_phase_telemetry(timeout=None):
+        task = original_wait(timeout)
+        if task is not None and task.category.startswith("processing") and task.successful():
+            path = os.path.join(os.path.dirname(queue.executor.tasks_accum_log),
+                                "phase_telemetry.jsonl")
+            _persist_task_phase_telemetry(task, path)
+        return task
+
+    queue.wait = wait_with_phase_telemetry
+    queue._phase_telemetry_installed = True
 
 
 def _request_one_processing_core(queue):
@@ -2345,7 +2402,7 @@ if __name__ == "__main__":
             if not args.wq_guard:
                 raise SystemExit("--wq-treereduction requires --wq-guard")
             executor_args["treereduction"] = args.wq_treereduction
-        if args.wq_guard or args.wq_processing_cores == 1 or args.wq_accumulating_memory_mb is not None:
+        if args.wq_guard or args.wq_processing_cores == 1 or args.wq_accumulating_memory_mb is not None or (phase_telemetry and executor_name == "work_queue"):
             from functools import partial
             executor_args["custom_init"] = partial(
                 _configure_wq_categories,
@@ -2356,6 +2413,7 @@ if __name__ == "__main__":
                 admission_quota_root=args.wq_quota_root if args.wq_guard else None,
                 admission_warning_bytes=args.wq_free_warning_bytes if args.wq_guard else None,
                 admission_min_free_bytes=args.wq_min_free_bytes if args.wq_guard else None,
+                phase_telemetry=phase_telemetry and executor_name == "work_queue",
             )
 
     # Run the processor and get the output

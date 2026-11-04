@@ -16,8 +16,10 @@ from __future__ import annotations
 import argparse
 import ast
 import copy
+import contextlib
 import ctypes
 import gc
+import io
 import json
 import os
 from pathlib import Path
@@ -55,6 +57,35 @@ _STREAMING_PICKLE_PROTOCOL = 3
 _STREAMING_MEMO_CLEAR_INTERVAL = 1
 _LIBC = None
 _DD_REPORT_FAMILY_ORDER = {"sr": 0, "nonprompt": 1, "flips": 2}
+
+
+class _DurablePhaseTelemetry(analysis_processor._PhaseTelemetry):
+    """One accepted reporter record at a time, beside the named DD output."""
+
+    __slots__ = ("_sidecar",)
+
+    def __init__(self, *, filename, output_path):
+        super().__init__(filename=filename)
+        self._sidecar = str(output_path) + ".phase_telemetry.jsonl"
+
+    def mark(self, phase, **kwargs):
+        # Capture only this reporter call, never the DD task's general stdout.
+        record_text = io.StringIO()
+        with contextlib.redirect_stdout(record_text):
+            super().mark(phase, **kwargs)
+        emitted = record_text.getvalue()
+        print(emitted, end="", flush=True)
+        try:
+            record = json.loads(emitted[len("[phase_telemetry] "):])
+            fields = ("schema_version", "phase", "wall_ns", "cpu_ns", "wall_elapsed_ns",
+                      "cpu_elapsed_ns", "rss_mib", "peak_rss_mib")
+            payload = {key: record[key] for key in fields}
+            encoded = json.dumps(payload, allow_nan=False, sort_keys=True) + "\n"
+            with open(self._sidecar, "a", encoding="utf-8") as sink:
+                sink.write(encoded)
+        except Exception as error:
+            print(f"WARNING: optional DD phase telemetry persistence failed: {error}",
+                  file=sys.stderr, flush=True)
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
@@ -1182,7 +1213,7 @@ def _finalize_histograms(
         raise_unsupported_renormfact_envelope()
     telemetry = _phase_reporter
     if telemetry is None and phase_telemetry:
-        telemetry = analysis_processor._PhaseTelemetry(filename=input_pkl)
+        telemetry = _DurablePhaseTelemetry(filename=input_pkl, output_path=output_pkl)
     serialization_path = serialization_path or output_pkl
     collect_dd_report = dd_report_stdout or bool(dd_report_md)
     memory_reporter = _MemoryReporter(
@@ -1403,19 +1434,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     dd_report_md = args.dd_report_md
 
     input_pkl = os.path.normpath(args.input_pkl)
-    telemetry = (analysis_processor._PhaseTelemetry(filename=input_pkl)
+    output_pkl = os.path.normpath(args.output_pkl) if args.output_pkl else _default_output_path(
+        input_pkl, nominal_only_reference=args.nominal_only_reference)
+    telemetry = (_DurablePhaseTelemetry(filename=input_pkl, output_path=output_pkl)
                  if args.phase_telemetry else None)
     if telemetry is not None:
         telemetry.mark("dd_start", rss_mb=_current_rss_mb(),
                        peak_rss_mb=_peak_rss_mb())
     _validate_input_path(input_pkl)
-
-    output_pkl = os.path.normpath(args.output_pkl) if args.output_pkl else None
-    if not output_pkl:
-        output_pkl = _default_output_path(
-            input_pkl,
-            nominal_only_reference=args.nominal_only_reference,
-        )
 
     try:
         serialized_sidecar = read_histogram_sidecar(input_pkl)

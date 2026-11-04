@@ -1521,6 +1521,7 @@ archive_native_wq_logs() {
   local archive_dir="${archive_base}"
   local retry_index=1
   local name source_path destination_path source_size destination_size
+  local phase_archive_copied=false
 
   while [[ -e "${archive_dir}" ]]; do
     archive_dir="${archive_base}_resume_${retry_index}"
@@ -1559,11 +1560,25 @@ archive_native_wq_logs() {
     return 1
   fi
 
+  # Optional telemetry follows the same attempt archive as tasks.log. Failure
+  # preserves the original and warns without changing scientific stage status.
+  if [[ -f "${native_wq_log_dir}/phase_telemetry.jsonl" ]]; then
+    if cp -- "${native_wq_log_dir}/phase_telemetry.jsonl" "${archive_dir}/phase_telemetry.jsonl" \
+      && cmp -s -- "${native_wq_log_dir}/phase_telemetry.jsonl" "${archive_dir}/phase_telemetry.jsonl"; then
+      phase_archive_copied=true
+    else
+      echo "WARNING: optional phase telemetry archive failed; original preserved in ${native_wq_log_dir}." >&2
+    fi
+  fi
   production_state_tool archive "${production_state_path}" "${block_id}" "${stage}" "${archive_dir}"
   for name in "${native_wq_log_names[@]}"; do
     source_path="${native_wq_log_dir}/${name}"
     [[ ! -e "${source_path}" ]] || rm -- "${source_path}"
   done
+  if [[ "${phase_archive_copied}" == "true" ]]; then
+    rm -- "${native_wq_log_dir}/phase_telemetry.jsonl" \
+      || echo "WARNING: optional phase telemetry archive source retained." >&2
+  fi
 }
 
 write_failure_snapshot() {
