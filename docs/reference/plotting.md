@@ -49,7 +49,7 @@ No real scheduler qualification follows from synthetic adapter tests.
 | Region/blinding | Filename inference or explicit CR/SR; CR unblinded and SR blinded by default | Ambiguous filenames default to CR with a warning unless overridden. Explicit blind/unblind wins. |
 | Channel output | `merged`, `split`, `both`, or `-njets` variants; default `merged` | `merged` is aggregate presentation; `merged-njets` preserves metadata-defined jet/category subdivisions. These are presentation modes, not likelihood-bin counts. |
 | Binning | `processing` or `fitting`; default `processing` | Fitting uses the exact maintained category-aware aggregation when the variable has a fitting definition and otherwise keeps the identity view; it does not invent fitting edges. `--rebin-plot-vars` is separate integer-factor presentation rebinning. |
-| Diagnostic canvas annotations | `--debug-canvas-annotations`; default off | Extra signed numeric canvas text appears only by explicit opt-in. Standard ticks, luminosity, collision energy and physics labels remain visible. Signed yields, sumw2, uncertainty inputs and separate negative-weight CSV/Markdown diagnostics retain their semantics. |
+| Diagnostic canvas annotations | `--debug-canvas-annotations`; default off | Extra signed numeric canvas text requires both this flag and `--sr-display-diagnostics`. Standard ticks, luminosity, collision energy and physics labels remain visible. Signed yields, sumw2, uncertainty inputs and separate negative-weight CSV/Markdown diagnostics retain their semantics. |
 | Variables/workers | Optional variable list; workers integer default 1 | Invalid variables and channel coverage fail at context/coverage validation. |
 | Uncertainties/reports | Supported uncertainty switches; year coverage `warn`; negative report enabled | Controls presentation/reporting, never source artifact content. |
 | Merge/cache | Merge report/cache and merge-only controls | Merge-only stops after successful validation; cached output receives derived provenance. |
@@ -131,12 +131,29 @@ Scientific totals and nuisance responses are calculated before display
 grouping. Where negative group content would inflate a separately clipped
 stack, the display allocates `max(sum(raw groups), 0)` among its positive
 components in proportion to their positive content. Only groups with negative
-content receive auxiliary signed outlines; their numeric value labels require
-`--debug-canvas-annotations`. Nominal plots have no extra diagnostic numeric
-canvas annotations. The Data/MC
+content receive auxiliary signed outlines only with `--sr-display-diagnostics`;
+their numeric value labels additionally require `--debug-canvas-annotations`.
+Nominal plots have no extra diagnostic numeric canvas annotations. The Data/MC
 denominator remains `max(sum(raw groups), 0)`; statistical variance and
 systematic band inputs remain attached to the original signed content. CR
 keeps its established drawing policy. Zero displayed denominators are masked.
+
+Nominal SR process grouping follows the maintained datacard process resolver.
+Both inclusive dileptonic and semileptonic ttbar belong to nominal `ttll`;
+there is no separate nominal `ttbar` display. The four fully-hadronic
+`TTto4Q_central` samples (2022, 2022EE, 2023, 2023BPix) are excluded from
+SR stacks, MC totals, uncertainty inputs and ratio denominators.
+
+`--sr-display-diagnostics` is optional and default-off. It partitions the
+retained card-grouped `ttll` into inclusive `ttbar` (dileptonic plus
+semileptonic) and the `ttll` remainder, without changing scientific process
+identity or nuisance treatment. It never restores TTto4Q. Signed outline
+lines are also diagnostic-only: each legend entry describes the net signed
+contribution of that display group in the plotted binning, rather than a
+count of negative-weight events. Their legend handles preserve the line style.
+Signed-total arithmetic stays active with diagnostics off. Diagnostic
+presentation preserves Data, binning, uncertainties and Data/MC ratios.
+`--debug-canvas-annotations` alone does not activate outlines.
 
 Data markers use exact central Neyman/Garwood intervals at 68.27% confidence.
 On a logarithmic axis, a zero Data count is represented by its Garwood upper
@@ -176,7 +193,7 @@ display label. Splitting or renaming a valid display group therefore leaves
 the raw total, variance and nuisance-keyed total band unchanged.
 
 Card-grouped ttll includes inclusive semileptonic and dileptonic ttbar, even
-when ttbar is drawn in a separate green group. For example, a common renorm
+when diagnostics draw ttbar in a separate green group. For example, a common renorm
 nuisance moving the two components by +3 and -2 has net +1, whether one or two
 colors show them. Treating them as independent would instead give `sqrt(13)`.
 ISR uses card gg/qq/qg partitions, renorm/fact use card process identities,

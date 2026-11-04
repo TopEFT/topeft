@@ -57,9 +57,27 @@ Repeat `-f` for coherent fragments or use `--pkl-list-file`. Direct plotting
 defaults to the processing-binning view, merged channel output, one worker,
 warning-only year coverage, no extra diagnostic numeric canvas annotations,
 and enabled negative-weight reports. The direct CLI accepts
-`--debug-canvas-annotations` as an explicit diagnostic opt-in; signed yields,
-uncertainties and separate negative-weight reports do not depend on it. A mixed Run 2
+`--sr-display-diagnostics` as the display diagnostic opt-in;
+`--debug-canvas-annotations` adds numeric labels only when those diagnostics
+are active; signed yields, uncertainties and separate negative-weight reports do not depend on it. A mixed Run 2
 and Run 3 year selection is rejected.
+
+Nominal SR process grouping follows the maintained datacard process resolver.
+Both inclusive dileptonic and semileptonic ttbar belong to nominal `ttll`;
+there is no separate nominal `ttbar` display. The four fully-hadronic
+`TTto4Q_central` samples (2022, 2022EE, 2023, 2023BPix) are excluded from
+SR stacks, MC totals, uncertainty inputs and ratio denominators.
+
+`--sr-display-diagnostics` is optional and default-off. It partitions the
+retained card-grouped `ttll` into inclusive `ttbar` (dileptonic plus
+semileptonic) and the `ttll` remainder, without changing scientific process
+identity or nuisance treatment. It never restores TTto4Q. Signed outline
+lines are also diagnostic-only: each legend entry describes the net signed
+contribution of that display group in the plotted binning, rather than a
+count of negative-weight events. Their legend handles preserve the line style.
+Signed-total arithmetic stays active with diagnostics off. Diagnostic
+presentation preserves Data, binning, uncertainties and Data/MC ratios.
+`--debug-canvas-annotations` alone does not activate outlines.
 
 The plotter validates and merges repeated inputs before rendering. Choose
 `--year-coverage-policy error` for a production validation pass; `warn` records

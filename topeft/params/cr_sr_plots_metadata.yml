@@ -495,15 +495,10 @@ SR_GRP_MAP:
   ttll:
     color: '#2f5965'
     patterns:
-    - ttll
-    - TTZToLL_M1to10
+    - card_process: ttll
   ttbar:
     color: darkgreen
-    patterns:
-    - TTToSemiLeptonic
-    - TTTo2L2Nu
-    - TTto2L2Nu
-    - TTtoLNu2Q
+    patterns: []
   ttbar (fully hadronic):
     color: '#93c493'
     patterns:
@@ -754,7 +749,12 @@ REGION_PLOTTING:
         njets:
         - njets
       conditional: []
-    sample_removals: []
+    sample_removals:
+    - samples:
+      - TTto4Q_central2022
+      - TTto4Q_central2022EE
+      - TTto4Q_central2023
+      - TTto4Q_central2023BPix
     category_skips: []
     sumw2_remove_signal: false
     sumw2_remove_signal_when_blinded: true

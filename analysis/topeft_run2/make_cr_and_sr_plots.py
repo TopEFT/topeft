@@ -2954,6 +2954,7 @@ def _initialize_render_worker(
     prepared_payloads=None,
     shared_region_ctx=None,
     debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
 ):
     """Store shared plotting context inside a worker process."""
 
@@ -2983,6 +2984,7 @@ def _initialize_render_worker(
         "rebin_plot_vars": dict(rebin_plot_vars or {}),
         "negative_weight_report": bool(negative_weight_report),
         "debug_canvas_annotations": bool(debug_canvas_annotations),
+        "sr_display_diagnostics": bool(sr_display_diagnostics),
         "output_formats": _normalize_output_formats(output_formats),
         "prepared_variables": prepared_variables,
     }
@@ -3045,6 +3047,7 @@ def _render_variable_from_worker(task_id, payload):
             rebin_plot_vars=ctx["rebin_plot_vars"],
             negative_weight_report=ctx["negative_weight_report"],
             debug_canvas_annotations=ctx["debug_canvas_annotations"],
+            sr_display_diagnostics=ctx["sr_display_diagnostics"],
             output_formats=ctx["output_formats"],
             skip_outcomes=skip_outcomes,
         )
@@ -3089,6 +3092,7 @@ def _render_variable_from_worker(task_id, payload):
                     rebin_plot_vars=ctx["rebin_plot_vars"],
                     negative_weight_report=ctx["negative_weight_report"],
                     debug_canvas_annotations=ctx["debug_canvas_annotations"],
+                    sr_display_diagnostics=ctx["sr_display_diagnostics"],
                     output_formats=ctx["output_formats"],
                     skip_outcomes=skip_outcomes,
                 )
@@ -3329,6 +3333,7 @@ def _render_variable(
     rebin_plot_vars=None,
     negative_weight_report=True,
     debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
     output_formats=("png",),
     skip_outcomes=None,
 ):
@@ -3401,6 +3406,7 @@ def _render_variable(
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
             debug_canvas_annotations=debug_canvas_annotations,
+            sr_display_diagnostics=sr_display_diagnostics,
             output_formats=output_formats,
             skip_outcomes=skip_outcomes,
         )
@@ -3449,6 +3455,7 @@ def _render_variable_category(
     rebin_plot_vars=None,
     negative_weight_report=True,
     debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
     output_formats=("png",),
     skip_outcomes=None,
 ):
@@ -3890,6 +3897,7 @@ def _render_variable_category(
                 "uncertainty_mode": uncertainty_mode,
                 "diagnostic_context": plot_diagnostic_context,
                 "debug_canvas_annotations": debug_canvas_annotations,
+                "sr_display_diagnostics": sr_display_diagnostics,
             }
             if region_ctx.name.upper() == "SR":
                 stacked_kwargs["sr_flat_display"] = True
@@ -4230,6 +4238,7 @@ def _render_variable_category(
             "uncertainty_mode": uncertainty_mode,
             "diagnostic_context": plot_diagnostic_context,
             "debug_canvas_annotations": debug_canvas_annotations,
+            "sr_display_diagnostics": sr_display_diagnostics,
         }
         if region_ctx.name.upper() == "SR":
             stacked_kwargs["sr_flat_display"] = True
@@ -4599,9 +4608,12 @@ def populate_group_map(samples, pattern_map, *, require_unique=False):
         for grp, patterns in pattern_map.items():
             for pat in patterns:
                 if isinstance(pat, dict):
-                    if set(pat) != {"exact"} or not isinstance(pat["exact"], str):
-                        raise ValueError("Group pattern exact match must contain one string identity")
-                    pattern_matches = proc_name == pat["exact"]
+                    if set(pat) == {"card_process"} and isinstance(pat["card_process"], str):
+                        pattern_matches = _sr_card_process_name(proc_name) == pat["card_process"]
+                    elif set(pat) == {"exact"} and isinstance(pat["exact"], str):
+                        pattern_matches = proc_name == pat["exact"]
+                    else:
+                        raise ValueError("Group pattern must contain one exact or card_process string")
                 else:
                     pattern_matches = pat in canonical_name or pat in proc_name
                 if pattern_matches:
@@ -4623,6 +4635,19 @@ def populate_group_map(samples, pattern_map, *, require_unique=False):
         )
 
     return out
+
+
+def _sr_diagnostic_group_map(group_map):
+    """Partition retained card-grouped ttll for display, after scientific preparation."""
+    groups = OrderedDict((label, list(members)) for label, members in group_map.items())
+    members = groups.get("ttll", []) + groups.pop("ttbar", [])
+    ttbar = [p for p in members
+             if p.startswith(("TTTo2L2Nu_", "TTto2L2Nu_", "TTToSemiLeptonic_", "TTtoLNu2Q_"))
+             and _sr_card_process_name(p) == "ttll"]
+    groups["ttll"] = [p for p in members if p not in ttbar]
+    if ttbar:
+        groups["ttbar"] = ttbar
+    return groups
 
 
 def _resolve_sr_signed_display_view(hist_mc, group_map):
@@ -7642,6 +7667,7 @@ def produce_region_plots(
     rebin_plot_vars=None,
     negative_weight_report=True,
     debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
     output_formats=("png",),
     outcome_collector=None,
 ):
@@ -7893,6 +7919,7 @@ def produce_region_plots(
                     prepared_payloads,
                     shared_region_ctx,
                     debug_canvas_annotations,
+                    sr_display_diagnostics,
                 ),
             ) as executor:
                 id_to_label = {
@@ -7943,6 +7970,7 @@ def produce_region_plots(
                     rebin_plot_vars=rebin_plot_vars,
                     negative_weight_report=negative_weight_report,
                     debug_canvas_annotations=debug_canvas_annotations,
+                    sr_display_diagnostics=sr_display_diagnostics,
                     output_formats=output_formats,
                     skip_outcomes=(outcome_collector["skipped"]
                                    if outcome_collector is not None else None),
@@ -7996,6 +8024,7 @@ def produce_region_plots(
                             rebin_plot_vars=rebin_plot_vars,
                             negative_weight_report=negative_weight_report,
                             debug_canvas_annotations=debug_canvas_annotations,
+                            sr_display_diagnostics=sr_display_diagnostics,
                             output_formats=output_formats,
                             skip_outcomes=(outcome_collector["skipped"]
                                            if outcome_collector is not None else None),
@@ -9202,6 +9231,7 @@ def make_region_stacked_ratio_fig(
     diagnostic_context=None,
     sr_flat_display=False,
     debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
 ):
     if uncertainty_mode not in {"total", "stat", "none"}:
         raise ValueError(
@@ -9385,6 +9415,8 @@ def make_region_stacked_ratio_fig(
     default_colors = DEFAULT_STACK_COLORS
 
     if sr_flat_display:
+        if sr_display_diagnostics:
+            group = _sr_diagnostic_group_map(group)
         sr_signed_display_view = _resolve_sr_signed_display_view(h_mc, group)
 
     grouping = OrderedDict()
@@ -9773,14 +9805,14 @@ def make_region_stacked_ratio_fig(
             rax.set_xlim(set_x_lim)
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
-    if sr_signed_display_view is not None:
+    if sr_signed_display_view is not None and sr_display_diagnostics:
         original_y_limits = ax.get_ylim()
         bin_centers = (plot_bins[:-1] + plot_bins[1:]) / 2.0
         for component_index, (label, values) in enumerate(sr_signed_display_view["components"]):
             if not np.any(values < 0):
                 continue
             color = SR_GROUP_INFO.get(label, {}).get("color") or default_colors[component_index % len(default_colors)]
-            ax.stairs(values, plot_bins, label="_nolegend_", color=color,
+            ax.stairs(values, plot_bins, label=f"{label} signed contribution", color=color,
                       linestyle=("--", ":", "-.")[component_index % 3], linewidth=1.5)
             if debug_canvas_annotations:
                 for bin_center, value in zip(bin_centers, values):
@@ -9799,6 +9831,11 @@ def make_region_stacked_ratio_fig(
             if label == '_nolegend_':
                 continue
             if label not in filtered:
+                if label.endswith(" signed contribution"):
+                    handle = mpl.lines.Line2D(
+                        [], [], color=handle.get_edgecolor(),
+                        linestyle=handle.get_linestyle(), linewidth=handle.get_linewidth(),
+                    )
                 filtered[label] = handle
         if filtered:
             max_rows = legend_style.get("max_rows", 3)
@@ -9964,6 +10001,7 @@ def run_plots_for_region(
     rebin_plot_vars=None,
     negative_weight_report=True,
     debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
     negative_report_suffix=None,
     show_ratio_legend=False,
     binning_mode="processing",
@@ -10086,6 +10124,7 @@ def run_plots_for_region(
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
             debug_canvas_annotations=debug_canvas_annotations,
+            sr_display_diagnostics=sr_display_diagnostics,
             output_formats=output_formats,
             outcome_collector=outcome_collector,
         )
@@ -10278,9 +10317,14 @@ def build_arg_parser():
         ),
     )
     parser.add_argument(
+        "--sr-display-diagnostics",
+        action="store_true",
+        help="Split inclusive ttbar from card-grouped ttll and show signed contribution outlines (default: off).",
+    )
+    parser.add_argument(
         "--debug-canvas-annotations",
         action="store_true",
-        help="Show signed diagnostic numeric annotations on the plot canvas (default: off).",
+        help="Annotate signed outlines numerically; requires --sr-display-diagnostics (default: off).",
     )
     parser.add_argument(
         "--output-formats",
@@ -10882,6 +10926,7 @@ def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
         show_ratio_legend=args.show_ratio_legend,
         binning_mode=args.binning,
         debug_canvas_annotations=args.debug_canvas_annotations,
+        sr_display_diagnostics=args.sr_display_diagnostics,
         output_formats=args.output_formats,
         channel_allowlist=channel_allowlist,
         outcome_collector=outcome_collector,
