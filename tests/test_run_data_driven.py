@@ -1160,3 +1160,35 @@ def test_run_data_driven_dd_report_markdown_works_with_pkl_paths(tmp_path):
     markdown = _read_text(report_path)
     assert "## Histogram: `met`" in markdown
     assert "- nonprompt region `isAR_3l` output `nonpromptUL18`" in markdown
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("histogram_count", [1, 4])
+def test_phase_telemetry_covers_load_producer_finalization_and_publication(
+    tmp_path, monkeypatch, capsys, enabled, histogram_count
+):
+    DummyProducer.output_hist = {
+        str(index): FakeHist(["flipsUL17"]) for index in range(histogram_count)
+    }
+    monkeypatch.setattr(run_data_driven, "DataDrivenProducer", DummyProducer)
+    # The lightweight option must not start the existing memory sampler/tracer.
+    def reject_sampler(reporter):
+        assert not reporter.enabled
+    monkeypatch.setattr(run_data_driven._MemoryReporter, "start", reject_sampler)
+    monkeypatch.setattr(run_data_driven.tracemalloc, "start",
+                        lambda *a, **k: pytest.fail("telemetry started tracemalloc"))
+    args = ["--phase-telemetry"] if enabled else []
+    output = _run_histograms(tmp_path, {"seed": FakeHist(["dataUL17"])}, *args)
+    assert len(_load_pkl(output)) == histogram_count
+    records = [json.loads(line.split("] ", 1)[1])
+               for line in capsys.readouterr().out.splitlines()
+               if line.startswith("[phase_telemetry] ")]
+    expected = [
+        "dd_start", "dd_input_validated", "dd_before_producer",
+        "dd_producer_constructed", "dd_before_transform_and_serialize",
+        "dd_transform_and_serialize_complete", "dd_finalized", "dd_published",
+    ]
+    assert [record["phase"] for record in records] == (expected if enabled else [])
+    assert all(record["filename"].endswith("input.pkl.gz") for record in records)
+    assert all(type(value) in (str, int, float, bool, type(None))
+               for record in records for value in record.values())

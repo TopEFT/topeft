@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 import ast
+import resource
+import sys
+import time
 import copy
 import coffea
 import hashlib
@@ -49,6 +52,48 @@ get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
+
+
+
+class _PhaseTelemetry:
+    """Fixed scalar context and two clocks; emits records without retaining them."""
+
+    __slots__ = ("_context", "_wall_start_ns", "_cpu_start_ns")
+
+    def __init__(self, *, sample="", year="", filename="", entry_start=None,
+                 entry_stop=None, event_count=None):
+        self._context = dict(sample=sample, year=year, filename=filename,
+                             entry_start=entry_start, entry_stop=entry_stop,
+                             event_count=event_count)
+        if any(type(value) not in (str, int, float, bool, type(None))
+               for value in self._context.values()):
+            raise TypeError("Phase telemetry metadata must contain only scalars.")
+        self._wall_start_ns = time.perf_counter_ns()
+        self._cpu_start_ns = time.process_time_ns()
+
+    def mark(self, phase, *, rss_mb=None, peak_rss_mb=None):
+        wall_ns = time.perf_counter_ns()
+        cpu_ns = time.process_time_ns()
+        if peak_rss_mb is None:
+            peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            peak_rss_mb /= 1024.0 ** (2 if sys.platform == "darwin" else 1)
+        if rss_mb is None:
+            rss_mb = peak_rss_mb
+            try:
+                with open("/proc/self/status") as stream:
+                    for line in stream:
+                        if line.startswith("VmRSS:"):
+                            rss_mb = float(line.split()[1]) / 1024.0
+                            break
+            except OSError:
+                pass
+        print("[phase_telemetry] " + json.dumps(dict(
+            schema_version=1, phase=phase, **self._context,
+            wall_ns=wall_ns, cpu_ns=cpu_ns,
+            wall_elapsed_ns=wall_ns - self._wall_start_ns,
+            cpu_elapsed_ns=cpu_ns - self._cpu_start_ns,
+            rss_mib=rss_mb, peak_rss_mib=peak_rss_mb,
+        ), sort_keys=True), flush=True)
 
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
@@ -790,8 +835,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             return None
         return (not is_data) and wgt_fluct == "nominal"
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None, record_raw_count=False):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None, record_raw_count=False, phase_telemetry=False):
 
+        self._phase_telemetry = phase_telemetry
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
@@ -1325,6 +1371,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         year               = sample_metadata["year"]
         xsec               = sample_metadata["xsec"]
         sow                = sample_metadata["nSumOfWeights"]
+        telemetry = (
+            _PhaseTelemetry(
+                sample=dataset_key, year=year,
+                filename=events.metadata.get("filename", ""),
+                entry_start=events.metadata.get("entrystart"),
+                entry_stop=events.metadata.get("entrystop"),
+                event_count=len(events),
+            ) if self._phase_telemetry else None
+        )
+        if telemetry is not None:
+            telemetry.mark("processor_start")
         if isData and isEFT:
             raise ValueError(
                 f"Data sample '{dataset_key}' cannot declare WC-dependent content."
@@ -1553,6 +1610,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # print((f"Systematic variations to be applied only for data-driven estimates: {data_syst_lst}"))
         # print("\n\n\n\n\n\n")
 
+        if telemetry is not None:
+            telemetry.mark("processor_inputs_prepared")
+
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
@@ -1638,6 +1698,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
             del type1Jets
             del corrT1METJets
+
+        if telemetry is not None:
+            telemetry.mark("processor_base_weights_and_met_ready")
 
         # Loop over the list of systematic variations we've constructed
         met_raw=met
@@ -1924,6 +1987,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
             fwd0 = fwdJets[ak.argmax(fwdJets.pt,axis=-1,keepdims=True)]
 
+            if telemetry is not None and syst_var == "nominal":
+                telemetry.mark("processor_nominal_objects_ready")
+
             if btagAlgo == "btagDeepFlavB":
                 btagRef = ""
             elif btagAlgo == "btagPNetB":
@@ -2185,6 +2251,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006,run_era)
 
             # b jet masks
+            if telemetry is not None and syst_var == "nominal":
+                telemetry.mark("processor_nominal_weights_ready")
+
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
             bmask_exactly0med = (nbtagsm==0) # Used for 3l CR and 2los Z CR
             bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
@@ -2365,6 +2434,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)
             selections.add("isSR_4l",  events.is4l_SR)
+            if telemetry is not None and syst_var == "nominal":
+                telemetry.mark("processor_nominal_selections_ready")
 
 
             ######### Variables for the dense axes of the hists ##########
@@ -2660,6 +2731,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for k in sr_cat_dict:
                     if k in cr_cat_dict:
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
+
+            if telemetry is not None and syst_var == "nominal":
+                telemetry.mark("processor_nominal_variables_ready")
 
             # Loop over the hists we want to fill
             def _prepare_axis_values(axis_value):
@@ -2996,6 +3070,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                             if dense_axis_name == "njets":
                                 break
         
+            if telemetry is not None and syst_var == "nominal":
+                telemetry.mark("processor_nominal_fills_complete")
+
+        if telemetry is not None:
+            telemetry.mark("processor_complete")
         return hout
 
     def postprocess(self, accumulator):

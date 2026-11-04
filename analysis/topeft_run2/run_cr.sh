@@ -7,7 +7,7 @@ print_usage() {
   cat <<'EOF'
 Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag TAG
   [--dry-run] [--env-file PATH] [--resume] [--chunksize POSITIVE_INTEGER]
-  [--selected-fragment ID] [--plan JSON]
+  [--selected-fragment ID] [--plan JSON] [--phase-telemetry]
   [--pkl-min-free-bytes POSITIVE_INTEGER --pkl-min-free-inodes POSITIVE_INTEGER
    --pkl-safety-reserve-bytes POSITIVE_INTEGER --pkl-safety-reserve-inodes POSITIVE_INTEGER]
   [--wq-manager-name EXACT_NAME | --wq-manager-prefix PREFIX]
@@ -41,6 +41,7 @@ profile_output_dir=""
 profile_campaign_tag=""
 profile_env_file=""
 profile_resume=false
+profile_phase_telemetry=false
 profile_chunksize=""
 profile_pkl_min_free_bytes=""
 profile_pkl_min_free_inodes=""
@@ -79,6 +80,10 @@ while (( $# > 0 )); do
       fi
       production_profile="$2"
       shift 2
+      ;;
+    --phase-telemetry)
+      profile_phase_telemetry=true
+      shift
       ;;
     --dry-run)
       profile_dry_run=true
@@ -490,7 +495,7 @@ if [[ "${combined_profile}" == "true" ]]; then
       --run2-wq-manager-prefix|--run3-wq-manager-prefix)
         remaining_args=("${remaining_args[@]:2}")
         ;;
-      --dry-run|--resume)
+      --dry-run|--resume|--phase-telemetry)
         component_args+=("${remaining_args[0]}")
         remaining_args=("${remaining_args[@]:1}")
         ;;
@@ -1353,6 +1358,10 @@ build_common_command_options() {
     --sample-universe-wrapper "run_cr.sh -> fullR3_run.sh"
   )
 
+  if [[ "${profile_phase_telemetry}" == "true" ]]; then
+    cmd_ref+=(--phase-telemetry)
+  fi
+
   # cmd_ref+=(--analysis-mode taufitter)
 
   if [[ "${do_systs}" == "true" ]]; then
@@ -1718,6 +1727,9 @@ run_campaign_unit() {
   data_driven_cmd=(
     python ./run_data_driven.py --input-pkl "${source_path}" --output-pkl "${data_driven_path}"
   )
+  if [[ "${profile_phase_telemetry}" == "true" ]]; then
+    data_driven_cmd+=(--phase-telemetry)
+  fi
   append_pkl_safety_options source_cmd
   append_pkl_safety_options data_driven_cmd
 
