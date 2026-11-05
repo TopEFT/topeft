@@ -3357,3 +3357,57 @@ def test_self_describing_artifact_rejects_malformed_binary_declaration(
         )
 
     assert not output_path.exists()
+
+
+@pytest.mark.parametrize("shape", ("empty", "payload", "zero_payload", "metadata"))
+def test_pending_recovery_preserves_incomplete_pair(tmp_path, shape):
+    pending = tmp_path / ".topeft-pending-synthetic" / "processor.pkl.gz"
+    pending.parent.mkdir(mode=0o700)
+    if shape in {"payload", "zero_payload"}:
+        pending.write_bytes(b"partial" if shape == "payload" else b"")
+    if shape == "metadata":
+        metadata_sidecar_path(pending).write_bytes(b"partial metadata")
+    before = {p.name: p.read_bytes() for p in pending.parent.iterdir()}
+    final = tmp_path / pending.name
+    def reject_validation(*_):
+        pytest.fail("incomplete evidence reached semantic validation")
+    assert histogram_artifact.recover_pending_artifact(
+        pending, final, validate_sidecar=reject_validation) is False
+    assert not final.exists() and not metadata_sidecar_path(final).exists()
+    assert {p.name: p.read_bytes() for p in pending.parent.iterdir()} == before
+
+
+@pytest.mark.parametrize("samefile", (False, True))
+def test_pending_recovery_valid_pair_publication_and_cleanup(tmp_path, policy, samefile):
+    final = tmp_path / "processor.pkl.gz"
+    _write_processor(final, policy, no_clobber=True, pending_id="a" * 64)
+    pending = tmp_path / f".topeft-pending-{'a' * 64}" / final.name
+    if not samefile:
+        final.unlink()
+        metadata_sidecar_path(final).unlink()
+    seen = []
+    assert histogram_artifact.recover_pending_artifact(
+        pending, final, validate_sidecar=lambda metadata, path: seen.append((metadata, path))) is True
+    assert seen[0][1] == pending
+    assert histogram_artifact.os.path.samefile(pending, final)
+    assert histogram_artifact.os.path.samefile(metadata_sidecar_path(pending), metadata_sidecar_path(final))
+    validate_histogram_artifact(final)
+    histogram_artifact.cleanup_pending_artifact(pending, final)
+    assert not pending.parent.exists()
+    validate_histogram_artifact(final)
+
+
+@pytest.mark.parametrize("member", ("payload", "metadata"))
+@pytest.mark.parametrize("unsafe", ("symlink", "directory"))
+def test_incomplete_pending_unsafe_entry_still_fails_closed(tmp_path, member, unsafe):
+    pending = tmp_path / ".topeft-pending-synthetic" / "processor.pkl.gz"
+    pending.parent.mkdir(mode=0o700)
+    entry = pending if member == "payload" else metadata_sidecar_path(pending)
+    if unsafe == "symlink":
+        entry.symlink_to(tmp_path / "absent")
+    else:
+        entry.mkdir()
+    with pytest.raises(histogram_artifact_error, match="symlink|regular file"):
+        histogram_artifact.recover_pending_artifact(pending, tmp_path / pending.name,
+                                                  validate_sidecar=lambda *_: None)
+    assert histogram_artifact.os.path.lexists(entry)

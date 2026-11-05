@@ -1658,3 +1658,81 @@ def test_writer_lock_refuses_symlink_and_contending_process(tmp_path):
         )
         assert child.returncode != 0
         assert "campaign writer lock is held" in child.stderr
+
+
+@pytest.mark.parametrize("shape", ("empty", "payload", "zero_payload", "metadata", "absent"))
+@pytest.mark.parametrize("reverse", (False, True))
+@pytest.mark.parametrize("final_present", (False, True))
+def test_incomplete_pending_dd_does_not_block_independent_source(make_campaign, shape, reverse, final_present):
+    state = make_campaign("run2_stat_diagnostic", histograms=("ptll",))
+    # Preserve the immutable plan order; swap which unit carries each role.
+    incomplete, independent = state["units"][::-1] if reverse else state["units"]
+    for unit in (incomplete, independent):
+        manifest.transition(state, unit["id"], "source", "running", "none", "test",
+                            tuple(source_command(state, unit)))
+    write_artifact(incomplete["outputs"]["source"], state=state, unit=incomplete, real_payload=True)
+    manifest.transition(state, incomplete["id"], "source", "ready", "0", "test")
+    dd_command = ("python", "./run_data_driven.py", "--input-pkl", incomplete["outputs"]["source"],
+                  "--output-pkl", incomplete["outputs"]["data_driven"])
+    manifest.transition(state, incomplete["id"], "data_driven", "running", "none", "test", dd_command)
+    pending = manifest.pending_artifact_path(state, incomplete, "data_driven")
+    if shape != "absent":
+        pending.parent.mkdir(mode=0o700)
+    if shape in {"payload", "zero_payload"}:
+        pending.write_bytes(b"unfinished" if shape == "payload" else b"")
+    if shape == "metadata":
+        Path(f"{pending}.metadata.json").write_bytes(b"unfinished metadata")
+    before = {p.name: p.read_bytes() for p in pending.parent.iterdir()} if shape != "absent" else None
+    final = Path(independent["outputs"]["source"])
+    write_artifact(final, state=state, unit=independent, real_payload=True,
+                   pending_id=manifest.pending_artifact_id(state, independent, "source"))
+    valid_pending = manifest.pending_artifact_path(state, independent, "source")
+    if not final_present:
+        final.unlink()
+        Path(f"{final}.metadata.json").unlink()
+    assert manifest.reconcile_running(state)
+    failed = incomplete["stages"]["data_driven"]
+    assert failed["status"] == "failed" and failed["receipt"] is None
+    assert failed["attempts"][-1]["result"] == "interrupted"
+    assert not Path(incomplete["outputs"]["data_driven"]).exists()
+    assert independent["stages"]["source"]["status"] == "success"
+    assert independent["stages"]["source"]["attempts"][-1]["result"] == "reconciled_success"
+    assert independent["stages"]["source"]["receipt"]["artifact"]["path"] == str(final)
+    assert os.path.samefile(valid_pending, final)
+    if before is not None:
+        assert pending.parent.is_dir()
+        assert {p.name: p.read_bytes() for p in pending.parent.iterdir()} == before
+    else:
+        assert not pending.parent.exists()
+
+
+@pytest.mark.parametrize("damage", ("digest", "kind", "binding", "collision"))
+def test_complete_invalid_pending_blocks_later_independent_record(make_campaign, damage):
+    state = make_campaign("run2_stat_diagnostic", histograms=("ptll",))
+    invalid, independent = state["units"]
+    for unit in (invalid, independent):
+        manifest.transition(state, unit["id"], "source", "running", "none", "test",
+                            tuple(source_command(state, unit)))
+        write_artifact(unit["outputs"]["source"], state=state, unit=unit, real_payload=True,
+                       pending_id=manifest.pending_artifact_id(state, unit, "source"))
+    pending = manifest.pending_artifact_path(state, invalid, "source")
+    sidecar = Path(f"{pending}.metadata.json")
+    if damage in {"digest", "kind", "binding"}:
+        metadata = json.loads(sidecar.read_text())
+        if damage == "digest":
+            metadata["artifact"]["pkl_sha256"] = "f" * 64
+        elif damage == "kind":
+            metadata["artifact"]["artifact_kind"] = "nonprompt_output"
+        else:
+            metadata["production_sample_contract"]["cfg_identities"][0]["content_sha256"] = "f" * 64
+        sidecar.write_text(json.dumps(metadata))
+    else:
+        final = Path(invalid["outputs"]["source"])
+        final.unlink()
+        final.write_bytes(b"foreign final collision")
+    before = {p.name: p.read_bytes() for p in pending.parent.iterdir()}
+    with pytest.raises(ValueError):
+        manifest.reconcile_running(state)
+    assert all(unit["stages"]["source"]["status"] == "running" for unit in state["units"])
+    assert all(unit["stages"]["source"]["receipt"] is None for unit in state["units"])
+    assert {p.name: p.read_bytes() for p in pending.parent.iterdir()} == before

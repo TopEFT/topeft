@@ -2942,7 +2942,7 @@ def check_output_capacity(path, thresholds, *, publication=False):
 
 
 def recover_pending_artifact(pending, final, *, validate_sidecar, thresholds=None):
-    """Publish only a validated same-attempt pending pair, preserving collision evidence."""
+    """Publish a validated pair; return False and preserve incomplete pending evidence."""
     pending = Path(pending)
     final = Path(final)
     if not os.path.lexists(pending.parent):
@@ -2956,6 +2956,13 @@ def recover_pending_artifact(pending, final, *, validate_sidecar, thresholds=Non
     final_sidecar = metadata_sidecar_path(final)
     if pending.is_symlink() or pending_sidecar.is_symlink():
         raise histogram_artifact_error("recovery_evidence_insufficient: pending evidence is a symlink")
+    # A locator can survive interruption before either member was completed.
+    # Keep unsafe entries fail-closed even when the other member is absent.
+    for member in (pending, pending_sidecar):
+        if os.path.lexists(member) and not member.is_file():
+            raise histogram_artifact_error("recovery_evidence_insufficient: pending evidence is not a regular file")
+    if not pending.is_file() or not pending_sidecar.is_file():
+        return False
     validated = validate_histogram_artifact(pending)
     validate_sidecar(validated["metadata"], pending)
     check_output_capacity(final, thresholds, publication=True)
