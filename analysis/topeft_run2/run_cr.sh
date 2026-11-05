@@ -7,7 +7,7 @@ print_usage() {
   cat <<'EOF'
 Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag TAG
   [--dry-run] [--env-file PATH] [--resume] [--chunksize POSITIVE_INTEGER]
-  [--selected-fragment ID] [--plan JSON]
+  [--selected-fragment ID] [--plan JSON] [--phase-telemetry]
   [--pkl-min-free-bytes POSITIVE_INTEGER --pkl-min-free-inodes POSITIVE_INTEGER
    --pkl-safety-reserve-bytes POSITIVE_INTEGER --pkl-safety-reserve-inodes POSITIVE_INTEGER]
   [--wq-manager-name EXACT_NAME | --wq-manager-prefix PREFIX]
@@ -41,6 +41,7 @@ profile_output_dir=""
 profile_campaign_tag=""
 profile_env_file=""
 profile_resume=false
+profile_phase_telemetry=false
 profile_chunksize=""
 profile_pkl_min_free_bytes=""
 profile_pkl_min_free_inodes=""
@@ -79,6 +80,10 @@ while (( $# > 0 )); do
       fi
       production_profile="$2"
       shift 2
+      ;;
+    --phase-telemetry)
+      profile_phase_telemetry=true
+      shift
       ;;
     --dry-run)
       profile_dry_run=true
@@ -490,7 +495,7 @@ if [[ "${combined_profile}" == "true" ]]; then
       --run2-wq-manager-prefix|--run3-wq-manager-prefix)
         remaining_args=("${remaining_args[@]:2}")
         ;;
-      --dry-run|--resume)
+      --dry-run|--resume|--phase-telemetry)
         component_args+=("${remaining_args[0]}")
         remaining_args=("${remaining_args[@]:1}")
         ;;
@@ -1353,6 +1358,10 @@ build_common_command_options() {
     --sample-universe-wrapper "run_cr.sh -> fullR3_run.sh"
   )
 
+  if [[ "${profile_phase_telemetry}" == "true" ]]; then
+    cmd_ref+=(--phase-telemetry)
+  fi
+
   # cmd_ref+=(--analysis-mode taufitter)
 
   if [[ "${do_systs}" == "true" ]]; then
@@ -1459,13 +1468,14 @@ assert_native_wq_logs_clean() {
   local block_id="$1"
   local name
   mkdir -p -- "${native_wq_log_dir}"
-  for name in "${native_wq_log_names[@]}"; do
+  # A telemetry-only remainder still belongs to the previous manager attempt.
+  for name in "${native_wq_log_names[@]}" phase_telemetry.jsonl; do
     if [[ -e "${native_wq_log_dir}/${name}" ]]; then
       archive_native_wq_logs "${block_id}" source
       break
     fi
   done
-  for name in "${native_wq_log_names[@]}"; do
+  for name in "${native_wq_log_names[@]}" phase_telemetry.jsonl; do
     if [[ -e "${native_wq_log_dir}/${name}" ]]; then
       echo "ERROR: owned Work Queue log already exists for this fragment and stage; refusing a new invocation: ${native_wq_log_dir}/${name}" >&2
       return 1
@@ -1512,6 +1522,7 @@ archive_native_wq_logs() {
   local archive_dir="${archive_base}"
   local retry_index=1
   local name source_path destination_path source_size destination_size
+  local phase_archive_copied=false
 
   while [[ -e "${archive_dir}" ]]; do
     archive_dir="${archive_base}_resume_${retry_index}"
@@ -1550,11 +1561,25 @@ archive_native_wq_logs() {
     return 1
   fi
 
+  # Optional telemetry follows the same attempt archive as tasks.log. Failure
+  # preserves the original and warns without changing scientific stage status.
+  if [[ -f "${native_wq_log_dir}/phase_telemetry.jsonl" ]]; then
+    if cp -- "${native_wq_log_dir}/phase_telemetry.jsonl" "${archive_dir}/phase_telemetry.jsonl" \
+      && cmp -s -- "${native_wq_log_dir}/phase_telemetry.jsonl" "${archive_dir}/phase_telemetry.jsonl"; then
+      phase_archive_copied=true
+    else
+      echo "WARNING: optional phase telemetry archive failed; original preserved in ${native_wq_log_dir}." >&2
+    fi
+  fi
   production_state_tool archive "${production_state_path}" "${block_id}" "${stage}" "${archive_dir}"
   for name in "${native_wq_log_names[@]}"; do
     source_path="${native_wq_log_dir}/${name}"
     [[ ! -e "${source_path}" ]] || rm -- "${source_path}"
   done
+  if [[ "${phase_archive_copied}" == "true" ]]; then
+    rm -- "${native_wq_log_dir}/phase_telemetry.jsonl" \
+      || echo "WARNING: optional phase telemetry archive source retained." >&2
+  fi
 }
 
 write_failure_snapshot() {
@@ -1718,6 +1743,9 @@ run_campaign_unit() {
   data_driven_cmd=(
     python ./run_data_driven.py --input-pkl "${source_path}" --output-pkl "${data_driven_path}"
   )
+  if [[ "${profile_phase_telemetry}" == "true" ]]; then
+    data_driven_cmd+=(--phase-telemetry)
+  fi
   append_pkl_safety_options source_cmd
   append_pkl_safety_options data_driven_cmd
 
