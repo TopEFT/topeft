@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import subprocess
 import sys
 from types import SimpleNamespace
 
@@ -26,6 +27,83 @@ def stdout_record(phase="processor_complete"):
     with contextlib.redirect_stdout(output):
         analysis_processor._PhaseTelemetry(sample="not duplicated").mark(phase)
     return output.getvalue()
+
+
+def archive_shell(tmp_path, action, *, fail_copy=False):
+    """Run maintained shell lifecycle functions only; no campaign launcher.
+
+    The state receipt writer is a no-op: these tests qualify file separation,
+    not campaign state transitions or production recovery.
+    """
+    source = (Path(__file__).parents[1] / "analysis/topeft_run2/run_cr.sh").read_text()
+    functions = ""
+    for name in ("archive_native_wq_logs", "assert_native_wq_logs_clean"):
+        body = source.split(name + "() {", 1)[1].split("\n}\n", 1)[0]
+        functions += name + "() {" + body + "\n}\n"
+    shell = '''set -euo pipefail
+output_dir="$1"
+native_wq_log_dir="$1/work_queue_logs/fixture/unit/source_native"
+production_component=fixture
+production_state_path=unused
+validation_backend=""
+native_wq_log_names=(debug.log tr.log stats.log tasks.log)
+production_state_tool() { return 0; }
+'''
+    if fail_copy:
+        shell += '''cp() {
+  if [[ "$2" == */phase_telemetry.jsonl ]]; then return 1; fi
+  command cp "$@"
+}
+'''
+    return subprocess.run(["/bin/bash", "--noprofile", "--norc", "-c",
+                           shell + functions + action, "archive_fixture", str(tmp_path)],
+                          text=True, capture_output=True)
+
+
+def test_processing_attempt_archives_separate_reused_native_ids(transport, tmp_path):
+    native = tmp_path / "work_queue_logs/fixture/unit/source_native"
+    native.mkdir(parents=True)
+    stdout = tmp_path / "stdout.log"
+    snapshots = []
+    for phase in ("processor_start", "processor_complete"):
+        assert archive_shell(tmp_path, "assert_native_wq_logs_clean unit").returncode == 0
+        stdout.write_text(stdout_record(phase))
+        transport._persist_task_phase_telemetry(SimpleNamespace(id=1, outfile_stdout=stdout),
+                                               native / "phase_telemetry.jsonl")
+        (native / "tasks.log").write_text("1,processing,done\n")
+        result = archive_shell(tmp_path, "archive_native_wq_logs unit source")
+        assert result.returncode == 0, result.stderr
+        snapshots.append(phase)
+        assert not (native / "phase_telemetry.jsonl").exists()
+    for attempt, phase in zip(("source", "source_resume_1"), snapshots):
+        archive = native.parent / attempt
+        rows = [json.loads(line) for line in (archive / "phase_telemetry.jsonl").read_text().splitlines()]
+        assert [(row["task_id"], row["phase"]) for row in rows] == [(1, phase)]
+        assert (archive / "tasks.log").read_text() == "1,processing,done\n"
+
+
+def test_failed_optional_archive_preserves_original_and_prevents_next_mix(tmp_path):
+    native = tmp_path / "work_queue_logs/fixture/unit/source_native"
+    native.mkdir(parents=True)
+    sidecar = native / "phase_telemetry.jsonl"
+    original = stdout_record()
+    sidecar.write_text(original)
+    (native / "tasks.log").write_text("1,processing,done\n")
+    archived = archive_shell(tmp_path, "archive_native_wq_logs unit source", fail_copy=True)
+    assert archived.returncode == 0  # original scientific stage stays successful
+    assert "optional phase telemetry archive failed" in archived.stderr
+    assert sidecar.read_text() == original
+    assert not (native / "tasks.log").exists()
+    refused = archive_shell(tmp_path, "assert_native_wq_logs_clean unit", fail_copy=True)
+    assert refused.returncode != 0
+    assert "refusing a new invocation" in refused.stderr
+    assert sidecar.read_text() == original
+    # Once copying works, the existing preflight archives the orphan before any
+    # new invocation; no registry, deletion fallback or new hierarchy is used.
+    separated = archive_shell(tmp_path, "assert_native_wq_logs_clean unit")
+    assert separated.returncode == 0, separated.stderr
+    assert not sidecar.exists()
+    assert (native.parent / "source_resume_2/phase_telemetry.jsonl").read_text() == original
 
 
 def test_selective_append_and_native_task_join(transport, tmp_path):

@@ -1197,6 +1197,8 @@ def test_phase_telemetry_covers_load_producer_finalization_and_publication(
     if enabled:
         retained = [json.loads(line) for line in sidecar.read_text().splitlines()]
         assert [row["phase"] for row in retained] == expected
+        assert all(row["peak_rss_mib"] >= row["rss_mib"] for row in retained
+                   if row["peak_rss_mib"] is not None and row["rss_mib"] is not None)
         assert all(set(row) == {"schema_version", "phase", "wall_ns", "cpu_ns",
                                 "wall_elapsed_ns", "cpu_elapsed_ns", "rss_mib", "peak_rss_mib"}
                    for row in retained)
@@ -1215,4 +1217,48 @@ def test_optional_dd_sidecar_failure_does_not_change_output(tmp_path, monkeypatc
     monkeypatch.setattr(run_data_driven, "open", fail_only_sidecar, raising=False)
     output = _run_histograms(tmp_path, {"seed": FakeHist(["dataUL17"])}, "--phase-telemetry")
     assert set(_load_pkl(output)) == {"result"}
+    assert "optional DD phase telemetry persistence failed" in capsys.readouterr().err
+
+
+def test_dd_same_output_invocations_retain_only_latest(tmp_path, monkeypatch):
+    DummyProducer.output_hist = {"result": FakeHist(["flipsUL17"])}
+    monkeypatch.setattr(run_data_driven, "DataDrivenProducer", DummyProducer)
+    def reject_independent_sample():
+        pytest.fail("phase telemetry sampled the legacy memory reporter")
+    # The legacy memory reporter is disabled in this test. Phase records must
+    # obtain current/high-water from the shared reporter's one observation.
+    monkeypatch.setattr(run_data_driven, "_current_rss_mb", reject_independent_sample)
+    monkeypatch.setattr(run_data_driven, "_peak_rss_mb", reject_independent_sample)
+    output = _run_histograms(tmp_path, {"seed": FakeHist(["dataUL17"])}, "--phase-telemetry")
+    sidecar = Path(str(output) + ".phase_telemetry.jsonl")
+    first = [json.loads(line) for line in sidecar.read_text().splitlines()]
+    _run_histograms(tmp_path, {"seed": FakeHist(["dataUL17"])}, "--phase-telemetry")
+    second = [json.loads(line) for line in sidecar.read_text().splitlines()]
+    assert len(first) == len(second) == 8
+    assert [row["phase"] for row in first] == [row["phase"] for row in second]
+    assert first[-1]["wall_ns"] < second[0]["wall_ns"]
+    assert not {row["wall_ns"] for row in first} & {row["wall_ns"] for row in second}
+    assert set(_load_pkl(output)) == {"result"}
+
+
+def test_dd_failed_first_write_never_appends_to_prior_invocation(tmp_path, monkeypatch, capsys):
+    output = tmp_path / "output.pkl.gz"
+    sidecar = Path(str(output) + ".phase_telemetry.jsonl")
+    sidecar.write_text('prior invocation\n')
+    reporter = run_data_driven._DurablePhaseTelemetry(filename="input", output_path=output)
+    real_open = open
+    calls = []
+    def fail_first(path, mode, **kwargs):
+        calls.append(mode)
+        if len(calls) == 1:
+            raise OSError("first write unavailable")
+        return real_open(path, mode, **kwargs)
+    monkeypatch.setattr(run_data_driven, "open", fail_first, raising=False)
+    reporter.mark("dd_start")
+    assert sidecar.read_text() == 'prior invocation\n'
+    reporter.mark("dd_input_validated")
+    reporter.mark("dd_published")
+    assert calls == ["w", "w", "a"]
+    assert [json.loads(line)["phase"] for line in sidecar.read_text().splitlines()] == [
+        "dd_input_validated", "dd_published"]
     assert "optional DD phase telemetry persistence failed" in capsys.readouterr().err

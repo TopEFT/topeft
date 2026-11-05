@@ -55,6 +55,39 @@ np.seterr(divide='ignore', invalid='ignore', over='ignore')
 
 
 
+def _phase_memory_mib():
+    """Observe current RSS and process high-water in MiB, without retaining state.
+
+    Linux fields come from one /proc read. The rusage fallback is not atomic:
+    the observed current RSS is also a lower bound on the process high-water.
+    A missing current measurement stays unavailable rather than becoming peak.
+    """
+    rss_mib = peak_mib = None
+    try:
+        with open("/proc/self/status") as stream:
+            for line in stream:
+                if line.startswith(("VmRSS:", "VmHWM:")):
+                    try:
+                        value = float(line.split()[1]) / 1024.0
+                    except (ValueError, IndexError):
+                        continue
+                    if line.startswith("VmRSS:"):
+                        rss_mib = value
+                    else:
+                        peak_mib = value
+    except OSError:
+        pass
+    if peak_mib is None:
+        try:
+            peak_mib = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            peak_mib /= 1024.0 ** (2 if sys.platform == "darwin" else 1)
+        except (OSError, AttributeError):
+            pass
+    if rss_mib is not None and peak_mib is not None:
+        peak_mib = max(peak_mib, rss_mib)
+    return rss_mib, peak_mib
+
+
 class _PhaseTelemetry:
     """Fixed scalar context and two clocks; emits records without retaining them."""
 
@@ -74,19 +107,14 @@ class _PhaseTelemetry:
     def mark(self, phase, *, rss_mb=None, peak_rss_mb=None):
         wall_ns = time.perf_counter_ns()
         cpu_ns = time.process_time_ns()
-        if peak_rss_mb is None:
-            peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            peak_rss_mb /= 1024.0 ** (2 if sys.platform == "darwin" else 1)
-        if rss_mb is None:
-            rss_mb = peak_rss_mb
-            try:
-                with open("/proc/self/status") as stream:
-                    for line in stream:
-                        if line.startswith("VmRSS:"):
-                            rss_mb = float(line.split()[1]) / 1024.0
-                            break
-            except OSError:
-                pass
+        if rss_mb is None or peak_rss_mb is None:
+            observed_rss, observed_peak = _phase_memory_mib()
+            if rss_mb is None:
+                rss_mb = observed_rss
+            if peak_rss_mb is None:
+                peak_rss_mb = observed_peak
+        if rss_mb is not None and peak_rss_mb is not None:
+            peak_rss_mb = max(peak_rss_mb, rss_mb)
         print("[phase_telemetry] " + json.dumps(dict(
             schema_version=1, phase=phase, **self._context,
             wall_ns=wall_ns, cpu_ns=cpu_ns,

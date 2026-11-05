@@ -1,11 +1,68 @@
 import ast
 import inspect
+import io
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from analysis.topeft_run2 import analysis_processor as module
+
+
+def test_linux_memory_uses_one_status_observation(monkeypatch, capsys):
+    reads = []
+    def status(path):
+        assert path == "/proc/self/status"
+        reads.append(path)
+        return io.StringIO("VmHWM:\t32768 kB\nName:\tfixture\nVmRSS:\t16384 kB\n")
+    monkeypatch.setattr(module, "open", status, raising=False)
+    monkeypatch.setattr(module.resource, "getrusage",
+                        lambda *_: pytest.fail("rusage used despite VmHWM"))
+    module._PhaseTelemetry().mark("processor_start")
+    record = json.loads(capsys.readouterr().out.split("] ", 1)[1])
+    assert (record["rss_mib"], record["peak_rss_mib"]) == (16., 32.)
+    assert len(reads) == 1
+
+
+@pytest.mark.parametrize("status,current,peak", [
+    ("VmRSS: 8192 kB\n", 8., 8.),  # rusage can lag current accounting
+    ("VmRSS: 1024 kB\n", 1., 4.),
+    ("VmHWM: 8192 kB\n", None, 8.),
+    ("Name: fixture\n", None, 4.),
+    ("VmRSS: unavailable\nVmHWM: unavailable\n", None, 4.),
+])
+def test_missing_memory_fields_are_honest_and_fallback_is_bounded(
+    monkeypatch, status, current, peak
+):
+    monkeypatch.setattr(module, "open", lambda *_: io.StringIO(status), raising=False)
+    monkeypatch.setattr(module.sys, "platform", "linux")
+    monkeypatch.setattr(module.resource, "getrusage",
+                        lambda *_: SimpleNamespace(ru_maxrss=4096))
+    assert module._phase_memory_mib() == (current, peak)
+
+
+@pytest.mark.parametrize("platform,raw", [("linux", 4096), ("darwin", 4194304)])
+def test_no_proc_has_no_current_rss(monkeypatch, platform, raw):
+    def unavailable(*_):
+        raise OSError("no proc")
+    monkeypatch.setattr(module, "open", unavailable, raising=False)
+    monkeypatch.setattr(module.sys, "platform", platform)
+    monkeypatch.setattr(module.resource, "getrusage",
+                        lambda *_: SimpleNamespace(ru_maxrss=raw))
+    assert module._phase_memory_mib() == (None, 4.)
+    monkeypatch.setattr(module.resource, "getrusage", unavailable)
+    assert module._phase_memory_mib() == (None, None)
+
+
+def test_runtime_phase_memory_invariant(capsys):
+    reporter = module._PhaseTelemetry()
+    for _ in range(3):
+        reporter.mark("processor_complete")
+    for line in capsys.readouterr().out.splitlines():
+        record = json.loads(line.split("] ", 1)[1])
+        if record["rss_mib"] is not None and record["peak_rss_mib"] is not None:
+            assert record["peak_rss_mib"] >= record["rss_mib"]
 
 
 def test_phase_reporter_retains_only_fixed_scalar_context(capsys):

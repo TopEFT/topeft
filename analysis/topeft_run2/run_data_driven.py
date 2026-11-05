@@ -60,13 +60,14 @@ _DD_REPORT_FAMILY_ORDER = {"sr": 0, "nonprompt": 1, "flips": 2}
 
 
 class _DurablePhaseTelemetry(analysis_processor._PhaseTelemetry):
-    """One accepted reporter record at a time, beside the named DD output."""
+    """Retain only the latest enabled invocation beside the named DD output."""
 
-    __slots__ = ("_sidecar",)
+    __slots__ = ("_sidecar", "_sidecar_started")
 
     def __init__(self, *, filename, output_path):
         super().__init__(filename=filename)
         self._sidecar = str(output_path) + ".phase_telemetry.jsonl"
+        self._sidecar_started = False
 
     def mark(self, phase, **kwargs):
         # Capture only this reporter call, never the DD task's general stdout.
@@ -81,8 +82,12 @@ class _DurablePhaseTelemetry(analysis_processor._PhaseTelemetry):
                       "cpu_elapsed_ns", "rss_mib", "peak_rss_mib")
             payload = {key: record[key] for key in fields}
             encoded = json.dumps(payload, allow_nan=False, sort_keys=True) + "\n"
-            with open(self._sidecar, "a", encoding="utf-8") as sink:
+            # Do not append to a prior invocation, even if an earlier write in
+            # this invocation failed. No new attempt fields or archive needed.
+            with open(self._sidecar, "a" if self._sidecar_started else "w",
+                      encoding="utf-8") as sink:
                 sink.write(encoded)
+            self._sidecar_started = True
         except Exception as error:
             print(f"WARNING: optional DD phase telemetry persistence failed: {error}",
                   file=sys.stderr, flush=True)
@@ -1235,8 +1240,7 @@ def _finalize_histograms(
         memory_reporter.mark("start")
         memory_reporter.mark("before DataDrivenProducer(...)")
         if telemetry is not None:
-            telemetry.mark("dd_before_producer", rss_mb=_current_rss_mb(),
-                           peak_rss_mb=_peak_rss_mb())
+            telemetry.mark("dd_before_producer")
         artifact_kind = (
             FLIPS_OUTPUT_ARTIFACT_KIND
             if only_flips
@@ -1252,8 +1256,7 @@ def _finalize_histograms(
             ddp_kwargs["dd_report"] = True
         ddp = DataDrivenProducer(input_pkl, output_pkl, **ddp_kwargs)
         if telemetry is not None:
-            telemetry.mark("dd_producer_constructed", rss_mb=_current_rss_mb(),
-                           peak_rss_mb=_peak_rss_mb())
+            telemetry.mark("dd_producer_constructed")
         retained_selected_eft_by_family: Dict[str, List[str]] = {}
         certified_flips_outputs = None
         if input_sidecar is not None:
@@ -1282,8 +1285,7 @@ def _finalize_histograms(
         processed = 0
 
         if telemetry is not None:
-            telemetry.mark("dd_before_transform_and_serialize", rss_mb=_current_rss_mb(),
-                           peak_rss_mb=_peak_rss_mb())
+            telemetry.mark("dd_before_transform_and_serialize")
 
         if iterator_mode:
             def _iter_output_items():
@@ -1396,8 +1398,7 @@ def _finalize_histograms(
             memory_reporter.mark("after dump_to_pkl()")
 
         if telemetry is not None:
-            telemetry.mark("dd_transform_and_serialize_complete", rss_mb=_current_rss_mb(),
-                           peak_rss_mb=_peak_rss_mb())
+            telemetry.mark("dd_transform_and_serialize_complete")
 
         if not quiet and processed:
             elapsed = time.monotonic() - start_time
@@ -1410,8 +1411,7 @@ def _finalize_histograms(
         )
         del ddp
         if telemetry is not None:
-            telemetry.mark("dd_finalized", rss_mb=_current_rss_mb(),
-                           peak_rss_mb=_peak_rss_mb())
+            telemetry.mark("dd_finalized")
     finally:
         if markdown_writer is not None:
             markdown_writer.close()
@@ -1439,8 +1439,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     telemetry = (_DurablePhaseTelemetry(filename=input_pkl, output_path=output_pkl)
                  if args.phase_telemetry else None)
     if telemetry is not None:
-        telemetry.mark("dd_start", rss_mb=_current_rss_mb(),
-                       peak_rss_mb=_peak_rss_mb())
+        telemetry.mark("dd_start")
     _validate_input_path(input_pkl)
 
     try:
@@ -1493,8 +1492,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         input_validation = validate_histogram_artifact(input_pkl)
     input_sidecar = input_validation["metadata"]
     if telemetry is not None:
-        telemetry.mark("dd_input_validated", rss_mb=_current_rss_mb(),
-                       peak_rss_mb=_peak_rss_mb())
+        telemetry.mark("dd_input_validated")
     if input_sidecar is None and (
         args.pkl_no_clobber or args.pkl_pending_id is not None
         or any(value is not None for value in (
@@ -1575,8 +1573,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
 
     if telemetry is not None:
-        telemetry.mark("dd_published", rss_mb=_current_rss_mb(),
-                       peak_rss_mb=_peak_rss_mb())
+        telemetry.mark("dd_published")
     return 0
 
 

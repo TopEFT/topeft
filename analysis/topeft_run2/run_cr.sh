@@ -1468,13 +1468,14 @@ assert_native_wq_logs_clean() {
   local block_id="$1"
   local name
   mkdir -p -- "${native_wq_log_dir}"
-  for name in "${native_wq_log_names[@]}"; do
+  # A telemetry-only remainder still belongs to the previous manager attempt.
+  for name in "${native_wq_log_names[@]}" phase_telemetry.jsonl; do
     if [[ -e "${native_wq_log_dir}/${name}" ]]; then
       archive_native_wq_logs "${block_id}" source
       break
     fi
   done
-  for name in "${native_wq_log_names[@]}"; do
+  for name in "${native_wq_log_names[@]}" phase_telemetry.jsonl; do
     if [[ -e "${native_wq_log_dir}/${name}" ]]; then
       echo "ERROR: owned Work Queue log already exists for this fragment and stage; refusing a new invocation: ${native_wq_log_dir}/${name}" >&2
       return 1
