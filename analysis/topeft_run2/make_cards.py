@@ -49,7 +49,13 @@ def build_arg_parser():
     parser.add_argument("--drop-syst",default=[],action="extend",nargs="+",help="Specify one or more template systematics to remove from the datacard")
     parser.add_argument(
         "--suppress-nominal-like-tau-shapes", action="store_true", default=False,
-        help="Omit complete local Tau shape pairs below the strict relative 1e-5 threshold (default: off; unsupported with --use-AAC)",
+        help="Omit complete local Tau shape pairs below the configured strict relative threshold (default: off; unsupported with --use-AAC)",
+    )
+    parser.add_argument(
+        "--nominal-like-tau-shape-threshold",
+        type=datacard_tools.validate_nominal_like_tau_shape_threshold,
+        default=datacard_tools.DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD,
+        help="Strict relative threshold for enabled Tau shape suppression (default: %(default)s)",
     )
     parser.add_argument("--POI",default=[],help="List of WCs (comma separated)")
     parser.add_argument("--year","-y",default=[],action="extend",nargs="+",help="Run over a subset of years")
@@ -314,6 +320,7 @@ def _run_producer(args, pkl_files):
         "lepton_mva_correlation": args.lepton_mva_correlation,
         "drop_syst": drop_syst,
         "suppress_nominal_like_tau_shapes": args.suppress_nominal_like_tau_shapes,
+        "nominal_like_tau_shape_threshold": args.nominal_like_tau_shape_threshold,
         "skip_missing_parton_rate_syst": skip_missing_parton_rate_syst,
         "enable_legacy_run3_vsmu_recovery": args.enable_legacy_run3_vsmu_recovery,
         "unblind": unblind,

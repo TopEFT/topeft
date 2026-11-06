@@ -274,3 +274,20 @@ def test_missing_role_unknown_target_and_duplicate_binding_leave_manifest_absent
     with pytest.raises(ValueError, match="duplicate --input-pkl binding"):
         generator.main(argv)
     assert not (tmp_path / "matrix.json").exists()
+
+
+@pytest.mark.parametrize('value,expected', [(None, 1e-3), ('1e-5', 1e-5), ('0.02', 0.02)])
+def test_tau_threshold_native_forwarding(tmp_path, value, expected):
+    from analysis.topeft_run2 import make_cards
+    argv, _, _ = _args(tmp_path, 'run3')
+    argv += ['--suppress-nominal-like-tau-shapes']
+    if value is not None:
+        argv += ['--nominal-like-tau-shape-threshold', value]
+    assert generator.main(argv) == 0
+    manifest, _ = runner.load_manifest(tmp_path / 'matrix.json')
+    for row in manifest['rows']:
+        resolved = runner.resolved_argv(manifest, row)
+        assert resolved[resolved.index('--nominal-like-tau-shape-threshold') + 1] == str(expected)
+        parsed = make_cards.build_arg_parser().parse_args(row['producer_args'])
+        assert parsed.nominal_like_tau_shape_threshold == expected
+        assert parsed.suppress_nominal_like_tau_shapes is True
