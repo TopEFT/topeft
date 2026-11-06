@@ -1,12 +1,15 @@
 # Embedded nominal sumw2 (schema version 3)
 
 **Status:** design note for the in-progress multicell migration. The contract
-is implemented in `topeft.modules.nominal_schema` (`EMBEDDED_SUMW2_SCHEMA_VERSION`),
-and `AnalysisProcessor` now allocates and fills version 3 histograms. The
-runners, sidecars and downstream consumers still expect schema version 2 with
-`<family>_sumw2` companions. Until they are migrated, `run_analysis.py` cannot
-run end to end, and the diboson specialist processor still writes companions.
-Do not rely on version 3 artifacts until the migration is complete.
+is implemented in `topeft.modules.nominal_schema` (`EMBEDDED_SUMW2_SCHEMA_VERSION`).
+`AnalysisProcessor` allocates and fills version 3 histograms, and
+`run_analysis.py` / `run_analysis_three_top.py` publish them with a version 3
+sidecar (`histogram_artifact.write_histogram_artifact(sumw2_storage=...)`).
+The data-driven, datacard and plotting consumers still expect schema version 2
+with `<family>_sumw2` companions, so inline nonprompt estimation is rejected for
+version 3 outputs, and the diboson specialist processor still writes
+companions. Requires the clean topcoffea MultiCell backend
+(`feature/multicell-clean`).
 
 ## Decisions
 
@@ -42,6 +45,14 @@ Storage being available and sumw2 being recorded are different things.
   dependence is neither computed nor stored.
 - A histogram without a `systematic` axis (for example after selecting the
   nominal slice) is treated as nominal content.
+- 2D `Weight` histograms are filled with the standard `SparseHist.fill()`,
+  which accumulates `w**2` in every systematic bin, including JES/JER and
+  weight variations. Those non-nominal variances are an artifact of the
+  storage, not recorded statistical uncertainties. Consumers must read 2D
+  sumw2 through `get_nominal_sumw2` (or check `is_nominal_sumw2_recorded`) and
+  must not use `.variances()` of a non-nominal 2D bin as an uncertainty.
+  1D MultiCell `HistEFT` fills pass `fill_sumw2=False` for non-nominal
+  variations, so their sumw2 cell stays 0 there.
 
 ## Variance arithmetic
 
@@ -65,8 +76,10 @@ correct variance would need per-event information.
   `environment.yml` (Python 3.9) resolves to boost-histogram 1.6.1, which
   lacks it.
 - topcoffea must provide MultiCell `HistEFT` with `store_sumw2`,
-  `nominal_sumw2()` and raw-count tracking. As of this note that is the
-  `integration/multicell-current-upstream` branch.
+  `fill(fill_sumw2=...)`, `nominal_sumw2()` and raw-count tracking. As of this
+  note that is the `feature/multicell-clean` branch (e92774a, on upstream
+  `run3_test_mmerged`). It has no `SparseHist.fill_with_moments` and no
+  `HistEFT.yield_coefficients`; TopEFT uses neither.
 
 `tests/test_embedded_sumw2_backend_contract.py` pins the backend behaviour this
 contract relies on. `tests/test_nominal_schema_embedded_sumw2.py` covers the

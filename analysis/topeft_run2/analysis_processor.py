@@ -107,14 +107,6 @@ run2_jvm_loose_pu_id_bits = {
 }
 
 
-def _as_numpy(values):
-    """Return a flat NumPy view of awkward or array-like fill inputs."""
-
-    if isinstance(values, ak.Array):
-        return ak.to_numpy(values)
-    return np.asarray(values)
-
-
 def flatten_jagged_jet_eta_phi_weights(jets, event_mask, event_weights):
     """Return aligned flattened eta, phi, and per-jet event weights."""
 
@@ -819,34 +811,23 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         Under EMBEDDED storage the nominal statistical sumw2 is recorded for
         Data and MC alike, only for the nominal variation. MultiCell HistEFT
-        records the SM-point moment (weight * c0)**2. Weight-storage 2D
-        histograms would add w**2 on every fill, so non-nominal fills supply an
-        explicit zero second moment and the slot stays "not recorded".
+        records the SM-point moment (weight * c0)**2 and skips it with
+        ``fill_sumw2=False`` on non-nominal fills. Weight-storage 2D histograms
+        use the standard fill, which adds w**2 in every systematic bin; only
+        the nominal bins are authoritative (see
+        ``nominal_schema.get_nominal_sumw2``), non-nominal 2D variances are
+        "not recorded" and must not be read as statistical uncertainties.
         """
         raw_count_classification = self._raw_count_fill_classification(
             histogram, is_data=is_data, wgt_fluct=wgt_fluct,
         )
         if raw_count_classification is not None:
             fill_info["record_raw_count"] = raw_count_classification
-        record_sumw2 = self._should_record_nominal_sumw2(wgt_fluct)
         if type(histogram) is HistEFT:
-            fill_info["fill_sumw2"] = record_sumw2 and histogram.store_sumw2
-            histogram.fill(**fill_info)
-        elif self._sumw2_storage is Sumw2Storage.EMBEDDED and not record_sumw2:
-            weight = fill_info.pop("weight")
-            dense = {
-                name: _as_numpy(fill_info.pop(name))
-                for name in list(fill_info)
-                if name in histogram.dense_axes.name
-            }
-            histogram.fill_with_moments(
-                value_weight=_as_numpy(weight),
-                second_moment=0.0,
-                **dense,
-                **fill_info,
+            fill_info["fill_sumw2"] = (
+                self._should_record_nominal_sumw2(wgt_fluct) and histogram.store_sumw2
             )
-        else:
-            histogram.fill(**fill_info)
+        histogram.fill(**fill_info)
 
     def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None, record_raw_count=False):
 

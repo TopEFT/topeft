@@ -61,10 +61,22 @@ def _weight_2d():
     return h
 
 
+def _coefficients(h, flow=False):
+    """Per sparse key, the EFT coefficients as (bins, quadratic terms).
+
+    MultiCell views are (cells, bins); the trailing cell is the embedded sumw2.
+    """
+    n_coeff_cells = lambda v: v.shape[0] - int(h.store_sumw2)
+    return {
+        key: np.moveaxis(np.asarray(v)[: n_coeff_cells(v)], 0, -1)
+        for key, v in h.view(flow=flow).items()
+    }
+
+
 def _moments(h):
     """(sum over sparse bins of SM yield, sum of sumw2) per dense bin."""
     if type(h) is HistEFT:
-        yields = sum(v[..., 0] for v in h.yield_coefficients().values())
+        yields = sum(v[..., 0] for v in _coefficients(h).values())
         sumw2 = sum(h.nominal_sumw2().values())
     else:
         views = list(h.view(as_dict=True).values())
@@ -141,12 +153,10 @@ def test_addition_merges_sparse_bins_and_adds_moments():
 
 
 def test_layout_mismatch_is_refused():
-    with pytest.raises(ValueError, match="embedded nominal-sumw2 layout"):
+    with pytest.raises(ValueError, match="matching EFT storage"):
         _filled() + _eft(store=False)
-    plain = SparseHist(*_cats(), hist.axis.Regular(2, 0, 2, name="x"),
-                       hist.axis.Regular(2, 0, 2, name="y"), storage="Double")
-    with pytest.raises(ValueError, match="matching Weight storage"):
-        _weight_2d() + plain
+    # Weight + Double SparseHist mixing is not guarded by topcoffea; a payload
+    # has one storage mode, enforced by nominal_schema.validate_embedded_nominal_mapping.
 
 
 @pytest.mark.parametrize(
@@ -223,8 +233,8 @@ def test_topeft_semantic_rebin_supports_multicell(store):
            process="a", systematic="nominal")
     rebinned = rebin_histogram(h, [0, 20, 40])
     assert rebinned.store_sumw2 is store
-    ((key, source),) = h.yield_coefficients(flow=True).items()
-    ((_, target),) = rebinned.yield_coefficients(flow=True).items()
+    ((key, source),) = _coefficients(h, flow=True).items()
+    ((_, target),) = _coefficients(rebinned, flow=True).items()
     # flow bins: [under, 0-10, 10-20, 20-30, 30-40, over] -> [under, 0-20, 20-40, over]
     np.testing.assert_allclose(target[0], source[0])
     np.testing.assert_allclose(target[1], source[1] + source[2])

@@ -107,7 +107,7 @@ def test_fill_records_nominal_sumw2_for_data_mc_and_eft_sm_point():
     raw = {tuple(k)[names.index("systematic")]: float(np.sum(v)) for k, v in scalar.nominal_sumw2().items()}
     assert raw["JESUp"] == 0.0
     # Yields are unaffected by the moment gate.
-    yields = {tuple(k): v[..., 0].sum() for k, v in scalar.yield_coefficients().items()}
+    yields = {tuple(k): v[0].sum() for k, v in scalar.view().items()}  # cell 0: SM yield
     assert all(value == pytest.approx(-1.0) for value in yields.values())
 
 
@@ -137,7 +137,7 @@ def test_fill_preserves_raw_count_classification():
     )
 
 
-def test_two_dimensional_non_nominal_variance_stays_unrecorded():
+def test_two_dimensional_non_nominal_variance_is_not_recorded():
     processor = _processor()
     two_d = processor.accumulator["lepton_pt_vs_eta"]
     pt_axis, eta_axis = two_d.dense_axes.name
@@ -154,9 +154,12 @@ def test_two_dimensional_non_nominal_variance_stays_unrecorded():
         for k, v in two_d.view(as_dict=True).items()
     }
     assert by_syst["nominal"] == (2.0, 4.0)
-    # Yield is filled; the second moment is explicitly zero (not recorded).
-    assert by_syst["JESUp"] == (3.0, 0.0)
+    # Standard Weight fill also accumulates w**2 in non-nominal bins; that
+    # content is "not recorded" and is never exposed as nominal sumw2.
+    assert by_syst["JESUp"] == (3.0, 9.0)
     assert {tuple(k)[2] for k in ns.get_nominal_sumw2(two_d)} == {"nominal"}
+    jes_key = next(k for k in two_d.view(as_dict=True) if tuple(k)[2] == "JESUp")
+    assert not ns.is_nominal_sumw2_recorded(two_d, jes_key)
 
 
 def test_none_storage_records_no_moment():
