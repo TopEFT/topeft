@@ -460,6 +460,10 @@ def test_np_postprocess_inline_writes_transformed_artifact_sidecar(
         assert family_contract["generated_flips_processes"] == []
 
 
+@pytest.mark.skip(
+    reason="SUMW2_POLICY_DISABLED (multicell migration): selective sumw2 rules no "
+    "longer exist; embedded storage covers every data-driven contributor."
+)
 def test_incomplete_requested_product_fails_before_processor_construction(
     monkeypatch, tmp_path
 ):

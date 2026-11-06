@@ -35,10 +35,11 @@ from topeft.modules.histogram_artifact import (
     write_histogram_artifact,
 )
 from topeft.modules.nominal_schema import (
-    NOMINAL_CONTAINER_LAYOUT,
+    EMBEDDED_SUMW2_LAYOUT,
+    EMBEDDED_SUMW2_SCHEMA_VERSION,
     NOMINAL_CONTAINER_SCHEMA_VERSION,
     canonicalize_nominal_keys,
-    validate_nominal_mapping,
+    validate_embedded_nominal_mapping,
 )
 from topeft.modules.nonprompt_policy import (
     certify_active_nonprompt_policy,
@@ -2025,60 +2026,84 @@ if __name__ == "__main__":
                     sumw2_target(dataset_key, sample["histAxisName"], family)
                 )
 
-    sumw2_policy = resolve_sumw2_storage_policy(
-        sumw2_storage_config,
-        samples=samplesdict,
-        runtime_families=runtime_histogram_families,
-        axes_info=axes_info,
-        axes_info_2d=axes_info_2d,
-        analysis_mode=analysis_mode,
-        sumw2_storage_present=sumw2_storage_present,
-        legacy_no_sumw2_present=legacy_no_sumw2_present,
-        legacy_no_sumw2_value=legacy_no_sumw2_value,
-        consumer_requirements=required_sumw2_targets,
-        implicit_production_requirements=(
-            resolved_data_driven_products.required_targets()
-        ),
-        mode_resolution=sumw2_mode,
-    )
-    try:
-        production_sample_contract = certify_production_sample_contract(
-            active_universe,
-            sumw2_policy,
-            resolved_data_driven_products,
+    # SUMW2_POLICY_DISABLED (multicell migration): the selective sumw2 policy,
+    # its policy-certified production-sample and data-driven contracts, and the
+    # selected-family override of fill_sumw2 are disabled. Embedded sumw2 is
+    # stored for every family unless the resolved mode is "disabled".
+    # sumw2_policy = resolve_sumw2_storage_policy(
+    #     sumw2_storage_config,
+    #     samples=samplesdict,
+    #     runtime_families=runtime_histogram_families,
+    #     axes_info=axes_info,
+    #     axes_info_2d=axes_info_2d,
+    #     analysis_mode=analysis_mode,
+    #     sumw2_storage_present=sumw2_storage_present,
+    #     legacy_no_sumw2_present=legacy_no_sumw2_present,
+    #     legacy_no_sumw2_value=legacy_no_sumw2_value,
+    #     consumer_requirements=required_sumw2_targets,
+    #     implicit_production_requirements=(
+    #         resolved_data_driven_products.required_targets()
+    #     ),
+    #     mode_resolution=sumw2_mode,
+    # )
+    # try:
+    #     production_sample_contract = certify_production_sample_contract(
+    #         active_universe,
+    #         sumw2_policy,
+    #         resolved_data_driven_products,
+    #     )
+    # except production_sample_profile_error as error:
+    #     raise SystemExit(str(error)) from None
+    # (
+    #     requested_data_driven_products,
+    #     resolved_data_driven_contract,
+    # ) = certify_data_driven_preflight(
+    #     resolved_data_driven_products,
+    #     sumw2_policy,
+    # )
+    # fill_sumw2 = bool(sumw2_policy.selected_families())
+    # print(
+    #     "Resolved sumw2 storage: mode={} source={} targets={} families={}".format(
+    #         sumw2_policy.requested_mode,
+    #         sumw2_policy.source,
+    #         len(sumw2_policy.resolved_targets),
+    #         ",".join(sumw2_policy.selected_families()) or "<none>",
+    #     )
+    # )
+    # print(
+    #     "Certified production sample profile: profile={} wrapper={} cfgs={}".format(
+    #         sumw2_policy.signal_sample_profile,
+    #         active_universe.wrapper_identity,
+    #         ",".join(
+    #             identity["basename"]
+    #             for identity in active_universe.serialized_cfg_identities()
+    #         ),
+    #     )
+    # )
+    # print(
+    #     "Resolved nominal container: version={} layout={}".format(
+    #         NOMINAL_CONTAINER_SCHEMA_VERSION,
+    #         NOMINAL_CONTAINER_LAYOUT,
+    #     )
+    # )
+    fill_sumw2 = sumw2_mode.resolved_mode != "disabled"
+    if do_np and np_postprocess_mode == "inline":
+        raise SystemExit(
+            "Inline data-driven estimation is not available for schema v3 "
+            "(embedded sumw2) processor outputs yet; use --np-postprocess=skip "
+            "or defer."
         )
-    except production_sample_profile_error as error:
-        raise SystemExit(str(error)) from None
-    (
-        requested_data_driven_products,
-        resolved_data_driven_contract,
-    ) = certify_data_driven_preflight(
-        resolved_data_driven_products,
-        sumw2_policy,
-    )
-    fill_sumw2 = bool(sumw2_policy.selected_families())
     print(
-        "Resolved sumw2 storage: mode={} source={} targets={} families={}".format(
-            sumw2_policy.requested_mode,
-            sumw2_policy.source,
-            len(sumw2_policy.resolved_targets),
-            ",".join(sumw2_policy.selected_families()) or "<none>",
-        )
-    )
-    print(
-        "Certified production sample profile: profile={} wrapper={} cfgs={}".format(
-            sumw2_policy.signal_sample_profile,
-            active_universe.wrapper_identity,
-            ",".join(
-                identity["basename"]
-                for identity in active_universe.serialized_cfg_identities()
-            ),
+        "Resolved sumw2 storage: {} (sumw2_storage mode={} source={})".format(
+            "embedded" if fill_sumw2 else "none",
+            sumw2_mode.resolved_mode,
+            sumw2_mode.source,
         )
     )
     print(
         "Resolved nominal container: version={} layout={}".format(
-            NOMINAL_CONTAINER_SCHEMA_VERSION,
-            NOMINAL_CONTAINER_LAYOUT,
+            EMBEDDED_SUMW2_SCHEMA_VERSION,
+            EMBEDDED_SUMW2_LAYOUT,
         )
     )
     print(
@@ -2181,7 +2206,6 @@ if __name__ == "__main__":
         suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
         fwd_eta_band_pt_apply=fwd_eta_band_pt_apply,
         ttgamma_sample_role_policy=ttgamma_sample_role_policy,
-        sumw2_policy=sumw2_policy,
         record_raw_count=record_raw_count,
     )
     histogram_applicability = processor_instance.build_histogram_applicability(
@@ -2380,11 +2404,10 @@ if __name__ == "__main__":
         print("Finished running the processor...")
 
         diagnostic_phase = "nominal_mapping_validation"
-        validate_nominal_mapping(
+        validate_embedded_nominal_mapping(
             output,
             runtime_families=runtime_histogram_families,
-            schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
-            policy=sumw2_policy,
+            sumw2_storage=processor_instance.sumw2_storage,
             histogram_applicability=histogram_applicability,
         )
         diagnostic_phase = "nominal_key_canonicalization"
@@ -2422,16 +2445,20 @@ if __name__ == "__main__":
             out_pkl_file,
             histograms=output,
             artifact_kind="processor_output",
-            sumw2_storage_provenance=sumw2_policy.to_provenance(),
-            production_sample_contract=production_sample_contract,
-            requested_data_driven_products=requested_data_driven_products,
-            resolved_data_driven_contract=resolved_data_driven_contract,
+            sumw2_storage=processor_instance.sumw2_storage,
+            runtime_families=runtime_histogram_families,
+            requested_data_driven_products=(
+                resolved_data_driven_products.requested_provenance()
+            ),
             histogram_applicability=histogram_applicability,
         )
         print("Done!")
 
         # Run the data driven estimation, save the output
         if do_np:
+            # SUMW2_POLICY_DISABLED (multicell migration): unreachable until the
+            # data-driven consumers support schema v3; the preflight above
+            # rejects inline mode, and this branch still uses the v2 policy.
             if np_postprocess_mode == "inline":
                 diagnostic_phase = "inline_data_driven_estimation"
                 print("\nDoing the nonprompt estimation...")
