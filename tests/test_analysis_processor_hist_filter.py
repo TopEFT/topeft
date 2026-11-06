@@ -5,6 +5,7 @@ cloudpickle = pytest.importorskip("cloudpickle")
 from analysis.topeft_run2 import analysis_processor, analysis_processor_diboson
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
+from topeft.modules.axis_binning import processing_edges
 
 
 def _make_processor(hist_lst=None, fill_sumw2_hist=True):
@@ -23,22 +24,12 @@ def test_accumulator_keys_without_hist_filter():
     processor = _make_processor()
     one_dimensional = set(axes_info)
     two_dimensional = set(axes_info_2d)
-    base_names = one_dimensional | two_dimensional
-    jvm_diagnostic_families = {
-        "jet_eta_phi_before_veto",
-        "jet_eta_phi_after_veto",
-    }
     expected_keys = {f"{name}__scalar_nominal" for name in one_dimensional}
     expected_keys.update(two_dimensional)
-    expected_keys.update(
-        f"{name}_sumw2" for name in base_names - jvm_diagnostic_families
-    )
 
+    # Embedded sumw2: no <family>_sumw2 companion for any family.
     assert set(processor.accumulator.keys()) == expected_keys
-    assert not any(
-        key.endswith("_sumw2") and key.removesuffix("_sumw2") in jvm_diagnostic_families
-        for key in processor.accumulator
-    )
+    assert not any(key.endswith("_sumw2") for key in processor.accumulator)
     assert set(processor._hist_lst) == expected_keys
     assert set(processor._hist_axis_map.keys()) == expected_keys | one_dimensional
     assert set(processor._hist_requires_eft.keys()) == expected_keys
@@ -55,11 +46,12 @@ def test_accumulator_keys_without_hist_filter():
         ["njets_sumw2"],
     ],
 )
-def test_filtered_hist_construction(requested_hists):
-    processor = _make_processor(hist_lst=requested_hists)
+@pytest.mark.parametrize("fill_sumw2_hist", [True, False])
+def test_filtered_hist_construction(requested_hists, fill_sumw2_hist):
+    processor = _make_processor(hist_lst=requested_hists, fill_sumw2_hist=fill_sumw2_hist)
     sumw2_suffix = "_sumw2"
-    fill_sumw2_hist = processor._fill_sumw2_hist
 
+    # A requested "<family>_sumw2" name resolves to its base family.
     base_names = {
         name[: -len(sumw2_suffix)] if name.endswith(sumw2_suffix) else name
         for name in requested_hists
@@ -70,8 +62,6 @@ def test_filtered_hist_construction(requested_hists):
             expected_accumulator_keys.add(base_name)
         else:
             expected_accumulator_keys.add(f"{base_name}__scalar_nominal")
-        if fill_sumw2_hist:
-            expected_accumulator_keys.add(f"{base_name}{sumw2_suffix}")
 
     assert set(processor.accumulator.keys()) == expected_accumulator_keys
     assert set(processor._hist_lst) == expected_accumulator_keys
@@ -79,17 +69,13 @@ def test_filtered_hist_construction(requested_hists):
         name for name in base_names if name in axes_info
     }
     assert set(processor._hist_requires_eft.keys()) == expected_accumulator_keys
+    for histogram in processor.accumulator.values():
+        assert histogram.store_sumw2 is fill_sumw2_hist
 
     serialized = cloudpickle.dumps(processor.accumulator)
     restored = cloudpickle.loads(serialized)
     assert set(restored.keys()) == expected_accumulator_keys
-
-    # The mapping is stored with the base histogram name so that the filling
-    # logic can look up the dense axis associated with the sumw2 histogram.
-    if fill_sumw2_hist:
-        assert set(processor._hist_sumw2_axis_mapping.keys()) == base_names
-    else:
-        assert not processor._hist_sumw2_axis_mapping
+    assert all(h.store_sumw2 is fill_sumw2_hist for h in restored.values())
 
 
 def test_sample_metadata_preallocates_both_siblings_and_preserves_two_dimensional_sparse():
@@ -128,21 +114,21 @@ def test_njets_processing_axis_reuse_is_unchanged():
         fill_sumw2_hist=True,
     )
     nominal_edges = processor.accumulator["njets__scalar_nominal"].dense_axes[0].edges
-    companion_edges = processor.accumulator["njets_sumw2"].dense_axes[0].edges
-    assert list(nominal_edges) == list(companion_edges)
+    assert list(nominal_edges) == list(processing_edges(axes_info["njets"]))
+    assert "njets_sumw2" not in processor.accumulator
 
 
-def test_flexible_families_use_common_processing_grid_for_nominal_and_sumw2():
+def test_flexible_families_use_common_processing_grid_with_embedded_sumw2():
     processor = _make_processor(
         hist_lst=["lj0pt", "lt", "ptll", "ptz", "ptz_wtau"],
         fill_sumw2_hist=True,
     )
     expected = list(range(0, 601, 50))
     for family in ("lj0pt", "lt", "ptll", "ptz", "ptz_wtau"):
-        nominal = processor.accumulator[f"{family}__scalar_nominal"].dense_axes[0]
-        companion = processor.accumulator[f"{family}_sumw2"].dense_axes[0]
-        assert list(nominal.edges) == expected
-        assert list(companion.edges) == expected
+        nominal = processor.accumulator[f"{family}__scalar_nominal"]
+        assert list(nominal.dense_axes[0].edges) == expected
+        assert nominal.store_sumw2
+        assert f"{family}_sumw2" not in processor.accumulator
 
 
 def test_diboson_nominal_and_sumw2_use_canonical_processing_grid():
@@ -163,18 +149,13 @@ def test_diboson_nominal_and_sumw2_use_canonical_processing_grid():
         (False, "nominal", False),
     ],
 )
-def test_sumw2_fill_gate_only_allows_nominal_path(
+def test_sumw2_record_gate_only_allows_nominal_path(
     fill_sumw2_hist,
     wgt_fluct,
     expected,
 ):
-    assert (
-        analysis_processor.AnalysisProcessor._should_fill_sumw2_histogram(
-            fill_sumw2_hist,
-            wgt_fluct=wgt_fluct,
-        )
-        is expected
-    )
+    processor = _make_processor(hist_lst=["njets"], fill_sumw2_hist=fill_sumw2_hist)
+    assert processor._should_record_nominal_sumw2(wgt_fluct) is expected
 
 
 def test_public_histogram_applicability_query_preserves_fill_skip_decision():

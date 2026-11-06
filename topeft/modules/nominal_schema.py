@@ -7,9 +7,11 @@ import warnings
 from collections import OrderedDict
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
+from enum import Enum
 from itertools import product
 from typing import Any
 
+import boost_histogram as bh
 import numpy as np
 
 from topcoffea.modules.histEFT import HistEFT
@@ -26,6 +28,16 @@ from topeft.modules.sumw2_policy import resolved_sumw2_policy
 
 NOMINAL_CONTAINER_SCHEMA_VERSION = 2
 NOMINAL_CONTAINER_LAYOUT = "split_sibling_v1"
+# Schema version 3 keeps the split-sibling key layout of version 2 but stores
+# nominal statistical sumw2 inside each histogram (MultiCell HistEFT for 1D,
+# Weight-storage SparseHist for 2D) instead of in ``<family>_sumw2`` companions.
+# It is validated by ``validate_embedded_nominal_mapping``; the active producer
+# keeps writing version 2 until the multicell migration switches it.
+EMBEDDED_SUMW2_SCHEMA_VERSION = 3
+EMBEDDED_SUMW2_LAYOUT = "split_sibling_embedded_sumw2_v1"
+_SPLIT_SIBLING_SCHEMA_VERSIONS = frozenset(
+    {NOMINAL_CONTAINER_SCHEMA_VERSION, EMBEDDED_SUMW2_SCHEMA_VERSION}
+)
 SCALAR_NOMINAL_SUFFIX = "__scalar_nominal"
 EFT_NOMINAL_SUFFIX = "__eft_nominal"
 SUMW2_SUFFIX = "_sumw2"
@@ -452,7 +464,7 @@ def get_nominal_components(
     eft_key = eft_nominal_key(family)
     components = OrderedDict()
 
-    if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION:
+    if schema_version in _SPLIT_SIBLING_SCHEMA_VERSIONS:
         if _dimensionality(family) == 2:
             if scalar_key in histograms or eft_key in histograms:
                 raise ValueError(f"2D family '{family}' cannot contain split siblings.")
@@ -465,7 +477,8 @@ def get_nominal_components(
             )
         if family in histograms:
             raise ValueError(
-                f"Original 1D family key '{family}' is forbidden in schema version 2."
+                f"Original 1D family key '{family}' is forbidden in schema version "
+                f"{schema_version}."
             )
         if scalar_key in histograms:
             components["scalar_nominal"] = histograms[scalar_key]
@@ -1061,3 +1074,353 @@ def materialize_scalar_histogram_dict(
         if key not in consumed:
             output[key] = copy.deepcopy(value)
     return output
+
+
+# ---------------------------------------------------------------------------
+# Schema version 3: embedded nominal statistical sumw2
+# ---------------------------------------------------------------------------
+#
+# Storage contract
+#   * Exactly two storage modes exist: EMBEDDED and NONE. One mode applies to
+#     every nominal component of a payload; mixed payloads are rejected.
+#   * 1D scalar siblings are MultiCell HistEFT objects with ``wc_names == []``;
+#     1D EFT siblings are MultiCell HistEFT objects with their WC list. Under
+#     EMBEDDED both carry ``store_sumw2=True``; under NONE both carry False.
+#   * 2D families are SparseHist objects with ``storage="Weight"`` under
+#     EMBEDDED and ``storage="Double"`` under NONE.
+#   * Separate ``<family>_sumw2`` companion histograms are not accepted, and no
+#     selective sumw2 policy or content manifest participates in validation.
+#
+# Recording convention (storage available vs. value recorded)
+#   * Embedded storage is allocated for every bin, but nominal statistical
+#     sumw2 is *recorded* only in sparse bins whose ``systematic`` label is
+#     ``"nominal"``. It is recorded for every process: Data (where unit
+#     weights make it the event count), MC, and EFT MC.
+#   * EFT sumw2 is the second moment of the SM-point weight (all WCs zero).
+#     Its Wilson-coefficient dependence is neither computed nor stored.
+#   * In non-nominal systematic bins the sumw2 slot means "not recorded",
+#     never "measured variance of zero". Its numerical content is not
+#     authoritative (a Weight-storage fill accumulates w**2 there), so
+#     ``get_nominal_sumw2`` omits those bins instead of returning them.
+#   * A histogram without a ``systematic`` axis (for example after selecting
+#     the nominal slice) is treated as nominal content.
+
+
+class Sumw2Storage(str, Enum):
+    """Statistical-moment storage of a schema-version-3 nominal payload."""
+
+    EMBEDDED = "embedded"
+    NONE = "none"
+
+
+SUMW2_RECORDED_SYSTEMATIC = "nominal"
+SYSTEMATIC_AXIS_NAME = "systematic"
+
+
+class Sumw2NotStoredError(RuntimeError):
+    """Raised when nominal sumw2 is requested from NONE storage."""
+
+
+def parse_sumw2_storage(value: Any) -> Sumw2Storage:
+    """Return the storage mode named by ``value``; reject every other layout."""
+
+    if isinstance(value, Sumw2Storage):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        for mode in Sumw2Storage:
+            if normalized == mode.value:
+                return mode
+        if normalized == "companion":
+            raise ValueError(
+                "Companion '<family>_sumw2' storage is not supported by schema "
+                f"version {EMBEDDED_SUMW2_SCHEMA_VERSION}; use 'embedded' or 'none'."
+            )
+    raise ValueError(
+        f"Unknown sumw2 storage {value!r}; expected one of "
+        + ", ".join(repr(mode.value) for mode in Sumw2Storage)
+        + "."
+    )
+
+
+def sumw2_storage_from_fill_flag(fill_sumw2: bool) -> Sumw2Storage:
+    """Map the single producer boolean onto the storage mode."""
+
+    if not isinstance(fill_sumw2, (bool, np.bool_)):
+        raise TypeError("fill_sumw2 must be a boolean.")
+    return Sumw2Storage.EMBEDDED if fill_sumw2 else Sumw2Storage.NONE
+
+
+def _storage_kind(storage: Any) -> str | None:
+    """Classify a SparseHist storage declaration as 'weight', 'double' or None."""
+
+    if isinstance(storage, str):
+        lowered = storage.lower()
+        return lowered if lowered in {"weight", "double"} else None
+    for kind, storage_type in (
+        ("weight", bh.storage.Weight),
+        ("double", bh.storage.Double),
+    ):
+        if isinstance(storage, storage_type) or (
+            isinstance(storage, type) and issubclass(storage, storage_type)
+        ):
+            return kind
+    return None
+
+
+def _sparse_storage_kind(histogram: SparseHist, key: str) -> str:
+    declared = _storage_kind(getattr(histogram, "_init_args", {}).get("storage"))
+    if declared is None:
+        raise TypeError(
+            f"Schema version {EMBEDDED_SUMW2_SCHEMA_VERSION} SparseHist '{key}' must "
+            "declare storage='Weight' or storage='Double'."
+        )
+    # Deserialized payloads carry their own dense histograms; their physical
+    # storage must agree with the declaration.
+    expected_type = bh.storage.Weight if declared == "weight" else bh.storage.Double
+    for dense in histogram._dense_hists.values():
+        if dense.storage_type is not expected_type:
+            raise TypeError(
+                f"SparseHist '{key}' declares {declared!r} storage but holds "
+                f"{dense.storage_type.__name__} content."
+            )
+    return declared
+
+
+def sumw2_storage_of_histogram(histogram: Any, *, key: str = "<histogram>") -> Sumw2Storage:
+    """Return the storage mode of one schema-version-3 nominal histogram."""
+
+    if type(histogram) is HistEFT:
+        if not getattr(histogram, "_use_multicell", False):
+            raise TypeError(
+                f"HistEFT '{key}' uses the legacy quadratic_term layout; schema "
+                f"version {EMBEDDED_SUMW2_SCHEMA_VERSION} requires MultiCell storage."
+            )
+        return Sumw2Storage.EMBEDDED if histogram.store_sumw2 else Sumw2Storage.NONE
+    if type(histogram) is SparseHist:
+        kind = _sparse_storage_kind(histogram, key)
+        return Sumw2Storage.EMBEDDED if kind == "weight" else Sumw2Storage.NONE
+    raise TypeError(
+        "Nominal schema supports exact SparseHist or HistEFT objects; got "
+        f"{type(histogram).__name__} for '{key}'."
+    )
+
+
+def _systematic_label(histogram: Any, sparse_key: Any) -> str | None:
+    names = tuple(histogram.categorical_axes.name)
+    if SYSTEMATIC_AXIS_NAME not in names:
+        return None
+    return str(tuple(sparse_key)[names.index(SYSTEMATIC_AXIS_NAME)])
+
+
+def is_nominal_sumw2_recorded(histogram: Any, sparse_key: Any) -> bool:
+    """Return whether ``sparse_key`` carries recorded nominal statistical sumw2.
+
+    Storage availability alone is not enough: the bin must also belong to the
+    nominal systematic (or the histogram must have no systematic axis).
+    """
+
+    if sumw2_storage_of_histogram(histogram) is not Sumw2Storage.EMBEDDED:
+        return False
+    label = _systematic_label(histogram, sparse_key)
+    return label is None or label == SUMW2_RECORDED_SYSTEMATIC
+
+
+def get_nominal_sumw2(histogram: Any, *, flow: bool = False) -> dict[Any, np.ndarray]:
+    """Return recorded nominal statistical sumw2 per sparse bin.
+
+    Only sparse bins with recorded sumw2 are returned (see
+    ``is_nominal_sumw2_recorded``); non-nominal systematic bins are omitted so
+    that "not recorded" can never be read as a zero variance. Raises
+    ``Sumw2NotStoredError`` for NONE storage.
+    """
+
+    storage = sumw2_storage_of_histogram(histogram)
+    if storage is Sumw2Storage.NONE:
+        raise Sumw2NotStoredError(
+            "This histogram has no embedded nominal sumw2 storage (storage='none')."
+        )
+    if type(histogram) is HistEFT:
+        moments = histogram.nominal_sumw2(flow=flow)
+    else:
+        moments = {
+            sparse_key: np.asarray(view.variance)
+            for sparse_key, view in histogram.view(flow=flow, as_dict=True).items()
+        }
+    return {
+        sparse_key: np.array(values, copy=True)
+        for sparse_key, values in moments.items()
+        if is_nominal_sumw2_recorded(histogram, sparse_key)
+    }
+
+
+def _validate_embedded_component(
+    histogram: Any,
+    *,
+    family: str,
+    key: str,
+    component: str,
+) -> Sumw2Storage:
+    if _dimensionality(family) == 2:
+        if type(histogram) is not SparseHist:
+            raise TypeError(f"2D family '{key}' must be an exact SparseHist.")
+        return sumw2_storage_of_histogram(histogram, key=key)
+    if type(histogram) is not HistEFT:
+        raise TypeError(
+            f"1D nominal sibling '{key}' must be an exact MultiCell HistEFT in "
+            f"schema version {EMBEDDED_SUMW2_SCHEMA_VERSION}; got "
+            f"{type(histogram).__name__}."
+        )
+    storage = sumw2_storage_of_histogram(histogram, key=key)
+    if component == "scalar_nominal" and list(histogram.wc_names):
+        raise ValueError(f"Scalar sibling '{key}' must have no Wilson coefficients.")
+    if component == "eft_nominal" and not list(histogram.wc_names):
+        raise ValueError(f"EFT sibling '{key}' must declare its Wilson coefficients.")
+    return storage
+
+
+def _validate_embedded_siblings(scalar: HistEFT, eft: HistEFT, family: str) -> None:
+    scalar_categories = tuple((type(axis), axis.name) for axis in _categorical_axes(scalar))
+    eft_categories = tuple((type(axis), axis.name) for axis in _categorical_axes(eft))
+    if scalar_categories != eft_categories:
+        raise ValueError(f"Nominal siblings have different categorical axes for '{family}'.")
+    if tuple(map(_axis_signature, _dense_axes(scalar))) != tuple(
+        map(_axis_signature, _dense_axes(eft))
+    ):
+        raise ValueError(f"Nominal siblings have different dense axes for '{family}'.")
+    overlap = _process_labels(scalar) & _process_labels(eft)
+    if overlap:
+        raise ValueError(
+            f"Nominal siblings for '{family}' duplicate process labels: "
+            + ", ".join(sorted(overlap))
+        )
+
+
+def validate_embedded_nominal_family(
+    histograms: Mapping[str, Any],
+    family: str,
+) -> Sumw2Storage | None:
+    """Validate one family and return its storage (None when it is absent)."""
+
+    _require_histogram_mapping(histograms)
+    if sumw2_key(family) in histograms:
+        raise ValueError(
+            f"Companion '{sumw2_key(family)}' is not supported by schema version "
+            f"{EMBEDDED_SUMW2_SCHEMA_VERSION}; nominal sumw2 must be embedded. "
+            "Regenerate this artifact with the embedded-sumw2 producer."
+        )
+    components = get_nominal_components(
+        histograms, family, schema_version=EMBEDDED_SUMW2_SCHEMA_VERSION
+    )
+    if not components:
+        return None
+    keys = {
+        "scalar_nominal": family if _dimensionality(family) == 2 else scalar_nominal_key(family),
+        "eft_nominal": eft_nominal_key(family),
+    }
+    storages = {
+        _validate_embedded_component(
+            histogram, family=family, key=keys[component], component=component
+        )
+        for component, histogram in components.items()
+    }
+    if len(storages) != 1:
+        raise ValueError(f"Family '{family}' mixes embedded and none sumw2 storage.")
+    if "scalar_nominal" in components and "eft_nominal" in components:
+        _validate_embedded_siblings(
+            components["scalar_nominal"], components["eft_nominal"], family
+        )
+    return storages.pop()
+
+
+def validate_embedded_nominal_mapping(
+    histograms: Mapping[str, Any],
+    *,
+    runtime_families: Iterable[str],
+    sumw2_storage: Sumw2Storage | str | None = None,
+    histogram_applicability: Mapping[str, Any] | None = None,
+) -> Sumw2Storage:
+    """Validate a schema-version-3 payload and return its single storage mode.
+
+    ``sumw2_storage`` is the declared mode (for example from a sidecar); when
+    given, every component must match it. When omitted, the mode is inferred
+    from the content and must still be uniform across the payload.
+    """
+
+    _require_histogram_mapping(histograms)
+    runtime_families = tuple(runtime_families)
+    declared = None if sumw2_storage is None else parse_sumw2_storage(sumw2_storage)
+
+    companions = sorted(key for key in histograms if key.endswith(SUMW2_SUFFIX))
+    if companions:
+        raise ValueError(
+            "Companion sumw2 histograms are not supported by schema version "
+            f"{EMBEDDED_SUMW2_SCHEMA_VERSION}: " + ", ".join(companions)
+            + ". Regenerate this artifact with the embedded-sumw2 producer."
+        )
+
+    known_keys = set()
+    observed = {}
+    for family in runtime_families:
+        if _dimensionality(family) == 1:
+            known_keys.update({scalar_nominal_key(family), eft_nominal_key(family)})
+        else:
+            known_keys.add(family)
+        storage = validate_embedded_nominal_family(histograms, family)
+        if storage is not None:
+            observed[family] = storage
+
+    unknown_components = sorted(
+        key
+        for key in histograms
+        if (key.endswith(SCALAR_NOMINAL_SUFFIX) or key.endswith(EFT_NOMINAL_SUFFIX))
+        and key not in known_keys
+    )
+    if unknown_components:
+        raise ValueError(
+            "Histogram payload contains orphan or unresolved schema keys: "
+            + ", ".join(unknown_components)
+        )
+
+    modes = set(observed.values())
+    if len(modes) > 1:
+        by_mode = {
+            mode.value: sorted(f for f, m in observed.items() if m is mode)
+            for mode in modes
+        }
+        raise ValueError(f"Histogram payload mixes sumw2 storage modes: {by_mode}.")
+    if declared is not None and modes and modes != {declared}:
+        raise ValueError(
+            f"Declared sumw2 storage {declared.value!r} disagrees with the "
+            f"histogram content ({modes.pop().value!r})."
+        )
+    if not modes and declared is None:
+        raise ValueError(
+            "Cannot infer sumw2 storage from a payload without nominal components; "
+            "declare it explicitly."
+        )
+    if histogram_applicability is not None:
+        validate_histogram_applicability_structure(
+            histograms,
+            runtime_families=runtime_families,
+            histogram_applicability=histogram_applicability,
+            schema_version=EMBEDDED_SUMW2_SCHEMA_VERSION,
+        )
+    return declared if declared is not None else modes.pop()
+
+
+def require_embedded_sumw2(
+    histograms: Mapping[str, Any],
+    *,
+    runtime_families: Iterable[str],
+) -> None:
+    """Fail unless the payload carries embedded nominal sumw2 storage."""
+
+    storage = validate_embedded_nominal_mapping(
+        histograms, runtime_families=runtime_families
+    )
+    if storage is not Sumw2Storage.EMBEDDED:
+        raise Sumw2NotStoredError(
+            "This consumer requires embedded nominal sumw2, but the payload was "
+            "produced with sumw2 storage 'none'."
+        )

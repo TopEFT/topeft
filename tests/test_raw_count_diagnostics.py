@@ -100,12 +100,13 @@ def test_processor_enables_only_authoritative_fitting_family_nominal_objects():
     disabled_ptz = disabled.accumulator[scalar_nominal_key("ptz")]
     enabled_ptz = enabled.accumulator[scalar_nominal_key("ptz")]
     enabled_njets = enabled.accumulator[scalar_nominal_key("njets")]
-    enabled_sumw2 = enabled.accumulator["ptz_sumw2"]
     assert disabled_ptz.track_raw_counts is False
     assert not hasattr(disabled_ptz, "_raw_counts")
     assert enabled_ptz.track_raw_counts is True
     assert enabled_njets.track_raw_counts is False
-    assert enabled_sumw2.track_raw_counts is False
+    # Raw-count tracking and embedded sumw2 coexist on the same MultiCell object.
+    assert enabled_ptz.store_sumw2 and enabled_njets.store_sumw2
+    assert "ptz_sumw2" not in enabled.accumulator
 
 
 def test_central_fill_classification_truth_table_and_real_fill_contract():

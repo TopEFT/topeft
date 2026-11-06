@@ -28,13 +28,19 @@ from topeft.modules.axis_binning import make_processing_axis
 from topeft.modules.missing_parton_contract import parse_analysis_njet_token
 from topeft.modules.nominal_schema import (
     EFT_NOMINAL_SUFFIX,
-    NOMINAL_CONTAINER_LAYOUT,
-    NOMINAL_CONTAINER_SCHEMA_VERSION,
+    EMBEDDED_SUMW2_LAYOUT,
+    EMBEDDED_SUMW2_SCHEMA_VERSION,
     SCALAR_NOMINAL_SUFFIX,
+    SUMW2_RECORDED_SYSTEMATIC,
+    Sumw2Storage,
     eft_nominal_key,
     scalar_nominal_key,
+    sumw2_storage_from_fill_flag,
+    sumw2_storage_of_histogram,
 )
 from topeft.modules.paths import topeft_path
+# Sample classification only (Data / no-WC samples -> scalar sibling, WC samples
+# -> EFT sibling); it performs no sumw2 selection, so it stays active.
 from topeft.modules.sumw2_policy import resolve_nominal_component_availability
 from topeft.modules.corrections import ApplyJetCorrections, ApplyMETSystematics, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, AttachTauEnergyCorrections, ApplyTauEnergySystematics, AttachPerLeptonFR, AttachMuonMomentumCorrections, ApplyMuonMomentumSystematics, get_supported_muon_momentum_systematics, get_supported_tau_energy_systematics, get_tau_weight_variation_names, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps, get_run2_jet_veto_map_scores, get_selected_met, get_selected_raw_met, get_corr_t1_met_jets, get_supported_jet_systematics, get_supported_met_systematics, is_met_unclustered_systematic, resolve_forward_eta_stochastic_jer_suppression, use_type1_met
 import topeft.modules.event_selection as te_es
@@ -99,6 +105,14 @@ run2_jvm_loose_pu_id_bits = {
     "2017": 4,
     "2018": 4,
 }
+
+
+def _as_numpy(values):
+    """Return a flat NumPy view of awkward or array-like fill inputs."""
+
+    if isinstance(values, ak.Array):
+        return ak.to_numpy(values)
+    return np.asarray(values)
 
 
 def flatten_jagged_jet_eta_phi_weights(jets, event_mask, event_weights):
@@ -776,11 +790,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return base_hist_names_ordered, expanded_hist_names_ordered
 
-    @staticmethod
-    def _should_fill_sumw2_histogram(fill_sumw2_hist, *, wgt_fluct):
-        """Keep separate *_sumw2 keys, but only fill them for the nominal producer path."""
-
-        return bool(fill_sumw2_hist) and wgt_fluct == "nominal"
+    # SUMW2_POLICY_DISABLED (multicell migration): companion *_sumw2 keys are no
+    # longer produced; nominal sumw2 is embedded, see _should_record_nominal_sumw2.
+    # @staticmethod
+    # def _should_fill_sumw2_histogram(fill_sumw2_hist, *, wgt_fluct):
+    #     """Keep separate *_sumw2 keys, but only fill them for the nominal producer path."""
+    #
+    #     return bool(fill_sumw2_hist) and wgt_fluct == "nominal"
 
     @staticmethod
     def _raw_count_fill_classification(histogram, *, is_data, wgt_fluct):
@@ -790,6 +806,48 @@ class AnalysisProcessor(processor.ProcessorABC):
             return None
         return (not is_data) and wgt_fluct == "nominal"
 
+    def _should_record_nominal_sumw2(self, wgt_fluct):
+        """Embedded sumw2 is recorded for every process, nominal variation only."""
+
+        return (
+            self._sumw2_storage is Sumw2Storage.EMBEDDED
+            and wgt_fluct == SUMW2_RECORDED_SYSTEMATIC
+        )
+
+    def _fill_nominal_histogram(self, histogram, fill_info, *, is_data, wgt_fluct):
+        """Fill one nominal container with independent moment and raw-count gates.
+
+        Under EMBEDDED storage the nominal statistical sumw2 is recorded for
+        Data and MC alike, only for the nominal variation. MultiCell HistEFT
+        records the SM-point moment (weight * c0)**2. Weight-storage 2D
+        histograms would add w**2 on every fill, so non-nominal fills supply an
+        explicit zero second moment and the slot stays "not recorded".
+        """
+        raw_count_classification = self._raw_count_fill_classification(
+            histogram, is_data=is_data, wgt_fluct=wgt_fluct,
+        )
+        if raw_count_classification is not None:
+            fill_info["record_raw_count"] = raw_count_classification
+        record_sumw2 = self._should_record_nominal_sumw2(wgt_fluct)
+        if type(histogram) is HistEFT:
+            fill_info["fill_sumw2"] = record_sumw2 and histogram.store_sumw2
+            histogram.fill(**fill_info)
+        elif self._sumw2_storage is Sumw2Storage.EMBEDDED and not record_sumw2:
+            weight = fill_info.pop("weight")
+            dense = {
+                name: _as_numpy(fill_info.pop(name))
+                for name in list(fill_info)
+                if name in histogram.dense_axes.name
+            }
+            histogram.fill_with_moments(
+                value_weight=_as_numpy(weight),
+                second_moment=0.0,
+                **dense,
+                **fill_info,
+            )
+        else:
+            histogram.fill(**fill_info)
+
     def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, fill_sumw2_hist=True, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False, useRun3MVA=True, tau_run_mode="standard", sr_category_dict=None, cr_category_dict=None, suppress_forward_eta_stochastic_jer=False, fwd_eta_band_pt_apply="auto", ttgamma_sample_role_policy="split", sumw2_policy=None, record_raw_count=False):
 
         self._samples = samples
@@ -798,6 +856,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isinstance(record_raw_count, (bool, np.bool_)):
             raise TypeError("record_raw_count must be a boolean.")
         self._record_raw_count = bool(record_raw_count)
+        # SUMW2_POLICY_DISABLED (multicell migration): the selective policy is not
+        # accepted; ``fill_sumw2_hist`` alone selects EMBEDDED or NONE storage for
+        # every family, dataset and process. The keyword stays for call
+        # compatibility and must be None.
+        if sumw2_policy is not None:
+            raise ValueError(
+                "sumw2_policy is disabled by the embedded-sumw2 migration; use "
+                "fill_sumw2_hist=True (embedded) or False (none)."
+            )
+        self._sumw2_storage = sumw2_storage_from_fill_flag(fill_sumw2_hist)
+        self.sumw2_storage = self._sumw2_storage
         validated_mode_flags = validate_analysis_mode_flags(
             offZ_split,
             tau_h_analysis,
@@ -850,45 +919,43 @@ class AnalysisProcessor(processor.ProcessorABC):
         )
         # self._tau_wp_checked = False
 
-        self._sumw2_policy = sumw2_policy
         self._hist_axis_map = {}
-        self._hist_sumw2_axis_mapping = {}
         self._hist_requires_eft = {}
-        self.nominal_container_schema_version = NOMINAL_CONTAINER_SCHEMA_VERSION
-        self.nominal_container_layout = NOMINAL_CONTAINER_LAYOUT
+        self.nominal_container_schema_version = EMBEDDED_SUMW2_SCHEMA_VERSION
+        self.nominal_container_layout = EMBEDDED_SUMW2_LAYOUT
+        self._fill_sumw2_hist = self._sumw2_storage is Sumw2Storage.EMBEDDED
 
         ordered_base_hist_names = list(axes_info.keys()) + list(axes_info_2d.keys())
-        base_hist_names_ordered, _ = self._resolve_histogram_names(
-            hist_lst,
-            ordered_base_hist_names=ordered_base_hist_names,
-            fill_sumw2_hist=False,
-        )
-        if self._sumw2_policy is not None:
-            if tuple(base_hist_names_ordered) != tuple(
-                self._sumw2_policy.runtime_histogram_families
-            ):
-                raise ValueError(
-                    "Resolved sumw2 policy runtime families do not match the processor "
-                    "histogram family order."
-                )
-            selected_sumw2_families = set(
-                self._sumw2_policy.selected_families()
-            )
-        else:
-            selected_sumw2_families = (
-                set(base_hist_names_ordered) if fill_sumw2_hist else set()
-            )
-        selected_sumw2_families.difference_update(JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS)
-        self._selected_sumw2_families = frozenset(selected_sumw2_families)
-        self._fill_sumw2_hist = bool(self._selected_sumw2_families)
+        # SUMW2_POLICY_DISABLED (multicell migration): no family selection and no
+        # companion names. Every requested family uses the single storage mode;
+        # a requested "<family>_sumw2" name still resolves to its base family.
+        # self._sumw2_policy = sumw2_policy
+        # self._hist_sumw2_axis_mapping = {}
+        # if self._sumw2_policy is not None:
+        #     if tuple(base_hist_names_ordered) != tuple(
+        #         self._sumw2_policy.runtime_histogram_families
+        #     ):
+        #         raise ValueError(
+        #             "Resolved sumw2 policy runtime families do not match the processor "
+        #             "histogram family order."
+        #         )
+        #     selected_sumw2_families = set(
+        #         self._sumw2_policy.selected_families()
+        #     )
+        # else:
+        #     selected_sumw2_families = (
+        #         set(base_hist_names_ordered) if fill_sumw2_hist else set()
+        #     )
+        # selected_sumw2_families.difference_update(JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS)
+        # self._selected_sumw2_families = frozenset(selected_sumw2_families)
+        # self._fill_sumw2_hist = bool(self._selected_sumw2_families)
         (
             base_hist_names_ordered,
             expanded_hist_names_ordered,
         ) = self._resolve_histogram_names(
             hist_lst,
             ordered_base_hist_names=ordered_base_hist_names,
-            fill_sumw2_hist=self._fill_sumw2_hist,
-            selected_sumw2_families=self._selected_sumw2_families,
+            fill_sumw2_hist=False,
         )
 
         self._base_hist_name_set = set(base_hist_names_ordered)
@@ -907,7 +974,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             }
         self._nominal_component_availability = component_availability
 
-        sumw2_suffix = "_sumw2"
+        # One storage mode for every family: MultiCell HistEFT siblings for 1D
+        # (scalar with no WCs, EFT with the run's WCs) and Weight/Double
+        # SparseHist for 2D, all with embedded sumw2 under EMBEDDED storage.
+        embedded = self._sumw2_storage is Sumw2Storage.EMBEDDED
+        two_d_storage = "Weight" if embedded else "Double"
 
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
@@ -924,38 +995,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                 label_suffix=label_suffix,
             )
         for name, info in axes_info.items():
-            sumw2_name = f"{name}{sumw2_suffix}"
-            build_base_hist = name in self._base_hist_name_set
-            build_sumw2_hist = name in self._selected_sumw2_families
-            if not (build_base_hist or build_sumw2_hist):
+            if name not in self._base_hist_name_set:
                 continue
 
             dense_axis = make_processing_axis(
                 info, name=name, label=info["label"]
             )
-            sumw2_axis = make_processing_axis(
-                info,
-                name=name,
-                label=info["label"],
-                suffix="_sumw2",
-                label_suffix=" sum of w^2",
-            )
-            if build_base_hist and component_availability["scalar"]:
+            if component_availability["scalar"]:
                 scalar_key = scalar_nominal_key(name)
-                histograms[scalar_key] = SparseHist(
+                histograms[scalar_key] = HistEFT(
                     proc_axis,
                     chan_axis,
                     syst_axis,
                     appl_axis,
                     dense_axis,
-                    storage="Double",
+                    wc_names=[],
+                    use_multicell=True,
+                    store_sumw2=embedded,
                     track_raw_counts=(
                         self._record_raw_count and "fitting" in info
                     ),
                 )
                 self._hist_axis_map[scalar_key] = [dense_axis.name]
                 self._hist_requires_eft[scalar_key] = False
-            if build_base_hist and component_availability["eft"]:
+            if component_availability["eft"]:
                 eft_key = eft_nominal_key(name)
                 histograms[eft_key] = HistEFT(
                     proc_axis,
@@ -964,6 +1027,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     appl_axis,
                     dense_axis,
                     wc_names=wc_names_lst,
+                    use_multicell=True,
+                    store_sumw2=embedded,
                     label=r"Events",
                     track_raw_counts=(
                         self._record_raw_count and "fitting" in info
@@ -971,25 +1036,22 @@ class AnalysisProcessor(processor.ProcessorABC):
                 )
                 self._hist_axis_map[eft_key] = [dense_axis.name]
                 self._hist_requires_eft[eft_key] = True
-            if build_base_hist:
-                self._hist_axis_map[name] = [dense_axis.name]
-            if build_sumw2_hist:
-                histograms[sumw2_name] = SparseHist(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    sumw2_axis,
-                    storage="Double",
-                )
-                self._hist_axis_map[sumw2_name] = [sumw2_axis.name]
-                self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
-                self._hist_requires_eft[sumw2_name] = False
+            self._hist_axis_map[name] = [dense_axis.name]
+            # SUMW2_POLICY_DISABLED (multicell migration): no 1D companion.
+            # sumw2_axis = make_processing_axis(
+            #     info,
+            #     name=name,
+            #     label=info["label"],
+            #     suffix="_sumw2",
+            #     label_suffix=" sum of w^2",
+            # )
+            # histograms[f"{name}_sumw2"] = SparseHist(
+            #     proc_axis, chan_axis, syst_axis, appl_axis, sumw2_axis,
+            #     storage="Double",
+            # )
+            # self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
         for name, axes_cfg in axes_info_2d.items():
-            sumw2_name = f"{name}{sumw2_suffix}"
-            build_base_hist = name in self._base_hist_name_set
-            build_sumw2_hist = name in self._selected_sumw2_families
-            if not (build_base_hist or build_sumw2_hist):
+            if name not in self._base_hist_name_set:
                 continue
 
             dense_axes = []
@@ -998,41 +1060,32 @@ class AnalysisProcessor(processor.ProcessorABC):
                 axis = _build_axis(axis_cfg)
                 dense_axes.append(axis)
                 axis_names.append(axis.name)
-            if build_base_hist:
-                histograms[name] = SparseHist(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    *dense_axes,
-                    storage="Double",
+            histograms[name] = SparseHist(
+                proc_axis,
+                chan_axis,
+                syst_axis,
+                appl_axis,
+                *dense_axes,
+                storage=two_d_storage,
+            )
+            self._hist_axis_map[name] = axis_names
+            self._hist_requires_eft[name] = False
+            # SUMW2_POLICY_DISABLED (multicell migration): no 2D companion; the
+            # Weight storage above carries the variance in the same bins.
+            # sumw2_axes = [
+            #     _build_axis(axis_cfg, suffix="_sumw2", label_suffix=" sum of w^2")
+            #     for axis_cfg in axes_cfg["axes"]
+            # ]
+            # histograms[f"{name}_sumw2"] = SparseHist(
+            #     proc_axis, chan_axis, syst_axis, appl_axis, *sumw2_axes,
+            #     storage="Double",
+            # )
+        for key, histogram in histograms.items():
+            if sumw2_storage_of_histogram(histogram, key=key) is not self._sumw2_storage:
+                raise RuntimeError(
+                    f"Nominal histogram '{key}' was allocated without the resolved "
+                    f"'{self._sumw2_storage.value}' sumw2 storage."
                 )
-                self._hist_axis_map[name] = axis_names
-                self._hist_requires_eft[name] = False
-            sumw2_axes = []
-            sumw2_axis_names = []
-            sumw2_axis_mapping = {}
-            for axis_cfg, base_axis_name in zip(axes_cfg["axes"], axis_names):
-                sumw2_axis = _build_axis(
-                    axis_cfg,
-                    suffix="_sumw2",
-                    label_suffix=" sum of w^2",
-                )
-                sumw2_axes.append(sumw2_axis)
-                sumw2_axis_names.append(sumw2_axis.name)
-                sumw2_axis_mapping[sumw2_axis.name] = base_axis_name
-            if build_sumw2_hist:
-                histograms[sumw2_name] = SparseHist(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    *sumw2_axes,
-                    storage="Double",
-                )
-                self._hist_axis_map[sumw2_name] = sumw2_axis_names
-                self._hist_sumw2_axis_mapping[name] = sumw2_axis_mapping
-                self._hist_requires_eft[sumw2_name] = False
         self._accumulator = histograms
 
         # Ensure the histogram list only tracks objects that actually exist in the
@@ -2676,30 +2729,33 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             for dense_axis_name, dense_axis_vals in varnames.items():
                 fill_base_hist = dense_axis_name in self._base_hist_name_set
-                companion_axis_mapping = self._hist_sumw2_axis_mapping.get(
-                    dense_axis_name
-                )
-                if self._sumw2_policy is None:
-                    target_selected_for_sumw2 = (
-                        self._fill_sumw2_hist
-                        and dense_axis_name not in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS
-                    )
-                else:
-                    target_selected_for_sumw2 = self._sumw2_policy.selects(
-                        dataset_key,
-                        histAxisName,
-                        dense_axis_name,
-                    )
-                if target_selected_for_sumw2 and not companion_axis_mapping:
-                    raise RuntimeError(
-                        "Resolved sumw2 target has no allocated companion for "
-                        f"dataset='{dataset_key}', process='{histAxisName}', "
-                        f"family='{dense_axis_name}'."
-                    )
-                fill_sumw2_hist = target_selected_for_sumw2 and bool(
-                    companion_axis_mapping
-                )
-                if not (fill_base_hist or fill_sumw2_hist):
+                # SUMW2_POLICY_DISABLED (multicell migration): no per-target
+                # selection and no companion fill; embedded sumw2 is filled with
+                # the nominal histogram in _fill_nominal_histogram.
+                # companion_axis_mapping = self._hist_sumw2_axis_mapping.get(
+                #     dense_axis_name
+                # )
+                # if self._sumw2_policy is None:
+                #     target_selected_for_sumw2 = (
+                #         self._fill_sumw2_hist
+                #         and dense_axis_name not in JVM_ETA_PHI_DIAGNOSTIC_HISTOGRAMS
+                #     )
+                # else:
+                #     target_selected_for_sumw2 = self._sumw2_policy.selects(
+                #         dataset_key,
+                #         histAxisName,
+                #         dense_axis_name,
+                #     )
+                # if target_selected_for_sumw2 and not companion_axis_mapping:
+                #     raise RuntimeError(
+                #         "Resolved sumw2 target has no allocated companion for "
+                #         f"dataset='{dataset_key}', process='{histAxisName}', "
+                #         f"family='{dense_axis_name}'."
+                #     )
+                # fill_sumw2_hist = target_selected_for_sumw2 and bool(
+                #     companion_axis_mapping
+                # )
+                if not fill_base_hist:
                     continue
 
                 if dense_axis_name in axes_info_2d:
@@ -2856,8 +2912,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             )
                                             if fill_base_hist:
                                                 axis_names = self._hist_axis_map[dense_axis_name]
-                                                hout[nominal_histogram_key].fill(
-                                                    **{
+                                                self._fill_nominal_histogram(
+                                                    hout[nominal_histogram_key],
+                                                    {
                                                         axis_names[0]: eta_flat,
                                                         axis_names[1]: phi_flat,
                                                         "channel": ch_name,
@@ -2865,7 +2922,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                         "process": histAxisName,
                                                         "systematic": wgt_fluct,
                                                         "weight": weights_flat,
-                                                    }
+                                                    },
+                                                    is_data=isData,
+                                                    wgt_fluct=wgt_fluct,
                                                 )
                                             continue
 
@@ -2875,24 +2934,22 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         axis_names = self._hist_axis_map.get(
                                             dense_axis_name,
+                                            [dense_axis_name],
                                         )
-                                        if axis_names is None:
-                                            if companion_axis_mapping:
-                                                axis_names = list(companion_axis_mapping.values())
-                                            else:
-                                                axis_names = [dense_axis_name]
-                                        sumw2_axis_names = self._hist_axis_map.get(
-                                            dense_axis_name+"_sumw2",
-                                            [dense_axis_name+"_sumw2"],
-                                        )
-                                        sumw2_axis_mapping = companion_axis_mapping
-                                        if sumw2_axis_mapping is None:
-                                            if sumw2_axis_names and axis_names:
-                                                sumw2_axis_mapping = {
-                                                    sumw2_axis_names[0]: axis_names[0]
-                                                }
-                                            else:
-                                                sumw2_axis_mapping = {}
+                                        # SUMW2_POLICY_DISABLED (multicell migration):
+                                        # companion axis names are no longer resolved.
+                                        # sumw2_axis_names = self._hist_axis_map.get(
+                                        #     dense_axis_name+"_sumw2",
+                                        #     [dense_axis_name+"_sumw2"],
+                                        # )
+                                        # sumw2_axis_mapping = companion_axis_mapping
+                                        # if sumw2_axis_mapping is None:
+                                        #     if sumw2_axis_names and axis_names:
+                                        #         sumw2_axis_mapping = {
+                                        #             sumw2_axis_names[0]: axis_names[0]
+                                        #         }
+                                        #     else:
+                                        #         sumw2_axis_mapping = {}
 
                                         base_values_cut = None
                                         prepared_axis_vals, axis_validity = _prepare_axis_values(dense_axis_vals)
@@ -2931,18 +2988,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if base_values_cut is not None:
                                                 base_values_cut = base_values_cut[combined_axis_mask]
 
-                                        fill_nominal_sumw2_hist = self._should_fill_sumw2_histogram(
-                                            fill_sumw2_hist,
-                                            wgt_fluct=wgt_fluct,
-                                        )
-                                        sumw2_values_cut_map = {}
-                                        if fill_nominal_sumw2_hist:
-                                            for sumw2_axis_name, base_axis_name in sumw2_axis_mapping.items():
-                                                base_values = values_cut_map.get(base_axis_name)
-                                                if (base_values is None) and (base_values_cut is not None):
-                                                    base_values = base_values_cut
-                                                if base_values is not None:
-                                                    sumw2_values_cut_map[sumw2_axis_name] = base_values
+                                        # SUMW2_POLICY_DISABLED (multicell migration):
+                                        # companion fill values are no longer prepared.
+                                        # fill_nominal_sumw2_hist = self._should_fill_sumw2_histogram(
+                                        #     fill_sumw2_hist,
+                                        #     wgt_fluct=wgt_fluct,
+                                        # )
+                                        # sumw2_values_cut_map = {}
+                                        # if fill_nominal_sumw2_hist:
+                                        #     for sumw2_axis_name, base_axis_name in sumw2_axis_mapping.items():
+                                        #         base_values = values_cut_map.get(base_axis_name)
+                                        #         if (base_values is None) and (base_values_cut is not None):
+                                        #             base_values = base_values_cut
+                                        #         if base_values is not None:
+                                        #             sumw2_values_cut_map[sumw2_axis_name] = base_values
 
                                         # Fill the histos
                                         if fill_base_hist:
@@ -2957,37 +3016,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if self._hist_requires_eft.get(nominal_histogram_key, False):
                                                 axes_fill_info_dict["eft_coeff"] = eft_coeffs_cut
                                             nominal_histogram = hout[nominal_histogram_key]
-                                            raw_count_classification = (
-                                                self._raw_count_fill_classification(
-                                                    nominal_histogram,
-                                                    is_data=isData,
-                                                    wgt_fluct=wgt_fluct,
-                                                )
+                                            self._fill_nominal_histogram(
+                                                nominal_histogram,
+                                                axes_fill_info_dict,
+                                                is_data=isData,
+                                                wgt_fluct=wgt_fluct,
                                             )
-                                            if raw_count_classification is not None:
-                                                axes_fill_info_dict["record_raw_count"] = (
-                                                    raw_count_classification
-                                                )
-                                            nominal_histogram.fill(**axes_fill_info_dict)
-                                                                                    
-                                        if fill_nominal_sumw2_hist:
-                                            # The companion is an SM-only statistical moment.
-                                            # EFT factors are evaluated at the SM and folded into
-                                            # the scalar contribution before squaring. Filling
-                                            # without eft_coeff stores that result as a constant-
-                                            # only scalar SparseHist content.
-                                            sumw2_fill_info = {
-                                                **sumw2_values_cut_map,
-                                                "channel"    : ch_name,
-                                                "appl"       : appl,
-                                                "process"    : histAxisName,
-                                                "systematic": wgt_fluct,
-                                                "weight"     : calculate_sm_sumw2_weights(
-                                                    weights_flat,
-                                                    eft_coeffs_cut,
-                                                ),
-                                            }
-                                            hout[dense_axis_name+"_sumw2"].fill(**sumw2_fill_info)
+
+                                        # SUMW2_POLICY_DISABLED (multicell migration): the
+                                        # SM-only moment is now recorded by the MultiCell
+                                        # sumw2 cell, (weight * c0)**2, which equals
+                                        # calculate_sm_sumw2_weights(weights, coeffs).
+                                        # if fill_nominal_sumw2_hist:
+                                        #     sumw2_fill_info = {
+                                        #         **sumw2_values_cut_map,
+                                        #         "channel"    : ch_name,
+                                        #         "appl"       : appl,
+                                        #         "process"    : histAxisName,
+                                        #         "systematic": wgt_fluct,
+                                        #         "weight"     : calculate_sm_sumw2_weights(
+                                        #             weights_flat,
+                                        #             eft_coeffs_cut,
+                                        #         ),
+                                        #     }
+                                        #     hout[dense_axis_name+"_sumw2"].fill(**sumw2_fill_info)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break

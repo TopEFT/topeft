@@ -1,0 +1,37 @@
+# Environment for the embedded-sumw2 (MultiCell HistEFT) migration.
+# MultiCell storage needs boost-histogram >= 1.7, which environment.yml
+#   conda env create -f environment-multicell.yml
+#   conda activate coffea-multicell-env
+#   pip install -e .
+#   TOPCOFFEA_REPO_URL=https://github.com/lazdlie/topcoffea.git \
+#   TOPCOFFEA_GIT_REF=integration/multicell-current-upstream \
+#       scripts/install_topcoffea.sh   # validated at ab95b39 (MultiCell + raw counts)
+name: coffea-multicell-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=1.23.5
+  - coffea=0.7.21
+  - awkward=1.10.3
+  - uproot=4.3.7
+  - boost-histogram=1.7.2
+  - hist=2.10.1
+  - mplhep
+  - scipy
+  - pandas
+  - numba
+  - cloudpickle
+  - ndcctools
+  - conda-pack
+  - dill
+  - xrootd
+  - git
+  - pyyaml
+  - setuptools==70.3.0
+  - pytest
+  - time
+  - pip
+  - pip:
+      - correctionlib==2.7.0
+      - matplotlib==3.9.4

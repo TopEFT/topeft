@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+import boost_histogram as bh
 import hist
 import numpy as np
 
@@ -210,6 +211,43 @@ def _aggregate_raw_count_array(histogram, values, aggregation_map):
     return output
 
 
+def _physical_bin_axis(dense_hist):
+    """Return the view axis that indexes physical dense bins.
+
+    MultiCell storage puts the cell dimension first, so its views are
+    (cells, bins); every other storage keeps physical bins on axis 0 (legacy
+    HistEFT views are (bins, quadratic_term)).
+    """
+
+    multicell = getattr(bh.storage, "MultiCell", None)
+    if multicell is not None and dense_hist.storage_type is multicell:
+        return 1
+    return 0
+
+
+def _aggregate_dense_storage(source_dense, target_dense, aggregation_map):
+    """Aggregate one dense payload, cell by cell, onto the target binning.
+
+    Every stored cell is a sum over events, so merged bins add. This holds for
+    yields, EFT coefficients, embedded MultiCell sumw2 and Weight-storage
+    variances alike.
+    """
+
+    source_view = source_dense.view(flow=True)
+    target_view = target_dense.view(flow=True)
+    if source_dense.storage_type is bh.storage.Weight:
+        for field in ("value", "variance"):
+            getattr(target_view, field)[...] = aggregate_array(
+                np.asarray(getattr(source_view, field)), aggregation_map, axis=0
+            )
+        return
+    target_view[...] = aggregate_array(
+        np.asarray(source_view),
+        aggregation_map,
+        axis=_physical_bin_axis(source_dense),
+    )
+
+
 def _axis_edges(axis):
     edges = axis.edges
     if callable(edges):
@@ -284,9 +322,7 @@ def rebin_histogram(histogram, target_edges):
         categories = histogram.index_to_categories(source_index)
         target_index = rebinned._fill_bookkeep(*categories)
         target_dense = rebinned._dense_hists[target_index]
-        source_values = source_dense.view(flow=True)
-        target_values = aggregate_array(source_values, aggregation_map, axis=0)
-        target_dense.view(flow=True)[...] = target_values
+        _aggregate_dense_storage(source_dense, target_dense, aggregation_map)
         if rebinned.track_raw_counts:
             source_raw = raw_states[source_index]
             target_raw = (
