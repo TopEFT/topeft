@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Direct invocations cannot enable the private preparation seam via the environment.
+if (( ${#BASH_SOURCE[@]} == 1 )); then
+  production_prepare_only=false
+fi
+
 original_arguments=("$@")
 
 print_usage() {
@@ -464,6 +469,22 @@ if [[ "${profile_resume}" == "true" && ! -d "${output_dir}" ]]; then
   exit 1
 fi
 
+# Re-enter the maintained component frontend in an isolated shell. Its normal
+# initialization owns the full plan, environment validation and writer lock.
+# FD 3 returns native plan IDs; ordinary frontend diagnostics remain visible.
+prepare_component_campaign() (
+  production_prepare_only=true
+  source "${script_dir}/run_cr.sh" "$@" 3>&1 1>&2
+)
+
+component_state_ids() (
+  set -e
+  plan=$(mktemp "${TMPDIR:-/tmp}/component_selection.XXXXXX")
+  trap 'rm -f -- "${plan}"' EXIT
+  python "${script_dir}/campaign_manifest.py" render-active "$1" "${plan}" >/dev/null
+  cut -f1 "${plan}"
+)
+
 if [[ "${combined_profile}" == "true" ]]; then
   if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
     echo "ERROR: --wq-manager-name is unsupported for combined profiles." >&2
@@ -473,8 +494,8 @@ if [[ "${combined_profile}" == "true" ]]; then
     echo "ERROR: --wq-manager-prefix requires one component campaign; use paired Run 2 and Run 3 prefixes for combined profiles." >&2
     exit 1
   fi
-  if [[ -n "${profile_plan}${profile_activate_pending_plan}${profile_expected_plan_revision}${profile_selected_fragment}" ]]; then
-    echo "ERROR: plan revisions and selected units belong to component campaigns." >&2
+  if [[ -n "${profile_plan}${profile_activate_pending_plan}${profile_expected_plan_revision}" ]]; then
+    echo "ERROR: plan revisions belong to component campaigns." >&2
     exit 1
   fi
   combined_suffix=""
@@ -495,7 +516,14 @@ if [[ "${combined_profile}" == "true" ]]; then
       --run2-wq-manager-prefix|--run3-wq-manager-prefix)
         remaining_args=("${remaining_args[@]:2}")
         ;;
-      --dry-run|--resume|--phase-telemetry)
+      --selected-fragment)
+        remaining_args=("${remaining_args[@]:2}")
+        ;;
+      --resume)
+        [[ -n "${profile_selected_fragment}" ]] || component_args+=("${remaining_args[0]}")
+        remaining_args=("${remaining_args[@]:1}")
+        ;;
+      --dry-run|--phase-telemetry)
         component_args+=("${remaining_args[0]}")
         remaining_args=("${remaining_args[@]:1}")
         ;;
@@ -512,6 +540,70 @@ if [[ "${combined_profile}" == "true" ]]; then
   run3_profile="run3_${profile_mode}${combined_suffix}"
   run2_root="${output_dir}/run2${combined_suffix}"
   run3_root="${output_dir}/run3${combined_suffix}"
+  if [[ -n "${profile_selected_fragment}" ]]; then
+    run2_state="${run2_root}/.${run2_profile}_campaign_state_v9.json"
+    run3_state="${run3_root}/.${run3_profile}_campaign_state_v9.json"
+    if [[ "${profile_resume}" == "false" ]]; then
+      run2_ids=$(prepare_component_campaign --production-profile "${run2_profile}" \
+        --output-dir "${run2_root}" --campaign-tag "${campaign_tag}_run2" \
+        "${component_args[@]}" "${run2_manager_args[@]}")
+      run3_ids=$(prepare_component_campaign --production-profile "${run3_profile}" \
+        --output-dir "${run3_root}" --campaign-tag "${campaign_tag}_run3" \
+        "${component_args[@]}" "${run3_manager_args[@]}")
+    else
+      if [[ ! -f "${run2_state}" || ! -f "${run3_state}" ]]; then
+        echo "ERROR: selected resume requires both component campaign states." >&2
+        exit 1
+      fi
+      run2_ids=$(component_state_ids "${run2_state}")
+      run3_ids=$(component_state_ids "${run3_state}")
+    fi
+    selected_owners=0
+    selected_scope=""
+    for scope in run2 run3; do
+      ids_variable="${scope}_ids"
+      while IFS= read -r unit_id; do
+        if [[ "${unit_id}" == "${profile_selected_fragment}" ]]; then
+          selected_owners=$((selected_owners + 1))
+          selected_scope="${scope}"
+        fi
+      done <<< "${!ids_variable}"
+    done
+    if (( selected_owners != 1 )); then
+      echo "ERROR: selected fragment ${profile_selected_fragment} requires exactly one component owner (found ${selected_owners})." >&2
+      exit 1
+    fi
+    selected_profile_variable="${selected_scope}_profile"
+    selected_root_variable="${selected_scope}_root"
+    selected_manager_args=()
+    if [[ "${selected_scope}" == "run2" ]]; then
+      selected_manager_args=("${run2_manager_args[@]}")
+    else
+      selected_manager_args=("${run3_manager_args[@]}")
+    fi
+    selected_resume_args=(--resume)
+    # A fresh dry-run has no persisted state and remains a native dry-run.
+    if [[ "${profile_dry_run}" == "true" && "${profile_resume}" == "false" ]]; then
+      selected_resume_args=()
+    fi
+    if "$0" --production-profile "${!selected_profile_variable}" \
+      --output-dir "${!selected_root_variable}" --campaign-tag "${campaign_tag}_${selected_scope}" \
+      "${component_args[@]}" "${selected_manager_args[@]}" "${selected_resume_args[@]}" \
+      --selected-fragment "${profile_selected_fragment}"; then
+      selected_exit=0
+    else
+      selected_exit=$?
+    fi
+    if [[ "${profile_dry_run}" == "false" ]]; then
+      run2_exit=0
+      run3_exit=0
+      printf -v "${selected_scope}_exit" '%s' "${selected_exit}"
+      python "${script_dir}/campaign_manifest.py" combined-summary \
+        "${production_profile}" "${campaign_tag}" "${output_dir}" \
+        "${run2_state}" "${run3_state}" "${run2_exit}" "${run3_exit}"
+    fi
+    exit "${selected_exit}"
+  fi
   if "$0" --production-profile "${run2_profile}" --output-dir "${run2_root}" \
     --campaign-tag "${campaign_tag}_run2" "${component_args[@]}" "${run2_manager_args[@]}"; then
     run2_exit=0
@@ -1944,6 +2036,10 @@ esac
 
 trap cleanup_production_plan EXIT
 prepare_production_campaign
+if [[ "${production_prepare_only:-false}" == "true" ]]; then
+  printf '%s\n' "${production_block_ids[@]}" >&3
+  exit 0
+fi
 prepare_production_sumw2_options
 
 ###############################################################################

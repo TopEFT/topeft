@@ -804,6 +804,136 @@ def test_combined_child_failure_retains_run2_evidence_and_runs_run3(tmp_path, ba
     assert (tmp_path / "output" / "campaign_summary.tsv").is_file()
 
 
+def combined_states(tmp_path):
+    return [manifest.load_state(
+        tmp_path / "output" / scope / f".{scope}_prod_campaign_state_v9.json"
+    ) for scope in ("run2", "run3")]
+
+
+@pytest.mark.parametrize("scope", ("run2", "run3"))
+def test_combined_selected_preserves_full_plans_and_native_resume(tmp_path, backend, scope):
+    selected = f"{scope}_prod_a"
+    prefixes = ("--run2-wq-manager-prefix", "run2-", "--run3-wq-manager-prefix", "run3-")
+    result = launch(tmp_path, backend, "--selected-fragment", selected, *prefixes,
+                    profile="run2_run3_prod")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "resume: true" in result.stdout
+    before = combined_states(tmp_path)
+    ids = [{unit["id"] for unit in state["units"]} for state in before]
+    assert len(ids[0]) == len(ids[1]) == 5
+    assert not ids[0] & ids[1]
+    assert (tmp_path / "source_order.log").read_text().splitlines() == [selected]
+    for state in before:
+        for unit in state["units"]:
+            assert manifest.overall_status(unit) == ("success" if unit["id"] == selected else "planned")
+            for stage in unit["stages"].values():
+                assert len(stage["attempts"]) == (1 if unit["id"] == selected else 0)
+    resumed = launch(tmp_path, backend, "--resume", "--selected-fragment", selected,
+                     *prefixes, profile="run2_run3_prod")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    after = combined_states(tmp_path)
+    for old, new in zip(before, after):
+        assert old["plan"] == new["plan"]
+        assert old["scientific_identity"] == new["scientific_identity"]
+        assert old["units"] == new["units"]
+    assert (tmp_path / "source_order.log").read_text().splitlines() == [selected]
+    assert (tmp_path / "output" / "campaign_summary.tsv").is_file()
+
+
+def test_combined_selected_retry_uses_native_eligibility(tmp_path, backend):
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "source_fail_first"
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a", profile="run2_run3_prod")
+    assert first.returncode != 0
+    before = combined_states(tmp_path)
+    backend["CAMPAIGN_VALIDATION_SCENARIO"] = "success"
+    resumed = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a",
+                     profile="run2_run3_prod")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    run2, run3 = combined_states(tmp_path)
+    assert [a["number"] for a in run2["units"][0]["stages"]["source"]["attempts"]] == [1, 2]
+    assert run3 == before[1]
+    assert (tmp_path / "source_order.log").read_text().splitlines() == ["run2_prod_a", "run2_prod_a"]
+
+
+def test_combined_selected_resume_routes_planned_other_component(tmp_path, backend):
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a", profile="run2_run3_prod")
+    assert first.returncode == 0, first.stdout + first.stderr
+    before = combined_states(tmp_path)
+    result = launch(tmp_path, backend, "--resume", "--selected-fragment", "run3_prod_a",
+                    profile="run2_run3_prod")
+    assert result.returncode == 0, result.stdout + result.stderr
+    after = combined_states(tmp_path)
+    assert after[0] == before[0]
+    assert after[1]["plan"] == before[1]["plan"]
+    assert manifest.overall_status(after[1]["units"][0]) == "success"
+    assert (tmp_path / "source_order.log").read_text().splitlines() == ["run2_prod_a", "run3_prod_a"]
+
+
+def test_combined_native_id_namespaces_cannot_be_ambiguous():
+    # The maintained constructor prefixes even adversarial supplied IDs with
+    # their component profile; the parent never guesses ownership by ordering.
+    specs = []
+    for profile in ("run2_prod", "run3_prod"):
+        units = [{"id": name, "years": ["2018" if profile.startswith("run2") else "2022"],
+                  "category_groups": ["2lss"], "histograms": ["njets"]}
+                 for name in ("shared", "run2_prod_shared", "run3_prod_shared")]
+        specs.append([manifest.make_specs([unit], profile, "tag", "/synthetic", "r1_123456789abc")[0]
+                      for unit in units])
+    assert all(unit["id"].startswith("run2_prod_") for unit in specs[0])
+    assert all(unit["id"].startswith("run3_prod_") for unit in specs[1])
+    assert not {u["id"] for u in specs[0]} & {u["id"] for u in specs[1]}
+
+
+def test_combined_selected_unknown_and_missing_resume_fail_without_work(tmp_path, backend):
+    missing = launch(tmp_path, backend, "--resume", "--selected-fragment", "run3_prod_a",
+                     profile="run2_run3_prod")
+    assert missing.returncode != 0
+    result = launch(tmp_path, backend, "--selected-fragment", "unknown", profile="run2_run3_prod")
+    assert result.returncode != 0
+    assert "exactly one component owner (found 0)" in result.stderr
+    for state in combined_states(tmp_path):
+        assert len(state["units"]) == 5
+        assert all(not stage["attempts"] for unit in state["units"] for stage in unit["stages"].values())
+    assert not (tmp_path / "source_order.log").exists()
+    resumed = launch(tmp_path, backend, "--resume", "--selected-fragment", "unknown",
+                     profile="run2_run3_prod")
+    assert resumed.returncode != 0
+    assert "found 0" in resumed.stderr
+
+
+@pytest.mark.parametrize("extra", (
+    ("--plan", "unused.json"),
+    ("--resume", "--activate-pending-plan", "unused.json", "--expected-plan-revision", "r2"),
+))
+def test_combined_selected_keeps_revision_restrictions(tmp_path, backend, extra):
+    result = launch(tmp_path, backend, "--selected-fragment", "run3_prod_a", *extra,
+                    profile="run2_run3_prod")
+    assert result.returncode != 0
+    assert not (tmp_path / "output").exists()
+    assert not (tmp_path / "source_order.log").exists()
+
+
+def test_combined_fresh_full_and_full_resume_keep_native_plans(tmp_path, backend):
+    result = launch(tmp_path, backend, profile="run2_run3_prod")
+    assert result.returncode == 0, result.stdout + result.stderr
+    before = combined_states(tmp_path)
+    assert all(len(state["units"]) == 5 for state in before)
+    assert all(manifest.classify(state) == "success" for state in before)
+    assert len((tmp_path / "source_order.log").read_text().splitlines()) == 10
+    resumed = launch(tmp_path, backend, "--resume", profile="run2_run3_prod")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    assert [s["units"] for s in before] == [s["units"] for s in combined_states(tmp_path)]
+    assert len((tmp_path / "source_order.log").read_text().splitlines()) == 10
+
+
+def test_combined_selected_dry_run_creates_no_state_or_attempts(tmp_path, backend):
+    result = launch(tmp_path, backend, "--dry-run", "--selected-fragment", "run3_prod_a",
+                    profile="run2_run3_prod")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not (tmp_path / "output").exists()
+    assert not (tmp_path / "source_order.log").exists()
+
+
 @pytest.mark.parametrize(("profile", "expected_years"), (
     ("run2_prod_2los_1tau", {"2016", "2016APV", "2017", "2018"}),
     ("run3_prod_2los_1tau", {"2022", "2022EE", "2023", "2023BPix"}),
