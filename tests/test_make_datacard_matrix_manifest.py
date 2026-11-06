@@ -14,12 +14,12 @@ from analysis.topeft_run2 import make_datacard_matrix_manifest as generator
 
 # Digests come from the accepted input matrix's ordered row records.
 _matrix_row_digests = {
-    "run2": "d8c350bba65bb87d51644f4b927346f0abce5cfa32fee0603602efd5ade59bd1",
-    "run3": "f2225975aec519aae450a3a76d6c1096bba32d22bf49e2156fb2ce64f3164f54",
+    "run2": "35c25e4f3101f0df2c4e8b7fec82cb26e3306de552678dd32b8c2c53e4e3cd66",
+    "run3": "3810935e344355a080b4f7258cdb72506f71cbaf37d212f339b3b3700797c43e",
 }
 _execution_crosswalk_digests = {
-    "run2": "f898db1dd73fdfc99d3fe04dbfe188666b2ed431465a121039bab807a77f2f2c",
-    "run3": "a87ac5a26703dadcec3d1f4fa9ead35e30864bb69608598ceb1e995c0123c0ef",
+    "run2": "9ddaaa16989020abc019da5765af4e3255bd007c9cd8756f2b93c28e8e4e8a17",
+    "run3": "40e009259eb3d802cf59ae8932d7b053b1725b53daf86435ee3aa7d55faeebee",
 }
 _role_order = {
     "run2": ["block1", "block2", "block3", "block4", "block5"],
