@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import pytest
 import hist
 
 from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.sparseHist import SparseHist
 
+from analysis.topeft_run2 import eft_event_diagnostics as origin_reference
 from topeft.modules import datacard_tools
+from topeft.modules.axis_binning import resolve_axis_edges
 from topeft.modules.datacard_tools import DatacardMaker
 from topeft.modules.missing_parton_contract import DEFAULT_SR_REGISTRY
 
@@ -392,17 +397,25 @@ def test_writer_reuses_only_target_fivejet_missing_parton_response(
         "2los_onZ_1tau_3j",
         "3l_onZ_1b_2j",
     )
-    source = HistEFT(
+    axes = (
         hist.axis.StrCategory([], name="process", growth=True),
         hist.axis.StrCategory([], name="channel", growth=True),
         hist.axis.StrCategory([], name="systematic", growth=True),
-        hist.axis.Regular(1, 0, 1, name="ptz"),
+        hist.axis.Variable(
+            resolve_axis_edges("ptz", mode="fitting", channel=channels[0]),
+            name="ptz",
+        ),
+    )
+    scalar_source = SparseHist(*axes)
+    eft_source = HistEFT(
+        *axes,
         wc_names=[],
         label="Events",
     )
     nominal_rates = dict(zip(channels, (5.0, 3.0, 2.0)))
     for channel in channels:
         for process in ("tllq", "tHq", "ttll"):
+            source = scalar_source if process == "ttll" else eft_source
             source.fill(
                 process=f"{process}{year}",
                 channel=channel,
@@ -410,6 +423,15 @@ def test_writer_reuses_only_target_fivejet_missing_parton_response(
                 ptz=np.asarray([0.5]),
                 weight=np.asarray([nominal_rates[channel]]),
             )
+    components = {
+        "ptz__scalar_nominal": scalar_source,
+        "ptz__eft_nominal": eft_source,
+    }
+    # The qualified reference keeps the combined process/category universe
+    # through the native transformations, including each absent origin cell.
+    bundle = origin_reference.combined_producer_views(
+        copy.deepcopy(components), "ptz", [year], list(channels),
+    )
 
     def validate(_path, *, sr_registry):
         assert sr_registry == DEFAULT_SR_REGISTRY
@@ -425,13 +447,33 @@ def test_writer_reuses_only_target_fivejet_missing_parton_response(
         lambda _path: type("layout", (), {"registry": DEFAULT_SR_REGISTRY})(),
     )
     maker = DatacardMaker(
-        hists={"ptz": source},
+        hists=copy.deepcopy(components),
         out_dir=str(tmp_path),
         binning_mode="processing",
         do_nuisance=False,
         year_lst=[year],
         verbose=False,
     )
+    assert maker.hists["ptz"].wc_names == []
+    assert set(maker.nominal_origins["ptz"]) == {"scalar", "eft"}
+    assert "nominal_origin" not in maker.hists["ptz"].axes.name
+    for channel in channels:
+        for process in ("tllq", "tHq", "ttll"):
+            reference = origin_reference.combined_bin_coefficients(
+                bundle, channel, process,
+            )
+            actual = maker.nominal_origin_coefficients("ptz", channel, process)
+            for origin in ("combined", "scalar", "eft"):
+                # The reference excludes physical underflow; both retain overflow.
+                np.testing.assert_allclose(actual[origin][1:], reference[origin])
+                assert actual[origin].shape[-1] == 1  # constant only
+            np.testing.assert_allclose(
+                actual["scalar"] + actual["eft"], actual["combined"],
+            )
+            assert actual["combined"][1, 0] == nominal_rates[channel]
+            scalar_rate = nominal_rates[channel] if process == "ttll" else 0.0
+            assert actual["scalar"][1, 0] == scalar_rate
+            assert actual["eft"][1, 0] == nominal_rates[channel] - scalar_rate
     # Use the maintained loader so process entries and nuisance identity are
     # source-derived; only its response payload is synthetic.
     maker.do_nuisance = True

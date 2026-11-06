@@ -2108,7 +2108,8 @@ class DatacardMaker():
             )
             for family in runtime_families:
                 combined = self.hists.get(family)
-                if combined is not None and getattr(combined, "wc_names", ()):
+                # Constant-only HistEFT inputs also require qualified origins.
+                if combined is not None and hasattr(combined, "wc_names"):
                     self.hists[family] = materialize_nominal_origin_axis(
                         split_sources, family, combined
                     )
