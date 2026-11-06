@@ -34,6 +34,14 @@ action="$1"
 scenario="$2"
 shift 2
 if [[ "$action" == validate_environment || "$action" == prepare_environment ]]; then
+  if [[ -n "${CAMPAIGN_FAIL_ENV_CALL:-}" ]]; then
+    counter="$CAMPAIGN_VALIDATION_ROOT/environment_calls"
+    count=0
+    [[ ! -f "$counter" ]] || read -r count < "$counter"
+    count=$((count + 1))
+    printf '%s\\n' "$count" > "$counter"
+    [[ "$count" != "$CAMPAIGN_FAIL_ENV_CALL" ]] || exit 71
+  fi
   archive="${1:-$CAMPAIGN_DEFAULT_ARCHIVE}"
   printf 'env_file: %s\\n' "$archive"
   printf 'env_file_sha256: %s\\n' "$(sha256sum "$archive" | cut -d ' ' -f1)"
@@ -47,9 +55,15 @@ if [[ "$action" == validate_environment || "$action" == prepare_environment ]]; 
 fi
 if [[ "$action" == run_block ]]; then
   unit="$1"; archive="$2"; stage="$3"; source="$4"; downstream="$5"; logs="$6"
+  printf '%q ' "$@" >> "$CAMPAIGN_VALIDATION_ROOT/source_argv.log"
+  printf '\\n' >> "$CAMPAIGN_VALIDATION_ROOT/source_argv.log"
   printf '%s\\n' "$unit" >> "$CAMPAIGN_VALIDATION_ROOT/source_order.log"
+  if [[ -n "${CAMPAIGN_EXPECT_LOCK_HELD:-}" ]]; then
+    if flock -n "$CAMPAIGN_EXPECT_LOCK_HELD" true; then exit 72; fi
+  fi
   mkdir -p "$logs"
-  if [[ "$scenario" == source_fail_first && "$unit" == run2_prod_a \
+  if [[ "$unit" == "${CAMPAIGN_FAIL_UNIT:-}" \
+    || "$scenario" == source_fail_first && "$unit" == run2_prod_a \
     || "$scenario" == source_fail_run3_tau && "$unit" == run3_prod_2los_1tau_a \
     || "$scenario" == source_fail_both_tau ]]; then
     exit 23
@@ -59,6 +73,8 @@ if [[ "$action" == run_block ]]; then
   source_sha=""
 elif [[ "$action" == run_nonprompt ]]; then
   unit="$1"; source="$2"; downstream="$3"
+  printf '%q ' "$@" >> "$CAMPAIGN_VALIDATION_ROOT/dd_argv.log"
+  printf '\\n' >> "$CAMPAIGN_VALIDATION_ROOT/dd_argv.log"
   if [[ "$scenario" == downstream_fail_once && ! -e "$CAMPAIGN_VALIDATION_ROOT/failed_once" ]]; then
     : > "$CAMPAIGN_VALIDATION_ROOT/failed_once"
     exit 137
@@ -98,10 +114,20 @@ def launch(tmp_path, backend, *extra, profile="run2_prod", archive=ARCHIVE):
     if archive is not None:
         command.extend(("--env-file", str(archive)))
     command.extend(extra)
-    return subprocess.run(
+    def snapshot():
+        paths = sorted((tmp_path / "output").glob("**/*_campaign_state_v9.json"))
+        return {str(path.relative_to(tmp_path)): json.loads(path.read_text()) for path in paths}
+
+    before = snapshot()
+    result = subprocess.run(
         command,
         cwd=RUN_DIRECTORY, env=backend, capture_output=True, text=True, check=False,
     )
+    evidence = tmp_path / f"invocation_{len(list(tmp_path.glob('invocation_*.json'))):03d}.json"
+    evidence.write_text(json.dumps({"command": command, "returncode": result.returncode,
+                                   "stdout": result.stdout, "stderr": result.stderr,
+                                   "before": before, "after": snapshot()}, indent=2))
+    return result
 
 
 def state_path(tmp_path, profile="run2_prod"):
@@ -484,7 +510,8 @@ def test_manager_prefix_combined_profile_still_rejected(tmp_path, backend):
 
 
 def test_manager_prefix_combined_profile_uses_distinct_child_prefixes(tmp_path, backend):
-    selected_base = "/synthetic-root-backed/selected"
+    selected_base = str(tmp_path / "staging")
+    Path(selected_base).mkdir()
     result = launch(
         tmp_path, backend,
         "--run2-wq-manager-prefix", "top26006-l12-tau5j-run2-c261024-001-",
@@ -932,6 +959,170 @@ def test_combined_selected_dry_run_creates_no_state_or_attempts(tmp_path, backen
     assert result.returncode == 0, result.stdout + result.stderr
     assert not (tmp_path / "output").exists()
     assert not (tmp_path / "source_order.log").exists()
+
+
+@pytest.mark.parametrize("scope", ("run2", "run3"))
+def test_combined_selected_telemetry_then_full_resume(tmp_path, backend, scope):
+    selected = f"{scope}_prod_a"
+    args = ("--phase-telemetry",)
+    first = launch(tmp_path, backend, *args, "--selected-fragment", selected,
+                   profile="run2_run3_prod")
+    assert first.returncode == 0, first.stdout + first.stderr
+    before = combined_states(tmp_path)
+    frozen = next(unit for state in before for unit in state["units"] if unit["id"] == selected)
+    artifacts = {path: (Path(path).read_bytes(), Path(path).stat().st_mtime_ns)
+                 for stage in frozen["stages"].values()
+                 for path in (stage["receipt"]["artifact"]["path"],
+                              stage["receipt"]["artifact"]["path"] + ".metadata.json")}
+    assert all(len(state["units"]) == 5 for state in before)
+    assert (tmp_path / "source_order.log").read_text().splitlines() == [selected]
+    assert "successful_count: 1" in (tmp_path / "output/campaign_summary.md").read_text()
+    for log in ("source_argv.log", "dd_argv.log"):
+        assert "--phase-telemetry" in (tmp_path / log).read_text()
+    for extra in (("--selected-fragment", selected), (), ()):
+        resumed = launch(tmp_path, backend, "--resume", *args, *extra,
+                         profile="run2_run3_prod")
+        assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+        after = combined_states(tmp_path)
+        for old, new in zip(before, after):
+            assert old["plan"] == new["plan"]
+            assert old["scientific_identity"] == new["scientific_identity"]
+            assert old["campaign_identity"] == new["campaign_identity"]
+        assert next(u for s in after for u in s["units"] if u["id"] == selected) == frozen
+        assert all((Path(path).read_bytes(), Path(path).stat().st_mtime_ns) == value
+                   for path, value in artifacts.items())
+    order = (tmp_path / "source_order.log").read_text().splitlines()
+    assert order == [selected] + [f"{s}_prod_{letter}" for s in ("run2", "run3")
+                                  for letter in "abcde" if f"{s}_prod_{letter}" != selected]
+    assert all(manifest.classify(state) == "success" for state in after)
+    assert all(len(stage["attempts"]) == 1 and "--phase-telemetry" in stage["attempts"][0]["command_argv"]
+               for state in after for unit in state["units"] for stage in unit["stages"].values())
+    assert all("--phase-telemetry" in line for line in (tmp_path / "dd_argv.log").read_text().splitlines())
+    assert "final_classification: success" in (tmp_path / "output/campaign_summary.md").read_text()
+
+
+@pytest.mark.parametrize("interruption", ("second_prepare", "prepared", "child_environment"))
+@pytest.mark.parametrize("selected", ("run2_prod_a", "run3_prod_a"))
+def test_combined_resume_completes_only_missing_preparation(tmp_path, backend, interruption, selected):
+    if interruption != "prepared":
+        backend["CAMPAIGN_FAIL_ENV_CALL"] = "2" if interruption == "second_prepare" else "3"
+    first = launch(tmp_path, backend, "--selected-fragment",
+                   "unknown" if interruption == "prepared" else selected, profile="run2_run3_prod")
+    assert first.returncode != 0
+    paths = sorted((tmp_path / "output").glob("**/*_campaign_state_v9.json"))
+    assert len(paths) == (1 if interruption == "second_prepare" else 2)
+    before = {path: json.loads(path.read_text()) for path in paths}
+    assert all(not stage["attempts"] for state in before.values()
+               for unit in state["units"] for stage in unit["stages"].values())
+    backend.pop("CAMPAIGN_FAIL_ENV_CALL", None)
+    resumed = launch(tmp_path, backend, "--resume", "--selected-fragment", selected,
+                     profile="run2_run3_prod")
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    for path, old in before.items():
+        new = manifest.load_state(path)
+        assert old["plan"] == new["plan"]
+        assert old["created_at_utc"] == new["created_at_utc"]
+        assert old["scientific_identity"] == new["scientific_identity"]
+    assert (tmp_path / "source_order.log").read_text().splitlines() == [selected]
+
+
+@pytest.mark.parametrize("scope", ("run2", "run3"))
+@pytest.mark.parametrize("condition", ("known_failure", "running", "lock"))
+def test_combined_selected_checks_sibling_safety(tmp_path, backend, scope, condition):
+    sibling = "run3" if scope == "run2" else "run2"
+    backend["CAMPAIGN_FAIL_UNIT"] = f"{sibling}_prod_a"
+    first = launch(tmp_path, backend, "--selected-fragment", f"{sibling}_prod_a",
+                   profile="run2_run3_prod")
+    assert first.returncode != 0
+    path = tmp_path / "output" / sibling / f".{sibling}_prod_campaign_state_v9.json"
+    state = manifest.load_state(path)
+    if condition == "running":
+        record = state["units"][0]["stages"]["source"]
+        record["status"] = "running"
+        record["attempts"][0].update(result="running", ended_at_utc=None, exit_code=None)
+        manifest.atomic_json(path, state)
+    before = path.read_bytes()
+    selected_path = tmp_path / "output" / scope / f".{scope}_prod_campaign_state_v9.json"
+    selected_before = selected_path.read_bytes()
+    if condition == "known_failure":
+        backend["CAMPAIGN_EXPECT_LOCK_HELD"] = str(path.with_name(f".{sibling}_prod_campaign.lock"))
+    if condition == "lock":
+        with manifest.campaign_lock(path):
+            result = launch(tmp_path, backend, "--resume", "--selected-fragment", f"{scope}_prod_a",
+                            profile="run2_run3_prod")
+    else:
+        result = launch(tmp_path, backend, "--resume", "--selected-fragment", f"{scope}_prod_a",
+                        profile="run2_run3_prod")
+    assert path.read_bytes() == before
+    order = (tmp_path / "source_order.log").read_text().splitlines()
+    if condition == "known_failure":
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert order == [f"{sibling}_prod_a", f"{scope}_prod_a"]
+    else:
+        assert result.returncode != 0
+        assert selected_path.read_bytes() == selected_before
+        assert order == [f"{sibling}_prod_a"]
+
+
+@pytest.mark.parametrize("damage", ("identity", "plan", "environment"))
+def test_combined_prepare_refuses_incompatible_state(tmp_path, backend, damage):
+    prepared = launch(tmp_path, backend, "--selected-fragment", "unknown", profile="run2_run3_prod")
+    assert prepared.returncode != 0
+    path = tmp_path / "output/run2/.run2_prod_campaign_state_v9.json"
+    state = json.loads(path.read_text())
+    if damage == "identity":
+        state["campaign_identity"]["campaign_tag"] = "other"
+    elif damage == "plan":
+        state["plan"]["revisions"][0]["units"][0]["histograms"] = ["other"]
+    else:
+        (tmp_path / "other.tar.gz").write_bytes(b"different environment")
+    if damage != "environment":
+        manifest.atomic_json(path, state)
+    before = path.read_bytes()
+    resumed = launch(tmp_path, backend, "--resume", "--selected-fragment", "run3_prod_a",
+                     profile="run2_run3_prod",
+                     archive=tmp_path / "other.tar.gz" if damage == "environment" else ARCHIVE)
+    assert resumed.returncode != 0
+    if damage == "environment":
+        assert "frozen environment tarball differs" in resumed.stderr
+    assert path.read_bytes() == before
+    assert not (tmp_path / "source_order.log").exists()
+
+
+def test_combined_selected_rejects_duplicate_recorded_owner(tmp_path, backend):
+    prepared = launch(tmp_path, backend, "--selected-fragment", "unknown", profile="run2_run3_prod")
+    assert prepared.returncode != 0
+    path = tmp_path / "output/run3/.run3_prod_campaign_state_v9.json"
+    state = manifest.load_state(path)
+    # A self-consistent recorded plan can use any valid snake_case ID. The
+    # parent must count membership even if a supplied state breaks prefixes.
+    state["units"][0]["id"] = "run2_prod_a"
+    specs = [manifest.unit_spec(unit) for unit in state["units"]]
+    units = [{key: unit[key] for key in ("id", "years", "category_groups", "histograms")}
+             for unit in state["units"]]
+    partition = manifest.plan_partition_sha256(units)
+    state["plan"]["plan_partition_sha256"] = partition
+    state["plan"]["revisions"][0].update(units=specs, partition_sha256=partition,
+                                           snapshot_sha256=manifest.canonical_digest(specs))
+    manifest.atomic_json(path, manifest.validate_state(state))
+    before = [path.read_bytes() for path in sorted((tmp_path / "output").glob("**/*_state_v9.json"))]
+    result = launch(tmp_path, backend, "--resume", "--selected-fragment", "run2_prod_a",
+                    profile="run2_run3_prod")
+    assert result.returncode != 0 and "found 2" in result.stderr
+    assert [path.read_bytes() for path in sorted((tmp_path / "output").glob("**/*_state_v9.json"))] == before
+    assert not (tmp_path / "source_order.log").exists()
+
+
+def test_combined_selected_stat_diagnostic_prepares_sumw2_options(tmp_path, backend):
+    result = launch(tmp_path, backend, "--selected-fragment", "run3_stat_diagnostic_a",
+                    "--phase-telemetry", profile="run2_run3_stat_diagnostic")
+    assert result.returncode == 0, result.stdout + result.stderr
+    for scope in ("run2", "run3"):
+        root = tmp_path / "output" / scope
+        state = manifest.load_state(root / f".{scope}_stat_diagnostic_campaign_state_v9.json")
+        assert len(state["units"]) == 5
+        assert (root / "sumw2_full_diagnostics.yml").read_text() == "sumw2_storage:\n  mode: full_diagnostics\n"
+    assert (tmp_path / "source_order.log").read_text().splitlines() == ["run3_stat_diagnostic_a"]
 
 
 @pytest.mark.parametrize(("profile", "expected_years"), (

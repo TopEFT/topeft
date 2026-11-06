@@ -508,8 +508,9 @@ def test_canonical_pending_identity_binds_control_root_and_attempt(
     assert pending[0].parent.is_dir()
 
 
+@pytest.mark.parametrize("telemetry", (False, True))
 def test_canonical_pending_data_driven_republishes_with_durable_receipt(
-    make_campaign, tmp_path, monkeypatch
+    make_campaign, tmp_path, monkeypatch, telemetry
 ):
     state = make_campaign("run2_stat_diagnostic", histograms=("ptll",))
     unit = state["units"][0]
@@ -521,6 +522,8 @@ def test_canonical_pending_data_driven_republishes_with_durable_receipt(
     command = ("python", "./run_data_driven.py", "--input-pkl",
                unit["stages"]["source"]["receipt"]["artifact"]["path"],
                "--output-pkl", str(final))
+    command += ("--phase-telemetry",) if telemetry else ()
+    command += ("--pkl-no-clobber",)
     manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
     pending = manifest.pending_artifact_path(state, unit, "data_driven")
     original_link = histogram_artifact.os.link
@@ -533,10 +536,9 @@ def test_canonical_pending_data_driven_republishes_with_durable_receipt(
     with monkeypatch.context() as publication_patch:
         publication_patch.setattr(histogram_artifact.os, "link", interrupt_sidecar)
         with pytest.raises(OSError, match="DD publication interruption"):
-            run_data_driven.main(["--input-pkl", unit["outputs"]["source"],
-                                  "--output-pkl", str(final), "--quiet",
-                                  "--pkl-no-clobber", "--pkl-pending-id",
-                                  manifest.pending_artifact_id(state, unit, "data_driven")])
+            run_data_driven.main(list(command[2:]) + [
+                "--pkl-pending-id", manifest.pending_artifact_id(state, unit, "data_driven"),
+            ])
     assert pending.is_file() and final.is_file()
     state_path = tmp_path / "recovery_state.json"
     state_path.write_text(json.dumps(state), encoding="utf-8")
@@ -1212,7 +1214,8 @@ def test_source_scientific_command_change_rejects_recovery(make_campaign):
         manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(command))
 
 
-def test_running_data_driven_with_real_style_lineage_is_reconciled(make_campaign):
+@pytest.mark.parametrize("telemetry", (False, True))
+def test_running_data_driven_with_real_style_lineage_is_reconciled(make_campaign, telemetry):
     state = make_campaign("run2_stat_diagnostic")
     unit = state["units"][0]
     manifest.transition(state, unit["id"], "source", "running", "none", "test", tuple(source_command(state, unit)))
@@ -1220,12 +1223,59 @@ def test_running_data_driven_with_real_style_lineage_is_reconciled(make_campaign
     manifest.transition(state, unit["id"], "source", "ready", "0", "test")
     command = ("python", "./run_data_driven.py", "--input-pkl", unit["outputs"]["source"],
                "--output-pkl", unit["outputs"]["data_driven"])
+    command += ("--phase-telemetry",) if telemetry else ()
     manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", command)
-    run_data_driven.main(["--input-pkl", unit["outputs"]["source"],
-                          "--output-pkl", unit["outputs"]["data_driven"], "--quiet"])
+    run_data_driven.main(list(command[2:]))
     assert manifest.reconcile_running(state)
     assert unit["stages"]["data_driven"]["status"] == "success"
     assert unit["stages"]["data_driven"]["attempts"][0]["result"] == "reconciled_success"
+    output = unit["outputs"]["data_driven"]
+    metadata = json.loads(Path(output + ".metadata.json").read_text())
+    assert metadata["artifact"]["artifact_kind"] == "nonprompt_output"
+    observed = get_hist_from_pkl(output)[scalar_nominal_key("ptll")].view(flow=True, as_dict=True)
+    totals = {process: sum(float(np.asarray(values).sum()) for key, values in observed.items()
+                           if key[0] == process) for process in ("nonpromptUL18", "flipsUL18")}
+    assert totals == {"nonpromptUL18": 7.0, "flipsUL18": 4.0}
+    telemetry_path = Path(output + ".phase_telemetry.jsonl")
+    assert telemetry_path.exists() == telemetry
+    if telemetry:
+        records = [json.loads(line) for line in telemetry_path.read_text().splitlines()]
+        assert records[-1]["phase"] == "dd_published"
+
+
+@pytest.mark.parametrize("telemetry", (False, True))
+@pytest.mark.parametrize("damage", (None, "input", "output", "only_flips", "nominal_reference",
+                                    "unknown", "duplicate_telemetry", "telemetry_value"))
+def test_deferred_command_observability_keeps_scientific_contract(make_campaign, telemetry, damage):
+    state = make_campaign()
+    unit = state["units"][0]
+    manifest.transition(state, unit["id"], "source", "running", "none", "test",
+                        tuple(source_command(state, unit)))
+    write_artifact(unit["outputs"]["source"], state=state, unit=unit)
+    manifest.transition(state, unit["id"], "source", "ready", "0", "test")
+    command = ["python", "./run_data_driven.py", "--input-pkl", unit["outputs"]["source"],
+               "--output-pkl", unit["outputs"]["data_driven"]]
+    if telemetry:
+        command.append("--phase-telemetry")
+    if damage in ("input", "output"):
+        command[command.index("--input-pkl" if damage == "input" else "--output-pkl") + 1] += ".wrong"
+    elif damage:
+        command.extend({"only_flips": ["--only-flips"], "nominal_reference": ["--nominal-only-reference"],
+                        "unknown": ["--unknown"], "duplicate_telemetry": ["--phase-telemetry", "--phase-telemetry"],
+                        "telemetry_value": ["--phase-telemetry", "true"]}[damage])
+    command += ["--pkl-no-clobber", "--pkl-min-free-bytes", "2", "--pkl-min-free-inodes", "4",
+                "--pkl-safety-reserve-bytes", "1", "--pkl-safety-reserve-inodes", "1"]
+    before = json.loads(json.dumps(state))
+    if damage:
+        with pytest.raises(ValueError):
+            manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", tuple(command))
+        assert state == before
+    else:
+        manifest.transition(state, unit["id"], "data_driven", "running", "none", "test", tuple(command))
+        assert unit["stages"]["data_driven"]["attempts"][0]["command_argv"] == command
+        parsed = run_data_driven._build_argument_parser().parse_args(command[2:])
+        assert parsed.phase_telemetry == telemetry
+        assert not parsed.only_flips and not parsed.nominal_only_reference
 
 
 @pytest.mark.parametrize("damage", (

@@ -130,7 +130,8 @@ def test_run_cr_flag_is_forwarded_without_production_execution():
     root = Path(module.__file__).resolve().parents[2]
     source = (root / "analysis/topeft_run2/run_cr.sh").read_text()
     assert "profile_phase_telemetry=false" in source
-    assert "--dry-run|--resume|--phase-telemetry)" in source
+    assert "--dry-run|--phase-telemetry)" in source
+    assert "--resume)" in source
     assert "cmd_ref+=(--phase-telemetry)" in source
     assert "data_driven_cmd+=(--phase-telemetry)" in source
     wrapper = (root / "analysis/topeft_run2/fullR3_run.sh").read_text()

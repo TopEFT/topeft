@@ -477,14 +477,6 @@ prepare_component_campaign() (
   source "${script_dir}/run_cr.sh" "$@" 3>&1 1>&2
 )
 
-component_state_ids() (
-  set -e
-  plan=$(mktemp "${TMPDIR:-/tmp}/component_selection.XXXXXX")
-  trap 'rm -f -- "${plan}"' EXIT
-  python "${script_dir}/campaign_manifest.py" render-active "$1" "${plan}" >/dev/null
-  cut -f1 "${plan}"
-)
-
 if [[ "${combined_profile}" == "true" ]]; then
   if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
     echo "ERROR: --wq-manager-name is unsupported for combined profiles." >&2
@@ -520,7 +512,6 @@ if [[ "${combined_profile}" == "true" ]]; then
         remaining_args=("${remaining_args[@]:2}")
         ;;
       --resume)
-        [[ -n "${profile_selected_fragment}" ]] || component_args+=("${remaining_args[0]}")
         remaining_args=("${remaining_args[@]:1}")
         ;;
       --dry-run|--phase-telemetry)
@@ -540,24 +531,37 @@ if [[ "${combined_profile}" == "true" ]]; then
   run3_profile="run3_${profile_mode}${combined_suffix}"
   run2_root="${output_dir}/run2${combined_suffix}"
   run3_root="${output_dir}/run3${combined_suffix}"
-  if [[ -n "${profile_selected_fragment}" ]]; then
-    run2_state="${run2_root}/.${run2_profile}_campaign_state_v9.json"
-    run3_state="${run3_root}/.${run3_profile}_campaign_state_v9.json"
-    if [[ "${profile_resume}" == "false" ]]; then
-      run2_ids=$(prepare_component_campaign --production-profile "${run2_profile}" \
-        --output-dir "${run2_root}" --campaign-tag "${campaign_tag}_run2" \
-        "${component_args[@]}" "${run2_manager_args[@]}")
-      run3_ids=$(prepare_component_campaign --production-profile "${run3_profile}" \
-        --output-dir "${run3_root}" --campaign-tag "${campaign_tag}_run3" \
-        "${component_args[@]}" "${run3_manager_args[@]}")
-    else
-      if [[ ! -f "${run2_state}" || ! -f "${run3_state}" ]]; then
-        echo "ERROR: selected resume requires both component campaign states." >&2
+  run2_state="${run2_root}/.${run2_profile}_campaign_state_v9.json"
+  run3_state="${run3_root}/.${run3_profile}_campaign_state_v9.json"
+  # Validate a present component through its native preparation path; create
+  # only an absent component. A directory without state is never silent fresh.
+  for scope in run2 run3; do
+    root_variable="${scope}_root"
+    profile_variable="${scope}_profile"
+    prepare_resume_args=()
+    if [[ -e "${!root_variable}" || -L "${!root_variable}" ]]; then
+      if [[ -L "${!root_variable}" ]]; then
+        echo "ERROR: component campaign directory is a symbolic link." >&2
         exit 1
       fi
-      run2_ids=$(component_state_ids "${run2_state}")
-      run3_ids=$(component_state_ids "${run3_state}")
+      prepare_resume_args=(--resume)
     fi
+    prepare_manager_args=()
+    if [[ "${scope}" == "run2" ]]; then
+      prepare_manager_args=("${run2_manager_args[@]}")
+    else
+      prepare_manager_args=("${run3_manager_args[@]}")
+    fi
+    ids=$(prepare_component_campaign --production-profile "${!profile_variable}" \
+      --output-dir "${!root_variable}" --campaign-tag "${campaign_tag}_${scope}" \
+      "${component_args[@]}" "${prepare_manager_args[@]}" "${prepare_resume_args[@]}")
+    printf -v "${scope}_ids" '%s' "${ids}"
+  done
+  child_resume_args=(--resume)
+  if [[ "${profile_dry_run}" == "true" && "${profile_resume}" == "false" ]]; then
+    child_resume_args=()
+  fi
+  if [[ -n "${profile_selected_fragment}" ]]; then
     selected_owners=0
     selected_scope=""
     for scope in run2 run3; do
@@ -581,14 +585,30 @@ if [[ "${combined_profile}" == "true" ]]; then
     else
       selected_manager_args=("${run3_manager_args[@]}")
     fi
-    selected_resume_args=(--resume)
-    # A fresh dry-run has no persisted state and remains a native dry-run.
-    if [[ "${profile_dry_run}" == "true" && "${profile_resume}" == "false" ]]; then
-      selected_resume_args=()
+    if [[ "${profile_dry_run}" == "false" ]]; then
+      sibling_scope=run2
+      [[ "${selected_scope}" != "run2" ]] || sibling_scope=run3
+      sibling_root_variable="${sibling_scope}_root"
+      sibling_profile_variable="${sibling_scope}_profile"
+      sibling_state_variable="${sibling_scope}_state"
+      sibling_lock="${!sibling_root_variable}/.${!sibling_profile_variable}_campaign.lock"
+      if [[ -L "${sibling_lock}" ]]; then
+        echo "ERROR: campaign writer lock path is a symbolic link." >&2
+        exit 1
+      fi
+      # Retain exclusion through the selected child and summary, then derive
+      # safety from the native state classification without reconciling it.
+      exec {sibling_lock_fd}>> "${sibling_lock}"
+      flock -n "${sibling_lock_fd}" || { echo "ERROR: campaign writer lock is held." >&2; exit 1; }
+      sibling_classification=$(python "${script_dir}/campaign_manifest.py" classification "${!sibling_state_variable}")
+      if [[ "${sibling_classification}" == "blocked_ambiguous" ]]; then
+        echo "ERROR: nonselected component has a running attempt; selected child was not started." >&2
+        exit 1
+      fi
     fi
     if "$0" --production-profile "${!selected_profile_variable}" \
       --output-dir "${!selected_root_variable}" --campaign-tag "${campaign_tag}_${selected_scope}" \
-      "${component_args[@]}" "${selected_manager_args[@]}" "${selected_resume_args[@]}" \
+      "${component_args[@]}" "${selected_manager_args[@]}" "${child_resume_args[@]}" \
       --selected-fragment "${profile_selected_fragment}"; then
       selected_exit=0
     else
@@ -605,7 +625,7 @@ if [[ "${combined_profile}" == "true" ]]; then
     exit "${selected_exit}"
   fi
   if "$0" --production-profile "${run2_profile}" --output-dir "${run2_root}" \
-    --campaign-tag "${campaign_tag}_run2" "${component_args[@]}" "${run2_manager_args[@]}"; then
+    --campaign-tag "${campaign_tag}_run2" "${component_args[@]}" "${run2_manager_args[@]}" "${child_resume_args[@]}"; then
     run2_exit=0
   else
     run2_exit=$?
@@ -623,7 +643,7 @@ if [[ "${combined_profile}" == "true" ]]; then
     fi
   fi
   if "$0" --production-profile "${run3_profile}" --output-dir "${run3_root}" \
-    --campaign-tag "${campaign_tag}_run3" "${component_args[@]}" "${run3_manager_args[@]}"; then
+    --campaign-tag "${campaign_tag}_run3" "${component_args[@]}" "${run3_manager_args[@]}" "${child_resume_args[@]}"; then
     run3_exit=0
   else
     run3_exit=$?
@@ -1180,6 +1200,11 @@ prepare_production_campaign() {
     fi
   fi
   validate_wq_manager_name_scope
+  # Preparation validates existing state under the same native lock but never
+  # reconciles or changes attempt provenance before execution is selected.
+  if [[ "${production_prepare_only:-false}" == "true" && "${profile_resume}" == "true" ]]; then
+    return
+  fi
   if [[ "${dry_run}" == "false" ]]; then
     if [[ "${profile_resume}" == "true" ]]; then
       if [[ -n "${profile_wq_staging_base}" ]]; then
@@ -2036,11 +2061,11 @@ esac
 
 trap cleanup_production_plan EXIT
 prepare_production_campaign
+prepare_production_sumw2_options
 if [[ "${production_prepare_only:-false}" == "true" ]]; then
   printf '%s\n' "${production_block_ids[@]}" >&3
   exit 0
 fi
-prepare_production_sumw2_options
 
 ###############################################################################
 # Execute the selected unit from the complete state-owned plan

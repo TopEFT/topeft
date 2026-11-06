@@ -979,6 +979,11 @@ def data_driven_command_artifact_kind(unit, command):
         "--input-pkl", unit["stages"]["source"]["receipt"]["artifact"]["path"],
         "--output-pkl", output_values[0],
     ]
+    # The ordinary consumer accepts this no-value observability switch before
+    # the output-safety suffix. Exact comparison still rejects duplicates,
+    # unknown options and switches selecting a different scientific product.
+    if "--phase-telemetry" in command:
+        expected.append("--phase-telemetry")
     policy_suffix = ["--pkl-no-clobber"] if "--pkl-no-clobber" in command else []
     for option in ("--pkl-min-free-bytes", "--pkl-min-free-inodes",
                    "--pkl-safety-reserve-bytes", "--pkl-safety-reserve-inodes"):
