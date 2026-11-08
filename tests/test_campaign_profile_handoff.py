@@ -28,6 +28,24 @@ RUN_ANALYSIS = RUN_DIRECTORY / "run_analysis.py"
 ARCHIVE = RUN_DIRECTORY / "topeft-envs" / "env_spec_1707ade2a411bb14.tar.gz"
 
 
+def test_native_tree_reduction_interface_accepts_run2_t50():
+    """Execute the actual argument declaration without launching a manager."""
+    import argparse
+    import ast
+    tree = ast.parse(RUN_ANALYSIS.read_text())
+    declaration = next(n for n in ast.walk(tree) if isinstance(n, ast.Expr)
+                       and isinstance(n.value, ast.Call) and n.value.args
+                       and isinstance(n.value.args[0], ast.Constant)
+                       and n.value.args[0].value == '--wq-treereduction')
+    parser = argparse.ArgumentParser()
+    exec(compile(ast.Module(body=[declaration], type_ignores=[]), 'native_treereduction', 'exec'),
+         {'parser': parser})
+    assert parser.parse_args(['--wq-treereduction', '50']).wq_treereduction == 50
+    assert parser.parse_args(['--wq-treereduction', '20']).wq_treereduction == 20
+    with pytest.raises(SystemExit):
+        parser.parse_args(['--wq-treereduction', '21'])
+
+
 @pytest.fixture
 def backend(tmp_path):
     script = tmp_path / "synthetic_backend.sh"

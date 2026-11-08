@@ -137,7 +137,9 @@ def _persist_task_phase_telemetry(task, path):
               "cpu_elapsed_ns", "rss_mib", "peak_rss_mib")
     extra_fields = ("event_count", "syst_var", "iteration_index", "syst_var_list_len",
                     "iteration_entered_count", "iteration_completed_count",
-                    "family", "wgt_fluct", "nlep_cat") + analysis_processor._IterationTelemetry.fields
+                    "family", "wgt_fluct", "nlep_cat", "operation", "parent_operation",
+                    "inclusive_wall_ns", "inclusive_cpu_ns", "exclusive_wall_ns",
+                    "exclusive_cpu_ns", "calls", "failures") + analysis_processor._IterationTelemetry.fields
     try:
         with open(task.outfile_stdout, encoding="utf-8", errors="replace") as source:
             sink = None
@@ -1286,7 +1288,7 @@ if __name__ == "__main__":
     parser.add_argument("--wq-stop-bytes", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--wq-reserve-bytes", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--wq-poll-seconds", type=float)
-    parser.add_argument("--wq-treereduction", type=int, choices=(5, 10, 20))
+    parser.add_argument("--wq-treereduction", type=int, choices=(5, 10, 20, 50))
     parser.add_argument("--wq-processing-cores", type=int, choices=(1,),
                         help="Opt in to a one-core processing-category reservation maximum")
     parser.add_argument("--wq-accumulating-memory-mb", type=int,
