@@ -2,15 +2,19 @@
 
 import hashlib
 import copy
+import fcntl
 import importlib.util
 import json
 import os
 import shutil
+import select
+import shlex
 import stat
 import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from contextlib import contextmanager
 
 import pytest
 
@@ -60,6 +64,13 @@ if [[ "$action" == run_block ]]; then
   printf '%s\\n' "$unit" >> "$CAMPAIGN_VALIDATION_ROOT/source_order.log"
   if [[ -n "${CAMPAIGN_EXPECT_LOCK_HELD:-}" ]]; then
     if flock -n "$CAMPAIGN_EXPECT_LOCK_HELD" true; then exit 72; fi
+  fi
+  if [[ -n "${CAMPAIGN_EXPECT_LOCK_FREE:-}" ]]; then
+    flock -n "$CAMPAIGN_EXPECT_LOCK_FREE" true || exit 72
+  fi
+  if [[ "$unit" == "${CAMPAIGN_GATE_UNIT:-}" ]]; then
+    printf '%s\\n' "$BASHPID" > "$CAMPAIGN_GATE_ROOT/ready"
+    read -r release < "$CAMPAIGN_GATE_ROOT/release"
   fi
   mkdir -p "$logs"
   if [[ "$unit" == "${CAMPAIGN_FAIL_UNIT:-}" \
@@ -132,6 +143,75 @@ def launch(tmp_path, backend, *extra, profile="run2_prod", archive=ARCHIVE):
 
 def state_path(tmp_path, profile="run2_prod"):
     return tmp_path / "output" / f".{profile}_campaign_state_v9.json"
+
+
+@contextmanager
+def gated_process(tmp_path, environment, command, name):
+    """A private FIFO gate; always release and join before fixture teardown."""
+    gate_root = tmp_path / name
+    gate_root.mkdir()
+    for fifo in ("ready", "release"):
+        os.mkfifo(gate_root / fifo, 0o600)
+    ready_fd = os.open(gate_root / "ready", os.O_RDWR | os.O_NONBLOCK)
+    release_fd = os.open(gate_root / "release", os.O_RDWR)
+    environment = dict(environment, CAMPAIGN_GATE_ROOT=str(gate_root))
+    with (gate_root / "stdout").open("w") as stdout, (gate_root / "stderr").open("w") as stderr:
+        process = subprocess.Popen(command, cwd=RUN_DIRECTORY, env=environment,
+                                   stdout=stdout, stderr=stderr)
+        try:
+            assert select.select([ready_fd], [], [], 300)[0], gate_root
+            child_pid = int(os.read(ready_fd, 128).strip())
+            yield process, child_pid, gate_root
+        finally:
+            os.write(release_fd, b"release\n")
+            try:
+                process.wait(timeout=300)
+            finally:
+                os.close(ready_fd)
+                os.close(release_fd)
+
+
+def lock_is_free(path):
+    with path.open("a") as stream:
+        try:
+            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return False
+        return True
+
+
+def process_fd_targets(pid):
+    targets = set()
+    for fd in Path(f"/proc/{pid}/fd").iterdir():
+        try:
+            targets.add(os.readlink(fd))
+        except FileNotFoundError:
+            pass
+    return targets
+
+
+def summary_shell(tmp_path, extra="", invocation="publish_combined_summary"):
+    """Execute the actual maintained helper, including inside an if context."""
+    source = RUN_CR.read_text()
+    definition = "publish_combined_summary() (" + source.split(
+        "publish_combined_summary() (", 1
+    )[1].split("\n)\n", 1)[0] + "\n)\n"
+    values = {"script_dir": str(RUN_DIRECTORY), "output_dir": str(tmp_path),
+              "production_profile": "run2_run3_prod", "campaign_tag": "synthetic",
+              "run2_profile": "run2_prod", "run3_profile": "run3_prod",
+              "run2_exit": "0", "run3_exit": "0"}
+    for scope in ("run2", "run3"):
+        root = tmp_path / scope
+        root.mkdir(exist_ok=True)
+        values[f"{scope}_root"] = str(root)
+        values[f"{scope}_state"] = str(root / f".{scope}_prod_campaign_state_v9.json")
+    setup = "\n".join(f"{key}={shlex.quote(value)}" for key, value in values.items())
+    return ["/bin/bash", "--noprofile", "--norc", "-c",
+            "set -euo pipefail\n" + setup + "\n" + definition + extra + "\n" + invocation]
+
+
+def component_lock(tmp_path, scope):
+    return tmp_path / scope / f".{scope}_prod_campaign.lock"
 
 
 def test_nominal_manager_name_default_and_exact_override(monkeypatch):
@@ -1045,7 +1125,7 @@ def test_combined_selected_checks_sibling_safety(tmp_path, backend, scope, condi
     selected_path = tmp_path / "output" / scope / f".{scope}_prod_campaign_state_v9.json"
     selected_before = selected_path.read_bytes()
     if condition == "known_failure":
-        backend["CAMPAIGN_EXPECT_LOCK_HELD"] = str(path.with_name(f".{sibling}_prod_campaign.lock"))
+        backend["CAMPAIGN_EXPECT_LOCK_FREE"] = str(path.with_name(f".{sibling}_prod_campaign.lock"))
     if condition == "lock":
         with manifest.campaign_lock(path):
             result = launch(tmp_path, backend, "--resume", "--selected-fragment", f"{scope}_prod_a",
@@ -1967,3 +2047,255 @@ def test_accumulating_minimum_composes_after_category_declarations(monkeypatch):
         ("max", "processing", {"cores": 1}),
         ("min", "accumulating", {"memory": 80000, "cores": 2}),
     ]
+
+
+def test_selected_run3_and_native_run2_own_distinct_locks(tmp_path, backend):
+    prepared = launch(tmp_path, backend, "--selected-fragment", "unknown",
+                      profile="run2_run3_prod")
+    assert prepared.returncode != 0 and "found 0" in prepared.stderr
+    root = tmp_path / "output"
+    states = {s: root / s / f".{s}_prod_campaign_state_v9.json" for s in ("run2", "run3")}
+    run2_before = states["run2"].read_bytes()
+    old_summaries = {root / f"campaign_summary.{suffix}": b"previous summary\n"
+                     for suffix in ("tsv", "md")}
+    for path, data in old_summaries.items():
+        path.write_bytes(data)
+
+    def command(scope):
+        return [str(RUN_CR), "--production-profile", f"{scope}_prod", "--output-dir",
+                str(root / scope), "--campaign-tag", f"synthetic_{scope}", "--env-file",
+                str(ARCHIVE), "--resume", "--selected-fragment", f"{scope}_prod_a"]
+
+    combined = [str(RUN_CR), "--production-profile", "run2_run3_prod", "--output-dir",
+                str(root), "--campaign-tag", "synthetic", "--env-file", str(ARCHIVE),
+                "--resume", "--selected-fragment", "run3_prod_a"]
+    with gated_process(tmp_path, dict(backend, CAMPAIGN_GATE_UNIT="run3_prod_a"),
+                       combined, "run3_gate") as (parent, child_pid, gate):
+        run2_lock, run3_lock = (component_lock(root, s) for s in ("run2", "run3"))
+        assert states["run2"].read_bytes() == run2_before
+        assert lock_is_free(run2_lock) and not lock_is_free(run3_lock)
+        assert str(run2_lock) not in process_fd_targets(parent.pid)
+        # Walk the actual backend -> selected component -> combined parent chain.
+        pid = child_pid
+        observed_selected = False
+        while pid != parent.pid:
+            targets = process_fd_targets(pid)
+            assert str(run2_lock) not in targets
+            assert str(run3_lock) in targets
+            environment = Path(f"/proc/{pid}/environ").read_bytes().split(b"\0")
+            assert not any(item.startswith(b"CAMPAIGN_LOCK_FD=") for item in environment)
+            argv = Path(f"/proc/{pid}/cmdline").read_bytes()
+            observed_selected |= b"run_cr.sh" in argv and b"run3_prod" in argv
+            pid = int(Path(f"/proc/{pid}/status").read_text().split("PPid:\t")[1].splitlines()[0])
+        assert observed_selected
+        run3_active = states["run3"].read_bytes()
+        contender = subprocess.run(command("run3"), cwd=RUN_DIRECTORY, env=backend,
+                                   capture_output=True, text=True, timeout=300)
+        assert contender.returncode != 0 and "writer lock is held" in contender.stderr
+        assert states["run3"].read_bytes() == run3_active
+        with gated_process(tmp_path, dict(backend, CAMPAIGN_GATE_UNIT="run2_prod_a"),
+                           command("run2"), "run2_gate") as (run2, run2_pid, _):
+            assert parent.poll() is None and run2.poll() is None
+            assert not lock_is_free(run2_lock) and not lock_is_free(run3_lock)
+            assert str(run2_lock) in process_fd_targets(run2_pid)
+            assert str(run3_lock) not in process_fd_targets(run2_pid)
+            assert states["run3"].read_bytes() == run3_active
+        assert run2.returncode == 0
+        assert lock_is_free(run2_lock) and not lock_is_free(run3_lock)
+        assert states["run3"].read_bytes() == run3_active
+        run2_after = states["run2"].read_bytes()
+        # Contention introduced after admission must defer only the parent report.
+        with manifest.campaign_lock(states["run2"]):
+            with (gate / "release").open("w") as release:
+                release.write("release\n")
+            assert parent.wait(timeout=300) == 0
+            assert "derived combined summary deferred" in (gate / "stderr").read_text()
+            assert all(path.read_bytes() == data for path, data in old_summaries.items())
+        assert states["run2"].read_bytes() == run2_after
+    assert lock_is_free(run2_lock) and lock_is_free(run3_lock)
+    assert manifest.overall_status(manifest.load_state(states["run3"])["units"][0]) == "success"
+
+
+@pytest.mark.parametrize("parent_exits", (False, True))
+def test_sibling_admission_closes_before_child_and_parent_exit(tmp_path, parent_exits):
+    root = tmp_path / "run2"
+    root.mkdir()
+    source = RUN_CR.read_text()
+    admission = source.split('      (\n        sibling_scope=run2', 1)[1].split(
+        '\n    if "$0" --production-profile "${!selected_profile_variable}"', 1
+    )[0]
+    admission = '      (\n        sibling_scope=run2' + admission.rsplit('\n    fi', 1)[0]
+    sibling = root / ".run2_prod_campaign.lock"
+    own = tmp_path / ".run3_prod_campaign.lock"
+    read_fd, write_fd = os.pipe()
+    child = ('exec {own_fd}>>"$1"; flock -n "$own_fd" || exit 20; '
+             'printf "ready\\n"; read -r -u "$2" release; printf "child_done\\n"')
+    setup = (f"selected_scope=run3\nrun2_root={shlex.quote(str(root))}\n"
+             "run2_profile=run2_prod\nrun2_state=unused\nscript_dir=unused\n"
+             "python() { printf 'planned\\n'; }\n")
+    invocation = shlex.join(["/bin/bash", "--noprofile", "--norc", "-c", child,
+                             "fd_child", str(own), str(read_fd)])
+    tail = invocation + (" &\nexit 0" if parent_exits else '\nprintf "parent_alive\\n"; read -r -u ' + str(read_fd) + ' release')
+    process = subprocess.Popen(["/bin/bash", "-c", "set -euo pipefail\n" + setup + admission + "\n" + tail],
+                               pass_fds=(read_fd,), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    os.close(read_fd)
+    try:
+        assert select.select([process.stdout], [], [], 30)[0]
+        assert process.stdout.readline() == "ready\n"
+        assert lock_is_free(sibling) and not lock_is_free(own)
+        if parent_exits:
+            assert process.wait(timeout=30) == 0
+        os.write(write_fd, b"release\n")
+        assert process.stdout.readline() == "child_done\n"
+        if not parent_exits:
+            assert process.stdout.readline() == "parent_alive\n"
+            assert process.poll() is None
+            assert lock_is_free(sibling) and lock_is_free(own)
+            os.write(write_fd, b"release\n")
+        stdout, stderr = process.communicate(timeout=30)
+        assert process.returncode == 0 and not stderr and not stdout
+        assert lock_is_free(sibling) and lock_is_free(own)
+    finally:
+        os.close(write_fd)
+
+
+@pytest.mark.parametrize("scope", ("run2", "run3"))
+def test_combined_summary_contention_defers_both_and_releases(tmp_path, scope):
+    command = summary_shell(tmp_path)
+    old = {tmp_path / f"campaign_summary.{suffix}": b"old\n" for suffix in ("tsv", "md")}
+    for path, data in old.items():
+        path.write_bytes(data)
+    with component_lock(tmp_path, scope).open("a") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0
+        assert f"component-lock contention ({scope})" in result.stderr
+        assert all(path.read_bytes() == data for path, data in old.items())
+        other = "run3" if scope == "run2" else "run2"
+        assert lock_is_free(component_lock(tmp_path, other))
+    assert all(lock_is_free(component_lock(tmp_path, s)) for s in ("run2", "run3"))
+
+
+@pytest.mark.parametrize("scope", ("run2", "run3"))
+@pytest.mark.parametrize("damage", ("symlink", "open", "flock", "state", "io"))
+def test_combined_summary_real_errors_propagate_in_conditional_context(tmp_path, scope, damage):
+    extra = ""
+    command = summary_shell(tmp_path)
+    lock = component_lock(tmp_path, scope)
+    old_tsv = tmp_path / "campaign_summary.tsv"
+    old_tsv.write_text("old\n")
+    if damage == "symlink":
+        lock.symlink_to(tmp_path / "outside")
+    elif damage == "open":
+        lock.mkdir()
+    elif damage == "flock":
+        extra = f'''flock() {{
+  if [[ "$(readlink /proc/$BASHPID/fd/"${{@: -1}}")" == {shlex.quote(str(lock))} ]]; then
+    return 74
+  fi
+  command flock "$@"
+}}'''
+    elif damage == "state":
+        (tmp_path / scope / f".{scope}_prod_campaign_state_v9.json").write_text("invalid json")
+    else:
+        # Exercise both atomic replacements; failure of the second can leave the
+        # first updated. The maintained summary pair is deliberately nontransactional.
+        target = tmp_path / ("campaign_summary.tsv" if scope == "run2" else "campaign_summary.md")
+        if target.exists():
+            target.unlink()
+        target.mkdir()
+    command = summary_shell(tmp_path, extra,
+                            'if publish_combined_summary; then exit 0; else exit "$?"; fi')
+    result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+    assert result.returncode != 0 and result.stderr
+    assert "deferred" not in result.stderr
+    if damage == "flock":
+        assert result.returncode == 74
+    if damage != "io":
+        assert old_tsv.read_text() == "old\n"
+    for other in ("run2", "run3"):
+        if other != scope or damage not in ("symlink", "open"):
+            assert lock_is_free(component_lock(tmp_path, other))
+
+
+def test_combined_summary_success_releases_both_locks(tmp_path):
+    result = subprocess.run(summary_shell(tmp_path), capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, result.stderr
+    assert "completed_with_component_blockers" in (tmp_path / "campaign_summary.md").read_text()
+    assert "not_attempted" in (tmp_path / "campaign_summary.tsv").read_text()
+    assert all(lock_is_free(component_lock(tmp_path, s)) for s in ("run2", "run3"))
+
+
+def test_competing_combined_summary_writers_share_order_and_do_not_interleave(tmp_path, backend):
+    extra = r'''
+flock() {
+  local result=0
+  command flock "$@" || result=$?
+  printf '%s %s %s\n' "$writer" "$(readlink /proc/$BASHPID/fd/"${@: -1}")" "$result" >> "$output_dir/order"
+  return "$result"
+}
+python() {
+  printf '%s enter\n' "$writer" >> "$output_dir/events"
+  printf '%s\n' "$writer" > "$output_dir/campaign_summary.tsv"
+  if [[ "$writer" == first ]]; then
+    printf '%s\n' "$BASHPID" > "$CAMPAIGN_GATE_ROOT/ready"
+    read -r release < "$CAMPAIGN_GATE_ROOT/release"
+  fi
+  printf '%s\n' "$writer" > "$output_dir/campaign_summary.md"
+  printf '%s exit\n' "$writer" >> "$output_dir/events"
+}
+'''
+    command = summary_shell(tmp_path, "writer=first\n" + extra)
+    with gated_process(tmp_path, backend, command, "summary_gate") as (first, _, _):
+        assert all(not lock_is_free(component_lock(tmp_path, s)) for s in ("run2", "run3"))
+        second = subprocess.run(summary_shell(tmp_path, "writer=second\n" + extra),
+                                capture_output=True, text=True, timeout=30)
+        assert second.returncode == 0 and "contention (run2)" in second.stderr
+        assert (tmp_path / "events").read_text().splitlines() == ["first enter"]
+        assert (tmp_path / "campaign_summary.tsv").read_text() == "first\n"
+        assert not (tmp_path / "campaign_summary.md").exists()
+    assert first.returncode == 0
+    third = subprocess.run(summary_shell(tmp_path, "writer=third\n" + extra),
+                           capture_output=True, text=True, timeout=30)
+    assert third.returncode == 0, third.stderr
+    assert (tmp_path / "events").read_text().splitlines() == [
+        "first enter", "first exit", "third enter", "third exit"]
+    assert (tmp_path / "order").read_text().splitlines() == [
+        f"first {component_lock(tmp_path, 'run2')} 0",
+        f"first {component_lock(tmp_path, 'run3')} 0",
+        f"second {component_lock(tmp_path, 'run2')} 75",
+        f"third {component_lock(tmp_path, 'run2')} 0",
+        f"third {component_lock(tmp_path, 'run3')} 0"]
+    assert all((tmp_path / f"campaign_summary.{s}").read_text() == "third\n" for s in ("tsv", "md"))
+    assert all(lock_is_free(component_lock(tmp_path, s)) for s in ("run2", "run3"))
+
+
+@pytest.mark.parametrize("ambiguous", (False, True))
+def test_combined_incomplete_resume_keeps_run2_before_run3(tmp_path, backend, ambiguous):
+    backend["CAMPAIGN_FAIL_UNIT"] = "run2_prod_a"
+    first = launch(tmp_path, backend, "--selected-fragment", "run2_prod_a",
+                   profile="run2_run3_prod")
+    assert first.returncode != 0
+    before = combined_states(tmp_path)
+    if ambiguous:
+        path = tmp_path / "output/run2/.run2_prod_campaign_state_v9.json"
+        state = manifest.load_state(path)
+        record = state["units"][0]["stages"]["source"]
+        record["status"] = "running"
+        record["attempts"][0].update(result="running", ended_at_utc=None, exit_code=None)
+        manifest.atomic_json(path, state)
+        Path(state["units"][0]["outputs"]["source"]).write_bytes(b"ambiguous output")
+    else:
+        backend.pop("CAMPAIGN_FAIL_UNIT")
+    result = launch(tmp_path, backend, "--resume", profile="run2_run3_prod")
+    after = combined_states(tmp_path)
+    order = (tmp_path / "source_order.log").read_text().splitlines()
+    if ambiguous:
+        assert result.returncode != 0 and "Run 3 was not started" in result.stderr
+        assert after[1] == before[1]
+        assert order == ["run2_prod_a"]
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert order == ["run2_prod_a"] + [f"{scope}_prod_{letter}" for scope in ("run2", "run3") for letter in "abcde"]
+        assert all(manifest.classify(state) == "success" for state in after)
+        assert all(old["plan"] == new["plan"] for old, new in zip(before, after))

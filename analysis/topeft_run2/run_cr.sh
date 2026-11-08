@@ -477,6 +477,45 @@ prepare_component_campaign() (
   source "${script_dir}/run_cr.sh" "$@" 3>&1 1>&2
 )
 
+# Publish a derived snapshot only while both native component writers are idle.
+# The subshell closes every acquired descriptor, including on partial acquisition.
+# These remain two atomic file replacements, not a transactional pair.
+publish_combined_summary() (
+  local scope root_variable profile_variable summary_lock_path summary_lock_fd
+  local summary_lock_status
+  for scope in run2 run3; do
+    root_variable="${scope}_root"
+    profile_variable="${scope}_profile"
+    summary_lock_path="${!root_variable}/.${!profile_variable}_campaign.lock"
+    if [[ -L "${summary_lock_path}" ]]; then
+      echo "ERROR: campaign writer lock path is a symbolic link." >&2
+      exit 1
+    fi
+  done
+  # Fixed Run2 -> Run3 order for every cooperating frontend summary writer.
+  for scope in run2 run3; do
+    root_variable="${scope}_root"
+    profile_variable="${scope}_profile"
+    summary_lock_path="${!root_variable}/.${!profile_variable}_campaign.lock"
+    exec {summary_lock_fd}>> "${summary_lock_path}" || exit "$?"
+    if flock -n -E 75 "${summary_lock_fd}"; then
+      :
+    else
+      summary_lock_status=$?
+      if (( summary_lock_status == 75 )); then
+        echo "WARNING: derived combined summary deferred because of component-lock contention (${scope})." >&2 || exit "$?"
+        exit 0
+      fi
+      echo "ERROR: component summary lock acquisition failed (${scope}, exit ${summary_lock_status})." >&2
+      exit "${summary_lock_status}"
+    fi
+  done
+  # Guard explicitly: callers may run this helper in a conditional shell context.
+  python "${script_dir}/campaign_manifest.py" combined-summary \
+    "${production_profile}" "${campaign_tag}" "${output_dir}" \
+    "${run2_state}" "${run3_state}" "${run2_exit}" "${run3_exit}" || exit "$?"
+)
+
 if [[ "${combined_profile}" == "true" ]]; then
   if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
     echo "ERROR: --wq-manager-name is unsupported for combined profiles." >&2
@@ -586,25 +625,27 @@ if [[ "${combined_profile}" == "true" ]]; then
       selected_manager_args=("${run3_manager_args[@]}")
     fi
     if [[ "${profile_dry_run}" == "false" ]]; then
-      sibling_scope=run2
-      [[ "${selected_scope}" != "run2" ]] || sibling_scope=run3
-      sibling_root_variable="${sibling_scope}_root"
-      sibling_profile_variable="${sibling_scope}_profile"
-      sibling_state_variable="${sibling_scope}_state"
-      sibling_lock="${!sibling_root_variable}/.${!sibling_profile_variable}_campaign.lock"
-      if [[ -L "${sibling_lock}" ]]; then
-        echo "ERROR: campaign writer lock path is a symbolic link." >&2
-        exit 1
-      fi
-      # Retain exclusion through the selected child and summary, then derive
-      # safety from the native state classification without reconciling it.
-      exec {sibling_lock_fd}>> "${sibling_lock}"
-      flock -n "${sibling_lock_fd}" || { echo "ERROR: campaign writer lock is held." >&2; exit 1; }
-      sibling_classification=$(python "${script_dir}/campaign_manifest.py" classification "${!sibling_state_variable}")
-      if [[ "${sibling_classification}" == "blocked_ambiguous" ]]; then
-        echo "ERROR: nonselected component has a running attempt; selected child was not started." >&2
-        exit 1
-      fi
+      (
+        sibling_scope=run2
+        [[ "${selected_scope}" != "run2" ]] || sibling_scope=run3
+        sibling_root_variable="${sibling_scope}_root"
+        sibling_profile_variable="${sibling_scope}_profile"
+        sibling_state_variable="${sibling_scope}_state"
+        sibling_lock="${!sibling_root_variable}/.${!sibling_profile_variable}_campaign.lock"
+        if [[ -L "${sibling_lock}" ]]; then
+          echo "ERROR: campaign writer lock path is a symbolic link." >&2
+          exit 1
+        fi
+        # Point-in-time admission only: the completed subshell closes the sibling
+        # descriptor before the selected child can inherit it. No reconciliation.
+        exec {sibling_lock_fd}>> "${sibling_lock}" || exit "$?"
+        flock -n "${sibling_lock_fd}" || { echo "ERROR: campaign writer lock is held." >&2; exit 1; }
+        sibling_classification=$(python "${script_dir}/campaign_manifest.py" classification "${!sibling_state_variable}") || exit "$?"
+        if [[ "${sibling_classification}" == "blocked_ambiguous" ]]; then
+          echo "ERROR: nonselected component has a running attempt; selected child was not started." >&2
+          exit 1
+        fi
+      )
     fi
     if "$0" --production-profile "${!selected_profile_variable}" \
       --output-dir "${!selected_root_variable}" --campaign-tag "${campaign_tag}_${selected_scope}" \
@@ -618,9 +659,7 @@ if [[ "${combined_profile}" == "true" ]]; then
       run2_exit=0
       run3_exit=0
       printf -v "${selected_scope}_exit" '%s' "${selected_exit}"
-      python "${script_dir}/campaign_manifest.py" combined-summary \
-        "${production_profile}" "${campaign_tag}" "${output_dir}" \
-        "${run2_state}" "${run3_state}" "${run2_exit}" "${run3_exit}"
+      publish_combined_summary
     fi
     exit "${selected_exit}"
   fi
@@ -649,10 +688,7 @@ if [[ "${combined_profile}" == "true" ]]; then
     run3_exit=$?
   fi
   if [[ "${profile_dry_run}" == "false" ]]; then
-    python "${script_dir}/campaign_manifest.py" combined-summary \
-      "${production_profile}" "${campaign_tag}" "${output_dir}" \
-      "${run2_state}" "${run3_root}/.${run3_profile}_campaign_state_v9.json" \
-      "${run2_exit}" "${run3_exit}"
+    publish_combined_summary
   fi
   (( run2_exit == 0 && run3_exit == 0 ))
   exit $?
