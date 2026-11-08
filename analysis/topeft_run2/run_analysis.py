@@ -108,7 +108,7 @@ def _resolve_wq_manager_name(override, executor_name, outname):
 def _configure_wq_categories(queue, processing_cores=None, accumulating_memory_mb=None, accumulating_cores=None,
                              admission_base=None, admission_quota_root=None,
                              admission_warning_bytes=None, admission_min_free_bytes=None,
-                             phase_telemetry=False):
+                             phase_telemetry=False, manager_telemetry=None):
     """Apply selected category reservations after Coffea declares categories."""
     if processing_cores == 1:
         queue.specify_category_max_resources("processing", {"cores": 1})
@@ -127,12 +127,17 @@ def _configure_wq_categories(queue, processing_cores=None, accumulating_memory_m
         )
     if phase_telemetry:
         _install_phase_telemetry_persistence(queue)
+        if manager_telemetry is not None:
+            manager_telemetry["mark"] = queue._phase_telemetry_record
 
 
 def _persist_task_phase_telemetry(task, path):
     """Stream only accepted scalar phase observations; optional IO never fails a task."""
     fields = ("schema_version", "phase", "wall_ns", "cpu_ns", "wall_elapsed_ns",
               "cpu_elapsed_ns", "rss_mib", "peak_rss_mib")
+    extra_fields = ("event_count", "syst_var", "iteration_index", "syst_var_list_len",
+                    "iteration_entered_count", "iteration_completed_count",
+                    "family", "wgt_fluct", "nlep_cat") + analysis_processor._IterationTelemetry.fields
     try:
         with open(task.outfile_stdout, encoding="utf-8", errors="replace") as source:
             sink = None
@@ -149,6 +154,14 @@ def _persist_task_phase_telemetry(task, path):
                                 any(type(payload[key]) not in (int, float, type(None))
                                     for key in fields[2:])):
                             raise ValueError("invalid phase observation")
+                        extras = {key: record[key] for key in extra_fields if key in record}
+                        if any(type(value) not in (str, int, float, bool, type(None))
+                               for value in extras.values()):
+                            raise ValueError("invalid scalar telemetry metadata")
+                        # event_count belongs to process entry, once per invocation.
+                        if payload["phase"] != "processor_start":
+                            extras.pop("event_count", None)
+                        payload.update(extras)
                         encoded = json.dumps(dict(task_id=task.id, **payload),
                                              allow_nan=False, sort_keys=True) + "\n"
                     except (ValueError, KeyError, TypeError):
@@ -170,6 +183,38 @@ def _install_phase_telemetry_persistence(queue):
     if getattr(queue, "_phase_telemetry_installed", False):
         return
     original_wait = queue.wait
+    attempt_id = str(uuid.uuid4())
+    wall_start_ns = time.perf_counter_ns()
+    cpu_start_ns = time.process_time_ns()
+    context = {"root_task_id": None}
+
+    def manager_record(phase, **scalars):
+        # One manager thread owns this existing attempt stream. Worker stdout
+        # reaches the same file only via wait_with_phase_telemetry below.
+        try:
+            if "root_task_id" in scalars:
+                context["root_task_id"] = scalars["root_task_id"]
+            payload = dict(schema_version=1, phase=phase, manager_pid=os.getpid(),
+                           manager_attempt_id=attempt_id, clock_domain="manager_local",
+                           **context)
+            payload.update(scalars)
+            if phase != "reducer_child_edge":
+                wall_ns = time.perf_counter_ns()
+                cpu_ns = time.process_time_ns()
+                rss_mib, peak_rss_mib = analysis_processor._phase_memory_mib()
+                payload.update(wall_ns=wall_ns, cpu_ns=cpu_ns,
+                               wall_elapsed_ns=wall_ns - wall_start_ns,
+                               cpu_elapsed_ns=cpu_ns - cpu_start_ns,
+                               rss_mib=rss_mib, peak_rss_mib=peak_rss_mib)
+            path = os.path.join(os.path.dirname(queue.executor.tasks_accum_log),
+                                "phase_telemetry.jsonl")
+            with open(path, "a", encoding="utf-8") as sink:
+                sink.write(json.dumps(payload, allow_nan=False, sort_keys=True) + "\n")
+        except Exception as error:
+            print(f"WARNING: optional manager telemetry persistence failed: {error}",
+                  file=sys.stderr, flush=True)
+
+    queue._phase_telemetry_record = manager_record
 
     def wait_with_phase_telemetry(timeout=None):
         task = original_wait(timeout)
@@ -1414,6 +1459,7 @@ if __name__ == "__main__":
     treename = args.treename
     fill_sumw2 = not args.no_sumw2
     phase_telemetry = args.phase_telemetry
+    manager_telemetry = {}
     record_raw_count = args.record_raw_count
     legacy_no_sumw2_present = bool(args.no_sumw2)
     legacy_no_sumw2_value = bool(args.no_sumw2)
@@ -2414,6 +2460,7 @@ if __name__ == "__main__":
                 admission_warning_bytes=args.wq_free_warning_bytes if args.wq_guard else None,
                 admission_min_free_bytes=args.wq_min_free_bytes if args.wq_guard else None,
                 phase_telemetry=phase_telemetry and executor_name == "work_queue",
+                manager_telemetry=manager_telemetry,
             )
 
     # Run the processor and get the output
@@ -2479,6 +2526,8 @@ if __name__ == "__main__":
     try:
         try:
             output = runner(flist, treename, processor_instance)
+            if phase_telemetry and executor_name == "work_queue" and "mark" in manager_telemetry:
+                manager_telemetry["mark"]("runner_return", outcome="returned")
         except TypeError as exc:
             raise RuntimeError(
                 "The executor returned no chunk results. Ensure that the input files produced at least "

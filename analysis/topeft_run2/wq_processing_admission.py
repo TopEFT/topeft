@@ -524,6 +524,11 @@ class _coordinator:
                 break
             accum_task = AccumCoffeaWQTask(queue, infile_accum_fn, group)
             queue.submit(accum_task)
+            record = getattr(queue, "_phase_telemetry_record", None)
+            if record is not None:
+                for child in group:
+                    record("reducer_child_edge", reducer_task_id=accum_task.id,
+                           child_task_id=child.id)
             del queue.tasks_to_accumulate[:len(group)]
             stats["accumulations_submitted"] += 1
             for task in group:
@@ -532,11 +537,29 @@ class _coordinator:
             submitted += 1
         self.deferred_accumulation = len(queue.tasks_to_accumulate) >= minimum
 
+    def _local_final_accumulation(self, original, accumulator):
+        record = getattr(self.queue, "_phase_telemetry_record", None)
+        roots = self.queue.tasks_to_accumulate
+        root_task_id = roots[0].id if len(roots) == 1 else None
+        if record is not None:
+            record("manager_final_accumulation_before", root_task_id=root_task_id,
+                   root_task_count=len(roots), outcome="entered")
+        outcome = "returned"
+        try:
+            return original(accumulator)
+        except BaseException:
+            outcome = "raised"
+            raise
+        finally:
+            if record is not None:
+                record("manager_final_accumulation_after", root_task_id=root_task_id,
+                       root_task_count=len(roots), outcome=outcome)
+
     def final_accumulation(self, original, accumulator):
         from coffea.processor import work_queue_tools
 
         if work_queue_tools.early_terminate:
-            return original(accumulator)
+            return self._local_final_accumulation(original, accumulator)
         queue = self.queue
         self.finalizing = True
         try:
@@ -559,7 +582,7 @@ class _coordinator:
                     queue.stats_coffea["accumulations_done"] += 1
                 else:
                     raise RuntimeError("unexpected processing result during final drain")
-            return original(accumulator)
+            return self._local_final_accumulation(original, accumulator)
         finally:
             self.finalizing = False
 

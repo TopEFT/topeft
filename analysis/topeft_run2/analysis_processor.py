@@ -104,7 +104,10 @@ class _PhaseTelemetry:
         self._wall_start_ns = time.perf_counter_ns()
         self._cpu_start_ns = time.process_time_ns()
 
-    def mark(self, phase, *, rss_mb=None, peak_rss_mb=None):
+    def mark(self, phase, *, rss_mb=None, peak_rss_mb=None, **scalars):
+        if any(type(value) not in (str, int, float, bool, type(None))
+               for value in scalars.values()):
+            raise TypeError("Phase telemetry observations must contain only scalars.")
         wall_ns = time.perf_counter_ns()
         cpu_ns = time.process_time_ns()
         if rss_mb is None or peak_rss_mb is None:
@@ -116,12 +119,67 @@ class _PhaseTelemetry:
         if rss_mb is not None and peak_rss_mb is not None:
             peak_rss_mb = max(peak_rss_mb, rss_mb)
         print("[phase_telemetry] " + json.dumps(dict(
-            schema_version=1, phase=phase, **self._context,
+            schema_version=1, phase=phase, **self._context, **scalars,
             wall_ns=wall_ns, cpu_ns=cpu_ns,
             wall_elapsed_ns=wall_ns - self._wall_start_ns,
             cpu_elapsed_ns=cpu_ns - self._cpu_start_ns,
             rss_mib=rss_mb, peak_rss_mib=peak_rss_mb,
         ), sort_keys=True), flush=True)
+
+
+class _IterationTelemetry:
+    """Scalar totals over reached tuples, bounded by family/weight/lepton domains.
+
+    Selection totals are category memberships, not unique event unions. No event
+    masks or per-event state are retained. SR and AR memberships stay separate.
+    """
+
+    domains = ("scalar", "eft", "sumw2", "jvm")
+    fields = tuple(f"{domain}_{metric}" for domain in domains
+                   for metric in ("attempted", "applicable", "nonempty", "calls", "entries")) + (
+        "weight_labels_reached", "weight_labels_applicable", "missing_weight_skips",
+        "sr_fake_skips", "pre_overlap_sr_memberships", "pre_overlap_ar_memberships",
+        "selected_sr_memberships", "selected_ar_memberships",
+    )
+
+    def __init__(self, reporter, syst_var, iteration_index):
+        self.reporter = reporter
+        self.syst_var = syst_var
+        self.iteration_index = iteration_index
+        self.rows = {}
+
+    def row(self, family, wgt_fluct, nlep_cat):
+        key = (family, wgt_fluct, nlep_cat)
+        if key not in self.rows:
+            self.rows[key] = dict.fromkeys(self.fields, 0)
+        return self.rows[key]
+
+    @staticmethod
+    def attempted(row, base_domain, fill_base_hist, fill_sumw2_hist):
+        if fill_base_hist:
+            row[base_domain + "_attempted"] += 1
+        if fill_sumw2_hist:
+            row["sumw2_attempted"] += 1
+
+    @staticmethod
+    def filled(row, domain, values, weights, eft_coeff=None):
+        # These are the actual arrays handed to one fill site. Entries count
+        # axis-valid submitted rows (jets for JVM), independently of events.
+        row[domain + "_applicable"] += 1
+        row[domain + "_calls"] += 1
+        entries = len(weights)
+        row[domain + "_entries"] += entries
+        if (entries and all(len(value) for value in values) and
+                (eft_coeff is None or len(eft_coeff))):
+            row[domain + "_nonempty"] += 1
+
+    def flush(self):
+        for (family, wgt_fluct, nlep_cat), counts in self.rows.items():
+            self.reporter.mark(
+                "processor_fill_counters", syst_var=self.syst_var,
+                iteration_index=self.iteration_index, family=family,
+                wgt_fluct=wgt_fluct, nlep_cat=nlep_cat, **counts,
+            )
 
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
@@ -1728,12 +1786,22 @@ class AnalysisProcessor(processor.ProcessorABC):
             del corrT1METJets
 
         if telemetry is not None:
-            telemetry.mark("processor_base_weights_and_met_ready")
+            telemetry.mark("processor_base_weights_and_met_ready",
+                           syst_var_list_len=len(syst_var_list))
 
         # Loop over the list of systematic variations we've constructed
         met_raw=met
         
-        for syst_var in syst_var_list:
+        iteration_entered_count = iteration_completed_count = 0
+        for iteration_index, syst_var in enumerate(syst_var_list):
+            iteration_entered_count += 1
+            iteration_telemetry = (
+                _IterationTelemetry(telemetry, syst_var, iteration_index)
+                if telemetry is not None else None
+            )
+            if telemetry is not None:
+                telemetry.mark("processor_iteration_start", syst_var=syst_var,
+                               iteration_index=iteration_index)
             tau_sf_weights = None
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
@@ -2015,8 +2083,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
             fwd0 = fwdJets[ak.argmax(fwdJets.pt,axis=-1,keepdims=True)]
 
-            if telemetry is not None and syst_var == "nominal":
-                telemetry.mark("processor_nominal_objects_ready")
+            if telemetry is not None:
+                telemetry.mark("processor_nominal_objects_ready" if syst_var == "nominal"
+                               else "processor_objects_ready", syst_var=syst_var,
+                               iteration_index=iteration_index)
 
             if btagAlgo == "btagDeepFlavB":
                 btagRef = ""
@@ -2279,8 +2349,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006,run_era)
 
             # b jet masks
-            if telemetry is not None and syst_var == "nominal":
-                telemetry.mark("processor_nominal_weights_ready")
+            if telemetry is not None:
+                telemetry.mark("processor_nominal_weights_ready" if syst_var == "nominal"
+                               else "processor_weights_ready", syst_var=syst_var,
+                               iteration_index=iteration_index)
 
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
             bmask_exactly0med = (nbtagsm==0) # Used for 3l CR and 2los Z CR
@@ -2462,8 +2534,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)
             selections.add("isSR_4l",  events.is4l_SR)
-            if telemetry is not None and syst_var == "nominal":
-                telemetry.mark("processor_nominal_selections_ready")
+            if telemetry is not None:
+                telemetry.mark("processor_nominal_selections_ready" if syst_var == "nominal"
+                               else "processor_selections_ready", syst_var=syst_var,
+                               iteration_index=iteration_index)
 
 
             ######### Variables for the dense axes of the hists ##########
@@ -2760,8 +2834,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if k in cr_cat_dict:
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
 
-            if telemetry is not None and syst_var == "nominal":
-                telemetry.mark("processor_nominal_variables_ready")
+            if telemetry is not None:
+                telemetry.mark("processor_nominal_variables_ready" if syst_var == "nominal"
+                               else "processor_variables_ready", syst_var=syst_var,
+                               iteration_index=iteration_index)
 
             # Loop over the hists we want to fill
             def _prepare_axis_values(axis_value):
@@ -2833,6 +2909,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                         weights_object = weights_dict[nlep_cat]
+                        fill_counts = (
+                            iteration_telemetry.row(dense_axis_name, wgt_fluct, nlep_cat)
+                            if iteration_telemetry is not None else None
+                        )
+                        if fill_counts is not None:
+                            fill_counts["weight_labels_reached"] += 1
 
                         if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                             # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
@@ -2843,8 +2925,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                                 weight = weights_object.weight(wgt_fluct)
                             else:
                                 # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
+                                if fill_counts is not None:
+                                    fill_counts["missing_weight_skips"] += 1
                                 continue
 
+                        if fill_counts is not None:
+                            # Weight-label domain: available for this lepton category.
+                            # Inner fill applicability has its own counters below.
+                            fill_counts["weight_labels_applicable"] += 1
                         # This is a check ot make sure we guard against any unintentional variations being applied to data
                         if self._do_systematics and isData:
                             # Should not have any up/down variations for data in 4l (since we don't estimate the fake rate there)
@@ -2865,7 +2953,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                             for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
 
                                 # We don't want or need to fill SR histos with the FF variations
-                                if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
+                                if appl.startswith("isSR") and wgt_fluct in data_syst_lst:
+                                    if fill_counts is not None:
+                                        fill_counts["sr_fake_skips"] += 1
+                                    continue
 
                                 # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
                                 for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
@@ -2895,6 +2986,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             njet_ch = njet_val
                                             cuts_lst.append(njet_val)
                                         ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
+                                        if fill_counts is not None:
+                                            base_domain = (
+                                                "jvm" if is_jvm_eta_phi_diagnostic else
+                                                "eft" if self._hist_requires_eft.get(
+                                                    nominal_histogram_key, False) else "scalar"
+                                            )
+                                            iteration_telemetry.attempted(
+                                                fill_counts, base_domain,
+                                                fill_base_hist, fill_sumw2_hist,
+                                            )
 
                                         if not self.histogram_fill_is_applicable(
                                             dense_axis_name,
@@ -2923,6 +3024,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                     all_cuts_mask
                                                     & selections.all("is_good_lumi")
                                                 )
+                                        if fill_counts is not None:
+                                            selection_region = "sr" if appl.startswith("isSR") else "ar"
+                                            fill_counts["pre_overlap_" + selection_region + "_memberships"] += int(ak.sum(all_cuts_mask))
                                         all_cuts_mask = (
                                             all_cuts_mask
                                             & events[
@@ -2933,6 +3037,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Apply the optional cut on energy of the event
                                         if self._ecut_threshold is not None:
                                             all_cuts_mask = (all_cuts_mask & ecut_mask)
+
+                                        if fill_counts is not None:
+                                            fill_counts["selected_" + selection_region + "_memberships"] += int(ak.sum(all_cuts_mask))
 
                                         if is_jvm_eta_phi_diagnostic:
                                             if not should_fill_jvm_eta_phi_diagnostic(
@@ -2958,6 +3065,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             )
                                             if fill_base_hist:
                                                 axis_names = self._hist_axis_map[dense_axis_name]
+                                                if fill_counts is not None:
+                                                    iteration_telemetry.filled(
+                                                        fill_counts, "jvm", (eta_flat, phi_flat), weights_flat,
+                                                    )
                                                 hout[nominal_histogram_key].fill(
                                                     **{
                                                         axis_names[0]: eta_flat,
@@ -3070,6 +3181,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                 axes_fill_info_dict["record_raw_count"] = (
                                                     raw_count_classification
                                                 )
+                                            if fill_counts is not None:
+                                                iteration_telemetry.filled(
+                                                    fill_counts, base_domain,
+                                                    tuple(values_cut_map.values()), weights_flat,
+                                                    eft_coeffs_cut if base_domain == "eft" else None,
+                                                )
                                             nominal_histogram.fill(**axes_fill_info_dict)
                                                                                     
                                         if fill_nominal_sumw2_hist:
@@ -3089,6 +3206,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                     eft_coeffs_cut,
                                                 ),
                                             }
+                                            if fill_counts is not None:
+                                                iteration_telemetry.filled(
+                                                    fill_counts, "sumw2",
+                                                    tuple(sumw2_values_cut_map.values()),
+                                                    sumw2_fill_info["weight"],
+                                                )
                                             hout[dense_axis_name+"_sumw2"].fill(**sumw2_fill_info)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
@@ -3098,11 +3221,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                             if dense_axis_name == "njets":
                                 break
         
-            if telemetry is not None and syst_var == "nominal":
-                telemetry.mark("processor_nominal_fills_complete")
+            iteration_completed_count += 1
+            if telemetry is not None:
+                telemetry.mark("processor_nominal_fills_complete" if syst_var == "nominal"
+                               else "processor_fills_complete", syst_var=syst_var,
+                               iteration_index=iteration_index)
+                iteration_telemetry.flush()
 
         if telemetry is not None:
-            telemetry.mark("processor_complete")
+            telemetry.mark("processor_complete",
+                           iteration_entered_count=iteration_entered_count,
+                           iteration_completed_count=iteration_completed_count)
         return hout
 
     def postprocess(self, accumulator):
