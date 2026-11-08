@@ -11,7 +11,8 @@ original_arguments=("$@")
 print_usage() {
   cat <<'EOF'
 Usage: ./run_cr.sh --production-profile PROFILE --output-dir PATH --campaign-tag TAG
-  [--dry-run] [--env-file PATH] [--resume] [--chunksize POSITIVE_INTEGER]
+  [--dry-run] [--env-file PATH] [--resume] [--allow-environment-migration]
+  [--chunksize POSITIVE_INTEGER]
   [--selected-fragment ID] [--plan JSON] [--phase-telemetry]
   [--pkl-min-free-bytes POSITIVE_INTEGER --pkl-min-free-inodes POSITIVE_INTEGER
    --pkl-safety-reserve-bytes POSITIVE_INTEGER --pkl-safety-reserve-inodes POSITIVE_INTEGER]
@@ -46,6 +47,7 @@ profile_output_dir=""
 profile_campaign_tag=""
 profile_env_file=""
 profile_resume=false
+profile_allow_environment_migration=false
 profile_phase_telemetry=false
 profile_chunksize=""
 profile_pkl_min_free_bytes=""
@@ -198,6 +200,10 @@ while (( $# > 0 )); do
       ;;
     --resume)
       profile_resume=true
+      shift
+      ;;
+    --allow-environment-migration)
+      profile_allow_environment_migration=true
       shift
       ;;
     --selected-fragment)
@@ -355,6 +361,16 @@ fi
 if [[ -n "${profile_plan}" && "${profile_resume}" == "true" ]]; then
   echo "ERROR: --plan is for a fresh campaign; use explicit pending-plan activation." >&2
   exit 1
+fi
+if [[ "${profile_allow_environment_migration}" == "true" \
+  && ( "${profile_resume}" != "true" || -z "${profile_env_file}" \
+       || -n "${profile_activate_pending_plan}" ) ]]; then
+  echo "ERROR: --allow-environment-migration requires --resume and --env-file, without plan activation." >&2
+  exit 1
+fi
+production_migration_args=()
+if [[ "${profile_allow_environment_migration}" == "true" ]]; then
+  production_migration_args=(--allow-environment-migration)
 fi
 if [[ -n "${profile_activate_pending_plan}" || -n "${profile_expected_plan_revision}" ]]; then
   if [[ -z "${profile_activate_pending_plan}" || -z "${profile_expected_plan_revision}" \
@@ -553,7 +569,7 @@ if [[ "${combined_profile}" == "true" ]]; then
       --resume)
         remaining_args=("${remaining_args[@]:1}")
         ;;
-      --dry-run|--phase-telemetry)
+      --dry-run|--phase-telemetry|--allow-environment-migration)
         component_args+=("${remaining_args[0]}")
         remaining_args=("${remaining_args[@]:1}")
         ;;
@@ -1207,7 +1223,7 @@ prepare_production_campaign() {
       "${production_environment_fingerprint}" "${production_environment_mode}" \
       "${production_topcoffea_git_commit}" "${production_topcoffea_source_fingerprint}" \
       "${ttgamma_sample_role_policy}" "${do_systs}" "${do_np}" \
-      "${production_region}" "${production_np_mode}"
+      "${production_region}" "${production_np_mode}" "${production_migration_args[@]}"
     python ./campaign_manifest.py render-active "${production_state_path}" "${production_plan_file}"
   else
     python ./campaign_manifest.py render-new \
@@ -1256,7 +1272,7 @@ prepare_production_campaign() {
         "${production_state_path}" "${production_git_commit}" \
         "${production_env_file}" "${production_env_file_sha256}" \
         "${production_environment_fingerprint}" "${production_environment_mode}" \
-        "${production_topcoffea_git_commit}" "${production_topcoffea_source_fingerprint}"
+        "${production_topcoffea_git_commit}" "${production_topcoffea_source_fingerprint}" "${production_migration_args[@]}"
     else
       if [[ "${profile_wq_manager_name_provided}" == "true" ]]; then
         mkdir -- "${output_dir}"
@@ -2056,6 +2072,7 @@ echo "do_systs: ${do_systs}"
 echo "do_np: ${do_np}"
 echo "split_lep_flavor: ${split_lep_flavor}"
 echo "resume: ${profile_resume}"
+echo "allow_environment_migration: ${profile_allow_environment_migration}"
 echo "env_file: ${production_env_file}"
 echo "env_file_sha256: ${production_env_file_sha256}"
 echo "environment_mode: ${production_environment_mode}"

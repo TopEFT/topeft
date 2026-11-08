@@ -682,12 +682,11 @@ def validate_state(state, *, verify_artifacts=True):
     if not isinstance(frozen_sha, str) or re.fullmatch(r"[0-9a-f]{64}", frozen_sha) is None:
         fail("source stage lacks a frozen environment tarball identity")
     provenance = state.get("provenance", {})
-    if any(
-        not isinstance(provenance.get(key), dict)
-        or provenance[key].get("environment_file_sha256") != frozen_sha
-        for key in ("initial", "last_resolved")
-    ):
+    if (not isinstance(provenance.get("initial"), dict)
+            or provenance["initial"].get("environment_file_sha256") != frozen_sha
+            or not isinstance(provenance.get("last_resolved"), dict)):
         fail("NEW_CAMPAIGN_REQUIRED: campaign provenance differs from its frozen tarball")
+    validate_environment_migrations(state)
     supported_environment_modes = {"current_resolved", "explicit_snapshot"}
     if any(
         provenance[key].get("environment_mode") not in supported_environment_modes
@@ -756,7 +755,12 @@ def validate_state(state, *, verify_artifacts=True):
                 fail(f"{unit['id']} {stage} attempt history is inconsistent")
             if attempts and isinstance(attempts[0].get("provenance"), dict):
                 first_attempt_mode = attempts[0]["provenance"].get("environment_mode")
-                if first_attempt_mode is not None and first_attempt_mode != provenance["initial"]["environment_mode"]:
+                expected_mode = provenance["initial"]["environment_mode"]
+                for migration in state.get("environment_migrations", []):
+                    boundary = migration["effective_after_attempts"].get(unit["id"], {}).get(stage, {}).get("count", 0)
+                    if boundary == 0:
+                        expected_mode = migration["to"]["environment_mode"]
+                if first_attempt_mode is not None and first_attempt_mode != expected_mode:
                     fail(f"{unit['id']} {stage} initial environment mode contradicts first attempt provenance")
             for attempt in attempts:
                 effective_output_path(unit, stage, attempt)
@@ -812,7 +816,7 @@ def desired_state_inputs(arguments, *, approved_coverage=None):
     return rendered_plan, identity, contract, provenance, approved
 
 
-def validate_resume(state, identity, contract, provenance, approved):
+def validate_resume(state, identity, contract, provenance, approved, *, allow_environment_migration=False):
     validate_state(state)
     if state["campaign_identity"] != identity or state["profile_contract"] != contract:
         fail("campaign identity or profile contract differs")
@@ -825,15 +829,108 @@ def validate_resume(state, identity, contract, provenance, approved):
         fail("scientific_coverage_incompatible")
     if current["scientific_contract_sha256"] != recorded["scientific_contract_sha256"]:
         fail("scientific_contract_incompatible")
-    if provenance["environment_file_sha256"] != recorded["source_stage_scientific_contract"]["frozen_environment_tarball_sha256"]:
-        fail("NEW_CAMPAIGN_REQUIRED: frozen environment tarball differs")
-    if (state["provenance"]["initial"]["environment_mode"] == "current_resolved"
+    active = state["provenance"]["last_resolved"]
+    migrating = provenance["environment_file_sha256"] != active["environment_file_sha256"]
+    if migrating:
+        if not allow_environment_migration:
+            fail("NEW_CAMPAIGN_REQUIRED: frozen environment tarball differs")
+        if provenance["environment_mode"] != "explicit_snapshot":
+            fail("environment migration requires an explicit snapshot")
+        if any(overall_status(unit).endswith("_running") for unit in state["units"]):
+            fail("environment migration requires an unambiguous attempt boundary")
+        for unit in state["units"]:
+            for stage in contract["stages"]:
+                pending = pending_artifact_path(state, unit, stage)
+                if pending is not None and os.path.lexists(pending.parent):
+                    fail("environment migration has unresolved pending evidence")
+        from topcoffea.modules.remote_environment import validate_environment_archive
+        archive = validate_environment_archive(provenance["environment_file"])
+        if (archive["status"] != "valid"
+                or archive["archive_sha256"] != provenance["environment_file_sha256"]
+                or archive["environment_fingerprint"] != provenance["environment_fingerprint"]):
+            fail("environment migration archive identity is invalid")
+        if not data_driven_science_matches(recorded, current):
+            fail("data_driven_scientific_contract_incompatible")
+    if (not migrating and not state.get("environment_migrations")
+            and state["provenance"]["initial"]["environment_mode"] == "current_resolved"
             and provenance["topcoffea_relevant_source_fingerprint"]
             != state["provenance"]["initial"]["topcoffea_relevant_source_fingerprint"]):
         fail("NEW_CAMPAIGN_REQUIRED: frozen topcoffea source fingerprint differs")
-    if current["source_stage_scientific_contract_sha256"] != recorded["source_stage_scientific_contract_sha256"]:
+    if (not migrating and state.get("environment_migrations")
+            and (provenance["environment_fingerprint"] != active["environment_fingerprint"]
+                 or provenance["environment_mode"] != "explicit_snapshot")):
+        fail("active migrated environment identity differs")
+    if (not migrating and not state.get("environment_migrations")
+            and current["source_stage_scientific_contract_sha256"] != recorded["source_stage_scientific_contract_sha256"]):
         fail("source_scientific_contract_incompatible")
     return state
+
+
+def validate_environment_migrations(state):
+    """Validate append-only environment epochs without changing historical science."""
+    migrations = state.get("environment_migrations", [])
+    if not isinstance(migrations, list):
+        fail("environment migration history is invalid")
+    previous = state["provenance"]["initial"]
+    previous_frontier = {}
+    for migration in migrations:
+        payload = {key: value for key, value in migration.items() if key != "migration_sha256"}
+        if migration.get("migration_sha256") != canonical_digest(payload):
+            fail("environment migration record changed")
+        old, new = migration["from"], migration["to"]
+        if (old["environment_file_sha256"] != previous["environment_file_sha256"]
+                or new["environment_file_sha256"] == old["environment_file_sha256"]
+                or new["environment_mode"] != "explicit_snapshot"):
+            fail("environment migration chain is inconsistent")
+        for provenance in (old, new):
+            if (not Path(provenance["environment_file"]).is_absolute()
+                    or any(re.fullmatch(r"[0-9a-f]{64}", provenance[key] or "") is None
+                           for key in ("environment_file_sha256", "environment_fingerprint"))):
+                fail("environment migration identity is incomplete")
+        frontier = migration["effective_after_attempts"]
+        if not isinstance(frontier, dict) or not previous_frontier.keys() <= frontier.keys():
+            fail("environment migration frontier is inconsistent")
+        for unit_id, stages in frontier.items():
+            if set(stages) != set(state["profile_contract"]["stages"]):
+                fail("environment migration frontier stages differ")
+            for stage, boundary in stages.items():
+                count = boundary["count"]
+                prior = previous_frontier.get(unit_id, {}).get(stage, {}).get("count", 0)
+                if type(count) is not int or count < prior:
+                    fail("environment migration frontier moved backwards")
+                unit = next((u for u in state["units"] if u["id"] == unit_id), None)
+                if unit is not None:
+                    attempts = unit["stages"][stage]["attempts"]
+                    if count > len(attempts) or canonical_digest(attempts[:count]) != boundary["sha256"]:
+                        fail("historical attempts changed across environment migration")
+        previous, previous_frontier = new, frontier
+    active = state["provenance"]["last_resolved"]
+    if active["environment_file_sha256"] != previous["environment_file_sha256"]:
+        fail("NEW_CAMPAIGN_REQUIRED: campaign provenance differs from its frozen tarball")
+    if migrations and (active["environment_fingerprint"] != previous["environment_fingerprint"]
+                       or active["environment_mode"] != "explicit_snapshot"):
+        fail("active migrated environment identity differs")
+    if migrations:
+        for unit in state["units"]:
+            for stage, record in unit["stages"].items():
+                for attempt in record["attempts"]:
+                    expected = state["provenance"]["initial"]
+                    migrated_attempt = False
+                    for migration in migrations:
+                        count = migration["effective_after_attempts"].get(unit["id"], {}).get(stage, {}).get("count", 0)
+                        if attempt["number"] > count:
+                            expected = migration["to"]
+                            migrated_attempt = True
+                    if (not migrated_attempt and "schema8_import" in state["provenance"]
+                            and attempt["provenance"].get("legacy_schema8_scientific_contract_sha256")):
+                        # The native importer verified the frozen archive and
+                        # preserved the older receipt's own binding contract.
+                        continue
+                    if attempt["provenance"]["environment_file_sha256"] != expected["environment_file_sha256"]:
+                        fail("attempt environment contradicts migration frontier")
+                    if migrated_attempt and any(attempt["provenance"][key] != expected[key] for key in (
+                            "environment_fingerprint", "environment_mode")):
+                        fail("attempt environment identity contradicts migration frontier")
 
 
 def attempt_identity(attempt):
@@ -856,6 +953,10 @@ def binding(state, unit, stage):
     else:
         result["scientific_contract_sha256"] = state["scientific_identity"]["scientific_contract_sha256"]
         result["stage_scientific_contract_sha256"] = state["scientific_identity"][f"{stage}_stage_scientific_contract_sha256"]
+        if stage == "source" and state.get("environment_migrations"):
+            result["stage_scientific_contract_sha256"] = canonical_digest({
+                "frozen_environment_tarball_sha256": attempt["provenance"]["environment_file_sha256"],
+            })
     if stage == "data_driven":
         result["source_artifact_sha256"] = unit["stages"]["source"]["receipt"]["artifact"]["sha256"]
     return result
@@ -1423,12 +1524,29 @@ def next_source_attempt(state, unit_id):
     return len(attempts) + 1
 
 
-def record_attempt_provenance(state, provenance):
+def record_attempt_provenance(state, provenance, *, allow_environment_migration=False):
     validate_resume(
         state, state["campaign_identity"], state["profile_contract"], provenance,
         state["scientific_identity"]["scientific_coverage"],
+        allow_environment_migration=allow_environment_migration,
     )
     if state["provenance"]["last_resolved"] != provenance:
+        if state["provenance"]["last_resolved"]["environment_file_sha256"] != provenance["environment_file_sha256"]:
+            migration = {
+                "at_utc": now_utc(), "from": dict(state["provenance"]["last_resolved"]),
+                "to": dict(provenance),
+                "effective_after_attempts": {
+                    **(state.get("environment_migrations") or [{}])[-1].get("effective_after_attempts", {}),
+                    **{
+                    unit["id"]: {stage: {"count": len(record["attempts"]),
+                                           "sha256": canonical_digest(record["attempts"])}
+                                 for stage, record in unit["stages"].items()}
+                    for unit in state["units"]
+                    },
+                },
+            }
+            migration["migration_sha256"] = canonical_digest(migration)
+            state.setdefault("environment_migrations", []).append(migration)
         state["provenance"]["last_resolved"] = provenance
         timestamp = now_utc()
         state["history"].append({"at_utc": timestamp, "action": "operational_provenance_changed"})
@@ -1841,6 +1959,10 @@ def main():
     options = parser.parse_args()
     action = options.action
     values = options.arguments
+    allow_environment_migration = False
+    if action in {"validate", "record-provenance"} and values[-1:] == ["--allow-environment-migration"]:
+        allow_environment_migration = True
+        values = values[:-1]
     try:
         if action == "render-new":
             print(render_new(*values))
@@ -1864,7 +1986,8 @@ def main():
             rendered, identity, contract, provenance, approved = desired_state_inputs(
                 values[1:], approved_coverage=state["scientific_identity"]["scientific_coverage"]
             )
-            validate_resume(state, identity, contract, provenance, approved)
+            validate_resume(state, identity, contract, provenance, approved,
+                            allow_environment_migration=allow_environment_migration)
             return
         if action == "reconcile":
             state_path = values[0]
@@ -1883,11 +2006,11 @@ def main():
         if action in {"env_file", "environment_mode", "historical_source_commit"}:
             state = load_state(values[0], verify_artifacts=False)
             read_campaign_identity(state, *values[1:4])
-            initial = state["provenance"]["initial"]
+            initial = state["provenance"]["last_resolved"] if state.get("environment_migrations") else state["provenance"]["initial"]
             print({
                 "env_file": initial["environment_file"],
                 "environment_mode": initial["environment_mode"],
-                "historical_source_commit": initial["topeft_git_commit"],
+                "historical_source_commit": state["provenance"]["initial"]["topeft_git_commit"],
             }[action])
             return
         if action == "status":
@@ -1941,7 +2064,7 @@ def main():
                 "topcoffea_git_commit": topcoffea_commit,
                 "topcoffea_relevant_source_fingerprint": topcoffea_source,
             }
-            if record_attempt_provenance(state, provenance):
+            if record_attempt_provenance(state, provenance, allow_environment_migration=allow_environment_migration):
                 atomic_json(state_path, state)
             return
         if action == "mark":
