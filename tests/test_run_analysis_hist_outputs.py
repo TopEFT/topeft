@@ -14,10 +14,12 @@ import hist
 import numpy as np
 import pytest
 from coffea.analysis_tools import Weights
+from topcoffea.modules.histEFT import HistEFT
 
 from analysis.topeft_run2 import analysis_processor as ap
 from analysis.topeft_run2.analysis_processor import ANALYSIS_MODE_EXCLUSIVE_ERROR
 from topeft.modules.data_driven_products import data_driven_product_error
+from topeft.modules.embedded_sumw2 import COVERAGE_KEY, fill_embedded_nominal
 
 _SAMPLE_JSON = Path("input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json")
 _SCRIPT_PATH = Path("analysis/topeft_run2/run_analysis.py")
@@ -263,6 +265,42 @@ def _run_run_analysis(monkeypatch, tmp_path, extra_cli_args, outname):
 
         def __call__(self, fileset, treename, processor_instance):
             output = processor_instance.accumulator
+            if "--do-np" not in extra_cli_args:
+                # A real chunk materializes applicable channels even when no event
+                # passes. Keep artifact validation active at this mocked boundary.
+                policy = processor_instance._sumw2_policy
+                applicability = processor_instance.build_histogram_applicability(
+                    analysis_mode=processor_instance._analysis_mode,
+                    runtime_families=policy.runtime_histogram_families,
+                    selected_category_dicts=(
+                        processor_instance.sr_category_dict,
+                        processor_instance.cr_category_dict,
+                    ),
+                    is_run3_values=(False,),
+                )
+                for family, contract in applicability["families"].items():
+                    histogram = output[f"{family}__eft_nominal"]
+                    channels = [
+                        channel for channel, state in contract["channels"].items()
+                        if state == "applicable"
+                    ]
+                    for index, channel in enumerate(channels):
+                        # One nonzero category and selected-zero/unavailable
+                        # categories exercise availability independently of yield.
+                        fill_embedded_nominal(
+                            histogram, output[COVERAGE_KEY], family=family,
+                            component="eft_nominal", dataset="UL17_private_ttH_for_CI",
+                            selected=policy.selects(
+                                "UL17_private_ttH_for_CI", "ttHJet_privateUL17", family,
+                            ),
+                            process="ttHJet_privateUL17", channel=channel,
+                            systematic="nominal",
+                            appl="isSR_" + {
+                                "2los": "2lOS", "2lss": "2lSS", "3l": "3l", "4l": "4l",
+                            }[channel.split("_")[0]],
+                            weight=np.asarray([2.0 if index == 0 else 0.0]),
+                            **{family: np.asarray([histogram.dense_axis.centers[0]])},
+                        )
             if "--do-np" in extra_cli_args:
                 for key, histogram in output.items():
                     axis_names = [axis.name for axis in histogram.axes]
@@ -330,6 +368,21 @@ def _run_run_analysis(monkeypatch, tmp_path, extra_cli_args, outname):
         return cloudpickle.load(fin)
 
 
+def _assert_embedded_runner_output(output, families, *, selected):
+    assert set(output) == {COVERAGE_KEY, *(f"{name}__eft_nominal" for name in families)}
+    assert not any(name.endswith("_sumw2") for name in output)
+    for family in families:
+        histogram = output[f"{family}__eft_nominal"]
+        assert isinstance(histogram, HistEFT)
+        assert histogram._use_multicell and histogram.store_sumw2
+        assert sum(np.sum(cell) for cell in histogram.eval({}).values()) == 2.0
+        assert sum(np.sum(cell) for cell in histogram.nominal_sumw2(flow=True).values()) == (
+            4.0 if selected else 0.0
+        )
+        states = {record[-1] for record in output[COVERAGE_KEY] if record[0] == family}
+        assert states == ({"selected_nonzero", "selected_zero"} if selected else {"unavailable"})
+
+
 def test_hist_list_cr_includes_sumw2(monkeypatch, tmp_path):
     output = _run_run_analysis(
         monkeypatch,
@@ -343,15 +396,7 @@ def test_hist_list_cr_includes_sumw2(monkeypatch, tmp_path):
         "with-sumw2",
     )
 
-    expected_output_keys = set()
-    for hist_name in _EXPECTED_CR_BASE_HISTS:
-        expected_output_keys.add(f"{hist_name}__eft_nominal")
-        expected_output_keys.add(f"{hist_name}_sumw2")
-        assert f"{hist_name}__eft_nominal" in output
-        assert hist_name not in output
-        assert f"{hist_name}_sumw2" in output
-
-    assert set(output) == expected_output_keys
+    _assert_embedded_runner_output(output, _EXPECTED_CR_BASE_HISTS, selected=True)
     sidecar_path = (
         tmp_path
         / "hist-output-with-sumw2"
@@ -360,6 +405,8 @@ def test_hist_list_cr_includes_sumw2(monkeypatch, tmp_path):
     sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
     assert sidecar["metadata_schema_version"] == 2
     assert sidecar["artifact"]["artifact_kind"] == "processor_output"
+    assert sidecar["artifact"]["nominal_container_schema_version"] == 3
+    assert sidecar["artifact"]["nominal_container_layout"] == "split_multicell_embedded_v1"
     assert sidecar["artifact"]["pkl_basename"] == "with-sumw2.pkl.gz"
     assert list(sidecar["sumw2_content_manifest"]["families"]) == sidecar[
         "sumw2_storage_provenance"
@@ -377,12 +424,7 @@ def test_hist_list_cr_respects_no_sumw2(monkeypatch, tmp_path):
         "without-sumw2",
     )
 
-    for hist_name in _EXPECTED_CR_BASE_HISTS:
-        assert f"{hist_name}__eft_nominal" in output
-        assert hist_name not in output
-        assert f"{hist_name}_sumw2" not in output
-
-    assert set(output) == {f"{name}__eft_nominal" for name in _EXPECTED_CR_BASE_HISTS}
+    _assert_embedded_runner_output(output, _EXPECTED_CR_BASE_HISTS, selected=False)
 
 
 def test_custom_hist_list_accepts_fwd0eta(monkeypatch, tmp_path):
@@ -393,7 +435,7 @@ def test_custom_hist_list_accepts_fwd0eta(monkeypatch, tmp_path):
         "custom-fwd0eta",
     )
 
-    assert set(output) == {"fwd0eta__eft_nominal"}
+    _assert_embedded_runner_output(output, {"fwd0eta"}, selected=False)
 
 
 def test_custom_hist_list_accepts_fwd0pt(monkeypatch, tmp_path):
@@ -404,7 +446,7 @@ def test_custom_hist_list_accepts_fwd0pt(monkeypatch, tmp_path):
         "custom-fwd0pt",
     )
 
-    assert set(output) == {"fwd0pt__eft_nominal"}
+    _assert_embedded_runner_output(output, {"fwd0pt"}, selected=False)
 
 
 def test_np_postprocess_inline_writes_transformed_artifact_sidecar(
@@ -940,6 +982,8 @@ def test_worker_exception_is_reported(monkeypatch, tmp_path):
         "-x",
         "futures",
         "--skip-topcoffea-data-check",
+        "--outpath",
+        str(tmp_path),
         "--hist-list",
         "cr",
     ]

@@ -52,6 +52,41 @@ The module exposes `histogram_artifact_error` and the specific
 `histogram_merge_error` types. Callers should surface those diagnostics rather
 than retry with validation disabled.
 
+## Main 1D producer: nominal schema version 3
+
+The main producer writes `split_multicell_embedded_v1` (nominal schema version
+3). It keeps the scalar/EFT sibling keys, but both 1D siblings are MultiCell
+`HistEFT` objects with embedded nominal sumw2. The scalar sibling has no Wilson
+coefficients. Physical 1D `<family>_sumw2` companions are forbidden. The 2D
+`SparseHist` objects and their selected physical companions are unchanged.
+
+Every ordinary fill is retained. The embedded statistical cell is filled only
+when the systematic path is nominal and
+`sumw2_policy.selects(dataset, process, family)` is true. Its value is the sum
+of `(weight * eft_coeff[:, 0])**2`, with a constant coefficient of one for
+scalar inputs.
+
+`__embedded_sumw2_coverage__` is a set of fill-coverage records in the payload.
+Each record contains `(family, component, dataset, process, channel, appl,
+systematic, state)`. The states are `selected_zero`, `selected_nonzero`, and
+`unavailable`; systematic paths are unavailable. Set union accumulates chunk
+coverage. In the canonical manifest, selected nonzero takes precedence over
+selected zero for the same coordinates. Datasets sharing a process retain
+separate records. Missing coverage is rejected for materialized cells.
+
+Metadata schema version 2 and resolved-policy provenance remain unchanged.
+For nominal schema version 3, the content manifest is version 2 and includes
+`embedded_coverage`. Validation checks policy selection, numerical availability,
+coverage, and the payload/sidecar pairing. A process with only unselected
+dataset contributions does not acquire coverage merely because another dataset
+in the resolved policy shares its process label.
+
+This layout is accepted only for `processor_output`. Plotting, datacard,
+data-driven, tau, and diboson consumers have not been migrated. Historical
+schema-v2 split siblings and Legacy artifacts remain readable. Running the
+new producer requires a TopCoffea build supporting both embedded MultiCell
+sumw2 and the current raw-count API.
+
 ## Sidecar field ownership
 
 Common fields identify metadata schema, artifact kind/identity, merge state,
