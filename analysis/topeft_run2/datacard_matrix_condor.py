@@ -48,6 +48,7 @@ def selected_units(manifest_path: Path, row_ids: list[str] | None) -> list[dict]
 def prepare_material(manifest_path: Path, destination: Path, *, request_cpus: int,
                      request_memory: str, request_disk: str,
                      max_retries: int, max_starts: int,
+                     exhaustion_policy: str = "remove",
                      query_executable: str | None = None,
                      max_runtime: int | None = None,
                      row_ids: list[str] | None = None) -> dict:
@@ -65,6 +66,8 @@ def prepare_material(manifest_path: Path, destination: Path, *, request_cpus: in
         raise runner.RunnerError("condor_configuration_error", "max_runtime must be positive seconds when supplied")
     if type(max_retries) is not int or max_retries < 0 or type(max_starts) is not int or max_starts <= 0:
         raise runner.RunnerError("condor_configuration_error", "explicit max_retries >= 0 and max_starts > 0 are required")
+    if exhaustion_policy not in ("remove", "hold"):
+        raise runner.RunnerError("condor_configuration_error", "exhaustion_policy must be remove or hold")
     query_executable = query_executable or shutil.which("condor_q")
     if (not query_executable or not Path(query_executable).is_absolute()
             or not Path(query_executable).is_file() or not os.access(query_executable, os.X_OK)):
@@ -115,9 +118,27 @@ def prepare_material(manifest_path: Path, destination: Path, *, request_cpus: in
         '+DatacardReservation = "$(reservation_token)"',
         f"max_retries = {max_retries}", "success_exit_code = 0",
         f"requirements = MY.NumJobStarts < {max_starts}",
-        f"on_exit_remove = NumJobStarts >= {max_starts}",
-        f"periodic_remove = (JobStatus == 5) || (JobStatus == 1 && NumJobStarts >= {max_starts})",
     ]
+    if exhaustion_policy == "hold":
+        success = "((ExitBySignal =?= false) && (ExitCode =?= 0))"
+        exhausted = f"((NumJobStarts >= {max_starts}) =?= true) || ((NumJobCompletions > {max_retries}) =?= true)"
+        # max_retries ORs an unguarded ExitCode==0 success into OnExitRemove.
+        # Hold inconsistent/missing signal metadata rather than accept it as
+        # success; otherwise hold only an unsuccessful exhausted activation.
+        lines.extend([
+            f"on_exit_hold = !{success} && ({exhausted} || (ExitCode =?= 0))",
+            'on_exit_hold_reason = "Datacard retry/start budget exhausted or inconsistent success exit metadata"',
+            f"on_exit_remove = {success}",
+            f"periodic_hold = (JobStatus =?= 1) && ((NumJobStarts >= {max_starts}) =?= true)",
+            'periodic_hold_reason = "Datacard physical start budget exhausted after eviction"',
+            "periodic_remove = false",
+            "periodic_release = false",
+        ])
+    else:
+        lines.extend([
+            f"on_exit_remove = NumJobStarts >= {max_starts}",
+            f"periodic_remove = (JobStatus == 5) || (JobStatus == 1 && NumJobStarts >= {max_starts})",
+        ])
     if max_runtime is not None:
         lines.append(f"allowed_execute_duration = {max_runtime}")
     lines.append(f"queue row_id, unit_integrity, reservation_token from {destination}/items.txt")
