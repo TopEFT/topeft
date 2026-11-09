@@ -19,7 +19,7 @@ _matrix_row_digests = {
 }
 _execution_crosswalk_digests = {
     "run2": "9ddaaa16989020abc019da5765af4e3255bd007c9cd8756f2b93c28e8e4e8a17",
-    "run3": "40e009259eb3d802cf59ae8932d7b053b1725b53daf86435ee3aa7d55faeebee",
+    "run3": "12ea3a9dce85e87615ec716fb8722e214391432fc293e54e3133cb4f9fbd5091",
 }
 _role_order = {
     "run2": ["block1", "block2", "block3", "block4", "block5"],
@@ -68,7 +68,7 @@ def test_standard_manifest_matches_accepted_input_matrix(tmp_path, era, years):
     assert observed["runtime_contract"]["fingerprints"] == [
         {"path": str(make_cards), "sha256": runner.hash_file(make_cards)}]
     rows = observed["rows"]
-    assert len(rows) == {"run2": 11, "run3": 34}[era]
+    assert len(rows) == {"run2": 11, "run3": 36}[era]
     counts = {}
     for row in rows:
         parent = row["logical_row_id"]
@@ -97,6 +97,9 @@ def test_standard_manifest_matches_accepted_input_matrix(tmp_path, era, years):
         assert len(channels) == len(set(channels))
         logical_lines += f"{era}|{parent}|{group[0]['distribution']}|{','.join(channels)}\n"
     assert hashlib.sha256(logical_lines.encode()).hexdigest() == _matrix_row_digests[era]
+    forward = [row for row in rows if row["logical_row_id"] == f"{era}_11"]
+    assert [len(row["physical_channels"]) for row in forward] == (
+        [7, 7, 7] if era == "run3" else [21])
     assert len({f"{channel}_{row['distribution']}" for row in rows for channel in row["physical_channels"]}) == 129
     assert all(row["years"] == years for row in rows)
     assert all(str(tmp_path) in row["output_root"] and str(tmp_path) in row["log_path"]
@@ -162,7 +165,7 @@ def test_unblind_opt_in_preserves_matrix_and_other_producer_options(tmp_path, er
     default_rows = {row["row_id"]: row for row in default_manifest["rows"]}
     enabled_rows = {row["row_id"]: row for row in enabled_manifest["rows"]}
     assert default_rows.keys() == enabled_rows.keys()
-    assert len(enabled_rows) == {"run2": 11, "run3": 34}[era]
+    assert len(enabled_rows) == {"run2": 11, "run3": 36}[era]
     for row_id, row in enabled_rows.items():
         default_row = default_rows[row_id]
         assert row["physical_channels"] == default_row["physical_channels"]
@@ -236,7 +239,7 @@ def test_legacy_run3_recovery_opt_in_applies_only_to_run3_rows(tmp_path, era, ex
     default_rows = {row["row_id"]: row for row in default_manifest["rows"]}
     enabled_rows = {row["row_id"]: row for row in enabled_manifest["rows"]}
     assert default_rows.keys() == enabled_rows.keys()
-    assert len(enabled_rows) == {"run2": 11, "run3": 34}[era]
+    assert len(enabled_rows) == {"run2": 11, "run3": 36}[era]
     for row_id, row in enabled_rows.items():
         producer_args = row["producer_args"]
         assert row["era"] == era

@@ -256,3 +256,8 @@ rows:
     input_roles:
       run2: block5
       run3: 3l_fwd
+    execution_unit_sizes:
+      run3:
+        - 7
+        - 7
+        - 7

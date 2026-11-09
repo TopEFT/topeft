@@ -65,6 +65,34 @@ def test_two_active_units_status_and_parent_kill_exclusion(tmp_path, fake_script
     rows = [make_row(tmp_path, fake_script, name, extra=["--wait-for", str(tmp_path / "release"), "--counter", str(tmp_path / (name + "_started"))]) for name in ("a", "b")]
     path, data = manifest(tmp_path, fake_script, rows)
     processes = [subprocess.Popen([sys.executable, str(ENGINE), str(path), "--row-id", row["row_id"], "--backend", "local"], stdout=subprocess.PIPE, stderr=subprocess.PIPE) for row in rows]
+    diagnostics = {"interpreter": sys.executable, "children": [], "errors": []}
+    child_output = {}
+    killed = {}
+    failure = None
+
+    def capture_failure_state():
+        # Never read live PIPEs: communicate below collects them after cleanup.
+        for row, process in zip(rows, processes):
+            child = {"row_id": row["row_id"], "pid": process.pid,
+                     "argv": process.args, "poll_before_cleanup": process.poll(),
+                     "owner_path": str(runner.unit_owner_path(row)), "traces": {}}
+            diagnostics["children"].append(child)
+            paths = [runner.unit_owner_path(row), runner.reservation_path(row),
+                     runner.receipt_path(data, row), Path(row["log_path"])]
+            attempt_root = runner.attempt_root(sha(path), row)
+            child["attempt_root"] = str(attempt_root)
+            if attempt_root.exists():
+                paths.extend(sorted(p for p in attempt_root.rglob("*") if p.is_file())[:32])
+            for trace in paths:
+                try:
+                    if trace.exists():
+                        with trace.open("rb") as stream:
+                            child["traces"][str(trace)] = stream.read(8192).decode("utf-8", errors="replace")
+                    else:
+                        child["traces"][str(trace)] = None
+                except Exception as exc:
+                    child["traces"][str(trace)] = {"collection_error": repr(exc)}
+
     try:
         for row in rows:
             wait_for_owner(runner.unit_owner_path(row), row["row_id"])
@@ -76,25 +104,59 @@ def test_two_active_units_status_and_parent_kill_exclusion(tmp_path, fake_script
         assert [state["status"] for state in status["rows"]] == ["active", "active"]
         assert all(state["owner_metadata"]["backend"] == "local" for state in status["rows"])
         processes[0].kill()
+        killed[0] = "behavior_assertion_parent_kill"
         processes[0].wait()
         with pytest.raises(runner.RunnerError) as error:
             runner.execute_unit(data, sha(path), rows[0], backend="local")
         assert error.value.code == "execution_lock_held"
         assert not runner.receipt_path(data, rows[0]).exists()
         (tmp_path / "release").touch()
-        processes[1].communicate(timeout=10)
+        child_output[1] = processes[1].communicate(timeout=10)
         assert processes[1].returncode == 0
         deadline = time.monotonic() + 10
         while runner.probe_lock(runner.unit_lock_path(rows[0]))[0] and time.monotonic() < deadline:
             time.sleep(.02)
         assert runner.classify(data, sha(path), rows[0])["status"] == "partial_staging_attempt"
         assert not runner.receipt_path(data, rows[0]).exists()
+    except BaseException as exc:
+        failure = repr(exc)
+        try:
+            capture_failure_state()
+        except Exception as diagnostic_error:
+            diagnostics["errors"].append(repr(diagnostic_error))
+        raise
     finally:
-        (tmp_path / "release").touch()
-        for process in processes:
-            if process.poll() is None:
-                process.kill()
-            process.communicate(timeout=10)
+        cleanup_errors = []
+        try:
+            (tmp_path / "release").touch()
+        except Exception as exc:
+            cleanup_errors.append(exc)
+        for index, process in enumerate(processes):
+            try:
+                if process.poll() is None:
+                    process.kill()
+                    killed[index] = "cleanup_kill"
+                child_output[index] = process.communicate(timeout=10)
+            except Exception as exc:
+                cleanup_errors.append(exc)
+        if failure is not None or cleanup_errors:
+            diagnostics.update(failure=failure, cleanup_errors=[repr(e) for e in cleanup_errors])
+            for index, process in enumerate(processes):
+                stdout, stderr = child_output.get(index, (b"", b""))
+                diagnostics.setdefault("collected_output", []).append({
+                    "row_id": rows[index]["row_id"], "argv": process.args,
+                    "returncode": process.returncode,
+                    "exit_disposition": killed.get(index, "spontaneous_exit_before_cleanup"),
+                    "stdout": stdout[:32768].decode("utf-8", errors="replace"),
+                    "stderr": stderr[:32768].decode("utf-8", errors="replace")})
+            try:
+                payload = json.dumps(diagnostics, indent=2)
+                print("synthetic child diagnostics:\n" + payload)
+                (tmp_path / "child_diagnostics.json").write_text(payload + "\n")
+            except Exception as exc:
+                print("diagnostic persistence error:", repr(exc), repr(diagnostics))
+            if failure is None and cleanup_errors:
+                raise cleanup_errors[0]
 
 
 def test_whole_workload_composes_unit_executor(tmp_path, fake_script, monkeypatch):
