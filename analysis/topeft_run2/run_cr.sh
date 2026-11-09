@@ -1691,7 +1691,6 @@ archive_native_wq_logs() {
   local archive_dir="${archive_base}"
   local retry_index=1
   local name source_path destination_path source_size destination_size
-  local phase_archive_copied=false
 
   while [[ -e "${archive_dir}" ]]; do
     archive_dir="${archive_base}_resume_${retry_index}"
@@ -1730,14 +1729,43 @@ archive_native_wq_logs() {
     return 1
   fi
 
-  # Optional telemetry follows the same attempt archive as tasks.log. Failure
-  # preserves the original and warns without changing scientific stage status.
-  if [[ -f "${native_wq_log_dir}/phase_telemetry.jsonl" ]]; then
-    if cp -- "${native_wq_log_dir}/phase_telemetry.jsonl" "${archive_dir}/phase_telemetry.jsonl" \
-      && cmp -s -- "${native_wq_log_dir}/phase_telemetry.jsonl" "${archive_dir}/phase_telemetry.jsonl"; then
-      phase_archive_copied=true
-    else
-      echo "WARNING: optional phase telemetry archive failed; original preserved in ${native_wq_log_dir}." >&2
+  # Preserve the attempt-owned inode under a stable native name. The producer
+  # basename must remain absent so a later invocation cannot append to it.
+  # Optional telemetry never copies bulk data or changes scientific status.
+  source_path="${native_wq_log_dir}/phase_telemetry.jsonl"
+  if [[ -e "${source_path}" || -L "${source_path}" ]]; then
+    if ! python -S - "${source_path}" "${archive_dir}" <<'PY_TELEMETRY'
+import os
+from pathlib import Path
+import stat
+import sys
+
+source = Path(sys.argv[1])
+archive = Path(sys.argv[2])
+target = source.with_name("phase_telemetry." + archive.name + ".jsonl")
+link = archive / "phase_telemetry.jsonl"
+before = source.lstat()
+if not stat.S_ISREG(before.st_mode):
+    raise ValueError("telemetry source is not a regular file")
+# The campaign writer lock and newly created attempt archive serialize this
+# name. Refuse any existing target, including a dangling link, before rename.
+# os.rename is atomic on one filesystem and raises EXDEV without copying.
+if os.path.lexists(target):
+    raise FileExistsError("attempt telemetry target already exists: " + str(target))
+os.rename(source, target)
+after = target.lstat()
+if (before.st_dev, before.st_ino, before.st_size) != (after.st_dev, after.st_ino, after.st_size):
+    raise ValueError("telemetry rename identity changed")
+os.symlink(os.path.relpath(target, archive), link)
+observed = link.stat()
+if (observed.st_dev, observed.st_ino, observed.st_size) != (after.st_dev, after.st_ino, after.st_size):
+    raise ValueError("telemetry link target identity changed")
+# A metadata check alone does not demonstrate that the target can be opened.
+with link.open("rb"):
+    pass
+PY_TELEMETRY
+    then
+      echo "WARNING: optional phase telemetry archive failed; original retained at ${source_path} or ${native_wq_log_dir}/phase_telemetry.$(basename -- "${archive_dir}").jsonl." >&2
     fi
   fi
   production_state_tool archive "${production_state_path}" "${block_id}" "${stage}" "${archive_dir}"
@@ -1745,10 +1773,7 @@ archive_native_wq_logs() {
     source_path="${native_wq_log_dir}/${name}"
     [[ ! -e "${source_path}" ]] || rm -- "${source_path}"
   done
-  if [[ "${phase_archive_copied}" == "true" ]]; then
-    rm -- "${native_wq_log_dir}/phase_telemetry.jsonl" \
-      || echo "WARNING: optional phase telemetry archive source retained." >&2
-  fi
+
 }
 
 write_failure_snapshot() {
