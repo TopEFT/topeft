@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
@@ -349,6 +350,275 @@ class DashboardTests(unittest.TestCase):
             dashboard.table(['value'], [['bad\nrow']])
         self.assertNotIn('bad\nrow', output.getvalue())
         self.assertEqual(dashboard.normalized_summary({'tasks_complete': 7})['tasks_done'], 7)
+
+
+class AutodiscoveryTests(unittest.TestCase):
+    now = 1800000000
+
+    def record(self, project='project-a', port=1026, **values):
+        return dict({'owner': 'operator', 'project': project, 'name': 'fixture-host',
+                     'port': port, 'lastheardfrom': self.now, 'tasks_waiting': 3,
+                     'tasks_running': 0, 'workers': 0}, **values)
+
+    def summary(self, project, **values):
+        return dict({'project': project, 'tasks_waiting': 3, 'tasks_running': 1,
+                     'categories': [{'category': 'category-' + project,
+                                     'tasks_waiting': 3, 'tasks_running': 1}]}, **values)
+
+    def invoke(self, records, summaries=None, env=None, jobs=None, catalog_status='OK',
+               direct_fn=None):
+        calls = []
+        summaries = summaries or {}
+        def fake_query(args, timeout):
+            calls.append((args, timeout))
+            if args[0] == 'condor_q':
+                return jobs or [], 'OK'
+            if args[0] == 'condor_history':
+                return [], 'OK'
+            if args[0] == 'work_queue_status' and len(args) == 4:
+                return records, catalog_status
+            if args[0] == 'work_queue_status' and '-T' not in args:
+                if direct_fn:
+                    return direct_fn(args, timeout)
+                return summaries[tuple(args[-2:])]
+            raise AssertionError('unexpected service call: %r' % args)
+        output = io.StringIO()
+        with mock.patch.object(dashboard, 'query', side_effect=fake_query), \
+             mock.patch.object(dashboard, 'run', return_value=(1, '', '')) as run_mock, \
+             mock.patch.object(dashboard.subprocess, 'Popen', side_effect=AssertionError('live process')), \
+             mock.patch.object(dashboard, 'stats_tail', side_effect=AssertionError('unbound logs')) as logs, \
+             mock.patch.object(dashboard.getpass, 'getuser', return_value='operator'), \
+             mock.patch.object(dashboard.pwd, 'getpwuid', return_value=mock.Mock(pw_name='operator')), \
+             mock.patch.object(dashboard.time, 'time', return_value=self.now), \
+             mock.patch.object(sys, 'argv', ['wq_dashboard.py']), \
+             mock.patch.dict(os.environ, env or {}, clear=True), \
+             contextlib.redirect_stdout(output):
+            dashboard.main()
+        return output.getvalue(), calls, run_mock.call_args_list, logs.call_count
+
+    def endpoints(self, calls):
+        return [tuple(args[-2:]) for args, _ in calls
+                if args[0] == 'work_queue_status' and len(args) > 4]
+
+    def test_unconfigured_two_managers_and_single_owner_population(self):
+        records = [self.record('run2-attempt1'), self.record('run3-attempt2', 1027)]
+        summaries = {('fixture-host', str(r['port'])): ([self.summary(r['project'])], 'OK')
+                     for r in records}
+        jobs = [worker(), worker(origin='/scratch/topup', cores=4),
+                worker(status=5), {'Owner': 'operator', 'Cmd': '/bin/other', 'JobStatus': 2}]
+        text, calls, processes, _ = self.invoke(records, summaries, jobs=jobs)
+        self.assertCountEqual(self.endpoints(calls), list(summaries))
+        self.assertNotIn('9164', text)
+        self.assertIn('AUTO_OWNER_DISCOVERY', text)
+        for r in records:
+            self.assertIn('category-' + r['project'], text)
+            self.assertIn('project=' + r['project'] + ' endpoint=fixture-host:' + str(r['port']), text)
+        self.assertEqual(text.count('summary_source: DIRECT'), 2)
+        self.assertEqual(text.count('owner_jobs=4 identified_wq_jobs=3 other_or_unclassified=1'), 1)
+        for section in ('condor_queue', 'condor_worker_profiles', 'condor_worker_pools',
+                        'held_jobs', 'work_queue_factories', 'recent_worker_exits', 'worker_supply_alerts'):
+            self.assertEqual(text.count('=== ' + section + ' ==='), 1)
+        self.assertIn('/scratch/topup', text)
+        for command in ('condor_q', 'condor_history'):
+            self.assertEqual(sum(args[0] == command for args, _ in calls), 1)
+        self.assertEqual(len(processes), 1)
+        self.assertEqual(processes[0].args[0][0], 'pgrep')
+        self.assertFalse(any('-T' in args for args, _ in calls))
+
+    def test_next_invocation_rediscovers_port_and_attempt(self):
+        for project, port in [('run2-attempt1', 1026), ('run2-attempt3', 1042)]:
+            with self.subTest(project=project):
+                text, calls, _, _ = self.invoke([self.record(project, port)],
+                    {('fixture-host', str(port)): ([self.summary(project)], 'OK')})
+                self.assertEqual(self.endpoints(calls), [('fixture-host', str(port))])
+                self.assertIn('category-' + project, text)
+
+    def test_single_zero_worker_and_empty_catalog(self):
+        text, calls, _, _ = self.invoke([self.record()],
+            {('fixture-host', '1026'): ([self.summary('project-a', workers=0)], 'OK')})
+        self.assertEqual(self.endpoints(calls), [('fixture-host', '1026')])
+        self.assertIn('WAITING_WITH_ZERO_CONNECTED_WORKERS', text)
+        empty, calls, _, _ = self.invoke([])
+        self.assertEqual(self.endpoints(calls), [])
+        self.assertIn('EMPTY_OWNER_CATALOG', empty)
+
+    def test_owner_and_incomplete_project_records(self):
+        records = [self.record(owner='foreign'), self.record(owner=None),
+                   self.record(project=None), self.record(project='  '), self.record(project=['bad'])]
+        text, calls, _, _ = self.invoke(records)
+        self.assertEqual(self.endpoints(calls), [])
+        self.assertIn('owner_records=3 omitted_missing_or_other_owner=2', text)
+        self.assertIn('INVALID_PROJECT', text)
+        self.assertIn("['bad']", text)
+
+    def test_unsafe_or_missing_endpoints_never_queried(self):
+        invalid = [{'port': value} for value in (True, False, 0, -1, 65536, 1026.5, '2.5', None)]
+        invalid += [{'name': host} for host in ('', '-option', 'white space', 'tab\thost', 'bad\x00host')]
+        invalid += [{'name': None}, {'port': 'not-a-port'}]
+        for values in invalid:
+            with self.subTest(values=values):
+                text, calls, _, _ = self.invoke([self.record(**values)])
+                self.assertEqual(self.endpoints(calls), [])
+                self.assertIn('FRESH_RECORD_WITHOUT_ENDPOINT', text)
+                self.assertIn('summary_source: CATALOG', text)
+        for port in (1, 65535, '1026'):
+            with self.subTest(valid_port=port):
+                _, calls, _, _ = self.invoke([self.record(port=port)],
+                    {('fixture-host', str(port)): ([self.summary('project-a')], 'OK')})
+                self.assertEqual(self.endpoints(calls), [('fixture-host', str(port))])
+
+    def test_stale_unknown_and_fresh_have_separate_sources(self):
+        records = [self.record('stale', 1028, lastheardfrom=self.now - 300),
+                   self.record('unknown', 1029, lastheardfrom=None), self.record()]
+        text, calls, _, _ = self.invoke(records,
+            {('fixture-host', '1026'): ([self.summary('project-a')], 'OK')})
+        self.assertEqual(self.endpoints(calls), [('fixture-host', '1026')])
+        self.assertEqual(text.count('summary_source: DIRECT'), 1)
+        self.assertIn('CATALOG age=300s STALE/UNKNOWN_AGE', text)
+        self.assertIn('CATALOG age=unknown STALE/UNKNOWN_AGE', text)
+
+    def test_distinct_attempts_both_queried(self):
+        records = [self.record('same-unit-attempt9', 1027), self.record('same-unit-attempt1')]
+        text, calls, _, _ = self.invoke(records,
+            {('fixture-host', str(r['port'])): ([self.summary(r['project'])], 'OK') for r in records})
+        self.assertEqual(len(self.endpoints(calls)), 2)
+        for r in records:
+            self.assertIn('category-' + r['project'], text)
+
+    def test_duplicate_fresh_project_is_ambiguous_even_with_invalid_endpoint(self):
+        for second_port in (1027, None, 1026):
+            with self.subTest(second_port=second_port):
+                text, calls, _, _ = self.invoke([self.record(), self.record(port=second_port)])
+                self.assertEqual(self.endpoints(calls), [])
+                self.assertIn('AMBIGUOUS_FRESH_MATCH', text)
+                self.assertEqual(text.count('summary_source: CATALOG'), 2)
+
+    def test_direct_failures_are_isolated_and_identity_checked(self):
+        failures = [(None, 'TIMEOUT'), ([], 'OK'),
+                    ([self.summary('wrong-project')], 'OK'),
+                    ([self.summary('bad', owner='someone-else')], 'OK'),
+                    ([self.summary('bad', tasks_waiting='malformed')], 'OK')]
+        statuses = ['TIMEOUT', 'INVALID_RESPONSE', 'DIRECT_PROJECT_MISMATCH',
+                    'DIRECT_OWNER_MISMATCH', 'INVALID_RESPONSE']
+        for response, status in zip(failures, statuses):
+            with self.subTest(status=status, response=response):
+                text, calls, _, _ = self.invoke([self.record('bad'), self.record('good', 1027)],
+                    {('fixture-host', '1026'): response,
+                     ('fixture-host', '1027'): ([self.summary('good')], 'OK')})
+                self.assertEqual(len(self.endpoints(calls)), 2)
+                self.assertEqual(text.count('summary_source: DIRECT'), 1)
+                self.assertIn('category-good', text)
+                self.assertNotIn('category-bad', text)
+                self.assertNotIn('category-wrong-project', text)
+                self.assertIn('direct_query: ' + status, text)
+                self.assertIn('summary_source: CATALOG', text)
+                self.assertIn('No zero-task, deadlock or completion conclusion from a timeout.', text)
+                self.assertEqual(text.count('=== condor_queue ==='), 1)
+
+    def test_empty_and_failed_catalog_are_distinct_without_legacy_fallback(self):
+        empty, empty_calls, _, _ = self.invoke([])
+        failed, failed_calls, _, _ = self.invoke(None, catalog_status='TIMEOUT')
+        self.assertIn('EMPTY_OWNER_CATALOG', empty)
+        self.assertIn('CATALOG_UNAVAILABLE', failed)
+        self.assertNotIn('EMPTY_OWNER_CATALOG', failed)
+        self.assertEqual(self.endpoints(empty_calls) + self.endpoints(failed_calls), [])
+
+    def test_summary_budget_and_concurrency_are_bounded_and_deterministic(self):
+        records = [self.record('project-%d' % i, 1100 + i) for i in reversed(range(7))]
+        lock = threading.Lock()
+        barrier = threading.Barrier(2)
+        in_flight, peaks = [0], []
+        def direct(args, timeout):
+            with lock:
+                in_flight[0] += 1
+                peaks.append(in_flight[0])
+            try:
+                barrier.wait(timeout=5)
+                self.assertEqual(timeout, 10)
+                project = 'project-%d' % (int(args[-1]) - 1100)
+                return [self.summary(project)], 'OK'
+            finally:
+                with lock:
+                    in_flight[0] -= 1
+        text, calls, _, _ = self.invoke(records, direct_fn=direct)
+        self.assertCountEqual(self.endpoints(calls), [('fixture-host', str(1100 + i)) for i in range(4)])
+        self.assertEqual(max(peaks), 2)
+        self.assertEqual(text.count('summary_source: DIRECT'), 4)
+        self.assertIn('SUMMARY_BUDGET_EXCEEDED', text)
+        for i in range(7):
+            self.assertIn('project=project-%d endpoint=fixture-host:%d' % (i, 1100 + i), text)
+        positions = [text.index('project=project-%d endpoint=' % i) for i in range(7)]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_task_and_log_inputs_unbound_without_explicit_manager(self):
+        for records in ([], [self.record()]):
+            with self.subTest(record_count=len(records)):
+                text, calls, processes, log_calls = self.invoke(records,
+                    {('fixture-host', '1026'): ([self.summary('project-a')], 'OK')},
+                    env={'TASK_DETAILS': '1', 'LOGDIR': '/unbound/logs'})
+                self.assertIn('NO_EXPLICIT_DETAIL_TARGET', text)
+                self.assertIn('LOGDIR UNBOUND', text)
+                self.assertEqual(log_calls, 0)
+                self.assertFalse(any('-T' in args for args, _ in calls))
+                self.assertFalse(any(c.args[0][0] == 'condor_ssh_to_job' for c in processes))
+
+    def test_explicit_project_precedes_endpoint_and_failure_never_switches(self):
+        records = [self.record('wanted'), self.record('other', 1027)]
+        env = {'MANAGER_PROJECT': 'wanted', 'MANAGER_HOST': 'ignored', 'MANAGER_PORT': 'invalid'}
+        text, calls, _, _ = self.invoke(records,
+            {('fixture-host', '1026'): ([self.summary('wanted')], 'OK')}, env=env)
+        self.assertEqual(self.endpoints(calls), [('fixture-host', '1026')])
+        self.assertIn('EXPLICIT_PROJECT', text)
+        self.assertNotIn('category-other', text)
+        failed, calls, _, _ = self.invoke(records, env={'MANAGER_PROJECT': 'absent'})
+        self.assertEqual(self.endpoints(calls), [])
+        self.assertIn('NO_FRESH_MATCH', failed)
+
+    def test_explicit_endpoint_mode_and_owner_override(self):
+        text, calls, _, _ = self.invoke([], {('custom-host', '4242'): ([self.summary('legacy')], 'OK')},
+            env={'MANAGER_HOST': 'custom-host', 'MANAGER_PORT': '4242', 'OWNER': 'other-owner'})
+        self.assertEqual(self.endpoints(calls), [('custom-host', '4242')])
+        self.assertIn('LEGACY_ENDPOINT', text)
+        self.assertIn('owner: other-owner', text)
+        for args, _ in calls:
+            if args[0] in ('condor_q', 'condor_history'):
+                self.assertIn('other-owner', args[args.index('-constraint') + 1])
+
+    def test_automatic_owner_override_and_matching_direct_owner(self):
+        records = [self.record('foreign-to-default', owner='other-owner'), self.record('default-owner', 1027)]
+        text, calls, processes, _ = self.invoke(records,
+            {('fixture-host', '1026'): ([self.summary('foreign-to-default', owner='other-owner')], 'OK')},
+            env={'OWNER': 'other-owner'})
+        self.assertEqual(self.endpoints(calls), [('fixture-host', '1026')])
+        self.assertIn('owner_records=1 omitted_missing_or_other_owner=1', text)
+        self.assertIn('category-foreign-to-default', text)
+        self.assertEqual(processes, [])
+
+    def test_empty_explicit_selectors_do_not_enable_automatic_mode(self):
+        for key in ('MANAGER_PROJECT', 'MANAGER_HOST', 'MANAGER_PORT'):
+            with self.subTest(key=key):
+                text, calls, _, _ = self.invoke([self.record()], env={key: ''})
+                self.assertEqual(self.endpoints(calls), [])
+                self.assertNotIn('AUTO_OWNER_DISCOVERY', text)
+
+    def test_explicit_log_freshness_and_manager_start_validation(self):
+        now = time.time()
+        for stamp, start, source in [(now, now - 60, 'STATS_LOG'),
+                                     (now - 300, now - 600, 'CATALOG'),
+                                     (now - 10, now, 'CATALOG')]:
+            with self.subTest(source=source, stamp=stamp, start=start):
+                row = {'project': 'selected', 'lastheardfrom': now, 'starttime': start}
+                stats = {'timestamp': stamp * 1000000, 'tasks_waiting': 1, 'tasks_running': 1}
+                output = io.StringIO()
+                with mock.patch.object(dashboard, 'stats_tail', return_value=(stats, None, stamp)) as logs, \
+                     contextlib.redirect_stdout(output):
+                    dashboard.render_manager('fixture-host', '1026', 'selected', 'OK', [row],
+                        (None, 'TIMEOUT', None, 'DISABLED'), 'OK', 120, 8, 'OK', '/explicit/logs')
+                logs.assert_called_once_with('/explicit/logs/stats.log')
+                self.assertIn('summary_source: ' + source, output.getvalue())
+                self.assertNotIn('status: PROGRESSING', output.getvalue())
+                if start > stamp:
+                    self.assertIn('stats predates current manager', output.getvalue())
 
 
 if __name__ == '__main__':

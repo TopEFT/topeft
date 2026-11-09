@@ -44,19 +44,44 @@ library and read-only Work Queue, Condor, history and local process queries.
 Set `OWNER` and `SCHEDD` when their defaults are unsuitable. Local factory
 inspection is available only when `OWNER` is the current user. The global catalog
 section lists records that explicitly name that owner, with each record's age;
-stale records are labeled. A selected manager has a separate direct-query view.
+stale and incomplete records are labeled and remain visible.
 
-Set `MANAGER_PROJECT` to one exact catalog project to resolve a fresh endpoint.
+With no manager configuration, each invocation discovers fresh owner projects
+and shows separate summaries, categories and health keyed by exact project and
+endpoint. This includes zero-worker managers and simultaneous Run 2/Run 3 or
+multiple-attempt projects; no campaign name or port is fixed in the dashboard.
+At most four unique fresh projects, ordered by exact project name, receive
+direct summary queries, with at most two in flight, the existing
+`QUERY_TIMEOUT=10` deadline and no retries. These are conservative safety limits,
+not measured performance optima. Other records stay visible as catalog-only,
+with budget, ambiguity, invalid-endpoint or stale/unknown-age reasons. Conflicting
+fresh records for one project are ambiguous even if one lacks a usable endpoint.
+Direct summaries must match the exact project and must not contradict owner
+metadata when present. A failed summary falls back only to that record's dated
+catalog snapshot; it does not disable other managers or Condor sections.
+An empty owner catalog, failed catalog and failed direct query are distinct.
+There is no automatic legacy-endpoint fallback or persistent endpoint cache.
+Catalog presence alone does not establish direct liveness or progress.
+
+For explicit compatibility, set `MANAGER_PROJECT` to one exact catalog project
+to resolve a fresh endpoint; it takes precedence over explicit host/port values.
 Zero or multiple fresh owner matches leave selected-manager detail unavailable
-while owner-wide sections continue. Without `MANAGER_PROJECT`, the existing
-`MANAGER_HOST` and `MANAGER_PORT` endpoint path remains available. Catalog and
+while owner-wide sections continue, without switching to another project.
+Explicitly setting `MANAGER_HOST` or `MANAGER_PORT` selects the intentional
+legacy endpoint mode (the omitted component retains its historical default).
+No selector is required for the normal command. Catalog and
 direct results are separate snapshots and can time out independently.
 
 `TASK_DETAILS=0` is the default. Set `TASK_DETAILS=1` to request the selected
-manager's full task payload; `TASK_QUERY_TIMEOUT` bounds that query.
+manager's full task payload; `TASK_QUERY_TIMEOUT` bounds that query. Without an
+explicit manager selection, task detail reports `NO_EXPLICIT_DETAIL_TARGET`
+and never enumerates automatically discovered managers. Likewise a global
+`LOGDIR` is unbound in automatic mode and is not read or attributed to those
+managers. Explicit mode retains log freshness and manager-start-time checks;
+the operator must provide logs compatible with the selected manager/run.
 `MAX_ACTIVE_TASKS` limits displayed rows only and does not bound the RPC
 payload. Condor worker profiles and pools cover identified owner WQ jobs across
-all managers. A wrapped worker is identified by its `condor.sh` or
+all managers and are collected/rendered once per invocation. A wrapped worker is identified by its `condor.sh` or
 `with_oasis_certs` invocation, regardless of scratch-directory naming. Pool
 origin matching a visible factory scratch directory is provenance correlation,
 not proof of a worker's Work Queue connection. Condor `RUNNING` likewise does

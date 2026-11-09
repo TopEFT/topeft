@@ -17,7 +17,9 @@ import subprocess
 import sys
 import time
 
-VERSION = '2026-10-26.1'
+VERSION = '2026-11-09.1'
+AUTO_SUMMARY_LIMIT = 4
+AUTO_SUMMARY_CONCURRENCY = 2
 
 
 def normalized_summary(record):
@@ -52,21 +54,60 @@ def owner_catalog(records, owner, now, max_age):
     return result
 
 
+def catalog_endpoint(record):
+    host = record.get('name') or record.get('hostname') or record.get('address')
+    port = record.get('port')
+    if (not isinstance(host, str) or not host or host.startswith('-')
+            or any(c.isspace() or ord(c) < 32 or 127 <= ord(c) <= 159 for c in host)):
+        return None
+    if type(port) is not int and not (isinstance(port, str) and re.fullmatch(r'[0-9]+', port)):
+        return None
+    # Bound decimal conversion too, including malformed untrusted catalog tokens.
+    if len(str(port)) > 5 or not 1 <= int(port) <= 65535:
+        return None
+    return host, str(int(port))
+
+
 def select_project(rows, project):
+    if not isinstance(project, str) or not project.strip():
+        return None, 'INVALID_PROJECT'
     fresh = [r for r in rows if r['_fresh'] and r.get('project') == project]
-    matches = [r for r in fresh if (r.get('name') or r.get('hostname') or r.get('address'))
-               and number(r.get('port')) is not None]
-    if len(matches) != 1:
-        if matches:
-            return None, 'AMBIGUOUS_FRESH_MATCH'
-        if fresh:
-            return None, 'FRESH_RECORD_WITHOUT_ENDPOINT'
+    if len(fresh) > 1:
+        return None, 'AMBIGUOUS_FRESH_MATCH'
+    if not fresh:
         if any(r.get('project') == project and not r['_fresh'] for r in rows):
             return None, 'STALE_PROJECT_ONLY'
         return None, 'NO_FRESH_MATCH'
-    selected = matches[0]
-    return (str(selected.get('name') or selected.get('hostname') or selected['address']),
-            str(selected['port'])), 'OK'
+    endpoint = catalog_endpoint(fresh[0])
+    return (endpoint, 'OK') if endpoint else (None, 'FRESH_RECORD_WITHOUT_ENDPOINT')
+
+
+def automatic_managers(rows, timeout, task_timeout):
+    """One context per owner record; only unique fresh projects consume budget."""
+    contexts = []
+    candidates = []
+    for row in sorted(rows, key=lambda r: (str(r.get('project', '')), str(catalog_endpoint(r)),
+                                           str(r.get('lastheardfrom', '')))):
+        project = row.get('project')
+        endpoint, status = select_project(rows, project)
+        if not row['_fresh']:
+            status = 'STALE_OR_UNKNOWN_AGE'
+        context = {'row': row, 'endpoint': endpoint if status == 'OK' else catalog_endpoint(row), 'selection': status,
+                   'result': (None, 'CATALOG_ONLY: ' + status, None, 'DISABLED')}
+        contexts.append(context)
+        if status == 'OK':
+            if len(candidates) < AUTO_SUMMARY_LIMIT:
+                candidates.append(context)
+            else:
+                context['selection'] = 'SUMMARY_BUDGET_EXCEEDED'
+                context['result'] = (None, 'CATALOG_ONLY: SUMMARY_BUDGET_EXCEEDED', None, 'DISABLED')
+    with concurrent.futures.ThreadPoolExecutor(max_workers=AUTO_SUMMARY_CONCURRENCY) as pool:
+        futures = [(context, pool.submit(manager_queries, *context['endpoint'], timeout,
+                    False, task_timeout, expected_project=context['row']['project'],
+                    expected_owner=context['row']['owner'])) for context in candidates]
+        for context, future in futures:
+            context['result'] = future.result()
+    return contexts
 
 
 def number(value):
@@ -148,17 +189,21 @@ def query(args, timeout):
 
 
 def manager_queries(host, port, timeout, task_details, task_timeout, query_fn=None,
-                    expected_project=None):
+                    expected_project=None, expected_owner=None):
     query_fn = query_fn or query
     if host is None or port is None:
         return None, 'NO_SELECTED_ENDPOINT', None, 'DISABLED' if not task_details else 'NO_SELECTED_ENDPOINT'
     base = ['work_queue_status', '-l', '-t', str(math.ceil(timeout))]
     summary, summary_status = query_fn(base + [host, port], timeout)
-    if expected_project is not None:
+    if expected_project is not None or expected_owner is not None:
         if summary_status != 'OK' or summary is None or len(summary) != 1 or not isinstance(summary[0], dict):
-            return None, summary_status, None, ('DISABLED' if not task_details else 'SKIPPED_UNVERIFIED_DIRECT_PROJECT')
+            status = summary_status if summary_status != 'OK' else 'INVALID_RESPONSE: expected one manager summary'
+            return None, status, None, ('DISABLED' if not task_details else 'SKIPPED_UNVERIFIED_DIRECT_PROJECT')
+    if expected_project is not None:
         if summary[0].get('project') != expected_project:
             return None, 'DIRECT_PROJECT_MISMATCH', None, ('DISABLED' if not task_details else 'SKIPPED_DIRECT_PROJECT_MISMATCH')
+    if expected_owner is not None and 'owner' in summary[0] and summary[0]['owner'] != expected_owner:
+        return None, 'DIRECT_OWNER_MISMATCH', None, ('DISABLED' if not task_details else 'SKIPPED_DIRECT_OWNER_MISMATCH')
     if not task_details:
         return summary, summary_status, None, 'DISABLED'
     task_base = ['work_queue_status', '-l', '-t', str(math.ceil(task_timeout)), '-T', host, port]
@@ -414,89 +459,12 @@ def stats_tail(path):
     return last, earlier, stamp
 
 
-def main():
-    if '--help' in sys.argv:
-        print('''Usage: ./wq_dashboard.py   (python3; no pip packages)
-Read-only, no worker/job removals or configuration changes.
-Environment:
-  MANAGER_PROJECT=exact-name      resolve one fresh owner catalog endpoint
-  MANAGER_HOST=glados.crc.nd.edu MANAGER_PORT=9164
-  OWNER=current-user SCHEDD=condorfe.crc.nd.edu
-  QUERY_TIMEOUT=10 TASK_DETAILS=0 TASK_QUERY_TIMEOUT=10
-  MAX_ACTIVE_TASKS=8            display limit only; not an RPC cost limit
-  HISTORY_LOOKBACK_SECONDS=300 HISTORY_MAX_JOBS=500
-  HISTORY_QUERY_TIMEOUT=20        independent bounded history deadline
-  CGROUP_JOB_IDS=123.0,124.0    explicit RUNNING owner-snapshot jobs only
-  MAX_CGROUP_PROBES=4 CGROUP_PROBE_TIMEOUT=8  bounded opt-in SSH reads
-  LOGDIR=/path/to/source_native  optional shared, readable manager logs
-  STATS_MAX_AGE=120              older stats never establish current health
-Prefer watch -n 10 python3 wq_dashboard.py. Task enumeration is opt-in and
-queries only the selected manager; it may return a large payload.
-Updates can take longer than the watch interval. Catalog and direct queries
-are separate snapshots. Condor profiles cover this owner's identified WQ
-jobs across all managers; they are not manager-specific capacity.
-Catalog records lacking explicit owner are omitted. Stale records are labeled.
-Condor RUNNING does not prove Work Queue connection or task activity.
-Matching task hostname to Condor is advisory only, never proof of identity.
-Host/task matching alone does not authorize a cgroup probe.
-For running tasks, resources shown are allocated, not measured utilization.
-LOGDIR must refer to this manager/run; no automatic log discovery is done.
-No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
-        return
-    host = os.environ.get('MANAGER_HOST', 'glados.crc.nd.edu')
-    port = os.environ.get('MANAGER_PORT', '9164')
-    project = os.environ.get('MANAGER_PROJECT')
-    owner = os.environ.get('OWNER') or getpass.getuser()
-    schedd = os.environ.get('SCHEDD', 'condorfe.crc.nd.edu')
-    limit = max(1, int(os.environ.get('MAX_ACTIVE_TASKS', '8')))
-    timeout = max(1., float(os.environ.get('QUERY_TIMEOUT', '10')))
-    task_timeout = max(1., float(os.environ.get('TASK_QUERY_TIMEOUT', '10')))
-    history_timeout = min(60., max(1., float(os.environ.get('HISTORY_QUERY_TIMEOUT', '20'))))
-    task_setting = os.environ.get('TASK_DETAILS', '0')
-    if task_setting not in ('0', '1'):
-        raise ValueError('TASK_DETAILS must be 0 or 1')
-    task_details = task_setting == '1'
-    lookback = min(86400, max(1, int(os.environ.get('HISTORY_LOOKBACK_SECONDS', '300'))))
-    history_max = min(5000, max(1, int(os.environ.get('HISTORY_MAX_JOBS', '500'))))
-    age_limit = max(1., float(os.environ.get('STATS_MAX_AGE', '120')))
-    cgroup_ids = os.environ.get('CGROUP_JOB_IDS', '')
-    max_cgroup_probes = min(16, max(0, int(os.environ.get('MAX_CGROUP_PROBES', '4'))))
-    cgroup_probe_timeout = min(30., max(1., float(os.environ.get('CGROUP_PROBE_TIMEOUT', '8'))))
-    now = time.time()
-    print('timestamp:', datetime.datetime.now().astimezone().isoformat(timespec='seconds'))
-    print('dashboard:', VERSION)
-    print('manager_selector: %s  owner: %s  schedd: %s' %
-          (clean('project=' + project if project else 'endpoint=%s:%s' % (host, port)), clean(owner), clean(schedd)))
-    attrs = ('ClusterId,ProcId,Owner,JobStatus,RemoteHost,LastRemoteHost,RequestCpus,RequestMemory,'
-             'RequestDisk,MemoryUsage,DiskUsage,Cmd,Args,Arguments,HoldReason,HoldReasonCode,QDate')
-    history_attrs = ('ClusterId,ProcId,Owner,JobStatus,Cmd,Args,Arguments,CompletionDate,ExitCode,'
-                     'ExitBySignal,ExitSignal,RemoteWallClockTime')
-    history_constraint = ('Owner == %s && CompletionDate >= %d' % (json.dumps(owner), int(now - lookback)))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-        catalog_f = pool.submit(query, ['work_queue_status', '-l', '-t', str(math.ceil(timeout))], timeout)
-        condor_f = pool.submit(query, ['condor_q', '-name', schedd, '-constraint', 'Owner == ' + json.dumps(owner),
-                                       '-json', '-attributes', attrs], timeout)
-        history_f = pool.submit(query, ['condor_history', '-name', schedd, '-constraint', history_constraint,
-                                        '-scanlimit', str(history_max * 10), '-limit', str(history_max),
-                                        '-json', '-attributes', history_attrs], history_timeout)
-        catalog, catalog_status = catalog_f.result()
-        jobs, condor_status = condor_f.result()
-        history, history_status = history_f.result()
-    history_raw_count = len(history) if history is not None else None
-    if jobs is not None:
-        jobs = [j for j in jobs if j.get('Owner') == owner]
-    if history is not None:
-        history = [j for j in history if j.get('Owner') == owner and
-                   number(j.get('CompletionDate')) is not None and
-                   number(j.get('CompletionDate')) >= now - lookback]
-    owner_managers = owner_catalog(catalog, owner, time.time(), age_limit)
-    selection_status = 'LEGACY_ENDPOINT'
-    if project is not None:
-        endpoint, selection_status = select_project(owner_managers, project)
-        host, port = endpoint if endpoint else (None, None)
-    queues, queue_status, tasks, task_status = manager_queries(
-        host, port, timeout, task_details, task_timeout, expected_project=project)
-    if queue_status == 'DIRECT_PROJECT_MISMATCH':
+def render_manager(host, port, project, selection_status, selected, result,
+                   catalog_status, age_limit, limit, condor_status, logdir=None,
+                   automatic=False):
+    """Render one isolated manager snapshot, retaining explicit-mode log checks."""
+    queues, queue_status, tasks, task_status = result
+    if queue_status in ('DIRECT_PROJECT_MISMATCH', 'DIRECT_OWNER_MISMATCH'):
         selection_status = queue_status
     queue = normalized_summary(queues[0]) if queues and len(queues) == 1 else None
     if queue is not None and (number(queue.get('tasks_waiting')) is None or number(queue.get('tasks_running')) is None):
@@ -506,18 +474,11 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
     if tasks is not None and any(number(t.get('taskid')) is None or not isinstance(t.get('state'), str) for t in tasks):
         tasks, task_status = None, 'INVALID_RESPONSE: task schema'
 
-    if project is not None:
-        selected = ([r for r in owner_managers if r['_fresh'] and r.get('project') == project
-                     and str(r.get('port')) == port
-                     and str(r.get('name') or r.get('hostname') or r.get('address')) == host]
-                    if selection_status == 'OK' else [])
-    else:
-        selected = matching_catalog(catalog, host, port, owner)
     catalog_queue = selected[0] if len(selected) == 1 else None
     identity = queue or catalog_queue
-    logdir = os.environ.get('LOGDIR')
     log_sample, log_error, log_fresh = None, None, False
-    if logdir:
+    logs_bound = not automatic and selection_status in ('OK', 'LEGACY_ENDPOINT')
+    if logdir and logs_bound:
         try:
             log_sample = stats_tail(os.path.join(logdir, 'stats.log'))
             last, first, stamp = log_sample
@@ -532,23 +493,11 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
                    if catalog_queue and number(catalog_queue.get('lastheardfrom')) is not None else None)
     catalog_fresh = catalog_age is not None and -5 <= catalog_age <= age_limit
 
-    section('managers_catalog')
-    print('query_status:', catalog_status)
-    if catalog is None:
-        print('UNAVAILABLE')
+    if automatic:
+        section('manager project=%s endpoint=%s' %
+                (clean(project), clean('%s:%s' % (host, port))))
     else:
-        print('owner_records=%d omitted_missing_or_other_owner=%d' %
-              (len(owner_managers), len(catalog) - len(owner_managers)))
-        table(['project', 'host', 'port', 'age', 'freshness', 'waiting', 'running', 'done', 'workers', 'workers_idle'],
-              [[r.get('project', '?'), r.get('name', r.get('address', '?')), r.get('port', '?'),
-                'unknown' if r['_age'] is None else '%.0fs' % r['_age'],
-                'FRESH' if r['_fresh'] else 'STALE/UNKNOWN_AGE'] +
-               [fmt(r.get(k)) for k in ('tasks_waiting', 'tasks_running', 'tasks_done',
-                                        'workers_connected', 'workers_idle')]
-               for r in owner_managers])
-        print('Catalog presence is a snapshot, not direct manager liveness.')
-
-    section('selected_manager')
+        section('selected_manager')
     print('selection:', selection_status)
     print('endpoint:', clean('%s:%s' % (host, port) if host is not None else 'UNAVAILABLE'))
     section('work_queue')
@@ -570,7 +519,7 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
               [[fmt(display_queue.get(k)) for k in ('tasks_waiting', 'tasks_running', 'tasks_on_workers',
                 'tasks_with_results', 'tasks_done', 'workers_connected', 'workers_idle')]])
     print('catalog_query:', catalog_status)
-    if catalog is not None:
+    if catalog_status == 'OK':
         for r in selected:
             heard = number(r.get('lastheardfrom'))
             age = 'unknown' if heard is None else '%.0fs' % (time.time() - heard)
@@ -615,6 +564,217 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
             print('shown: %d/%d' % (limit, len(active)))
     print('Resources are allocated quantities; task IDs come from JSON without table truncation.')
 
+    section('log_progress')
+    progressing = False
+    if logdir and not logs_bound:
+        print('LOGDIR UNBOUND; not used for per-manager progress')
+    elif not logdir:
+        print('LOGDIR unset; no trend inferred from a single snapshot.')
+    else:
+        print('explicit log source:', clean(logdir))
+        if log_sample:
+            last, first, stamp = log_sample
+            age = time.time() - stamp
+            fresh = log_fresh and -5 <= age <= age_limit
+            print('sample=%s age=%.1fs %s' % (datetime.datetime.fromtimestamp(stamp, datetime.timezone.utc).isoformat(), age, 'FRESH' if fresh else 'STALE/clock mismatch'))
+            if log_error:
+                print(log_error + '; not used for health')
+            fields = ('tasks_submitted', 'tasks_done', 'tasks_waiting', 'tasks_running', 'tasks_failed', 'tasks_exhausted_attempts', 'bytes_sent', 'bytes_received')
+            deltas = {}
+            if first:
+                dt = (float(last['timestamp']) - float(first['timestamp'])) / 1e6
+                print('window=%.1fs' % dt)
+                for k in fields:
+                    a,b = number(first.get(k)),number(last.get(k))
+                    if a is not None and b is not None:
+                        deltas[k] = b-a
+            table(['counter', 'latest', 'delta'], [[k,fmt(last.get(k)), '%+g' % deltas[k] if k in deltas else '?'] for k in fields])
+            monotonic_keys = ('tasks_submitted','tasks_done','bytes_sent','bytes_received')
+            reset = any(deltas.get(k,0) < 0 for k in monotonic_keys)
+            progressing = fresh and not reset and any(deltas.get(k,0) > 0 for k in ('tasks_done','bytes_sent','bytes_received'))
+            if reset:
+                print('counter reset: trend not used for health')
+            print('Task deltas include all categories; accumulation estimates and event totals are distinct.')
+        else:
+            print('unavailable:', log_error)
+
+    section('manager_health' if automatic else 'selected_manager_health')
+    if queue is None:
+        if progressing:
+            print('status: PROGRESS_IN_LOGS / DIRECT_UNKNOWN')
+        elif tasks is not None and active:
+            print('status: ACTIVE_TASKS_SNAPSHOT / SUMMARY_UNKNOWN')
+        elif log_sample and log_fresh:
+            print('status: LOG_SNAPSHOT / DIRECT_UNKNOWN')
+        elif catalog_fresh:
+            print('status: CATALOG_SNAPSHOT / DIRECT_UNKNOWN')
+        else:
+            print('status: UNKNOWN')
+        print('reason: direct summary unavailable; fallback source and age are shown above')
+        print('No zero-task, deadlock or completion conclusion from a timeout.')
+    elif progressing:
+        print('status: PROGRESSING (recent completions and/or data transfers)')
+    elif number(queue.get('tasks_running')) > 0 or (number(queue.get('tasks_on_workers')) or 0) > 0:
+        print('status: ACTIVE_SNAPSHOT (progress over time not established)')
+    elif number(queue.get('tasks_waiting')) > 0:
+        print('status: WAITING (queued work, no activity reported in summary; cause unproven)')
+    elif number(queue.get('tasks_with_results')) == 0:
+        print('status: QUIET_SNAPSHOT (not proof of production completion)')
+    else:
+        print('status: RESULTS_PENDING_OR_UNKNOWN')
+    if tasks is None:
+        print('task_details:', task_status)
+    if condor_status != 'OK':
+        print('condor_details:', condor_status)
+    if project is not None and selection_status != 'OK':
+        print('selection_alert:', selection_status)
+
+    return tasks, task_status, active
+
+
+def main():
+    if '--help' in sys.argv:
+        print('''Usage: python3 wq_dashboard.py   (Python 3.9+; no pip packages)
+Read-only, no worker/job removals or configuration changes.
+Default: AUTO_OWNER_DISCOVERY; no manager environment setup required.
+Discover all explicit owner catalog records, including zero-worker managers.
+Query at most four unique fresh projects in exact-name order, two concurrently,
+with QUERY_TIMEOUT (default 10 seconds), no retries and no legacy fallback.
+Each direct summary must match its catalog project and any supplied owner.
+Stale/unknown, incomplete, ambiguous and over-budget records stay catalog-only.
+Failures retain only their own dated catalog snapshot; other views continue.
+No cached endpoints; discovery refreshes on the next invocation.
+Optional environment / explicit compatibility modes:
+  MANAGER_PROJECT=exact-name      resolve one fresh owner catalog endpoint
+  MANAGER_HOST=glados.crc.nd.edu MANAGER_PORT=9164
+  OWNER=current-user SCHEDD=condorfe.crc.nd.edu
+  QUERY_TIMEOUT=10 TASK_DETAILS=0 TASK_QUERY_TIMEOUT=10
+  MAX_ACTIVE_TASKS=8            display limit only; not an RPC cost limit
+  HISTORY_LOOKBACK_SECONDS=300 HISTORY_MAX_JOBS=500
+  HISTORY_QUERY_TIMEOUT=20        independent bounded history deadline
+  CGROUP_JOB_IDS=123.0,124.0    explicit RUNNING owner-snapshot jobs only
+  MAX_CGROUP_PROBES=4 CGROUP_PROBE_TIMEOUT=8  bounded opt-in SSH reads
+  LOGDIR=/path/to/source_native  logs for an explicit compatible manager only
+  STATS_MAX_AGE=120              older stats never establish current health
+Prefer watch -n 10 python3 wq_dashboard.py. Task enumeration is opt-in and
+queries only an explicitly selected manager; it may return a large payload.
+TASK_DETAILS without explicit selection: NO_EXPLICIT_DETAIL_TARGET, no fan-out.
+LOGDIR without explicit selection: UNBOUND, not used for manager progress.
+MANAGER_PROJECT takes precedence; explicit host/port selects LEGACY_ENDPOINT.
+Explicit selection failure never switches to a different manager.
+Updates can take longer than the watch interval. Catalog and direct queries
+are separate snapshots. Condor profiles cover this owner's identified WQ
+jobs across all managers; they are not manager-specific capacity.
+Catalog records lacking explicit owner are omitted. Stale records are labeled.
+Condor RUNNING does not prove Work Queue connection or task activity.
+Matching task hostname to Condor is advisory only, never proof of identity.
+Host/task matching alone does not authorize a cgroup probe.
+For running tasks, resources shown are allocated, not measured utilization.
+LOGDIR must refer to this manager/run; no automatic log discovery is done.
+No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
+        return
+    host = os.environ.get('MANAGER_HOST', 'glados.crc.nd.edu')
+    port = os.environ.get('MANAGER_PORT', '9164')
+    project = os.environ.get('MANAGER_PROJECT')
+    automatic = not any(key in os.environ for key in ('MANAGER_PROJECT', 'MANAGER_HOST', 'MANAGER_PORT'))
+    owner = os.environ.get('OWNER') or getpass.getuser()
+    schedd = os.environ.get('SCHEDD', 'condorfe.crc.nd.edu')
+    limit = max(1, int(os.environ.get('MAX_ACTIVE_TASKS', '8')))
+    timeout = max(1., float(os.environ.get('QUERY_TIMEOUT', '10')))
+    task_timeout = max(1., float(os.environ.get('TASK_QUERY_TIMEOUT', '10')))
+    history_timeout = min(60., max(1., float(os.environ.get('HISTORY_QUERY_TIMEOUT', '20'))))
+    task_setting = os.environ.get('TASK_DETAILS', '0')
+    if task_setting not in ('0', '1'):
+        raise ValueError('TASK_DETAILS must be 0 or 1')
+    task_details = task_setting == '1'
+    lookback = min(86400, max(1, int(os.environ.get('HISTORY_LOOKBACK_SECONDS', '300'))))
+    history_max = min(5000, max(1, int(os.environ.get('HISTORY_MAX_JOBS', '500'))))
+    age_limit = max(1., float(os.environ.get('STATS_MAX_AGE', '120')))
+    cgroup_ids = os.environ.get('CGROUP_JOB_IDS', '')
+    max_cgroup_probes = min(16, max(0, int(os.environ.get('MAX_CGROUP_PROBES', '4'))))
+    cgroup_probe_timeout = min(30., max(1., float(os.environ.get('CGROUP_PROBE_TIMEOUT', '8'))))
+    now = time.time()
+    print('timestamp:', datetime.datetime.now().astimezone().isoformat(timespec='seconds'))
+    print('dashboard:', VERSION)
+    print('manager_selector: %s  owner: %s  schedd: %s' %
+          (clean('AUTO_OWNER_DISCOVERY' if automatic else 'EXPLICIT_PROJECT=' + project if project is not None else 'LEGACY_ENDPOINT=%s:%s' % (host, port)), clean(owner), clean(schedd)))
+    attrs = ('ClusterId,ProcId,Owner,JobStatus,RemoteHost,LastRemoteHost,RequestCpus,RequestMemory,'
+             'RequestDisk,MemoryUsage,DiskUsage,Cmd,Args,Arguments,HoldReason,HoldReasonCode,QDate')
+    history_attrs = ('ClusterId,ProcId,Owner,JobStatus,Cmd,Args,Arguments,CompletionDate,ExitCode,'
+                     'ExitBySignal,ExitSignal,RemoteWallClockTime')
+    history_constraint = ('Owner == %s && CompletionDate >= %d' % (json.dumps(owner), int(now - lookback)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        catalog_f = pool.submit(query, ['work_queue_status', '-l', '-t', str(math.ceil(timeout))], timeout)
+        condor_f = pool.submit(query, ['condor_q', '-name', schedd, '-constraint', 'Owner == ' + json.dumps(owner),
+                                       '-json', '-attributes', attrs], timeout)
+        history_f = pool.submit(query, ['condor_history', '-name', schedd, '-constraint', history_constraint,
+                                        '-scanlimit', str(history_max * 10), '-limit', str(history_max),
+                                        '-json', '-attributes', history_attrs], history_timeout)
+        catalog, catalog_status = catalog_f.result()
+        jobs, condor_status = condor_f.result()
+        history, history_status = history_f.result()
+    history_raw_count = len(history) if history is not None else None
+    if jobs is not None:
+        jobs = [j for j in jobs if j.get('Owner') == owner]
+    if history is not None:
+        history = [j for j in history if j.get('Owner') == owner and
+                   number(j.get('CompletionDate')) is not None and
+                   number(j.get('CompletionDate')) >= now - lookback]
+    owner_managers = owner_catalog(catalog, owner, time.time(), age_limit)
+    selection_status = 'AUTO_OWNER_DISCOVERY'
+    section('managers_catalog')
+    print('query_status:', catalog_status)
+    if catalog is None:
+        print('UNAVAILABLE')
+    else:
+        print('owner_records=%d omitted_missing_or_other_owner=%d' %
+              (len(owner_managers), len(catalog) - len(owner_managers)))
+        table(['project', 'host', 'port', 'age', 'freshness', 'waiting', 'running', 'done', 'workers', 'workers_idle'],
+              [[r.get('project', '?'), r.get('name', r.get('address', '?')), r.get('port', '?'),
+                'unknown' if r['_age'] is None else '%.0fs' % r['_age'],
+                'FRESH' if r['_fresh'] else 'STALE/UNKNOWN_AGE'] +
+               [fmt(r.get(k)) for k in ('tasks_waiting', 'tasks_running', 'tasks_done',
+                                        'workers_connected', 'workers_idle')]
+               for r in owner_managers])
+        print('Catalog presence is a snapshot, not direct manager liveness.')
+
+    tasks, task_status, active = None, 'DISABLED', []
+    if automatic:
+        section('manager_discovery')
+        print('selection: AUTO_OWNER_DISCOVERY')
+        print('summary_budget: %d managers, %d concurrent, no retries' %
+              (AUTO_SUMMARY_LIMIT, AUTO_SUMMARY_CONCURRENCY))
+        if catalog is None:
+            print('CATALOG_UNAVAILABLE:', catalog_status)
+        elif not owner_managers:
+            print('EMPTY_OWNER_CATALOG: no explicit owner records in this snapshot')
+        if task_details:
+            task_status = 'NO_EXPLICIT_DETAIL_TARGET'
+            print('task_details:', task_status)
+        if os.environ.get('LOGDIR'):
+            print('LOGDIR UNBOUND; not used for per-manager progress')
+        for context in automatic_managers(owner_managers, timeout, task_timeout):
+            row = context['row']
+            endpoint = context['endpoint'] or (None, None)
+            result = context['result']
+            if task_details:
+                result = result[:3] + (task_status,)
+            render_manager(*endpoint, row.get('project'), context['selection'], [row], result,
+                           catalog_status, age_limit, limit, condor_status, automatic=True)
+    else:
+        if project is not None:
+            endpoint, selection_status = select_project(owner_managers, project)
+            selected = [r for r in owner_managers if r['_fresh'] and r.get('project') == project] if endpoint else []
+        else:
+            endpoint = catalog_endpoint({'name': host, 'port': port})
+            selection_status = 'LEGACY_ENDPOINT' if endpoint else 'INVALID_EXPLICIT_ENDPOINT'
+            selected = matching_catalog(catalog, *endpoint, owner) if endpoint else []
+        host, port = endpoint if endpoint else (None, None)
+        result = manager_queries(host, port, timeout, task_details, task_timeout,
+                                 expected_project=project, expected_owner=owner)
+        tasks, task_status, active = render_manager(
+            host, port, project, selection_status, selected, result,
+            catalog_status, age_limit, limit, condor_status, os.environ.get('LOGDIR'))
     section('condor_queue')
     print('query_status:', condor_status)
     worker_jobs = [j for j in jobs or [] if worker_origin(j) is not None]
@@ -727,69 +887,6 @@ No completion or monitor-deadlock diagnosis is inferred from inactivity.''')
         if history_raw_count >= history_max:
             print('RESULT_CAP_REACHED: counts may be incomplete within the lookback.')
         print('Scan cap may also truncate older records within the lookback.')
-
-    section('log_progress')
-    progressing = False
-    if not logdir:
-        print('LOGDIR unset; no trend inferred from a single snapshot.')
-    else:
-        print('explicit log source:', clean(logdir))
-        if log_sample:
-            last, first, stamp = log_sample
-            age = time.time() - stamp
-            fresh = log_fresh and -5 <= age <= age_limit
-            print('sample=%s age=%.1fs %s' % (datetime.datetime.fromtimestamp(stamp, datetime.timezone.utc).isoformat(), age, 'FRESH' if fresh else 'STALE/clock mismatch'))
-            if log_error:
-                print(log_error + '; not used for health')
-            fields = ('tasks_submitted', 'tasks_done', 'tasks_waiting', 'tasks_running', 'tasks_failed', 'tasks_exhausted_attempts', 'bytes_sent', 'bytes_received')
-            deltas = {}
-            if first:
-                dt = (float(last['timestamp']) - float(first['timestamp'])) / 1e6
-                print('window=%.1fs' % dt)
-                for k in fields:
-                    a,b = number(first.get(k)),number(last.get(k))
-                    if a is not None and b is not None:
-                        deltas[k] = b-a
-            table(['counter', 'latest', 'delta'], [[k,fmt(last.get(k)), '%+g' % deltas[k] if k in deltas else '?'] for k in fields])
-            monotonic_keys = ('tasks_submitted','tasks_done','bytes_sent','bytes_received')
-            reset = any(deltas.get(k,0) < 0 for k in monotonic_keys)
-            progressing = fresh and not reset and any(deltas.get(k,0) > 0 for k in ('tasks_done','bytes_sent','bytes_received'))
-            if reset:
-                print('counter reset: trend not used for health')
-            print('Task deltas include all categories; accumulation estimates and event totals are distinct.')
-        else:
-            print('unavailable:', log_error)
-
-    section('selected_manager_health')
-    if queue is None:
-        if progressing:
-            print('status: PROGRESS_IN_LOGS / DIRECT_UNKNOWN')
-        elif tasks is not None and active:
-            print('status: ACTIVE_TASKS_SNAPSHOT / SUMMARY_UNKNOWN')
-        elif log_sample and log_fresh:
-            print('status: LOG_SNAPSHOT / DIRECT_UNKNOWN')
-        elif catalog_fresh:
-            print('status: CATALOG_SNAPSHOT / DIRECT_UNKNOWN')
-        else:
-            print('status: UNKNOWN')
-        print('reason: direct summary unavailable; fallback source and age are shown above')
-        print('No zero-task, deadlock or completion conclusion from a timeout.')
-    elif progressing:
-        print('status: PROGRESSING (recent completions and/or data transfers)')
-    elif number(queue.get('tasks_running')) > 0 or (number(queue.get('tasks_on_workers')) or 0) > 0:
-        print('status: ACTIVE_SNAPSHOT (progress over time not established)')
-    elif number(queue.get('tasks_waiting')) > 0:
-        print('status: WAITING (queued work, no activity reported in summary; cause unproven)')
-    elif number(queue.get('tasks_with_results')) == 0:
-        print('status: QUIET_SNAPSHOT (not proof of production completion)')
-    else:
-        print('status: RESULTS_PENDING_OR_UNKNOWN')
-    if tasks is None:
-        print('task_details:', task_status)
-    if jobs is None:
-        print('condor_details:', condor_status)
-    if project is not None and selection_status != 'OK':
-        print('selection_alert:', selection_status)
 
     section('owner_wide_manager_alerts')
     if catalog is None:
