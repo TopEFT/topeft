@@ -12,14 +12,13 @@ CFGs are `input_samples/cfgs/excluded_mc_run2_sr.cfg` and
 active background CR JSON paths minus the active background SR JSON paths for
 each included era, with no path shared with a signal-named CFG. Run3 includes
 the four existing `TTto4Q_NDSkim_<era>.json` inputs. The producer changes no
-source JSON metadata. Run2 remains on hold because `TTToHadronic` is not
-available in the active CR inputs.
+source JSON metadata. Run2 uses the available excluded backgrounds across its
+four eras; unavailable `TTToHadronic` remains a physical-coverage caveat.
 
 ## Interface
 
-Use `--run run3 --block all` for the a-then-d campaign. `--block a`
-and `--block d` select one unit; these single-unit forms also resolve Run2,
-but the current campaign does not run Run2. The required options are
+Use `--block all` for an a-then-d campaign with either `--run run2` or
+`--run run3`. `--block a` and `--block d` select one unit. The required options are
 `--campaign-tag`, `--output-root`, `--env-file`, `--wq-staging-base`,
 `--wq-quota-root`, `--wq-free-warning-bytes`, `--wq-min-free-bytes`, and
 `--wq-poll-seconds`. All paths must be absolute. Supply distinct `--port-a`
@@ -48,22 +47,24 @@ sidecars and rechecks each unit's output paths before launch. The native
 producer refuses existing Work Queue log files. No overwrite, retry, resume,
 or tag change is automatic.
 
-Each unit uses all four Run3 eras (2022, 2022EE, 2023, 2023BPix), 50000-event
-chunks, MC-only `processor_output`, `--do-systs`, `--all-analysis`,
+Each unit uses four separate eras (Run2: UL16, UL16APV, UL17, UL18; Run3:
+2022, 2022EE, 2023, 2023BPix), 50000-event chunks, MC-only
+`processor_output`, `--do-systs`, `--all-analysis`,
 `--np-postprocess=skip`, and `--ttgamma-sample-role-policy split`. Block a selects
 `2l` and `2los_1tau` with `njets lj0pt ptz lt`; block d selects
-`3l_onZ_tau` with `njets lj0pt ptz lt`. The wider `run3_full` a block also
+`3l_onZ_tau` with `njets lj0pt ptz lt`. The wider `run3_prod` a block also
 selects `2lss_1tau`, whose on-Z channels can fill `ptz_wtau`. Neither selected
 excluded-MC a category has a channel that fills that family, so omitting it
 loses no physical contribution from this slice. Each requested family has an
 explicit full-custom sumw2 companion, including `njets_sumw2`. The `_njets`
 output basename is the unchanged campaign identifier, not a histogram limit.
-Run2's deferred single-unit dry-run retains its original `njets` selection.
+Run2 uses the same applicable SR-full histogram families and category groups.
+The first plot wave remains `njets` only; it does not narrow producer output.
 Work Queue requests one processing core and
 32000 MB plus two accumulating cores. These are task requests, not worker
 factory sizing or available-capacity findings.
 
-The standard `run3_full` SR source uses `--do-np --defer-np` and implicit
+The standard `run3_prod` SR source uses `--do-np --defer-np` and implicit
 production sumw2. Its `--do-np` resolves and certifies same-year data and prompt
 MC contributors before the executor, which also determines the implicit
 sumw2 targets; the separate `run_data_driven.py` step then runs after the
@@ -75,7 +76,7 @@ nonprompt certification is claimed. With no enabled data driven product, the
 implicit production policy would select no sumw2 targets for these backgrounds.
 Explicit `--sumw2-family` for each requested distribution preserves the
 nominal MC statistical companions consumed by the SR plotter. This changes
-statistical sidecar provenance relative to standard `run3_full` and includes
+statistical sidecar provenance relative to standard `run3_prod` and includes
 background sumw2 targets regardless of that profile's contributor selection.
 The event selection, nominal weights and systematic variation switch use the
 same source flags for these units, while the background-only input universe
@@ -88,30 +89,22 @@ The native producer owns PKL and sidecar creation, archive validation, Work
 Queue staging, and native logs. A terminal Ctrl-C reaches the foreground
 process group as it does for `run_cr.sh`; partial products remain for review.
 
-## Immediate Run3 campaign identity
+## Campaign identity and preflight
 
-The planned tag is
-`top26006-excludedmc-cross-era-njets-20261018-001`. Derived managers are
-`top26006-excludedmc-cross-era-njets-20261018-001-run3-block-a` and
-`top26006-excludedmc-cross-era-njets-20261018-001-run3-block-d`; the selector
-is `^top26006-excludedmc-cross-era-njets-20261018-001-run3-block-(a|d)$`.
-These are the identities for the owner-run replacement of the interrupted
-attempt. Lane HTCondor's existing factory selector matches these two names.
+The caller selects `--campaign-tag` and `--output-root` for each campaign.
+`run_excluded_mc.sh` derives a manager name
+`<campaign-tag>-<run>-block-<a|d>` and writes
+`<output-root>/<run>/excluded_mc_<run>_block_<a|d>_njets.pkl.gz`
+with its adjacent metadata sidecar. Native logs belong below that run's
+`work_queue_logs/<outname>/source_native/` directory. The tag must satisfy
+the launcher's safe-name checks, include `excludedmc` in the derived manager
+name, and avoid the current user name. `--manager-name` is an assertion of
+this derived identity, not an override.
 
-The prospective output root is
-`/groups/klannon/apiccine/top26006_excluded_mc_njets_corrected_20261018_run3_001/`.
-The central-only attempt and its staging are owner-managed; their current
-state is not established by this document. The owner will terminate it and
-verify the exact output, staging, process, listener and catalog state before
-reusing this tag, output root, manager names and ports. Capacity, environment
-binding, staging/quota paths, free-space thresholds and worker/factory
-readiness require fresh production preflight. The prior
-`top26006_excluded_mc_ul18_njets_probe_001/cross_era` products are immutable
-historical evidence and are not part of this corrected campaign.
-
-The existing archive and adjacent manifest currently reside under
-`/groups/klannon/apiccine/top26006_excluded_mc_env_build_20261019_001/topeft-envs/`.
-The desired `analysis/topeft_run2/topeft-envs/` location is a separate storage
-follow-up. Neither archive nor manifest was moved for this launcher change.
-The owner runs the campaign manually from `analysis/topeft_run2` in the active
-Conda environment. Lane HTCondor owns its worker factory.
+Choose the archive and adjacent manifest explicitly; no historical campaign
+path is a default. Before execution, inspect the dry-run commands, exact output
+collisions, environment binding, staging/quota thresholds, manager names,
+ports, and externally provisioned worker resources. An interrupted attempt
+requires a separate inspection of its processes, artifacts, logs and staging
+before any recovery decision. This interface does not report the live state
+or completion of a particular campaign.

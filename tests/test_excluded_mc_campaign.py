@@ -283,12 +283,63 @@ def test_launcher_has_no_extra_execution_guards_or_obsolete_flag():
         assert obsolete not in source
 
 
-def test_all_block_plan_rejects_run2(tmp_path):
+def test_run2_all_block_dry_run_resolves_sr_full_systematics(tmp_path):
     args = plan_args(tmp_path / "output", tmp_path / "env")
     args[args.index("run3")] = "run2"
-    result = subprocess.run([str(launcher), *args, "--dry-run"], capture_output=True, text=True)
-    assert result.returncode != 0
-    assert "Run3 only" in result.stderr
+    result = subprocess.run(
+        [str(launcher), *args, "--snapshot", "--dry-run"],
+        capture_output=True, text=True, check=True,
+    )
+    output = result.stdout
+    assert output.index("EXCLUDED_MC_UNIT run2/a") < output.index("EXCLUDED_MC_UNIT run2/d")
+    assert "EXCLUDED_MC_RUN2_STATUS available_backgrounds_only_TTToHadronic_unavailable" in output
+    assert f"^{campaign_tag}-run2-block-(a|d)$" in output
+    commands = [
+        shlex.split(line) for line in output.splitlines()
+        if line.startswith("python run_analysis_excluded_mc.py ")
+    ]
+    assert len(commands) == 2
+    channel_config = json.loads(
+        (repo_root / "topeft/channels/ch_lst.json").read_text(encoding="utf-8")
+    )["ALL_CH_LST_SR"]
+    for argv, categories in zip(commands, (("2l", "2los_1tau"), ("3l_onZ_tau",))):
+        assert argv[argv.index("--years") + 1:argv.index("--hist-list")] == [
+            "UL16", "UL16APV", "UL17", "UL18"
+        ]
+        histograms = argv[argv.index("--hist-list") + 1:argv.index("--skip-cr")]
+        assert histograms == ["njets", "lj0pt", "ptz", "lt"]
+        assert argv[argv.index("--category-groups") + 1:argv.index("--wq-manager-name")] == list(categories)
+        selected = {category: channel_config[category] for category in categories}
+        assert find_incompatible_histograms(histograms, selected_category_dicts=(selected,)) == ()
+        assert [argv[index + 1] for index, flag in enumerate(argv[:-1]) if flag == "--sumw2-family"] == histograms
+        assert "--do-systs" in argv
+        assert "--do-np" not in argv
+        assert "--np-postprocess=skip" in argv
+        assert "--snapshot" in argv
+        assert "--no-sumw2" not in argv
+    assert "excluded_mc_run2_sr.cfg" in output
+    assert "EXCLUDED_MC_CAMPAIGN_STATUS planned_only units=2" in output
+
+
+def test_run2_a_failure_prevents_d_with_native_status(tmp_path):
+    copied_launcher, output_root, env_file, trace = inert_checkout(tmp_path)
+    (copied_launcher.parents[2] / "input_samples/cfgs/excluded_mc_run2_sr.cfg").write_text(
+        "# inert synthetic CFG; no production samples\n"
+    )
+    args = plan_args(output_root, env_file)
+    args[args.index("run3")] = "run2"
+    result = subprocess.run(
+        [str(copied_launcher), *args, "--snapshot", "--execute"],
+        capture_output=True, text=True,
+        env={**os.environ, "EXCLUDED_MOCK_TRACE": str(trace), "EXCLUDED_MOCK_BEHAVIOR": "fail_a"},
+    )
+    assert result.returncode == 7
+    assert trace.read_text().splitlines() == [
+        f"start:excluded_mc_run2_block_a_njets:{campaign_tag}-run2-block-a"
+    ]
+    assert "producer-stdout:excluded_mc_run2_block_a_njets" in result.stdout
+    assert "producer-stderr:excluded_mc_run2_block_a_njets" in result.stderr
+    assert "Unit a failed with rc 7; later units were not started." in result.stderr
 
 
 def test_run2_single_unit_still_resolves_without_launch(tmp_path):

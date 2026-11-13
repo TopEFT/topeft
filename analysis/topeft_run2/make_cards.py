@@ -49,7 +49,13 @@ def build_arg_parser():
     parser.add_argument("--drop-syst",default=[],action="extend",nargs="+",help="Specify one or more template systematics to remove from the datacard")
     parser.add_argument(
         "--suppress-nominal-like-tau-shapes", action="store_true", default=False,
-        help="Omit complete local Tau shape pairs below the strict relative 1e-5 threshold (default: off; unsupported with --use-AAC)",
+        help="Omit complete local Tau shape pairs below the configured strict relative threshold (default: off; unsupported with --use-AAC)",
+    )
+    parser.add_argument(
+        "--nominal-like-tau-shape-threshold",
+        type=datacard_tools.validate_nominal_like_tau_shape_threshold,
+        default=datacard_tools.DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD,
+        help="Strict relative threshold for enabled Tau shape suppression (default: %(default)s)",
     )
     parser.add_argument("--POI",default=[],help="List of WCs (comma separated)")
     parser.add_argument("--year","-y",default=[],action="extend",nargs="+",help="Run over a subset of years")
@@ -77,6 +83,8 @@ def build_arg_parser():
     parser.add_argument("--max-runtime", type=int, help="Optional AllowedExecuteDuration seconds per activation, excluding transfer time; timeout holds the job")
     parser.add_argument("--max-retries", type=int, help="Explicit terminal executable retry budget (zero disables retries)")
     parser.add_argument("--max-starts", type=int, help="Explicit total physical start budget, including eviction restarts")
+    parser.add_argument("--exhaustion-policy", choices=("remove", "hold"),
+                        help="With --condor, remove exhausted jobs (default) or retain them on hold")
     parser.add_argument("--condor-batch-name", help="Optional HTCondor batch label for operator visibility")
     parser.add_argument("--keep-negative-bins",action="store_true",help="Don't crop negative bins")
     parser.add_argument("--use-AAC","-A",action="store_true",help="Include all EFT templates in datacards for AAC model")
@@ -235,7 +243,7 @@ def main():
             from datacard_matrix_condor import prepare_material, submit_material, runner
         if not args.matrix_manifest or not args.condor_output:
             parser.error("--condor requires --matrix-manifest and --condor-output; generate the workload with make_datacard_matrix_manifest.py")
-        allowed = {"condor", "prepare_only", "row_id", "rescue_ambiguous", "matrix_manifest", "condor_output", "request_cpus", "request_memory", "request_disk", "max_runtime", "max_retries", "max_starts", "condor_batch_name"}
+        allowed = {"condor", "prepare_only", "row_id", "rescue_ambiguous", "matrix_manifest", "condor_output", "request_cpus", "request_memory", "request_disk", "max_runtime", "max_retries", "max_starts", "exhaustion_policy", "condor_batch_name"}
         allowed_options = {option for action in parser._actions if action.dest in allowed for option in action.option_strings}
         for token in sys.argv[1:]:
             if token.startswith("-") and token.split("=", 1)[0] not in allowed_options:
@@ -249,6 +257,7 @@ def main():
                                       request_cpus=args.request_cpus, request_memory=args.request_memory,
                                       request_disk=args.request_disk, max_runtime=args.max_runtime,
                                       max_retries=args.max_retries, max_starts=args.max_starts,
+                                      exhaustion_policy=args.exhaustion_policy or "remove",
                                       row_ids=args.row_id)
             if not args.prepare_only:
                 result = {**result, **submit_material(Path(args.matrix_manifest),
@@ -260,7 +269,7 @@ def main():
         if not args.prepare_only and not result["submitted"]:
             raise SystemExit(1)
         return
-    if args.prepare_only or args.rescue_ambiguous or args.row_id or any(value is not None for value in (args.matrix_manifest, args.condor_output, args.request_cpus, args.request_memory, args.request_disk, args.max_runtime, args.max_retries, args.max_starts, args.condor_batch_name)):
+    if args.prepare_only or args.rescue_ambiguous or args.row_id or any(value is not None for value in (args.matrix_manifest, args.condor_output, args.request_cpus, args.request_memory, args.request_disk, args.max_runtime, args.max_retries, args.max_starts, args.exhaustion_policy, args.condor_batch_name)):
         parser.error("dispatch and resource options require --condor")
     pkl_files  = _resolve_pkl_paths(args, parser)
     from pathlib import Path
@@ -314,6 +323,7 @@ def _run_producer(args, pkl_files):
         "lepton_mva_correlation": args.lepton_mva_correlation,
         "drop_syst": drop_syst,
         "suppress_nominal_like_tau_shapes": args.suppress_nominal_like_tau_shapes,
+        "nominal_like_tau_shape_threshold": args.nominal_like_tau_shape_threshold,
         "skip_missing_parton_rate_syst": skip_missing_parton_rate_syst,
         "enable_legacy_run3_vsmu_recovery": args.enable_legacy_run3_vsmu_recovery,
         "unblind": unblind,

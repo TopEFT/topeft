@@ -14,12 +14,12 @@ from analysis.topeft_run2 import make_datacard_matrix_manifest as generator
 
 # Digests come from the accepted input matrix's ordered row records.
 _matrix_row_digests = {
-    "run2": "d8c350bba65bb87d51644f4b927346f0abce5cfa32fee0603602efd5ade59bd1",
-    "run3": "f2225975aec519aae450a3a76d6c1096bba32d22bf49e2156fb2ce64f3164f54",
+    "run2": "35c25e4f3101f0df2c4e8b7fec82cb26e3306de552678dd32b8c2c53e4e3cd66",
+    "run3": "3810935e344355a080b4f7258cdb72506f71cbaf37d212f339b3b3700797c43e",
 }
 _execution_crosswalk_digests = {
-    "run2": "f898db1dd73fdfc99d3fe04dbfe188666b2ed431465a121039bab807a77f2f2c",
-    "run3": "a87ac5a26703dadcec3d1f4fa9ead35e30864bb69608598ceb1e995c0123c0ef",
+    "run2": "9ddaaa16989020abc019da5765af4e3255bd007c9cd8756f2b93c28e8e4e8a17",
+    "run3": "12ea3a9dce85e87615ec716fb8722e214391432fc293e54e3133cb4f9fbd5091",
 }
 _role_order = {
     "run2": ["block1", "block2", "block3", "block4", "block5"],
@@ -68,7 +68,7 @@ def test_standard_manifest_matches_accepted_input_matrix(tmp_path, era, years):
     assert observed["runtime_contract"]["fingerprints"] == [
         {"path": str(make_cards), "sha256": runner.hash_file(make_cards)}]
     rows = observed["rows"]
-    assert len(rows) == {"run2": 11, "run3": 34}[era]
+    assert len(rows) == {"run2": 11, "run3": 36}[era]
     counts = {}
     for row in rows:
         parent = row["logical_row_id"]
@@ -97,6 +97,9 @@ def test_standard_manifest_matches_accepted_input_matrix(tmp_path, era, years):
         assert len(channels) == len(set(channels))
         logical_lines += f"{era}|{parent}|{group[0]['distribution']}|{','.join(channels)}\n"
     assert hashlib.sha256(logical_lines.encode()).hexdigest() == _matrix_row_digests[era]
+    forward = [row for row in rows if row["logical_row_id"] == f"{era}_11"]
+    assert [len(row["physical_channels"]) for row in forward] == (
+        [7, 7, 7] if era == "run3" else [21])
     assert len({f"{channel}_{row['distribution']}" for row in rows for channel in row["physical_channels"]}) == 129
     assert all(row["years"] == years for row in rows)
     assert all(str(tmp_path) in row["output_root"] and str(tmp_path) in row["log_path"]
@@ -162,7 +165,7 @@ def test_unblind_opt_in_preserves_matrix_and_other_producer_options(tmp_path, er
     default_rows = {row["row_id"]: row for row in default_manifest["rows"]}
     enabled_rows = {row["row_id"]: row for row in enabled_manifest["rows"]}
     assert default_rows.keys() == enabled_rows.keys()
-    assert len(enabled_rows) == {"run2": 11, "run3": 34}[era]
+    assert len(enabled_rows) == {"run2": 11, "run3": 36}[era]
     for row_id, row in enabled_rows.items():
         default_row = default_rows[row_id]
         assert row["physical_channels"] == default_row["physical_channels"]
@@ -236,7 +239,7 @@ def test_legacy_run3_recovery_opt_in_applies_only_to_run3_rows(tmp_path, era, ex
     default_rows = {row["row_id"]: row for row in default_manifest["rows"]}
     enabled_rows = {row["row_id"]: row for row in enabled_manifest["rows"]}
     assert default_rows.keys() == enabled_rows.keys()
-    assert len(enabled_rows) == {"run2": 11, "run3": 34}[era]
+    assert len(enabled_rows) == {"run2": 11, "run3": 36}[era]
     for row_id, row in enabled_rows.items():
         producer_args = row["producer_args"]
         assert row["era"] == era
@@ -274,3 +277,20 @@ def test_missing_role_unknown_target_and_duplicate_binding_leave_manifest_absent
     with pytest.raises(ValueError, match="duplicate --input-pkl binding"):
         generator.main(argv)
     assert not (tmp_path / "matrix.json").exists()
+
+
+@pytest.mark.parametrize('value,expected', [(None, 1e-3), ('1e-5', 1e-5), ('0.02', 0.02)])
+def test_tau_threshold_native_forwarding(tmp_path, value, expected):
+    from analysis.topeft_run2 import make_cards
+    argv, _, _ = _args(tmp_path, 'run3')
+    argv += ['--suppress-nominal-like-tau-shapes']
+    if value is not None:
+        argv += ['--nominal-like-tau-shape-threshold', value]
+    assert generator.main(argv) == 0
+    manifest, _ = runner.load_manifest(tmp_path / 'matrix.json')
+    for row in manifest['rows']:
+        resolved = runner.resolved_argv(manifest, row)
+        assert resolved[resolved.index('--nominal-like-tau-shape-threshold') + 1] == str(expected)
+        parsed = make_cards.build_arg_parser().parse_args(row['producer_args'])
+        assert parsed.nominal_like_tau_shape_threshold == expected
+        assert parsed.suppress_nominal_like_tau_shapes is True

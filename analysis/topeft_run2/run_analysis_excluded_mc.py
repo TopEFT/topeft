@@ -70,6 +70,7 @@ from analysis.topeft_run2.wq_staging_guard import (
     staging_guard_error,
     start_guard,
 )
+from analysis.topeft_run2.wq_processing_admission import install_processing_admission
 from analysis.topeft_run2.analysis_processor import (
     ANALYSIS_MODE_EXCLUSIVE_ERROR,
 )
@@ -77,13 +78,24 @@ from analysis.topeft_run2.analysis_processor import (
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
 
 
-def _configure_wq_categories(queue, processing_cores=None, accumulating_memory_mb=None, accumulating_cores=None):
+def _configure_wq_categories(queue, processing_cores=None, accumulating_memory_mb=None, accumulating_cores=None,
+                             admission_base=None, admission_quota_root=None,
+                             admission_warning_bytes=None, admission_min_free_bytes=None):
     """Apply selected category reservations after Coffea declares categories."""
     if processing_cores == 1:
         queue.specify_category_max_resources("processing", {"cores": 1})
     if accumulating_memory_mb is not None:
         queue.specify_category_min_resources(
             "accumulating", {"memory": accumulating_memory_mb, "cores": accumulating_cores}
+        )
+    if admission_base is not None:
+        install_processing_admission(
+            queue, base=admission_base, quota_root=admission_quota_root,
+            warning_bytes=admission_warning_bytes,
+            min_free_bytes=admission_min_free_bytes,
+            processing_cores=processing_cores,
+            accumulating_memory_mb=accumulating_memory_mb,
+            accumulating_cores=accumulating_cores,
         )
 
 
@@ -2317,13 +2329,17 @@ if __name__ == "__main__":
             if not args.wq_guard:
                 raise SystemExit("--wq-treereduction requires --wq-guard")
             executor_args["treereduction"] = args.wq_treereduction
-        if args.wq_processing_cores == 1 or args.wq_accumulating_memory_mb is not None:
+        if args.wq_guard or args.wq_processing_cores == 1 or args.wq_accumulating_memory_mb is not None:
             from functools import partial
             executor_args["custom_init"] = partial(
                 _configure_wq_categories,
                 processing_cores=args.wq_processing_cores,
                 accumulating_memory_mb=args.wq_accumulating_memory_mb,
                 accumulating_cores=args.wq_accumulating_cores,
+                admission_base=wq_filepath if args.wq_guard else None,
+                admission_quota_root=args.wq_quota_root if args.wq_guard else None,
+                admission_warning_bytes=args.wq_free_warning_bytes if args.wq_guard else None,
+                admission_min_free_bytes=args.wq_min_free_bytes if args.wq_guard else None,
             )
 
     # Run the processor and get the output

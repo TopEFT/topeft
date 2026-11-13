@@ -1,6 +1,6 @@
 # Analysis workflow tutorial
 
-This tutorial follows the maintained TOP-26-006 path from sample selection to
+This tutorial follows the maintained analysis workflow from sample selection to
 the artifacts handed to EFTFit and Combine, the downstream statistical tools.
 It is written for a HEP analyst who knows why events are selected and
 histogrammed but does not yet know which `topeft` component owns each step.
@@ -86,16 +86,16 @@ you what each actor owns and, equally importantly, what it does not own.
   [production configuration](../reference/production_configuration.md).
 
 - **Production profile.** A profile is a named `run_cr.sh` orchestration plan,
-  such as `run3_full`. It exists to freeze a reproducible matrix of blocks,
-  environment identity, output names, and resume state. It consumes wrapper
+  such as `run3_prod`. It resolves approved scientific coverage and a default
+  partition. It consumes wrapper
   options and delegates work; it does not redefine channels, corrections,
   histogram families, or sumw2 policy. See the
   [architecture explanation](../explanation/architecture.md).
 
-- **`run_cr.sh`.** This is the maintained campaign-level wrapper. It expands a
-  production profile, checks a fresh output namespace or an exact resume, and
-  invokes `fullR3_run.sh` for each block. It produces campaign state plus
-  validated source and transformed artifacts. It does not process events
+- **`run_cr.sh`.** This is the maintained campaign-level launcher. It expands a
+  production profile, checks its output namespace, and invokes `fullR3_run.sh`
+  and `run_data_driven.py`. `campaign_manifest.py` owns schema-9 state,
+  attempts, receipts and recovery. The launcher does not process events
   itself. See the [production how-to](../how_to/production.md#run-a-maintained-run_crsh-campaign)
   and [entrypoint reference](../reference/entrypoints.md).
 
@@ -170,11 +170,13 @@ you what each actor owns and, equally importantly, what it does not own.
 
 ### Validation and statistical-model inputs
 
-- **Plotting and validation layer.** `run_plotter.sh` is reusable shell
-  automation over the direct `make_cr_and_sr_plots.py` CLI. They consume a
-  coherent artifact family, apply the requested processing or fitting view,
-  group processes, and render distributions and diagnostic reports. They do
-  not modify the PKL or produce cards. See the
+- **Plotting and validation layer.** `run_plotter.sh` bootstraps
+  `plot_campaign_manifest.py`, which normalizes ordinary arguments and owns
+  persistent campaign state, recovery and plot materialization. Its backend
+  dispatches the direct `make_cr_and_sr_plots.py` renderer. The renderer
+  consumes a coherent artifact family, applies the requested processing or
+  fitting view, groups processes, and renders distributions and diagnostic
+  reports. These components do not modify the PKL or produce cards. See the
   [plotting how-to](../how_to/plotting.md) and
   [plotting reference](../reference/plotting.md).
 
@@ -249,24 +251,21 @@ between automation and the caller.
 
 | Route | Choose it when | Automation provided | You must record or manage |
 | --- | --- | --- | --- |
-| `run_cr.sh` | Running or resuming a maintained multi-block campaign | Profile block matrix, fresh namespace, environment archive, state/resume, source/nonprompt stage checks | Selected profile, output root, campaign tag, reviewed frozen plan, repository revisions |
+| `run_cr.sh` and `campaign_manifest.py` | Running or resuming a maintained multi-block campaign | Profile commands, schema-9 state, scientific coverage, stage attempts and receipts | Selected profile, output root, campaign tag and reviewed plan |
 | `fullR3_run.sh` | Running one supported Run 2/Run 3 block or inspecting wrapper resolution | Maintained cfg selection, years/region expansion, output-name construction, one direct command | Campaign grouping, state/resume, exact printed command, output identity, downstream lifecycle |
 | `run_analysis.py` | Running one focused request or developing the direct CLI | Input loading, validation, executor/processor construction, source publication | Exact input/options, years/categories/histograms, executor, output namespace, commit/environment, every downstream step |
 
 ### Route A: maintained campaign with `run_cr.sh`
 
-The current wrapper is bound to the correction-lib managed checkout: it changes
-to that checkout's analysis directory and records the Git commit from that same
-repository. It does not operate on an arbitrary clone or derive repository
-identity from the caller's working directory. Use this route only in the
-managed workspace for which it is configured; use a lower-level route when
-working from another checkout.
+The wrapper derives its repository from its script location and records that
+checkout's Git commit as provenance. Scientific resume compatibility uses the
+resolved scientific contract and approved coverage.
 
-Inspect the frozen plan first:
+Inspect the default plan first:
 
 ```bash
 ./run_cr.sh \
-  --production-profile run3_full \
+  --production-profile run3_prod \
   --output-dir /absolute/path/to/fresh_run3_campaign \
   --campaign-tag run3_campaign \
   --dry-run
@@ -322,18 +321,17 @@ final precedence. The
 failure boundaries.
 
 The remainder begins at the common source publication and is route-neutral.
-An ordinary clone can continue with the reviewed Route B command without
-`--dry-run`, or with Route C after removing `--pretend` and recording the
-omitted orchestration decisions. In the configured correction-lib workspace,
-Route A can instead automate the multi-block source/nonprompt lifecycle. All
-three routes ultimately reach the same `run_analysis.py` and processor
-boundary.
+Continue with the reviewed Route A campaign, Route B command without
+`--dry-run`, or Route C after removing `--pretend` and recording the
+omitted orchestration decisions. Route A locates its checkout from the script
+path and automates the multi-block source/nonprompt lifecycle. All three
+routes ultimately reach the same `run_analysis.py` and processor boundary.
 
 ## 4. Reach a source artifact from any route
 
-Choose the launch command that matches your checkout. In an ordinary clone,
-execute the reviewed `fullR3_run.sh` command without `--dry-run`, or the direct
-`run_analysis.py` command without `--pretend`. In the managed workspace,
+Choose the route that matches your request and environment. Execute the
+reviewed campaign, `fullR3_run.sh` command without `--dry-run`, or direct
+`run_analysis.py` command without `--pretend`. For a campaign,
 `run_cr.sh` delegates each profile block through `fullR3_run.sh`. In every
 case, `run_analysis.py` constructs `AnalysisProcessor` and publishes the same
 kind of source artifact.
@@ -534,12 +532,12 @@ following the operating links below.
 ## Current production example
 
 For maintained source production, choose an explicit public profile such as
-`run3_full`, a fresh absolute output directory, and a campaign tag. The public
-matrix also includes `run2_full`, their `_CR` variants, and the two combined
-Run2/Run3 variants. The no-argument form is only the legacy `run2_full` alias;
-`rebin_fine` is a specialist legacy profile.
+`run3_prod`, a fresh absolute output directory, and a campaign tag. The public
+matrix also includes Run 2 production, SR/CR statistical diagnostics,
+SR extension, and combined child-campaign profiles. There is no no-argument
+production alias.
 
-Recover from observed state rather than applying a generic retry. A known
+Recover from observed state. A known
 component-local failure preserves its component evidence and may permit an
 independent component to continue. A shared blocker stops remaining work.
 After an ambiguous interruption, inspect durable campaign state, the output

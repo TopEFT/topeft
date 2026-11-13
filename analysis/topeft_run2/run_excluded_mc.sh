@@ -9,7 +9,7 @@ Usage: run_excluded_mc.sh --run {run2|run3} --block {a|d|all} --campaign-tag TAG
   --env-file ABS_PATH [--snapshot] [--port PORT | --port-a PORT --port-d PORT]
   (--dry-run | --execute)
 
---block all is Run3 only and executes a, then d after a returns success.
+--block all executes a, then d after a returns success.
 --port is for one block; --port-a and --port-d bind the two-unit plan.
 Dry-run accepts synthetic paths and does not start production. --snapshot uses
 the explicit archive after native integrity validation in the entrypoint.
@@ -48,7 +48,6 @@ done
 [[ "$dry_run" != "$execute" ]] || { echo 'Choose exactly one of --dry-run and --execute.' >&2; exit 2; }
 [[ "$run" == run2 || "$run" == run3 ]] || { echo 'Run must be run2 or run3.' >&2; exit 2; }
 [[ "$block" == a || "$block" == d || "$block" == all ]] || { echo 'Block must be a, d, or all.' >&2; exit 2; }
-[[ "$block" != all || "$run" == run3 ]] || { echo 'The all-block campaign is Run3 only.' >&2; exit 2; }
 [[ "$campaign_tag" =~ ^[A-Za-z0-9_-]+$ ]] || { echo 'Invalid campaign tag.' >&2; exit 2; }
 [[ "$snapshot" != true || -n "$env_file" ]] || { echo '--snapshot requires an explicit --env-file.' >&2; exit 2; }
 for path in "$output_root" "$wq_staging_base" "$wq_quota_root" "$env_file"; do
@@ -78,7 +77,9 @@ entrypoint="$script_dir/run_analysis_excluded_mc.py"
 [[ -f "$cfg_path" && -f "$runner" && -f "$entrypoint" ]] || { echo 'Required dedicated CFG, wrapper, or entrypoint is absent.' >&2; exit 2; }
 manager_selector="^${campaign_tag}-${run}-block-($(IFS='|'; echo "${blocks[*]}"))\$"
 printf 'EXCLUDED_MC_MANAGER_SELECTOR %s\n' "$manager_selector"
-printf 'EXCLUDED_MC_RUN2_STATUS deferred_TTToHadronic_unavailable\n'
+if [[ "$run" == run2 ]]; then
+  printf 'EXCLUDED_MC_RUN2_STATUS available_backgrounds_only_TTToHadronic_unavailable\n'
+fi
 printf 'EXCLUDED_MC_ENV_FILE %s\n' "$env_file"
 if [[ "$snapshot" == true ]]; then
   printf 'EXCLUDED_MC_ENV_MODE explicit_snapshot\n'
@@ -134,9 +135,6 @@ for index in "${!blocks[@]}"; do
     a) category_groups=(2l 2los_1tau); hist_vars=(njets lj0pt ptz lt) ;;
     d) category_groups=(3l_onZ_tau); hist_vars=(njets lj0pt ptz lt) ;;
   esac
-  if [[ "$run" == run2 ]]; then
-    hist_vars=(njets)
-  fi
   outname="excluded_mc_${run}_block_${unit_block}_njets"
   command=("$runner" -y "$run" --sr --hist-vars "${hist_vars[@]}" --output-name "$outname"
     -s 50000 --cfg-override "$cfg_path"
@@ -153,9 +151,7 @@ for index in "${!blocks[@]}"; do
   for hist_var in "${hist_vars[@]}"; do
     command+=(--sumw2-family "$hist_var")
   done
-  if [[ "$run" == run3 ]]; then
-    command+=(--do-systs)
-  fi
+  command+=(--do-systs)
   if [[ "$snapshot" == true ]]; then
     command+=(--snapshot)
   fi
