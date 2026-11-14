@@ -69,6 +69,9 @@ def _runtime_path(value, label, *, executable=False):
 
 
 def make_manifest(args):
+    threshold = datacard_tools.validate_nominal_like_tau_shape_threshold(
+        getattr(args, "nominal_like_tau_shape_threshold", datacard_tools.DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD)
+    )
     manifest_output = runner.absolute(str(args.manifest_output), "manifest_output")
     output_root = runner.absolute(str(args.output_root), "output_root")
     control_root = runner.absolute(str(args.control_root), "control_root")
@@ -133,6 +136,7 @@ def make_manifest(args):
                 "--year-coverage-policy", "error", "--year", *years,
                 "--miss-parton-file", str(missing_parton),
                 "--merge-report", str(merge_report),
+                "--nominal-like-tau-shape-threshold", str(threshold),
             ]
             if args.unblind:
                 producer_args.append("--unblind")
@@ -176,6 +180,12 @@ def main(argv=None):
     parser.add_argument("--suppress-nominal-like-tau-shapes", action="store_true",
                         default=False,
                         help="Forward the native paired Tau shape suppression option to every producer row")
+    parser.add_argument(
+        "--nominal-like-tau-shape-threshold",
+        type=datacard_tools.validate_nominal_like_tau_shape_threshold,
+        default=datacard_tools.DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD,
+        help="Strict relative threshold for enabled Tau shape suppression (default: %(default)s)",
+    )
     parser.add_argument("--manifest-output", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--control-root", type=Path, required=True)

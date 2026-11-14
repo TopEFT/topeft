@@ -11,6 +11,7 @@ from itertools import product
 from typing import Any
 
 import numpy as np
+import hist
 
 from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
@@ -963,6 +964,46 @@ def materialize_nominal_family(
     if output is None:
         raise ValueError(f"Family '{family}' has no nominal component.")
     return output
+
+
+def materialize_nominal_origin_axis(histograms, family, combined):
+    """Carry split origins in the combined universe through one consumer chain.
+
+    This transient categorical axis is never a serialized payload schema. Even
+    absent origin cells retain combined support, so grouping ownership cannot
+    depend on which origin supplied the coefficients.
+    """
+    if "nominal_origin" in combined.axes.name:
+        raise ValueError("Input already has a nominal_origin axis.")
+    components = get_nominal_components(histograms, family)
+    if "uniform_nominal" in components:
+        raise ValueError("Qualified split nominal origin is required.")
+    full = combined.view(flow=True)
+    origin_views = {}
+    for origin in ("scalar", "eft"):
+        key = f"{family}__{origin}_nominal"
+        origin_views[origin] = (
+            materialize_nominal_family(
+                {key: histograms[key]}, family, wc_names=combined.wc_names
+            ).view(flow=True) if key in histograms else {}
+        )
+        if not set(origin_views[origin]).issubset(full):
+            raise ValueError("Nominal origin support outside combined support.")
+    tagged = combined.empty_from_axes(categorical_axes=[
+        *combined.categorical_axes,
+        hist.axis.StrCategory(["combined", "scalar", "eft"],
+                              name="nominal_origin", growth=True),
+    ])
+    for coordinate, values in full.items():
+        scalar = origin_views["scalar"].get(coordinate, np.zeros_like(values))
+        eft = origin_views["eft"].get(coordinate, np.zeros_like(values))
+        if (scalar.shape != values.shape or eft.shape != values.shape
+                or not np.allclose(scalar + eft, values, rtol=1e-10, atol=1e-10)
+                or np.any(scalar[..., 2:-1] != 0)):
+            raise ValueError("Nominal origin coefficients do not reconstruct combined.")
+        for origin, array in (("combined", values), ("scalar", scalar), ("eft", eft)):
+            tagged[(*coordinate, origin)] = array
+    return tagged
 
 
 def materialize_legacy_histogram_dict(

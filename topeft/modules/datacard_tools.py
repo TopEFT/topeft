@@ -41,6 +41,7 @@ from topeft.modules.nominal_schema import (
     histogram_contribution_support,
     is_split_nominal_mapping,
     materialize_legacy_histogram_dict,
+    materialize_nominal_origin_axis,
     merge_nominal_mappings,
     scalar_nominal_key,
     eft_nominal_key,
@@ -56,11 +57,62 @@ from topeft.modules.missing_parton_contract import (
     SR_CHANNEL_CONFIG_KEY,
     infer_legacy_missing_parton_layout,
     load_missing_parton_channel_contract,
+    resolve_missing_parton_response_index,
     validate_legacy_missing_parton_payload,
 )
 
 
 PRECISION = 6   # Decimal point precision in the text datacard output
+EFT_GREY_THRESHOLDS = (1e-6, 0.01, 0.01)
+EFT_NULL_CELL_THRESHOLD = 1e-5
+
+
+def eft_null_cell_mask(a0):
+    """Model pruning uses the full signed final nominal, before grey or ratios."""
+    a0 = np.asarray(a0)
+    if not np.isfinite(a0).all():
+        raise ValueError("Nonfinite final nominal A0 cannot define an EFT model cell.")
+    return a0 < EFT_NULL_CELL_THRESHOLD
+
+
+def eft_grey_mask(x, e0, a0):
+    """Strict raw-coefficient rule; invalid denominators never classify grey."""
+    if e0 is None:
+        raise ValueError("Qualified EFT origin E0 is required; A0 is not a substitute.")
+    x, e0, a0 = np.broadcast_arrays(x, e0, a0)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        relative_eft, relative_all = x / e0, x / a0
+    absolute, eft_relative, all_relative = EFT_GREY_THRESHOLDS
+    return (np.isfinite(x) & np.isfinite(e0) & np.isfinite(a0)
+            & (e0 != 0) & (a0 != 0)
+            & np.isfinite(relative_eft) & np.isfinite(relative_all)
+            & (np.abs(x) < absolute)
+            & (np.abs(relative_eft) < eft_relative)
+            & (np.abs(relative_all) < all_relative))
+
+
+def suppress_eft_grey(coefficients, e0, wc_names):
+    """Copy raw packed coefficients, suppressing only independently grey terms."""
+    from topcoffea.modules.eft_helper import quadratic_factors_to_term
+
+    if e0 is None:
+        raise ValueError("Qualified EFT origin E0 is required; A0 is not a substitute.")
+    raw = np.asarray(coefficients)
+    n = len(wc_names)
+    if raw.shape[-1] != (n + 1) * (n + 2) // 2 or np.shape(e0) != raw.shape[:-1]:
+        raise ValueError("EFT origin/packed coefficient shape mismatch.")
+    result = raw.copy()
+    for i in range(1, n + 1):
+        for j in range(1, i + 1):
+            index = int(quadratic_factors_to_term(np.asarray([i, j])))
+            grey = eft_grey_mask(raw[..., index], e0, raw[..., 0])
+            result[..., index] = np.where(grey, 0, raw[..., index])
+            if i == j:
+                linear = int(quadratic_factors_to_term(np.asarray([i, 0])))
+                result[..., linear] = np.where(grey, 0, raw[..., linear])
+    return result
+
+
 SUMW2_SUFFIX = "_sumw2"
 FULLY_SPECIFIED_TAU_NUISANCE_PREFIXES = (
     "CMS_eff_t_DeepTau",
@@ -306,11 +358,29 @@ def resolve_shape_nuisance_identity(
     return base, f"{base}{direction}"
 
 
+DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD = 1e-3
+
+
+def validate_nominal_like_tau_shape_threshold(value):
+    """Return a finite positive relative threshold, rejecting boolean values."""
+    if isinstance(value, (bool, np.bool_)):
+        raise ValueError("nominal_like_tau_shape_threshold must be a finite positive float")
+    try:
+        threshold = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("nominal_like_tau_shape_threshold must be a finite positive float") from exc
+    if not np.isfinite(threshold) or threshold <= 0:
+        raise ValueError("nominal_like_tau_shape_threshold must be a finite positive float")
+    return threshold
+
+
 def _nominal_like_tau_shape_bases(
     templates, raw_templates, expected_extent, run_suffix, run_decorrelate,
     lepton_mva_correlation,
+    nominal_like_tau_shape_threshold=DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD,
 ):
     """Find complete local Tau pairs negligible in every serialized ROOT bin."""
+    threshold = validate_nominal_like_tau_shape_threshold(nominal_like_tau_shape_threshold)
     by_name = {}
     for sp_key, arr in templates.items():
         base, name = resolve_shape_nuisance_identity(
@@ -391,8 +461,8 @@ def _nominal_like_tau_shape_bases(
             and np.all(down_values[1:][zero] == 0)
             and np.all(np.isfinite(up_relative[~zero]))
             and np.all(np.isfinite(down_relative[~zero]))
-            and np.all(up_relative[~zero] < 1e-5)
-            and np.all(down_relative[~zero] < 1e-5)
+            and np.all(up_relative[~zero] < threshold)
+            and np.all(down_relative[~zero] < threshold)
         ):
             suppressed.add(base)
     return suppressed
@@ -1171,8 +1241,10 @@ def to_hist(arr,name,zero_wgts=False):
     return h
 
 
-def _sanitize_negative_template_bins(templates):
-    """Crop negative bins without letting variations revive raw-negative nominal bins."""
+def _sanitize_negative_template_bins(
+    templates, null_cell_mask=None, *, crop_negative_bins=True,
+):
+    """Copy templates/errors, enforcing model nulls even when cropping is off."""
     raw_nominal = next(
         (
             arr
@@ -1182,7 +1254,8 @@ def _sanitize_negative_template_bins(templates):
         None,
     )
     nominal_negative_mask = (
-        None if raw_nominal is None else np.asarray(raw_nominal[0]) < 0
+        None if raw_nominal is None or not crop_negative_bins
+        else np.asarray(raw_nominal[0]) < 0
     )
 
     sanitized_templates = {}
@@ -1196,10 +1269,18 @@ def _sanitize_negative_template_bins(templates):
                 if component is not None:
                     component[nominal_negative_mask] = 0
 
-        negative_bin_mask = sanitized_arr[0] < 0
-        sanitized_arr[0][negative_bin_mask] = 0
-        if sanitized_arr[1] is not None:
-            sanitized_arr[1][negative_bin_mask] = 0
+        if null_cell_mask is not None:
+            for component in sanitized_arr:
+                if component is not None:
+                    if component.shape != np.shape(null_cell_mask):
+                        raise ValueError("Template/model null-cell shape mismatch.")
+                    component[null_cell_mask] = 0
+
+        if crop_negative_bins:
+            negative_bin_mask = sanitized_arr[0] < 0
+            sanitized_arr[0][negative_bin_mask] = 0
+            if sanitized_arr[1] is not None:
+                sanitized_arr[1][negative_bin_mask] = 0
         sanitized_templates[sp_key] = sanitized_arr
 
     return sanitized_templates
@@ -1743,6 +1824,9 @@ class DatacardMaker():
         if not isinstance(suppress_tau, bool):
             raise TypeError("suppress_nominal_like_tau_shapes must be a bool")
         self.suppress_nominal_like_tau_shapes = suppress_tau
+        self.nominal_like_tau_shape_threshold = validate_nominal_like_tau_shape_threshold(
+            kwargs.pop("nominal_like_tau_shape_threshold", DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD)
+        )
         self.skip_missing_parton_rate_syst = bool(
             kwargs.pop("skip_missing_parton_rate_syst",False)
         )
@@ -1949,11 +2033,24 @@ class DatacardMaker():
                 add_luminosity_shapes=not _is_sumw2_key(km_dist),
             )
             print(f"Num. Systematics: {len(h.axes['systematic'])}")
-            self.hists[km_dist] = h
+            self.hists[km_dist] = self._retain_nominal_origins(km_dist, h)
 
     def read_source_periods(self,fpath=None,hists=None):
         """Expose the prepared source-period view before final year correlation."""
-        return list(self._prepare_source_periods(fpath=fpath, hists=hists))
+        names = []
+        for name in self._prepare_source_periods(fpath=fpath, hists=hists):
+            self.hists[name] = self._retain_nominal_origins(name, self.hists[name])
+            names.append(name)
+        return names
+
+    def _retain_nominal_origins(self, family, histogram):
+        if "nominal_origin" not in histogram.categorical_axes.name:
+            return histogram
+        self.nominal_origins[family] = {
+            origin: histogram[{"nominal_origin": origin}]
+            for origin in ("scalar", "eft")
+        }
+        return histogram[{"nominal_origin": "combined"}]
 
     def _prepare_source_periods(self,fpath=None,hists=None):
         """
@@ -1963,6 +2060,7 @@ class DatacardMaker():
             The histograms are then pre-processed to remove / group / scale various sparse axes
             categories.
         """
+        self.nominal_origins = {}
         if hists is not None:
             if not isinstance(hists, dict):
                 raise TypeError(
@@ -2002,11 +2100,19 @@ class DatacardMaker():
                         or f"{family}__eft_nominal" in self.hists
                     )
                 ]
+            split_sources = self.hists
             self.hists = materialize_legacy_histogram_dict(
                 self.hists,
                 runtime_families=runtime_families,
                 schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
             )
+            for family in runtime_families:
+                combined = self.hists.get(family)
+                # Constant-only HistEFT inputs also require qualified origins.
+                if combined is not None and hasattr(combined, "wc_names"):
+                    self.hists[family] = materialize_nominal_origin_axis(
+                        split_sources, family, combined
+                    )
             if is_split_nominal_mapping(self.hists):
                 raise RuntimeError(
                     "DatacardMaker transient materialization retained split source keys."
@@ -2202,6 +2308,54 @@ class DatacardMaker():
             mode="fitting",
             channel=channel,
         )
+
+    def nominal_origin_coefficients(self, family, channel, process):
+        """Final raw coefficients, with physical and coefficient flow kept distinct."""
+        if family not in self.nominal_origins:
+            raise ValueError("Qualified scalar/EFT origin unavailable for scaling.")
+        arrays = {}
+        for origin, source in {"combined": self.hists[family],
+                               **self.nominal_origins[family]}.items():
+            selected = source.integrate("channel", [channel])
+            if process not in {key.process for key in selected.categorical_keys}:
+                raise ValueError(f"{origin} final process/cell absent: {channel}:{process}")
+            selected = self.binning_view(selected, family, channel)
+            projection = self._scaling_histogram_for_json(selected, channel, process)
+            arrays[origin] = np.asarray(projection.values(flow=True))[..., 1:-1]
+        full, scalar, eft = (arrays[k] for k in ("combined", "scalar", "eft"))
+        if (scalar.shape != full.shape or eft.shape != full.shape
+                or not np.isfinite(full).all()
+                or np.any(scalar[..., 1:] != 0)
+                or not np.allclose(scalar + eft, full, rtol=1e-10, atol=1e-10)):
+            raise ValueError("Final nominal origin reconstruction failed.")
+        return arrays
+
+    def _scaling_histogram_with_grey(
+        self, channel_hist, channel, process, family, null_cell_mask=None,
+    ):
+        scaling = self._scaling_histogram_for_json(channel_hist, channel, process)
+        origins = self.nominal_origin_coefficients(family, channel, process)
+        raw = np.asarray(scaling.values(flow=True))[..., 1:-1]
+        if not np.allclose(raw, origins["combined"], rtol=1e-10, atol=1e-10):
+            raise ValueError("Scaling cell differs from qualified origin cell.")
+        if self.use_AAC:
+            filtered = suppress_eft_grey(raw, origins["eft"][..., 0], scaling.wc_names)
+        else:
+            if null_cell_mask is None:
+                null_cell_mask = eft_null_cell_mask(raw[..., 0])
+            if np.shape(null_cell_mask) != raw.shape[:-1]:
+                raise ValueError("Scaling/model null-cell shape mismatch.")
+            # Null the model polynomial before grey. HistEFT.make_scaling skips
+            # all-zero rows, so these cells never divide by their raw A0.
+            filtered = np.zeros_like(raw)
+            survives = ~null_cell_mask
+            filtered[survives] = suppress_eft_grey(
+                raw[survives], origins["eft"][..., 0][survives], scaling.wc_names,
+            )
+        scaling = copy.deepcopy(scaling)
+        for values in scaling.view(flow=True).values():
+            values[..., 1:-1] = filtered
+        return scaling
 
     def _scaling_histogram_for_json(self, channel_hist, channel, process):
         """Project one card-facing signal histogram onto its scaling payload axes."""
@@ -2494,6 +2648,20 @@ class DatacardMaker():
                     channel_hist = self.binning_view(
                         h.integrate("channel", [channel]), km_dist, channel
                     )
+                    if not self.use_AAC:
+                        # Match the final SR projection and serialized physical
+                        # cells (including the source overflow, excluding underflow).
+                        if not any(key.process == p for key in channel_hist.categorical_keys):
+                            continue
+                        final = self._scaling_histogram_for_json(channel_hist, channel, p)
+                        raw = np.asarray(final.values(flow=True))[1:, 1:-1]
+                        survives = ~eft_null_cell_mask(raw[:, 0])
+                        wc_terms = np.abs(raw[survives][:, idx_arr - start_index]
+                                          / raw[survives, 0, None])
+                        if np.any(wc_terms > self.tolerance):
+                            selected_wcs[p].add(wc)
+                            break
+                        continue
                     p_hist = channel_hist.integrate("process", [p])
                     for sp_key, arr in p_hist.view(as_dict=True, flow=True).items():
                         # Ignore underflow and overflow bins. The remaining bins
@@ -2517,7 +2685,16 @@ class DatacardMaker():
             print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
-    def make_scalings_json(self,scalings_json,ch,km_dist,p,wc_names,scalings):
+    def make_scalings_json(
+        self, scalings_json, ch, km_dist, p, wc_names, scalings, null_cell_mask=None,
+    ):
+        if null_cell_mask is not None:
+            scalings = np.array(scalings, copy=True)
+            if np.shape(null_cell_mask) != scalings.shape[:-1]:
+                raise ValueError("Serialized scaling/model null-cell shape mismatch.")
+            # A zero template consumes a neutral multiplicative polynomial.
+            scalings[null_cell_mask] = 0
+            scalings[null_cell_mask, 0] = 1
         scalings = scalings.tolist()
         scalings_json.append(
             {
@@ -2628,6 +2805,12 @@ class DatacardMaker():
                     proc_sumw2 = None
                 proc_hist = self.select_final_sr_appl(proc_hist, ch, process=p)
                 proc_sumw2 = self.select_final_sr_appl(proc_sumw2, ch, process=p)
+                null_cell_mask = None
+                if not self.use_AAC and self.is_signal(p):
+                    final_nominal = self._scaling_histogram_for_json(ch_hist, ch, p)
+                    null_cell_mask = eft_null_cell_mask(
+                        np.asarray(final_nominal.values(flow=True))[..., 1]
+                    )
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
                 decomposed_templates = self.decompose(proc_hist,proc_sumw2,wcs)
@@ -2653,8 +2836,10 @@ class DatacardMaker():
                     }
                     self.validate_sparse_axes_for_card(v, ch, proc_name)
                     raw_templates = v
-                    if crop_negative_bins:
-                        v = _sanitize_negative_template_bins(v)
+                    if crop_negative_bins or null_cell_mask is not None:
+                        v = _sanitize_negative_template_bins(
+                            v, null_cell_mask, crop_negative_bins=crop_negative_bins,
+                        )
                     _validate_ff_template_support(
                         v,
                         variable=km_dist,
@@ -2673,6 +2858,7 @@ class DatacardMaker():
                             v, raw_templates, ch_hist.dense_axis.extent,
                             self.suffix, self.run_decorrelate,
                             self.lepton_mva_correlation,
+                            nominal_like_tau_shape_threshold=self.nominal_like_tau_shape_threshold,
                         )
                         all_shapes.update(suppressed_tau)
                         if suppressed_tau:
@@ -2711,6 +2897,10 @@ class DatacardMaker():
                                 vals = wcs_dict # set wcs to certain values from command line
                                 decomposed_templates_Asimov = self.decompose(proc_hist,proc_sumw2,wcs,vals)
                                 data_sm = decomposed_templates_Asimov.pop("sm")
+                                if null_cell_mask is not None:
+                                    data_sm = _sanitize_negative_template_bins(
+                                        data_sm, null_cell_mask, crop_negative_bins=False,
+                                    )
                                 data_obs += data_sm[sp_key]
                         if syst == "nominal":
                             hist_name = f"{proc_name}"
@@ -2783,7 +2973,9 @@ class DatacardMaker():
                             pass
                 # obtain the scalings for scalings.json file
                 if p in self.SIGNALS:
-                    scaling_hist = self._scaling_histogram_for_json(ch_hist, ch, p)
+                    scaling_hist = self._scaling_histogram_with_grey(
+                        ch_hist, ch, p, km_dist, null_cell_mask,
+                    )
                     validate_matching_histogram_edges(
                         proc_hist,
                         scaling_hist,
@@ -2791,10 +2983,10 @@ class DatacardMaker():
                     )
                     if self.wc_scalings:
                         scalings = scaling_hist.make_scaling(wc_list=self.wc_scalings)
-                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings, null_cell_mask)
                     else:
                         scalings = scaling_hist.make_scaling()
-                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings, null_cell_mask)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
         line_break = "##----------------------------------\n"
@@ -2921,7 +3113,7 @@ class DatacardMaker():
                         #    bin_idx = num_j - njet_offset
                         #else:
                         ch_key = ch.replace(f"_{num_j}j","")
-                        bin_idx = num_j
+                        bin_idx = resolve_missing_parton_response_index(ch, num_j)
                         if isinstance(v,dict):
                         
                             # Skip channels that don't exist in missing_parton file

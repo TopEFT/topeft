@@ -6,16 +6,16 @@
 | --- | --- | --- |
 | Sample JSON | `run_analysis.py` and `topcoffea.modules.utils.load_sample_json_file` | Describes one or more datasets and their file/process metadata |
 | Sample cfg | `run_analysis.py` cfg loading | Lists sample JSON inputs; the active universe is derived from the resolved contents, not the cfg filename alone |
-| Production profile | `run_cr.sh` | Names an ordered maintained set of production blocks and records campaign state |
+| Production profile | `run_cr.sh` | Resolves an ordered maintained block contract and launches child commands |
+| Campaign state and plan | `campaign_manifest.py` | Owns schema-9 scientific identity, approved coverage, plan revisions, attempts, receipts and recovery |
 | Year/region expansion | `fullR3_run.sh` | Chooses maintained cfgs, hist-list defaults, and the `run_analysis.py` invocation |
 | Direct options | `run_analysis.py` argparse | Own executor, resources, analysis toggles, output, policy, and provenance inputs |
 | YAML option overlay | `run_analysis.py --options FILE` | Supplies recognized runtime values through one top-level YAML mapping |
 
-The maintained public production interface is the ten-profile `run_cr.sh`
-matrix described below. Six profiles cover the ordinary full SR/CR production
-surface, two produce SR-reco extensions, and `t0_sr_statonly` and
-`t0_cr_statonly` are stat-only diagnostic profiles.
-`run3_full` is the complete maintained Run 3 SR production profile.
+The maintained public production interface has fourteen profiles: six
+`prod`, six `stat_diagnostic`, and two `sr_ext` names. Combined profiles
+orchestrate component campaigns and do not create an independent state.
+`run3_prod` is the complete maintained Run 3 SR production profile.
 `rebin_fine` is retired from the current CLI; its historical artifacts remain
 separate from current SR-reco campaigns.
 
@@ -102,6 +102,7 @@ arbitrary keywords.
 | `suppress_forward_eta_stochastic_jer` | Boolean; default `False` at class level | Processor-level forward stochastic-JER suppression control. The direct CLI resolves and passes its own maintained default. |
 | `fwd_eta_band_pt_apply` | `auto`, `on`, or `off`; default `auto` | Controls forward-band jet-pT tightening. |
 | `ttgamma_sample_role_policy` | Registered policy string; default `split` | Resolves conversion-overlap sample roles; invalid values fail through the policy owner. |
+| `phase_telemetry` | Boolean; default `False` | Enables scalar processor phase, iteration, fill and operation diagnostics; output/persistence limits are in [phase telemetry](../how_to/production.md#optional-phase-telemetry). |
 | `sumw2_policy` | Optional `resolved_sumw2_policy` | Concrete runtime family/target authority. Its family order must equal the processor family order. |
 
 Construction returns an `AnalysisProcessor` instance and allocates an
@@ -169,22 +170,23 @@ is its consumer and storage owner. Tests are in
 ## Source and test authority
 
 - `analysis/topeft_run2/run_cr.sh`
+- `analysis/topeft_run2/campaign_manifest.py`
 - `analysis/topeft_run2/fullR3_run.sh`
 - `analysis/topeft_run2/run_analysis.py`
 - `topeft/modules/production_sample_profile.py`
-- `tests/test_run3_full_production_profile.py`
+- `tests/test_campaign_production_profiles.py`
+- `tests/test_campaign_manifest.py`
 - `tests/test_run_analysis_preflight.py`
 - `tests/test_production_sample_profile.py`
 
 ## Current `run_cr.sh` profiles
 
-`run_cr.sh` exposes ten maintained public profiles: `run2_full`, `run3_full`,
-`run2_full_CR`, `run3_full_CR`, `run2_run3_full`, `run2_run3_full_CR`,
-`run2_sr_ext`, `run3_sr_ext`, `t0_sr_statonly`, and `t0_cr_statonly`. The
-combined profiles place their Run 2 and Run 3 components in separate child
-namespaces.
+`run_cr.sh` exposes `run2_prod`, `run3_prod`, `run2_run3_prod` and their
+`_CR` counterparts; the corresponding six `stat_diagnostic` profiles; and
+`run2_sr_ext` and `run3_sr_ext`. Combined profiles place their Run 2 and
+Run 3 components in separate child namespaces.
 
-The first six profiles are the ordinary full-production profiles. They use the
+The six `prod` profiles are the ordinary production profiles. They use the
 implicit `production` sumw2 policy and leave raw-count recording disabled.
 
 `run2_sr_ext` and `run3_sr_ext` use the eight keys `fwd0pt`, `j0pt`,
@@ -198,16 +200,11 @@ leave raw counts disabled. Both publish the source artifact before a separate
 local nonprompt stage.
 See the [SR-reco operator guide](../how_to/sr_reco_pkl_campaign.md).
 
-The other two profiles, `t0_sr_statonly` and `t0_cr_statonly`, are stat-only
-diagnostic profiles. They use explicit `full_diagnostics` sumw2 storage and
-enable raw-count recording. `t0_sr_statonly` covers the maintained Run-2 SR
-mapping and the 2022, 2022EE, 2023, and 2023BPix Run-3 eras. `t0_cr_statonly`
-covers the Run-2/Run-3 CR mapping and runs the maintained nonprompt and
-charge-flip postprocessing steps separately. These two diagnostic profiles are
-separate from the six-profile full-production cfg mapping.
-
-The no-argument invocation remains a legacy alias for the fixed `run2_full`
-campaign.
+The six `stat_diagnostic` profiles use explicit `full_diagnostics` sumw2
+storage, disable systematics and enable raw-count recording. Each component
+uses the corresponding Run 2 or Run 3 SR/CR coverage. Both SR and CR
+data-driven stages retain nonprompt and charge-flip science. There is no no-argument
+production alias.
 
 New campaign roots require a fresh absolute output directory and campaign tag.
 Each SR-reco profile starts in its own fresh root; see the

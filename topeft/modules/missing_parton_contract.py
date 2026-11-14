@@ -22,6 +22,15 @@ SR_CHANNEL_CONFIG_KEY = DEFAULT_SR_REGISTRY
 EXPECTED_BASE_CHANNEL_COUNT = 34
 EXPECTED_FINAL_CHANNEL_COUNT = 132
 LEGACY_MISSING_PARTON_BRANCH = "tllq"
+
+
+def resolve_missing_parton_response_index(channel: str, natural_index: int) -> int:
+    """Reuse the accepted 3j response for the new 2los tau 5j card only."""
+    if channel == "2los_onZ_1tau_5j":
+        return 3
+    return natural_index
+
+
 # Historical ALL-registry fixtures retained only for comparison and compatibility
 # tests. Registry-derived layouts below are the production authority.
 LEGACY_MISSING_PARTON_BASE_CHANNELS = (
@@ -552,6 +561,22 @@ def legacy_missing_parton_payload_lengths(
     ).public_lengths
 
 
+def _accepted_legacy_payload_lengths(layout: registry_payload_layout) -> Mapping[str, tuple[int, ...]]:
+    """Allow the R035 5j card to reuse the stored >=3j response at index 3."""
+    lengths = {key: (length,) for key, length in layout.public_lengths.items()}
+    category = layout.categories_by_name.get("2los_onZ_1tau")
+    if (
+        layout.registry == DEFAULT_SR_REGISTRY
+        and category is not None
+        and category.sr_family == "2los_1tau"
+        and category.jet_lst == (">5",)
+        and category.final_suffixes == ("_5j",)
+        and resolve_missing_parton_response_index("2los_onZ_1tau_5j", 5) == 3
+    ):
+        lengths["2los_onZ_1tau"] = (4, category.public_array_length)
+    return lengths
+
+
 def infer_legacy_missing_parton_layout(
     payload_path: str | Path,
     *,
@@ -569,8 +594,10 @@ def infer_legacy_missing_parton_layout(
     matches = []
     for registry in SUPPORTED_SR_REGISTRIES:
         layout = load_registry_payload_layout(registry, config_path=config_path)
+        accepted_lengths = _accepted_legacy_payload_lengths(layout)
         if (observed_keys == layout.ordered_base_categories
-                and observed_lengths == dict(layout.public_lengths)):
+                and all(observed_lengths[key] in accepted_lengths[key]
+                        for key in observed_keys)):
             matches.append(layout)
     if not matches:
         raise ValueError(f"No maintained missing-parton payload layout matches {payload_path}.")
@@ -631,7 +658,7 @@ def validate_legacy_missing_parton_payload(
 
     payload_path = Path(payload_path)
     layout = load_registry_payload_layout(sr_registry, config_path=config_path)
-    expected_lengths = layout.public_lengths
+    accepted_lengths = _accepted_legacy_payload_lengths(layout)
     expected_keys = list(layout.ordered_base_categories)
 
     with uproot.open(payload_path) as payload_file:
@@ -678,10 +705,16 @@ def validate_legacy_missing_parton_payload(
                     f"'double', found {branch.typename!r}."
                 )
             values = np.asarray(branch.array(library="np"), dtype=np.float64)
+            if len(values) not in accepted_lengths[base_channel]:
+                raise ValueError(
+                    f"Invalid legacy missing-parton length for {base_channel!r}: "
+                    f"expected one of {accepted_lengths[base_channel]!r}, "
+                    f"found {len(values)}."
+                )
             payload_values[base_channel] = validate_legacy_missing_parton_values(
                 values,
                 base_channel=base_channel,
-                expected_length=expected_lengths[base_channel],
+                expected_length=len(values),
             )
 
     return MappingProxyType(payload_values)

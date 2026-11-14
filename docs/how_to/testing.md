@@ -21,8 +21,9 @@ checks important fail-before-execution paths.
 
 | Change surface | Start with |
 | --- | --- |
-| `run_cr.sh` production profiles/state | `test_run3_full_production_profile.py`, plus the profile-specific resume test |
-| `run_cr.sh` manual handoff and failure isolation | `test_run2_srplot009_manual_handoff.py` and `test_run3_full_production_profile.py` |
+| `run_cr.sh` public profiles and scientific commands | `test_campaign_production_profiles.py` |
+| `run_cr.sh` synthetic campaign handoff and recovery | `test_campaign_profile_handoff.py` |
+| `campaign_manifest.py` schema, partition, receipt and reconciliation | `test_campaign_manifest.py` |
 | `fullR3_run.sh` forwarding | `test_fullr3_run_wrapper.py` |
 | `run_analysis.py` CLI/preflight | `test_run_analysis_cli_help.py`, `test_run_analysis_preflight.py` |
 | artifact/sidecar publication | `test_histogram_artifact_sidecars.py` and the affected producer/consumer test |

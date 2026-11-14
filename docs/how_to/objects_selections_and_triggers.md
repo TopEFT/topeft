@@ -59,7 +59,7 @@ unless a separate scientific authority supports it.
 1. Decide whether the change is to the shared numeric table or to the `topeft`
    choice of tagger/working-point name.
 2. For a shared-table change, follow the
-   [`topcoffea` extension guide](https://github.com/TopEFT/topcoffea/blob/HEAD/docs/physics_extension_guides.md)
+   [`topcoffea` extension guide](https://github.com/TopEFT/topcoffea/blob/run3_test_mmerged/docs/physics_extension_guides.md)
    and validate its correction schema.
 3. For an analysis-policy change, update the `topeft` selector/caller and trace
    both the tag collection and Method1a event weight.

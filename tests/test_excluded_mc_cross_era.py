@@ -267,7 +267,7 @@ def test_reference_block_categories_use_native_sr_groups(groups, expected_groups
     assert set(resolved["sr_category_dict"]) == expected_groups
     if "2los_1tau" in expected_groups:
         p0 = resolved["sr_category_dict"]["2los_1tau"]
-        assert p0["jet_lst"] == [">3"]
+        assert p0["jet_lst"] == [">5"]
         assert p0["lep_chan_lst"][0][0] == "2los_onZ_1tau"
 
 

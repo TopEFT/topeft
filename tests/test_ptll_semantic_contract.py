@@ -12,7 +12,7 @@ import pytest
 
 from analysis.topeft_run2 import analysis_processor
 from analysis.topeft_run2 import make_cr_and_sr_plots
-from analysis.topeft_run2 import sr_reco_manifest
+from analysis.topeft_run2 import campaign_manifest
 from topcoffea.modules.sparseHist import SparseHist
 from topeft.modules.axes import info
 from topeft.modules.axis_binning import (
@@ -239,15 +239,18 @@ def test_run_cr_profiles_request_canonical_families():
     source = RUN_CR_PATH.read_text(encoding="utf-8")
 
     assert "rebin_fine_category_sets" not in source
-    assert sr_reco_manifest.verify_partition(
-        sr_reco_manifest.load_plan(sr_reco_manifest.DEFAULT_PLAN_PATH),
-        sr_reco_manifest.target_coverage(),
+    assert campaign_manifest.verify_partition(
+        campaign_manifest.default_units("run3_sr_ext", "-"),
+        "run3_sr_ext",
+        campaign_manifest.partition_coverage(
+            campaign_manifest.default_units("run3_sr_ext", "-"), "run3_sr_ext"
+        ),
     )
 
     assert _bash_array(source, "sr_offz_var_sets") == ["njets lj0pt ptll lt"]
     assert _bash_array(source, "sr_onz_tau_var_sets") == ["njets lj0pt ptz lt"]
     assert _bash_array(source, "sr_fwd_var_sets") == ["njets lj0pt ptz lt"]
-    assert _bash_array(source, "run3_full_category_var_set_names") == [
+    assert _bash_array(source, "sr_category_var_set_names") == [
         "sr_with_ptz_wtau_var_sets",
         "sr_offz_var_sets",
         "sr_offz_var_sets",

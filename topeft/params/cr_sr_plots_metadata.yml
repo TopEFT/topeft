@@ -494,24 +494,18 @@ SR_GRP_MAP:
     - ttlnu
   ttll:
     color: '#2f5965'
-    display_split:
-      ttbar_group: Ttbar
-      ttbar_label: ttbar
-      remainder_label: ttll (ttbar excluded)
-      fully_hadronic_label: ttbar (fully hadronic)
-      fully_hadronic_color: '#93c493'
-      fully_hadronic_processes:
-      - TTto4Q_central2022
-      - TTto4Q_central2022EE
-      - TTto4Q_central2023
-      - TTto4Q_central2023BPix
     patterns:
-    - ttll
-    - TTZToLL_M1to10
-    - TTToSemiLeptonic
-    - TTTo2L2Nu
-    - TTto2L2Nu
-    - TTtoLNu2Q
+    - card_process: ttll
+  ttbar:
+    color: darkgreen
+    patterns: []
+  ttbar (fully hadronic):
+    color: '#93c493'
+    patterns:
+    - exact: TTto4Q_central2022
+    - exact: TTto4Q_central2022EE
+    - exact: TTto4Q_central2023
+    - exact: TTto4Q_central2023BPix
   tllq:
     color: '#a47f24'
     patterns:
@@ -667,7 +661,7 @@ STACKED_RATIO_STYLE:
         y: true
     legend:
       ncol: 5
-      max_rows: 3
+      max_rows: 5
       fontsize: 16
       columnspacing: 0.8
       handletextpad: 0.6
@@ -755,7 +749,12 @@ REGION_PLOTTING:
         njets:
         - njets
       conditional: []
-    sample_removals: []
+    sample_removals:
+    - samples:
+      - TTto4Q_central2022
+      - TTto4Q_central2022EE
+      - TTto4Q_central2023
+      - TTto4Q_central2023BPix
     category_skips: []
     sumw2_remove_signal: false
     sumw2_remove_signal_when_blinded: true

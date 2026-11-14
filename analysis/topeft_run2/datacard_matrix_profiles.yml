@@ -19,7 +19,7 @@ rows:
   - row_number: 1
     distribution: ptz
     physical_channels:
-      - 2los_onZ_1tau_3j
+      - 2los_onZ_1tau_5j
     input_roles:
       run2: block1
       run3: 2l_mixed
@@ -256,3 +256,8 @@ rows:
     input_roles:
       run2: block5
       run3: 3l_fwd
+    execution_unit_sizes:
+      run3:
+        - 7
+        - 7
+        - 7
