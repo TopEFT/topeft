@@ -3,9 +3,8 @@
 #   conda env create -f environment-multicell.yml
 #   conda activate coffea-multicell-env
 #   pip install -e .
-#   TOPCOFFEA_REPO_URL=https://github.com/lazdlie/topcoffea.git \
-#   TOPCOFFEA_GIT_REF=e92774a \
-#       scripts/install_topcoffea.sh   # feature/multicell-clean (MultiCell + raw counts)
+# Install the paired topcoffea candidate editably before TOPEFT.
+# The migration status records its tested revision and publication limits.
 name: coffea-multicell-env
 channels:
   - conda-forge
@@ -20,7 +19,9 @@ dependencies:
   - mplhep
   - scipy
   - pandas
-  - numba
+  # NanoEvents/awkward 1 kernels require the compatible LLVM 14 toolchain.
+  - numba=0.57.1
+  - llvmlite=0.40.1
   - cloudpickle
   - ndcctools
   - conda-pack

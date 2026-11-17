@@ -1420,33 +1420,7 @@ def _normalize_certified_precanonical_data_driven_contract(
     }
 
 
-def _validate_sidecar_structure(
-    sidecar: Mapping[str, Any],
-    *,
-    pkl_path: Path,
-) -> dict[str, Any]:
-    if not isinstance(sidecar, Mapping):
-        raise histogram_sidecar_error("Histogram sidecar must be a JSON object.")
-    sidecar = copy.deepcopy(dict(sidecar))
-    common_fields = {
-        "metadata_schema_version",
-        "artifact",
-        "sumw2_storage_provenance",
-        "sumw2_content_manifest",
-        "lineage",
-    }
-    missing_common = sorted(common_fields - set(sidecar))
-    if missing_common:
-        raise histogram_sidecar_error(
-            f"Invalid histogram sidecar fields; missing={missing_common}."
-        )
-    if sidecar["metadata_schema_version"] != METADATA_SCHEMA_VERSION:
-        raise histogram_sidecar_error(
-            "Unsupported histogram metadata schema version "
-            f"{sidecar['metadata_schema_version']!r}."
-        )
-
-    artifact = sidecar["artifact"]
+def _validate_artifact_descriptor(artifact, *, pkl_path, schema_version, layout):
     if not isinstance(artifact, Mapping):
         raise histogram_sidecar_error("Histogram sidecar artifact must be an object.")
     _require_exact_keys(
@@ -1483,10 +1457,46 @@ def _validate_sidecar_structure(
         )
     if not isinstance(artifact["merged"], bool):
         raise histogram_sidecar_error("artifact.merged must be a boolean.")
-    if artifact["nominal_container_schema_version"] != NOMINAL_CONTAINER_SCHEMA_VERSION:
+    if artifact["nominal_container_schema_version"] != schema_version:
         raise histogram_sidecar_error("Artifact nominal schema version is incompatible.")
-    if artifact["nominal_container_layout"] != NOMINAL_CONTAINER_LAYOUT:
+    if artifact["nominal_container_layout"] != layout:
         raise histogram_sidecar_error("Artifact nominal container layout is incompatible.")
+
+
+
+def _validate_sidecar_structure(
+    sidecar: Mapping[str, Any],
+    *,
+    pkl_path: Path,
+) -> dict[str, Any]:
+    if not isinstance(sidecar, Mapping):
+        raise histogram_sidecar_error("Histogram sidecar must be a JSON object.")
+    sidecar = copy.deepcopy(dict(sidecar))
+    if sidecar.get("metadata_schema_version") == EMBEDDED_METADATA_SCHEMA_VERSION:
+        return _validate_embedded_sidecar_structure(sidecar, pkl_path=pkl_path)
+    common_fields = {
+        "metadata_schema_version",
+        "artifact",
+        "sumw2_storage_provenance",
+        "sumw2_content_manifest",
+        "lineage",
+    }
+    missing_common = sorted(common_fields - set(sidecar))
+    if missing_common:
+        raise histogram_sidecar_error(
+            f"Invalid histogram sidecar fields; missing={missing_common}."
+        )
+    if sidecar["metadata_schema_version"] != METADATA_SCHEMA_VERSION:
+        raise histogram_sidecar_error(
+            "Unsupported histogram metadata schema version "
+            f"{sidecar['metadata_schema_version']!r}."
+        )
+
+    _validate_artifact_descriptor(
+        sidecar["artifact"], pkl_path=pkl_path,
+        schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION, layout=NOMINAL_CONTAINER_LAYOUT,
+    )
+    artifact = sidecar["artifact"]
 
     policy = resolved_policy_from_provenance(sidecar["sumw2_storage_provenance"])
     expected_sidecar_fields = set(common_fields)
@@ -2046,6 +2056,18 @@ def validate_histogram_artifact(
             "legacy_metadata_present": True,
         }
     sidecar = _validate_sidecar_structure(raw_payload, pkl_path=pkl_path)
+    if sidecar["metadata_schema_version"] == EMBEDDED_METADATA_SCHEMA_VERSION:
+        if histogram_applicability is not None and dict(histogram_applicability) != sidecar.get("histogram_applicability"):
+            raise histogram_sidecar_error("Explicit histogram applicability disagrees with embedded metadata.")
+        validate_embedded_nominal_mapping(
+            loaded, runtime_families=sidecar["runtime_histogram_families"],
+            sumw2_storage=sidecar["sumw2_storage"],
+            histogram_applicability=sidecar.get("histogram_applicability"),
+        )
+        _validate_artifact_identity(pkl_path, sidecar)
+        return {"schema": EMBEDDED_SUMW2_LAYOUT, "metadata": sidecar,
+                "legacy_metadata_present": False,
+                "histogram_applicability_source": "serialized" if "histogram_applicability" in sidecar else "unknown_legacy"}
     declared_applicability = sidecar.get("histogram_applicability")
     if histogram_applicability is not None:
         policy = resolved_policy_from_provenance(sidecar["sumw2_storage_provenance"])
@@ -2534,6 +2556,24 @@ def merge_histogram_sidecars(
     }
     if len(layouts) != 1:
         raise histogram_merge_error("Cannot merge incompatible nominal schemas/layouts.")
+    versions = {sidecar["metadata_schema_version"] for sidecar in sidecars}
+    if versions == {EMBEDDED_METADATA_SCHEMA_VERSION}:
+        storage = {sidecar["sumw2_storage"] for sidecar in sidecars}
+        if len(storage) != 1:
+            raise histogram_merge_error("Cannot merge embedded and none storage.")
+        families = list(dict.fromkeys(family for sidecar in sidecars for family in sidecar["runtime_histogram_families"]))
+        options = {}
+        for field in ("histogram_applicability", "requested_data_driven_products"):
+            values = [sidecar.get(field) for sidecar in sidecars]
+            if any(value != values[0] for value in values[1:]):
+                raise histogram_merge_error(f"Cannot merge incompatible embedded {field} declarations.")
+            if values[0] is not None:
+                options[field] = copy.deepcopy(values[0])
+        return {"artifact_kind": kind, "sumw2_storage": next(iter(storage)),
+                "runtime_families": families, "merged": True,
+                "lineage_inputs": [lineage_input_from_sidecar(sidecar) for sidecar in sidecars], **options}
+    if versions != {METADATA_SCHEMA_VERSION}:
+        raise histogram_merge_error("Cannot merge mixed metadata schema versions.")
     (
         provenance,
         production_sample_contract,
@@ -2928,6 +2968,28 @@ def _default_pickle_writer(path: str, histograms: Mapping[str, Any]) -> None:
 EMBEDDED_METADATA_SCHEMA_VERSION = 3
 
 
+def _validate_embedded_sidecar_structure(sidecar, *, pkl_path):
+    required = {"metadata_schema_version", "artifact", "sumw2_storage", "runtime_histogram_families", "lineage"}
+    optional = {"histogram_applicability", "requested_data_driven_products"}
+    if not required <= set(sidecar) or set(sidecar) - required - optional:
+        raise histogram_sidecar_error("Invalid embedded histogram sidecar fields.")
+    _validate_artifact_descriptor(sidecar["artifact"], pkl_path=pkl_path,
+        schema_version=EMBEDDED_SUMW2_SCHEMA_VERSION, layout=EMBEDDED_SUMW2_LAYOUT)
+    if sidecar["artifact"]["artifact_kind"] != "processor_output":
+        raise histogram_sidecar_error("Embedded sidecars currently support processor_output only; transformed contracts are not migrated.")
+    parse_sumw2_storage(sidecar["sumw2_storage"])
+    families = sidecar["runtime_histogram_families"]
+    if not isinstance(families, list) or any(not isinstance(item, str) or not item for item in families) or len(set(families)) != len(families):
+        raise histogram_sidecar_error("Invalid embedded runtime histogram families.")
+    if not isinstance(sidecar["lineage"], Mapping) or set(sidecar["lineage"]) != {"inputs"}:
+        raise histogram_sidecar_error("Invalid embedded lineage.")
+    sidecar["lineage"]["inputs"] = _normalize_lineage_inputs(sidecar["lineage"]["inputs"])
+    if "histogram_applicability" in sidecar:
+        sidecar["histogram_applicability"] = _normalize_histogram_applicability(
+            sidecar["histogram_applicability"], runtime_families=families)
+    return sidecar
+
+
 def _build_embedded_sidecar_payload(
     pkl_path: Path,
     histograms: Mapping[str, Any],
@@ -2970,7 +3032,7 @@ def _build_embedded_sidecar_payload(
         payload["requested_data_driven_products"] = copy.deepcopy(
             dict(requested_data_driven_products)
         )
-    return payload
+    return _validate_embedded_sidecar_structure(payload, pkl_path=pkl_path)
 
 
 def output_capacity_thresholds(min_free_bytes, min_free_inodes,

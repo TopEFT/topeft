@@ -1143,8 +1143,8 @@ def materialize_scalar_histogram_dict(
 #     never "measured variance of zero". Its numerical content is not
 #     authoritative (a Weight-storage fill accumulates w**2 there), so
 #     ``get_nominal_sumw2`` omits those bins instead of returning them.
-#   * A histogram without a ``systematic`` axis (for example after selecting
-#     the nominal slice) is treated as nominal content.
+#   * Removing the systematic axis preserves bin-local origin evidence; an
+#     absent axis alone cannot establish nominality or recording.
 
 
 class Sumw2Storage(str, Enum):
@@ -1258,13 +1258,14 @@ def is_nominal_sumw2_recorded(histogram: Any, sparse_key: Any) -> bool:
     """Return whether ``sparse_key`` carries recorded nominal statistical sumw2.
 
     Storage availability alone is not enough: the bin must also belong to the
-    nominal systematic (or the histogram must have no systematic axis).
+    nominal systematic, with origin retained when an axis is selected away.
     """
 
     if sumw2_storage_of_histogram(histogram) is not Sumw2Storage.EMBEDDED:
         return False
-    label = _systematic_label(histogram, sparse_key)
-    return label is None or label == SUMW2_RECORDED_SYSTEMATIC
+    index = histogram.categories_to_index(tuple(sparse_key))
+    recorded, origins = histogram.sumw2_recording_state(index)
+    return recorded and origins == frozenset([SUMW2_RECORDED_SYSTEMATIC])
 
 
 def get_nominal_sumw2(histogram: Any, *, flow: bool = False) -> dict[Any, np.ndarray]:

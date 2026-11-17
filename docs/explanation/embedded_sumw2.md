@@ -43,8 +43,10 @@ Storage being available and sumw2 being recorded are different things.
 - For EFT MC, sumw2 is the second moment of the SM-point event weight
   (`(w * c0)**2`, all Wilson coefficients zero). Its Wilson-coefficient
   dependence is neither computed nor stored.
-- A histogram without a `systematic` axis (for example after selecting the
-  nominal slice) is treated as nominal content.
+- Selecting away the `systematic` axis preserves bin-local source labels and
+  recording state. A varied slice remains unrecorded nominal content. An
+  allocated zero without fill evidence remains unknown; recorded physical
+  zero is preserved through copy, pickle, grouping and rebin.
 - 2D `Weight` histograms are filled with the standard `SparseHist.fill()`,
   which accumulates `w**2` in every systematic bin, including JES/JER and
   weight variations. Those non-nominal variances are an artifact of the
@@ -77,7 +79,7 @@ correct variance would need per-event information.
   lacks it.
 - topcoffea must provide MultiCell `HistEFT` with `store_sumw2`,
   `fill(fill_sumw2=...)`, `nominal_sumw2()` and raw-count tracking. As of this
-  note that is the `feature/multicell-clean` branch (e92774a, on upstream
+  note that is the `feature/multicell-clean` branch (tested provider 307c15ac, on upstream
   `run3_test_mmerged`). It has no `SparseHist.fill_with_moments` and no
   `HistEFT.yield_coefficients`; TopEFT uses neither.
 

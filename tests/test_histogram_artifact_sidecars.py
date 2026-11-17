@@ -3411,3 +3411,54 @@ def test_incomplete_pending_unsafe_entry_still_fails_closed(tmp_path, member, un
         histogram_artifact.recover_pending_artifact(pending, tmp_path / pending.name,
                                                   validate_sidecar=lambda *_: None)
     assert histogram_artifact.os.path.lexists(entry)
+
+
+def _embedded_test_payload():
+    scalar = HistEFT(*_axes("njets"), wc_names=[], use_multicell=True, store_sumw2=True)
+    eft = HistEFT(*_axes("njets"), wc_names=["ctG"], use_multicell=True, store_sumw2=True)
+    scalar.fill(njets=np.array([0.5]), weight=np.array([2.0]), process="dataUL18",
+                channel="3l", systematic="nominal", appl="isSR")
+    eft.fill(njets=np.array([0.5]), weight=np.array([-3.0]), eft_coeff=np.array([[1., 2., 3.]]),
+             process="ttH_privateUL18", channel="3l", systematic="nominal", appl="isSR")
+    return {scalar_nominal_key("njets"): scalar, eft_nominal_key("njets"): eft}
+
+
+def test_embedded_artifact_roundtrip_and_homogeneous_merge(tmp_path):
+    payload = _embedded_test_payload()
+    path = tmp_path / "source.pkl.gz"
+    sidecar = write_histogram_artifact(path, histograms=payload, artifact_kind="processor_output",
+                                       sumw2_storage="embedded", runtime_families=["njets"])
+    assert read_histogram_sidecar(path) == sidecar
+    result = validate_histogram_artifact(path)
+    assert result["metadata"] == sidecar
+    second_path = tmp_path / "source_second.pkl.gz"
+    second_sidecar = write_histogram_artifact(second_path, histograms=payload,
+        artifact_kind="processor_output", sumw2_storage="embedded", runtime_families=["njets"])
+    options = merge_histogram_sidecars([sidecar, second_sidecar])
+    merged = {key: value + value for key, value in payload.items()}
+    merged_path = tmp_path / "merged.pkl.gz"
+    write_histogram_artifact(merged_path, histograms=merged, **options)
+    assert validate_histogram_artifact(merged_path)["metadata"]["artifact"]["merged"] is True
+    from topeft.modules.nominal_schema import get_nominal_sumw2
+    assert sum(v.sum() for v in get_nominal_sumw2(merged[eft_nominal_key("njets")]).values()) == 18.0
+
+
+def test_embedded_writer_rejects_companion_before_publication(tmp_path):
+    payload = _embedded_test_payload()
+    payload[sumw2_key("njets")] = _fill_sparse("njets", [])
+    path = tmp_path / "invalid.pkl.gz"
+    with pytest.raises(ValueError, match="Companion"):
+        write_histogram_artifact(path, histograms=payload, artifact_kind="processor_output",
+                                 sumw2_storage="embedded", runtime_families=["njets"])
+    assert not path.exists()
+    assert not metadata_sidecar_path(path).exists()
+
+
+def test_embedded_reader_rejects_uncertified_transformed_kind(tmp_path):
+    path = tmp_path / "source.pkl.gz"
+    sidecar = write_histogram_artifact(path, histograms=_embedded_test_payload(),
+        artifact_kind="processor_output", sumw2_storage="embedded", runtime_families=["njets"])
+    sidecar["artifact"]["artifact_kind"] = "nonprompt_output"
+    metadata_sidecar_path(path).write_text(json.dumps(sidecar))
+    with pytest.raises(histogram_artifact.histogram_sidecar_error, match="processor_output only"):
+        read_histogram_sidecar(path)

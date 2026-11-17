@@ -314,3 +314,38 @@ def test_returned_moments_are_copies():
         values[...] = -1.0
     assert all(np.all(v >= 0) for v in ns.get_nominal_sumw2(scalar).values())
     assert ns.get_nominal_sumw2(copy.deepcopy(scalar)).keys() == moments.keys()
+
+
+@pytest.mark.parametrize("two_d", [False, True])
+@pytest.mark.parametrize("systematic, expected", [("nominal", True), ("JESUp", False)])
+def test_selected_variation_keeps_moment_origin(two_d, systematic, expected):
+    histogram = _two_d("Weight") if two_d else _scalar()
+    if two_d:
+        histogram.fill(lepton_pt=[10.0], lepton_eta=[0.0], weight=[0.0],
+                       process="ttZ", channel="3l", systematic=systematic, appl="isSR")
+    else:
+        _fill_1d(histogram, process="ttZ", systematic=systematic, weights=[0.0])
+    selected = histogram[{"systematic": systematic}]
+    transforms = [selected, copy.deepcopy(selected), pickle.loads(pickle.dumps(selected)),
+                  selected.group("process", {"all": ["ttZ"]})]
+    if not two_d:
+        from topeft.modules.axis_binning import rebin_histogram
+        transforms.append(rebin_histogram(selected, [0, 100, 200]))
+    for transformed in transforms:
+        moments = ns.get_nominal_sumw2(transformed)
+        assert bool(moments) is expected
+        assert all(not np.any(values) for values in moments.values())
+
+
+def test_unfilled_nominal_moment_is_not_a_recorded_zero():
+    histogram = _scalar()
+    _fill_1d(histogram, process="ttZ", systematic="nominal", weights=[0.0], fill_sumw2=False)
+    assert ns.get_nominal_sumw2(histogram) == {}
+    assert ns.get_nominal_sumw2(histogram[{"systematic": "nominal"}]) == {}
+
+
+def test_allocated_zero_slot_without_recording_evidence_is_unknown():
+    histogram = _scalar()
+    histogram._fill_bookkeep("ttZ", "3l", "nominal", "isSR")
+    assert ns.get_nominal_sumw2(histogram) == {}
+    assert ns.get_nominal_sumw2(histogram[{"systematic": "nominal"}]) == {}

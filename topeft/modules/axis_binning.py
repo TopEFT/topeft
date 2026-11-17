@@ -322,6 +322,9 @@ def rebin_histogram(histogram, target_edges):
         categories = histogram.index_to_categories(source_index)
         target_index = rebinned._fill_bookkeep(*categories)
         target_dense = rebinned._dense_hists[target_index]
+        rebinned._merge_sumw2_provenance(
+            target_index, histogram.sumw2_recording_state(source_index)
+        )
         _aggregate_dense_storage(source_dense, target_dense, aggregation_map)
         if rebinned.track_raw_counts:
             source_raw = raw_states[source_index]
