@@ -902,7 +902,7 @@ def validate_generated_output_contract(
     requested: Mapping[str, Any],
     contract: Mapping[str, Any],
     *,
-    policy: resolved_sumw2_policy,
+    policy: resolved_sumw2_policy | None = None,
 ) -> None:
     """Validate the current family-independent generated-output mapping."""
 
@@ -1651,6 +1651,8 @@ def validate_requested_product_input(
 ) -> dict[str, Any]:
     """Validate one requested transformation against processor payload content."""
 
+    if sidecar.get("metadata_schema_version") == 3:
+        return validate_embedded_product_input(sidecar, artifact_kind=artifact_kind)
     requested = sidecar.get("requested_data_driven_products")
     contract = sidecar.get("resolved_data_driven_contract")
     if requested is None or contract is None:
@@ -1726,3 +1728,43 @@ def resolved_sumw2_policy_from_sidecar(
     from topeft.modules.sumw2_policy import resolved_policy_from_provenance
 
     return resolved_policy_from_provenance(sidecar["sumw2_storage_provenance"])
+
+
+def certify_embedded_data_driven_preflight(resolved_products, *, sumw2_storage):
+    """Serialize actual resolved contributors under the global v3 storage contract."""
+    from topeft.modules.nominal_schema import parse_sumw2_storage, Sumw2Storage
+    if resolved_products.enabled_products() and parse_sumw2_storage(sumw2_storage) is Sumw2Storage.NONE:
+        raise data_driven_product_error("Requested data-driven uncertainty requires embedded sumw2.")
+    requested = resolved_products.requested_provenance()
+    contract = _serialize_resolved_data_driven_contract(resolved_products)
+    _validate_requested_data_driven_products(requested)
+    validate_generated_output_contract(requested, contract)
+    return requested, contract
+
+
+def validate_embedded_product_input(sidecar, *, artifact_kind):
+    """Require certified v3 roles, years and actually recorded contributor Q."""
+    from topeft.modules.production_sample_profile import validate_embedded_sample_contract
+    requested = sidecar.get("requested_data_driven_products")
+    contract = sidecar.get("resolved_data_driven_contract")
+    if requested is None or contract is None or "production_sample_contract" not in sidecar:
+        raise data_driven_product_error("Schema v3 DD input lacks certified sample/product contracts.")
+    validate_embedded_sample_contract(sidecar["production_sample_contract"])
+    _validate_requested_data_driven_products(requested)
+    validate_generated_output_contract(requested, contract)
+    product_name = "flips" if artifact_kind == FLIPS_OUTPUT_ARTIFACT_KIND else "nonprompt"
+    product = contract["products"][product_name]
+    if not product["enabled"]:
+        raise data_driven_product_error(f"Requested product {product_name!r} is disabled.")
+    if sidecar["sumw2_storage"] != "embedded":
+        raise data_driven_product_error("Data-driven products require recorded embedded sumw2.")
+    required = set(required_source_processes_from_generated_outputs(product["generated_outputs"]))
+    universe = set(sidecar["production_sample_contract"]["processes"])
+    if required - universe:
+        raise data_driven_product_error("Product contributors are absent from the certified source universe.")
+    for family, manifest in sidecar["sumw2_content_manifest"]["families"].items():
+        present = set(manifest["scalar_nominal_processes"]) | set(manifest["eft_nominal_processes"])
+        missing = required & present - set(manifest["sumw2_processes"])
+        if missing:
+            raise data_driven_product_error(f"Family {family!r} lacks recorded source sumw2: {sorted(missing)}")
+    return {"effective_sidecar": copy.deepcopy(dict(sidecar)), "migration": None}

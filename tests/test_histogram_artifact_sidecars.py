@@ -3460,5 +3460,5 @@ def test_embedded_reader_rejects_uncertified_transformed_kind(tmp_path):
         artifact_kind="processor_output", sumw2_storage="embedded", runtime_families=["njets"])
     sidecar["artifact"]["artifact_kind"] = "nonprompt_output"
     metadata_sidecar_path(path).write_text(json.dumps(sidecar))
-    with pytest.raises(histogram_artifact.histogram_sidecar_error, match="processor_output only"):
+    with pytest.raises(histogram_artifact.histogram_sidecar_error, match="source/product/lineage certification"):
         read_histogram_sidecar(path)

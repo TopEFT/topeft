@@ -37,6 +37,7 @@ from topeft.modules.nominal_schema import (
     SCALAR_NOMINAL_SUFFIX,
     SUMW2_SUFFIX,
     evaluate_eft_histogram_at_wc,
+    embedded_scalar_at_sm,
     mark_sparse_histogram_raw_counts_unrecorded,
 )
 
@@ -374,7 +375,9 @@ class DataDrivenProducer:
             if not required_processes:
                 continue
             selected = self._filter_to_processes(histogram, required_processes)
-            projections[family] = evaluate_eft_histogram_at_wc(selected, {})
+            projections[family] = (embedded_scalar_at_sm(selected)
+                if getattr(selected, "_use_multicell", False)
+                else evaluate_eft_histogram_at_wc(selected, {}))
         missing = sorted(set(required_families) - set(projections))
         if missing:
             raise RuntimeError(
@@ -1292,6 +1295,8 @@ class DataDrivenProducer:
                 required_companions.add(f"{family}_sumw2")
             elif key in axes_info_2d:
                 required_companions.add(f"{key}_sumw2")
+        if self._resolved_input_sidecar and self._resolved_input_sidecar.get("metadata_schema_version") == 3:
+            required_companions.clear()
         missing = sorted(required_companions - seen_keys)
         if missing:
             raise RuntimeError(
@@ -1321,9 +1326,10 @@ class DataDrivenProducer:
                 self.outputName,
                 histograms=self.outHist,
                 artifact_kind=self._artifact_kind,
-                sumw2_storage_provenance=input_sidecar[
-                    "sumw2_storage_provenance"
-                ],
+                **({"sumw2_storage": input_sidecar["sumw2_storage"],
+                    "runtime_families": input_sidecar["runtime_histogram_families"]}
+                   if input_sidecar.get("metadata_schema_version") == 3 else
+                   {"sumw2_storage_provenance": input_sidecar["sumw2_storage_provenance"]}),
                 lineage_inputs=[lineage_input_from_sidecar(input_sidecar)],
                 input_sidecar=input_sidecar,
                 transformation_context=self.get_transformation_context(

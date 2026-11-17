@@ -263,40 +263,33 @@ def _run_run_analysis(monkeypatch, tmp_path, extra_cli_args, outname):
 
         def __call__(self, fileset, treename, processor_instance):
             output = processor_instance.accumulator
-            if "--do-np" in extra_cli_args:
-                for key, histogram in output.items():
-                    axis_names = [axis.name for axis in histogram.axes]
-                    dense_names = [
-                        name
-                        for name in axis_names
-                        if name not in {"process", "channel", "systematic", "appl"}
-                        and name != "quadratic_term"
-                    ]
-                    if not dense_names:
-                        continue
-                    dense_values = {
-                        name: np.asarray([0.5]) for name in dense_names
-                    }
-                    for process_name, appl, nominal_weight in (
-                        ("dataUL17", "isAR_3l", 10.0),
-                        ("TTTo2L2Nu_centralUL17", "isAR_3l", 3.0),
-                        ("TTTo2L2Nu_centralUL17", "isSR_3l", 2.0),
-                    ):
-                        weight = (
-                            nominal_weight**2
-                            if key.endswith("_sumw2")
-                            else nominal_weight
-                        )
-                        histogram.fill(
-                            process=process_name,
-                            channel="3l",
-                            systematic="nominal",
-                            appl=appl,
-                            **dense_values,
-                            weight=np.asarray([weight]),
-                        )
+            # Isolate event I/O, while exercising actual v3 output validation.
+            from topeft.modules.nominal_schema import family_from_component_key
+            declaration = captured_applicability["value"]
+            for key, histogram in output.items():
+                family = family_from_component_key(key) or key
+                channels = [c for c, state in declaration["families"][family]["channels"].items()
+                            if state == "applicable"]
+                dense = {axis.name: np.asarray([axis.centers[0]]) for axis in histogram.dense_axes
+                         if axis.name != "quadratic_term"}
+                entries = (("dataUL17", "isAR_3l", 10.),
+                           ("TTTo2L2Nu_centralUL17", "isAR_3l", 3.),
+                           ("TTTo2L2Nu_centralUL17", "isSR_3l", 2.)) if "--do-np" in extra_cli_args else (
+                           ("ttHJet_privateUL17", "isSR_3l", 0.),)
+                for channel in channels:
+                    for process_name, appl, weight in entries:
+                        histogram.fill(process=process_name, channel=channel,
+                            systematic="nominal", appl=appl, **dense,
+                            weight=np.asarray([weight]))
             return output
 
+    captured_applicability = {}
+    original_builder = ap.AnalysisProcessor.build_histogram_applicability
+    def capture_builder(**kwargs):
+        value = original_builder(**kwargs)
+        captured_applicability["value"] = value
+        return value
+    monkeypatch.setattr(ap.AnalysisProcessor, "build_histogram_applicability", staticmethod(capture_builder))
     monkeypatch.setattr(processor, "futures_executor", dummy_futures_executor, raising=False)
     monkeypatch.setattr(processor, "Runner", DummyRunner)
 
@@ -320,6 +313,7 @@ def _run_run_analysis(monkeypatch, tmp_path, extra_cli_args, outname):
     original_sys_path = list(sys.path)
     sys.path.insert(0, str(_SCRIPT_PATH.parent))
     try:
+        monkeypatch.setitem(sys.modules, "analysis_processor", ap)
         with mock.patch.object(sys, "argv", argv):
             runpy.run_path(str(_SCRIPT_PATH), run_name="__main__")
     finally:
@@ -346,10 +340,10 @@ def test_hist_list_cr_includes_sumw2(monkeypatch, tmp_path):
     expected_output_keys = set()
     for hist_name in _EXPECTED_CR_BASE_HISTS:
         expected_output_keys.add(f"{hist_name}__eft_nominal")
-        expected_output_keys.add(f"{hist_name}_sumw2")
         assert f"{hist_name}__eft_nominal" in output
         assert hist_name not in output
-        assert f"{hist_name}_sumw2" in output
+        assert f"{hist_name}_sumw2" not in output
+        assert output[f"{hist_name}__eft_nominal"].store_sumw2
 
     assert set(output) == expected_output_keys
     sidecar_path = (
@@ -358,15 +352,13 @@ def test_hist_list_cr_includes_sumw2(monkeypatch, tmp_path):
         / "with-sumw2.pkl.gz.metadata.json"
     )
     sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
-    assert sidecar["metadata_schema_version"] == 2
+    assert sidecar["metadata_schema_version"] == 3
     assert sidecar["artifact"]["artifact_kind"] == "processor_output"
     assert sidecar["artifact"]["pkl_basename"] == "with-sumw2.pkl.gz"
-    assert list(sidecar["sumw2_content_manifest"]["families"]) == sidecar[
-        "sumw2_storage_provenance"
-    ]["runtime_histogram_families"]
-    assert sidecar["sumw2_storage_provenance"]["resolved_mode"] == "full_diagnostics"
-    assert sidecar["sumw2_storage_provenance"]["signal_sample_profile"] == "unrestricted"
-    assert sidecar["production_sample_contract"]["compatibility_validated"] is True
+    assert set(sidecar["sumw2_content_manifest"]["families"]) == _EXPECTED_CR_BASE_HISTS
+    assert sidecar["sumw2_storage"] == "embedded"
+    assert sidecar["production_sample_contract"]["signal_sample_profile"] == "unrestricted"
+
 
 
 def test_hist_list_cr_respects_no_sumw2(monkeypatch, tmp_path):
@@ -443,7 +435,7 @@ def test_np_postprocess_inline_writes_transformed_artifact_sidecar(
         }
     }
     family_contracts = sidecar["transformation_contract"]["families"]
-    assert sidecar["transformation_contract"]["contract_version"] == 3
+    assert sidecar["metadata_schema_version"] == 3
     for family_name in ("ptz", "met", "lt"):
         family_contract = family_contracts[family_name]
         assert family_contract["source_application_regions"] == [
@@ -547,9 +539,6 @@ def test_required_signal_omission_fails_before_processor_construction(
     options_path.write_text(
         f"""sumw2_storage:
   mode: {mode}
-  rules:
-    - process_names: [dataUL17, TTTo2L2Nu_centralUL17, {signal_process}]
-      variables: [met]
 data_driven_products:
   nonprompt:
     enabled: true
@@ -642,8 +631,7 @@ def test_cfg_mode_profile_mismatch_fails_before_processor_construction(
         storage = "sumw2_storage:\n  mode: full_diagnostics\n"
     else:
         storage = (
-            f"sumw2_storage:\n  mode: {mode}\n  rules:\n"
-            f"    - process_names: [{processes[0]}]\n      variables: [met]\n"
+            f"sumw2_storage:\n  mode: {mode}\n"
         )
     options_path.write_text(storage, encoding="utf-8")
     processor_calls = []

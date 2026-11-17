@@ -1,4 +1,10 @@
-# Sumw2 policy
+# Sumw2 storage and legacy policy
+
+The active v3 path uses global `embedded`/`none`, not selective companions.
+`get_nominal_sumw2` requires recorded nominal origin; missing Q differs from
+recorded zero. The second moment is defined at the SM point. The reference
+below describes the separate retained legacy policy. See
+[embedded sumw2](../explanation/embedded_sumw2.md) for the active contract.
 
 Sumw2 companions store the sum of squared complete event contributions at the
 SM point (`WC = 0`) for the concrete dataset/process/family targets selected by

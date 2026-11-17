@@ -1,15 +1,13 @@
 # Embedded nominal sumw2 (schema version 3)
 
-**Status:** design note for the in-progress multicell migration. The contract
-is implemented in `topeft.modules.nominal_schema` (`EMBEDDED_SUMW2_SCHEMA_VERSION`).
-`AnalysisProcessor` allocates and fills version 3 histograms, and
-`run_analysis.py` / `run_analysis_three_top.py` publish them with a version 3
-sidecar (`histogram_artifact.write_histogram_artifact(sumw2_storage=...)`).
-The data-driven, datacard and plotting consumers still expect schema version 2
-with `<family>_sumw2` companions, so inline nonprompt estimation is rejected for
-version 3 outputs, and the diboson specialist processor still writes
-companions. Requires the clean topcoffea MultiCell backend
-(`feature/multicell-clean`).
+The main producer and paired consumer chain use schema v3. Source and derived
+sidecars certify actual samples, contributors, applicability and lineage.
+`run_analysis.py` and `run_analysis_three_top.py` support inline/deferred DD;
+`run_data_driven.py` supports streaming and materialized transformations.
+Cards and the maintained renderer share the transient view in `nominal_schema`.
+Specialist legacy producer/readers retain their separate contracts. See
+[the migration status](../../MULTICELL_MIGRATION_STATUS.md) for tested scope,
+paired provider and the legacy/v3 boundary.
 
 ## Decisions
 
@@ -24,9 +22,10 @@ companions. Requires the clean topcoffea MultiCell backend
 - Separate `<family>_sumw2` companion histograms are rejected. Older artifacts
   that contain them can still be unpickled, but the version 3 validator
   rejects them; regenerate them with the embedded producer.
-- The selective sumw2 policy (`sumw2_policy.py`) and the sumw2 content
-  manifest take no part in version 3. Their code stays in the repository but
-  will be disconnected from the active path during the migration.
+- Selective legacy policies do not allocate v3 storage. `rules`, `selective`,
+  `full_custom` and `taufitter` selection requests fail explicitly on this path.
+  V3's content manifest inventories actual component processes and recorded
+  embedded moments; its `sumw2_processes` field does not denote sibling keys.
 
 ## Recording convention
 

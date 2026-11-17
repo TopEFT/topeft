@@ -32,8 +32,8 @@ NOMINAL_CONTAINER_LAYOUT = "split_sibling_v1"
 # Schema version 3 keeps the split-sibling key layout of version 2 but stores
 # nominal statistical sumw2 inside each histogram (MultiCell HistEFT for 1D,
 # Weight-storage SparseHist for 2D) instead of in ``<family>_sumw2`` companions.
-# It is validated by ``validate_embedded_nominal_mapping``; the active producer
-# keeps writing version 2 until the multicell migration switches it.
+# The active producer and consumer chain validate this representation through
+# ``validate_embedded_nominal_mapping``; legacy v2 retains its separate contract.
 EMBEDDED_SUMW2_SCHEMA_VERSION = 3
 EMBEDDED_SUMW2_LAYOUT = "split_sibling_embedded_sumw2_v1"
 _SPLIT_SIBLING_SCHEMA_VERSIONS = frozenset(
@@ -840,8 +840,8 @@ def mark_sparse_histogram_raw_counts_unrecorded(
 ) -> SparseHist:
     """Copy generated content while classifying every raw-count cell unrecorded."""
 
-    if type(histogram) is not SparseHist:
-        raise TypeError("Raw-count reclassification requires an exact SparseHist object.")
+    if type(histogram) not in {SparseHist, HistEFT}:
+        raise TypeError("Raw-count reclassification requires a maintained histogram object.")
     if not histogram.track_raw_counts:
         return histogram
     return histogram.with_raw_counts_unrecorded()
@@ -951,6 +951,9 @@ def materialize_nominal_family(
     schema_version: int | None = NOMINAL_CONTAINER_SCHEMA_VERSION,
     wc_names: Iterable[str] | None = None,
 ) -> Any:
+    if schema_version == 3 or is_embedded_mapping(histograms):
+        return _materialize_embedded_consumer_view(
+            histograms, runtime_families=(family,), wc_names=wc_names)[family]
     components = get_nominal_components(
         histograms, family, schema_version=schema_version
     )
@@ -1029,6 +1032,11 @@ def materialize_legacy_histogram_dict(
     """Build a bounded consumer-only uniform view without retaining split sources."""
 
     _require_histogram_mapping(histograms)
+    if schema_version == 3 or is_embedded_mapping(histograms):
+        return _materialize_embedded_consumer_view(
+            histograms, runtime_families=runtime_families,
+            require_companions=require_companions,
+        )
     if schema_version != NOMINAL_CONTAINER_SCHEMA_VERSION or not is_split_nominal_mapping(
         histograms
     ):
@@ -1087,6 +1095,12 @@ def materialize_scalar_histogram_dict(
     """Build a consumer-local scalar view by evaluating every nominal family."""
 
     _require_histogram_mapping(histograms)
+    if schema_version == 3 or is_embedded_mapping(histograms):
+        view = _materialize_embedded_consumer_view(histograms,
+            runtime_families=runtime_families, require_companions=require_companions)
+        return OrderedDict((key, evaluate_eft_histogram_at_wc(value, wc_values)
+                            if type(value) is HistEFT else value)
+                           for key, value in view.items())
     runtime_families = tuple(runtime_families)
     required = frozenset(require_companions)
     output = OrderedDict()
@@ -1130,7 +1144,8 @@ def materialize_scalar_histogram_dict(
 #   * 2D families are SparseHist objects with ``storage="Weight"`` under
 #     EMBEDDED and ``storage="Double"`` under NONE.
 #   * Separate ``<family>_sumw2`` companion histograms are not accepted, and no
-#     selective sumw2 policy or content manifest participates in validation.
+#     selective allocation policy participates in validation. A v3 content
+#     manifest inventories actual recorded moments rather than companion keys.
 #
 # Recording convention (storage available vs. value recorded)
 #   * Embedded storage is allocated for every bin, but nominal statistical
@@ -1466,3 +1481,119 @@ def require_embedded_sumw2(
             "This consumer requires embedded nominal sumw2, but the payload was "
             "produced with sumw2 storage 'none'."
         )
+
+
+def is_embedded_mapping(histograms):
+    """Recognize physical v3 storage without relying on a filename or sidecar."""
+    return any(type(h) is HistEFT and getattr(h, "_use_multicell", False)
+               or type(h) is SparseHist and _storage_kind(h._init_args.get("storage")) == "weight"
+               for h in histograms.values())
+
+
+def embedded_scalar_at_sm(source):
+    """Project EFT coefficients at SM, retaining Q and sparse recording evidence."""
+    if type(source) is not HistEFT or not source._use_multicell:
+        raise TypeError("SM scalar projection requires MultiCell HistEFT.")
+    output = HistEFT(*source.categorical_axes, source.dense_axis, wc_names=[],
+                     use_multicell=True, store_sumw2=source.store_sumw2)
+    for coordinate, values in source.eval({}).items():
+        cells = [values]
+        if source.store_sumw2:
+            cells.append(source.nominal_sumw2(flow=True)[coordinate])
+        output[tuple(coordinate)] = np.stack(cells)
+        output._merge_sumw2_provenance(output.categories_to_index(coordinate),
+            source.sumw2_recording_state(source.categories_to_index(coordinate)))
+    if source.track_raw_counts:
+        output.copy_raw_counts_from(source)
+    return output
+
+
+def embedded_content_manifest(histograms, runtime_families):
+    """Inventory physical component support and recorded nominal moments in v3."""
+    families = {}
+    for family in runtime_families:
+        components = get_nominal_components(histograms, family, schema_version=3)
+        recorded = set()
+        for h in components.values():
+            if sumw2_storage_of_histogram(h) is Sumw2Storage.NONE:
+                continue
+            names = tuple(h.categorical_axes.name)
+            for key in get_nominal_sumw2(h):
+                recorded.add(str(key[names.index("process")]))
+        families[family] = {
+            "dimensionality": _dimensionality(family),
+            "scalar_nominal_processes": sorted(_process_labels(components.get("scalar_nominal"))) if components.get("scalar_nominal") is not None else [],
+            "eft_nominal_processes": sorted(_process_labels(components.get("eft_nominal"))) if components.get("eft_nominal") is not None else [],
+            "sumw2_processes": sorted(recorded),
+        }
+    return {"manifest_version": 1, "families": families}
+
+
+def _materialize_embedded_consumer_view(histograms, *, runtime_families=None,
+                                        require_companions=(), wc_names=None):
+    """Extend the existing bounded consumer view to v3; never serialize it as v2.
+
+    The fitting consumer still uses a coefficient axis and a nominal Q view.
+    Convert at this shared boundary, preserving coefficient order and all flows.
+    Only explicitly recorded nominal Q is exported; allocation is insufficient.
+    """
+    families = tuple(runtime_families or dict.fromkeys(
+        family_from_component_key(key) or key for key in histograms))
+    selected = {key: h for key, h in histograms.items()
+                if (family_from_component_key(key) or key) in families}
+    validate_embedded_nominal_mapping(selected, runtime_families=families)
+    wcs = tuple(wc_names) if wc_names is not None else tuple(next((h.wc_names for h in histograms.values()
+                     if type(h) is HistEFT and h.wc_names), ()))
+    required = set(require_companions)
+    output = OrderedDict()
+    for family in families:
+        components = get_nominal_components(histograms, family, schema_version=3)
+        if not components:
+            continue
+        combined = None
+        qhist = None
+        for source in components.values():
+            if type(source) is HistEFT:
+                target = HistEFT(*source.categorical_axes, source.dense_axis,
+                                 wc_names=list(wcs), label="Events")
+                for coordinate, view in source.view(flow=True).items():
+                    coefficients = np.zeros((source.dense_axis.extent, target.axes["quadratic_term"].extent))
+                    values = source._coefficient_view(view, flow=True)
+                    if source.wc_names:
+                        if tuple(source.wc_names) != wcs:
+                            raise ValueError("Incompatible WC order in consumer view.")
+                        coefficients[:, 1:-1] = values
+                    else:
+                        coefficients[:, 1] = values[:, 0]
+                    target[tuple(coordinate)] = coefficients
+            else:
+                target = SparseHist(*source.categorical_axes, *source.dense_axes, storage="Double")
+                for coordinate, view in source.view(flow=True).items():
+                    target[tuple(coordinate)] = view.value if hasattr(view, "value") else view
+            combined = target if combined is None else combined + target
+            moments = {} if sumw2_storage_of_histogram(source) is Sumw2Storage.NONE else get_nominal_sumw2(source, flow=True)
+            nominal_keys = {key for key in source.categorical_keys
+                            if _systematic_label(source, key) in (None, "nominal")}
+            if family in required and (not moments or nominal_keys - set(moments)):
+                raise Sumw2NotStoredError(f"Family {family!r} lacks recorded nominal sumw2 for required contributions.")
+            if moments:
+                q = SparseHist(*source.categorical_axes, *tuple(_dense_axes(source)), storage="Double")
+                for coordinate, values in moments.items():
+                    q[tuple(coordinate)] = values
+                qhist = q if qhist is None else qhist + q
+        output[family] = combined
+        if qhist is not None:
+            output[sumw2_key(family)] = (_constant_histeft_from_sparse(qhist, wc_names=wcs)
+                                       if _dimensionality(family) == 1 else qhist)
+    return output
+
+
+def embedded_nominal_at_sm(histograms, family):
+    """Combine disjoint scalar/EFT siblings at SM with their embedded Q evidence."""
+    result = None
+    for source in get_nominal_components(histograms, family, schema_version=3).values():
+        scalar = embedded_scalar_at_sm(source) if type(source) is HistEFT else copy.deepcopy(source)
+        result = scalar if result is None else result + scalar
+    if result is None:
+        raise ValueError(f"Missing nominal family {family!r}.")
+    return result

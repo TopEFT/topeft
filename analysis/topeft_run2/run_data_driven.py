@@ -1266,7 +1266,7 @@ def _finalize_histograms(
                     "flips",
                 )
             )
-        if only_flips and input_sidecar is not None:
+        if only_flips and input_sidecar is not None and input_sidecar.get("metadata_schema_version") != 3:
             policy = resolved_policy_from_provenance(
                 input_sidecar["sumw2_storage_provenance"]
             )
@@ -1561,7 +1561,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if args.nominal_only_reference
                 else NONPROMPT_OUTPUT_ARTIFACT_KIND
             ),
-            sumw2_storage_provenance=effective_input_sidecar["sumw2_storage_provenance"],
+            **({"sumw2_storage": effective_input_sidecar["sumw2_storage"],
+                "runtime_families": effective_input_sidecar["runtime_histogram_families"]}
+               if effective_input_sidecar.get("metadata_schema_version") == 3 else
+               {"sumw2_storage_provenance": effective_input_sidecar["sumw2_storage_provenance"]}),
             lineage_inputs=[lineage_input_from_sidecar(input_sidecar)],
             input_sidecar=effective_input_sidecar,
             no_clobber=args.pkl_no_clobber,

@@ -49,7 +49,7 @@ from topeft.modules.nonprompt_policy import (
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.sumw2_policy import (
-    resolve_sumw2_storage_mode,
+    resolve_embedded_sumw2_mode,
     resolve_sumw2_storage_policy,
     sumw2_target,
 )
@@ -2128,7 +2128,7 @@ if __name__ == "__main__":
             input_paths=resolved_input_jsons,
             wrapper_identity=sample_universe_wrapper,
         )
-        sumw2_mode = resolve_sumw2_storage_mode(
+        sumw2_mode = resolve_embedded_sumw2_mode(
             sumw2_storage_config,
             sumw2_storage_present=sumw2_storage_present,
             legacy_no_sumw2_present=legacy_no_sumw2_present,
@@ -2191,73 +2191,12 @@ if __name__ == "__main__":
                     sumw2_target(dataset_key, sample["histAxisName"], family)
                 )
 
-    # SUMW2_POLICY_DISABLED (multicell migration): the selective sumw2 policy,
-    # its policy-certified production-sample and data-driven contracts, and the
-    # selected-family override of fill_sumw2 are disabled. Embedded sumw2 is
-    # stored for every family unless the resolved mode is "disabled".
-    # sumw2_policy = resolve_sumw2_storage_policy(
-    #     sumw2_storage_config,
-    #     samples=samplesdict,
-    #     runtime_families=runtime_histogram_families,
-    #     axes_info=axes_info,
-    #     axes_info_2d=axes_info_2d,
-    #     analysis_mode=analysis_mode,
-    #     sumw2_storage_present=sumw2_storage_present,
-    #     legacy_no_sumw2_present=legacy_no_sumw2_present,
-    #     legacy_no_sumw2_value=legacy_no_sumw2_value,
-    #     consumer_requirements=required_sumw2_targets,
-    #     implicit_production_requirements=(
-    #         resolved_data_driven_products.required_targets()
-    #     ),
-    #     mode_resolution=sumw2_mode,
-    # )
-    # try:
-    #     production_sample_contract = certify_production_sample_contract(
-    #         active_universe,
-    #         sumw2_policy,
-    #         resolved_data_driven_products,
-    #     )
-    # except production_sample_profile_error as error:
-    #     raise SystemExit(str(error)) from None
-    # (
-    #     requested_data_driven_products,
-    #     resolved_data_driven_contract,
-    # ) = certify_data_driven_preflight(
-    #     resolved_data_driven_products,
-    #     sumw2_policy,
-    # )
-    # fill_sumw2 = bool(sumw2_policy.selected_families())
-    # print(
-    #     "Resolved sumw2 storage: mode={} source={} targets={} families={}".format(
-    #         sumw2_policy.requested_mode,
-    #         sumw2_policy.source,
-    #         len(sumw2_policy.resolved_targets),
-    #         ",".join(sumw2_policy.selected_families()) or "<none>",
-    #     )
-    # )
-    # print(
-    #     "Certified production sample profile: profile={} wrapper={} cfgs={}".format(
-    #         sumw2_policy.signal_sample_profile,
-    #         active_universe.wrapper_identity,
-    #         ",".join(
-    #             identity["basename"]
-    #             for identity in active_universe.serialized_cfg_identities()
-    #         ),
-    #     )
-    # )
-    # print(
-    #     "Resolved nominal container: version={} layout={}".format(
-    #         NOMINAL_CONTAINER_SCHEMA_VERSION,
-    #         NOMINAL_CONTAINER_LAYOUT,
-    #     )
-    # )
     fill_sumw2 = sumw2_mode.resolved_mode != "disabled"
-    if do_np and np_postprocess_mode == "inline":
-        raise SystemExit(
-            "Inline data-driven estimation is not available for schema v3 "
-            "(embedded sumw2) processor outputs yet; use --np-postprocess=skip "
-            "or defer."
-        )
+    from topeft.modules.production_sample_profile import certify_embedded_sample_contract
+    from topeft.modules.data_driven_products import certify_embedded_data_driven_preflight
+    production_sample_contract = certify_embedded_sample_contract(active_universe, sumw2_mode)
+    requested_data_driven_products, resolved_data_driven_contract = certify_embedded_data_driven_preflight(
+        resolved_data_driven_products, sumw2_storage="embedded" if fill_sumw2 else "none")
     print(
         "Resolved sumw2 storage: {} (sumw2_storage mode={} source={})".format(
             "embedded" if fill_sumw2 else "none",
@@ -2623,9 +2562,9 @@ if __name__ == "__main__":
             artifact_kind="processor_output",
             sumw2_storage=processor_instance.sumw2_storage,
             runtime_families=runtime_histogram_families,
-            requested_data_driven_products=(
-                resolved_data_driven_products.requested_provenance()
-            ),
+            requested_data_driven_products=requested_data_driven_products,
+            resolved_data_driven_contract=resolved_data_driven_contract,
+            production_sample_contract=production_sample_contract,
             histogram_applicability=histogram_applicability,
             no_clobber=args.pkl_no_clobber,
             min_free_bytes=args.pkl_min_free_bytes,
@@ -2638,9 +2577,6 @@ if __name__ == "__main__":
 
         # Run the data driven estimation, save the output
         if do_np:
-            # SUMW2_POLICY_DISABLED (multicell migration): unreachable until the
-            # data-driven consumers support schema v3; the preflight above
-            # rejects inline mode, and this branch still uses the v2 policy.
             if np_postprocess_mode == "inline":
                 diagnostic_phase = "inline_data_driven_estimation"
                 print("\nDoing the nonprompt estimation...")
@@ -2655,7 +2591,8 @@ if __name__ == "__main__":
                     out_pkl_file_name_np,
                     histograms=data_driven_histograms,
                     artifact_kind=inline_artifact_kind,
-                    sumw2_storage_provenance=sumw2_policy.to_provenance(),
+                    sumw2_storage=processor_sidecar["sumw2_storage"],
+                    runtime_families=runtime_histogram_families,
                     lineage_inputs=[lineage_input_from_sidecar(processor_sidecar)],
                     input_sidecar=processor_sidecar,
                     transformation_context=ddp.get_transformation_context(

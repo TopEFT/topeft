@@ -675,10 +675,12 @@ def _reject_cross_run_histogram_composition(
     ):
         if metadata is None:
             processes = _mapping_process_labels(histograms)
+        elif metadata.get("metadata_schema_version") == 3:
+            processes = {p for m in metadata["sumw2_content_manifest"]["families"].values()
+                         for role in ("scalar_nominal_processes", "eft_nominal_processes")
+                         for p in m[role]}
         else:
-            processes = metadata["sumw2_storage_provenance"][
-                "resolved_processes"
-            ]
+            processes = metadata["sumw2_storage_provenance"]["resolved_processes"]
         input_eras.append((path, _canonical_run_eras(processes)))
 
     composed_eras = set().union(*(eras for _path, eras in input_eras))
@@ -980,6 +982,12 @@ def load_and_merge_histogram_pkls(
         raise ValueError("No input pickle files were provided for merging.")
     validate_year_coverage({}, policy=year_coverage_policy)
     if selected_families:
+        if read_histogram_sidecar(pkl_paths[0]).get("metadata_schema_version") == 3:
+            return _load_and_merge_embedded_histogram_pkls(
+                pkl_paths, selected_families=selected_families,
+                channel_patterns=channel_patterns, require_sumw2=require_sumw2,
+                consumer_required_families=consumer_required_families,
+                year_coverage_policy=year_coverage_policy)
         return _load_and_merge_selected_histogram_pkls(
             pkl_paths, selected_families=selected_families,
             channel_patterns=channel_patterns, require_sumw2=require_sumw2,
@@ -1050,6 +1058,11 @@ def load_and_merge_histogram_pkls(
     )
 
     merged_hists = {}
+    if schema_version == 3:
+        return _load_and_merge_embedded_histogram_pkls(
+            pkl_paths, loaded_inputs=loaded_inputs, input_metadata=input_metadata,
+            require_sumw2=require_sumw2, consumer_required_families=consumer_required_families,
+            year_coverage_policy=year_coverage_policy)
     if schema_version == NOMINAL_CONTAINER_SCHEMA_VERSION:
         merged_sidecar = merge_histogram_sidecars(input_metadata)
         if len(pkl_paths) > 1:
@@ -3273,3 +3286,74 @@ if __name__ == '__main__':
         s1 = ", ".join([f"{x:>3d}" for x in terms[:6]])
         s2 = terms[-1]
         print(f"{wc:>5}: [{s1}, ... , {s2:>3d} ]")
+
+
+def _load_and_merge_embedded_histogram_pkls(
+    pkl_paths, *, selected_families=(), channel_patterns=(), require_sumw2=False,
+    consumer_required_families=(), year_coverage_policy="warn",
+    loaded_inputs=None, input_metadata=None,
+):
+    """Load a v3 selected closure through the native streaming and merge owners."""
+    from topeft.modules.histogram_artifact import _validate_embedded_contracts
+    from topeft.modules.nominal_schema import (
+        validate_embedded_nominal_mapping, family_from_component_key,
+        materialize_legacy_histogram_dict, EMBEDDED_SUMW2_LAYOUT)
+    metadata = list(input_metadata or (read_histogram_sidecar(p) for p in pkl_paths))
+    if any(m["metadata_schema_version"] != 3 for m in metadata):
+        raise histogram_content_error("Cannot merge mixed v2/v3 histogram schemas.")
+    merged_options = merge_histogram_sidecars(metadata)
+    selected_families = tuple(dict.fromkeys(selected_families))
+    families = selected_families or tuple(merged_options["runtime_families"])
+    merged = {}
+    contributions = {}
+    resolved_channels = set()
+    for index, (path, sidecar) in enumerate(zip(pkl_paths, metadata)):
+        _validate_artifact_identity(Path(path), sidecar)
+        source = loaded_inputs[index].items() if loaded_inputs is not None else iterate_hist_from_pkl(path, allow_empty=True, materialize=False)
+        selected = {}
+        for key, histogram in source:
+            if (family_from_component_key(key) or key) in families:
+                if key in selected:
+                    raise histogram_content_error("Duplicate serialized histogram component.")
+                selected[key] = histogram
+        local_families = [family for family in families if family in sidecar["runtime_histogram_families"]]
+        scoped = copy.deepcopy(sidecar)
+        scoped["runtime_histogram_families"] = local_families
+        for field in ("sumw2_content_manifest", "histogram_applicability", "transformation_contract"):
+            if field in scoped:
+                scoped[field]["families"] = {f: v for f, v in scoped[field]["families"].items() if f in local_families}
+        validate_embedded_nominal_mapping(selected, runtime_families=local_families,
+            sumw2_storage=sidecar["sumw2_storage"], histogram_applicability=scoped.get("histogram_applicability"))
+        _validate_embedded_contracts(scoped, histograms=selected)
+        if require_sumw2 or consumer_required_families:
+            materialize_legacy_histogram_dict(selected, schema_version=3,
+                runtime_families=local_families,
+                require_companions=local_families if require_sumw2 else consumer_required_families)
+        for key, histogram in selected.items():
+            if channel_patterns:
+                channels = regex_match(list(histogram.axes["channel"]), channel_patterns)
+                resolved_channels.update(channels)
+                histogram = histogram.prune("channel", channels)
+            for contribution in histogram_contribution_support({key: histogram}):
+                if contribution in contributions:
+                    raise histogram_content_error("Duplicate histogram contribution support before addition.")
+                contributions[contribution] = path
+            if key in merged:
+                validate_histogram_compatibility(merged[key], histogram, key=key)
+                merged[key] += histogram
+            else:
+                merged[key] = copy.deepcopy(histogram)
+    if channel_patterns and not resolved_channels:
+        raise histogram_content_error("No selected family has a matching channel.")
+    _reject_cross_run_histogram_composition(pkl_paths, [None] * len(pkl_paths), metadata)
+    validate_embedded_nominal_mapping(merged, runtime_families=families,
+        sumw2_storage=merged_options["sumw2_storage"])
+    report = {"schema": EMBEDDED_SUMW2_LAYOUT, "num_inputs": len(pkl_paths),
+        "inputs": list(pkl_paths), "runtime_histogram_families": list(families),
+        "require_sumw2": bool(require_sumw2), "num_merged_keys": len(merged),
+        "validation_scope": "artifact_identity_and_selected_content_closure",
+        **merged_options}
+    report["runtime_histogram_families"] = list(families)
+    report["year_coverage_mismatches"] = validate_year_coverage(merged, policy=year_coverage_policy)
+    report["num_year_coverage_mismatches"] = len(report["year_coverage_mismatches"])
+    return merged, report
