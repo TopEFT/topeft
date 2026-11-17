@@ -6,7 +6,7 @@
 
 `topeft` contains the Coffea processors, workflow entrypoints, histogram and
 provenance contracts, plotting tools, and datacard utilities used by the
-current TOP-26-006 top-quark effective-field-theory analysis. The separately
+current top-quark effective-field-theory analysis. The separately
 installed `topcoffea` package provides shared corrections and utilities.
 
 ## Installation orientation

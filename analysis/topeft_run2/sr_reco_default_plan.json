@@ -1,0 +1,16 @@
+{
+  "units": [
+    {"id": "a_1", "category_groups": ["2l", "2lss_1tau", "2los_1tau", "4l"], "histograms": ["invmass", "fwd0pt"]},
+    {"id": "a_2", "category_groups": ["2l", "2lss_1tau", "2los_1tau", "4l"], "histograms": ["l0conept"]},
+    {"id": "a_3", "category_groups": ["2l", "2lss_1tau", "2los_1tau", "4l"], "histograms": ["j0pt", "b0pt"]},
+    {"id": "a_4", "category_groups": ["2l", "2lss_1tau", "2los_1tau", "4l"], "histograms": ["met", "l1conept", "tau0Tpt"]},
+    {"id": "b_1", "category_groups": ["3l_m_offZ"], "histograms": ["invmass", "j0pt", "b0pt"]},
+    {"id": "b_2", "category_groups": ["3l_m_offZ"], "histograms": ["met", "l0conept", "l1conept"]},
+    {"id": "c_1", "category_groups": ["3l_p_offZ"], "histograms": ["invmass", "j0pt", "b0pt"]},
+    {"id": "c_2", "category_groups": ["3l_p_offZ"], "histograms": ["met", "l0conept", "l1conept"]},
+    {"id": "d_1", "category_groups": ["3l_onZ_tau"], "histograms": ["invmass", "j0pt", "b0pt"]},
+    {"id": "d_2", "category_groups": ["3l_onZ_tau"], "histograms": ["met", "l0conept", "l1conept", "tau0Tpt"]},
+    {"id": "e_1", "category_groups": ["3l_fwd"], "histograms": ["invmass", "j0pt", "b0pt", "fwd0pt"]},
+    {"id": "e_2", "category_groups": ["3l_fwd"], "histograms": ["met", "l0conept", "l1conept"]}
+  ]
+}

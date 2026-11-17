@@ -28,11 +28,10 @@ python run_analysis.py INPUT.cfg --do-np --np-postprocess=inline \
   --outpath /absolute/path/to/output --outname analysis_block
 ```
 
-`inline` is the default when `--do-np` is active. It publishes the source and
-transformed products in one invocation. The maintained Run 2 SR profiles
-`run2_full` and `run2_sr_ext` use inline local `DataDrivenProducer` processing.
-The Run 3 SR profiles `run3_full` and `run3_sr_ext` defer the local
-`run_data_driven.py` stage until source publication succeeds. The direct
+`inline` is the default when `--do-np` is active in a direct invocation. It
+publishes source and transformed products in one invocation. Maintained
+`run_cr.sh` component profiles instead use a verified source receipt followed
+by a separate `run_data_driven.py` stage for both Run 2 and Run 3. The direct
 deferred form is:
 
 ```bash
@@ -87,6 +86,15 @@ For long inputs, retain streaming mode. The `protocol=3` and
 memo-clearing bounded-memory path, not user-facing tuning knobs. Use
 `--legacy-dict-mode` only to compare or recover the historical materialized
 implementation, accepting its higher peak memory.
+
+## Optional phase diagnostics
+
+`run_data_driven.py --phase-telemetry` explicitly enables phase diagnostics;
+the default is off. It writes scalar phase/clock/RSS records beside the named
+output, separately from the required artifact metadata. See
+[phase telemetry](production.md#optional-phase-telemetry) for persistence,
+latest-invocation behavior and interpretation limits. A telemetry persistence
+warning does not replace the transformation's artifact and lineage checks.
 
 ## Understand applicability
 

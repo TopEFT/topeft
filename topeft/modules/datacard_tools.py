@@ -10,10 +10,12 @@ import json
 import time
 import copy
 import warnings
+from pathlib import Path
 
 from collections import defaultdict
 
 from topcoffea.modules.utils import regex_match, get_hist_from_pkl
+from topcoffea.modules.hist_utils import HAS_STREAMING_SUPPORT, iterate_hist_from_pkl
 from topcoffea.modules.sparseHist import SparseHist
 from topeft.modules.paths import topeft_path
 from topeft.modules.axes import info as axes_info
@@ -27,7 +29,11 @@ from topeft.modules.compatibility import add_sumw2_stub
 from topeft.modules.data_driven_products import CANONICAL_DATA_DRIVEN_YEARS
 from topeft.modules.histogram_artifact import (
     merge_histogram_sidecars,
+    read_histogram_sidecar,
     validate_histogram_artifact,
+    _validate_artifact_identity,
+    _expected_nominal_processes_from_transformation_contract,
+    histogram_content_error,
 )
 from topeft.modules.nominal_schema import (
     NOMINAL_CONTAINER_SCHEMA_VERSION,
@@ -35,7 +41,13 @@ from topeft.modules.nominal_schema import (
     histogram_contribution_support,
     is_split_nominal_mapping,
     materialize_legacy_histogram_dict,
+    materialize_nominal_origin_axis,
     merge_nominal_mappings,
+    scalar_nominal_key,
+    eft_nominal_key,
+    sumw2_key,
+    validate_nominal_family,
+    validate_histogram_compatibility,
     validate_year_coverage,
     validate_nominal_mapping,
     year_independent_process,
@@ -45,11 +57,62 @@ from topeft.modules.missing_parton_contract import (
     SR_CHANNEL_CONFIG_KEY,
     infer_legacy_missing_parton_layout,
     load_missing_parton_channel_contract,
+    resolve_missing_parton_response_index,
     validate_legacy_missing_parton_payload,
 )
 
 
 PRECISION = 6   # Decimal point precision in the text datacard output
+EFT_GREY_THRESHOLDS = (1e-6, 0.01, 0.01)
+EFT_NULL_CELL_THRESHOLD = 1e-5
+
+
+def eft_null_cell_mask(a0):
+    """Model pruning uses the full signed final nominal, before grey or ratios."""
+    a0 = np.asarray(a0)
+    if not np.isfinite(a0).all():
+        raise ValueError("Nonfinite final nominal A0 cannot define an EFT model cell.")
+    return a0 < EFT_NULL_CELL_THRESHOLD
+
+
+def eft_grey_mask(x, e0, a0):
+    """Strict raw-coefficient rule; invalid denominators never classify grey."""
+    if e0 is None:
+        raise ValueError("Qualified EFT origin E0 is required; A0 is not a substitute.")
+    x, e0, a0 = np.broadcast_arrays(x, e0, a0)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        relative_eft, relative_all = x / e0, x / a0
+    absolute, eft_relative, all_relative = EFT_GREY_THRESHOLDS
+    return (np.isfinite(x) & np.isfinite(e0) & np.isfinite(a0)
+            & (e0 != 0) & (a0 != 0)
+            & np.isfinite(relative_eft) & np.isfinite(relative_all)
+            & (np.abs(x) < absolute)
+            & (np.abs(relative_eft) < eft_relative)
+            & (np.abs(relative_all) < all_relative))
+
+
+def suppress_eft_grey(coefficients, e0, wc_names):
+    """Copy raw packed coefficients, suppressing only independently grey terms."""
+    from topcoffea.modules.eft_helper import quadratic_factors_to_term
+
+    if e0 is None:
+        raise ValueError("Qualified EFT origin E0 is required; A0 is not a substitute.")
+    raw = np.asarray(coefficients)
+    n = len(wc_names)
+    if raw.shape[-1] != (n + 1) * (n + 2) // 2 or np.shape(e0) != raw.shape[:-1]:
+        raise ValueError("EFT origin/packed coefficient shape mismatch.")
+    result = raw.copy()
+    for i in range(1, n + 1):
+        for j in range(1, i + 1):
+            index = int(quadratic_factors_to_term(np.asarray([i, j])))
+            grey = eft_grey_mask(raw[..., index], e0, raw[..., 0])
+            result[..., index] = np.where(grey, 0, raw[..., index])
+            if i == j:
+                linear = int(quadratic_factors_to_term(np.asarray([i, 0])))
+                result[..., linear] = np.where(grey, 0, raw[..., linear])
+    return result
+
+
 SUMW2_SUFFIX = "_sumw2"
 FULLY_SPECIFIED_TAU_NUISANCE_PREFIXES = (
     "CMS_eff_t_DeepTau",
@@ -293,6 +356,116 @@ def resolve_shape_nuisance_identity(
             run_suffix = {"_run2": "_13TeV", "_run3": "_13p6TeV"}[run_suffix]
         base = f"{base}{run_suffix}"
     return base, f"{base}{direction}"
+
+
+DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD = 1e-3
+
+
+def validate_nominal_like_tau_shape_threshold(value):
+    """Return a finite positive relative threshold, rejecting boolean values."""
+    if isinstance(value, (bool, np.bool_)):
+        raise ValueError("nominal_like_tau_shape_threshold must be a finite positive float")
+    try:
+        threshold = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("nominal_like_tau_shape_threshold must be a finite positive float") from exc
+    if not np.isfinite(threshold) or threshold <= 0:
+        raise ValueError("nominal_like_tau_shape_threshold must be a finite positive float")
+    return threshold
+
+
+def _nominal_like_tau_shape_bases(
+    templates, raw_templates, expected_extent, run_suffix, run_decorrelate,
+    lepton_mva_correlation,
+    nominal_like_tau_shape_threshold=DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD,
+):
+    """Find complete local Tau pairs negligible in every serialized ROOT bin."""
+    threshold = validate_nominal_like_tau_shape_threshold(nominal_like_tau_shape_threshold)
+    by_name = {}
+    for sp_key, arr in templates.items():
+        base, name = resolve_shape_nuisance_identity(
+            sp_key.systematic, run_suffix, run_decorrelate,
+            lepton_mva_correlation,
+        )
+        by_name.setdefault(name, []).append((base, arr, raw_templates[sp_key]))
+
+    nominal_entries = by_name.get("nominal", ())
+    if len(nominal_entries) != 1:
+        return set()
+    nominal, raw_nominal = nominal_entries[0][1:]
+
+    def values_if_safe(arr, raw_arr):
+        try:
+            values = np.asarray(arr[0])
+            raw_values = np.asarray(raw_arr[0])
+            if (
+                values.ndim != 1 or values.shape != (expected_extent,)
+                or raw_values.shape != values.shape
+                or not np.all(np.isfinite(values))
+                or not np.all(np.isfinite(raw_values))
+                or np.any(raw_values < 0)
+            ):
+                return None
+            total = np.sum(values)
+            if not np.isfinite(total) or total <= 0:
+                return None
+            return values
+        except (TypeError, ValueError, IndexError):
+            return None
+
+    nominal_values = values_if_safe(nominal, raw_nominal)
+    if nominal_values is None:
+        return set()
+
+    suppressed = set()
+    for name, entries in by_name.items():
+        if not name.endswith("Up") or len(entries) != 1:
+            continue
+        base = name[:-2]
+        if not base.startswith(FULLY_SPECIFIED_TAU_NUISANCE_PREFIXES):
+            continue
+        if base.startswith("CMS_scale_t_DeepTau"):
+            era_pattern = (
+                r"CMS_scale_t_DeepTau2017v2p1_DM(?:0|1|10|11)_"
+                r"gen(?:Tau|Electron|Muon)_(?:2016APV|2016|2017|2018|Run2)"
+                if run_suffix == "_run2" else
+                r"CMS_scale_t_DeepTau2018v2p5_DM(?:0|1|10|11)_"
+                r"gen(?:Tau|Electron|Muon)_(?:2022EE|2022|2023BPix|2023|Run3)"
+            )
+            if re.fullmatch(era_pattern, base) is None:
+                continue
+        # The known Run-2 genuine-TES producer defect must never qualify.
+        if re.fullmatch(
+            r"CMS_scale_t_DeepTau2017v2p1_DM(?:0|1|10|11)_genTau_.*",
+            base,
+        ):
+            continue
+        down_entries = by_name.get(f"{base}Down", ())
+        if len(down_entries) != 1:
+            continue
+        up_values = values_if_safe(entries[0][1], entries[0][2])
+        down_values = values_if_safe(down_entries[0][1], down_entries[0][2])
+        if up_values is None or down_values is None:
+            continue
+        # Physical underflow is stripped by to_hist but contributes to the
+        # existing TXT rate. A changed underflow therefore keeps the pair.
+        if not (nominal_values[0] == up_values[0] == down_values[0]):
+            continue
+        regular = nominal_values[1:]
+        with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+            up_relative = np.abs((up_values[1:] - regular) / regular)
+            down_relative = np.abs((down_values[1:] - regular) / regular)
+        zero = regular == 0
+        if (
+            np.all(up_values[1:][zero] == 0)
+            and np.all(down_values[1:][zero] == 0)
+            and np.all(np.isfinite(up_relative[~zero]))
+            and np.all(np.isfinite(down_relative[~zero]))
+            and np.all(up_relative[~zero] < threshold)
+            and np.all(down_relative[~zero] < threshold)
+        ):
+            suppressed.add(base)
+    return suppressed
 
 # These process rules control which DatacardMaker templates retain stored bin
 # variances in the ROOT output. All other templates are written with zero stored
@@ -544,12 +717,255 @@ def _validate_disjoint_histogram_contributions(pkl_paths, loaded_inputs):
         )
 
 
+def _selected_family_keys(family, family_manifest):
+    """Resolve serialized component roles from the validated sidecar manifest."""
+    if family_manifest["dimensionality"] == 2:
+        nominal_roles = ((family, "scalar_nominal_processes"),)
+    else:
+        nominal_roles = (
+            (scalar_nominal_key(family), "scalar_nominal_processes"),
+            (eft_nominal_key(family), "eft_nominal_processes"),
+        )
+    roles = (*nominal_roles, (sumw2_key(family), "sumw2_processes"))
+    return {key: role for key, role in roles if family_manifest[role]}
+
+
+def _load_and_merge_selected_histogram_pkls(
+    pkl_paths, *, selected_families, channel_patterns, require_sumw2,
+    consumer_required_families, year_coverage_policy,
+):
+    """Stream and retain only validated sidecar families and physical channels."""
+    merged_hists = {}
+    input_metadata = []
+    files = []
+    owner_by_contribution = {}
+    resolved_all_channels = set()
+    selected_families = tuple(dict.fromkeys(selected_families))
+    if not selected_families or any(not isinstance(family, str) or not family for family in selected_families):
+        raise ValueError("Selective loading requires explicit nonempty family names.")
+    if not HAS_STREAMING_SUPPORT:
+        raise RuntimeError("Selective loading requires topcoffea streaming support.")
+
+    for path in pkl_paths:
+        sidecar = read_histogram_sidecar(path)
+        _validate_artifact_identity(Path(path), sidecar)
+        policy = resolved_policy_from_provenance(sidecar["sumw2_storage_provenance"])
+        manifests = sidecar["sumw2_content_manifest"]["families"]
+        selected_keys = {}
+        possible_selected_keys = set()
+        for family in selected_families:
+            possible_selected_keys.update(
+                (family, scalar_nominal_key(family), eft_nominal_key(family), sumw2_key(family))
+            )
+            if family not in manifests:
+                continue
+            roles = _selected_family_keys(family, manifests[family])
+            if not any(role.endswith("nominal_processes") for role in roles.values()):
+                applicability = sidecar.get("histogram_applicability")
+                states = (
+                    applicability["families"][family]["channels"]
+                    if applicability is not None else None
+                )
+                if states is None or any(
+                    states[channel] == "applicable"
+                    for channel in regex_match(list(states), channel_patterns)
+                ):
+                    raise histogram_content_error(
+                        f"Selected family {family!r} has no declared nominal content in {path!r}."
+                    )
+            selected_keys.update(
+                {key: (family, role) for key, role in roles.items()}
+            )
+
+        selected = {}
+        observed_processes = {}
+        discarded_keys = []
+        resolved_channels = set()
+        for key, histogram in iterate_hist_from_pkl(
+            path, allow_empty=False, materialize=False
+        ):
+            if not isinstance(key, str):
+                raise TypeError(f"Histogram input {path!r} contains a non-string key: {key!r}.")
+            if key in possible_selected_keys and key not in selected_keys:
+                raise histogram_content_error(
+                    f"Undeclared selected-family component {key!r} in {path!r}."
+                )
+            if key not in selected_keys:
+                discarded_keys.append(key)
+                continue
+            if key in selected:
+                raise histogram_content_error(f"Duplicate selected histogram key {key!r} in {path!r}.")
+            observed_processes[key] = sorted(str(process) for process in histogram.axes["process"])
+            if channel_patterns:
+                if "channel" not in histogram.categorical_axes.name:
+                    raise histogram_content_error(f"Selected histogram {key!r} has no channel axis.")
+                available_channels = list(histogram.axes["channel"])
+                channels = regex_match(available_channels, channel_patterns)
+                resolved_channels.update(channels)
+                resolved_all_channels.update(channels)
+                if len(channels) != len(available_channels):
+                    histogram = histogram.prune("channel", channels)
+            selected[key] = histogram
+
+        missing = sorted(set(selected_keys) - set(selected))
+        if missing:
+            raise histogram_content_error(
+                f"Selected-content closure incomplete in {path!r}; missing keys: {missing!r}."
+            )
+        for key, (family, role) in selected_keys.items():
+            expected = manifests[family][role]
+            if observed_processes[key] != expected:
+                raise histogram_content_error(
+                    f"Selected-content process mismatch in {path!r}, key {key!r}: "
+                    f"expected={expected!r}, observed={observed_processes[key]!r}."
+                )
+        for family in selected_families:
+            if family not in manifests:
+                continue
+            manifest = manifests[family]
+            if sidecar["artifact"]["artifact_kind"] == "processor_output":
+                expected_required = sorted(
+                    (
+                        set(manifest["scalar_nominal_processes"])
+                        | set(manifest["eft_nominal_processes"])
+                    ) & set(policy.selected_processes(family))
+                )
+                if manifest["required_sumw2_processes"] != expected_required:
+                    raise histogram_content_error(
+                        f"Selected family {family!r} has required_sumw2_processes "
+                        f"{manifest['required_sumw2_processes']!r}, expected {expected_required!r} "
+                        "from source allocation."
+                    )
+            else:
+                expected_scalar, expected_eft = (
+                    _expected_nominal_processes_from_transformation_contract(
+                        sidecar["transformation_contract"], family,
+                        resolved_data_driven_contract=sidecar.get("resolved_data_driven_contract"),
+                    )
+                )
+                if (
+                    manifest["scalar_nominal_processes"] != expected_scalar
+                    or manifest["eft_nominal_processes"] != expected_eft
+                    or manifest["sumw2_processes"] != manifest["required_sumw2_processes"]
+                ):
+                    raise histogram_content_error(
+                        f"Selected family {family!r} has nominal or sumw2 roles "
+                        "inconsistent with the maintained transformation contract."
+                    )
+            if not _selected_family_keys(family, manifest):
+                continue
+            required = set(manifest["required_sumw2_processes"])
+            companion = set(manifest["sumw2_processes"])
+            if required - companion:
+                raise histogram_content_error(
+                    f"Selected family {family!r} lacks required sumw2 processes: "
+                    f"{sorted(required - companion)!r}."
+                )
+            validate_nominal_family(
+                selected, family,
+                companion_selected=(policy.selects_family(family) if sidecar["artifact"]["artifact_kind"] == "processor_output" else None),
+                selected_processes=(policy.selected_processes(family) if sidecar["artifact"]["artifact_kind"] == "processor_output" else ()),
+            )
+            applicability = sidecar.get("histogram_applicability")
+            if applicability is not None and channel_patterns:
+                declared = applicability["families"][family]["channels"]
+                for channel in regex_match(list(declared), channel_patterns):
+                    observed = any(
+                        channel in histogram.axes["channel"]
+                        for key, histogram in selected.items()
+                        if key in _selected_family_keys(family, manifest)
+                    )
+                    if observed != (declared[channel] == "applicable"):
+                        raise histogram_content_error(
+                            f"Selected family {family!r} channel {channel!r} disagrees with applicability."
+                        )
+
+        input_metadata.append(sidecar)
+        files.append({
+            "path": path,
+            "num_keys": len(selected),
+            "retained_keys": list(selected),
+            "discarded_keys": discarded_keys,
+            "resolved_channels": sorted(resolved_channels),
+            "validation_scope": "artifact_identity_and_selected_content_closure",
+        })
+        if len(pkl_paths) > 1:
+            for contribution in histogram_contribution_support(selected):
+                if contribution in owner_by_contribution:
+                    raise RuntimeError(
+                        "Duplicate histogram contribution support detected before histogram addition: "
+                        f"incoming_path={path!r}, existing_path={owner_by_contribution[contribution]!r}, "
+                        f"contribution={contribution!r}."
+                    )
+                owner_by_contribution[contribution] = path
+        for key, incoming in selected.items():
+            if key not in merged_hists:
+                merged_hists[key] = incoming
+            else:
+                validate_histogram_compatibility(merged_hists[key], incoming, key=key)
+                merged_hists[key] += incoming
+        del selected
+
+    if channel_patterns and not resolved_all_channels:
+        raise histogram_content_error(
+            f"No selected family has a channel matching {list(channel_patterns)!r}."
+        )
+    _reject_cross_run_histogram_composition(pkl_paths, [None] * len(pkl_paths), input_metadata)
+    merged_sidecar = merge_histogram_sidecars(input_metadata)
+    artifact_kind = merged_sidecar["artifact_kind"]
+    required_families = frozenset(consumer_required_families)
+    merged_policy = resolved_policy_from_provenance(merged_sidecar["sumw2_storage_provenance"])
+    missing_policy_requirements = sorted(
+        family for family in required_families
+        if not (merged_policy.selects_family(family) if artifact_kind == "processor_output"
+                else merged_sidecar["required_sumw2_processes"].get(family))
+    )
+    if missing_policy_requirements:
+        raise RuntimeError(
+            "Active consumer requirements are absent from the artifact contract: "
+            + ", ".join(missing_policy_requirements)
+        )
+    for family in selected_families:
+        validate_nominal_family(
+            merged_hists, family,
+            companion_selected=(merged_policy.selects_family(family) if artifact_kind == "processor_output" else None),
+            selected_processes=(merged_policy.selected_processes(family) if artifact_kind == "processor_output" else ()),
+        )
+    report = {
+        "num_inputs": len(pkl_paths), "inputs": list(pkl_paths),
+        "require_sumw2": bool(require_sumw2),
+        "year_coverage_policy": year_coverage_policy,
+        "files": files,
+        "contribution_identity": "payload_component_key + complete_categorical_coordinate",
+        "schema": "split_sibling_v1", "validation_scope": "artifact_identity_and_selected_content_closure",
+        "selected_families": list(selected_families),
+        "num_merged_keys": len(merged_hists),
+        "sumw2_storage_provenance": merged_policy.to_provenance(),
+        "production_sample_contract": merged_sidecar["production_sample_contract"],
+        "runtime_histogram_families": list(selected_families),
+        "artifact_kind": artifact_kind, "artifact_merged": True,
+        "required_sumw2_processes": merged_sidecar["required_sumw2_processes"],
+        "transformation_contract": merged_sidecar["transformation_contract"],
+        "requested_data_driven_products": merged_sidecar["requested_data_driven_products"],
+        "resolved_data_driven_contract": merged_sidecar["resolved_data_driven_contract"],
+        "lineage_inputs": merged_sidecar["lineage_inputs"],
+        "histogram_applicability": merged_sidecar.get("histogram_applicability"),
+    }
+    report["year_coverage_mismatches"] = validate_year_coverage(
+        merged_hists, policy=year_coverage_policy
+    )
+    report["num_year_coverage_mismatches"] = len(report["year_coverage_mismatches"])
+    return merged_hists, report
+
+
 def load_and_merge_histogram_pkls(
     pkl_paths,
     *,
     require_sumw2=True,
     consumer_required_families=(),
     year_coverage_policy="off",
+    selected_families=(),
+    channel_patterns=(),
 ):
     """
     Load and validate one or more histogram PKLs before merging them in memory.
@@ -563,6 +979,13 @@ def load_and_merge_histogram_pkls(
     if not pkl_paths:
         raise ValueError("No input pickle files were provided for merging.")
     validate_year_coverage({}, policy=year_coverage_policy)
+    if selected_families:
+        return _load_and_merge_selected_histogram_pkls(
+            pkl_paths, selected_families=selected_families,
+            channel_patterns=channel_patterns, require_sumw2=require_sumw2,
+            consumer_required_families=consumer_required_families,
+            year_coverage_policy=year_coverage_policy,
+        )
 
     report = {
         "num_inputs": len(pkl_paths),
@@ -775,7 +1198,8 @@ def _card_numerical_split_view(histograms, channel_patterns=()):
         if channel_patterns and "channel" in _categorical_axis_names(histogram):
             available_channels = list(histogram.axes["channel"])
             selected_channels = regex_match(available_channels, channel_patterns)
-            numerical_histogram = histogram.prune("channel", selected_channels)
+            if len(selected_channels) != len(available_channels):
+                numerical_histogram = histogram.prune("channel", selected_channels)
 
         if (
             not isinstance(numerical_histogram, SparseHist)
@@ -817,8 +1241,10 @@ def to_hist(arr,name,zero_wgts=False):
     return h
 
 
-def _sanitize_negative_template_bins(templates):
-    """Crop negative bins without letting variations revive raw-negative nominal bins."""
+def _sanitize_negative_template_bins(
+    templates, null_cell_mask=None, *, crop_negative_bins=True,
+):
+    """Copy templates/errors, enforcing model nulls even when cropping is off."""
     raw_nominal = next(
         (
             arr
@@ -828,7 +1254,8 @@ def _sanitize_negative_template_bins(templates):
         None,
     )
     nominal_negative_mask = (
-        None if raw_nominal is None else np.asarray(raw_nominal[0]) < 0
+        None if raw_nominal is None or not crop_negative_bins
+        else np.asarray(raw_nominal[0]) < 0
     )
 
     sanitized_templates = {}
@@ -842,10 +1269,18 @@ def _sanitize_negative_template_bins(templates):
                 if component is not None:
                     component[nominal_negative_mask] = 0
 
-        negative_bin_mask = sanitized_arr[0] < 0
-        sanitized_arr[0][negative_bin_mask] = 0
-        if sanitized_arr[1] is not None:
-            sanitized_arr[1][negative_bin_mask] = 0
+        if null_cell_mask is not None:
+            for component in sanitized_arr:
+                if component is not None:
+                    if component.shape != np.shape(null_cell_mask):
+                        raise ValueError("Template/model null-cell shape mismatch.")
+                    component[null_cell_mask] = 0
+
+        if crop_negative_bins:
+            negative_bin_mask = sanitized_arr[0] < 0
+            sanitized_arr[0][negative_bin_mask] = 0
+            if sanitized_arr[1] is not None:
+                sanitized_arr[1][negative_bin_mask] = 0
         sanitized_templates[sp_key] = sanitized_arr
 
     return sanitized_templates
@@ -1385,6 +1820,13 @@ class DatacardMaker():
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
         self.drop_syst       = kwargs.pop("drop_syst",[])
+        suppress_tau = kwargs.pop("suppress_nominal_like_tau_shapes", False)
+        if not isinstance(suppress_tau, bool):
+            raise TypeError("suppress_nominal_like_tau_shapes must be a bool")
+        self.suppress_nominal_like_tau_shapes = suppress_tau
+        self.nominal_like_tau_shape_threshold = validate_nominal_like_tau_shape_threshold(
+            kwargs.pop("nominal_like_tau_shape_threshold", DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD)
+        )
         self.skip_missing_parton_rate_syst = bool(
             kwargs.pop("skip_missing_parton_rate_syst",False)
         )
@@ -1396,6 +1838,8 @@ class DatacardMaker():
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
         self.use_AAC          = kwargs.pop("use_AAC",False)
+        if self.suppress_nominal_like_tau_shapes and self.use_AAC:
+            raise ValueError("Tau shape suppression is unsupported with use_AAC")
         self.wc_scalings     = kwargs.pop("wc_scalings",[])
         self.scalings        = []
         self.use_run3_systs  =  True
@@ -1589,11 +2033,24 @@ class DatacardMaker():
                 add_luminosity_shapes=not _is_sumw2_key(km_dist),
             )
             print(f"Num. Systematics: {len(h.axes['systematic'])}")
-            self.hists[km_dist] = h
+            self.hists[km_dist] = self._retain_nominal_origins(km_dist, h)
 
     def read_source_periods(self,fpath=None,hists=None):
         """Expose the prepared source-period view before final year correlation."""
-        return list(self._prepare_source_periods(fpath=fpath, hists=hists))
+        names = []
+        for name in self._prepare_source_periods(fpath=fpath, hists=hists):
+            self.hists[name] = self._retain_nominal_origins(name, self.hists[name])
+            names.append(name)
+        return names
+
+    def _retain_nominal_origins(self, family, histogram):
+        if "nominal_origin" not in histogram.categorical_axes.name:
+            return histogram
+        self.nominal_origins[family] = {
+            origin: histogram[{"nominal_origin": origin}]
+            for origin in ("scalar", "eft")
+        }
+        return histogram[{"nominal_origin": "combined"}]
 
     def _prepare_source_periods(self,fpath=None,hists=None):
         """
@@ -1603,6 +2060,7 @@ class DatacardMaker():
             The histograms are then pre-processed to remove / group / scale various sparse axes
             categories.
         """
+        self.nominal_origins = {}
         if hists is not None:
             if not isinstance(hists, dict):
                 raise TypeError(
@@ -1642,11 +2100,19 @@ class DatacardMaker():
                         or f"{family}__eft_nominal" in self.hists
                     )
                 ]
+            split_sources = self.hists
             self.hists = materialize_legacy_histogram_dict(
                 self.hists,
                 runtime_families=runtime_families,
                 schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
             )
+            for family in runtime_families:
+                combined = self.hists.get(family)
+                # Constant-only HistEFT inputs also require qualified origins.
+                if combined is not None and hasattr(combined, "wc_names"):
+                    self.hists[family] = materialize_nominal_origin_axis(
+                        split_sources, family, combined
+                    )
             if is_split_nominal_mapping(self.hists):
                 raise RuntimeError(
                     "DatacardMaker transient materialization retained split source keys."
@@ -1842,6 +2308,54 @@ class DatacardMaker():
             mode="fitting",
             channel=channel,
         )
+
+    def nominal_origin_coefficients(self, family, channel, process):
+        """Final raw coefficients, with physical and coefficient flow kept distinct."""
+        if family not in self.nominal_origins:
+            raise ValueError("Qualified scalar/EFT origin unavailable for scaling.")
+        arrays = {}
+        for origin, source in {"combined": self.hists[family],
+                               **self.nominal_origins[family]}.items():
+            selected = source.integrate("channel", [channel])
+            if process not in {key.process for key in selected.categorical_keys}:
+                raise ValueError(f"{origin} final process/cell absent: {channel}:{process}")
+            selected = self.binning_view(selected, family, channel)
+            projection = self._scaling_histogram_for_json(selected, channel, process)
+            arrays[origin] = np.asarray(projection.values(flow=True))[..., 1:-1]
+        full, scalar, eft = (arrays[k] for k in ("combined", "scalar", "eft"))
+        if (scalar.shape != full.shape or eft.shape != full.shape
+                or not np.isfinite(full).all()
+                or np.any(scalar[..., 1:] != 0)
+                or not np.allclose(scalar + eft, full, rtol=1e-10, atol=1e-10)):
+            raise ValueError("Final nominal origin reconstruction failed.")
+        return arrays
+
+    def _scaling_histogram_with_grey(
+        self, channel_hist, channel, process, family, null_cell_mask=None,
+    ):
+        scaling = self._scaling_histogram_for_json(channel_hist, channel, process)
+        origins = self.nominal_origin_coefficients(family, channel, process)
+        raw = np.asarray(scaling.values(flow=True))[..., 1:-1]
+        if not np.allclose(raw, origins["combined"], rtol=1e-10, atol=1e-10):
+            raise ValueError("Scaling cell differs from qualified origin cell.")
+        if self.use_AAC:
+            filtered = suppress_eft_grey(raw, origins["eft"][..., 0], scaling.wc_names)
+        else:
+            if null_cell_mask is None:
+                null_cell_mask = eft_null_cell_mask(raw[..., 0])
+            if np.shape(null_cell_mask) != raw.shape[:-1]:
+                raise ValueError("Scaling/model null-cell shape mismatch.")
+            # Null the model polynomial before grey. HistEFT.make_scaling skips
+            # all-zero rows, so these cells never divide by their raw A0.
+            filtered = np.zeros_like(raw)
+            survives = ~null_cell_mask
+            filtered[survives] = suppress_eft_grey(
+                raw[survives], origins["eft"][..., 0][survives], scaling.wc_names,
+            )
+        scaling = copy.deepcopy(scaling)
+        for values in scaling.view(flow=True).values():
+            values[..., 1:-1] = filtered
+        return scaling
 
     def _scaling_histogram_for_json(self, channel_hist, channel, process):
         """Project one card-facing signal histogram onto its scaling payload axes."""
@@ -2134,6 +2648,20 @@ class DatacardMaker():
                     channel_hist = self.binning_view(
                         h.integrate("channel", [channel]), km_dist, channel
                     )
+                    if not self.use_AAC:
+                        # Match the final SR projection and serialized physical
+                        # cells (including the source overflow, excluding underflow).
+                        if not any(key.process == p for key in channel_hist.categorical_keys):
+                            continue
+                        final = self._scaling_histogram_for_json(channel_hist, channel, p)
+                        raw = np.asarray(final.values(flow=True))[1:, 1:-1]
+                        survives = ~eft_null_cell_mask(raw[:, 0])
+                        wc_terms = np.abs(raw[survives][:, idx_arr - start_index]
+                                          / raw[survives, 0, None])
+                        if np.any(wc_terms > self.tolerance):
+                            selected_wcs[p].add(wc)
+                            break
+                        continue
                     p_hist = channel_hist.integrate("process", [p])
                     for sp_key, arr in p_hist.view(as_dict=True, flow=True).items():
                         # Ignore underflow and overflow bins. The remaining bins
@@ -2157,7 +2685,16 @@ class DatacardMaker():
             print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
-    def make_scalings_json(self,scalings_json,ch,km_dist,p,wc_names,scalings):
+    def make_scalings_json(
+        self, scalings_json, ch, km_dist, p, wc_names, scalings, null_cell_mask=None,
+    ):
+        if null_cell_mask is not None:
+            scalings = np.array(scalings, copy=True)
+            if np.shape(null_cell_mask) != scalings.shape[:-1]:
+                raise ValueError("Serialized scaling/model null-cell shape mismatch.")
+            # A zero template consumes a neutral multiplicative polynomial.
+            scalings[null_cell_mask] = 0
+            scalings[null_cell_mask, 0] = 1
         scalings = scalings.tolist()
         scalings_json.append(
             {
@@ -2210,6 +2747,13 @@ class DatacardMaker():
             msg = "No sumw2 histogram found! Setting errors to 0"
             print(msg)
         ch_hist = self.binning_view(h.integrate("channel",[ch]), km_dist, ch)
+        if self.use_real_data and not any(
+            key.process == "data" for key in ch_hist.categorical_keys
+        ):
+            raise RuntimeError(
+                f"Unblinded datacard requires the data process for {km_dist}:{ch}; "
+                "check the selected input and year coverage before producing cards."
+            )
         ch_sumw2 = (
             None
             if h_sumw2 is None
@@ -2261,6 +2805,12 @@ class DatacardMaker():
                     proc_sumw2 = None
                 proc_hist = self.select_final_sr_appl(proc_hist, ch, process=p)
                 proc_sumw2 = self.select_final_sr_appl(proc_sumw2, ch, process=p)
+                null_cell_mask = None
+                if not self.use_AAC and self.is_signal(p):
+                    final_nominal = self._scaling_histogram_for_json(ch_hist, ch, p)
+                    null_cell_mask = eft_null_cell_mask(
+                        np.asarray(final_nominal.values(flow=True))[..., 1]
+                    )
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
                 decomposed_templates = self.decompose(proc_hist,proc_sumw2,wcs)
@@ -2285,8 +2835,11 @@ class DatacardMaker():
                         "rate": -1
                     }
                     self.validate_sparse_axes_for_card(v, ch, proc_name)
-                    if crop_negative_bins:
-                        v = _sanitize_negative_template_bins(v)
+                    raw_templates = v
+                    if crop_negative_bins or null_cell_mask is not None:
+                        v = _sanitize_negative_template_bins(
+                            v, null_cell_mask, crop_negative_bins=crop_negative_bins,
+                        )
                     _validate_ff_template_support(
                         v,
                         variable=km_dist,
@@ -2294,6 +2847,22 @@ class DatacardMaker():
                         process=p,
                         decomposition=base,
                     )
+                    suppressed_tau = set()
+                    if (
+                        self.suppress_nominal_like_tau_shapes
+                        and base == "sm" and p != "data"
+                        and not process_retains_stat_uncertainty(p)
+                        and "flip" not in p
+                    ):
+                        suppressed_tau = _nominal_like_tau_shape_bases(
+                            v, raw_templates, ch_hist.dense_axis.extent,
+                            self.suffix, self.run_decorrelate,
+                            self.lepton_mva_correlation,
+                            nominal_like_tau_shape_threshold=self.nominal_like_tau_shape_threshold,
+                        )
+                        all_shapes.update(suppressed_tau)
+                        if suppressed_tau:
+                            syst_width = max(syst_width, *(len(name) + 2 for name in suppressed_tau))
                     # There should be only 1 sparse axis at this point, the systematics axis
                     seen = {}
                     written_hist_names = set()
@@ -2307,6 +2876,8 @@ class DatacardMaker():
                         )
 
                         if syst_base == "JES_Total":
+                            continue
+                        if syst_base in suppressed_tau:
                             continue
                         sum_arr = sum(arr[0])
                         if sum_arr == 0: continue #TODO find a more elegant solution
@@ -2326,6 +2897,10 @@ class DatacardMaker():
                                 vals = wcs_dict # set wcs to certain values from command line
                                 decomposed_templates_Asimov = self.decompose(proc_hist,proc_sumw2,wcs,vals)
                                 data_sm = decomposed_templates_Asimov.pop("sm")
+                                if null_cell_mask is not None:
+                                    data_sm = _sanitize_negative_template_bins(
+                                        data_sm, null_cell_mask, crop_negative_bins=False,
+                                    )
                                 data_obs += data_sm[sp_key]
                         if syst == "nominal":
                             hist_name = f"{proc_name}"
@@ -2398,7 +2973,9 @@ class DatacardMaker():
                             pass
                 # obtain the scalings for scalings.json file
                 if p in self.SIGNALS:
-                    scaling_hist = self._scaling_histogram_for_json(ch_hist, ch, p)
+                    scaling_hist = self._scaling_histogram_with_grey(
+                        ch_hist, ch, p, km_dist, null_cell_mask,
+                    )
                     validate_matching_histogram_edges(
                         proc_hist,
                         scaling_hist,
@@ -2406,10 +2983,10 @@ class DatacardMaker():
                     )
                     if self.wc_scalings:
                         scalings = scaling_hist.make_scaling(wc_list=self.wc_scalings)
-                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings, null_cell_mask)
                     else:
                         scalings = scaling_hist.make_scaling()
-                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings, null_cell_mask)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
         line_break = "##----------------------------------\n"
@@ -2536,7 +3113,7 @@ class DatacardMaker():
                         #    bin_idx = num_j - njet_offset
                         #else:
                         ch_key = ch.replace(f"_{num_j}j","")
-                        bin_idx = num_j
+                        bin_idx = resolve_missing_parton_response_index(ch, num_j)
                         if isinstance(v,dict):
                         
                             # Skip channels that don't exist in missing_parton file

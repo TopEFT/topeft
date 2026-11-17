@@ -7,9 +7,8 @@ import time
 import os
 import re
 import shlex
-import shutil
 import subprocess
-import tempfile
+import sys
 import traceback
 import uuid
 import resource
@@ -67,11 +66,173 @@ from topeft.modules.ttgamma_photon_history import (
     get_ttgamma_sample_role_policy,
 )
 import analysis_processor
+from analysis.topeft_run2.wq_staging_guard import (
+    _validate_base,
+    closeout_invocation_staging,
+    finish_guard,
+    staging_guard_error,
+    start_guard,
+)
+from analysis.topeft_run2.wq_processing_admission import install_processing_admission
 from analysis.topeft_run2.analysis_processor import (
     ANALYSIS_MODE_EXCLUSIVE_ERROR,
 )
 
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
+
+
+def _finalize_work_queue_staging(guard_state, base, succeeded):
+    """Finish the guard and close only the current invocation's staging tree."""
+    path, owner_inode, stop_event, watchdog = guard_state
+    try:
+        finish_guard(path, owner_inode, stop_event, watchdog, succeeded=succeeded)
+        closeout_invocation_staging(base, path, owner_inode)
+    except Exception as error:
+        # Cleanup is operational evidence; it must not replace a run failure or
+        # invalidate a published PKL and its metadata.
+        print(f"WARNING: Work Queue invocation closeout degraded: {error}",
+              file=sys.stderr, flush=True)
+
+
+def _resolve_wq_manager_name(override, executor_name, outname):
+    if override is not None:
+        if not override:
+            raise ValueError("--wq-manager-name requires a non-empty name")
+        if executor_name != "work_queue":
+            raise ValueError("--wq-manager-name requires the work_queue executor")
+        return override
+    if executor_name in ("work_queue", "taskvine"):
+        return f"{os.environ['USER']}-workqueue-{outname}"
+    return None
+
+
+def _configure_wq_categories(queue, processing_cores=None, accumulating_memory_mb=None, accumulating_cores=None,
+                             admission_base=None, admission_quota_root=None,
+                             admission_warning_bytes=None, admission_min_free_bytes=None,
+                             phase_telemetry=False, manager_telemetry=None):
+    """Apply selected category reservations after Coffea declares categories."""
+    if processing_cores == 1:
+        queue.specify_category_max_resources("processing", {"cores": 1})
+    if accumulating_memory_mb is not None:
+        queue.specify_category_min_resources(
+            "accumulating", {"memory": accumulating_memory_mb, "cores": accumulating_cores}
+        )
+    if admission_base is not None:
+        install_processing_admission(
+            queue, base=admission_base, quota_root=admission_quota_root,
+            warning_bytes=admission_warning_bytes,
+            min_free_bytes=admission_min_free_bytes,
+            processing_cores=processing_cores,
+            accumulating_memory_mb=accumulating_memory_mb,
+            accumulating_cores=accumulating_cores,
+        )
+    if phase_telemetry:
+        _install_phase_telemetry_persistence(queue)
+        if manager_telemetry is not None:
+            manager_telemetry["mark"] = queue._phase_telemetry_record
+
+
+def _persist_task_phase_telemetry(task, path):
+    """Stream only accepted scalar phase observations; optional IO never fails a task."""
+    fields = ("schema_version", "phase", "wall_ns", "cpu_ns", "wall_elapsed_ns",
+              "cpu_elapsed_ns", "rss_mib", "peak_rss_mib")
+    extra_fields = ("event_count", "syst_var", "iteration_index", "syst_var_list_len",
+                    "iteration_entered_count", "iteration_completed_count",
+                    "family", "wgt_fluct", "nlep_cat", "operation", "parent_operation",
+                    "inclusive_wall_ns", "inclusive_cpu_ns", "exclusive_wall_ns",
+                    "exclusive_cpu_ns", "calls", "failures") + analysis_processor._IterationTelemetry.fields
+    try:
+        with open(task.outfile_stdout, encoding="utf-8", errors="replace") as source:
+            sink = None
+            try:
+                for line in source:
+                    if not line.startswith("[phase_telemetry] "):
+                        continue
+                    try:
+                        record = json.loads(line[len("[phase_telemetry] "):])
+                        payload = {key: record[key] for key in fields}
+                        if (payload["schema_version"] != 1 or
+                                not isinstance(payload["phase"], str) or
+                                not payload["phase"].startswith("processor_") or
+                                any(type(payload[key]) not in (int, float, type(None))
+                                    for key in fields[2:])):
+                            raise ValueError("invalid phase observation")
+                        extras = {key: record[key] for key in extra_fields if key in record}
+                        if any(type(value) not in (str, int, float, bool, type(None))
+                               for value in extras.values()):
+                            raise ValueError("invalid scalar telemetry metadata")
+                        # event_count belongs to process entry, once per invocation.
+                        if payload["phase"] != "processor_start":
+                            extras.pop("event_count", None)
+                        payload.update(extras)
+                        encoded = json.dumps(dict(task_id=task.id, **payload),
+                                             allow_nan=False, sort_keys=True) + "\n"
+                    except (ValueError, KeyError, TypeError):
+                        print("WARNING: skipped malformed phase telemetry record", file=sys.stderr)
+                        continue
+                    if sink is None:
+                        sink = open(path, "a", encoding="utf-8")
+                    sink.write(encoded)
+            finally:
+                if sink is not None:
+                    sink.close()
+    except Exception as error:
+        print(f"WARNING: optional phase telemetry persistence failed: {error}",
+              file=sys.stderr, flush=True)
+
+
+def _install_phase_telemetry_persistence(queue):
+    """Compose with this queue's maintained wait path, before staging teardown."""
+    if getattr(queue, "_phase_telemetry_installed", False):
+        return
+    original_wait = queue.wait
+    attempt_id = str(uuid.uuid4())
+    wall_start_ns = time.perf_counter_ns()
+    cpu_start_ns = time.process_time_ns()
+    context = {"root_task_id": None}
+
+    def manager_record(phase, **scalars):
+        # One manager thread owns this existing attempt stream. Worker stdout
+        # reaches the same file only via wait_with_phase_telemetry below.
+        try:
+            if "root_task_id" in scalars:
+                context["root_task_id"] = scalars["root_task_id"]
+            payload = dict(schema_version=1, phase=phase, manager_pid=os.getpid(),
+                           manager_attempt_id=attempt_id, clock_domain="manager_local",
+                           **context)
+            payload.update(scalars)
+            if phase != "reducer_child_edge":
+                wall_ns = time.perf_counter_ns()
+                cpu_ns = time.process_time_ns()
+                rss_mib, peak_rss_mib = analysis_processor._phase_memory_mib()
+                payload.update(wall_ns=wall_ns, cpu_ns=cpu_ns,
+                               wall_elapsed_ns=wall_ns - wall_start_ns,
+                               cpu_elapsed_ns=cpu_ns - cpu_start_ns,
+                               rss_mib=rss_mib, peak_rss_mib=peak_rss_mib)
+            path = os.path.join(os.path.dirname(queue.executor.tasks_accum_log),
+                                "phase_telemetry.jsonl")
+            with open(path, "a", encoding="utf-8") as sink:
+                sink.write(json.dumps(payload, allow_nan=False, sort_keys=True) + "\n")
+        except Exception as error:
+            print(f"WARNING: optional manager telemetry persistence failed: {error}",
+                  file=sys.stderr, flush=True)
+
+    queue._phase_telemetry_record = manager_record
+
+    def wait_with_phase_telemetry(timeout=None):
+        task = original_wait(timeout)
+        if task is not None and task.category.startswith("processing") and task.successful():
+            path = os.path.join(os.path.dirname(queue.executor.tasks_accum_log),
+                                "phase_telemetry.jsonl")
+            _persist_task_phase_telemetry(task, path)
+        return task
+
+    queue.wait = wait_with_phase_telemetry
+    queue._phase_telemetry_installed = True
+
+
+def _request_one_processing_core(queue):
+    _configure_wq_categories(queue, processing_cores=1)
 
 WGT_VAR_LST = [
     "nSumOfWeights_ISRUp",
@@ -479,20 +640,22 @@ def _resolve_environment_file(
                 _strict_environment_error(integrity)
             _print_environment_identity(integrity)
             return env_path
+        if snapshot:
+            if integrity["status"] != "valid" or not integrity["usable"]:
+                _strict_environment_error(integrity)
+            print("SNAPSHOT ENVIRONMENT MODE")
+            print("compatibility enforcement: bypassed explicitly with --snapshot")
+            _print_environment_identity(integrity)
+            return integrity["archive_path"]
         current_request = remote_environment.resolve_environment_request(
             extra_pip_local=extra_pip_local,
             unstaged="fail",
         )
         validation = remote_environment.validate_environment_archive(
-            env_path, current_request, snapshot=snapshot
+            env_path, current_request
         )
         if not validation["usable"]:
             _strict_environment_error(validation)
-        if snapshot:
-            print("SNAPSHOT ENVIRONMENT MODE")
-            print("compatibility enforcement: bypassed explicitly with --snapshot")
-            for mismatch in validation["mismatches"]:
-                print(f"snapshot_environment_mismatch: {mismatch}")
         _print_environment_identity(validation)
         return env_path
 
@@ -510,37 +673,6 @@ def _resolve_environment_file(
             "Provide --env-file pointing to a known-good poncho tarball (e.g. generated from environment.yml) "
             "or rerun with --no-remote-env if workers already have the dependencies."
         ) from exc
-
-
-def _prepare_work_queue_staging_directory(filepath_override=None):
-    requested_path = filepath_override or f"/groups/klannon/{os.environ.get('USER', 'user')}/workers"
-    path_preexisted = os.path.exists(requested_path)
-
-    try:
-        os.makedirs(requested_path, exist_ok=True)
-        return requested_path, not path_preexisted
-    except OSError as exc:
-        print(
-            "Warning: Failed to create Work Queue staging directory {} ({}). Falling back to a "
-            "system temporary location.".format(requested_path, exc)
-        )
-
-    fallback_path = tempfile.gettempdir()
-    print(f"Using fallback Work Queue staging directory: {fallback_path}")
-    return fallback_path, False
-
-
-def _cleanup_work_queue_staging_directory(path, eligible_for_cleanup):
-    if not path or not eligible_for_cleanup:
-        return
-
-    try:
-        shutil.rmtree(path, ignore_errors=False)
-    except OSError as exc:
-        print(
-            "Warning: Failed to clean up Work Queue staging directory {} ({}). You may want to "
-            "remove it manually.".format(path, exc)
-        )
 
 
 def _prepare_work_queue_log_paths(outpath, outname, filepath_override=None):
@@ -992,6 +1124,8 @@ if __name__ == "__main__":
         action="store_true",
         help="Skip filling sum of weight-squared histograms",
     )
+    parser.add_argument("--phase-telemetry", action="store_true",
+                        help="Emit scalar wall/CPU/RSS phase records (default: off).")
     parser.add_argument(
         "--record-raw-count",
         action="store_true",
@@ -1135,13 +1269,33 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--wq-filepath",
-        #default="/tmp/${USER}-workers",
         default=None,
-        help=(
-            "Override the Work Queue staging directory (default: /tmp/${USER}-workers). The path will be "
-            "created if missing; if creation fails a system temporary directory will be used instead."
-        ),
+        help="Explicit manager-side Work Queue staging base for guarded runs",
     )
+    parser.add_argument("--wq-manager-name", default=None,
+                        help="Exact Work Queue manager name; defaults to USER-workqueue-outname")
+    parser.add_argument("--wq-guard", action="store_true", help="Enable owned staging preflight and runtime warnings")
+    parser.add_argument("--wq-invocation-id", help="Unique profile/block/attempt staging identity")
+    parser.add_argument("--wq-quota-root", help="Exact site quota root, e.g. /groups/klannon")
+    parser.add_argument("--wq-free-warning-bytes", type=int)
+    parser.add_argument("--wq-min-free-bytes", type=int)
+    parser.add_argument("--pkl-no-clobber", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--pkl-min-free-bytes", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--pkl-min-free-inodes", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--pkl-safety-reserve-bytes", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--pkl-safety-reserve-inodes", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--pkl-pending-id", help=argparse.SUPPRESS)
+    parser.add_argument("--wq-warning-bytes", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--wq-stop-bytes", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--wq-reserve-bytes", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--wq-poll-seconds", type=float)
+    parser.add_argument("--wq-treereduction", type=int, choices=(5, 10, 20, 50))
+    parser.add_argument("--wq-processing-cores", type=int, choices=(1,),
+                        help="Opt in to a one-core processing-category reservation maximum")
+    parser.add_argument("--wq-accumulating-memory-mb", type=int,
+                        help="Opt in to an accumulating-category minimum memory reservation in MB")
+    parser.add_argument("--wq-accumulating-cores", type=int,
+                        help="Opt in to an accumulating-category minimum core reservation")
     parser.add_argument(
         "--wq-log-dir",
         default=None,
@@ -1237,6 +1391,9 @@ if __name__ == "__main__":
     parser.set_defaults(use_remote_env=True)
 
     args = parser.parse_args()
+    if any(value is not None for value in (args.wq_warning_bytes, args.wq_stop_bytes,
+                                           args.wq_reserve_bytes)):
+        parser.error("retired Work Queue staging-budget options; use --wq-free-warning-bytes and --wq-min-free-bytes")
     if args.rebuild_env and args.env_file:
         parser.error("--rebuild-env cannot be combined with --env-file")
     if args.snapshot and not args.env_file:
@@ -1304,6 +1461,8 @@ if __name__ == "__main__":
     pretend = args.pretend
     treename = args.treename
     fill_sumw2 = not args.no_sumw2
+    phase_telemetry = args.phase_telemetry
+    manager_telemetry = {}
     record_raw_count = args.record_raw_count
     legacy_no_sumw2_present = bool(args.no_sumw2)
     legacy_no_sumw2_value = bool(args.no_sumw2)
@@ -1382,6 +1541,9 @@ if __name__ == "__main__":
             legacy_no_sumw2_present = True
             legacy_no_sumw2_value = not legacy_do_errors
         fill_sumw2 = not legacy_no_sumw2_value
+        phase_telemetry = ops.pop("phase_telemetry", phase_telemetry)
+        if not isinstance(phase_telemetry, bool):
+            raise ValueError("phase_telemetry must be a boolean.")
         record_raw_count = ops.pop("record_raw_count", record_raw_count)
         if not isinstance(record_raw_count, bool):
             raise ValueError("record_raw_count must be a boolean.")
@@ -1421,6 +1583,13 @@ if __name__ == "__main__":
             raise ValueError(
                 f"Unsupported YAML option key(s): {unsupported_option_keys}"
             )
+
+    try:
+        wq_manager_name = _resolve_wq_manager_name(
+            args.wq_manager_name, executor_name, outname
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
     if do_renormfact_envelope:
         raise_unsupported_renormfact_envelope()
@@ -1486,6 +1655,15 @@ if __name__ == "__main__":
     _log_category_group_selection(category_group_selection)
 
     if executor_name in ["work_queue", "taskvine"]:
+        if executor_name == "work_queue":
+            if not args.wq_guard or not wq_filepath:
+                raise SystemExit("Work Queue requires explicit guarded --wq-filepath staging")
+            try:
+                _validate_base(wq_filepath)
+            except staging_guard_error as error:
+                raise SystemExit(f"Work Queue staging preflight failed: {error}") from error
+        if args.wq_guard and executor_name != "work_queue":
+            raise SystemExit("--wq-guard currently supports Work Queue only")
         # construct wq port range
         port = list(map(int, port.split("-")))
         if len(port) < 1:
@@ -1496,6 +1674,15 @@ if __name__ == "__main__":
             # convert singale values into a range of one element
             port.append(port[0])
 
+    if args.wq_processing_cores is not None and executor_name != "work_queue":
+        raise SystemExit("--wq-processing-cores requires Work Queue")
+    if (args.wq_accumulating_memory_mb is None) != (args.wq_accumulating_cores is None):
+        raise SystemExit("accumulating memory and core minima must be supplied together")
+    if args.wq_accumulating_memory_mb is not None:
+        if executor_name != "work_queue":
+            raise SystemExit("accumulating category minima require Work Queue")
+        if args.wq_accumulating_memory_mb <= 0 or args.wq_accumulating_cores <= 0:
+            raise SystemExit("accumulating category minima must be positive")
     port = port[0]
     # Figure out which hists to include
     if hist_list == ["ana"]:
@@ -2150,7 +2337,7 @@ if __name__ == "__main__":
         print("Variables to be histogrammed: {}".format(", ".join(hist_lst)))
 
     wq_staging_dir = None
-    wq_cleanup_after = False
+    wq_guard_state = None
     if executor_name in ["work_queue", "taskvine"]:
         wq_log_paths = _prepare_work_queue_log_paths(outpath, outname, wq_log_dir)
         environment_file = resolved_explicit_env_file or _resolve_environment_file(
@@ -2185,6 +2372,7 @@ if __name__ == "__main__":
         fwd_eta_band_pt_apply=fwd_eta_band_pt_apply,
         ttgamma_sample_role_policy=ttgamma_sample_role_policy,
         record_raw_count=record_raw_count,
+        phase_telemetry=phase_telemetry,
     )
     histogram_applicability = processor_instance.build_histogram_applicability(
         analysis_mode=processor_instance._analysis_mode,
@@ -2204,9 +2392,28 @@ if __name__ == "__main__":
     )
 
     if executor_name in ["work_queue", "taskvine"]:
-        wq_staging_dir, wq_cleanup_after = _prepare_work_queue_staging_directory(wq_filepath)
+        if args.wq_guard:
+            if executor_name != "work_queue" or not wq_filepath:
+                raise SystemExit("guarded Work Queue requires an explicit --wq-filepath")
+            guard_values = (args.wq_invocation_id, args.wq_quota_root,
+                            args.wq_free_warning_bytes, args.wq_min_free_bytes,
+                            args.wq_poll_seconds)
+            if any(value is None for value in (args.wq_invocation_id,
+                    args.wq_free_warning_bytes, args.wq_min_free_bytes,
+                    args.wq_poll_seconds)):
+                raise SystemExit("guarded Work Queue requires invocation, free-space warning/minimum and poll arguments")
+            try:
+                wq_staging_dir, owner_inode, stop_event, watchdog = start_guard(
+                    wq_filepath, *guard_values,
+                )
+            except (OSError, staging_guard_error) as error:
+                raise SystemExit(f"Work Queue staging preflight failed: {error}") from error
+            wq_guard_state = (wq_staging_dir, owner_inode, stop_event, watchdog)
+            print(f"Guarded Work Queue staging: {wq_staging_dir}", flush=True)
+        elif wq_filepath:
+            raise SystemExit("--wq-filepath requires --wq-guard to prevent unmonitored staging")
         executor_args = {
-            "manager_name": f"{os.environ['USER']}-workqueue-{outname}",
+            "manager_name": wq_manager_name,
             # find a port to run work queue in this range:
             "port": port,
             **wq_log_paths,
@@ -2224,8 +2431,7 @@ if __name__ == "__main__":
             "resources_mode": "auto",
             "resource_monitor": "measure",
             "split_on_exhaustion": True,
-            #'filepath': wq_staging_dir,
-            "filepath": '/tmp',
+            "filepath": str(wq_staging_dir) if wq_guard_state else "/tmp",  # taskvine only
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.
@@ -2264,6 +2470,24 @@ if __name__ == "__main__":
 
         if environment_file:
             executor_args["environment_file"] = environment_file
+        if args.wq_treereduction is not None:
+            if not args.wq_guard:
+                raise SystemExit("--wq-treereduction requires --wq-guard")
+            executor_args["treereduction"] = args.wq_treereduction
+        if args.wq_guard or args.wq_processing_cores == 1 or args.wq_accumulating_memory_mb is not None or (phase_telemetry and executor_name == "work_queue"):
+            from functools import partial
+            executor_args["custom_init"] = partial(
+                _configure_wq_categories,
+                processing_cores=args.wq_processing_cores,
+                accumulating_memory_mb=args.wq_accumulating_memory_mb,
+                accumulating_cores=args.wq_accumulating_cores,
+                admission_base=wq_filepath if args.wq_guard else None,
+                admission_quota_root=args.wq_quota_root if args.wq_guard else None,
+                admission_warning_bytes=args.wq_free_warning_bytes if args.wq_guard else None,
+                admission_min_free_bytes=args.wq_min_free_bytes if args.wq_guard else None,
+                phase_telemetry=phase_telemetry and executor_name == "work_queue",
+                manager_telemetry=manager_telemetry,
+            )
 
     # Run the processor and get the output
     tstart = time.time()
@@ -2292,16 +2516,23 @@ if __name__ == "__main__":
             exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
         )
     elif executor_name == "work_queue":
-        executor_instance = processor.WorkQueueExecutor(**executor_args)
-        _ensure_nonempty_chunks()
-        runner = processor.Runner(
-            executor_instance,
-            schema=NanoAODSchema,
-            chunksize=chunksize,
-            maxchunks=nchunks,
-            skipbadfiles=False,
-            xrootdtimeout=180,
-        )
+        try:
+            executor_instance = processor.WorkQueueExecutor(**executor_args)
+            _ensure_nonempty_chunks()
+            print(f"Nominal requested chunksize: {chunksize}; dynamic_chunksize: disabled; split_on_exhaustion: {executor_args['split_on_exhaustion']}")
+            runner = processor.Runner(
+                executor_instance,
+                schema=NanoAODSchema,
+                chunksize=chunksize,
+                maxchunks=nchunks,
+                skipbadfiles=False,
+                xrootdtimeout=180,
+            )
+        except BaseException:
+            if wq_guard_state:
+                _finalize_work_queue_staging(wq_guard_state, wq_staging_dir.parent, False)
+                wq_guard_state = None
+            raise
     elif executor_name == "taskvine":
         try:
             executor_instance = processor.TaskVineExecutor(**executor_args)
@@ -2321,6 +2552,8 @@ if __name__ == "__main__":
     try:
         try:
             output = runner(flist, treename, processor_instance)
+            if phase_telemetry and executor_name == "work_queue" and "mark" in manager_telemetry:
+                manager_telemetry["mark"]("runner_return", outcome="returned")
         except TypeError as exc:
             raise RuntimeError(
                 "The executor returned no chunk results. Ensure that the input files produced at least "
@@ -2394,6 +2627,12 @@ if __name__ == "__main__":
                 resolved_data_driven_products.requested_provenance()
             ),
             histogram_applicability=histogram_applicability,
+            no_clobber=args.pkl_no_clobber,
+            min_free_bytes=args.pkl_min_free_bytes,
+            min_free_inodes=args.pkl_min_free_inodes,
+            safety_reserve_bytes=args.pkl_safety_reserve_bytes,
+            safety_reserve_inodes=args.pkl_safety_reserve_inodes,
+            pending_id=args.pkl_pending_id,
         )
         print("Done!")
 
@@ -2422,6 +2661,11 @@ if __name__ == "__main__":
                     transformation_context=ddp.get_transformation_context(
                         inline_artifact_kind
                     ),
+                    no_clobber=args.pkl_no_clobber,
+                    min_free_bytes=args.pkl_min_free_bytes,
+                    min_free_inodes=args.pkl_min_free_inodes,
+                    safety_reserve_bytes=args.pkl_safety_reserve_bytes,
+                    safety_reserve_inodes=args.pkl_safety_reserve_inodes,
                 )
                 print("Done!")
             elif np_postprocess_mode == "defer":
@@ -2451,5 +2695,6 @@ if __name__ == "__main__":
                 print(f"Manager failure diagnostic written to {diagnostic_path}")
         raise
     finally:
-        if run_succeeded and wq_cleanup_after:
-            _cleanup_work_queue_staging_directory(wq_staging_dir, wq_cleanup_after)
+        if wq_guard_state:
+            _finalize_work_queue_staging(wq_guard_state, wq_staging_dir.parent,
+                                         run_succeeded)

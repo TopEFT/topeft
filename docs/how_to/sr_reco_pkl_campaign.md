@@ -1,129 +1,222 @@
-# Produce and qualify SR-reco extension PKLs
+# Produce SR extension PKLs
 
-Use `run2_sr_ext` and `run3_sr_ext` in `analysis/topeft_run2/run_cr.sh`
-for the maintained SR-reco extension source campaigns. The current
-`run2_sr_ext` and `run3_sr_ext` profiles each materialize 15 fragments from
-five SR category groups and three variable chunks per group. This is the
-current profile grouping, not a fixed fragment count for every future SR
-campaign. The exact block and artifact names come from the maintained profile
-configuration; see
-[production configuration](../reference/production_configuration.md) for the
-category/variable matrix.
+`run2_sr_ext` and `run3_sr_ext` produce the approved CR-like distributions
+in SR. Their scientific default remains
+[the 12-unit plan](../../analysis/topeft_run2/sr_reco_default_plan.json).
+The eight approved histograms are `fwd0pt`, `j0pt`, `b0pt`, `met`,
+`l0conept`, `l1conept`, `invmass`, and `tau0Tpt`. The channel registry
+determines where forward and tight-tau observables apply.
 
-This guide specifies launch and evidence requirements. It does not certify a
-particular campaign or replace the artifact schemas in
-[histogram artifacts](../reference/histogram_artifacts.md).
+The same [campaign engine](../../analysis/topeft_run2/campaign_manifest.py)
+owns state, plans, revisions, attempts, receipts and recovery for SR extension,
+production and statistical diagnostic component profiles. New campaigns write
+schema 9 to `.<profile>_campaign_state_v9.json`. The original schema-8 state
+file, if present, is never rewritten by this engine.
 
-## Resolve source and worker authorities
+## Review a campaign plan
 
-The manager and local postprocessing execute from the live checkout.
-`analysis_processor.py` is separately transferred to Work Queue as
-live-checkout-controlled source. Run 2 performs inline local
-`DataDrivenProducer` processing during `run_analysis.py`; Run 3 runs the local
-`run_data_driven.py` stage after its source stage completes. Worker-only
-imports, runtime libraries, and correction payloads come from the explicitly
-selected frozen worker environment. Thus the worker archive's TOPEFT and
-TOPCOFFEA source provenance and the manager/local TOPCOFFEA checkout are
-distinct authorities.
+From `analysis/topeft_run2`, inspect a fresh campaign before scheduling work:
 
-Prepare an environment archive through the canonical
-`run_analysis.py --prepare-env-only` path, backed by
-`topcoffea.modules.remote_environment.get_environment` (documented in
-TOPCOFFEA's `docs/environment_archive_contract.md`), and select its absolute
-path with `run_cr.sh --env-file`. Record the resolved
-environment request/fingerprint, archive path and SHA-256, frozen TOPEFT source
-identity, worker TOPCOFFEA identity, and live manager/local source identities.
-An explicit archive is a frozen snapshot: validate its integrity and
-provenance; do not interpret its selection as proof that it matches the current
-checkout. No particular historical tarball is the permanent worker
-environment.
-
-Before each launch, assess compatibility against the maintained contracted
-live-manager dependencies, the live local data-driven and transferred
-processor source, the manager/local TOPCOFFEA authority, and the explicit
-frozen archive. Equality of the whole live TOPEFT HEAD to the frozen TOPEFT
-commit is not the launch gate. A change in a contracted dependency requires
-review before execution. If the campaign namespace encodes a worker-frozen
-source identity, keep that identity consistent with the selected archive;
-the workflow does not prescribe a universal date or short-SHA spelling.
-
-## Run 2, then Run 3
-
-Use the maintained `run_cr.sh` workflow and one campaign output root. Keep the
-terminal transcript and exact process exit status for each profile. Workers
-are provisioned separately with the manager name printed for each Work Queue
-source invocation.
-
-1. Before `run2_sr_ext`, rerun the applicable launch-compatibility preflight;
-   require the fresh output root to be absent; inspect the scheduler situation;
-   then run the Run 2 command with the explicit `--env-file`, absolute
-   `--output-dir`, and `--campaign-tag`.
-2. Start `run3_sr_ext` only after the Run 2 process returns zero. Rerun the
-   compatibility preflight and inspect the scheduler situation immediately
-   before Run 3. Use the same campaign namespace and archive. There is no
-   second fresh-root absence gate: Run 2 has already established the
-   shared output root.
-
-A zero process status is necessary, but campaign state, receipts, artifacts,
-sidecars, and logs still need post-run review. In Run 2, each fragment's source
-and `_np` artifacts are produced by the inline path. In Run 3, the local
-`run_data_driven.py` child follows successful source publication. Do not start
-the deferred stage from an incomplete source artifact.
-
-## Native Work Queue logs and recovery
-
-The campaign assigns each source invocation a native log directory:
-
-```text
-<output_root>/work_queue_logs/<production_component>/<block_id>/source_native/
+```bash
+./run_cr.sh --production-profile run3_sr_ext \
+  --output-dir "$campaign_dir" --campaign-tag "$campaign_tag" \
+  --plan "$plan_file" --chunksize "$chunk_size" \
+  --env-file "$worker_archive" --dry-run
 ```
 
-The four native files are `debug.log` (manager diagnostics), `tr.log`
-(transactions), `stats.log` (statistics), and `tasks.log` (task history).
-After verified archival, the campaign records the corresponding `source/`
-directory in state. An existing owned native log prevents a new invocation;
-checkout-global log files are not campaign-owned state. See
-[Work Queue operations](work_queue.md) for direct-run defaults and archive
-behavior.
+Set each variable to an absolute path or value. Omit `--plan` to use the
+12-unit scientific default. A supplied JSON plan has one `units` array;
+each unit has a unique snake-case `id`, `category_groups`, `histograms`,
+and optionally `years`. The engine rejects added, omitted or overlapping
+scientific coverage. It permits a different partition of the same approved
+coverage. `--chunksize` is any positive integer accepted by the downstream
+source command; it is recorded for each source attempt and does not change
+campaign science.
 
-A nonzero return, interruption, lost terminal, unclear completion, ambiguous
-owned or stale native logs, or ambiguous campaign state is a stop for
-classification. Preserve the transcript, state, receipts, artifacts, and
-native logs. Inspect process and scheduler ownership and the exact output
-paths before choosing any recovery action. Do not automatically retry,
-resume, delete, overwrite, restart, or resubmit a fragment or stage. The
-presence of a source PKL alone does not establish that its sidecar or deferred
-`_np` stage completed.
+A real Work Queue run requires the guarded staging options described below.
+The `--dry-run` form resolves commands without creating a campaign root or
+submitting work.
 
-## Return evidence and qualify artifacts
+## Use the shared launcher for combined profiles
 
-For each profile, retain its command transcript and exact exit status, final
-`run_cr.sh` campaign state and block receipts, any campaign summary or failure
-snapshot, and the exact source/`_np` PKL and sidecar inventory with paths and
-sizes. Return the worker-archive identity and live-source provenance bound to
-the campaign, plus native Work Queue logs when needed to explain completion or
-recovery. Use the runner's serialized state as the primary completion record;
-do not reconstruct it from filenames alone.
+`run_cr.sh` also owns combined Run 2/Run 3 production and statistical diagnostic
+profiles. Start or resume a combined profile with one top-level invocation;
+the launcher runs the Run 2 component before the Run 3 component. Each child
+has its own state and output root under the combined output directory, and the
+launcher derives separate component tags from the supplied campaign tag.
+Plan selection and revision remain component-only operations.
 
-After successful Run 2 and Run 3 production, qualify the extension campaign
-with the checks below against the maintained profile configuration:
+For an existing combined production campaign, use the same profile, absolute
+root and tag that established its state. Supply both manager prefixes together
+when prefix-derived names are needed:
 
-- Match expected fragment membership for each current 15-fragment profile,
-  including source and `_np` realization. Confirm Run 2 inline and Run 3
-  deferred local data-driven stage order from state, receipts, and sidecars.
-- Reconcile each PKL with its adjacent sidecar, source-to-`_np` lineage,
-  campaign state, and receipt. Check path ownership, nonempty size, artifact
-  digest, and the sidecar's recorded size and digest.
-- Compare the recorded family/category inventory and applicability with the
-  profile plan. `fwd0pt` and `fwd0eta` have support only in forward-labelled SR
-  categories; `tau0Tpt` has support only in categories with at least one tight
-  tau. `tau0Fpt` is absent from the SR-reco extension variable set. Distinguish
-  an intentionally inapplicable channel from a missing expected fill.
-- Check the applicable systematic variations, including expected Up/Down
-  templates; the resolved production `sumw2` companions and data-driven
-  contract; and the raw event-count setting recorded by the profile. These
-  extension profiles use systematics, implicit production `sumw2`, and no
-  raw-count recording.
+```bash
+./run_cr.sh --production-profile run2_run3_prod --resume \
+  --output-dir "$existing_campaign_root" --campaign-tag "$same_campaign_tag" \
+  --env-file "$worker_archive" \
+  --run2-wq-manager-prefix "$run2_prefix" \
+  --run3-wq-manager-prefix "$run3_prefix" --wq-port 0 \
+  --wq-staging-base "$staging_base" \
+  --wq-free-warning-bytes "$warning_bytes" \
+  --wq-min-free-bytes "$minimum_bytes" --wq-poll-seconds "$poll_seconds"
+```
 
-Qualification is a separate post-production step. This checklist does not imply
-that any current production run or artifact set has passed it.
+Set the variables to the existing campaign identity and a dedicated local
+staging path selected for this run. Choose the warning, minimum and poll values
+for that path. Supported common operational options, including `--resume`,
+`--env-file`, `--wq-port` and the Work Queue guard settings, are forwarded to
+each child. The paired prefixes select separate Run 2 and Run 3 manager-name
+families; a prefix-derived source name ends with its unit ID and attempt number.
+The manager name is distinct from its TCP port. `--wq-port 0` asks Work Queue
+to allocate an available manager port; inspect the port reported by that
+invocation rather than treating zero as the listening endpoint. Omit the flag
+to retain the lower layer's default port behavior.
+
+Resume validates the existing component state and receipts. Reusable source or
+completed work is retained; an eligible failed or incomplete stage receives a
+new attempt while earlier attempt records remain in state. An ambiguous running
+writer or unexpected output requires inspection before another invocation.
+Do not start a fresh campaign at an existing output root.
+
+## Select a unit and resume
+
+`--selected-fragment run2_sr_ext_a_1` executes one named unit while the
+state retains the complete approved plan. A later `--resume` validates the
+scientific contract, scientific coverage, state structure, artifact receipts
+and exclusive writer evidence. A different chunksize, manager resource choice,
+log location or relocated byte-identical environment archive creates new
+operational provenance; it does not change scientific identity. Campaign
+science and approved coverage remain fixed. The frozen archive SHA-256 is the
+source worker implementation authority: a different archive SHA requires a
+new campaign root and state (`NEW_CAMPAIGN_REQUIRED`), including during retry,
+plan revision or schema-8 import. Live checkout and manager fingerprints are
+operational provenance, not source reuse gates.
+
+The ordered stages are `source` and `data_driven`. The source child retains
+`--do-np --defer-np` and publishes a verified source receipt before
+`run_data_driven.py` starts. If the downstream stage fails, a resume reuses
+the verified source and retries only downstream. A failed source with no
+verified artifact may be retried. Under the exclusive campaign lock, an
+interrupted running attempt with no current writer is recorded as interrupted
+and returned to a recoverable stage. When its PKL and maintained metadata
+sidecar validate against the recorded attempt, the engine adopts that source
+or downstream result without rerunning it. Source recovery validates the real
+processor sidecar, including its exact CFG set, applicability, sample contract,
+layout, stat policy and artifact identity. Wrapper spelling remains provenance,
+not a recovery gate. Both SR and CR require nonprompt and charge-flip
+preparation in the source artifact. The ordinary deferred
+`_np.pkl.gz` result must be `nonprompt_output`; a flips or processor sidecar
+cannot stand in for it. Downstream recovery reads the maintained transformed
+sidecar, including lineage, product and transformation contracts, sumw2
+manifest, sample contract, applicability, layout and PKL identity. An
+unverified output or uncertain writer ownership stops recovery without
+deleting or overwriting the candidate.
+
+The state stores campaign, source-stage and data-driven-stage scientific
+contracts plus a separate approved coverage digest. Source-stage implementation
+identity is the frozen archive SHA-256. The local data-driven stage binds its
+estimator, nonprompt policy, product-name rule, application-region mapping,
+resolved prompt alias list, entry-point implementation and exact source
+artifact identity. Generic containers, serialization and provenance helpers
+remain runtime dependencies. A downstream-only science change can retain a
+valid source receipt, while an old downstream result cannot be reused under
+that changed calculation. The active plan revision and partition digest
+describe how that coverage is grouped. Source and downstream receipts bind the contract,
+coverage, unit coverage, revision, attempt and artifact lineage. The summary
+files `campaign_summary.tsv` and `campaign_summary.md` derive from the
+same state. PKL existence alone is not completion evidence.
+
+For a deliberate full payload check, run the maintained engine's
+`audit-integrity` action in the normal production environment:
+
+```text
+python ./campaign_manifest.py audit-integrity \
+  /absolute/existing/campaign/.run3_sr_ext_campaign_state_v9.json
+```
+
+This hashes accepted PKLs and checks them against their receipts. Ordinary
+resume checks stored receipts, size, sidecars and lineage without rereading
+accepted PKL payload bytes.
+
+## Revise only pending coverage
+
+An explicit plan revision uses `--resume --activate-pending-plan PLAN
+--expected-plan-revision REVISION`. It takes the exclusive lock, compares the
+active revision, verifies exact approved coverage and keeps completed or
+source-ready unit coverage frozen. Untouched pending or failed source units
+without reusable source may be repartitioned. The transition is atomic and
+does not submit work. A stale revision, output collision, changed coverage or
+ambiguous writer blocks activation.
+
+## Recover an immediate schema-8 predecessor
+
+The schema-8 SR extension state is historical and is not a normal schema-9
+resume target. `campaign_manifest.py import-schema8` is an explicit,
+non-destructive recovery route for a current SR extension predecessor. It
+requires the original state, a distinct schema-9 target, matching scientific
+policies and coverage, the historical fingerprints actually recorded, and
+verified completed receipts. A recorded `source_running` attempt with a valid
+real producer sidecar can be reconciled after import; planned units get no
+invented historical attempts. The original state bytes remain unchanged.
+New schema-9-only downstream fingerprints bind when downstream first runs.
+When required historical evidence is missing, the import reports
+`recovery_evidence_insufficient`; it does not infer compatibility.
+Schemas 5, 6 and 7 and retired public profile names
+have no maintained import or resume alias.
+
+## Work Queue staging and stop conditions
+
+Every real Work Queue route, including CR and direct `run_analysis.py`, needs
+an explicit guarded staging base. Choose a dedicated local directory for the
+run. Through `run_cr.sh`, provide `--wq-staging-base PATH`,
+`--wq-free-warning-bytes`, `--wq-min-free-bytes` (at least 10000000000),
+and `--wq-poll-seconds`. A direct `run_analysis.py -x work_queue`
+invocation requires `--wq-filepath`,
+`--wq-guard`, a unique invocation ID and the same free-space values. The
+guard requires an existing absolute path that resolves to a directory owned
+and usable by the current user. It rejects symlink paths and temporary
+locations under `/tmp` or `/var/tmp`; it also checks that enough free bytes
+and inodes remain for the configured thresholds.
+`--wq-treereduction` is optional and requires separate resource review.
+`--wq-processing-cores 1` is a separate opt-in processing-category reservation
+maximum. `--wq-accumulating-memory-mb 80000 --wq-accumulating-cores 2`
+optionally sets an accumulating-category minimum after Coffea declares its
+categories. Both positive integer values are required together. This does not
+change automatic resource mode, processing reservations, or the default tree
+reduction of 10. Two reserved cores isolate a reducer on a fully two-core
+worker; a four-core worker may still run another task. Minimum memory is not a
+peak RSS cap or an OOM guarantee. Worker eligibility and packing depend on
+actual advertised resources.
+
+Before launch, the guard requires available bytes strictly above the selected
+minimum and at least 1,000 free inodes. The minimum is at least 10 GB
+(decimal). The `Work Queue staging health` message reports available staging
+space in bytes and free inodes, not worker RAM. A site that explicitly
+configures quota telemetry may use that information in its capacity reading;
+check the site's quota configuration and measurement behavior before relying
+on it. During execution the guard reports these values without scanning the
+staging tree.
+Only a valid current measurement at or below
+`--wq-min-free-bytes` requests one controlled `SIGTERM` to the manager after
+its PID/start identity and owned marker are verified and the critical-space
+reason, observed bytes, threshold and timestamp are written to the marker and
+log. No `SIGKILL` or `SIGINT` is sent. Low inode counts, staging growth,
+unavailable telemetry, watcher loss and other warnings do not signal the
+manager. The final manager readback rejects a dead watcher or changed ownership
+marker before recording source success; ambiguous staging remains for inspection. The older
+`--wq-warning-bytes`, `--wq-stop-bytes` and `--wq-reserve-bytes` options are
+retired. Native logs are copied and checked before only the completed owned
+staging is removed. Cleanup refusal retains staging and prints a warning; a
+valid source receipt remains valid. A failed source stops later guarded units. Preserve
+an ambiguous state and inspect the exact process, scheduler, artifact and log
+ownership before any separate recovery decision.
+
+An explicit worker archive is a frozen snapshot, not proof of processor or
+worker compatibility. Qualify the archive against the intended analysis before
+production. Confirm staging capacity, scheduler readiness and worker resources
+for the selected plan. An occupied campaign is resumed only after its native
+state, receipts, staging and collision checks pass.
+
+`--dry-run` resolves commands without creating a campaign root or submitting
+workers. It does not qualify an archive, site capacity, physics content or
+production outputs.

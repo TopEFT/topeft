@@ -16,8 +16,10 @@ from __future__ import annotations
 import argparse
 import ast
 import copy
+import contextlib
 import ctypes
 import gc
+import io
 import json
 import os
 from pathlib import Path
@@ -57,6 +59,40 @@ _LIBC = None
 _DD_REPORT_FAMILY_ORDER = {"sr": 0, "nonprompt": 1, "flips": 2}
 
 
+class _DurablePhaseTelemetry(analysis_processor._PhaseTelemetry):
+    """Retain only the latest enabled invocation beside the named DD output."""
+
+    __slots__ = ("_sidecar", "_sidecar_started")
+
+    def __init__(self, *, filename, output_path):
+        super().__init__(filename=filename)
+        self._sidecar = str(output_path) + ".phase_telemetry.jsonl"
+        self._sidecar_started = False
+
+    def mark(self, phase, **kwargs):
+        # Capture only this reporter call, never the DD task's general stdout.
+        record_text = io.StringIO()
+        with contextlib.redirect_stdout(record_text):
+            super().mark(phase, **kwargs)
+        emitted = record_text.getvalue()
+        print(emitted, end="", flush=True)
+        try:
+            record = json.loads(emitted[len("[phase_telemetry] "):])
+            fields = ("schema_version", "phase", "wall_ns", "cpu_ns", "wall_elapsed_ns",
+                      "cpu_elapsed_ns", "rss_mib", "peak_rss_mib")
+            payload = {key: record[key] for key in fields}
+            encoded = json.dumps(payload, allow_nan=False, sort_keys=True) + "\n"
+            # Do not append to a prior invocation, even if an earlier write in
+            # this invocation failed. No new attempt fields or archive needed.
+            with open(self._sidecar, "a" if self._sidecar_started else "w",
+                      encoding="utf-8") as sink:
+                sink.write(encoded)
+            self._sidecar_started = True
+        except Exception as error:
+            print(f"WARNING: optional DD phase telemetry persistence failed: {error}",
+                  file=sys.stderr, flush=True)
+
+
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -72,6 +108,8 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--phase-telemetry", action="store_true",
+                        help="Emit scalar wall/CPU/RSS phase records (default: off).")
     parser.add_argument(
         "--input-pkl",
         required=True,
@@ -81,6 +119,12 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         "--output-pkl",
         help="Destination for the histogram pickle with data-driven contributions applied.",
     )
+    parser.add_argument("--pkl-no-clobber", action="store_true")
+    parser.add_argument("--pkl-min-free-bytes", type=int)
+    parser.add_argument("--pkl-min-free-inodes", type=int)
+    parser.add_argument("--pkl-safety-reserve-bytes", type=int)
+    parser.add_argument("--pkl-safety-reserve-inodes", type=int)
+    parser.add_argument("--pkl-pending-id")
     parser.add_argument(
         "--legacy-campaign-state",
         help=(
@@ -1167,9 +1211,14 @@ def _finalize_histograms(
     serialization_path: Optional[str] = None,
     input_sidecar: Optional[Dict[str, Any]] = None,
     input_artifact_validation: Optional[Dict[str, Any]] = None,
+    phase_telemetry: bool = False,
+    _phase_reporter=None,
 ) -> Optional[Dict[str, Any]]:
     if apply_envelope:
         raise_unsupported_renormfact_envelope()
+    telemetry = _phase_reporter
+    if telemetry is None and phase_telemetry:
+        telemetry = _DurablePhaseTelemetry(filename=input_pkl, output_path=output_pkl)
     serialization_path = serialization_path or output_pkl
     collect_dd_report = dd_report_stdout or bool(dd_report_md)
     memory_reporter = _MemoryReporter(
@@ -1190,6 +1239,8 @@ def _finalize_histograms(
     try:
         memory_reporter.mark("start")
         memory_reporter.mark("before DataDrivenProducer(...)")
+        if telemetry is not None:
+            telemetry.mark("dd_before_producer")
         artifact_kind = (
             FLIPS_OUTPUT_ARTIFACT_KIND
             if only_flips
@@ -1204,6 +1255,8 @@ def _finalize_histograms(
         if collect_dd_report:
             ddp_kwargs["dd_report"] = True
         ddp = DataDrivenProducer(input_pkl, output_pkl, **ddp_kwargs)
+        if telemetry is not None:
+            telemetry.mark("dd_producer_constructed")
         retained_selected_eft_by_family: Dict[str, List[str]] = {}
         certified_flips_outputs = None
         if input_sidecar is not None:
@@ -1230,6 +1283,9 @@ def _finalize_histograms(
         start_time = time.monotonic()
         last_heartbeat = start_time
         processed = 0
+
+        if telemetry is not None:
+            telemetry.mark("dd_before_transform_and_serialize")
 
         if iterator_mode:
             def _iter_output_items():
@@ -1341,6 +1397,9 @@ def _finalize_histograms(
             utils.dump_to_pkl(serialization_path, histograms)
             memory_reporter.mark("after dump_to_pkl()")
 
+        if telemetry is not None:
+            telemetry.mark("dd_transform_and_serialize_complete")
+
         if not quiet and processed:
             elapsed = time.monotonic() - start_time
             print(f"[run_data_driven] Finalized {processed} histograms in {elapsed:.1f}s.")
@@ -1351,6 +1410,8 @@ def _finalize_histograms(
             else None
         )
         del ddp
+        if telemetry is not None:
+            telemetry.mark("dd_finalized")
     finally:
         if markdown_writer is not None:
             markdown_writer.close()
@@ -1373,14 +1434,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     dd_report_md = args.dd_report_md
 
     input_pkl = os.path.normpath(args.input_pkl)
+    output_pkl = os.path.normpath(args.output_pkl) if args.output_pkl else _default_output_path(
+        input_pkl, nominal_only_reference=args.nominal_only_reference)
+    telemetry = (_DurablePhaseTelemetry(filename=input_pkl, output_path=output_pkl)
+                 if args.phase_telemetry else None)
+    if telemetry is not None:
+        telemetry.mark("dd_start")
     _validate_input_path(input_pkl)
-
-    output_pkl = os.path.normpath(args.output_pkl) if args.output_pkl else None
-    if not output_pkl:
-        output_pkl = _default_output_path(
-            input_pkl,
-            nominal_only_reference=args.nominal_only_reference,
-        )
 
     try:
         serialized_sidecar = read_histogram_sidecar(input_pkl)
@@ -1431,6 +1491,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     else:
         input_validation = validate_histogram_artifact(input_pkl)
     input_sidecar = input_validation["metadata"]
+    if telemetry is not None:
+        telemetry.mark("dd_input_validated")
+    if input_sidecar is None and (
+        args.pkl_no_clobber or args.pkl_pending_id is not None
+        or any(value is not None for value in (
+            args.pkl_min_free_bytes, args.pkl_min_free_inodes,
+            args.pkl_safety_reserve_bytes, args.pkl_safety_reserve_inodes,
+        ))
+    ):
+        raise RuntimeError("explicit output-safety policy requires a validated input sidecar")
     finalize_kwargs = {
         "only_flips": args.only_flips,
         "nominal_only_reference": args.nominal_only_reference,
@@ -1444,6 +1514,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         "mem_tracemalloc": args.mem_tracemalloc,
         "mem_top_n": args.mem_top_n,
     }
+    if telemetry is not None:
+        finalize_kwargs.update(phase_telemetry=True, _phase_reporter=telemetry)
     if input_sidecar is None:
         _finalize_histograms(input_pkl, output_pkl, **finalize_kwargs)
     else:
@@ -1492,8 +1564,16 @@ def main(argv: Optional[List[str]] = None) -> int:
             sumw2_storage_provenance=effective_input_sidecar["sumw2_storage_provenance"],
             lineage_inputs=[lineage_input_from_sidecar(input_sidecar)],
             input_sidecar=effective_input_sidecar,
+            no_clobber=args.pkl_no_clobber,
+            min_free_bytes=args.pkl_min_free_bytes,
+            min_free_inodes=args.pkl_min_free_inodes,
+            safety_reserve_bytes=args.pkl_safety_reserve_bytes,
+            safety_reserve_inodes=args.pkl_safety_reserve_inodes,
+            pending_id=args.pkl_pending_id,
         )
 
+    if telemetry is not None:
+        telemetry.mark("dd_published")
     return 0
 
 

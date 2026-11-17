@@ -13,6 +13,7 @@ from topeft.modules.missing_parton_contract import (
     normalize_sr_registry,
     parse_analysis_njet_token,
     parse_sr_njet_token,
+    resolve_missing_parton_response_index,
 )
 from topeft.modules.paths import topeft_path
 
@@ -28,6 +29,21 @@ def _registry_tokens():
         for family in config[registry].values()
         for token in family["jet_lst"]
     }
+
+
+@pytest.mark.parametrize(
+    ("channel", "natural_index", "expected_index"),
+    (
+        ("2los_onZ_1tau_5j", 5, 3),
+        ("2los_onZ_1tau_3j", 3, 3),
+        ("3l_onZ_1b_5j", 5, 5),
+        ("2los_onZ_1tau_5j_extra", 5, 5),
+    ),
+)
+def test_missing_parton_response_reuse_is_exact_channel_only(
+    channel, natural_index, expected_index
+):
+    assert resolve_missing_parton_response_index(channel, natural_index) == expected_index
 
 
 def test_registry_normalization_preserves_only_canonical_values():
@@ -72,6 +88,26 @@ def test_processor_uses_the_canonical_sr_token_parser():
     assert analysis_processor.parse_analysis_njet_token is parse_analysis_njet_token
 
 
+def test_tau_5j_registry_preserves_dense_njets_and_binned_channel_identity():
+    from analysis.topeft_run2.analysis_processor import AnalysisProcessor
+
+    config = json.loads(CHANNEL_CONFIG_PATH.read_text(encoding="utf-8"))
+    for registry in ("TAU_CH_LST_SR", "ALL_CH_LST_SR"):
+        assert config[registry]["2los_1tau"]["jet_lst"] == [">5"]
+    assert parse_analysis_njet_token(">5") == ("atleast", 5, "_5j")
+    selected = {"2los_1tau": config["ALL_CH_LST_SR"]["2los_1tau"]}
+    applicability = AnalysisProcessor.build_histogram_applicability(
+        analysis_mode="all",
+        runtime_families=("njets", "lj0pt", "ptz"),
+        selected_category_dicts=(selected,),
+        selected_category_regions=("SR",),
+    )
+    families = applicability["families"]
+    assert set(families["njets"]["channels"]) == {"2los_onZ_1tau"}
+    for family in ("lj0pt", "ptz"):
+        assert set(families[family]["channels"]) == {"2los_onZ_1tau_5j"}
+
+
 def test_analysis_parser_preserves_atmost_support_outside_sr_registries():
     assert parse_analysis_njet_token("<4") == ("atmost", 4, "_4j")
     with pytest.raises(ValueError, match="expected an exact '=N' or inclusive '>N'"):
@@ -80,7 +116,7 @@ def test_analysis_parser_preserves_atmost_support_outside_sr_registries():
 
 def test_every_registry_token_has_processor_equivalent_boolean_semantics():
     tokens = _registry_tokens()
-    assert {">3", ">4", ">5", ">6", ">7"} <= tokens
+    assert {">4", ">5", ">6", ">7"} <= tokens
 
     for token in tokens | {">1"}:
         mode, threshold, suffix = parse_sr_njet_token(token)

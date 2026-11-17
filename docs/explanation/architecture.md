@@ -58,19 +58,23 @@ the existing owner and update the sample-profile tests. See
 
 ### Production profile
 
-**Why it exists.** A production profile is a named plan in `run_cr.sh`. It
-groups blocks that must share campaign, environment, state, and output
-invariants. `run3_full` is the maintained complete Run 3 plan; `rebin_fine` is
-a separate specialist plan.
+**Why it exists.** A production profile resolves the approved scientific
+policies and coverage for an ordered set of units. `run3_prod` is the
+maintained complete Run 3 SR profile.
 
 **Consumes and produces.** It consumes its declared profile name, a fresh or
 exactly resumable output namespace, an environment request, and block options.
-It produces a frozen plan/state record and delegates each block to
-`fullR3_run.sh`.
+The launcher delegates each source unit to `fullR3_run.sh` and each
+data-driven unit to `run_data_driven.py`.
 
-**Owns.** It owns orchestration order, block identity, state transitions,
-namespace collision checks, resume evidence, and the separate source/nonprompt
-process lifecycle.
+**Owns.** `run_cr.sh` owns the public profile and child command boundary.
+`campaign_manifest.py` owns one schema-9 state model for all component
+profiles: scientific identity and coverage digests, plan revisions, attempts,
+receipts, namespace collision checks and interrupted-attempt reconciliation.
+The active partition can change while approved science remains exact.
+The launcher supplies structural defaults through the same plan handoff for
+ordinary, 5j and SR-extension profiles; SR-extension physical applicability
+remains a distinct coverage rule in the manifest.
 
 **Does not own.** It does not define selections, corrections, histogram axes,
 sample JSON contents, or statistical models. A profile must not duplicate
@@ -92,23 +96,38 @@ tag, optional current environment archive, and resume/dry-run intent. It
 produces the campaign state and the source and transformed artifacts required
 by each block.
 
-**Owns.** It owns plan freezing, environment and repository identity checks,
+**Owns.** It owns plan freezing, environment and stage/input identity checks,
 fresh-output protection, ambiguous-interruption boundaries, block sequencing,
 and deferred nonprompt invocation after the processor child exits.
 
 **Does not own.** It does not own cfg internals or the `run_analysis.py`
 argument semantics that it forwards through `fullR3_run.sh`.
 
-**Current checkout boundary.** The maintained script changes into the
-correction-lib-managed `topeft/analysis/topeft_run2` checkout and reads Git
-identity from that managed repository. It therefore orchestrates that checkout,
-not an arbitrary clone or the caller's current working directory. Making the
-wrapper portable is an executable-interface change outside this documentation
-contract.
+**Current checkout boundary.** The script locates its repository from its own
+path and runs from that checkout, regardless of the caller's working directory.
+It records the repository commit as provenance. For stages using a frozen
+environment snapshot, the saved scientific contract and input identities
+govern reuse; matching the checkout's current HEAD is not a universal resume
+requirement. When a stage consumes live code or configuration, it validates
+the relevant inputs for that stage.
 
 **Failure boundary.** A missing or mismatched state, reused fresh namespace,
 invalid environment archive, unexpected partial output, or incompatible resume
 request fails before the wrapper declares a block complete.
+The campaign plan's `unit.outputs` is the durable source and data-driven path
+authority. Existing states retain their canonical `/groups` paths.
+Source-ready means a verified durable source receipt. When configured, the
+state engine requests byte and inode admission from the artifact owner on the
+actual output parent before recording a running attempt. The launcher passes
+the policy explicitly through source and data-driven executor arguments.
+No-clobber publication is independent of capacity policy. A completed
+attempt-owned pending pair can be validated and published by the artifact
+owner on exclusive resume under the same attempt; success still requires
+the final pair and receipt. Work Queue staging has its own caller-selected
+path. `run_cr.sh` forwards the selected base to `run_analysis.py` without
+classifying its filesystem. The staging guard validates path identity,
+ownership, isolation and local capacity without selecting a deployment
+namespace.
 
 ### `fullR3_run.sh`
 
@@ -249,6 +268,11 @@ transformation lineage.
 
 **Owns.** The artifact module owns sidecar schemas, validation, merge
 compatibility, lineage, and atomic PKL/sidecar publication.
+An invocation-scoped no-clobber policy uses exclusive final links and checks
+the remaining safety reserve after materialization. Attempt-identity-bound pending
+PKL and sidecar bytes remain discoverable until the final pair and receipt are
+durable. A target PKL or sidecar collision preserves pending evidence; callers
+cannot infer success from a partial pair.
 
 **Does not own.** A caller cannot invent provenance fields to make an
 incompatible payload pass. A sidecar also cannot certify a consumer-specific
@@ -285,18 +309,21 @@ before a transformed product is certified. See the
 
 ### `run_plotter.sh`
 
-**Why it exists.** The plotting wrapper supplies common filename-driven
-region convenience, Run 2/Run 3 year aliases, blinding defaults, and option
-forwarding.
+**Why it exists.** The public shell wrapper bootstraps Python and forwards
+arguments to `plot_campaign_manifest.py`.
 
-**Consumes and produces.** It consumes an artifact path, output directory,
-years, region intent, variables, and forwarded plotter options. It constructs
-one `make_cr_and_sr_plots.py` command and produces no independent metadata
-registry.
+**Consumes and produces.** The controller accepts ordinary plotting arguments
+or a persistent campaign request. It owns CLI normalization, campaign plans,
+state, recovery, receipts and canonical plot materialization. It dispatches
+a renderer command through `plot_campaign_backend.py`; the Condor adapter
+owns scheduler mechanics.
 
-**Owns and does not own.** It owns shell convenience and validation of its own
-arguments. It delegates artifact compatibility, channel resolution, binning,
-plot configuration, and rendering to the direct plotter.
+**Owns and does not own.** The shell owns bootstrap and forwarding. The
+controller owns orchestration; the direct `make_cr_and_sr_plots.py` renderer
+owns artifact compatibility, channel resolution, binning, plot configuration
+and rendering. A lifecycle receipt establishes operational completion,
+not visual or scientific acceptance. See the
+[plotting reference](../reference/plotting.md) for the recovery boundaries.
 
 ### `make_cr_and_sr_plots.py`
 
@@ -465,13 +492,15 @@ registry for cross-repository state.
 ## Portable production boundary
 
 `run_cr.sh` derives its repository root from the script location rather than a
-checkout-specific path. Its public profile matrix is `run2_full`, `run3_full`,
-`run2_full_CR`, `run3_full_CR`, `run2_run3_full`, and
-`run2_run3_full_CR`; the no-argument form is a legacy `run2_full` alias and
-`rebin_fine` remains specialist legacy machinery.
+checkout-specific path. Its public profile matrix has six `prod`, six
+`stat_diagnostic` and two `sr_ext` names. There is no no-argument alias.
 
-The wrapper consumes a pinned environment identity rather than automatically
-building an environment. It validates the required archive and records its
-identity in campaign state. Combined profiles keep Run 2 and Run 3 in separate
+The launcher validates the resolved worker archive and records its path and
+byte digest. The frozen archive SHA-256 is the source worker implementation
+authority for a campaign; a different digest requires a new campaign even if
+the profile is unchanged. Live checkout and manager fingerprints remain
+operational provenance. The local data-driven calculation binds its reached
+scientific dependencies and the exact source artifact. Combined
+profiles keep Run 2 and Run 3 in separate
 namespaces and failure domains: a safely classified component-local failure is
 distinct from a shared unsafe blocker, which fails closed.

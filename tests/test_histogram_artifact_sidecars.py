@@ -5,6 +5,7 @@ import gzip
 import json
 from pathlib import Path
 import pickle
+from types import SimpleNamespace
 
 import hist
 import numpy as np
@@ -265,6 +266,7 @@ def _write_processor(
     products_block=None,
     source_payload=None,
     histogram_applicability=_DEFAULT_HISTOGRAM_APPLICABILITY,
+    **output_safety,
 ):
     samples = {
         "data_dataset": {
@@ -324,6 +326,7 @@ def _write_processor(
         requested_data_driven_products=requested,
         resolved_data_driven_contract=contract,
         histogram_applicability=histogram_applicability,
+        **output_safety,
     )
 
 
@@ -1578,6 +1581,92 @@ def test_transformed_nominal_labels_must_match_generated_output_map(
         )
     assert not output_path.exists()
     assert not metadata_sidecar_path(output_path).exists()
+
+
+def test_opt_in_no_clobber_refuses_existing_pkl_or_sidecar(tmp_path, monkeypatch, policy):
+    path = tmp_path / "processor.pkl.gz"
+    sidecar = metadata_sidecar_path(path)
+    path.write_bytes(b"preexisting pkl")
+    with pytest.raises(histogram_artifact_error, match="already exists"):
+        _write_processor(path, policy, no_clobber=True)
+    assert path.read_bytes() == b"preexisting pkl"
+    assert not sidecar.exists()
+    path.unlink()
+    sidecar.write_bytes(b"preexisting sidecar")
+    with pytest.raises(histogram_artifact_error, match="already exists"):
+        _write_processor(path, policy, no_clobber=True)
+    assert sidecar.read_bytes() == b"preexisting sidecar"
+    assert not path.exists()
+
+
+def test_process_environment_does_not_set_artifact_safety_policy(tmp_path, monkeypatch, policy):
+    monkeypatch.setenv("TOPEFT_PKL_NO_CLOBBER", "1")
+    monkeypatch.setenv("TOPEFT_PKL_MIN_FREE_BYTES", str(10**30))
+    path = tmp_path / "processor.pkl.gz"
+    _write_processor(path, policy)
+    _write_processor(path, policy)
+    assert path.is_file()
+
+
+def test_opt_in_no_clobber_rechecks_capacity_and_keeps_race_evidence(tmp_path, monkeypatch, policy):
+    safety = dict(no_clobber=True, min_free_bytes=10**30, min_free_inodes=4,
+                  safety_reserve_bytes=1, safety_reserve_inodes=1)
+    path = tmp_path / "processor.pkl.gz"
+    with pytest.raises(histogram_artifact_error, match="capacity"):
+        _write_processor(path, policy, **safety)
+    assert not path.exists()
+    safety["min_free_bytes"] = 2
+    original_link = histogram_artifact.os.link
+    sidecar = metadata_sidecar_path(path)
+
+    def competing_sidecar(source, destination, *args, **kwargs):
+        if Path(destination) == sidecar:
+            sidecar.write_bytes(b"competing sidecar")
+        return original_link(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr(histogram_artifact.os, "link", competing_sidecar)
+    with pytest.raises(FileExistsError):
+        _write_processor(path, policy, **safety)
+    assert path.is_file()
+    assert sidecar.read_bytes() == b"competing sidecar"
+
+
+@pytest.mark.parametrize("post_inodes, accepted", ((1, True), (0, False)))
+def test_no_clobber_publication_uses_remaining_reserve_and_preserves_pending(
+    tmp_path, monkeypatch, policy, post_inodes, accepted
+):
+    safety = dict(no_clobber=True, min_free_bytes=100, min_free_inodes=5,
+                  safety_reserve_bytes=1, safety_reserve_inodes=1, pending_id="a" * 64)
+    path = tmp_path / "processor.pkl.gz"
+    polls = []
+    synced_parent = []
+    original_fsync = histogram_artifact.os.fsync
+
+    def track_fsync(descriptor):
+        if Path(histogram_artifact.os.readlink(f"/proc/self/fd/{descriptor}")) == tmp_path:
+            synced_parent.append(None)
+        return original_fsync(descriptor)
+
+    def capacity(_):
+        polls.append(None)
+        if len(polls) == 1:
+            return SimpleNamespace(f_bavail=100, f_frsize=1, f_favail=5)
+        return SimpleNamespace(f_bavail=1, f_frsize=1, f_favail=post_inodes)
+
+    with monkeypatch.context() as capacity_patch:
+        capacity_patch.setattr(histogram_artifact.os, "statvfs", capacity)
+        capacity_patch.setattr(histogram_artifact.os, "fsync", track_fsync)
+        if accepted:
+            _write_processor(path, policy, **safety)
+        else:
+            with pytest.raises(histogram_artifact_error, match="capacity"):
+                _write_processor(path, policy, **safety)
+    pending = tmp_path / f".topeft-pending-{'a' * 64}" / path.name
+    assert len(polls) == 2
+    assert pending.is_file()
+    assert metadata_sidecar_path(pending).is_file()
+    assert path.is_file() is accepted
+    assert len(synced_parent) >= (2 if accepted else 1)
 
 
 def test_transformed_sidecar_roles_cannot_disagree_with_output_map(tmp_path, policy):
@@ -3268,3 +3357,57 @@ def test_self_describing_artifact_rejects_malformed_binary_declaration(
         )
 
     assert not output_path.exists()
+
+
+@pytest.mark.parametrize("shape", ("empty", "payload", "zero_payload", "metadata"))
+def test_pending_recovery_preserves_incomplete_pair(tmp_path, shape):
+    pending = tmp_path / ".topeft-pending-synthetic" / "processor.pkl.gz"
+    pending.parent.mkdir(mode=0o700)
+    if shape in {"payload", "zero_payload"}:
+        pending.write_bytes(b"partial" if shape == "payload" else b"")
+    if shape == "metadata":
+        metadata_sidecar_path(pending).write_bytes(b"partial metadata")
+    before = {p.name: p.read_bytes() for p in pending.parent.iterdir()}
+    final = tmp_path / pending.name
+    def reject_validation(*_):
+        pytest.fail("incomplete evidence reached semantic validation")
+    assert histogram_artifact.recover_pending_artifact(
+        pending, final, validate_sidecar=reject_validation) is False
+    assert not final.exists() and not metadata_sidecar_path(final).exists()
+    assert {p.name: p.read_bytes() for p in pending.parent.iterdir()} == before
+
+
+@pytest.mark.parametrize("samefile", (False, True))
+def test_pending_recovery_valid_pair_publication_and_cleanup(tmp_path, policy, samefile):
+    final = tmp_path / "processor.pkl.gz"
+    _write_processor(final, policy, no_clobber=True, pending_id="a" * 64)
+    pending = tmp_path / f".topeft-pending-{'a' * 64}" / final.name
+    if not samefile:
+        final.unlink()
+        metadata_sidecar_path(final).unlink()
+    seen = []
+    assert histogram_artifact.recover_pending_artifact(
+        pending, final, validate_sidecar=lambda metadata, path: seen.append((metadata, path))) is True
+    assert seen[0][1] == pending
+    assert histogram_artifact.os.path.samefile(pending, final)
+    assert histogram_artifact.os.path.samefile(metadata_sidecar_path(pending), metadata_sidecar_path(final))
+    validate_histogram_artifact(final)
+    histogram_artifact.cleanup_pending_artifact(pending, final)
+    assert not pending.parent.exists()
+    validate_histogram_artifact(final)
+
+
+@pytest.mark.parametrize("member", ("payload", "metadata"))
+@pytest.mark.parametrize("unsafe", ("symlink", "directory"))
+def test_incomplete_pending_unsafe_entry_still_fails_closed(tmp_path, member, unsafe):
+    pending = tmp_path / ".topeft-pending-synthetic" / "processor.pkl.gz"
+    pending.parent.mkdir(mode=0o700)
+    entry = pending if member == "payload" else metadata_sidecar_path(pending)
+    if unsafe == "symlink":
+        entry.symlink_to(tmp_path / "absent")
+    else:
+        entry.mkdir()
+    with pytest.raises(histogram_artifact_error, match="symlink|regular file"):
+        histogram_artifact.recover_pending_artifact(pending, tmp_path / pending.name,
+                                                  validate_sidecar=lambda *_: None)
+    assert histogram_artifact.os.path.lexists(entry)

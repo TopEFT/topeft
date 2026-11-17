@@ -4,6 +4,7 @@
 '''
 
 from coffea import lookup_tools
+from topcoffea.modules.corrections import telemetry_operation
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.muon_momentum_corrections import (
     MUON_MOMENTUM_VARIATIONS,
@@ -87,11 +88,14 @@ TAU_VSMU_ETA_BINS = {
 
 def _evaluate_correctionlib(correction, *args):
     """Evaluate correctionlib without exposing it to Awkward-1 arrays."""
-    numpy_args = tuple(
-        ak.to_numpy(arg) if isinstance(arg, ak.highlevel.Array) else arg
-        for arg in args
-    )
-    return correction.evaluate(*numpy_args)
+    with telemetry_operation("topeft._evaluate_correctionlib.total"):
+        with telemetry_operation("topeft._evaluate_correctionlib.conversion_and_flatten"):
+            numpy_args = tuple(
+                ak.to_numpy(arg) if isinstance(arg, ak.highlevel.Array) else arg
+                for arg in args
+            )
+        with telemetry_operation("topeft._evaluate_correctionlib.evaluate"):
+            return correction.evaluate(*numpy_args)
 
 def is_muon_momentum_systematic(syst_var):
     return syst_var in RUN3_MUON_MOMENTUM_SYSTEMATICS
@@ -510,8 +514,10 @@ def get_corr_inputs(objs, corr_obj, name_map):
     Helper function for getting values of input variables
     given a dictionary and a correction object.
     """
-    input_values = [ak.flatten(objs[inp.name]) for inp in corr_obj.inputs if inp.name != "systematic"]
-    return input_values
+    with telemetry_operation("topeft.get_corr_inputs.total"):
+        with telemetry_operation("topeft.get_corr_inputs.conversion_and_flatten"):
+            input_values = [ak.flatten(objs[inp.name]) for inp in corr_obj.inputs if inp.name != "systematic"]
+        return input_values
 
 # New UL Lepton SFs
 # Muon: reco ##clib ready
@@ -785,28 +791,33 @@ extLepSF.add_weight_sets(["TauFakeSF_2023_down TauSF/pt_down %s"%topcoffea_path(
 def _get_jet_veto_map_scores(jets, year, category):
     """Evaluate one veto-map category and preserve the input jet structure."""
 
-    jme_year = clib_year_map[year]
-    key = jet_veto_dict[year]
-    json_path = topcoffea_path(f"data/POG/JME/{jme_year}/jetvetomaps.json.gz")
+    with telemetry_operation("topeft._get_jet_veto_map_scores.total"):
+        jme_year = clib_year_map[year]
+        key = jet_veto_dict[year]
+        json_path = topcoffea_path(f"data/POG/JME/{jme_year}/jetvetomaps.json.gz")
 
-    # Grab the json
-    ceval = correctionlib.CorrectionSet.from_file(json_path)
+        # Grab the json
+        with telemetry_operation("topeft._get_jet_veto_map_scores.payload_read_decompress_and_correctionset"):
+            ceval = correctionlib.CorrectionSet.from_file(json_path)
 
-    # Flatten the inputs
-    eta_flat = ak.flatten(jets.eta)
-    phi_flat = ak.flatten(jets.phi)
+        # Flatten the inputs
+        with telemetry_operation("topeft._get_jet_veto_map_scores.conversion_and_flatten"):
+            eta_flat = ak.flatten(jets.eta)
+        with telemetry_operation("topeft._get_jet_veto_map_scores.conversion_and_flatten"):
+            phi_flat = ak.flatten(jets.phi)
 
-    #Put mins and maxes on the accepted values
-    eta_flat_bound = ak.where(eta_flat>5.19, 5.19, ak.where(eta_flat<-5.19, -5.19, eta_flat))
-    phi_flat_bound = ak.where(phi_flat>3.14159,3.14159, ak.where(phi_flat<-3.14159,-3.14159, phi_flat))
+        #Put mins and maxes on the accepted values
+        eta_flat_bound = ak.where(eta_flat>5.19, 5.19, ak.where(eta_flat<-5.19, -5.19, eta_flat))
+        phi_flat_bound = ak.where(phi_flat>3.14159,3.14159, ak.where(phi_flat<-3.14159,-3.14159, phi_flat))
 
-    #Get pass/fail values for each jet (0 is pass and >0 is fail)
-    jet_vetomap_flat = _evaluate_correctionlib(
-        ceval[key], category, eta_flat_bound, phi_flat_bound
-    )
+        #Get pass/fail values for each jet (0 is pass and >0 is fail)
+        jet_vetomap_flat = _evaluate_correctionlib(
+            ceval[key], category, eta_flat_bound, phi_flat_bound
+        )
 
-    #Unflatten the array
-    return ak.unflatten(jet_vetomap_flat, ak.num(jets.phi))
+        #Unflatten the array
+        with telemetry_operation("topeft._get_jet_veto_map_scores.unflatten"):
+            return ak.unflatten(jet_vetomap_flat, ak.num(jets.phi))
 
 
 def get_run2_jet_veto_map_scores(jets, year):
@@ -846,164 +857,172 @@ def _evaluate_tau_energy_components(
     vsJetWP,
 ):
     """Return nominal and source/DM-specific complete tau energy factors."""
-    ones = ak.ones_like(pt, dtype=np.float32)
-    if isData:
-        return {"nominal": ones, "variations": OrderedDict()}
+    with telemetry_operation("topeft._evaluate_tau_energy_components.total"):
+        ones = ak.ones_like(pt, dtype=np.float32)
+        if isData:
+            return {"nominal": ones, "variations": OrderedDict()}
 
-    in_range = (pt > 20) & (pt < 205)
-    selected_dm = ak.zeros_like(dm, dtype=bool)
-    for selected in TAU_SELECTED_DMS:
-        selected_dm = selected_dm | (dm == selected)
-    genuine_mask = in_range & selected_dm & (gen == 5)
-    electron_dms = (0, 1) if get_tau_run(year) == "Run2" else TAU_SELECTED_DMS
-    electron_dm_mask = ak.zeros_like(dm, dtype=bool)
-    for selected in electron_dms:
-        electron_dm_mask = electron_dm_mask | (dm == selected)
-    electron_mask = in_range & electron_dm_mask & ((gen == 1) | (gen == 3))
-    muon_mask = in_range & selected_dm & ((gen == 2) | (gen == 4))
+        in_range = (pt > 20) & (pt < 205)
+        selected_dm = ak.zeros_like(dm, dtype=bool)
+        for selected in TAU_SELECTED_DMS:
+            selected_dm = selected_dm | (dm == selected)
+        genuine_mask = in_range & selected_dm & (gen == 5)
+        electron_dms = (0, 1) if get_tau_run(year) == "Run2" else TAU_SELECTED_DMS
+        electron_dm_mask = ak.zeros_like(dm, dtype=bool)
+        for selected in electron_dms:
+            electron_dm_mask = electron_dm_mask | (dm == selected)
+        electron_mask = in_range & electron_dm_mask & ((gen == 1) | (gen == 3))
+        muon_mask = in_range & selected_dm & ((gen == 2) | (gen == 4))
 
-    if get_tau_run(year) == "Run2":
-        abs_eta = abs(eta)
-        genuine_nominal = ak.where(
-            genuine_mask, SFevaluator[f"TauTES_{year}"](dm, pt), 1.0
-        )
-        electron_nominal = ak.where(
-            electron_mask, SFevaluator[f"TauFES_{year}"](abs_eta, dm), 1.0
-        )
-
-        def evaluate_source(source, direction, target_mask):
-            if source == "genuine":
-                varied = SFevaluator[f"TauTES_{year}_{direction}"](dm, pt)
-                return ak.where(target_mask, varied, genuine_nominal)
-            if source == "electron":
-                varied = SFevaluator[f"TauFES_{year}_{direction}"](abs_eta, dm)
-                return ak.where(target_mask, varied, electron_nominal)
-            return ak.where(
-                target_mask, 1.01 if direction == "up" else 0.99, 1.0
+        if get_tau_run(year) == "Run2":
+            abs_eta = abs(eta)
+            genuine_nominal = ak.where(
+                genuine_mask, SFevaluator[f"TauTES_{year}"](dm, pt), 1.0
+            )
+            electron_nominal = ak.where(
+                electron_mask, SFevaluator[f"TauFES_{year}"](abs_eta, dm), 1.0
             )
 
-    else:
-        clib_year = clib_year_map[year]
-        json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
-        corr = correctionlib.CorrectionSet.from_file(json_path)["tau_energy_scale"]
-        flat_pt = ak.flatten(ak.fill_none(pt, 0.0), axis=1)
-        flat_eta = ak.flatten(ak.fill_none(eta, 0.0), axis=1)
-        flat_dm = ak.flatten(ak.fill_none(dm, -1), axis=1)
-        flat_gen = ak.flatten(ak.fill_none(gen, 0), axis=1)
-        counts = ak.num(pt, axis=1)
-
-        def evaluate_payload(mask, syst):
-            flat_mask = ak.flatten(ak.fill_none(mask, False), axis=1)
-            values = np.ones(len(flat_pt), dtype=np.float32)
-            selected = ak.to_numpy(flat_mask)
-            if np.any(selected):
-                values[selected] = corr.evaluate(
-                    ak.to_numpy(flat_pt[selected]),
-                    ak.to_numpy(flat_eta[selected]),
-                    ak.to_numpy(flat_dm[selected]),
-                    ak.to_numpy(flat_gen[selected]),
-                    "DeepTau2018v2p5",
-                    vsJetWP,
-                    "VVLoose",
-                    syst,
+            def evaluate_source(source, direction, target_mask):
+                if source == "genuine":
+                    varied = SFevaluator[f"TauTES_{year}_{direction}"](dm, pt)
+                    return ak.where(target_mask, varied, genuine_nominal)
+                if source == "electron":
+                    varied = SFevaluator[f"TauFES_{year}_{direction}"](abs_eta, dm)
+                    return ak.where(target_mask, varied, electron_nominal)
+                return ak.where(
+                    target_mask, 1.01 if direction == "up" else 0.99, 1.0
                 )
-            return ak.unflatten(values, counts)
 
-        genuine_nominal = evaluate_payload(genuine_mask, "nom")
-        electron_nominal = evaluate_payload(electron_mask, "nom")
+        else:
+            clib_year = clib_year_map[year]
+            json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
+            with telemetry_operation("topeft._evaluate_tau_energy_components.payload_read_decompress_and_correctionset"):
+                corr = correctionlib.CorrectionSet.from_file(json_path)["tau_energy_scale"]
+            with telemetry_operation("topeft._evaluate_tau_energy_components.conversion_and_flatten"):
+                flat_pt = ak.flatten(ak.fill_none(pt, 0.0), axis=1)
+            with telemetry_operation("topeft._evaluate_tau_energy_components.conversion_and_flatten"):
+                flat_eta = ak.flatten(ak.fill_none(eta, 0.0), axis=1)
+            with telemetry_operation("topeft._evaluate_tau_energy_components.conversion_and_flatten"):
+                flat_dm = ak.flatten(ak.fill_none(dm, -1), axis=1)
+            with telemetry_operation("topeft._evaluate_tau_energy_components.conversion_and_flatten"):
+                flat_gen = ak.flatten(ak.fill_none(gen, 0), axis=1)
+            counts = ak.num(pt, axis=1)
 
-        def evaluate_source(source, direction, target_mask):
-            if source == "genuine":
-                target_values = evaluate_payload(target_mask, direction)
-                return ak.where(target_mask, target_values, genuine_nominal)
-            if source == "electron":
-                target_values = evaluate_payload(target_mask, direction)
-                return ak.where(target_mask, target_values, electron_nominal)
-            return ak.where(
-                target_mask, 1.01 if direction == "up" else 0.99, 1.0
-            )
+            def evaluate_payload(mask, syst):
+                flat_mask = ak.flatten(ak.fill_none(mask, False), axis=1)
+                values = np.ones(len(flat_pt), dtype=np.float32)
+                selected = ak.to_numpy(flat_mask)
+                if np.any(selected):
+                    values[selected] = corr.evaluate(
+                        ak.to_numpy(flat_pt[selected]),
+                        ak.to_numpy(flat_eta[selected]),
+                        ak.to_numpy(flat_dm[selected]),
+                        ak.to_numpy(flat_gen[selected]),
+                        "DeepTau2018v2p5",
+                        vsJetWP,
+                        "VVLoose",
+                        syst,
+                    )
+                return ak.unflatten(values, counts)
 
-    muon_nominal = ones
-    source_nominals = {
-        "genuine": genuine_nominal,
-        "electron": electron_nominal,
-        "muon": muon_nominal,
-    }
-    nominal = genuine_nominal * electron_nominal * muon_nominal
-    source_masks = {
-        "genuine": genuine_mask,
-        "electron": electron_mask,
-        "muon": muon_mask,
-    }
-    variations = OrderedDict()
-    for name, (source, target_dm) in get_tau_energy_variation_specs(year).items():
-        target_mask = source_masks[source] & (dm == target_dm)
-        other_nominal = ones
-        for other_source, other_factor in source_nominals.items():
-            if other_source != source:
-                other_nominal = other_nominal * other_factor
-        variations[name] = {
-            direction: evaluate_source(source, direction, target_mask)
-            * other_nominal
-            for direction in ("up", "down")
+            genuine_nominal = evaluate_payload(genuine_mask, "nom")
+            electron_nominal = evaluate_payload(electron_mask, "nom")
+
+            def evaluate_source(source, direction, target_mask):
+                if source == "genuine":
+                    target_values = evaluate_payload(target_mask, direction)
+                    return ak.where(target_mask, target_values, genuine_nominal)
+                if source == "electron":
+                    target_values = evaluate_payload(target_mask, direction)
+                    return ak.where(target_mask, target_values, electron_nominal)
+                return ak.where(
+                    target_mask, 1.01 if direction == "up" else 0.99, 1.0
+                )
+
+        muon_nominal = ones
+        source_nominals = {
+            "genuine": genuine_nominal,
+            "electron": electron_nominal,
+            "muon": muon_nominal,
         }
-    return {"nominal": nominal, "variations": variations}
+        nominal = genuine_nominal * electron_nominal * muon_nominal
+        source_masks = {
+            "genuine": genuine_mask,
+            "electron": electron_mask,
+            "muon": muon_mask,
+        }
+        variations = OrderedDict()
+        for name, (source, target_dm) in get_tau_energy_variation_specs(year).items():
+            target_mask = source_masks[source] & (dm == target_dm)
+            other_nominal = ones
+            for other_source, other_factor in source_nominals.items():
+                if other_source != source:
+                    other_nominal = other_nominal * other_factor
+            variations[name] = {
+                direction: evaluate_source(source, direction, target_mask)
+                * other_nominal
+                for direction in ("up", "down")
+            }
+        return {"nominal": nominal, "variations": variations}
 
 
 def AttachTauEnergyCorrections(year, taus, isData, vsJetWP=None):
     """Attach complete nominal and varied tau pt/mass views from raw kinematics."""
-    is_run2 = str(year).startswith("201")
-    if vsJetWP is None:
-        vsJetWP = get_te_param("run2_tau_t_tag" if is_run2 else "run3_tau_t_tag")
-    if "pt_raw" not in ak.fields(taus):
-        taus = ak.with_field(taus, taus.pt, "pt_raw")
-    if "mass_raw" not in ak.fields(taus):
-        taus = ak.with_field(taus, taus.mass, "mass_raw")
+    with telemetry_operation("topeft.AttachTauEnergyCorrections.total"):
+        is_run2 = str(year).startswith("201")
+        if vsJetWP is None:
+            vsJetWP = get_te_param("run2_tau_t_tag" if is_run2 else "run3_tau_t_tag")
+        if "pt_raw" not in ak.fields(taus):
+            taus = ak.with_field(taus, taus.pt, "pt_raw")
+        if "mass_raw" not in ak.fields(taus):
+            taus = ak.with_field(taus, taus.mass, "mass_raw")
 
-    if isData:
-        components = _evaluate_tau_energy_components(
-            year, taus.pt_raw, None, None, None, True, vsJetWP
-        )
-    else:
-        components = _evaluate_tau_energy_components(
-            year,
-            taus.pt_raw,
-            taus.eta,
-            taus.decayMode,
-            taus.genPartFlav,
-            False,
-            vsJetWP,
-        )
-    complete_factors = {"nominal": components["nominal"]}
-    for name, directions in components["variations"].items():
-        complete_factors[f"{name}Up"] = directions["up"]
-        complete_factors[f"{name}Down"] = directions["down"]
-    for variation, factor in complete_factors.items():
-        pt_field, mass_field = get_tau_energy_fields(variation)
-        taus = ak.with_field(taus, taus.pt_raw * factor, pt_field)
-        taus = ak.with_field(taus, taus.mass_raw * factor, mass_field)
-    return taus
+        if isData:
+            components = _evaluate_tau_energy_components(
+                year, taus.pt_raw, None, None, None, True, vsJetWP
+            )
+        else:
+            components = _evaluate_tau_energy_components(
+                year,
+                taus.pt_raw,
+                taus.eta,
+                taus.decayMode,
+                taus.genPartFlav,
+                False,
+                vsJetWP,
+            )
+        complete_factors = {"nominal": components["nominal"]}
+        for name, directions in components["variations"].items():
+            complete_factors[f"{name}Up"] = directions["up"]
+            complete_factors[f"{name}Down"] = directions["down"]
+        for variation, factor in complete_factors.items():
+            pt_field, mass_field = get_tau_energy_fields(variation)
+            taus = ak.with_field(taus, taus.pt_raw * factor, pt_field)
+            taus = ak.with_field(taus, taus.mass_raw * factor, mass_field)
+        return taus
 
 
 def ApplyTauEnergySystematics(taus, syst_var):
     """Select active tau pt/mass from fields attached before the systematic loop."""
-    is_tau_variation = (
-        str(syst_var).startswith("CMS_scale_t_")
-        and str(syst_var).endswith(("Up", "Down"))
-    )
-    variation = syst_var if is_tau_variation else "nominal"
-    pt_field, mass_field = get_tau_energy_fields(variation)
-    missing = [
-        field for field in (pt_field, mass_field)
-        if field not in ak.fields(taus)
-    ]
-    if missing:
-        raise ValueError(
-            "Tau energy field(s) required for variation "
-            f'"{variation}" are not attached: {", ".join(missing)}.'
+    with telemetry_operation("topeft.ApplyTauEnergySystematics.total"):
+        is_tau_variation = (
+            str(syst_var).startswith("CMS_scale_t_")
+            and str(syst_var).endswith(("Up", "Down"))
         )
-    taus = ak.with_field(taus, taus[pt_field], "pt")
-    return ak.with_field(taus, taus[mass_field], "mass")
+        variation = syst_var if is_tau_variation else "nominal"
+        pt_field, mass_field = get_tau_energy_fields(variation)
+        missing = [
+            field for field in (pt_field, mass_field)
+            if field not in ak.fields(taus)
+        ]
+        if missing:
+            raise ValueError(
+                "Tau energy field(s) required for variation "
+                f'"{variation}" are not attached: {", ".join(missing)}.'
+            )
+        taus = ak.with_field(taus, taus[pt_field], "pt")
+        return ak.with_field(taus, taus[mass_field], "mass")
 
 def AttachTauSF(
     events,
@@ -1012,376 +1031,397 @@ def AttachTauSF(
     vsJetWP=None,
     run3_fake_split=False,
 ):
-    pt = taus.pt
-    dm = taus.decayMode
-    eta = taus.eta
-    gen = taus.genPartFlav
-    run = get_tau_run(year)
-    is_run2 = run == "Run2"
-    if vsJetWP is None:
-        vsJetWP = get_te_param("run2_tau_t_tag" if is_run2 else "run3_tau_t_tag")
-    run2_fake_sf_eval = get_run2_tau_fake_sf_name(vsJetWP) if is_run2 else None
+    with telemetry_operation("topeft.AttachTauSF.total"):
+        pt = taus.pt
+        dm = taus.decayMode
+        eta = taus.eta
+        gen = taus.genPartFlav
+        run = get_tau_run(year)
+        is_run2 = run == "Run2"
+        if vsJetWP is None:
+            vsJetWP = get_te_param("run2_tau_t_tag" if is_run2 else "run3_tau_t_tag")
+        run2_fake_sf_eval = get_run2_tau_fake_sf_name(vsJetWP) if is_run2 else None
 
-    stored_muon_mask = None
-    if "ismTight" in ak.fields(taus):
-        stored_muon_mask = ak.fill_none(taus["ismTight"] > 0, False)
-    tau_fields = ak.fields(taus)
-    if is_run2 and "idDeepTau2017v2p1VSmu" in tau_fields:
-        muon_wp_source = "DeepTau2017v2p1VSmu"
-        muon_wp_expected = ak.fill_none(
-            ((taus.idDeepTau2017v2p1VSmu >> RUN2_VSMU_TIGHT_BIT) & 1) > 0,
-            False,
-        )
-    elif (not is_run2) and "idDeepTau2018v2p5VSmu" in tau_fields:
-        muon_wp_source = "DeepTau2018v2p5VSmu"
-        muon_wp_expected = ak.fill_none(
-            taus.idDeepTau2018v2p5VSmu >= RUN3_VSMU_TIGHT_THRESHOLD,
-            False,
-        )
-    else:
-        tagger = get_tau_tagger(year)
-        raise AssertionError(
-            f"{run} tau collection missing {tagger}VSmu for Tight VSμ validation."
-        )
-    if stored_muon_mask is not None:
-        mismatch_mask = ak.flatten(stored_muon_mask != muon_wp_expected)
-        if ak.any(mismatch_mask):
+        stored_muon_mask = None
+        if "ismTight" in ak.fields(taus):
+            stored_muon_mask = ak.fill_none(taus["ismTight"] > 0, False)
+        tau_fields = ak.fields(taus)
+        if is_run2 and "idDeepTau2017v2p1VSmu" in tau_fields:
+            muon_wp_source = "DeepTau2017v2p1VSmu"
+            muon_wp_expected = ak.fill_none(
+                ((taus.idDeepTau2017v2p1VSmu >> RUN2_VSMU_TIGHT_BIT) & 1) > 0,
+                False,
+            )
+        elif (not is_run2) and "idDeepTau2018v2p5VSmu" in tau_fields:
+            muon_wp_source = "DeepTau2018v2p5VSmu"
+            muon_wp_expected = ak.fill_none(
+                taus.idDeepTau2018v2p5VSmu >= RUN3_VSMU_TIGHT_THRESHOLD,
+                False,
+            )
+        else:
+            tagger = get_tau_tagger(year)
             raise AssertionError(
-                f"Tau ismTight mask does not match Tight VSμ definition from {muon_wp_source}."
+                f"{run} tau collection missing {tagger}VSmu for Tight VSμ validation."
+            )
+        if stored_muon_mask is not None:
+            with telemetry_operation("topeft.AttachTauSF.conversion_and_flatten"):
+                mismatch_mask = ak.flatten(stored_muon_mask != muon_wp_expected)
+            if ak.any(mismatch_mask):
+                raise AssertionError(
+                    f"Tau ismTight mask does not match Tight VSμ definition from {muon_wp_source}."
+                )
+
+        clib_year = clib_year_map[year]
+        json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
+        with telemetry_operation("topeft.AttachTauSF.payload_read_decompress_and_correctionset"):
+            ceval = correctionlib.CorrectionSet.from_file(json_path)
+        tagger = get_tau_tagger(year)
+        corr_jet = ceval[f"{tagger}VSjet"]
+        counts = ak.num(pt)
+        with telemetry_operation("topeft.AttachTauSF.conversion_and_flatten"):
+            flat_pt = ak.flatten(ak.fill_none(pt, 0.0))
+        with telemetry_operation("topeft.AttachTauSF.conversion_and_flatten"):
+            flat_dm = ak.flatten(ak.fill_none(dm, 0))
+        with telemetry_operation("topeft.AttachTauSF.conversion_and_flatten"):
+            flat_gen = ak.flatten(ak.fill_none(gen, 0))
+        with telemetry_operation("topeft.AttachTauSF.conversion_and_flatten"):
+            flat_eta = ak.flatten(ak.fill_none(eta, 0.0))
+        with telemetry_operation("topeft.AttachTauSF.conversion_and_flatten"):
+            pt_mask_flat = ak.flatten(ak.fill_none((pt > 20) & (pt < 205), False))
+        with telemetry_operation("topeft.AttachTauSF.conversion_and_flatten"):
+            vsjet_flat_mask = ak.flatten(
+                ak.fill_none(taus[f"is{vsJetWP}"] > 0, False)
+            )
+        with telemetry_operation("topeft.AttachTauSF.conversion_and_flatten"):
+            vse_flat_mask = ak.flatten(ak.fill_none(taus["iseTight"] > 0, False))
+        with telemetry_operation("topeft.AttachTauSF.conversion_and_flatten"):
+            vsmu_flat_mask = ak.flatten(ak.fill_none(taus["ismTight"] > 0, False))
+        genuine_tau_mask = pt_mask_flat & (flat_gen == 5) & vsjet_flat_mask
+        if not is_run2:
+            genuine_tau_mask = genuine_tau_mask & vse_flat_mask
+
+        def evaluate_selected(correction, mask, args, syst, flag=None):
+            selected = ak.to_numpy(ak.fill_none(mask, False))
+            values = np.ones(len(flat_pt), dtype=np.float32)
+            if np.any(selected):
+                selected_args = [
+                    ak.to_numpy(arg[selected]) if isinstance(arg, ak.highlevel.Array) else arg
+                    for arg in args
+                ]
+                selected_args.append(syst)
+                if flag is not None:
+                    selected_args.append(flag)
+                values[selected] = correction.evaluate(*selected_args)
+            return ak.unflatten(values, counts)
+
+        real_args = (flat_pt, flat_dm, flat_gen, vsJetWP, TAU_VSE_WORKING_POINT)
+        real_sf = evaluate_selected(
+            corr_jet, genuine_tau_mask, real_args, "nom", flag="dm"
+        )
+        variation_ratios = OrderedDict()
+        for name, payload_pattern in get_tau_vsjet_variation_specs(year).items():
+            varied = {}
+            for direction in ("up", "down"):
+                varied[direction] = evaluate_selected(
+                    corr_jet,
+                    genuine_tau_mask,
+                    real_args,
+                    payload_pattern.format(direction=direction),
+                    flag="dm",
+                )
+            variation_ratios[name] = {
+                direction: ak.where(real_sf != 0, varied[direction] / real_sf, 1.0)
+                for direction in ("up", "down")
+            }
+
+        if is_run2:
+            electron_mask = (
+                (pt > 20)
+                & (pt < 205)
+                & ((gen == 1) | (gen == 3))
+                & (taus["iseTight"] > 0)
+            )
+            muon_mask = (
+                (pt > 20)
+                & (pt < 205)
+                & ((gen == 2) | (gen == 4))
+                & (taus["ismTight"] > 0)
+            )
+            abs_eta = abs(eta)
+            fake_elec_sf = ak.where(
+                electron_mask, SFevaluator[f"Tau_elecFakeSF_{year}"](abs_eta), 1.0
+            )
+            fake_elec_sf_up = ak.where(
+                electron_mask,
+                SFevaluator[f"Tau_elecFakeSF_{year}_up"](abs_eta),
+                1.0,
+            )
+            fake_elec_sf_down = ak.where(
+                electron_mask,
+                SFevaluator[f"Tau_elecFakeSF_{year}_down"](abs_eta),
+                1.0,
+            )
+            fake_muon_sf = ak.where(
+                muon_mask, SFevaluator[f"Tau_muonFakeSF_{year}"](abs_eta), 1.0
+            )
+            fake_muon_sf_up = ak.where(
+                muon_mask,
+                SFevaluator[f"Tau_muonFakeSF_{year}_up"](abs_eta),
+                1.0,
+            )
+            fake_muon_sf_down = ak.where(
+                muon_mask,
+                SFevaluator[f"Tau_muonFakeSF_{year}_down"](abs_eta),
+                1.0,
+            )
+            fake_sf_evaluators = _get_tau_fake_sf_evaluators(
+                SFevaluator, run2_fake_sf_eval
+            )
+            jet_fake_mask = (
+                (pt > 20)
+                & (pt < 205)
+                & (gen == 0)
+                & (taus[f"is{vsJetWP}"] > 0)
+            )
+            fake_sf_eval = run2_fake_sf_eval
+        else:
+            electron_flat_mask = (
+                pt_mask_flat
+                & ((flat_gen == 1) | (flat_gen == 3))
+                & vse_flat_mask
+            )
+            muon_flat_mask = (
+                pt_mask_flat
+                & ((flat_gen == 2) | (flat_gen == 4))
+                & vsmu_flat_mask
+            )
+            fake_elec_sf = evaluate_selected(
+                ceval[f"{tagger}VSe"],
+                electron_flat_mask,
+                (flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT),
+                "nom",
+            )
+            fake_elec_sf_up = evaluate_selected(
+                ceval[f"{tagger}VSe"],
+                electron_flat_mask,
+                (flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT),
+                "up",
+            )
+            fake_elec_sf_down = evaluate_selected(
+                ceval[f"{tagger}VSe"],
+                electron_flat_mask,
+                (flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT),
+                "down",
+            )
+            fake_muon_sf = evaluate_selected(
+                ceval[f"{tagger}VSmu"],
+                muon_flat_mask,
+                (flat_eta, flat_gen, "Tight"),
+                "nom",
+            )
+            fake_muon_sf_up = evaluate_selected(
+                ceval[f"{tagger}VSmu"],
+                muon_flat_mask,
+                (flat_eta, flat_gen, "Tight"),
+                "up",
+            )
+            fake_muon_sf_down = evaluate_selected(
+                ceval[f"{tagger}VSmu"],
+                muon_flat_mask,
+                (flat_eta, flat_gen, "Tight"),
+                "down",
+            )
+            jet_fake_mask = (
+                (pt > 20)
+                & (pt < 200)
+                & (gen == 0)
+                & (taus[f"is{vsJetWP}"] > 0)
+            )
+            fake_sf_eval = (
+                "TauFakeSF_Run3" if not run3_fake_split else f"TauFakeSF_{year[:4]}"
+            )
+            fake_sf_evaluators = _get_tau_fake_sf_evaluators(
+                SFevaluator, fake_sf_eval
             )
 
-    clib_year = clib_year_map[year]
-    json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
-    ceval = correctionlib.CorrectionSet.from_file(json_path)
-    tagger = get_tau_tagger(year)
-    corr_jet = ceval[f"{tagger}VSjet"]
-    counts = ak.num(pt)
-    flat_pt = ak.flatten(ak.fill_none(pt, 0.0))
-    flat_dm = ak.flatten(ak.fill_none(dm, 0))
-    flat_gen = ak.flatten(ak.fill_none(gen, 0))
-    flat_eta = ak.flatten(ak.fill_none(eta, 0.0))
-    pt_mask_flat = ak.flatten(ak.fill_none((pt > 20) & (pt < 205), False))
-    vsjet_flat_mask = ak.flatten(
-        ak.fill_none(taus[f"is{vsJetWP}"] > 0, False)
-    )
-    vse_flat_mask = ak.flatten(ak.fill_none(taus["iseTight"] > 0, False))
-    vsmu_flat_mask = ak.flatten(ak.fill_none(taus["ismTight"] > 0, False))
-    genuine_tau_mask = pt_mask_flat & (flat_gen == 5) & vsjet_flat_mask
-    if not is_run2:
-        genuine_tau_mask = genuine_tau_mask & vse_flat_mask
+        new_fake_sf = ak.where(
+            jet_fake_mask, fake_sf_evaluators[fake_sf_eval](pt), 1.0
+        )
+        new_fake_sf_up = ak.where(
+            jet_fake_mask, fake_sf_evaluators[f"{fake_sf_eval}_up"](pt), 1.0
+        )
+        new_fake_sf_down = ak.where(
+            jet_fake_mask, fake_sf_evaluators[f"{fake_sf_eval}_down"](pt), 1.0
+        )
 
-    def evaluate_selected(correction, mask, args, syst, flag=None):
-        selected = ak.to_numpy(ak.fill_none(mask, False))
-        values = np.ones(len(flat_pt), dtype=np.float32)
-        if np.any(selected):
-            selected_args = [
-                ak.to_numpy(arg[selected]) if isinstance(arg, ak.highlevel.Array) else arg
-                for arg in args
-            ]
-            selected_args.append(syst)
-            if flag is not None:
-                selected_args.append(flag)
-            values[selected] = correction.evaluate(*selected_args)
-        return ak.unflatten(values, counts)
-
-    real_args = (flat_pt, flat_dm, flat_gen, vsJetWP, TAU_VSE_WORKING_POINT)
-    real_sf = evaluate_selected(
-        corr_jet, genuine_tau_mask, real_args, "nom", flag="dm"
-    )
-    variation_ratios = OrderedDict()
-    for name, payload_pattern in get_tau_vsjet_variation_specs(year).items():
-        varied = {}
-        for direction in ("up", "down"):
-            varied[direction] = evaluate_selected(
-                corr_jet,
-                genuine_tau_mask,
-                real_args,
-                payload_pattern.format(direction=direction),
-                flag="dm",
-            )
-        variation_ratios[name] = {
-            direction: ak.where(real_sf != 0, varied[direction] / real_sf, 1.0)
-            for direction in ("up", "down")
+        source_values = {
+            "VSe": (fake_elec_sf, fake_elec_sf_up, fake_elec_sf_down),
+            "VSmu": (fake_muon_sf, fake_muon_sf_up, fake_muon_sf_down),
         }
-
-    if is_run2:
-        electron_mask = (
-            (pt > 20)
-            & (pt < 205)
-            & ((gen == 1) | (gen == 3))
-            & (taus["iseTight"] > 0)
-        )
-        muon_mask = (
-            (pt > 20)
-            & (pt < 205)
-            & ((gen == 2) | (gen == 4))
-            & (taus["ismTight"] > 0)
-        )
         abs_eta = abs(eta)
-        fake_elec_sf = ak.where(
-            electron_mask, SFevaluator[f"Tau_elecFakeSF_{year}"](abs_eta), 1.0
-        )
-        fake_elec_sf_up = ak.where(
-            electron_mask,
-            SFevaluator[f"Tau_elecFakeSF_{year}_up"](abs_eta),
-            1.0,
-        )
-        fake_elec_sf_down = ak.where(
-            electron_mask,
-            SFevaluator[f"Tau_elecFakeSF_{year}_down"](abs_eta),
-            1.0,
-        )
-        fake_muon_sf = ak.where(
-            muon_mask, SFevaluator[f"Tau_muonFakeSF_{year}"](abs_eta), 1.0
-        )
-        fake_muon_sf_up = ak.where(
-            muon_mask,
-            SFevaluator[f"Tau_muonFakeSF_{year}_up"](abs_eta),
-            1.0,
-        )
-        fake_muon_sf_down = ak.where(
-            muon_mask,
-            SFevaluator[f"Tau_muonFakeSF_{year}_down"](abs_eta),
-            1.0,
-        )
-        fake_sf_evaluators = _get_tau_fake_sf_evaluators(
-            SFevaluator, run2_fake_sf_eval
-        )
-        jet_fake_mask = (
-            (pt > 20)
-            & (pt < 205)
-            & (gen == 0)
-            & (taus[f"is{vsJetWP}"] > 0)
-        )
-        fake_sf_eval = run2_fake_sf_eval
-    else:
-        electron_flat_mask = (
-            pt_mask_flat
-            & ((flat_gen == 1) | (flat_gen == 3))
-            & vse_flat_mask
-        )
-        muon_flat_mask = (
-            pt_mask_flat
-            & ((flat_gen == 2) | (flat_gen == 4))
-            & vsmu_flat_mask
-        )
-        fake_elec_sf = evaluate_selected(
-            ceval[f"{tagger}VSe"],
-            electron_flat_mask,
-            (flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT),
-            "nom",
-        )
-        fake_elec_sf_up = evaluate_selected(
-            ceval[f"{tagger}VSe"],
-            electron_flat_mask,
-            (flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT),
-            "up",
-        )
-        fake_elec_sf_down = evaluate_selected(
-            ceval[f"{tagger}VSe"],
-            electron_flat_mask,
-            (flat_eta, flat_dm, flat_gen, TAU_VSE_WORKING_POINT),
-            "down",
-        )
-        fake_muon_sf = evaluate_selected(
-            ceval[f"{tagger}VSmu"],
-            muon_flat_mask,
-            (flat_eta, flat_gen, "Tight"),
-            "nom",
-        )
-        fake_muon_sf_up = evaluate_selected(
-            ceval[f"{tagger}VSmu"],
-            muon_flat_mask,
-            (flat_eta, flat_gen, "Tight"),
-            "up",
-        )
-        fake_muon_sf_down = evaluate_selected(
-            ceval[f"{tagger}VSmu"],
-            muon_flat_mask,
-            (flat_eta, flat_gen, "Tight"),
-            "down",
-        )
-        jet_fake_mask = (
-            (pt > 20)
-            & (pt < 200)
-            & (gen == 0)
-            & (taus[f"is{vsJetWP}"] > 0)
-        )
-        fake_sf_eval = (
-            "TauFakeSF_Run3" if not run3_fake_split else f"TauFakeSF_{year[:4]}"
-        )
-        fake_sf_evaluators = _get_tau_fake_sf_evaluators(
-            SFevaluator, fake_sf_eval
-        )
-
-    new_fake_sf = ak.where(
-        jet_fake_mask, fake_sf_evaluators[fake_sf_eval](pt), 1.0
-    )
-    new_fake_sf_up = ak.where(
-        jet_fake_mask, fake_sf_evaluators[f"{fake_sf_eval}_up"](pt), 1.0
-    )
-    new_fake_sf_down = ak.where(
-        jet_fake_mask, fake_sf_evaluators[f"{fake_sf_eval}_down"](pt), 1.0
-    )
-
-    source_values = {
-        "VSe": (fake_elec_sf, fake_elec_sf_up, fake_elec_sf_down),
-        "VSmu": (fake_muon_sf, fake_muon_sf_up, fake_muon_sf_down),
-    }
-    abs_eta = abs(eta)
-    for name, spec in get_tau_eta_variation_specs(year).items():
-        nominal, up, down = source_values[spec["source"]]
-        eta_mask = (abs_eta >= spec["low"]) & (
-            (abs_eta <= spec["high"])
-            if spec["include_high"]
-            else (abs_eta < spec["high"])
-        )
-        if spec.get("decay_mode") is not None:
-            eta_mask = eta_mask & (dm == spec["decay_mode"])
-        variation_ratios[name] = {
-            "up": ak.where(eta_mask & (nominal != 0), up / nominal, 1.0),
-            "down": ak.where(eta_mask & (nominal != 0), down / nominal, 1.0),
-        }
-    jet_fake_name = f"lepSF_taus_fake_{run.lower()}"
-    variation_ratios[jet_fake_name] = {
-        "up": ak.where(new_fake_sf != 0, new_fake_sf_up / new_fake_sf, 1.0),
-        "down": ak.where(
-            new_fake_sf != 0, new_fake_sf_down / new_fake_sf, 1.0
-        ),
-    }
-
-    tau_fake_nominal = fake_elec_sf * fake_muon_sf * new_fake_sf
-    tau_nominal = real_sf * tau_fake_nominal
-    taus["sf_tau_real"] = real_sf
-    taus["sf_tau_real_up"] = real_sf
-    taus["sf_tau_real_down"] = real_sf
-    taus["sf_tau_fake"] = tau_fake_nominal
-    taus["sf_tau_fake_up"] = tau_fake_nominal
-    taus["sf_tau_fake_down"] = tau_fake_nominal
-
-    padded_taus = ak.pad_none(taus, 1)
-    events["sf_2l_taus_real"] = ak.fill_none(padded_taus.sf_tau_real[:, 0], 1.0)
-    events["sf_2l_taus_real_hi"] = events["sf_2l_taus_real"]
-    events["sf_2l_taus_real_lo"] = events["sf_2l_taus_real"]
-    events["sf_2l_taus_fake"] = ak.fill_none(padded_taus.sf_tau_fake[:, 0], 1.0)
-    events["sf_2l_taus_fake_hi"] = events["sf_2l_taus_fake"]
-    events["sf_2l_taus_fake_lo"] = events["sf_2l_taus_fake"]
-
-    event_variations = OrderedDict()
-    for name, directions in variation_ratios.items():
-        event_variations[name] = {
-            direction: ak.fill_none(
-                ak.pad_none(directions[direction], 1)[:, 0], 1.0
+        for name, spec in get_tau_eta_variation_specs(year).items():
+            nominal, up, down = source_values[spec["source"]]
+            eta_mask = (abs_eta >= spec["low"]) & (
+                (abs_eta <= spec["high"])
+                if spec["include_high"]
+                else (abs_eta < spec["high"])
             )
-            for direction in ("up", "down")
+            if spec.get("decay_mode") is not None:
+                eta_mask = eta_mask & (dm == spec["decay_mode"])
+            variation_ratios[name] = {
+                "up": ak.where(eta_mask & (nominal != 0), up / nominal, 1.0),
+                "down": ak.where(eta_mask & (nominal != 0), down / nominal, 1.0),
+            }
+        jet_fake_name = f"lepSF_taus_fake_{run.lower()}"
+        variation_ratios[jet_fake_name] = {
+            "up": ak.where(new_fake_sf != 0, new_fake_sf_up / new_fake_sf, 1.0),
+            "down": ak.where(
+                new_fake_sf != 0, new_fake_sf_down / new_fake_sf, 1.0
+            ),
         }
-    return {
-        "nominal": ak.fill_none(ak.pad_none(tau_nominal, 1)[:, 0], 1.0),
-        "nominal_without_jet_fake": ak.fill_none(
-            ak.pad_none(real_sf * fake_elec_sf * fake_muon_sf, 1)[:, 0],
-            1.0,
-        ),
-        "variations": event_variations,
-    }
+
+        tau_fake_nominal = fake_elec_sf * fake_muon_sf * new_fake_sf
+        tau_nominal = real_sf * tau_fake_nominal
+        taus["sf_tau_real"] = real_sf
+        taus["sf_tau_real_up"] = real_sf
+        taus["sf_tau_real_down"] = real_sf
+        taus["sf_tau_fake"] = tau_fake_nominal
+        taus["sf_tau_fake_up"] = tau_fake_nominal
+        taus["sf_tau_fake_down"] = tau_fake_nominal
+
+        padded_taus = ak.pad_none(taus, 1)
+        events["sf_2l_taus_real"] = ak.fill_none(padded_taus.sf_tau_real[:, 0], 1.0)
+        events["sf_2l_taus_real_hi"] = events["sf_2l_taus_real"]
+        events["sf_2l_taus_real_lo"] = events["sf_2l_taus_real"]
+        events["sf_2l_taus_fake"] = ak.fill_none(padded_taus.sf_tau_fake[:, 0], 1.0)
+        events["sf_2l_taus_fake_hi"] = events["sf_2l_taus_fake"]
+        events["sf_2l_taus_fake_lo"] = events["sf_2l_taus_fake"]
+
+        event_variations = OrderedDict()
+        for name, directions in variation_ratios.items():
+            event_variations[name] = {
+                direction: ak.fill_none(
+                    ak.pad_none(directions[direction], 1)[:, 0], 1.0
+                )
+                for direction in ("up", "down")
+            }
+        return {
+            "nominal": ak.fill_none(ak.pad_none(tau_nominal, 1)[:, 0], 1.0),
+            "nominal_without_jet_fake": ak.fill_none(
+                ak.pad_none(real_sf * fake_elec_sf * fake_muon_sf, 1)[:, 0],
+                1.0,
+            ),
+            "variations": event_variations,
+        }
 
 def AttachPerLeptonFR(leps, flavor, year):
     # Get the flip rates lookup object
-    if year not in clib_year_map.keys():
-        raise Exception(f"Error: Unknown year \"{year}\"\n"".")
+    with telemetry_operation("topeft.AttachPerLeptonFR.total"):
+        if year not in clib_year_map.keys():
+            raise Exception(f"Error: Unknown year \"{year}\"\n"".")
 
-    #if year == "2016APV": flip_year_name = "UL16APV"
-    #elif year == "2016": flip_year_name = "UL16"
-    #elif year == "2017": flip_year_name = "UL17"
-    #elif year == "2018": flip_year_name = "UL18"
-    is_run2 = False
-    if year.startswith("201"):
-        flip_year_name = year.replace("20", "UL")
-        is_run2 = True
+        #if year == "2016APV": flip_year_name = "UL16APV"
+        #elif year == "2016": flip_year_name = "UL16"
+        #elif year == "2017": flip_year_name = "UL17"
+        #elif year == "2018": flip_year_name = "UL18"
+        is_run2 = False
+        if year.startswith("201"):
+            flip_year_name = year.replace("20", "UL")
+            is_run2 = True
 
-    is_run3 = not is_run2
-    #else: flip_year_name = "UL18" #TO READAPT when fakefactors are ready #raise Exception(f"Not a known year: {year}")
-    #Run2 is not implemented with correction_lib
-    if is_run2:
-        with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
-            flip_hist = pickle.load(fin)
-            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
+        is_run3 = not is_run2
+        #else: flip_year_name = "UL18" #TO READAPT when fakefactors are ready #raise Exception(f"Not a known year: {year}")
+        #Run2 is not implemented with correction_lib
+        if is_run2:
+            with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
+                with telemetry_operation("topeft.AttachPerLeptonFR.payload_read_decompress_deserialize"):
+                    flip_hist = pickle.load(fin)
+                with telemetry_operation("topeft.AttachPerLeptonFR.lookup_construction"):
+                    flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
-        # Get the fliprate scaling factor for the given year
-        chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
+            # Get the fliprate scaling factor for the given year
+            chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
 
-        if flavor == "Elec":
-            leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
-        else:
-            leps['fliprate'] = np.zeros_like(leps.pt)
+            if flavor == "Elec":
+                leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
+            else:
+                leps['fliprate'] = np.zeros_like(leps.pt)
 
-        # For FR filepath naming conventions
-        if '2016' in year:
-            year = '2016APV_2016'
+            # For FR filepath naming conventions
+            if '2016' in year:
+                year = '2016APV_2016'
 
-        # Add the flip/fake info into the leps opject
-        for syst in ffSysts:
-            fr = SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
-            leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
+            # Add the flip/fake info into the leps opject
+            for syst in ffSysts:
+                fr = SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
+                leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
 
-        if year == '2016APV_2016':
-            leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
-            leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
-        elif year == '2017':
-            leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.2 + 1.0
-            leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.2 + 1.0
-        elif year == '2018':
-            leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
-            leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
+            if year == '2016APV_2016':
+                leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
+                leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
+            elif year == '2017':
+                leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.2 + 1.0
+                leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.2 + 1.0
+            elif year == '2018':
+                leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
+                leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
 
-    #Run3 is implemented with correction_lib
-    if is_run3:
-        flip_year_name = year
-        with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
-            flip_hist = pickle.load(fin)
-            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["abseta"].edges])
+        #Run3 is implemented with correction_lib
+        if is_run3:
+            flip_year_name = year
+            with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
+                with telemetry_operation("topeft.AttachPerLeptonFR.payload_read_decompress_deserialize"):
+                    flip_hist = pickle.load(fin)
+                with telemetry_operation("topeft.AttachPerLeptonFR.lookup_construction"):
+                    flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["abseta"].edges])
 
-        # Apply scaling factor for electrons
-        if flavor == "Elec":
-            leps['fliprate'] = (get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
-        else:
-            leps['fliprate'] = np.zeros_like(leps.pt)
+            # Apply scaling factor for electrons
+            if flavor == "Elec":
+                leps['fliprate'] = (get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
+            else:
+                leps['fliprate'] = np.zeros_like(leps.pt)
 
-        json_path = topeft_path("data/fakerates/fake_rates_Run3.json")
-        ceval = correctionlib.CorrectionSet.from_file(json_path)
-        pt = ak.flatten(leps.conept)
-        abseta = ak.flatten(abs(leps.eta))
-        abspdgid = ak.flatten(abs(leps.pdgId))
+            json_path = topeft_path("data/fakerates/fake_rates_Run3.json")
+            with telemetry_operation("topeft.AttachPerLeptonFR.payload_read_decompress_and_correctionset"):
+                ceval = correctionlib.CorrectionSet.from_file(json_path)
+            with telemetry_operation("topeft.AttachPerLeptonFR.conversion_and_flatten"):
+                pt = ak.flatten(leps.conept)
+            with telemetry_operation("topeft.AttachPerLeptonFR.conversion_and_flatten"):
+                abseta = ak.flatten(abs(leps.eta))
+            with telemetry_operation("topeft.AttachPerLeptonFR.conversion_and_flatten"):
+                abspdgid = ak.flatten(abs(leps.pdgId))
 
-        minpt = 0.
-        maxpt = 100.
+            minpt = 0.
+            maxpt = 100.
 
-        if flavor == "Elec":
-            minpt = 15.
-        elif flavor == "Muon":
-            minpt = 10.
+            if flavor == "Elec":
+                minpt = 15.
+            elif flavor == "Muon":
+                minpt = 10.
 
-        pt_mask_low = (pt > minpt)
-        pt_mask_hi = (pt < maxpt)
-        pt_masked = ak.where(~pt_mask_low, minpt, pt)
-        pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
+            pt_mask_low = (pt > minpt)
+            pt_mask_hi = (pt < maxpt)
+            pt_masked = ak.where(~pt_mask_low, minpt, pt)
+            pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
 
-        fr_year_tag = "fakeRate_2023_2023BPix" if year.startswith("2023") else "fakeRate_2022_2022EE"
+            fr_year_tag = "fakeRate_2023_2023BPix" if year.startswith("2023") else "fakeRate_2022_2022EE"
 
-        for syst in ffSysts:
-            fr = ak.unflatten(
-                _evaluate_correctionlib(
-                    ceval[fr_year_tag], pt_masked, abseta, syst, abspdgid
-                ),
-                ak.num(leps.conept),
-            )
-            leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0)
-            leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.0 + 1.0
-            leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0
+            for syst in ffSysts:
+                with telemetry_operation("topeft.AttachPerLeptonFR.unflatten"):
+                    fr = ak.unflatten(
+                        _evaluate_correctionlib(
+                            ceval[fr_year_tag], pt_masked, abseta, syst, abspdgid
+                        ),
+                        ak.num(leps.conept),
+                    )
+                leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0)
+                leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.0 + 1.0
+                leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0
 
-    #Common part
-    for flav in ['el','mu']:
-        leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav]
-        leps['fakefactor_%sclosureup' % flav]   = leps['fakefactor'] * leps['fakefactor_%sclosurefactor' % flav]
+        #Common part
+        for flav in ['el','mu']:
+            leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav]
+            leps['fakefactor_%sclosureup' % flav]   = leps['fakefactor'] * leps['fakefactor_%sclosurefactor' % flav]
 
 def get_flipsf(eta_array, year):
     # Get flip scaling factors for run3
@@ -1442,283 +1482,298 @@ def AttachMuonSF(muons, year, useRun3MVA=True):
     - use loose from correction-lib
     - reco not available yet, but MUO don't bother about that
     '''
-    is_run3 = False
-    if year.startswith("202"):
-        is_run3 = True
-    is_run2 = not is_run3
+    with telemetry_operation("topeft.AttachMuonSF.total"):
+        is_run3 = False
+        if year.startswith("202"):
+            is_run3 = True
+        is_run2 = not is_run3
 
-    eta = np.abs(muons.eta)
-    pt = muons.pt
-    if year not in clib_year_map.keys():
-        raise Exception(f"Error: Unknown year \"{year}\"\n"".")
+        eta = np.abs(muons.eta)
+        pt = muons.pt
+        if year not in clib_year_map.keys():
+            raise Exception(f"Error: Unknown year \"{year}\"\n"".")
 
-    ## Run2 pieces
-    new_sf = ak.ones_like(pt)
-    new_up = ak.ones_like(pt)
-    new_do = ak.ones_like(pt)
-    reco_sf = ak.ones_like(pt)
-    reco_up = ak.ones_like(pt)
-    reco_do = ak.ones_like(pt)
-    loose_sf = ak.ones_like(pt)
-    loose_up = ak.ones_like(pt)
-    loose_do = ak.ones_like(pt)
-    iso_sf = ak.ones_like(pt)
-    iso_up = ak.ones_like(pt)
-    iso_do = ak.ones_like(pt)
-    ## Run3 pieces
-    reco_loose_sf = ak.ones_like(pt)
-    reco_loose_up = ak.ones_like(pt)
-    reco_loose_do = ak.ones_like(pt)
+        ## Run2 pieces
+        new_sf = ak.ones_like(pt)
+        new_up = ak.ones_like(pt)
+        new_do = ak.ones_like(pt)
+        reco_sf = ak.ones_like(pt)
+        reco_up = ak.ones_like(pt)
+        reco_do = ak.ones_like(pt)
+        loose_sf = ak.ones_like(pt)
+        loose_up = ak.ones_like(pt)
+        loose_do = ak.ones_like(pt)
+        iso_sf = ak.ones_like(pt)
+        iso_up = ak.ones_like(pt)
+        iso_do = ak.ones_like(pt)
+        ## Run3 pieces
+        reco_loose_sf = ak.ones_like(pt)
+        reco_loose_up = ak.ones_like(pt)
+        reco_loose_do = ak.ones_like(pt)
 
-    ## Run2:
-    ## only loose_sf can be consistently used with correction-lib, for the other we use the TOP-22-006 original SFs
-    ## Run3:
-    ## reco_loose_sf will be used in place of reco*loose, both for nominal and systematics
+        ## Run2:
+        ## only loose_sf can be consistently used with correction-lib, for the other we use the TOP-22-006 original SFs
+        ## Run3:
+        ## reco_loose_sf will be used in place of reco*loose, both for nominal and systematics
 
-    clib_year = clib_year_map[year]
-    json_path = topcoffea_path(f"data/POG/MUO/{clib_year}/muon_Z.json.gz")
-    ceval = correctionlib.CorrectionSet.from_file(json_path)
+        clib_year = clib_year_map[year]
+        json_path = topcoffea_path(f"data/POG/MUO/{clib_year}/muon_Z.json.gz")
+        with telemetry_operation("topeft.AttachMuonSF.payload_read_decompress_and_correctionset"):
+            ceval = correctionlib.CorrectionSet.from_file(json_path)
 
-    pt_flat = ak.flatten(pt)
-    abseta_flat = ak.flatten(eta)
-    pdgid_flat = ak.flatten(abs(muons.pdgId))
+        with telemetry_operation("topeft.AttachMuonSF.conversion_and_flatten"):
+            pt_flat = ak.flatten(pt)
+        with telemetry_operation("topeft.AttachMuonSF.conversion_and_flatten"):
+            abseta_flat = ak.flatten(eta)
+        with telemetry_operation("topeft.AttachMuonSF.conversion_and_flatten"):
+            pdgid_flat = ak.flatten(abs(muons.pdgId))
 
-    pt_mask = ak.flatten((pt >= 15))
-    pt_mask_reco = ak.flatten((pt >= 40))
-    pt_flat_reco = ak.where(~pt_mask_reco, 40., pt_flat)
-    pt_flat_loose = ak.where(~pt_mask, 15., pt_flat)
+        with telemetry_operation("topeft.AttachMuonSF.conversion_and_flatten"):
+            pt_mask = ak.flatten((pt >= 15))
+        with telemetry_operation("topeft.AttachMuonSF.conversion_and_flatten"):
+            pt_mask_reco = ak.flatten((pt >= 40))
+        pt_flat_reco = ak.where(~pt_mask_reco, 40., pt_flat)
+        pt_flat_loose = ak.where(~pt_mask, 15., pt_flat)
 
-    if is_run2:
-        ## The only one to be actually got from clib for Run2<
-        loose_sf_flat = ak.where(
-            ~pt_mask,
-            1,
-            _evaluate_correctionlib(
-                ceval["NUM_LooseID_DEN_TrackerMuons"],
-                abseta_flat,
-                pt_flat_loose,
-                "nominal",
-            )
-        )
-        loose_err_flat = ak.where(
-            ~pt_mask,
-            1,
-            np.sqrt(
+        if is_run2:
+            ## The only one to be actually got from clib for Run2<
+            loose_sf_flat = ak.where(
+                ~pt_mask,
+                1,
                 _evaluate_correctionlib(
                     ceval["NUM_LooseID_DEN_TrackerMuons"],
                     abseta_flat,
                     pt_flat_loose,
-                    "syst",
-                )
-                * _evaluate_correctionlib(
-                    ceval["NUM_LooseID_DEN_TrackerMuons"],
-                    abseta_flat,
-                    pt_flat_loose,
-                    "syst",
-                )
-                + _evaluate_correctionlib(
-                    ceval["NUM_LooseID_DEN_TrackerMuons"],
-                    abseta_flat,
-                    pt_flat_loose,
-                    "stat",
-                )
-                * _evaluate_correctionlib(
-                    ceval["NUM_LooseID_DEN_TrackerMuons"],
-                    abseta_flat,
-                    pt_flat_loose,
-                    "stat",
+                    "nominal",
                 )
             )
-        )
-        loose_sf  = ak.unflatten(loose_sf_flat, ak.num(pt))
-        loose_err = ak.unflatten(loose_err_flat, ak.num(pt))
-        loose_up = loose_sf + loose_err
-        loose_do = loose_sf - loose_err
-
-        ## these are the reco and loose TOP-22-006 SFs
-        reco_sf  = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1) # sf=1 when pt>20 becuase there is no reco SF available
-        reco_err = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) # sf error =0 when pt>20 becuase there is no reco SF available
-        reco_up  = reco_sf + reco_err
-        reco_do  = reco_sf - reco_err
-
-        ## For Run2, reco and loose are multiplied
-        reco_loose_sf = reco_sf * loose_sf
-        reco_loose_up = reco_up * loose_up
-        reco_loose_do = reco_do * loose_do
-
-        ## ad-hoc from TOP-22-006 for Run2 (not clib ready)
-        iso_sf  = SFevaluator['MuonIsoSF_{year}'.format(year=year)](eta,pt)
-        iso_err = SFevaluator['MuonIsoSF_{year}_er'.format(year=year)](eta,pt)
-        iso_up  = iso_sf + iso_err
-        iso_do  = iso_sf - iso_err
-
-        new_sf  = SFevaluator['MuonSF_{year}'.format(year=year)](eta,pt)
-        new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
-        new_up = new_sf + new_err
-        new_do = new_sf - new_err
-
-    elif is_run3:
-        loose_sf_flat = ak.where(
-            ~pt_mask,
-            1,
-            _evaluate_correctionlib(
-                ceval["NUM_LooseID_DEN_TrackerMuons"],
-                abseta_flat,
-                pt_flat_loose,
-                "nominal",
+            loose_err_flat = ak.where(
+                ~pt_mask,
+                1,
+                np.sqrt(
+                    _evaluate_correctionlib(
+                        ceval["NUM_LooseID_DEN_TrackerMuons"],
+                        abseta_flat,
+                        pt_flat_loose,
+                        "syst",
+                    )
+                    * _evaluate_correctionlib(
+                        ceval["NUM_LooseID_DEN_TrackerMuons"],
+                        abseta_flat,
+                        pt_flat_loose,
+                        "syst",
+                    )
+                    + _evaluate_correctionlib(
+                        ceval["NUM_LooseID_DEN_TrackerMuons"],
+                        abseta_flat,
+                        pt_flat_loose,
+                        "stat",
+                    )
+                    * _evaluate_correctionlib(
+                        ceval["NUM_LooseID_DEN_TrackerMuons"],
+                        abseta_flat,
+                        pt_flat_loose,
+                        "stat",
+                    )
+                )
             )
-        )
-        loose_err_flat = ak.where(
-            ~pt_mask,
-            1,
-            np.sqrt(
+            with telemetry_operation("topeft.AttachMuonSF.unflatten"):
+                loose_sf  = ak.unflatten(loose_sf_flat, ak.num(pt))
+            with telemetry_operation("topeft.AttachMuonSF.unflatten"):
+                loose_err = ak.unflatten(loose_err_flat, ak.num(pt))
+            loose_up = loose_sf + loose_err
+            loose_do = loose_sf - loose_err
+
+            ## these are the reco and loose TOP-22-006 SFs
+            reco_sf  = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1) # sf=1 when pt>20 becuase there is no reco SF available
+            reco_err = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) # sf error =0 when pt>20 becuase there is no reco SF available
+            reco_up  = reco_sf + reco_err
+            reco_do  = reco_sf - reco_err
+
+            ## For Run2, reco and loose are multiplied
+            reco_loose_sf = reco_sf * loose_sf
+            reco_loose_up = reco_up * loose_up
+            reco_loose_do = reco_do * loose_do
+
+            ## ad-hoc from TOP-22-006 for Run2 (not clib ready)
+            iso_sf  = SFevaluator['MuonIsoSF_{year}'.format(year=year)](eta,pt)
+            iso_err = SFevaluator['MuonIsoSF_{year}_er'.format(year=year)](eta,pt)
+            iso_up  = iso_sf + iso_err
+            iso_do  = iso_sf - iso_err
+
+            new_sf  = SFevaluator['MuonSF_{year}'.format(year=year)](eta,pt)
+            new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
+            new_up = new_sf + new_err
+            new_do = new_sf - new_err
+
+        elif is_run3:
+            loose_sf_flat = ak.where(
+                ~pt_mask,
+                1,
                 _evaluate_correctionlib(
                     ceval["NUM_LooseID_DEN_TrackerMuons"],
                     abseta_flat,
                     pt_flat_loose,
-                    "syst",
-                )
-                * _evaluate_correctionlib(
-                    ceval["NUM_LooseID_DEN_TrackerMuons"],
-                    abseta_flat,
-                    pt_flat_loose,
-                    "syst",
-                )
-                + _evaluate_correctionlib(
-                    ceval["NUM_LooseID_DEN_TrackerMuons"],
-                    abseta_flat,
-                    pt_flat_loose,
-                    "stat",
-                )
-                * _evaluate_correctionlib(
-                    ceval["NUM_LooseID_DEN_TrackerMuons"],
-                    abseta_flat,
-                    pt_flat_loose,
-                    "stat",
+                    "nominal",
                 )
             )
-        )
-        loose_sf  = ak.unflatten(loose_sf_flat, ak.num(pt))
-        loose_err = ak.unflatten(loose_err_flat, ak.num(pt))
-        loose_up = loose_sf + loose_err
-        loose_do = loose_sf - loose_err
-
-        if "mvaTTHrun3" in muons.fields and useRun3MVA:
-            #clib integration of the lepMVA Run3 SFs
-            if year.startswith("2022"):
-                lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
-            elif year.startswith("2023"):
-                lepmva_json_path = topeft_path(f"data/lepMVASF/muon_mvaTTH_{year}.json.gz")
-            else:
-                raise ValueError(f"{year} is not supported for the lepMVA SFs.")
-            lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
-
-            #lep mva SFs in clib format
-            minpt = 15.0
-            maxpt = 500.
-            pt_mask_low = (pt_flat > minpt)
-            pt_mask_hi = (pt_flat < maxpt)
-            pt_lepmva_mask = pt_mask_low & pt_mask_hi
-            pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt_flat)
-            pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
-            pt_lepmva_flat = pt_masked
-
-            if year.startswith("2022"):
-                muo_tag  = "mu_allflavor"
-                lepmva_vals_nom = _evaluate_correctionlib(
-                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "", pdgid_flat
-                )
-                lepmva_vals_up = _evaluate_correctionlib(
-                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "_muup", pdgid_flat
-                )
-                lepmva_vals_down = _evaluate_correctionlib(
-                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "_mudn", pdgid_flat
-                )
-            elif year.startswith("2023"):
-                muo_tag = "NUM_TightmvaTTH_DEN_LooseMuons"
-                lepmva_vals_nom = _evaluate_correctionlib(
-                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "nominal"
-                )
-                lepmva_vals_up = _evaluate_correctionlib(
-                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "systup"
-                )
-                lepmva_vals_down = _evaluate_correctionlib(
-                    lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "systdown"
-                )
-
-            new_sf_flat = ak.where(
-                ~pt_lepmva_mask,
+            loose_err_flat = ak.where(
+                ~pt_mask,
                 1,
-                lepmva_vals_nom,
+                np.sqrt(
+                    _evaluate_correctionlib(
+                        ceval["NUM_LooseID_DEN_TrackerMuons"],
+                        abseta_flat,
+                        pt_flat_loose,
+                        "syst",
+                    )
+                    * _evaluate_correctionlib(
+                        ceval["NUM_LooseID_DEN_TrackerMuons"],
+                        abseta_flat,
+                        pt_flat_loose,
+                        "syst",
+                    )
+                    + _evaluate_correctionlib(
+                        ceval["NUM_LooseID_DEN_TrackerMuons"],
+                        abseta_flat,
+                        pt_flat_loose,
+                        "stat",
+                    )
+                    * _evaluate_correctionlib(
+                        ceval["NUM_LooseID_DEN_TrackerMuons"],
+                        abseta_flat,
+                        pt_flat_loose,
+                        "stat",
+                    )
+                )
             )
-            new_up_flat = ak.where(
-                ~pt_lepmva_mask,
-                1,
-                lepmva_vals_up,
-            )
-            new_do_flat = ak.where(
-                ~pt_lepmva_mask,
-                1,
-                lepmva_vals_down,
-            )
-            new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
-            new_up = ak.unflatten(new_up_flat, ak.num(pt))
-            new_do = ak.unflatten(new_do_flat, ak.num(pt))
+            with telemetry_operation("topeft.AttachMuonSF.unflatten"):
+                loose_sf  = ak.unflatten(loose_sf_flat, ak.num(pt))
+            with telemetry_operation("topeft.AttachMuonSF.unflatten"):
+                loose_err = ak.unflatten(loose_err_flat, ak.num(pt))
+            loose_up = loose_sf + loose_err
+            loose_do = loose_sf - loose_err
 
-        ##Not available yet for Run3
-        #reco_loose_sf_flat = ak.where(
-        #    ~pt_mask,
-        #    1,
-        #    ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "nominal")
-        #)
-        #reco_loose_err_flat = ak.where(
-        #    ~pt_mask,
-        #    1,
-        #    ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "syst") * ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "syst") + ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "stat") * ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "stat")
-        #)
+            if "mvaTTHrun3" in muons.fields and useRun3MVA:
+                #clib integration of the lepMVA Run3 SFs
+                if year.startswith("2022"):
+                    lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
+                elif year.startswith("2023"):
+                    lepmva_json_path = topeft_path(f"data/lepMVASF/muon_mvaTTH_{year}.json.gz")
+                else:
+                    raise ValueError(f"{year} is not supported for the lepMVA SFs.")
+                with telemetry_operation("topeft.AttachMuonSF.payload_read_decompress_and_correctionset"):
+                    lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
 
-        #reco_sf = ak.unflatten(reco_sf_flat, ak.num(pt))
-        #reco_err = ak.unflatten(reco_err_flat, ak.num(pt))
-        #reco_up = reco_sf + reco_err
-        #reco_do = reco_sf - reco_err
-        #reco_loose_sf = ak.unflatten(reco_loose_sf_flat, ak.num(pt))
-        #reco_loose_err = ak.unflatten(reco_loose_err_flat, ak.num(pt))
-        #reco_loose_up = reco_loose_sf + reco_loose_err
-        #reco_loose_do = reco_loose_sf - reco_loose_err
+                #lep mva SFs in clib format
+                minpt = 15.0
+                maxpt = 500.
+                pt_mask_low = (pt_flat > minpt)
+                pt_mask_hi = (pt_flat < maxpt)
+                pt_lepmva_mask = pt_mask_low & pt_mask_hi
+                pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt_flat)
+                pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
+                pt_lepmva_flat = pt_masked
 
-    #Run2+Run3 implementation
-    muons['sf_nom_2l_muon'] = new_sf * reco_loose_sf * iso_sf
-    muons['sf_hi_2l_muon']  = new_up * reco_loose_up * iso_up
-    muons['sf_lo_2l_muon']  = new_do * reco_loose_do * iso_do
-    muons['sf_nom_3l_muon'] = new_sf * reco_loose_sf * iso_sf
-    muons['sf_hi_3l_muon']  = new_up * reco_loose_up * iso_up
-    muons['sf_lo_3l_muon']  = new_do * reco_loose_do * iso_do
-    muons['sf_nom_2l_muon_mva'] = new_sf
-    muons['sf_hi_2l_muon_mva'] = new_up
-    muons['sf_lo_2l_muon_mva'] = new_do
-    muons['sf_nom_3l_muon_mva'] = new_sf
-    muons['sf_hi_3l_muon_mva'] = new_up
-    muons['sf_lo_3l_muon_mva'] = new_do
-    muons['sf_nom_2l_muon_non_mva'] = reco_loose_sf * iso_sf
-    muons['sf_hi_2l_muon_non_mva'] = reco_loose_up * iso_up
-    muons['sf_lo_2l_muon_non_mva'] = reco_loose_do * iso_do
-    muons['sf_nom_3l_muon_non_mva'] = reco_loose_sf * iso_sf
-    muons['sf_hi_3l_muon_non_mva'] = reco_loose_up * iso_up
-    muons['sf_lo_3l_muon_non_mva'] = reco_loose_do * iso_do
-    muons['sf_nom_2l_elec'] = ak.ones_like(new_sf)
-    muons['sf_hi_2l_elec']  = ak.ones_like(new_sf)
-    muons['sf_lo_2l_elec']  = ak.ones_like(new_sf)
-    muons['sf_nom_3l_elec'] = ak.ones_like(new_sf)
-    muons['sf_hi_3l_elec']  = ak.ones_like(new_sf)
-    muons['sf_lo_3l_elec']  = ak.ones_like(new_sf)
-    for field in (
-        'sf_nom_2l_elec_mva', 'sf_hi_2l_elec_mva', 'sf_lo_2l_elec_mva',
-        'sf_nom_3l_elec_mva', 'sf_hi_3l_elec_mva', 'sf_lo_3l_elec_mva',
-        'sf_nom_2l_elec_non_mva', 'sf_hi_2l_elec_non_mva',
-        'sf_lo_2l_elec_non_mva', 'sf_nom_3l_elec_non_mva',
-        'sf_hi_3l_elec_non_mva', 'sf_lo_3l_elec_non_mva',
-    ):
-        muons[field] = ak.ones_like(new_sf)
+                if year.startswith("2022"):
+                    muo_tag  = "mu_allflavor"
+                    lepmva_vals_nom = _evaluate_correctionlib(
+                        lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "", pdgid_flat
+                    )
+                    lepmva_vals_up = _evaluate_correctionlib(
+                        lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "_muup", pdgid_flat
+                    )
+                    lepmva_vals_down = _evaluate_correctionlib(
+                        lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "_mudn", pdgid_flat
+                    )
+                elif year.startswith("2023"):
+                    muo_tag = "NUM_TightmvaTTH_DEN_LooseMuons"
+                    lepmva_vals_nom = _evaluate_correctionlib(
+                        lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "nominal"
+                    )
+                    lepmva_vals_up = _evaluate_correctionlib(
+                        lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "systup"
+                    )
+                    lepmva_vals_down = _evaluate_correctionlib(
+                        lepmva_ceval[muo_tag], abseta_flat, pt_lepmva_flat, "systdown"
+                    )
+
+                new_sf_flat = ak.where(
+                    ~pt_lepmva_mask,
+                    1,
+                    lepmva_vals_nom,
+                )
+                new_up_flat = ak.where(
+                    ~pt_lepmva_mask,
+                    1,
+                    lepmva_vals_up,
+                )
+                new_do_flat = ak.where(
+                    ~pt_lepmva_mask,
+                    1,
+                    lepmva_vals_down,
+                )
+                with telemetry_operation("topeft.AttachMuonSF.unflatten"):
+                    new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
+                with telemetry_operation("topeft.AttachMuonSF.unflatten"):
+                    new_up = ak.unflatten(new_up_flat, ak.num(pt))
+                with telemetry_operation("topeft.AttachMuonSF.unflatten"):
+                    new_do = ak.unflatten(new_do_flat, ak.num(pt))
+
+            ##Not available yet for Run3
+            #reco_loose_sf_flat = ak.where(
+            #    ~pt_mask,
+            #    1,
+            #    ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "nominal")
+            #)
+            #reco_loose_err_flat = ak.where(
+            #    ~pt_mask,
+            #    1,
+            #    ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "syst") * ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "syst") + ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "stat") * ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "stat")
+            #)
+
+            #reco_sf = ak.unflatten(reco_sf_flat, ak.num(pt))
+            #reco_err = ak.unflatten(reco_err_flat, ak.num(pt))
+            #reco_up = reco_sf + reco_err
+            #reco_do = reco_sf - reco_err
+            #reco_loose_sf = ak.unflatten(reco_loose_sf_flat, ak.num(pt))
+            #reco_loose_err = ak.unflatten(reco_loose_err_flat, ak.num(pt))
+            #reco_loose_up = reco_loose_sf + reco_loose_err
+            #reco_loose_do = reco_loose_sf - reco_loose_err
+
+        #Run2+Run3 implementation
+        muons['sf_nom_2l_muon'] = new_sf * reco_loose_sf * iso_sf
+        muons['sf_hi_2l_muon']  = new_up * reco_loose_up * iso_up
+        muons['sf_lo_2l_muon']  = new_do * reco_loose_do * iso_do
+        muons['sf_nom_3l_muon'] = new_sf * reco_loose_sf * iso_sf
+        muons['sf_hi_3l_muon']  = new_up * reco_loose_up * iso_up
+        muons['sf_lo_3l_muon']  = new_do * reco_loose_do * iso_do
+        muons['sf_nom_2l_muon_mva'] = new_sf
+        muons['sf_hi_2l_muon_mva'] = new_up
+        muons['sf_lo_2l_muon_mva'] = new_do
+        muons['sf_nom_3l_muon_mva'] = new_sf
+        muons['sf_hi_3l_muon_mva'] = new_up
+        muons['sf_lo_3l_muon_mva'] = new_do
+        muons['sf_nom_2l_muon_non_mva'] = reco_loose_sf * iso_sf
+        muons['sf_hi_2l_muon_non_mva'] = reco_loose_up * iso_up
+        muons['sf_lo_2l_muon_non_mva'] = reco_loose_do * iso_do
+        muons['sf_nom_3l_muon_non_mva'] = reco_loose_sf * iso_sf
+        muons['sf_hi_3l_muon_non_mva'] = reco_loose_up * iso_up
+        muons['sf_lo_3l_muon_non_mva'] = reco_loose_do * iso_do
+        muons['sf_nom_2l_elec'] = ak.ones_like(new_sf)
+        muons['sf_hi_2l_elec']  = ak.ones_like(new_sf)
+        muons['sf_lo_2l_elec']  = ak.ones_like(new_sf)
+        muons['sf_nom_3l_elec'] = ak.ones_like(new_sf)
+        muons['sf_hi_3l_elec']  = ak.ones_like(new_sf)
+        muons['sf_lo_3l_elec']  = ak.ones_like(new_sf)
+        for field in (
+            'sf_nom_2l_elec_mva', 'sf_hi_2l_elec_mva', 'sf_lo_2l_elec_mva',
+            'sf_nom_3l_elec_mva', 'sf_hi_3l_elec_mva', 'sf_lo_3l_elec_mva',
+            'sf_nom_2l_elec_non_mva', 'sf_hi_2l_elec_non_mva',
+            'sf_lo_2l_elec_non_mva', 'sf_nom_3l_elec_non_mva',
+            'sf_hi_3l_elec_non_mva', 'sf_lo_3l_elec_non_mva',
+        ):
+            muons[field] = ak.ones_like(new_sf)
 
 def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
     '''
@@ -1727,261 +1782,285 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
           values correspond to the nominal, up, and down electron scalefactor values respectively.
     '''
 
-    if looseWP is None:
-        raise ValueError('when calling AttachElectronSF, a looseWP value must be provided according to the ele ID isPres selection')
+    with telemetry_operation("topeft.AttachElectronSF.total"):
+        if looseWP is None:
+            raise ValueError('when calling AttachElectronSF, a looseWP value must be provided according to the ele ID isPres selection')
 
-    is_run3 = False
-    if year.startswith("202"):
-        is_run3 = True
-    is_run2 = not is_run3
-    dt_era = "Run3" if is_run3 else "Run2"
+        is_run3 = False
+        if year.startswith("202"):
+            is_run3 = True
+        is_run2 = not is_run3
+        dt_era = "Run3" if is_run3 else "Run2"
 
-    eta = electrons.eta
-    pt = electrons.pt
-    phi = electrons.phi
-    pdgid = abs(electrons.pdgId)
+        eta = electrons.eta
+        pt = electrons.pt
+        phi = electrons.phi
+        pdgid = abs(electrons.pdgId)
 
-    #initializing the sf and up/down array to 1, so they are fixed to unit values if the a given SF is not available yet
-    ## Run2 and Run3
-    reco_sf = ak.ones_like(pt)
-    reco_up = ak.ones_like(pt)
-    reco_do = ak.ones_like(pt)
-    loose_sf = ak.ones_like(pt)
-    loose_up = ak.ones_like(pt)
-    loose_do = ak.ones_like(pt)
-    new_sf_2l = ak.ones_like(pt)
-    new_up_2l = ak.ones_like(pt)
-    new_do_2l = ak.ones_like(pt)
-    new_sf_3l = ak.ones_like(pt)
-    new_up_3l = ak.ones_like(pt)
-    new_do_3l = ak.ones_like(pt)
-    iso_sf = ak.ones_like(pt)
-    iso_up = ak.ones_like(pt)
-    iso_do = ak.ones_like(pt)
+        #initializing the sf and up/down array to 1, so they are fixed to unit values if the a given SF is not available yet
+        ## Run2 and Run3
+        reco_sf = ak.ones_like(pt)
+        reco_up = ak.ones_like(pt)
+        reco_do = ak.ones_like(pt)
+        loose_sf = ak.ones_like(pt)
+        loose_up = ak.ones_like(pt)
+        loose_do = ak.ones_like(pt)
+        new_sf_2l = ak.ones_like(pt)
+        new_up_2l = ak.ones_like(pt)
+        new_do_2l = ak.ones_like(pt)
+        new_sf_3l = ak.ones_like(pt)
+        new_up_3l = ak.ones_like(pt)
+        new_do_3l = ak.ones_like(pt)
+        iso_sf = ak.ones_like(pt)
+        iso_up = ak.ones_like(pt)
+        iso_do = ak.ones_like(pt)
 
-    if year not in clib_year_map.keys():
-        raise Exception(f"Error: Unknown year \"{year}\".")
+        if year not in clib_year_map.keys():
+            raise Exception(f"Error: Unknown year \"{year}\".")
 
-    clib_year = clib_year_map[year]
-    json_path = topcoffea_path(f"data/POG/EGM/{clib_year}/electron.json.gz")
-    ceval = correctionlib.CorrectionSet.from_file(json_path)
+        clib_year = clib_year_map[year]
+        json_path = topcoffea_path(f"data/POG/EGM/{clib_year}/electron.json.gz")
+        with telemetry_operation("topeft.AttachElectronSF.payload_read_decompress_and_correctionset"):
+            ceval = correctionlib.CorrectionSet.from_file(json_path)
 
-    eta_flat   = ak.flatten(eta)
-    pt_flat    = ak.flatten(pt)
-    phi_flat   = ak.flatten(phi)
-    pdgid_flat = ak.flatten(pdgid)
+        with telemetry_operation("topeft.AttachElectronSF.conversion_and_flatten"):
+            eta_flat   = ak.flatten(eta)
+        with telemetry_operation("topeft.AttachElectronSF.conversion_and_flatten"):
+            pt_flat    = ak.flatten(pt)
+        with telemetry_operation("topeft.AttachElectronSF.conversion_and_flatten"):
+            phi_flat   = ak.flatten(phi)
+        with telemetry_operation("topeft.AttachElectronSF.conversion_and_flatten"):
+            pdgid_flat = ak.flatten(pdgid)
 
-    pt_bins = egm_pt_bins[dt_era]
+        pt_bins = egm_pt_bins[dt_era]
 
-    reco_sf_perbin = []
-    reco_up_perbin = []
-    reco_do_perbin = []
+        reco_sf_perbin = []
+        reco_up_perbin = []
+        reco_do_perbin = []
 
-    egm_year = egm_tag_map[clib_year]
-    egm_tag = "Electron-ID-SF"
-    if is_run2:
-        egm_tag = "UL-" + "Electron-ID-SF"
+        egm_year = egm_tag_map[clib_year]
+        egm_tag = "Electron-ID-SF"
+        if is_run2:
+            egm_tag = "UL-" + "Electron-ID-SF"
 
-    for bintag, bin_edges in pt_bins.items():
-        pt_mask = ak.flatten((pt >= bin_edges[0]) & (pt < bin_edges[1]))
-        pt_bin_flat = ak.where(~pt_mask, bin_edges[1]-0.1, pt_flat)
-        egm_args = [bintag, eta_flat, pt_bin_flat]
-        if "2023" in year:
-            egm_args.append(phi_flat)
-        reco_sf_perbin.append(
-            ak.where(
-                ~pt_mask,
-                1,
-                _evaluate_correctionlib(ceval[egm_tag], egm_year, "sf", *egm_args)
-            )
-        )
-        reco_up_perbin.append(
-            ak.where(
-                ~pt_mask,
-                1,
-                _evaluate_correctionlib(ceval[egm_tag], egm_year, "sfup", *egm_args)
-            )
-        )
-        reco_do_perbin.append(
-            ak.where(
-                ~pt_mask,
-                1,
-                _evaluate_correctionlib(ceval[egm_tag], egm_year, "sfdown", *egm_args)
-            )
-        )
-
-    reco_sf_flat = None
-    reco_up_flat = None
-    reco_do_flat = None
-
-    for idr, reco_sf_bin_flat in enumerate(reco_sf_perbin):
-        reco_sf_bin_flat = ak.to_numpy(reco_sf_bin_flat)
-        reco_up_bin_flat = ak.to_numpy(reco_up_perbin[idr])
-        reco_do_bin_flat = ak.to_numpy(reco_do_perbin[idr])
-        if idr == 0:
-            reco_sf_flat = reco_sf_bin_flat
-            reco_up_flat = reco_up_bin_flat
-            reco_do_flat = reco_do_bin_flat
-        else:
-            reco_sf_flat *= reco_sf_bin_flat
-            reco_up_flat *= reco_up_bin_flat
-            reco_do_flat *= reco_do_bin_flat
-
-    reco_sf = ak.unflatten(reco_sf_flat, ak.num(pt))
-    reco_up = ak.unflatten(reco_up_flat, ak.num(pt))
-    reco_do = ak.unflatten(reco_do_flat, ak.num(pt))
-
-    if is_run3:
-        if looseWP != "none":
-            loose_sf_flat = None
-            loose_up_flat = None
-            loose_do_flat = None
-            pt_mask = ak.flatten((pt >= 10))
-            egm_args = [eta_flat, pt_bin_flat]
+        for bintag, bin_edges in pt_bins.items():
+            with telemetry_operation("topeft.AttachElectronSF.conversion_and_flatten"):
+                pt_mask = ak.flatten((pt >= bin_edges[0]) & (pt < bin_edges[1]))
+            pt_bin_flat = ak.where(~pt_mask, bin_edges[1]-0.1, pt_flat)
+            egm_args = [bintag, eta_flat, pt_bin_flat]
             if "2023" in year:
                 egm_args.append(phi_flat)
-            loose_sf_flat = ak.where(
-                ~pt_mask,
-                1,
-                ceval[egm_tag].evaluate(egm_year, "sf", looseWP, *egm_args)
+            reco_sf_perbin.append(
+                ak.where(
+                    ~pt_mask,
+                    1,
+                    _evaluate_correctionlib(ceval[egm_tag], egm_year, "sf", *egm_args)
+                )
             )
-            loose_up_flat = ak.where(
-                ~pt_mask,
-                1,
-                ceval[egm_tag].evaluate(egm_year, "sfup", looseWP, *egm_args)
+            reco_up_perbin.append(
+                ak.where(
+                    ~pt_mask,
+                    1,
+                    _evaluate_correctionlib(ceval[egm_tag], egm_year, "sfup", *egm_args)
+                )
             )
-            loose_do_flat = ak.where(
-                ~pt_mask,
-                1,
-                ceval[egm_tag].evaluate(egm_year, "sfdown", looseWP, *egm_args)
+            reco_do_perbin.append(
+                ak.where(
+                    ~pt_mask,
+                    1,
+                    _evaluate_correctionlib(ceval[egm_tag], egm_year, "sfdown", *egm_args)
+                )
             )
-            loose_sf = ak.unflatten(loose_sf_flat, ak.num(pt))
-            loose_up = ak.unflatten(loose_up_flat, ak.num(pt))
-            loose_do = ak.unflatten(loose_do_flat, ak.num(pt))
-        else:
-            loose_sf = ak.ones_like(reco_sf)
-            loose_up = ak.ones_like(reco_sf)
-            loose_do = ak.ones_like(reco_sf)
 
-        if "mvaTTHrun3" in electrons.fields and useRun3MVA:
-            #clib integration of the lepMVA Run3 SFs
-            if year.startswith("2022"):
-                lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
-            elif year.startswith("2023"):
-                lepmva_json_path = topeft_path(f"data/lepMVASF/electron_mvaTTH_{year}.json.gz")
+        reco_sf_flat = None
+        reco_up_flat = None
+        reco_do_flat = None
+
+        for idr, reco_sf_bin_flat in enumerate(reco_sf_perbin):
+            with telemetry_operation("topeft.AttachElectronSF.conversion_and_flatten"):
+                reco_sf_bin_flat = ak.to_numpy(reco_sf_bin_flat)
+            with telemetry_operation("topeft.AttachElectronSF.conversion_and_flatten"):
+                reco_up_bin_flat = ak.to_numpy(reco_up_perbin[idr])
+            with telemetry_operation("topeft.AttachElectronSF.conversion_and_flatten"):
+                reco_do_bin_flat = ak.to_numpy(reco_do_perbin[idr])
+            if idr == 0:
+                reco_sf_flat = reco_sf_bin_flat
+                reco_up_flat = reco_up_bin_flat
+                reco_do_flat = reco_do_bin_flat
             else:
-                raise ValueError(f"{year} is not supported for the lepMVA SFs.")
-            lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
+                reco_sf_flat *= reco_sf_bin_flat
+                reco_up_flat *= reco_up_bin_flat
+                reco_do_flat *= reco_do_bin_flat
 
-            minpt = 15.0
-            maxpt = 500.
-            pt_mask_low = (pt_flat > minpt)
-            pt_mask_hi = (pt_flat < maxpt)
-            pt_lepmva_mask = pt_mask_low & pt_mask_hi
-            pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt_flat)
-            pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
-            pt_lepmva_flat = pt_masked
+        with telemetry_operation("topeft.AttachElectronSF.unflatten"):
+            reco_sf = ak.unflatten(reco_sf_flat, ak.num(pt))
+        with telemetry_operation("topeft.AttachElectronSF.unflatten"):
+            reco_up = ak.unflatten(reco_up_flat, ak.num(pt))
+        with telemetry_operation("topeft.AttachElectronSF.unflatten"):
+            reco_do = ak.unflatten(reco_do_flat, ak.num(pt))
 
-            if year.startswith("2022"):
-                egm_tag  = "el_allflavor"
-                lepmva_vals_nom = _evaluate_correctionlib(
-                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "", pdgid_flat
+        if is_run3:
+            if looseWP != "none":
+                loose_sf_flat = None
+                loose_up_flat = None
+                loose_do_flat = None
+                with telemetry_operation("topeft.AttachElectronSF.conversion_and_flatten"):
+                    pt_mask = ak.flatten((pt >= 10))
+                egm_args = [eta_flat, pt_bin_flat]
+                if "2023" in year:
+                    egm_args.append(phi_flat)
+                with telemetry_operation("topeft.AttachElectronSF.evaluate"):
+                    loose_sf_flat = ak.where(
+                        ~pt_mask,
+                        1,
+                        ceval[egm_tag].evaluate(egm_year, "sf", looseWP, *egm_args)
+                    )
+                with telemetry_operation("topeft.AttachElectronSF.evaluate"):
+                    loose_up_flat = ak.where(
+                        ~pt_mask,
+                        1,
+                        ceval[egm_tag].evaluate(egm_year, "sfup", looseWP, *egm_args)
+                    )
+                with telemetry_operation("topeft.AttachElectronSF.evaluate"):
+                    loose_do_flat = ak.where(
+                        ~pt_mask,
+                        1,
+                        ceval[egm_tag].evaluate(egm_year, "sfdown", looseWP, *egm_args)
+                    )
+                with telemetry_operation("topeft.AttachElectronSF.unflatten"):
+                    loose_sf = ak.unflatten(loose_sf_flat, ak.num(pt))
+                with telemetry_operation("topeft.AttachElectronSF.unflatten"):
+                    loose_up = ak.unflatten(loose_up_flat, ak.num(pt))
+                with telemetry_operation("topeft.AttachElectronSF.unflatten"):
+                    loose_do = ak.unflatten(loose_do_flat, ak.num(pt))
+            else:
+                loose_sf = ak.ones_like(reco_sf)
+                loose_up = ak.ones_like(reco_sf)
+                loose_do = ak.ones_like(reco_sf)
+
+            if "mvaTTHrun3" in electrons.fields and useRun3MVA:
+                #clib integration of the lepMVA Run3 SFs
+                if year.startswith("2022"):
+                    lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
+                elif year.startswith("2023"):
+                    lepmva_json_path = topeft_path(f"data/lepMVASF/electron_mvaTTH_{year}.json.gz")
+                else:
+                    raise ValueError(f"{year} is not supported for the lepMVA SFs.")
+                with telemetry_operation("topeft.AttachElectronSF.payload_read_decompress_and_correctionset"):
+                    lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
+
+                minpt = 15.0
+                maxpt = 500.
+                pt_mask_low = (pt_flat > minpt)
+                pt_mask_hi = (pt_flat < maxpt)
+                pt_lepmva_mask = pt_mask_low & pt_mask_hi
+                pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt_flat)
+                pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
+                pt_lepmva_flat = pt_masked
+
+                if year.startswith("2022"):
+                    egm_tag  = "el_allflavor"
+                    lepmva_vals_nom = _evaluate_correctionlib(
+                        lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "", pdgid_flat
+                    )
+                    lepmva_vals_up = _evaluate_correctionlib(
+                        lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "_elup", pdgid_flat
+                    )
+                    lepmva_vals_down = _evaluate_correctionlib(
+                        lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "_eldn", pdgid_flat
+                    )
+                elif year.startswith("2023"):
+                    egm_tag = "NUM_TightmvaTTH_DEN_LooseElectrons"
+                    lepmva_vals_nom = _evaluate_correctionlib(
+                        lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "nominal"
+                    )
+                    lepmva_vals_up = _evaluate_correctionlib(
+                        lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "systup"
+                    )
+                    lepmva_vals_down = _evaluate_correctionlib(
+                        lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "systdown"
+                    )
+
+                new_sf_flat = ak.where(
+                    ~pt_lepmva_mask,
+                    1,
+                    lepmva_vals_nom,
                 )
-                lepmva_vals_up = _evaluate_correctionlib(
-                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "_elup", pdgid_flat
+                new_up_flat = ak.where(
+                    ~pt_lepmva_mask,
+                    1,
+                    lepmva_vals_up,
                 )
-                lepmva_vals_down = _evaluate_correctionlib(
-                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "_eldn", pdgid_flat
+                new_do_flat = ak.where(
+                    ~pt_lepmva_mask,
+                    1,
+                    lepmva_vals_down,
                 )
-            elif year.startswith("2023"):
-                egm_tag = "NUM_TightmvaTTH_DEN_LooseElectrons"
-                lepmva_vals_nom = _evaluate_correctionlib(
-                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "nominal"
-                )
-                lepmva_vals_up = _evaluate_correctionlib(
-                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "systup"
-                )
-                lepmva_vals_down = _evaluate_correctionlib(
-                    lepmva_ceval[egm_tag], abs(eta_flat), pt_lepmva_flat, "systdown"
-                )
+                with telemetry_operation("topeft.AttachElectronSF.unflatten"):
+                    new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
+                with telemetry_operation("topeft.AttachElectronSF.unflatten"):
+                    new_up = ak.unflatten(new_up_flat, ak.num(pt))
+                with telemetry_operation("topeft.AttachElectronSF.unflatten"):
+                    new_do = ak.unflatten(new_do_flat, ak.num(pt))
+                new_sf_2l = new_sf
+                new_up_2l = new_up
+                new_do_2l = new_do
+                new_sf_3l = new_sf
+                new_up_3l = new_up
+                new_do_3l = new_do
 
-            new_sf_flat = ak.where(
-                ~pt_lepmva_mask,
-                1,
-                lepmva_vals_nom,
-            )
-            new_up_flat = ak.where(
-                ~pt_lepmva_mask,
-                1,
-                lepmva_vals_up,
-            )
-            new_do_flat = ak.where(
-                ~pt_lepmva_mask,
-                1,
-                lepmva_vals_down,
-            )
-            new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
-            new_up = ak.unflatten(new_up_flat, ak.num(pt))
-            new_do = ak.unflatten(new_do_flat, ak.num(pt))
-            new_sf_2l = new_sf
-            new_up_2l = new_up
-            new_do_2l = new_do
-            new_sf_3l = new_sf
-            new_up_3l = new_up
-            new_do_3l = new_do
+        else:
+            loose_sf  = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
+            loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
+            loose_up = loose_sf + loose_err
+            loose_do = loose_sf - loose_err
 
-    else:
-        loose_sf  = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
-        loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
-        loose_up = loose_sf + loose_err
-        loose_do = loose_sf - loose_err
+            new_sf_2l  = SFevaluator['ElecSF_{year}_2lss'.format(year=year)](np.abs(eta),pt)
+            new_err_2l = SFevaluator['ElecSF_{year}_2lss_er'.format(year=year)](np.abs(eta),pt)
+            new_up_2l = new_sf_2l + new_err_2l
+            new_do_2l = new_sf_2l - new_err_2l
+            new_sf_3l  = SFevaluator['ElecSF_{year}_3l'.format(year=year)](np.abs(eta),pt)
+            new_err_3l = SFevaluator['ElecSF_{year}_3l_er'.format(year=year)](np.abs(eta),pt)
+            new_up_3l = new_sf_3l + new_err_3l
+            new_do_3l = new_sf_3l - new_err_3l
 
-        new_sf_2l  = SFevaluator['ElecSF_{year}_2lss'.format(year=year)](np.abs(eta),pt)
-        new_err_2l = SFevaluator['ElecSF_{year}_2lss_er'.format(year=year)](np.abs(eta),pt)
-        new_up_2l = new_sf_2l + new_err_2l
-        new_do_2l = new_sf_2l - new_err_2l
-        new_sf_3l  = SFevaluator['ElecSF_{year}_3l'.format(year=year)](np.abs(eta),pt)
-        new_err_3l = SFevaluator['ElecSF_{year}_3l_er'.format(year=year)](np.abs(eta),pt)
-        new_up_3l = new_sf_3l + new_err_3l
-        new_do_3l = new_sf_3l - new_err_3l
+            iso_sf  = SFevaluator['ElecIsoSF_{year}'.format(year=year)](np.abs(eta),pt)
+            iso_err = SFevaluator['ElecIsoSF_{year}_er'.format(year=year)](np.abs(eta),pt)
+            iso_up = iso_sf + iso_err
+            iso_do = iso_sf - iso_err
 
-        iso_sf  = SFevaluator['ElecIsoSF_{year}'.format(year=year)](np.abs(eta),pt)
-        iso_err = SFevaluator['ElecIsoSF_{year}_er'.format(year=year)](np.abs(eta),pt)
-        iso_up = iso_sf + iso_err
-        iso_do = iso_sf - iso_err
-
-    electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf * iso_sf
-    electrons['sf_hi_2l_elec']  = (reco_up) * new_up_2l * loose_up * iso_up
-    electrons['sf_lo_2l_elec']  = (reco_do) * new_do_2l * loose_do * iso_do
-    electrons['sf_nom_3l_elec'] = reco_sf * new_sf_3l * loose_sf * iso_sf
-    electrons['sf_hi_3l_elec']  = (reco_up) * new_up_3l * loose_up * iso_up
-    electrons['sf_lo_3l_elec']  = (reco_do) * new_do_3l * loose_do * iso_do
-    electrons['sf_nom_2l_elec_mva'] = new_sf_2l
-    electrons['sf_hi_2l_elec_mva'] = new_up_2l
-    electrons['sf_lo_2l_elec_mva'] = new_do_2l
-    electrons['sf_nom_3l_elec_mva'] = new_sf_3l
-    electrons['sf_hi_3l_elec_mva'] = new_up_3l
-    electrons['sf_lo_3l_elec_mva'] = new_do_3l
-    electrons['sf_nom_2l_elec_non_mva'] = reco_sf * loose_sf * iso_sf
-    electrons['sf_hi_2l_elec_non_mva'] = reco_up * loose_up * iso_up
-    electrons['sf_lo_2l_elec_non_mva'] = reco_do * loose_do * iso_do
-    electrons['sf_nom_3l_elec_non_mva'] = reco_sf * loose_sf * iso_sf
-    electrons['sf_hi_3l_elec_non_mva'] = reco_up * loose_up * iso_up
-    electrons['sf_lo_3l_elec_non_mva'] = reco_do * loose_do * iso_do
-    electrons['sf_nom_2l_muon'] = ak.ones_like(reco_sf)
-    electrons['sf_hi_2l_muon']  = ak.ones_like(reco_sf)
-    electrons['sf_lo_2l_muon']  = ak.ones_like(reco_sf)
-    electrons['sf_nom_3l_muon'] = ak.ones_like(reco_sf)
-    electrons['sf_hi_3l_muon']  = ak.ones_like(reco_sf)
-    electrons['sf_lo_3l_muon']  = ak.ones_like(reco_sf)
-    for field in (
-        'sf_nom_2l_muon_mva', 'sf_hi_2l_muon_mva', 'sf_lo_2l_muon_mva',
-        'sf_nom_3l_muon_mva', 'sf_hi_3l_muon_mva', 'sf_lo_3l_muon_mva',
-        'sf_nom_2l_muon_non_mva', 'sf_hi_2l_muon_non_mva',
-        'sf_lo_2l_muon_non_mva', 'sf_nom_3l_muon_non_mva',
-        'sf_hi_3l_muon_non_mva', 'sf_lo_3l_muon_non_mva',
-    ):
-        electrons[field] = ak.ones_like(reco_sf)
+        electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf * iso_sf
+        electrons['sf_hi_2l_elec']  = (reco_up) * new_up_2l * loose_up * iso_up
+        electrons['sf_lo_2l_elec']  = (reco_do) * new_do_2l * loose_do * iso_do
+        electrons['sf_nom_3l_elec'] = reco_sf * new_sf_3l * loose_sf * iso_sf
+        electrons['sf_hi_3l_elec']  = (reco_up) * new_up_3l * loose_up * iso_up
+        electrons['sf_lo_3l_elec']  = (reco_do) * new_do_3l * loose_do * iso_do
+        electrons['sf_nom_2l_elec_mva'] = new_sf_2l
+        electrons['sf_hi_2l_elec_mva'] = new_up_2l
+        electrons['sf_lo_2l_elec_mva'] = new_do_2l
+        electrons['sf_nom_3l_elec_mva'] = new_sf_3l
+        electrons['sf_hi_3l_elec_mva'] = new_up_3l
+        electrons['sf_lo_3l_elec_mva'] = new_do_3l
+        electrons['sf_nom_2l_elec_non_mva'] = reco_sf * loose_sf * iso_sf
+        electrons['sf_hi_2l_elec_non_mva'] = reco_up * loose_up * iso_up
+        electrons['sf_lo_2l_elec_non_mva'] = reco_do * loose_do * iso_do
+        electrons['sf_nom_3l_elec_non_mva'] = reco_sf * loose_sf * iso_sf
+        electrons['sf_hi_3l_elec_non_mva'] = reco_up * loose_up * iso_up
+        electrons['sf_lo_3l_elec_non_mva'] = reco_do * loose_do * iso_do
+        electrons['sf_nom_2l_muon'] = ak.ones_like(reco_sf)
+        electrons['sf_hi_2l_muon']  = ak.ones_like(reco_sf)
+        electrons['sf_lo_2l_muon']  = ak.ones_like(reco_sf)
+        electrons['sf_nom_3l_muon'] = ak.ones_like(reco_sf)
+        electrons['sf_hi_3l_muon']  = ak.ones_like(reco_sf)
+        electrons['sf_lo_3l_muon']  = ak.ones_like(reco_sf)
+        for field in (
+            'sf_nom_2l_muon_mva', 'sf_hi_2l_muon_mva', 'sf_lo_2l_muon_mva',
+            'sf_nom_3l_muon_mva', 'sf_hi_3l_muon_mva', 'sf_lo_3l_muon_mva',
+            'sf_nom_2l_muon_non_mva', 'sf_hi_2l_muon_non_mva',
+            'sf_lo_2l_muon_non_mva', 'sf_nom_3l_muon_non_mva',
+            'sf_hi_3l_muon_non_mva', 'sf_lo_3l_muon_non_mva',
+        ):
+            electrons[field] = ak.ones_like(reco_sf)
 
 def AttachElectronCorrections(electrons, run, year, isData=False):
     """
@@ -1989,100 +2068,119 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
     """
 
     # Common electron vars
-    pt    = electrons.pt
-    eta   = electrons.deltaEtaSC
-    r9    = electrons.r9
-    gain  = electrons.seedGain
-    absEta = abs(eta)
+    with telemetry_operation("topeft.AttachElectronCorrections.total"):
+        pt    = electrons.pt
+        eta   = electrons.deltaEtaSC
+        r9    = electrons.r9
+        gain  = electrons.seedGain
+        absEta = abs(eta)
 
-    if year not in clib_year_map.keys() and not year.startswith("202"):
-        raise Exception(f"Error: Unknown year \"{year}\".")
+        if year not in clib_year_map.keys() and not year.startswith("202"):
+            raise Exception(f"Error: Unknown year \"{year}\".")
 
-    clib_year = clib_year_map[year]
-    scale_json = topcoffea_path(f"data/POG/EGM/{clib_year}/electronSS_EtDependent.json.gz")
-    smear_json = scale_json  # same file
+        clib_year = clib_year_map[year]
+        scale_json = topcoffea_path(f"data/POG/EGM/{clib_year}/electronSS_EtDependent.json.gz")
+        smear_json = scale_json  # same file
 
-    # Load correction sets
-    cset_scale = correctionlib.CorrectionSet.from_file(scale_json)
-    cset_smear = correctionlib.CorrectionSet.from_file(smear_json)
+        # Load correction sets
+        with telemetry_operation("topeft.AttachElectronCorrections.payload_read_decompress_and_correctionset"):
+            cset_scale = correctionlib.CorrectionSet.from_file(scale_json)
+        with telemetry_operation("topeft.AttachElectronCorrections.payload_read_decompress_and_correctionset"):
+            cset_smear = correctionlib.CorrectionSet.from_file(smear_json)
 
-    et_tag = egm_et_map[clib_year]
-    # Data: only scale
-    if isData:
-        scale_eval = cset_scale.compound[f"EGMScale_Compound_Ele_{et_tag}"]
-        # flatten arrays for evaluation
-        pt_flat = ak.flatten(pt)
-        sceta_flat = ak.flatten(eta)
-        r9_flat = ak.flatten(r9)
-        gain_flat = ak.flatten(gain)
-        absEta_flat = ak.flatten(absEta)
+        et_tag = egm_et_map[clib_year]
+        # Data: only scale
+        if isData:
+            scale_eval = cset_scale.compound[f"EGMScale_Compound_Ele_{et_tag}"]
+            # flatten arrays for evaluation
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                pt_flat = ak.flatten(pt)
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                sceta_flat = ak.flatten(eta)
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                r9_flat = ak.flatten(r9)
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                gain_flat = ak.flatten(gain)
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                absEta_flat = ak.flatten(absEta)
 
-        # have a 'run' array with the same structure as electrons.pt, then flatten it
-        run_per_electron = ak.full_like(pt, 1, dtype=int) * run
-        run_flat = ak.flatten(run_per_electron)
+            # have a 'run' array with the same structure as electrons.pt, then flatten it
+            run_per_electron = ak.full_like(pt, 1, dtype=int) * run
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                run_flat = ak.flatten(run_per_electron)
 
-        scale_flat = _evaluate_correctionlib(
-            scale_eval,
-            "scale",
-            run_flat,
-            sceta_flat,
-            r9_flat,
-            absEta_flat,
-            pt_flat,
-            gain_flat
-        )
-        # re‐nest to original jagged structure
-        electrons["pt_raw"] = pt
-        electrons["pt"] = ak.unflatten(scale_flat * pt_flat, ak.num(pt))
+            scale_flat = _evaluate_correctionlib(
+                scale_eval,
+                "scale",
+                run_flat,
+                sceta_flat,
+                r9_flat,
+                absEta_flat,
+                pt_flat,
+                gain_flat
+            )
+            # re‐nest to original jagged structure
+            electrons["pt_raw"] = pt
+            with telemetry_operation("topeft.AttachElectronCorrections.unflatten"):
+                electrons["pt"] = ak.unflatten(scale_flat * pt_flat, ak.num(pt))
 
-    # MC: smear + scale uncertainties
-    else:
-        # Smear
-        smear_eval = cset_smear[f"EGMSmearAndSyst_ElePTsplit_{et_tag}"]
-        pt_flat   = ak.flatten(pt)
-        r9_flat   = ak.flatten(r9)
-        sceta_flat = ak.flatten(eta)
-        absEta_flat = ak.flatten(absEta)
+        # MC: smear + scale uncertainties
+        else:
+            # Smear
+            smear_eval = cset_smear[f"EGMSmearAndSyst_ElePTsplit_{et_tag}"]
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                pt_flat   = ak.flatten(pt)
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                r9_flat   = ak.flatten(r9)
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                sceta_flat = ak.flatten(eta)
+            with telemetry_operation("topeft.AttachElectronCorrections.conversion_and_flatten"):
+                absEta_flat = ak.flatten(absEta)
 
-        # nominal smear width
-        smear_nom = _evaluate_correctionlib(
-            smear_eval, "smear", pt_flat, r9_flat, absEta_flat
-        )
-        # random numbers per event
-        rng = np.random.default_rng(12345)
-        rnd = rng.normal(size=len(pt_flat))
+            # nominal smear width
+            smear_nom = _evaluate_correctionlib(
+                smear_eval, "smear", pt_flat, r9_flat, absEta_flat
+            )
+            # random numbers per event
+            rng = np.random.default_rng(12345)
+            rnd = rng.normal(size=len(pt_flat))
 
-        pt_smeared_nom = pt_flat * (1 + smear_nom * rnd)
+            pt_smeared_nom = pt_flat * (1 + smear_nom * rnd)
 
-        # systematic up/down on smear
-        dsmear = _evaluate_correctionlib(
-            smear_eval, "esmear", pt_flat, r9_flat, absEta_flat
-        )
-        pt_smeared_up   = pt_flat * (1 + (smear_nom + dsmear) * rnd)
-        pt_smeared_down = pt_flat * (1 + (smear_nom - dsmear) * rnd)
+            # systematic up/down on smear
+            dsmear = _evaluate_correctionlib(
+                smear_eval, "esmear", pt_flat, r9_flat, absEta_flat
+            )
+            pt_smeared_up   = pt_flat * (1 + (smear_nom + dsmear) * rnd)
+            pt_smeared_down = pt_flat * (1 + (smear_nom - dsmear) * rnd)
 
-        # re‐nest
-        smeared_nom = ak.unflatten(pt_smeared_nom,   ak.num(pt))
-        smeared_up  = ak.unflatten(pt_smeared_up,    ak.num(pt))
-        smeared_dn  = ak.unflatten(pt_smeared_down, ak.num(pt))
+            # re‐nest
+            with telemetry_operation("topeft.AttachElectronCorrections.unflatten"):
+                smeared_nom = ak.unflatten(pt_smeared_nom,   ak.num(pt))
+            with telemetry_operation("topeft.AttachElectronCorrections.unflatten"):
+                smeared_up  = ak.unflatten(pt_smeared_up,    ak.num(pt))
+            with telemetry_operation("topeft.AttachElectronCorrections.unflatten"):
+                smeared_dn  = ak.unflatten(pt_smeared_down, ak.num(pt))
 
-        electrons["pt_raw"] = pt
-        electrons["pt"]  = smeared_nom
-        electrons["pt_smear_nom"]  = smeared_nom
-        electrons["pt_smear_up"]   = smeared_up
-        electrons["pt_smear_down"] = smeared_dn
+            electrons["pt_raw"] = pt
+            electrons["pt"]  = smeared_nom
+            electrons["pt_smear_nom"]  = smeared_nom
+            electrons["pt_smear_up"]   = smeared_up
+            electrons["pt_smear_down"] = smeared_dn
 
-        # 2) Scale uncertainties on the *smeared* pt
-        scale_eval = smear_eval  # same JSON holds "escale"
-        escale = _evaluate_correctionlib(
-            scale_eval, "escale", pt_flat, r9_flat, absEta_flat
-        )
+            # 2) Scale uncertainties on the *smeared* pt
+            scale_eval = smear_eval  # same JSON holds "escale"
+            escale = _evaluate_correctionlib(
+                scale_eval, "escale", pt_flat, r9_flat, absEta_flat
+            )
 
-        scale_up   = (1 + escale) * pt_smeared_nom
-        scale_down = (1 - escale) * pt_smeared_nom
+            scale_up   = (1 + escale) * pt_smeared_nom
+            scale_down = (1 - escale) * pt_smeared_nom
 
-        electrons["pt_scale_up"]   = ak.unflatten(scale_up,   ak.num(pt))
-        electrons["pt_scale_down"] = ak.unflatten(scale_down, ak.num(pt))
+            with telemetry_operation("topeft.AttachElectronCorrections.unflatten"):
+                electrons["pt_scale_up"]   = ak.unflatten(scale_up,   ak.num(pt))
+            with telemetry_operation("topeft.AttachElectronCorrections.unflatten"):
+                electrons["pt_scale_down"] = ak.unflatten(scale_down, ak.num(pt))
 
 
 ###### Btag scale factors
@@ -2091,54 +2189,59 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
 
 # MC efficiencies
 def GetMCeffFunc(year, wp='medium', btagalgo="btagDeepFlavB", flav='b'):
-    if year not in clib_year_map.keys():
-        raise Exception(f"Error: Unknown year \"{year}\".")
-    if not year.startswith("202"):
-        pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz' % year)
-    else:
-        pkltag = year[0:4]
-        if btagalgo == "btagPNetB":
-            pkltag += "_PNet"
-        pathToBtagMCeff = topeft_path(f'data/btagSF/Run3/btagMCeff_{pkltag}.pkl.gz')
+    with telemetry_operation("topeft.GetMCeffFunc.total"):
+        if year not in clib_year_map.keys():
+            raise Exception(f"Error: Unknown year \"{year}\".")
+        if not year.startswith("202"):
+            pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz' % year)
+        else:
+            pkltag = year[0:4]
+            if btagalgo == "btagPNetB":
+                pkltag += "_PNet"
+            pathToBtagMCeff = topeft_path(f'data/btagSF/Run3/btagMCeff_{pkltag}.pkl.gz')
 
-    hists = {}
-    with gzip.open(pathToBtagMCeff) as fin:
-        hin = pickle.load(fin)
-        for k in hin.keys():
-            if k in hists:
-                hists[k] += hin[k]
-            else:
-                hists[k] = hin[k]
-    h = hists['jetptetaflav']
-    hnum = h[{'WP': wp}]
-    hden = h[{'WP': 'all'}]
-    getnum = lookup_tools.dense_lookup.dense_lookup(
-        hnum.values(flow=True)[1:,1:,1:], # Strip off underflow
-        [
-            hnum.axes['pt'].edges,
-            hnum.axes['abseta'].edges,
-            hnum.axes['flav'].edges
-        ]
-    )
-    getden = lookup_tools.dense_lookup.dense_lookup(
-        hden.values(flow=True)[1:,1:,1:],
-        [
-            hden.axes['pt'].edges,
-            hnum.axes['abseta'].edges,
-            hden.axes['flav'].edges
-        ]
-    )
-    values = hnum.values(flow=True)[1:,1:,1:]
-    edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
-    fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
+        hists = {}
+        with gzip.open(pathToBtagMCeff) as fin:
+            with telemetry_operation("topeft.GetMCeffFunc.payload_read_decompress_deserialize"):
+                hin = pickle.load(fin)
+            for k in hin.keys():
+                if k in hists:
+                    hists[k] += hin[k]
+                else:
+                    hists[k] = hin[k]
+        h = hists['jetptetaflav']
+        hnum = h[{'WP': wp}]
+        hden = h[{'WP': 'all'}]
+        with telemetry_operation("topeft.GetMCeffFunc.lookup_construction"):
+            getnum = lookup_tools.dense_lookup.dense_lookup(
+                hnum.values(flow=True)[1:,1:,1:], # Strip off underflow
+                [
+                    hnum.axes['pt'].edges,
+                    hnum.axes['abseta'].edges,
+                    hnum.axes['flav'].edges
+                ]
+            )
+        with telemetry_operation("topeft.GetMCeffFunc.lookup_construction"):
+            getden = lookup_tools.dense_lookup.dense_lookup(
+                hden.values(flow=True)[1:,1:,1:],
+                [
+                    hden.axes['pt'].edges,
+                    hnum.axes['abseta'].edges,
+                    hden.axes['flav'].edges
+                ]
+            )
+        values = hnum.values(flow=True)[1:,1:,1:]
+        edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
+        fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
 
-    return fun
+        return fun
 
 def GetBtagEff(jets, year, wp='medium', btagalgo="btagDeepFlavB"):
-    if year not in clib_year_map.keys():
-        raise Exception(f"Error: Unknown year \"{year}\".")
-    result = GetMCeffFunc(year, wp, btagalgo)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
-    return result
+    with telemetry_operation("topeft.GetBtagEff.total"):
+        if year not in clib_year_map.keys():
+            raise Exception(f"Error: Unknown year \"{year}\".")
+        result = GetMCeffFunc(year, wp, btagalgo)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
+        return result
 
 def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
     if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topeft_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp)
@@ -2247,186 +2350,205 @@ def ApplyJetCorrections(
     savelevels=False,
     suppress_forward_eta_stochastic_jer=False,
 ):
-    usejecstack = not useclib
+    with telemetry_operation("topeft.ApplyJetCorrections.total"):
+        usejecstack = not useclib
 
-    if year not in clib_year_map.keys():
-        raise Exception(f"Error: Unknown year \"{year}\".")
+        if year not in clib_year_map.keys():
+            raise Exception(f"Error: Unknown year \"{year}\".")
 
-    jec_year = clib_year_map[year]
-    if usejecstack:
-        jec_tag = jerc_tag_map[year][0]
-        jer_tag = jerc_tag_map[year][1]
-        jet_algo = "AK4PFchs"
-        extJEC = lookup_tools.extractor()
-        weight_sets = []
-        if not isData:
+        jec_year = clib_year_map[year]
+        if usejecstack:
+            jec_tag = jerc_tag_map[year][0]
+            jer_tag = jerc_tag_map[year][1]
+            jet_algo = "AK4PFchs"
+            extJEC = lookup_tools.extractor()
+            weight_sets = []
+            if not isData:
+                weight_sets += [
+                    "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_SF_{jet_algo}.jersf.txt'),
+                    "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_PtResolution_{jet_algo}.jr.txt'),
+                ]
             weight_sets += [
-                "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_SF_{jet_algo}.jersf.txt'),
-                "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_PtResolution_{jet_algo}.jr.txt'),
+                "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}.txt'),
+                "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}.txt'),
             ]
-        weight_sets += [
-            "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}.txt'),
-            "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}.txt'),
-        ]
-        if not isData:
-            weight_sets += [
-                "* * " + topcoffea_path(f'data/JEC/Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}.junc.txt')
+            if not isData:
+                weight_sets += [
+                    "* * " + topcoffea_path(f'data/JEC/Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}.junc.txt')
+                ]
+            extJEC.add_weight_sets(weight_sets)
+            jec_types = [
+                'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
+                'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample'
             ]
-        extJEC.add_weight_sets(weight_sets)
-        jec_types = [
-            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-            'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample'
-        ]
-        jec_regroup = [f"Quad_Summer19UL%s_MC_UncertaintySources_{jet_algo}_%s" % (jec_tag,jec_type) for jec_type in jec_types]
-        jec_names = []
-        if not isData:
+            jec_regroup = [f"Quad_Summer19UL%s_MC_UncertaintySources_{jet_algo}_%s" % (jec_tag,jec_type) for jec_type in jec_types]
+            jec_names = []
+            if not isData:
+                jec_names += [
+                    f"{jer_tag}_MC_SF_{jet_algo}",
+                    f"{jer_tag}_MC_PtResolution_{jet_algo}",
+                ]
             jec_names += [
-                f"{jer_tag}_MC_SF_{jet_algo}",
-                f"{jer_tag}_MC_PtResolution_{jet_algo}",
+                f"Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}",
+                f"Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}",
             ]
-        jec_names += [
-            f"Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}",
-            f"Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}",
-        ]
-        if not isData:
-            jec_names.extend(jec_regroup)
+            if not isData:
+                jec_names.extend(jec_regroup)
 
-        extJEC.finalize()
-        JECevaluator = extJEC.make_evaluator()
-        jec_inputs = {name: JECevaluator[name.replace("Regrouped_", "")] for name in jec_names}
-        jec_stack = JECStack(jec_inputs)
+            with telemetry_operation("topeft.ApplyJetCorrections.lookup_construction"):
+                extJEC.finalize()
+            with telemetry_operation("topeft.ApplyJetCorrections.lookup_construction"):
+                JECevaluator = extJEC.make_evaluator()
+            jec_inputs = {name: JECevaluator[name.replace("Regrouped_", "")] for name in jec_names}
+            jec_stack = JECStack(jec_inputs)
 
-    elif useclib:
-        # Handle clib case
-        jet_algo, jec_tag, jec_levels, jer_tag, junc_types = get_jerc_keys(
-            year,
-            isData,
-            era,
-            corr_type=corr_type,
-        )
-        json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
+        elif useclib:
+            # Handle clib case
+            jet_algo, jec_tag, jec_levels, jer_tag, junc_types = get_jerc_keys(
+                year,
+                isData,
+                era,
+                corr_type=corr_type,
+            )
+            json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
 
-        # Create JECStack for clib scenario
-        jec_stack = JECStack(
-            jec_tag=jec_tag,
-            jec_levels=jec_levels,
-            jer_tag=jer_tag,
-            jet_algo=jet_algo,
-            junc_types=junc_types,
-            json_path=json_path,
-            use_clib=useclib,
-            savecorr=savelevels
-        )
+            # Create JECStack for clib scenario
+            jec_stack = JECStack(
+                jec_tag=jec_tag,
+                jec_levels=jec_levels,
+                jer_tag=jer_tag,
+                jet_algo=jet_algo,
+                junc_types=junc_types,
+                json_path=json_path,
+                use_clib=useclib,
+                savecorr=savelevels
+            )
 
-    # Name map for jet or MET corrections
-    name_map = {
-        'JetPt': 'pt',
-        'JetMass': 'mass',
-        'JetEta': 'eta',
-        'JetPhi': 'phi',
-        'JetA': 'area',
-        'ptGenJet': 'pt_gen',
-        'ptRaw': 'pt_raw',
-        'massRaw': 'mass_raw',
-        'Rho': 'rho',
-        'METpt': 'pt',
-        'METphi': 'phi',
-        'RawMETpt': 'pt',
-        'RawMETphi': 'phi',
-        'UnClusteredEnergyDeltaX': 'MetUnclustEnUpDeltaX',
-        'UnClusteredEnergyDeltaY': 'MetUnclustEnUpDeltaY',
-        'JetRawFactor': 'rawFactor',
-        'JetMuonSubtrFactor': 'muonSubtrFactor',
-        'JetMuonSubtrDeltaPhi': 'muonSubtrDeltaPhi',
-        'JetChEmEF': 'chEmEF',
-        'JetNeEmEF': 'neEmEF',
-        'CorrT1JetPt': 'rawPt',
-        'CorrT1JetPhi': 'phi',
-        'CorrT1JetEta': 'eta',
-        'CorrT1JetArea': 'area',
-        'CorrT1JetMuonSubtrFactor': 'muonSubtrFactor',
-        'CorrT1JetMuonSubtrDeltaPhi': 'muonSubtrDeltaPhi',
-        'CorrT1JetEmEF': 'EmEF',
-    }
+        # Name map for jet or MET corrections
+        name_map = {
+            'JetPt': 'pt',
+            'JetMass': 'mass',
+            'JetEta': 'eta',
+            'JetPhi': 'phi',
+            'JetA': 'area',
+            'ptGenJet': 'pt_gen',
+            'ptRaw': 'pt_raw',
+            'massRaw': 'mass_raw',
+            'Rho': 'rho',
+            'METpt': 'pt',
+            'METphi': 'phi',
+            'RawMETpt': 'pt',
+            'RawMETphi': 'phi',
+            'UnClusteredEnergyDeltaX': 'MetUnclustEnUpDeltaX',
+            'UnClusteredEnergyDeltaY': 'MetUnclustEnUpDeltaY',
+            'JetRawFactor': 'rawFactor',
+            'JetMuonSubtrFactor': 'muonSubtrFactor',
+            'JetMuonSubtrDeltaPhi': 'muonSubtrDeltaPhi',
+            'JetChEmEF': 'chEmEF',
+            'JetNeEmEF': 'neEmEF',
+            'CorrT1JetPt': 'rawPt',
+            'CorrT1JetPhi': 'phi',
+            'CorrT1JetEta': 'eta',
+            'CorrT1JetArea': 'area',
+            'CorrT1JetMuonSubtrFactor': 'muonSubtrFactor',
+            'CorrT1JetMuonSubtrDeltaPhi': 'muonSubtrDeltaPhi',
+            'CorrT1JetEmEF': 'EmEF',
+        }
 
-    # Return appropriate factory based on correction type
-    if corr_type == 'met':
-        return CorrectedMETFactory(name_map)
-    if corr_type == 'type1_met':
-        return Type1CorrectedMETFactory(
+        # Return appropriate factory based on correction type
+        if corr_type == 'met':
+            return CorrectedMETFactory(name_map)
+        if corr_type == 'type1_met':
+            return Type1CorrectedMETFactory(
+                name_map,
+                jec_stack,
+                run=run,
+                suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
+            )
+        return CorrectedJetsFactory(
             name_map,
             jec_stack,
-            run=run,
+            run,
             suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
         )
-    return CorrectedJetsFactory(
-        name_map,
-        jec_stack,
-        run,
-        suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
-    )
 
 def resolve_forward_eta_stochastic_jer_suppression(is_run3, suppress_forward_eta_stochastic_jer):
     return bool(suppress_forward_eta_stochastic_jer) and bool(is_run3)
 
 def ApplyJetSystematics(year,cleanedJets,syst_var):
-    if (syst_var == f'JER_{year}Up'):
-        return cleanedJets.JER.up
-    elif (syst_var == f'JER_{year}Down'):
-        return cleanedJets.JER.down
-    elif (syst_var == 'JESUp'):
-        return cleanedJets.JES_jes.up
-    elif (syst_var == 'JESDown'):
-        return cleanedJets.JES_jes.down
-    elif (syst_var == 'nominal'):
-        return cleanedJets
-    elif (
-        syst_var in [
-            'nominal',
-            'MuonESUp',
-            'MuonESDown',
-            'TESUp',
-            'TESDown',
-            'FESUp',
-            'FESDown',
-        ]
-        or is_muon_momentum_systematic(syst_var)
-        or is_met_unclustered_systematic(syst_var)
-    ):
-        return cleanedJets
-    elif ('JES_FlavorQCD' in syst_var):
-        # Overwrite FlavorQCD with the proper jet flavor uncertainty
-        bmask = np.array(ak.flatten(abs(cleanedJets.partonFlavour)==5))
-        cmask = abs(cleanedJets.partonFlavour)==4
-        cmask = np.array(ak.flatten(cmask))
-        qmask = abs(cleanedJets.partonFlavour)<=3
-        qmask = np.array(ak.flatten(qmask))
-        gmask = abs(cleanedJets.partonFlavour)==21
-        gmask = np.array(ak.flatten(gmask))
-        corrections = np.array(np.zeros_like(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt)))
-        if 'Up' in syst_var:
-            corrections[bmask] = corrections[bmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[bmask]
-            corrections[cmask] = corrections[cmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[cmask]
-            corrections[qmask] = corrections[qmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[qmask]
-            corrections[gmask] = corrections[gmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[gmask]
-            corrections = ak.unflatten(corrections, ak.num(cleanedJets.JES_FlavorQCD.up.pt))
-            cleanedJets['JES_FlavorQCD']['up']['pt'] = corrections
-            return cleanedJets.JES_FlavorQCD.up
-        if 'Down' in syst_var:
-            corrections[bmask] = corrections[bmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[bmask]
-            corrections[cmask] = corrections[cmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[cmask]
-            corrections[qmask] = corrections[qmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[qmask]
-            corrections[gmask] = corrections[gmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[gmask]
-            corrections = ak.unflatten(corrections, ak.num(cleanedJets.JES_FlavorQCD.down.pt))
-            cleanedJets['JES_FlavorQCD']['down']['pt'] = corrections
-            return cleanedJets.JES_FlavorQCD.down
-    # Save `2016APV` as `2016APV` but look up `2016` corrections (no separate APV corrections available)
-    elif ('Up' in syst_var and syst_var[:-2].replace('APV', '') in cleanedJets.fields):
-        return cleanedJets[syst_var.replace('Up', '').replace("Pile", "PileUp").replace('APV', '')].up
-    elif ('Down' in syst_var and syst_var[:-4].replace('APV', '') in cleanedJets.fields):
-        return cleanedJets[syst_var.replace('Down', '').replace('APV', '')].down
-    else:
-        raise Exception(f"Error: Unknown variation \"{syst_var}\".")
+    with telemetry_operation("topeft.ApplyJetSystematics.total"):
+        if (syst_var == f'JER_{year}Up'):
+            return cleanedJets.JER.up
+        elif (syst_var == f'JER_{year}Down'):
+            return cleanedJets.JER.down
+        elif (syst_var == 'JESUp'):
+            return cleanedJets.JES_jes.up
+        elif (syst_var == 'JESDown'):
+            return cleanedJets.JES_jes.down
+        elif (syst_var == 'nominal'):
+            return cleanedJets
+        elif (
+            syst_var in [
+                'nominal',
+                'MuonESUp',
+                'MuonESDown',
+                'TESUp',
+                'TESDown',
+                'FESUp',
+                'FESDown',
+            ]
+            or is_muon_momentum_systematic(syst_var)
+            or is_met_unclustered_systematic(syst_var)
+        ):
+            return cleanedJets
+        elif ('JES_FlavorQCD' in syst_var):
+            # Overwrite FlavorQCD with the proper jet flavor uncertainty
+            with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                bmask = np.array(ak.flatten(abs(cleanedJets.partonFlavour)==5))
+            cmask = abs(cleanedJets.partonFlavour)==4
+            with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                cmask = np.array(ak.flatten(cmask))
+            qmask = abs(cleanedJets.partonFlavour)<=3
+            with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                qmask = np.array(ak.flatten(qmask))
+            gmask = abs(cleanedJets.partonFlavour)==21
+            with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                gmask = np.array(ak.flatten(gmask))
+            with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                corrections = np.array(np.zeros_like(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt)))
+            if 'Up' in syst_var:
+                with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                    corrections[bmask] = corrections[bmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[bmask]
+                with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                    corrections[cmask] = corrections[cmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[cmask]
+                with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                    corrections[qmask] = corrections[qmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[qmask]
+                with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                    corrections[gmask] = corrections[gmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[gmask]
+                with telemetry_operation("topeft.ApplyJetSystematics.unflatten"):
+                    corrections = ak.unflatten(corrections, ak.num(cleanedJets.JES_FlavorQCD.up.pt))
+                cleanedJets['JES_FlavorQCD']['up']['pt'] = corrections
+                return cleanedJets.JES_FlavorQCD.up
+            if 'Down' in syst_var:
+                with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                    corrections[bmask] = corrections[bmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[bmask]
+                with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                    corrections[cmask] = corrections[cmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[cmask]
+                with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                    corrections[qmask] = corrections[qmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[qmask]
+                with telemetry_operation("topeft.ApplyJetSystematics.conversion_and_flatten"):
+                    corrections[gmask] = corrections[gmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.down.pt))[gmask]
+                with telemetry_operation("topeft.ApplyJetSystematics.unflatten"):
+                    corrections = ak.unflatten(corrections, ak.num(cleanedJets.JES_FlavorQCD.down.pt))
+                cleanedJets['JES_FlavorQCD']['down']['pt'] = corrections
+                return cleanedJets.JES_FlavorQCD.down
+        # Save `2016APV` as `2016APV` but look up `2016` corrections (no separate APV corrections available)
+        elif ('Up' in syst_var and syst_var[:-2].replace('APV', '') in cleanedJets.fields):
+            return cleanedJets[syst_var.replace('Up', '').replace("Pile", "PileUp").replace('APV', '')].up
+        elif ('Down' in syst_var and syst_var[:-4].replace('APV', '') in cleanedJets.fields):
+            return cleanedJets[syst_var.replace('Down', '').replace('APV', '')].down
+        else:
+            raise Exception(f"Error: Unknown variation \"{syst_var}\".")
 
 ###### Muon Rochester corrections
 ################################################################
@@ -2515,43 +2637,45 @@ def AttachMuonMomentumCorrections(
     luminosity_blocks=None,
 ):
     """Attach nominal and available varied muon pt fields once per event chunk."""
-    variations = ["nominal"]
-    if not is_data and not str(year).startswith("201"):
-        variations.extend(RUN3_MUON_MOMENTUM_SYSTEMATICS)
+    with telemetry_operation("topeft.AttachMuonMomentumCorrections.total"):
+        variations = ["nominal"]
+        if not is_data and not str(year).startswith("201"):
+            variations.extend(RUN3_MUON_MOMENTUM_SYSTEMATICS)
 
-    for variation in variations:
-        corrected_pt = apply_muon_momentum_corrections(
-            year,
-            mu,
-            is_data,
-            event_numbers=event_numbers,
-            luminosity_blocks=luminosity_blocks,
-            variation=variation,
-        )
-        mu = ak.with_field(
-            mu,
-            corrected_pt,
-            MUON_MOMENTUM_PT_FIELDS[variation],
-        )
-    return mu
+        for variation in variations:
+            corrected_pt = apply_muon_momentum_corrections(
+                year,
+                mu,
+                is_data,
+                event_numbers=event_numbers,
+                luminosity_blocks=luminosity_blocks,
+                variation=variation,
+            )
+            mu = ak.with_field(
+                mu,
+                corrected_pt,
+                MUON_MOMENTUM_PT_FIELDS[variation],
+            )
+        return mu
 
 
 def ApplyMuonMomentumSystematics(year, mu, syst_var):
     """Select active muon pt from fields attached before the systematic loop."""
-    variation = syst_var if is_muon_momentum_systematic(syst_var) else "nominal"
-    if str(year).startswith("201") and variation != "nominal":
-        raise ValueError(
-            "Run 2 Rochester uncertainty handling does not support object "
-            f'variation "{variation}" here.'
-        )
+    with telemetry_operation("topeft.ApplyMuonMomentumSystematics.total"):
+        variation = syst_var if is_muon_momentum_systematic(syst_var) else "nominal"
+        if str(year).startswith("201") and variation != "nominal":
+            raise ValueError(
+                "Run 2 Rochester uncertainty handling does not support object "
+                f'variation "{variation}" here.'
+            )
 
-    field = MUON_MOMENTUM_PT_FIELDS[variation]
-    if field not in ak.fields(mu):
-        raise ValueError(
-            f'Muon momentum field "{field}" required for variation '
-            f'"{variation}" is not attached.'
-        )
-    return ak.with_field(mu, mu[field], "pt")
+        field = MUON_MOMENTUM_PT_FIELDS[variation]
+        if field not in ak.fields(mu):
+            raise ValueError(
+                f'Muon momentum field "{field}" required for variation '
+                f'"{variation}" is not attached.'
+            )
+        return ak.with_field(mu, mu[field], "pt")
 
 ###### Trigger SFs
 ################################################################
@@ -2632,22 +2756,27 @@ def GetRatioAssymetricUncertainties(num, numDo, numUp, den, denDo, denUp):
 ######  Scale Factors
 
 def LoadTriggerSF(year, ch='2l', flav='em'):
-    pathToTriggerSF = topeft_path('data/triggerSF/triggerSF_%s.pkl.gz' % year)
-    with gzip.open(pathToTriggerSF) as fin:
-        hin = pickle.load(fin)
-    if ch == '2l':
-        axisY = 'l1pt'
-    else:
-        axisY = 'l0eta'
-    h = hin[ch][flav]
-    ratio, do, up = GetSFfromCountsHisto(h['hmn'], h['hmd'], h['hdn'], h['hdd'])
-    ratio[np.isnan(ratio)] = 1.0
-    do[np.isnan(do)] = 0.0
-    up[np.isnan(up)] = 0.0
-    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
-    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
-    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
-    return [GetTrig, GetTrigDo, GetTrigUp]
+    with telemetry_operation("topeft.LoadTriggerSF.total"):
+        pathToTriggerSF = topeft_path('data/triggerSF/triggerSF_%s.pkl.gz' % year)
+        with gzip.open(pathToTriggerSF) as fin:
+            with telemetry_operation("topeft.LoadTriggerSF.payload_read_decompress_deserialize"):
+                hin = pickle.load(fin)
+        if ch == '2l':
+            axisY = 'l1pt'
+        else:
+            axisY = 'l0eta'
+        h = hin[ch][flav]
+        ratio, do, up = GetSFfromCountsHisto(h['hmn'], h['hmd'], h['hdn'], h['hdd'])
+        ratio[np.isnan(ratio)] = 1.0
+        do[np.isnan(do)] = 0.0
+        up[np.isnan(up)] = 0.0
+        with telemetry_operation("topeft.LoadTriggerSF.lookup_construction"):
+            GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+        with telemetry_operation("topeft.LoadTriggerSF.lookup_construction"):
+            GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+        with telemetry_operation("topeft.LoadTriggerSF.lookup_construction"):
+            GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+        return [GetTrig, GetTrigDo, GetTrigUp]
 
 # helper function for the Run3 SFs
 def ApplyBinnedSF(pt, edges, centers, uncs, var):
@@ -2689,100 +2818,102 @@ def ComputeTriggerSFRun3(year, pdg0, pt0, pdg1, pt1, var=0):
     - var:        integer or array of ±1/0
     """
     # Only valid when exactly two leptons
-    prod = abs(pdg0 * pdg1)
-    out  = ak.ones_like(pt0)
+    with telemetry_operation("topeft.ComputeTriggerSFRun3.total"):
+        prod = abs(pdg0 * pdg1)
+        out  = ak.ones_like(pt0)
 
-    # define bins once
-    edges = [20, 40, 50, 65, 80, 100, 200]
+        # define bins once
+        edges = [20, 40, 50, 65, 80, 100, 200]
 
-    # pick the right centers & uncertainties by year/channel
-    # Format: (centers_ee, unc_ee, centers_em, unc_em, centers_mm, unc_mm)
-    sf_defs = {
-        "2022": (
-            [1.0115, 1.0105, 1.0042, 0.9850, 1.0012, 1.0000, 1.0], [0.0146, 0.0101, 0.0066, 0.0075, 0.0062, 0.0026, 0.0000],   # ee
-            [1.0021, 0.9724, 1.0023, 0.9952, 0.9945, 0.9966, 1.0], [0.0066, 0.0063, 0.0033, 0.0035, 0.0032, 0.0019, 0.0000],   # em
-            [0.9959, 0.9950, 0.9706, 0.9949, 0.9975, 0.9991, 1.0], [0.0073, 0.0065, 0.0055, 0.0045, 0.0041, 0.0025, 0.0000],    # mm
-        ),
-        "2022EE": (
-            [0.9868, 0.9788, 0.9939, 0.9927, 0.9972, 0.9997, 1.0], [0.0067, 0.0055, 0.0031, 0.0030, 0.0024, 0.0011, 0.0000],
-            [0.9841, 0.9913, 0.9886, 0.9926, 0.9942, 0.9992, 1.0], [0.0036, 0.0027, 0.0018, 0.0017, 0.0016, 0.0008, 0.0000],
-            [0.9788, 0.9856, 0.9850, 0.9963, 0.9909, 0.9873, 1.0], [0.0034, 0.0029, 0.0021, 0.0020, 0.0019, 0.0014, 0.0000]
-        ),
-        "2023": (
-            [0.9453, 0.9791, 0.9953, 0.9822, 1.0025, 0.9948, 1.0], [0.0107, 0.0069, 0.0043, 0.0044, 0.0028, 0.0017, 0.0000],
-            [0.9926, 0.9671, 0.9904, 0.9896, 0.9901, 0.9968, 1.0], [0.0047, 0.0038, 0.0025, 0.0025, 0.0020, 0.0011, 0.0000],
-            [0.9869, 0.9736, 0.9785, 0.9868, 0.9918, 0.9839, 1.0], [0.0039, 0.0043, 0.0029, 0.0027, 0.0026, 0.0018, 0.0000],
-        ),
-        "2023BPix": (
-            [0.9672, 1.0001, 0.9852, 0.9928, 0.9981, 0.9954, 1.0], [0.0155, 0.0092, 0.0067, 0.0065, 0.0051, 0.0028, 0.0000],
-            [0.9809, 0.9808, 1.0019, 0.9899, 0.9911, 0.9943, 1.0], [0.0063, 0.0052, 0.0029, 0.0035, 0.0030, 0.0017, 0.0000],
-            [0.9904, 1.0020, 0.9873, 0.9918, 0.9823, 0.9793, 1.0], [0.0053, 0.0041, 0.0039, 0.0037, 0.0041, 0.0028, 0.0000],
-        ),
-    }
+        # pick the right centers & uncertainties by year/channel
+        # Format: (centers_ee, unc_ee, centers_em, unc_em, centers_mm, unc_mm)
+        sf_defs = {
+            "2022": (
+                [1.0115, 1.0105, 1.0042, 0.9850, 1.0012, 1.0000, 1.0], [0.0146, 0.0101, 0.0066, 0.0075, 0.0062, 0.0026, 0.0000],   # ee
+                [1.0021, 0.9724, 1.0023, 0.9952, 0.9945, 0.9966, 1.0], [0.0066, 0.0063, 0.0033, 0.0035, 0.0032, 0.0019, 0.0000],   # em
+                [0.9959, 0.9950, 0.9706, 0.9949, 0.9975, 0.9991, 1.0], [0.0073, 0.0065, 0.0055, 0.0045, 0.0041, 0.0025, 0.0000],    # mm
+            ),
+            "2022EE": (
+                [0.9868, 0.9788, 0.9939, 0.9927, 0.9972, 0.9997, 1.0], [0.0067, 0.0055, 0.0031, 0.0030, 0.0024, 0.0011, 0.0000],
+                [0.9841, 0.9913, 0.9886, 0.9926, 0.9942, 0.9992, 1.0], [0.0036, 0.0027, 0.0018, 0.0017, 0.0016, 0.0008, 0.0000],
+                [0.9788, 0.9856, 0.9850, 0.9963, 0.9909, 0.9873, 1.0], [0.0034, 0.0029, 0.0021, 0.0020, 0.0019, 0.0014, 0.0000]
+            ),
+            "2023": (
+                [0.9453, 0.9791, 0.9953, 0.9822, 1.0025, 0.9948, 1.0], [0.0107, 0.0069, 0.0043, 0.0044, 0.0028, 0.0017, 0.0000],
+                [0.9926, 0.9671, 0.9904, 0.9896, 0.9901, 0.9968, 1.0], [0.0047, 0.0038, 0.0025, 0.0025, 0.0020, 0.0011, 0.0000],
+                [0.9869, 0.9736, 0.9785, 0.9868, 0.9918, 0.9839, 1.0], [0.0039, 0.0043, 0.0029, 0.0027, 0.0026, 0.0018, 0.0000],
+            ),
+            "2023BPix": (
+                [0.9672, 1.0001, 0.9852, 0.9928, 0.9981, 0.9954, 1.0], [0.0155, 0.0092, 0.0067, 0.0065, 0.0051, 0.0028, 0.0000],
+                [0.9809, 0.9808, 1.0019, 0.9899, 0.9911, 0.9943, 1.0], [0.0063, 0.0052, 0.0029, 0.0035, 0.0030, 0.0017, 0.0000],
+                [0.9904, 1.0020, 0.9873, 0.9918, 0.9823, 0.9793, 1.0], [0.0053, 0.0041, 0.0039, 0.0037, 0.0041, 0.0028, 0.0000],
+            ),
+        }
 
-    centers_ee, uncs_ee, centers_em, uncs_em, centers_mm, uncs_mm = sf_defs[year]
+        centers_ee, uncs_ee, centers_em, uncs_em, centers_mm, uncs_mm = sf_defs[year]
 
-    # apply ee (uses pt0) where |pdg0*pdg1|==121
-    mask_ee = (prod == 121)
-    sf_ee = ApplyBinnedSF(pt0, edges, centers_ee, uncs_ee, var)
-    out = ak.where(mask_ee, sf_ee, out)
+        # apply ee (uses pt0) where |pdg0*pdg1|==121
+        mask_ee = (prod == 121)
+        sf_ee = ApplyBinnedSF(pt0, edges, centers_ee, uncs_ee, var)
+        out = ak.where(mask_ee, sf_ee, out)
 
-    # apply em (uses pt1) for 143
-    mask_em = (prod == 143)
-    sf_em = ApplyBinnedSF(pt1, edges, centers_em, uncs_em, var)
-    out = ak.where(mask_em, sf_em, out)
+        # apply em (uses pt1) for 143
+        mask_em = (prod == 143)
+        sf_em = ApplyBinnedSF(pt1, edges, centers_em, uncs_em, var)
+        out = ak.where(mask_em, sf_em, out)
 
-    # apply mm (uses pt1) for 169
-    mask_mm = (prod == 169)
-    sf_mm = ApplyBinnedSF(pt1, edges, centers_mm, uncs_mm, var)
-    out = ak.where(mask_mm, sf_mm, out)
+        # apply mm (uses pt1) for 169
+        mask_mm = (prod == 169)
+        sf_mm = ApplyBinnedSF(pt1, edges, centers_mm, uncs_mm, var)
+        out = ak.where(mask_mm, sf_mm, out)
 
-    return out
+        return out
 
 
 def GetTriggerSF(year, events, lep0, lep1):
-    is_run3 = year.startswith("202")
-    is_run2 = not is_run3
+    with telemetry_operation("topeft.GetTriggerSF.total"):
+        is_run3 = year.startswith("202")
+        is_run2 = not is_run3
 
-    pdg0     = lep0.pdgId
-    pdg1     = lep1.pdgId
-    conept0  = lep0.conept
-    conept1  = lep1.conept
+        pdg0     = lep0.pdgId
+        pdg1     = lep1.pdgId
+        conept0  = lep0.conept
+        conept1  = lep1.conept
 
-    #trigger SFs are applied only to the 2l events, since for >2l channels the trigger SFs are compatible with 1
-    ls = []
-    if is_run2:
-        for syst in [0, 1]:
-            # Run 2: fall back to the JSON‐loaded functions
-            SF_ee = np.where(events.is2l & events.is_ee,
-                             LoadTriggerSF(year, ch='2l', flav='ee')[syst](conept0, conept1),
-                             1.0)
-            SF_em = np.where(events.is2l & events.is_em,
-                             LoadTriggerSF(year, ch='2l', flav='em')[syst](conept0, conept1),
-                             1.0)
-            SF_mm = np.where(events.is2l & events.is_mm,
-                             LoadTriggerSF(year, ch='2l', flav='mm')[syst](conept0, conept1),
-                             1.0)
+        #trigger SFs are applied only to the 2l events, since for >2l channels the trigger SFs are compatible with 1
+        ls = []
+        if is_run2:
+            for syst in [0, 1]:
+                # Run 2: fall back to the JSON‐loaded functions
+                SF_ee = np.where(events.is2l & events.is_ee,
+                                 LoadTriggerSF(year, ch='2l', flav='ee')[syst](conept0, conept1),
+                                 1.0)
+                SF_em = np.where(events.is2l & events.is_em,
+                                 LoadTriggerSF(year, ch='2l', flav='em')[syst](conept0, conept1),
+                                 1.0)
+                SF_mm = np.where(events.is2l & events.is_mm,
+                                 LoadTriggerSF(year, ch='2l', flav='mm')[syst](conept0, conept1),
+                                 1.0)
 
-            ls.append(SF_ee * SF_em * SF_mm)
+                ls.append(SF_ee * SF_em * SF_mm)
 
-        ls[1] = np.where(ls[1] == 1.0, 0.0, ls[1])
-        sf_nominal = ls[0]
-        sf_up = ls[0] + np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
-        sf_down = ls[0] - np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
-    else:
-        # Run 3: vectorized awkward functions
-        mask2l     = events.is2l
-        sf_nominal = ak.where(mask2l,
-                              ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=0),
-                              1.0)
-        sf_up      = ak.where(mask2l,
-                              ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=1),
-                              1.02)
-        sf_down    = ak.where(mask2l,
-                              ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=-1),
-                              0.98)
+            ls[1] = np.where(ls[1] == 1.0, 0.0, ls[1])
+            sf_nominal = ls[0]
+            sf_up = ls[0] + np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
+            sf_down = ls[0] - np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
+        else:
+            # Run 3: vectorized awkward functions
+            mask2l     = events.is2l
+            sf_nominal = ak.where(mask2l,
+                                  ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=0),
+                                  1.0)
+            sf_up      = ak.where(mask2l,
+                                  ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=1),
+                                  1.02)
+            sf_down    = ak.where(mask2l,
+                                  ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=-1),
+                                  0.98)
 
-    events['trigger_sf'] = sf_nominal
-    events['trigger_sfUp'] = sf_up
-    events['trigger_sfDown'] = sf_down
+        events['trigger_sf'] = sf_nominal
+        events['trigger_sfUp'] = sf_up
+        events['trigger_sfDown'] = sf_down

@@ -131,7 +131,7 @@ info = {
         "label": r"Leading forward jet $p_{T}$ (GeV) ",
     },
     "b0pt": {
-        "processing": _uniform_processing(50, 0, 500),
+        "processing": _uniform_processing(15, 0, 300),
         "label": r"Leading b-jet $p_{T}$ (GeV) ",
     },
     "j0eta": {

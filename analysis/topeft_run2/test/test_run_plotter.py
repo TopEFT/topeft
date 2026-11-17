@@ -1,6 +1,10 @@
+import os
 import shlex
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 
 def _run_plotter(tmp_path, *args):
@@ -11,6 +15,7 @@ def _run_plotter(tmp_path, *args):
         check=False,
         capture_output=True,
         text=True,
+        env=dict(os.environ, PYTHON_BIN=sys.executable),
     )
 
 
@@ -38,6 +43,18 @@ def _base_args(tmp_path, input_path, *extra_args):
         "--dry-run",
         *extra_args,
     )
+
+
+def test_profile_missing_plan_fails_closed(tmp_path):
+    result = _run_plotter(tmp_path, "--campaign-profile", "sr_crlike_run2",
+                          "--campaign-tag", "fixture", "-o", str(tmp_path / "plots"), "--dry-run")
+    assert result.returncode != 0
+    assert not (tmp_path / "plots").exists()
+
+
+def test_retired_tsv_is_not_a_second_campaign_interface(tmp_path):
+    result = _run_plotter(tmp_path, "--campaign-manifest", "absent.tsv", "--execute")
+    assert result.returncode != 0
 
 
 def test_single_input_backward_compatibility(tmp_path):
@@ -240,3 +257,19 @@ def test_channel_output_forwarding_preserved(tmp_path):
     assert result.returncode == 0, result.stderr
     command = _dry_run_command(result)
     assert command[command.index("--channel-output") + 1] == "merged"
+
+
+@pytest.mark.parametrize('option,expected',[('--timestamp','-t'),('-q','--quiet'),('-v','--verbose')])
+def test_ordinary_aliases_preserve_renderer_translation(tmp_path,option,expected):
+    path=_input_path(tmp_path,'input_CR.pkl.gz')
+    result=_run_plotter(tmp_path,*_base_args(tmp_path,path,option))
+    assert result.returncode==0,result.stderr
+    assert expected in _dry_run_command(result)
+
+
+def test_ambiguous_single_filename_warns_and_preserves_cr_default(tmp_path):
+    path=_input_path(tmp_path,'input_CR_SR.pkl.gz')
+    result=_run_plotter(tmp_path,*_base_args(tmp_path,path))
+    assert result.returncode==0,result.stderr
+    assert 'Warning:' in result.stderr
+    assert '--cr' in _dry_run_command(result) and '--unblind' in _dry_run_command(result)

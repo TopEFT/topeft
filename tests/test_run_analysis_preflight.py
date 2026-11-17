@@ -66,6 +66,7 @@ def _run_cli_to_preflight_or_processor(
     class sentinel_analysis_processor:
         def __init__(self, *_, **__):
             captured["processor_construction"] += 1
+            captured["processor_options"] = __
             raise processor_construction_boundary()
 
     class forbidden_work_queue_executor:
@@ -299,3 +300,18 @@ def test_unknown_yaml_keys_fail_before_processor_executor_and_output(
     assert state["captured"]["processor_construction"] == 0
     assert state["captured"]["executor_setup"] == 0
     assert not state["output_dir"].exists()
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_phase_telemetry_reaches_processor_only_when_requested(monkeypatch, tmp_path, enabled):
+    state = {}
+    extra = ["--phase-telemetry"] if enabled else []
+    with pytest.raises(processor_construction_boundary):
+        _run_cli_to_preflight_or_processor(
+            monkeypatch, tmp_path,
+            ["--all-analysis", "--skip-sr", "--category-groups", "2l_CR",
+             "--hist-list", "met", "--executor", "futures", *extra],
+            use_real_sample=True, state=state,
+        )
+    assert state["captured"]["processor_options"]["phase_telemetry"] is enabled
+    assert state["captured"]["executor_setup"] == 0

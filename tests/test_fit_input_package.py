@@ -247,13 +247,123 @@ def test_source_location_disguised_as_provenance_is_omitted(tmp_path):
     assert "/groups/historical" not in (output / "fit-input-manifest.json").read_text()
 
 
-def test_cli_uses_plain_config_file_without_git(tmp_path, capsys):
+@pytest.mark.parametrize("config_location", ["external", "package_local", "package_local_alias"])
+def test_cli_uses_plain_config_file_without_git(tmp_path, capsys, config_location):
     config, package, output = _fixture(tmp_path)
+    if config_location != "external":
+        (package / "config").mkdir()
+        local_config = package / "config" / "TOP_26_006.yml"
+        config.rename(local_config)
+        config = local_config
+        if config_location == "package_local_alias":
+            alias = tmp_path / "source-alias"
+            alias.symlink_to(package, target_is_directory=True)
+            config = alias / "config" / "TOP_26_006.yml"
+    source_hashes = {path.relative_to(package).as_posix(): _sha256(path)
+                     for path in package.rglob("*") if path.is_file()}
+    config_hash = _sha256(config)
     assert fit_input.main(["--combined-package", str(package), "--fit-config", str(config),
                            "--output", str(output)]) == 0
     response = json.loads(capsys.readouterr().out)
     manifest = json.loads((output / "fit-input-manifest.json").read_text())
     assert response["input_snapshot_sha256"] == manifest["datacards"]["input_snapshot_sha256"]
+    assert manifest["datacards"]["input_snapshot_sha256"] == _snapshot_from_manifest(manifest)
+    assert (output / "config" / "TOP_26_006.yml").read_bytes() == config.read_bytes()
+    assert manifest["fit_config"] == {"path": "config/TOP_26_006.yml", "sha256": config_hash}
+    for row in manifest["datacards"]["files"]:
+        relative = row["path"].removeprefix("datacards/")
+        destination = output / row["path"]
+        assert destination.read_bytes() == (package / relative).read_bytes()
+        assert row["sha256"] == _sha256(destination)
+        assert row["size_bytes"] == destination.stat().st_size
+    assert (output / "datacards" / "ordered_card_inputs.txt").read_bytes() == (
+        package / "ordered_card_inputs.txt").read_bytes()
+    assert (output / "datacards" / "scalings.json").read_bytes() == (
+        package / "scalings.json").read_bytes()
+    assert [row["destination_txt_name"] for row in manifest["datacards"]["channel_mapping"]["rows"]] == [
+        "two.txt", "one.txt"]
+    assert source_hashes == {path.relative_to(package).as_posix(): _sha256(path)
+                             for path in package.rglob("*") if path.is_file()}
+    assert _sha256(config) == config_hash
+
+
+@pytest.mark.parametrize("kind", [
+    "output_is_config", "output_contains_source", "output_inside_source",
+    "output_via_symlink", "output_with_dotdot", "relative_source",
+    "staging_exists", "staging_is_source",
+])
+def test_package_local_config_keeps_write_paths_isolated(tmp_path, monkeypatch, kind):
+    external_config, package, output = _fixture(tmp_path)
+    (package / "config").mkdir()
+    config = package / "config" / "TOP_26_006.yml"
+    config.write_bytes(external_config.read_bytes())
+    sentinel = tmp_path / "sentinel"
+    sentinel.write_bytes(b"keep-existing-content")
+    if kind == "output_is_config":
+        output = config
+    elif kind == "output_contains_source":
+        output = tmp_path
+    elif kind in {"output_inside_source", "relative_source"}:
+        output = package / "nested-output"
+    elif kind == "output_via_symlink":
+        (package / "nested").mkdir()
+        (tmp_path / "source-alias").symlink_to(package, target_is_directory=True)
+        output = tmp_path / "source-alias" / "nested" / "fit-input"
+    elif kind == "output_with_dotdot":
+        (package / "nested").mkdir()
+        output = package / "nested" / ".." / "fit-input"
+    elif kind == "staging_exists":
+        staging = tmp_path / ".fit-input.staging"
+        staging.mkdir()
+        (staging / "sentinel").write_bytes(b"keep-staging-content")
+    else:
+        staging = tmp_path / ".fit-input.staging"
+        package.rename(staging)
+        package = staging
+        config = package / "config" / "TOP_26_006.yml"
+    source_hashes = {path.relative_to(package).as_posix(): _sha256(path)
+                     for path in package.rglob("*") if path.is_file()}
+    selected_package, selected_config = package, config
+    if kind == "relative_source":
+        monkeypatch.chdir(tmp_path)
+        selected_package = package.relative_to(tmp_path)
+        selected_config = config.relative_to(tmp_path)
+    with pytest.raises(fit_input.FitInputError):
+        fit_input.main(["--combined-package", str(selected_package), "--fit-config", str(selected_config),
+                        "--output", str(output)])
+    assert source_hashes == {path.relative_to(package).as_posix(): _sha256(path)
+                             for path in package.rglob("*") if path.is_file()}
+    assert sentinel.read_bytes() == b"keep-existing-content"
+    if kind == "staging_exists":
+        assert (staging / "sentinel").read_bytes() == b"keep-staging-content"
+    if kind not in {"output_is_config", "output_contains_source"}:
+        assert not output.exists()
+    if kind not in {"staging_exists", "staging_is_source", "output_is_config", "output_contains_source"}:
+        assert not (output.parent / f".{output.name}.staging").exists()
+
+
+@pytest.mark.parametrize("kind,expected", [
+    ("missing", "missing or non-regular input"),
+    ("symlink", "missing or non-regular input"),
+    ("schema", "fit config lacks required"),
+])
+def test_invalid_package_local_config_still_fails(tmp_path, kind, expected):
+    external_config, package, output = _fixture(tmp_path)
+    (package / "config").mkdir()
+    config = package / "config" / "TOP_26_006.yml"
+    config.write_bytes(external_config.read_bytes())
+    if kind == "missing":
+        config.unlink()
+    elif kind == "symlink":
+        config.unlink()
+        config.symlink_to(external_config)
+    else:
+        config.write_text("analysis: wrong\n", encoding="utf-8")
+    with pytest.raises(fit_input.FitInputError, match=expected):
+        fit_input.main(["--combined-package", str(package), "--fit-config", str(config),
+                        "--output", str(output)])
+    assert not output.exists()
+    assert not (tmp_path / ".fit-input.staging").exists()
 
 
 def test_non_regular_unmapped_card_member_is_ignored(tmp_path):

@@ -8,6 +8,7 @@ import json
 import gzip
 import pickle
 import re
+import shutil
 from collections import OrderedDict
 from collections.abc import Mapping
 
@@ -18,6 +19,7 @@ import math
 import warnings
 import itertools
 import multiprocessing
+from pathlib import Path
 from functools import lru_cache
 import matplotlib as mpl
 mpl.use('Agg')
@@ -50,9 +52,32 @@ from topeft.modules.get_rate_systs import (
     get_syst as te_get_syst,
     get_syst_lst as te_get_syst_lst,
 )
-from topeft.modules.datacard_tools import load_and_merge_histogram_pkls
-from topeft.modules.histogram_artifact import write_histogram_artifact
-from topeft.modules.nominal_schema import materialize_scalar_histogram_dict
+from topeft.modules.datacard_tools import (
+    _reject_cross_run_histogram_composition,
+    load_and_merge_histogram_pkls,
+)
+from topeft.modules.plot_uncertainty_contract import (
+    card_process_name as _sr_card_process_name,
+    rate_responses as _sr_rate_responses,
+    shape_nuisance_name as _sr_shape_nuisance_name,
+    luminosity_responses as _sr_luminosity_responses,
+    combine_responses as _sr_combine_responses,
+    is_excluded_auxiliary as _sr_is_excluded_auxiliary,
+)
+from topeft.modules.histogram_artifact import (
+    metadata_sidecar_path,
+    read_histogram_sidecar,
+    write_histogram_artifact,
+)
+from topeft.modules.nominal_schema import (
+    materialize_scalar_histogram_dict,
+    validate_histogram_compatibility,
+)
+from topeft.modules.plot_output_layout import (
+    canonical_diagnostics_directory,
+    canonical_period_directory,
+    canonical_plot_destinations_for_period,
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -125,7 +150,8 @@ def _save_figure_formats(
     output_paths = []
     for output_format in _normalize_output_formats(output_formats):
         output_path = f"{output_root}.{output_format}"
-        fig.savefig(output_path, format=output_format, **savefig_kwargs)
+        with open(output_path, "xb") as output_file:
+            fig.savefig(output_file, format=output_format, **savefig_kwargs)
         output_paths.append(output_path)
     return tuple(output_paths)
 
@@ -837,7 +863,6 @@ CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
 SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
 CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
 SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
-SR_SIGNAL_GROUP_KEYS = {"ttH", "ttlnu", "ttll", "tXq", "tttt"}
 SIGNAL_WC_MATCHES = ("ttH", "tllq", "ttlnu", "ttll", "tHq", "tttt")
 CR_KNOWN_CHANNELS = set(_CR_CHANNEL_NAMESPACE["leaf_to_base"].keys())
 SR_KNOWN_CHANNELS = set(_SR_CHANNEL_NAMESPACE["leaf_to_base"].keys())
@@ -925,8 +950,8 @@ def _cached_get_correlation_tag(syst_type, proc_name):
 
 
 @lru_cache(maxsize=None)
-def _cached_get_jet_dependent_syst_dict(process="Diboson"):
-    return te_get_jet_dependent_syst_dict(process=process)
+def _cached_get_jet_dependent_syst_dict(era, process="Diboson"):
+    return te_get_jet_dependent_syst_dict(process=process, era=era)
 
 
 YEAR_TOKEN_RULES = {
@@ -1636,6 +1661,47 @@ def _validate_supported_plot_years(year_tokens):
     return tuple(year_tokens or ())
 
 
+def _resolve_diboson_njets_era(year_tokens):
+    """Resolve the maintained jet-factor era without an implicit default."""
+    aliases = {
+        alias.lower(): canonical
+        for canonical, rules in YEAR_TOKEN_RULES.items()
+        for key in ("mc_wl", "data_wl", "mc_bl", "data_bl")
+        for alias in rules.get(key, ())
+    }
+    resolved = []
+    unknown = []
+    for value in year_tokens or ():
+        for raw_token in str(value).split(","):
+            token = raw_token.strip().lower()
+            if not token:
+                continue
+            if token in YEAR_AGGREGATE_ALIASES:
+                resolved.extend(YEAR_AGGREGATE_ALIASES[token])
+            elif token in _YEAR_TOKEN_CANONICAL:
+                resolved.append(_YEAR_TOKEN_CANONICAL[token])
+            elif token in aliases:
+                resolved.append(aliases[token])
+            else:
+                unknown.append(raw_token.strip())
+    if unknown or not resolved:
+        raise ValueError(
+            "Diboson njets total uncertainty requires supported, nonempty years; "
+            f"years={year_tokens!r}, unsupported={unknown!r}"
+        )
+    eras = {
+        era
+        for era, canonical_years in YEAR_AGGREGATE_ALIASES.items()
+        if set(resolved) & set(canonical_years)
+    }
+    if len(eras) != 1:
+        raise ValueError(
+            "Diboson njets total uncertainty has mixed or ambiguous eras; "
+            f"years={year_tokens!r}, eras={sorted(eras)!r}"
+        )
+    return eras.pop()
+
+
 def _extract_dd_year_tokens_from_cli_years(year_tokens):
     """Return canonical DD year tokens derived from *year_tokens*."""
 
@@ -1933,7 +1999,11 @@ def _summarize_zero_yield_processes_by_variable(
             )
             continue
 
-        allowed_processes = _resolve_grouped_processes(region_ctx.group_map)
+        allowed_processes = (
+            tuple(dict.fromkeys((*region_ctx.mc_samples, *region_ctx.data_samples)))
+            if region_ctx.name.upper() == "SR"
+            else _resolve_grouped_processes(region_ctx.group_map)
+        )
         if allowed_processes:
             available_processes = tuple(
                 proc for proc in available_processes if proc in allowed_processes
@@ -2861,6 +2931,15 @@ _SHARED_REGION_CTX = None
 _SHARED_VARIABLE_PAYLOADS = None
 _WORKER_RENDER_CONTEXT = None
 
+# Reasons emitted by the maintained drawability decision below. Consumers may
+# account for these explicit outcomes; ordinary missing files are not skips.
+maintained_undrawable_reasons = frozenset((
+    "empty-mc-content",
+    "empty-data-content",
+    "empty-or-missing-input",
+    "make_region_stacked_ratio_fig-returned-none",
+))
+
 
 def _initialize_render_worker(
     save_dir_path,
@@ -2874,6 +2953,8 @@ def _initialize_render_worker(
     output_formats=("png",),
     prepared_payloads=None,
     shared_region_ctx=None,
+    debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
 ):
     """Store shared plotting context inside a worker process."""
 
@@ -2902,6 +2983,8 @@ def _initialize_render_worker(
         "verbose": bool(verbose),
         "rebin_plot_vars": dict(rebin_plot_vars or {}),
         "negative_weight_report": bool(negative_weight_report),
+        "debug_canvas_annotations": bool(debug_canvas_annotations),
+        "sr_display_diagnostics": bool(sr_display_diagnostics),
         "output_formats": _normalize_output_formats(output_formats),
         "prepared_variables": prepared_variables,
     }
@@ -2922,6 +3005,7 @@ def _render_variable_from_worker(task_id, payload):
 
     ctx = _WORKER_RENDER_CONTEXT
     verbose = ctx.get("verbose", False)
+    skip_outcomes = []
 
     prepared_cache = ctx.setdefault("prepared_variables", {})
     variable_payload = prepared_cache.get(var_name)
@@ -2962,7 +3046,10 @@ def _render_variable_from_worker(task_id, payload):
             variable_payload=variable_payload,
             rebin_plot_vars=ctx["rebin_plot_vars"],
             negative_weight_report=ctx["negative_weight_report"],
+            debug_canvas_annotations=ctx["debug_canvas_annotations"],
+            sr_display_diagnostics=ctx["sr_display_diagnostics"],
             output_formats=ctx["output_formats"],
+            skip_outcomes=skip_outcomes,
         )
     else:
         if not variable_payload:
@@ -3004,9 +3091,12 @@ def _render_variable_from_worker(task_id, payload):
                     available_channels=variable_payload.get("available_channels"),
                     rebin_plot_vars=ctx["rebin_plot_vars"],
                     negative_weight_report=ctx["negative_weight_report"],
+                    debug_canvas_annotations=ctx["debug_canvas_annotations"],
+                    sr_display_diagnostics=ctx["sr_display_diagnostics"],
                     output_formats=ctx["output_formats"],
+                    skip_outcomes=skip_outcomes,
                 )
-    return task_id, stat_only, stat_and_syst, html_set, negative_rows
+    return task_id, stat_only, stat_and_syst, html_set, negative_rows, skip_outcomes
 
 
 def _prepare_variable_payload(
@@ -3194,7 +3284,12 @@ def _prepare_variable_payload(
                 "process", region_ctx.signal_samples
             )
 
-    allowed_processes = _resolve_grouped_processes(region_ctx.group_map)
+    # SR physical selection is independent of the YAML stack partition.
+    allowed_processes = (
+        tuple(dict.fromkeys((*region_ctx.mc_samples, *region_ctx.data_samples)))
+        if region_ctx.name.upper() == "SR"
+        else _resolve_grouped_processes(region_ctx.group_map)
+    )
     hist_mc = _filter_process_axis(hist_mc, allowed_processes)
     hist_data = _filter_process_axis(hist_data, allowed_processes)
     if hist_mc_sumw2_orig is not None:
@@ -3237,7 +3332,10 @@ def _render_variable(
     variable_payload=None,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
     output_formats=("png",),
+    skip_outcomes=None,
 ):
     """Render plots for *var_name* and return summary accounting."""
 
@@ -3307,7 +3405,10 @@ def _render_variable(
             available_channels=variable_payload.get("available_channels"),
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
+            debug_canvas_annotations=debug_canvas_annotations,
+            sr_display_diagnostics=sr_display_diagnostics,
             output_formats=output_formats,
+            skip_outcomes=skip_outcomes,
         )
         stat_only_plots += stat_only
         stat_and_syst_plots += stat_and_syst
@@ -3315,6 +3416,20 @@ def _render_variable(
         negative_rows.extend(category_negative_rows)
 
     return stat_only_plots, stat_and_syst_plots, html_dirs, negative_rows
+
+
+def _planned_plot_paths(
+    region_ctx, save_dir_path, raw_display_label, var_name,
+    unit_norm_bool, output_formats,
+):
+    """Name the ordinary one-figure slots using the renderer's output rules."""
+    category = _resolve_output_category_name(region_ctx, raw_display_label)
+    title = f"{raw_display_label}_{var_name}"
+    if unit_norm_bool:
+        title += "_unitnorm"
+    base = os.path.join(save_dir_path or "", category, title)
+    mode_base = _mode_bearing_output_path(base, region_ctx.binning_mode)
+    return tuple(f"{mode_base}.{fmt}" for fmt in _normalize_output_formats(output_formats))
 
 
 def _render_variable_category(
@@ -3339,7 +3454,10 @@ def _render_variable_category(
     available_channels=None,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
     output_formats=("png",),
+    skip_outcomes=None,
 ):
     """Render a single (variable, category) pair and return bookkeeping totals."""
 
@@ -3452,6 +3570,24 @@ def _render_variable_category(
             mc_empty,
             data_empty,
         )
+        if skip_outcomes is not None:
+            skip_outcomes.append({
+                "outcome": "skipped",
+                "reason": reason,
+                "region": region_ctx.name,
+                "category": hist_cat,
+                "variable": var_name,
+                "mode": mode,
+                "has_mc": has_mc,
+                "has_data_like": has_data_like,
+                "mc_empty": mc_empty,
+                "data_empty": data_empty,
+                "paths": [str(Path(path).relative_to(save_dir_path))
+                          for path in _planned_plot_paths(
+                    region_ctx, save_dir_path, raw_display_label, var_name,
+                    unit_norm_bool, output_formats,
+                )],
+            })
 
     if region_ctx.channel_mode == "aggregate":
         if verbose:
@@ -3525,6 +3661,17 @@ def _render_variable_category(
                 "process", samples_to_rm
             )
 
+        rate_histo = hist_mc_integrated
+        rate_channels = None
+        if region_ctx.name.upper() == "SR" and var_name != "njets" and not is_sparse2d:
+            # Card jet factors need each physical channel before the displayed
+            # category's channel sum; use the same application and binning view.
+            rate_histo = yt.integrate_out_appl(hist_mc, hist_cat)
+            rate_histo = _apply_plot_binning_view(
+                rate_histo, var_name, channel_bins, region_ctx.binning_mode,
+            ).remove("process", samples_to_rm)
+            rate_channels = channel_bins
+
         p_err_arr = None
         m_err_arr = None
         p_err_arr_ratio = None
@@ -3544,16 +3691,21 @@ def _render_variable_category(
             shape_systs_summed_arr_p = 0.0
             rate_calc_ok = False
             shape_calc_ok = False
+            rate_error = None
+            shape_error = None
 
             try:
                 rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
-                    hist_mc_integrated,
+                    rate_histo,
                     region_ctx.group_map,
                     group_type=region_ctx.name,
                     rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                    variable=var_name,
+                    channel_bins=rate_channels,
                 )
                 rate_calc_ok = True
             except Exception as exc:
+                rate_error = str(exc)
                 print(
                     f"Warning: Failed to compute rate systematics for {region_ctx.name} {hist_cat} {var_name}: {exc}"
                 )
@@ -3570,6 +3722,7 @@ def _render_variable_category(
                 ) = shape_syst_output
                 shape_calc_ok = True
             except Exception as exc:
+                shape_error = str(exc)
                 shape_syst_details = {
                     "valid_bases": tuple(),
                     "skipped_orphans": tuple(),
@@ -3589,10 +3742,24 @@ def _render_variable_category(
                 rate_calc_ok=rate_calc_ok,
                 shape_calc_ok=shape_calc_ok,
             )
+            _require_complete_total_systematics(
+                region_ctx.name, hist_cat, var_name, region_ctx.years,
+                rate_calc_ok, shape_calc_ok, shape_syst_details,
+                rate_error=rate_error, shape_error=shape_error,
+            )
+            if hist_mc_sumw2_integrated is None:
+                raise ValueError(
+                    f"Incomplete total uncertainty for {region_ctx.name} "
+                    f"category={hist_cat} variable={var_name} years={region_ctx.years!r}: "
+                    "nominal MC sumw2 histogram is missing"
+                )
 
-            if rate_calc_ok or shape_calc_ok:
-                if var_name == "njets":
+            if rate_calc_ok and shape_calc_ok:
+                if var_name == "njets" and region_ctx.name.upper() == "CR":
                     diboson_samples = region_ctx.group_map.get("Diboson", [])
+                    diboson_samples, _ = filter_existing_processes(
+                        diboson_samples, _process_axis_labels(hist_mc_integrated)
+                    )
                     if diboson_samples:
                         db_hist = _eval_without_underflow(
                             hist_mc_integrated.integrate("process", diboson_samples)[
@@ -3600,7 +3767,8 @@ def _render_variable_category(
                             ].integrate("systematic", "nominal")
                         )
                         diboson_njets_syst = get_diboson_njets_syst_arr(
-                            db_hist, bin0_njets=0
+                            db_hist, bin0_njets=0,
+                            era=_resolve_diboson_njets_era(region_ctx.years),
                         )
                         shape_systs_summed_arr_p = (
                             shape_systs_summed_arr_p + diboson_njets_syst
@@ -3728,7 +3896,11 @@ def _render_variable_category(
                 "style": region_ctx.stacked_ratio_style,
                 "uncertainty_mode": uncertainty_mode,
                 "diagnostic_context": plot_diagnostic_context,
+                "debug_canvas_annotations": debug_canvas_annotations,
+                "sr_display_diagnostics": sr_display_diagnostics,
             }
+            if region_ctx.name.upper() == "SR":
+                stacked_kwargs["sr_flat_display"] = True
             rebin_report = _prepare_plot_rebin_and_negative_rows(
                 variable=var_name,
                 hist_mc=hist_mc_integrated,
@@ -3860,6 +4032,14 @@ def _render_variable_category(
             channel_bins,
             region_ctx.binning_mode,
         )
+        rate_histo = hist_mc_channel
+        rate_channels = None
+        if region_ctx.name.upper() == "SR" and var_name != "njets":
+            rate_histo = hist_mc.remove("process", samples_to_rm)
+            rate_histo = _apply_plot_binning_view(
+                rate_histo, var_name, channel_bins, region_ctx.binning_mode,
+            )
+            rate_channels = channels
         hist_mc_sumw2 = _apply_plot_binning_view(
             hist_mc_sumw2,
             var_name,
@@ -3895,15 +4075,20 @@ def _render_variable_category(
             shape_systs_summed_arr_p = 0.0
             rate_calc_ok = False
             shape_calc_ok = False
+            rate_error = None
+            shape_error = None
             try:
                 rate_systs_summed_arr_m, rate_systs_summed_arr_p = get_rate_syst_arrs(
-                    hist_mc_channel,
+                    rate_histo,
                     region_ctx.group_map,
                     group_type=region_ctx.name,
                     rate_syst_by_sample=region_ctx.rate_syst_by_sample,
+                    variable=var_name,
+                    channel_bins=rate_channels,
                 )
                 rate_calc_ok = True
             except Exception as exc:
+                rate_error = str(exc)
                 print(
                     f"Warning: Failed to compute rate systematics for {region_ctx.name} {hist_cat} {var_name}: {exc}"
                 )
@@ -3920,6 +4105,7 @@ def _render_variable_category(
                 ) = shape_syst_output
                 shape_calc_ok = True
             except Exception as exc:
+                shape_error = str(exc)
                 shape_syst_details = {
                     "valid_bases": tuple(),
                     "skipped_orphans": tuple(),
@@ -3939,8 +4125,40 @@ def _render_variable_category(
                 rate_calc_ok=rate_calc_ok,
                 shape_calc_ok=shape_calc_ok,
             )
+            _require_complete_total_systematics(
+                region_ctx.name, hist_cat, var_name, region_ctx.years,
+                rate_calc_ok, shape_calc_ok, shape_syst_details,
+                rate_error=rate_error, shape_error=shape_error,
+            )
+            if hist_mc_sumw2 is None:
+                raise ValueError(
+                    f"Incomplete total uncertainty for {region_ctx.name} "
+                    f"category={hist_cat} variable={var_name} years={region_ctx.years!r}: "
+                    "nominal MC sumw2 histogram is missing"
+                )
 
-            if rate_calc_ok or shape_calc_ok:
+            if rate_calc_ok and shape_calc_ok:
+                if var_name == "njets" and region_ctx.name.upper() == "CR":
+                    diboson_samples, _ = filter_existing_processes(
+                        region_ctx.group_map.get("Diboson", []),
+                        _process_axis_labels(hist_mc_channel),
+                    )
+                    if diboson_samples:
+                        db_hist = _eval_without_underflow(
+                            hist_mc_channel.integrate("process", diboson_samples)[
+                                {"process": sum}
+                            ].integrate("systematic", "nominal")
+                        )
+                        diboson_njets_syst = get_diboson_njets_syst_arr(
+                            db_hist, bin0_njets=0,
+                            era=_resolve_diboson_njets_era(region_ctx.years),
+                        )
+                        shape_systs_summed_arr_p = (
+                            shape_systs_summed_arr_p + diboson_njets_syst
+                        )
+                        shape_systs_summed_arr_m = (
+                            shape_systs_summed_arr_m + diboson_njets_syst
+                        )
                 nominal_projection = hist_mc_channel[{"process": sum}].integrate(
                     "systematic", "nominal"
                 )
@@ -4019,7 +4237,11 @@ def _render_variable_category(
             "style": region_ctx.stacked_ratio_style,
             "uncertainty_mode": uncertainty_mode,
             "diagnostic_context": plot_diagnostic_context,
+            "debug_canvas_annotations": debug_canvas_annotations,
+            "sr_display_diagnostics": sr_display_diagnostics,
         }
+        if region_ctx.name.upper() == "SR":
+            stacked_kwargs["sr_flat_display"] = True
         rebin_report = _prepare_plot_rebin_and_negative_rows(
             variable=var_name,
             hist_mc=hist_mc_integrated,
@@ -4376,22 +4598,34 @@ def validate_channel_group(
             f"Subgroup '{subgroup}'{region_str}{var_str} references channels not found in the subgroup-local channel selection: {sorted(stray_channels)}."
         )
 
-def populate_group_map(samples, pattern_map):
+def populate_group_map(samples, pattern_map, *, require_unique=False):
     out = OrderedDict((k, []) for k in pattern_map)
     unmatched = []
 
     for proc_name in samples:
         canonical_name = tc_utils.canonicalize_process_name(proc_name)
-        matched = False
+        matches = []
         for grp, patterns in pattern_map.items():
             for pat in patterns:
-                if pat in canonical_name or pat in proc_name:
-                    out[grp].append(proc_name)
-                    matched = True
+                if isinstance(pat, dict):
+                    if set(pat) == {"card_process"} and isinstance(pat["card_process"], str):
+                        pattern_matches = _sr_card_process_name(proc_name) == pat["card_process"]
+                    elif set(pat) == {"exact"} and isinstance(pat["exact"], str):
+                        pattern_matches = proc_name == pat["exact"]
+                    else:
+                        raise ValueError("Group pattern must contain one exact or card_process string")
+                else:
+                    pattern_matches = pat in canonical_name or pat in proc_name
+                if pattern_matches:
+                    matches.append(grp)
                     break
-            if matched:
-                break
-        if not matched:
+        if require_unique and len(matches) != 1:
+            raise ValueError(
+                f"Process {proc_name!r} has {len(matches)} SR display owners: {matches!r}"
+            )
+        if matches:
+            out[matches[0]].append(proc_name)
+        else:
             unmatched.append(proc_name)
 
     if unmatched:
@@ -4401,6 +4635,58 @@ def populate_group_map(samples, pattern_map):
         )
 
     return out
+
+
+def _sr_diagnostic_group_map(group_map):
+    """Partition retained card-grouped ttll for display, after scientific preparation."""
+    groups = OrderedDict((label, list(members)) for label, members in group_map.items())
+    members = groups.get("ttll", []) + groups.pop("ttbar", [])
+    ttbar = [p for p in members
+             if p.startswith(("TTTo2L2Nu_", "TTto2L2Nu_", "TTToSemiLeptonic_", "TTtoLNu2Q_"))
+             and _sr_card_process_name(p) == "ttll"]
+    groups["ttll"] = [p for p in members if p not in ttbar]
+    if ttbar:
+        groups["ttbar"] = ttbar
+    return groups
+
+
+def _resolve_sr_signed_display_view(hist_mc, group_map):
+    """Keep the visible MC total exact when clipped group stacks would inflate it."""
+    available = set(hist_mc.axes["process"])
+    components = []
+    for name, members in group_map.items():
+        present = [member for member in members if member in available]
+        if not present:
+            continue
+        values = np.asarray(_values_without_flow(
+            hist_mc[{"process": present}][{"process": sum}],
+            include_overflow=True,
+        ), dtype=float)
+        components.append((name, tuple(present), values))
+    if not components:
+        return None
+    raw_total = sum((item[2] for item in components), np.zeros_like(components[0][2]))
+    clipped_sum = sum((np.maximum(item[2], 0) for item in components),
+                      np.zeros_like(raw_total))
+    if np.allclose(np.maximum(raw_total, 0), clipped_sum, rtol=1e-12, atol=1e-12):
+        return None
+    return {
+        "fallback": True,
+        "components": tuple((name, values) for name, _, values in components),
+        "raw_total": raw_total,
+        "visible_total": np.maximum(raw_total, 0),
+    }
+
+
+def _signed_display_stack(grouped_centrals):
+    """Allocate the visible signed total among positive display components."""
+    raw = np.asarray(grouped_centrals, dtype=float)
+    positive = np.maximum(raw, 0.0)
+    positive_total = np.sum(positive, axis=0)
+    visible_total = np.maximum(np.sum(raw, axis=0), 0.0)
+    scale = np.divide(visible_total, positive_total,
+                      out=np.zeros_like(visible_total), where=positive_total > 0)
+    return positive * scale, visible_total
 
 
 def _safe_divide(num, denom, default, zero_over_zero=None):
@@ -4784,16 +5070,20 @@ def write_negative_weight_report(
     *,
     binning_mode,
     summary_limit=20,
+    name_suffix=None,
 ):
     """Write negative MC contribution CSV and Markdown summary."""
 
     os.makedirs(output_dir, exist_ok=True)
+    if name_suffix is not None and not re.fullmatch(r"[A-Za-z0-9_.+-]+", name_suffix):
+        raise ValueError("Unsafe negative report suffix")
+    suffix = "" if name_suffix is None else "_" + name_suffix
     csv_path = _mode_bearing_output_path(
-        os.path.join(output_dir, "negative_weight_contribution_report.csv"),
+        os.path.join(output_dir, "negative_weight_contribution_report" + suffix + ".csv"),
         binning_mode,
     )
     md_path = _mode_bearing_output_path(
-        os.path.join(output_dir, "negative_weight_contribution_summary.md"),
+        os.path.join(output_dir, "negative_weight_contribution_summary" + suffix + ".md"),
         binning_mode,
     )
 
@@ -5323,6 +5613,7 @@ def _draw_stacked_panel(
     lumi_components=None,
     scope_label=None,
     diagnostic_context=None,
+    signed_display_view=None,
 ):
     """Render stacked MC content, optionally with data and ratio subpanels."""
 
@@ -5569,6 +5860,18 @@ def _draw_stacked_panel(
         bin_edges=bins,
         diagnostic_context=diagnostic_context,
     )
+    if signed_display_view is not None:
+        display_matrix, visible_total = _signed_display_stack(stacked_arrays)
+        plot_view["plot_grouped_centrals"] = OrderedDict(
+            (name, display_matrix[index].copy())
+            for index, name in enumerate(mc_vals)
+        )
+        plot_view["displayed_total"] = visible_total
+        plot_view["zero_total_mask"] = visible_total == 0
+        for diagnostic in plot_view["clipped_negative_diagnostics"]:
+            bin_index = diagnostic["bin_index"]
+            diagnostic["displayed_total_after_clip"] = float(visible_total[bin_index])
+            diagnostic["ratio_denominator"] = float(visible_total[bin_index])
     plot_arrays = list(plot_view["plot_grouped_centrals"].values())
     displayed_mc_totals = plot_view["displayed_total"]
 
@@ -5722,6 +6025,7 @@ def _draw_stacked_panel_only(
     lumi_components=None,
     scope_label=None,
     diagnostic_context=None,
+    signed_display_view=None,
 ):
     return _draw_stacked_panel(
         h_mc,
@@ -5743,6 +6047,7 @@ def _draw_stacked_panel_only(
         lumi_components=lumi_components,
         scope_label=scope_label,
         diagnostic_context=diagnostic_context,
+        signed_display_view=signed_display_view,
     )
 
 
@@ -5775,14 +6080,19 @@ def _compute_uncertainty_bands(
     if mc_totals.size == 0:
         return {"main_band_handles": []}
 
+    moment_shapes = ()
     if h_mc_sumw2 is not None:
         if mc_sumw2_vals:
+            moment_shapes = tuple(
+                np.asarray(values).shape for values in mc_sumw2_vals.values()
+            )
             summed_mc_sumw2 = np.sum(list(mc_sumw2_vals.values()), axis=0)
         else:
             summed_mc_sumw2_flow = (
                 h_mc_sumw2[{"process": sum}].as_hist({}).values(flow=True)
             )
             summed_mc_sumw2 = np.asarray(summed_mc_sumw2_flow, dtype=float)[1:]
+            moment_shapes = (summed_mc_sumw2.shape,)
             if summed_mc_sumw2.size > mc_totals.size:
                 summed_mc_sumw2 = summed_mc_sumw2[: mc_totals.size]
             elif summed_mc_sumw2.size < mc_totals.size:
@@ -5817,6 +6127,19 @@ def _compute_uncertainty_bands(
             band_mode = "stat"
     else:
         band_mode = "total" if has_syst_arrays else "stat"
+    if band_mode == "total" and h_mc_sumw2 is None:
+        raise ValueError(
+            "Total uncertainty requires nominal MC sumw2 moments; "
+            "sqrt(nominal) is not a valid statistical substitute"
+        )
+    if band_mode == "total" and any(
+        shape != mc_totals.shape for shape in moment_shapes
+    ):
+        raise ValueError(
+            "Total uncertainty MC sumw2 bin shapes differ from nominal: "
+            f"nominal.shape={mc_totals.shape}, moment_shapes={moment_shapes!r}; "
+            "silent truncation or zero padding is forbidden"
+        )
 
     def _append_last(arr):
         if arr is None or len(arr) == 0:
@@ -6401,11 +6724,7 @@ def _sample_in_signal_group(sample_name, sample_group_map, group_type):
         )
 
     if group_type == "SR":
-        for grp_key in SR_SIGNAL_GROUP_KEYS:
-            if _sample_in_group(
-                sample_name, sample_group_map.get(grp_key, []), canonical_sample
-            ):
-                return True
+        return _sr_card_process_name(sample_name) in SIGNAL_WC_MATCHES
 
     return False
 
@@ -6578,12 +6897,22 @@ def _filter_channel_dict_for_mode(channel_dict, region_ctx):
         allowed_keys = per_channel_keys
 
     if not allowed_keys:
-        return dict(channel_dict)
+        allowed_keys = set(channel_dict)
 
-    return {
+    selected = {
         key: channel_dict[key]
         for key in channel_dict
         if key in allowed_keys
+    }
+    if region_ctx.channel_allowlist is None:
+        return selected
+    allowed_physical = set(region_ctx.channel_allowlist)
+    for base in region_ctx.channel_allowlist:
+        allowed_physical.update(region_ctx.channel_map[base])
+    return {
+        key: [leaf for leaf in leaves if leaf in allowed_physical]
+        for key, leaves in selected.items()
+        if any(leaf in allowed_physical for leaf in leaves)
     }
 
 
@@ -6704,6 +7033,7 @@ class RegionContext(object):
         lumi_components=None,
         scope_label=None,
         binning_mode="processing",
+        channel_allowlist=None,
     ):
         self.name = name
         self.dict_of_hists = dict_of_hists
@@ -6729,6 +7059,7 @@ class RegionContext(object):
         self.channel_base_to_alias = channel_namespace["base_to_alias"]
         self.channel_alias_to_bases = channel_namespace["alias_to_bases"]
         self.channel_output_names = channel_namespace["output_name_by_base"]
+        self.channel_allowlist = channel_allowlist
         self.is_lepton_flavor_in_pkl = bool(is_lepton_flavor_in_pkl)
         self.group_patterns = group_patterns
         self.group_map = group_map
@@ -6962,6 +7293,7 @@ def build_region_context(
     channel_output_mode="merged",
     enable_category_skips=False,
     binning_mode="processing",
+    channel_allowlist=None,
 ):
     region_upper = region.upper()
     if region_upper not in ["CR","SR"]:
@@ -7262,24 +7594,23 @@ def build_region_context(
         channel_map = SR_CHAN_DICT
         channel_aliases = SR_CHAN_ALIASES
         channel_dict_name = "SR_CHAN_DICT"
-        group_map = populate_group_map(mc_samples + data_samples, group_patterns)
+        group_map = populate_group_map(mc_samples + data_samples, group_patterns, require_unique=True)
         signal_samples = sorted(
             {
                 proc_name
-                for group_name in SR_SIGNAL_GROUP_KEYS
-                for proc_name in group_map.get(group_name, [])
+                for proc_name in mc_samples
+                if _sr_card_process_name(proc_name) in {"ttH", "ttlnu", "ttll", "tllq", "tHq", "tttt"}
             }
         )
         unblind_default = resolved_unblind
         global SR_GRP_MAP
         SR_GRP_MAP = group_map
 
-    rate_syst_by_sample = {
-        sample_name: get_rate_systs(
-            sample_name, group_map, group_type=region_upper
-        )
-        for sample_name in dict.fromkeys(filtered_mc_samples or [])
-    }
+    rate_syst_by_sample = (
+        {sample_name: get_rate_systs(sample_name, group_map, group_type=region_upper)
+         for sample_name in dict.fromkeys(filtered_mc_samples or [])}
+        if region_upper == "CR" else {}
+    )
 
     return RegionContext(
         region_upper,
@@ -7317,6 +7648,7 @@ def build_region_context(
         lumi_components=lumi_components,
         scope_label=scope_label,
         binning_mode=binning_mode,
+        channel_allowlist=channel_allowlist,
     )
 
 
@@ -7334,9 +7666,15 @@ def produce_region_plots(
     verbose=False,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
     output_formats=("png",),
+    outcome_collector=None,
 ):
     """Render requested variables and return negative-report rows from the sweep."""
+
+    if outcome_collector is not None and not save_dir_path:
+        raise ValueError("Structured plot outcomes require an output directory")
 
     dict_of_hists = region_ctx.dict_of_hists
     context_label = f"{region_ctx.name} region"
@@ -7416,6 +7754,30 @@ def produce_region_plots(
             )
         ]
         variable_categories[var_name] = categories
+        if outcome_collector is not None:
+            for category in categories:
+                channel_bins = variable_payload["channel_dict"][category]
+                available_channels = variable_payload.get("available_channels")
+                if available_channels is not None:
+                    matched, _ = _filter_existing_channel_bins(
+                        list(channel_bins), available_channels
+                    )
+                    if not matched:
+                        continue
+                raw_label = variable_payload.get("channel_display_labels", {}).get(
+                    category, category
+                )
+                for path in _planned_plot_paths(
+                    region_ctx, save_dir_path, raw_label, var_name,
+                    unit_norm_bool, output_formats,
+                ):
+                    outcome_collector["planned"].append(str(
+                        Path(path).relative_to(save_dir_path)
+                    ))
+                    if "planned_details" in outcome_collector:
+                        outcome_collector["planned_details"].append(
+                            (str(Path(path).relative_to(save_dir_path)), var_name)
+                        )
         if save_dir_path:
             category_dirs.update(
                 _resolve_output_category_name(region_ctx, category)
@@ -7556,6 +7918,8 @@ def produce_region_plots(
                     output_formats,
                     prepared_payloads,
                     shared_region_ctx,
+                    debug_canvas_annotations,
+                    sr_display_diagnostics,
                 ),
             ) as executor:
                 id_to_label = {
@@ -7576,11 +7940,14 @@ def produce_region_plots(
                         stat_and_syst,
                         html_set,
                         task_negative_rows,
+                        task_skip_outcomes,
                     ) = future.result()
                     stat_only_plots += stat_only
                     stat_and_syst_plots += stat_and_syst
                     html_dirs.update(html_set)
                     negative_rows.extend(task_negative_rows)
+                    if outcome_collector is not None:
+                        outcome_collector["skipped"].extend(task_skip_outcomes)
                     _report_progress(id_to_label.get(task_id, str(task_id)))
         finally:
             _SHARED_REGION_CTX = None
@@ -7602,7 +7969,11 @@ def produce_region_plots(
                     variable_payload=variable_payload,
                     rebin_plot_vars=rebin_plot_vars,
                     negative_weight_report=negative_weight_report,
+                    debug_canvas_annotations=debug_canvas_annotations,
+                    sr_display_diagnostics=sr_display_diagnostics,
                     output_formats=output_formats,
+                    skip_outcomes=(outcome_collector["skipped"]
+                                   if outcome_collector is not None else None),
                 )
             else:
                 if not variable_payload:
@@ -7652,7 +8023,11 @@ def produce_region_plots(
                             semantic_category=semantic_category,
                             rebin_plot_vars=rebin_plot_vars,
                             negative_weight_report=negative_weight_report,
+                            debug_canvas_annotations=debug_canvas_annotations,
+                            sr_display_diagnostics=sr_display_diagnostics,
                             output_formats=output_formats,
+                            skip_outcomes=(outcome_collector["skipped"]
+                                           if outcome_collector is not None else None),
                         )
             stat_only_plots += stat_only
             stat_and_syst_plots += stat_and_syst
@@ -7738,6 +8113,8 @@ def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
 # Match a given sample name to whatever it is called in the json
 # Will return None if a match is not found
 def get_scale_name(sample_name,sample_group_map,group_type="CR"):
+    if group_type == "SR":
+        raise ValueError("SR rate identity is owned by plot_uncertainty_contract")
     scale_name_for_json = None
     canonical_sample = tc_utils.canonicalize_process_name(sample_name)
     if _sample_in_group(sample_name, sample_group_map.get("Conv", []), canonical_sample):
@@ -7762,6 +8139,8 @@ def get_scale_name(sample_name,sample_group_map,group_type="CR"):
 #   - For qcd_scale this corresponds to the process type (e.g. VV)
 # For any systemaitc or process that is not included in the correlations json we return None
 def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type="CR"):
+    if group_type == "SR":
+        raise ValueError("SR rate correlation is owned by plot_uncertainty_contract")
     proc_name_in_json = get_scale_name(proc_name,sample_group_map,group_type=group_type)
     corr_tag = None
     # Right now we only have two types of uncorrelated rate systematics
@@ -7781,6 +8160,8 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type="
 # Returns a dictionary with all of the uncertainties
 # If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
 def get_rate_systs(sample_name,sample_group_map,group_type="CR"):
+    if group_type == "SR":
+        raise ValueError("SR rate factors are owned by plot_uncertainty_contract")
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
     scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type=group_type)
@@ -7826,7 +8207,50 @@ def get_rate_syst_arrs(
     proc_group_map,
     group_type="CR",
     rate_syst_by_sample=None,
+    variable=None,
+    channel_bins=None,
 ):
+
+    if group_type == "SR":
+        processes = _process_axis_labels(base_histo)
+        special_non_njets = variable not in (None, "njets") and any(
+            _sr_card_process_name(process) in {"Diboson", "tllq", "tHq"}
+            for process in processes
+        )
+        if special_non_njets and (not _has_axis(base_histo, "channel") or not channel_bins):
+            raise ValueError(
+                "SR non-njets card rate requires channel/jet-specific diboson_njets "
+                "or missing_parton mapping before category aggregation"
+            )
+        if channel_bins is not None and _has_axis(base_histo, "channel"):
+            available = set(_resolve_channel_axis_labels(base_histo))
+            selected_channels = [
+                channel for channel in dict.fromkeys(channel_bins)
+                if channel in available
+            ]
+            if not selected_channels:
+                raise ValueError("SR card rate has no selected physical channels")
+            physical_views = [
+                (channel, base_histo.integrate("channel", [channel])[{"channel": sum}])
+                for channel in selected_channels
+            ]
+        else:
+            physical_views = [(None, base_histo)]
+        nominal_projection = physical_views[0][1].integrate("systematic", "nominal")
+        first_local_process = _process_axis_labels(nominal_projection)[0]
+        nominal = _eval_without_underflow(
+            nominal_projection[{"process": first_local_process}]
+        )
+        responses = []
+        for channel, physical_view in physical_views:
+            nominal_projection = physical_view.integrate("systematic", "nominal")
+            for process in _process_axis_labels(nominal_projection):
+                values = _eval_without_underflow(nominal_projection[{"process": process}])
+                for nuisance, (down, up) in _sr_rate_responses(
+                    process, values, channel=channel, variable=variable,
+                ).items():
+                    responses.append((nuisance, down, up))
+        return list(_sr_combine_responses(responses, nominal))
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
     rate_syst_arr_dict = {}
@@ -7879,28 +8303,18 @@ def get_rate_syst_arrs(
     return [summed_m, summed_p]
 
 def _match_variation_length(nominal, variation):
-    """Return *variation* resized to match the length of *nominal*.
-
-    Any overflow entries beyond the nominal length are trimmed. When the
-    variation is shorter, the remainder is zero-padded so downstream
-    operations can rely on consistent shapes.
-    """
+    """Require matching nominal and variation bins after flow selection."""
 
     nominal = np.asarray(nominal)
     variation = np.asarray(variation)
 
-    if variation.shape == nominal.shape:
-        return variation
-
-    target_len = nominal.shape[0]
-    trimmed = variation[:target_len]
-
-    if trimmed.shape[0] == target_len:
-        return trimmed
-
-    result = np.zeros(target_len, dtype=np.result_type(nominal, variation))
-    result[: trimmed.shape[0]] = trimmed
-    return result
+    if variation.shape != nominal.shape:
+        raise ValueError(
+            "Shape variation and nominal bin lengths differ after flow selection: "
+            f"nominal.shape={nominal.shape}, variation.shape={variation.shape}; "
+            "silent truncation or zero padding is forbidden"
+        )
+    return variation
 
 
 def _format_syst_preview(values, max_items=20):
@@ -8061,6 +8475,25 @@ def _emit_systematics_summary_once(
         )
 
 
+def _require_complete_total_systematics(
+    region_name, category, variable, years, rate_calc_ok, shape_calc_ok,
+    shape_details, *, rate_error=None, shape_error=None,
+):
+    """Reject partial total bands and silently lost shape nuisances."""
+    details = shape_details or {}
+    orphans = details.get("skipped_orphans", ())
+    failed = details.get("skipped_failed", ())
+    if rate_calc_ok and shape_calc_ok and not orphans and not failed:
+        return
+    raise ValueError(
+        f"Incomplete total uncertainty for {region_name} category={category} "
+        f"variable={variable} years={years!r}: "
+        f"rate={'ok' if rate_calc_ok else rate_error or 'failed'}; "
+        f"shape={'ok' if shape_calc_ok else shape_error or 'failed'}; "
+        f"orphan_nuisances={orphans!r}; failed_nuisances={failed!r}"
+    )
+
+
 # Wrapper for getting plus and minus shape arrs
 def get_shape_syst_arrs(base_histo,group_type="CR",return_details=False):
     """Compute aggregate shape arrays while tolerating absent process labels.
@@ -8068,6 +8501,49 @@ def get_shape_syst_arrs(base_histo,group_type="CR",return_details=False):
     Process labels missing from the current process axis are filtered rather
     than treated as global shape-systematic failures.
     """
+
+    if group_type == "SR":
+        by_process = {}
+        for key in base_histo.categorical_keys:
+            by_process.setdefault(str(key.process), set()).add(str(key.systematic))
+        processes = [process for process, names in by_process.items() if "nominal" in names]
+        if not processes:
+            raise ValueError("SR shape uncertainty has no nominal MC process")
+        nominal = _eval_without_underflow(base_histo[{"process": processes[0], "systematic": "nominal"}])
+        responses = []
+        bases_seen = set()
+        for process in processes:
+            names = by_process[process]
+            if any(name.startswith("lumi_") for name in names):
+                raise ValueError(f"SR source {process!r} already contains card luminosity templates")
+            if names == {"nominal"} and _sr_is_excluded_auxiliary(process):
+                raise ValueError(
+                    f"SR auxiliary {process!r} is scalar-nominal-only; source shape "
+                    "applicability and Up/Down coverage are incomplete"
+                )
+            nominal_process = _eval_without_underflow(base_histo[{"process": process, "systematic": "nominal"}])
+            for nuisance, (down, up) in _sr_luminosity_responses(process, nominal_process).items():
+                responses.append((nuisance, down, up))
+            bases = {name[:-2] for name in names if name.endswith("Up")}
+            bases.update(name[:-4] for name in names if name.endswith("Down"))
+            for base in sorted(bases):
+                # Match DatacardMaker's per-template selection: JES_Total is
+                # excluded even when a process has no component JES source.
+                if base == "JES_Total":
+                    continue
+                if base + "Up" not in names or base + "Down" not in names:
+                    raise ValueError(f"Incomplete SR variation pair: process={process!r}, base={base!r}")
+                up = _eval_without_underflow(base_histo[{"process": process, "systematic": base + "Up"}])
+                down = _eval_without_underflow(base_histo[{"process": process, "systematic": base + "Down"}])
+                up = _match_variation_length(nominal_process, up) - nominal_process
+                down = _match_variation_length(nominal_process, down) - nominal_process
+                responses.append((_sr_shape_nuisance_name(base, process), down, up))
+                bases_seen.add(base)
+        result = list(_sr_combine_responses(responses, nominal))
+        details = {"valid_bases": tuple(sorted(bases_seen)), "evaluated_bases": tuple(sorted(bases_seen)),
+                   "skipped_orphans": tuple(), "skipped_failed": tuple(),
+                   "renormfact_present": bool({"renorm", "fact"} & bases_seen)}
+        return (result, details) if return_details else result
 
     # Get the list of systematic base names (i.e. without the up and down tags),
     # and keep only complete Up/Down pairs.
@@ -8079,6 +8555,8 @@ def get_shape_syst_arrs(base_histo,group_type="CR",return_details=False):
     # Sum each systematic's contributions for all samples together (e.g. the ISR for all samples is summed linearly)
     p_arr_rel_lst = []
     m_arr_rel_lst = []
+    evaluated_bases = []
+    nonapplicable_bases = []
     for syst_name in syst_var_lst:
         try:
             relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "process") # The samples relevant to this syst
@@ -8093,6 +8571,7 @@ def get_shape_syst_arrs(base_histo,group_type="CR",return_details=False):
                     ", ".join(missing_relevant_samples),
                 )
             if not relevant_samples_lst:
+                nonapplicable_bases.append(syst_name)
                 continue
             proc_projection = base_histo.integrate("process", relevant_samples_lst)[{"process": sum}]
             n_arr = _eval_without_underflow(
@@ -8135,6 +8614,7 @@ def get_shape_syst_arrs(base_histo,group_type="CR",return_details=False):
             # Square and append this syst to the return lists
             p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
             m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
+            evaluated_bases.append(syst_name)
         except Exception as exc:
             skipped_failed.append({"base": syst_name, "error": str(exc)})
             continue
@@ -8142,8 +8622,10 @@ def get_shape_syst_arrs(base_histo,group_type="CR",return_details=False):
     summed_m = sum(m_arr_rel_lst) if m_arr_rel_lst else 0.0
     summed_p = sum(p_arr_rel_lst) if p_arr_rel_lst else 0.0
 
+    shape_details = dict(shape_details)
+    shape_details["evaluated_bases"] = tuple(evaluated_bases)
+    shape_details["nonapplicable_bases"] = tuple(nonapplicable_bases)
     if skipped_failed:
-        shape_details = dict(shape_details)
         shape_details["skipped_failed"] = tuple(skipped_failed)
         failed_bases = {entry["base"] for entry in skipped_failed}
         shape_details["valid_bases"] = tuple(
@@ -8387,11 +8869,11 @@ def get_decorrelated_uncty(
 
 
 # Get the squared arr for the jet dependent syst (e.g. for diboson jet dependent syst)
-def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
+def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets,era):
 
     # Get the list of njets vals for which we have SFs
     sf_int_lst = []
-    diboson_njets_dict = _cached_get_jet_dependent_syst_dict()
+    diboson_njets_dict = _cached_get_jet_dependent_syst_dict(era)
     sf_str_lst = list(diboson_njets_dict.keys())
     for s in sf_str_lst: sf_int_lst.append(int(s))
     min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
@@ -8747,6 +9229,9 @@ def make_region_stacked_ratio_fig(
     lumi_components=None,
     scope_label=None,
     diagnostic_context=None,
+    sr_flat_display=False,
+    debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
 ):
     if uncertainty_mode not in {"total", "stat", "none"}:
         raise ValueError(
@@ -8765,6 +9250,8 @@ def make_region_stacked_ratio_fig(
         bins = list(bins)
     if group is None:
         group = {}
+
+    sr_signed_display_view = None
 
     recompute_syst_ratio_arrays = False
 
@@ -8927,6 +9414,11 @@ def make_region_stacked_ratio_fig(
 
     default_colors = DEFAULT_STACK_COLORS
 
+    if sr_flat_display:
+        if sr_display_diagnostics:
+            group = _sr_diagnostic_group_map(group)
+        sr_signed_display_view = _resolve_sr_signed_display_view(h_mc, group)
+
     grouping = OrderedDict()
     axis_collection = getattr(h_mc, "axes", None)
     axis_entries = None
@@ -9024,6 +9516,7 @@ def make_region_stacked_ratio_fig(
             lumi_components=lumi_components,
             scope_label=scope_label,
             diagnostic_context=diagnostic_context,
+            signed_display_view=sr_signed_display_view,
         )
     else:
         panel_info = _draw_stacked_panel_only(
@@ -9045,6 +9538,7 @@ def make_region_stacked_ratio_fig(
             lumi_components=lumi_components,
             scope_label=scope_label,
             diagnostic_context=diagnostic_context,
+            signed_display_view=sr_signed_display_view,
         )
 
     fig = panel_info["fig"]
@@ -9311,6 +9805,23 @@ def make_region_stacked_ratio_fig(
             rax.set_xlim(set_x_lim)
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
+    if sr_signed_display_view is not None and sr_display_diagnostics:
+        original_y_limits = ax.get_ylim()
+        bin_centers = (plot_bins[:-1] + plot_bins[1:]) / 2.0
+        for component_index, (label, values) in enumerate(sr_signed_display_view["components"]):
+            if not np.any(values < 0):
+                continue
+            color = SR_GROUP_INFO.get(label, {}).get("color") or default_colors[component_index % len(default_colors)]
+            ax.stairs(values, plot_bins, label=f"{label} signed contribution", color=color,
+                      linestyle=("--", ":", "-.")[component_index % 3], linewidth=1.5)
+            if debug_canvas_annotations:
+                for bin_center, value in zip(bin_centers, values):
+                    if value < 0:
+                        ax.text(bin_center, 0.04 + component_index * 0.06,
+                                f"{value:g}", transform=ax.get_xaxis_transform(),
+                                ha="center", va="bottom", color=color, fontsize=8,
+                                clip_on=True)
+        ax.set_ylim(*original_y_limits)
     # Build a figure-anchored legend with a measured inset from the top edge
     legend_handles, legend_labels = ax.get_legend_handles_labels()
     legend = None
@@ -9320,6 +9831,11 @@ def make_region_stacked_ratio_fig(
             if label == '_nolegend_':
                 continue
             if label not in filtered:
+                if label.endswith(" signed contribution"):
+                    handle = mpl.lines.Line2D(
+                        [], [], color=handle.get_edgecolor(),
+                        linestyle=handle.get_linestyle(), linewidth=handle.get_linewidth(),
+                    )
                 filtered[label] = handle
         if filtered:
             max_rows = legend_style.get("max_rows", 3)
@@ -9327,14 +9843,8 @@ def make_region_stacked_ratio_fig(
             if not isinstance(ncol, int) or ncol <= 0:
                 ncol = 1
             entries = list(filtered.items())
+            ncol = max(ncol, math.ceil(len(entries) / max_rows))
             nrows = math.ceil(len(entries) / ncol)
-            if nrows > max_rows:
-                warnings.warn(
-                    "Legend contains more than 15 entries; truncating to fit a 5x3 layout.",
-                    RuntimeWarning,
-                )
-                entries = entries[: ncol * max_rows]
-                nrows = max_rows
             bbox_to_anchor = legend_style.get("bbox_to_anchor", (0.5, 1.0))
             if isinstance(bbox_to_anchor, (list, tuple)):
                 bbox_to_anchor = tuple(bbox_to_anchor)
@@ -9463,6 +9973,9 @@ def make_region_stacked_ratio_fig(
         "ratio_denominator": np.asarray(mc_totals, dtype=float).copy(),
     }
 
+    if sr_signed_display_view is not None:
+        fig._topeft_sr_signed_display_view = sr_signed_display_view
+
     return fig
 
 ###################### Region plotting entry point ######################
@@ -9487,13 +10000,23 @@ def run_plots_for_region(
     report_zero_yields=False,
     rebin_plot_vars=None,
     negative_weight_report=True,
+    debug_canvas_annotations=False,
+    sr_display_diagnostics=False,
+    negative_report_suffix=None,
     show_ratio_legend=False,
     binning_mode="processing",
     output_formats=("png",),
+    channel_allowlist=None,
+    outcome_collector=None,
+    diagnostics_output_dir=None,
 ):
     """Run one CR/SR plotting pass and write optional zero/negative reports."""
 
     _SYSTEMATICS_SUMMARY_EMITTED.clear()
+    if channel_allowlist is not None:
+        if region_name.upper() != "SR":
+            raise ValueError("Channel allowlist is supported for SR only")
+        channel_allowlist = _resolve_sr_channel_allowlist(channel_allowlist)
     if uncertainty_mode is None:
         uncertainty_mode = _resolve_uncertainty_mode(skip_syst=skip_syst_errs)
     elif uncertainty_mode not in {"total", "stat", "none"}:
@@ -9561,6 +10084,7 @@ def run_plots_for_region(
             channel_output_mode=channel_output,
             enable_category_skips=enable_category_skips,
             binning_mode=binning_mode,
+            channel_allowlist=channel_allowlist,
         )
         if summary_region_ctx is None:
             summary_region_ctx = region_ctx
@@ -9599,7 +10123,10 @@ def run_plots_for_region(
             verbose=verbose,
             rebin_plot_vars=rebin_plot_vars,
             negative_weight_report=negative_weight_report,
+            debug_canvas_annotations=debug_canvas_annotations,
+            sr_display_diagnostics=sr_display_diagnostics,
             output_formats=output_formats,
+            outcome_collector=outcome_collector,
         )
         if negative_rows:
             all_negative_rows.extend(negative_rows)
@@ -9619,8 +10146,9 @@ def run_plots_for_region(
     if negative_weight_report:
         report_paths = write_negative_weight_report(
             all_negative_rows,
-            save_dir_path,
+            diagnostics_output_dir or save_dir_path,
             binning_mode=binning_mode,
+            name_suffix=negative_report_suffix,
         )
         print(
             "Wrote negative MC contribution report: {csv}; summary: {markdown}".format(
@@ -9631,16 +10159,6 @@ def run_plots_for_region(
         print("Negative MC contribution report disabled by --no-negative-weight-report.")
 
     return zero_yield_summary
-
-def _running_in_condor():
-    condor_env_vars = (
-        "_CONDOR_SCRATCH_DIR",
-        "_CONDOR_SLOT",
-        "CONDOR_JOB_AD",
-        "CONDOR_JOBID",
-    )
-    return any(os.environ.get(var) for var in condor_env_vars)
-
 
 def _detect_region_from_path(path):
     if not path:
@@ -9799,6 +10317,16 @@ def build_arg_parser():
         ),
     )
     parser.add_argument(
+        "--sr-display-diagnostics",
+        action="store_true",
+        help="Split inclusive ttbar from card-grouped ttll and show signed contribution outlines (default: off).",
+    )
+    parser.add_argument(
+        "--debug-canvas-annotations",
+        action="store_true",
+        help="Annotate signed outlines numerically; requires --sr-display-diagnostics (default: off).",
+    )
+    parser.add_argument(
         "--output-formats",
         nargs="+",
         choices=SUPPORTED_OUTPUT_FORMATS,
@@ -9855,6 +10383,11 @@ def build_arg_parser():
         default="-",
         help="Path for merge diagnostic report JSON, or '-' for stdout.",
     )
+    parser.add_argument("--suppress-merge-report", action="store_true",
+                        help="Do not serialize the optional composition report.")
+    parser.add_argument("--canonical-campaign-root", default="")
+    parser.add_argument("--canonical-period", default="")
+    parser.add_argument("--negative-report-suffix", default="")
     parser.add_argument(
         "--merge-only",
         action="store_true",
@@ -9896,6 +10429,221 @@ def _resolve_pkl_paths(args, parser):
     if not pkl_paths:
         parser.error("No input pkl files were provided. Use -f/--pkl-file-path or --pkl-list-file.")
     return pkl_paths
+
+
+def _resolve_sr_channel_allowlist(names):
+    """Resolve base names and aliases to an exact set of configured SR bases."""
+    requested = {names} if isinstance(names, str) else set(names)
+    if not requested:
+        raise ValueError("SR channel allowlist must not be empty")
+    unknown = requested - set(SR_CHAN_DICT) - set(SR_CHAN_ALIASES.values())
+    if unknown:
+        raise ValueError(f"Unknown SR channel allowlist names: {sorted(unknown)!r}")
+    return frozenset(
+        base for base in SR_CHAN_DICT
+        if base in requested or SR_CHAN_ALIASES.get(base) in requested
+    )
+
+
+def _sr_njets_channel_patterns(allowed_bases=None):
+    """Select physical SR channels accepted by the njets plot configuration."""
+    bases = set(SR_CHAN_DICT) if allowed_bases is None else set(allowed_bases)
+    producer_presets = _load_producer_channel_presets()
+    compatible_names = set(_region_compatible_producer_preset_names("SR", producer_presets))
+    for preset_name, subgroups in producer_presets:
+        if allowed_bases is None and preset_name in compatible_names:
+            for _subgroup_name, producer_bases in subgroups:
+                bases.update(producer_bases)
+    return [rf"^{re.escape(base)}(?:_[0-9]+j)?$" for base in sorted(bases)]
+
+
+def _mixed_stage_sidecars(pkl_paths):
+    """Recognize the supported stage combination without changing artifact kinds."""
+    if len(pkl_paths) < 2 or not all(
+        os.path.isfile(metadata_sidecar_path(path)) for path in pkl_paths
+    ):
+        return None
+    sidecars = [read_histogram_sidecar(path) for path in pkl_paths]
+    kinds = [sidecar["artifact"]["artifact_kind"] for sidecar in sidecars]
+    if len(set(kinds)) == 1:
+        return None
+    if kinds.count("nonprompt_output") != 1 or set(kinds) != {
+        "nonprompt_output", "processor_output"
+    }:
+        raise ValueError(
+            "Unsupported mixed-stage plot inputs: expected exactly one "
+            "nonprompt_output primary and one or more processor_output auxiliaries."
+        )
+    return sidecars
+
+
+def _selected_processes(histograms):
+    return {
+        str(coordinate.process)
+        for histogram in histograms.values()
+        for coordinate in histogram.categorical_keys
+    }
+
+
+def _selected_channels(histograms):
+    return {
+        str(coordinate.channel)
+        for histogram in histograms.values()
+        for coordinate in histogram.categorical_keys
+    }
+
+
+def _project_auxiliary_sr_histogram(histogram, key):
+    """Use the maintained channel-aware appl selector on each physical channel."""
+    if "appl" not in histogram.categorical_axes.name:
+        raise ValueError(
+            f"Mixed-stage processor component {key!r} lacks the appl axis; "
+            "its SR stage cannot be established."
+        )
+    projected = None
+    selected_labels = {}
+    for channel in sorted(str(value) for value in histogram.axes["channel"]):
+        channel_view = histogram.prune("channel", [channel])
+        coordinates = tuple(channel_view.categorical_keys)
+        if not coordinates:
+            continue
+        sr_label = yt.get_appl_sr_bin(channel)
+        present_labels = {str(coordinate.appl) for coordinate in coordinates}
+        sr_states = {label for label in present_labels if label.startswith("isSR")}
+        if sr_states != {sr_label}:
+            raise ValueError(
+                f"Mixed-stage component {key!r} channel {channel!r} has "
+                f"ambiguous or missing source-defined SR appl state: "
+                f"expected={sr_label!r}, observed={sorted(sr_states)!r}."
+            )
+        selected_labels[channel] = sr_label
+        channel_sr = yt.integrate_out_appl(channel_view, channel)
+        if projected is None:
+            projected = channel_sr
+        else:
+            validate_histogram_compatibility(projected, channel_sr, key=key)
+            projected += channel_sr
+    if projected is None:
+        raise ValueError(f"Mixed-stage processor component {key!r} has no SR channels.")
+    return projected, selected_labels
+
+
+def _load_mixed_stage_sr_plot_view(pkl_paths, sidecars, *, selected_load,
+                                   year_coverage_policy):
+    """Compose validated source artifacts as a non-cacheable in-memory SR view."""
+    _reject_cross_run_histogram_composition(
+        pkl_paths, [None] * len(pkl_paths), sidecars
+    )
+    primary_index = next(
+        index for index, sidecar in enumerate(sidecars)
+        if sidecar["artifact"]["artifact_kind"] == "nonprompt_output"
+    )
+    primary_path = pkl_paths[primary_index]
+    primary_sidecar = sidecars[primary_index]
+    view, primary_report = load_and_merge_histogram_pkls(
+        [primary_path], require_sumw2=True,
+        year_coverage_policy=year_coverage_policy, **selected_load,
+    )
+    if primary_report.get("schema") != "split_sibling_v1":
+        raise ValueError("Mixed-stage SR view requires versioned input sidecars.")
+    if any("appl" in histogram.categorical_axes.name for histogram in view.values()):
+        raise ValueError("Mixed-stage nonprompt_output primary still carries appl.")
+    primary_processes = _selected_processes(view)
+    primary_channels = _selected_channels(view)
+    if not primary_processes or not primary_channels:
+        raise ValueError("Mixed-stage primary has no selected SR content.")
+    report = {
+        "schema": "sr_plot_view_composition",
+        "identity": "sr_plot_view_composition",
+        "primary": {
+            "path": primary_path,
+            "sidecar_path": os.fspath(metadata_sidecar_path(primary_path)),
+            "artifact_kind": primary_sidecar["artifact"]["artifact_kind"],
+            "pkl_sha256": primary_sidecar["artifact"]["pkl_sha256"],
+        },
+        "auxiliaries": [],
+        "selected_families": list(selected_load.get("selected_families", ())),
+        "primary_channels": sorted(primary_channels),
+        "process_collision_result": "none",
+        "data_ownership_result": "primary_only",
+        "required_sumw2_result": "validated_per_input",
+        "generic_sidecar_merge_bypassed": True,
+        "cacheable": False,
+        "persistent_artifact": False,
+        "runtime_histogram_families": primary_report["runtime_histogram_families"],
+    }
+    occupied_processes = set(primary_processes)
+    for index, (path, sidecar) in enumerate(zip(pkl_paths, sidecars)):
+        if index == primary_index:
+            continue
+        requested_contract = sidecar.get("requested_data_driven_products")
+        if requested_contract is None:
+            raise ValueError(
+                f"Mixed-stage auxiliary {path!r} lacks a declared "
+                "data-driven product request; prompt-only provenance is unproven."
+            )
+        requested = requested_contract["products"]
+        if any(product["enabled"] for product in requested.values()):
+            raise ValueError(
+                f"Mixed-stage auxiliary {path!r} requests data-driven products."
+            )
+        auxiliary, auxiliary_report = load_and_merge_histogram_pkls(
+            [path], require_sumw2=True,
+            year_coverage_policy=year_coverage_policy, **selected_load,
+        )
+        if auxiliary_report.get("schema") != "split_sibling_v1":
+            raise ValueError("Mixed-stage auxiliary requires a versioned sidecar.")
+        processes = _selected_processes(auxiliary)
+        if not processes:
+            raise ValueError(f"Mixed-stage auxiliary {path!r} has no selected processes.")
+        forbidden = sorted(
+            process for process in processes
+            if process.lower().startswith(
+                ("data", "nonprompt", "flips", "fake")
+            )
+        )
+        if forbidden:
+            raise ValueError(
+                f"Mixed-stage auxiliary {path!r} contains Data or data-driven "
+                f"processes: {forbidden!r}."
+            )
+        collisions = sorted(occupied_processes & processes)
+        if collisions:
+            raise ValueError(
+                f"Mixed-stage process identity collision in {path!r}: {collisions!r}."
+            )
+        auxiliary_channels = _selected_channels(auxiliary)
+        if not auxiliary_channels <= primary_channels:
+            raise ValueError(
+                f"Mixed-stage auxiliary {path!r} has channels outside primary: "
+                f"{sorted(auxiliary_channels - primary_channels)!r}."
+            )
+        labels_by_key = {}
+        for key, histogram in auxiliary.items():
+            auxiliary[key], labels_by_key[key] = _project_auxiliary_sr_histogram(
+                histogram, key
+            )
+        for key, histogram in auxiliary.items():
+            if key in view:
+                validate_histogram_compatibility(view[key], histogram, key=key)
+                view[key] += histogram
+            else:
+                view[key] = histogram
+        occupied_processes.update(processes)
+        report["auxiliaries"].append({
+            "path": path,
+            "sidecar_path": os.fspath(metadata_sidecar_path(path)),
+            "artifact_kind": sidecar["artifact"]["artifact_kind"],
+            "pkl_sha256": sidecar["artifact"]["pkl_sha256"],
+            "appl_projection": "source_defined_sr",
+            "sr_labels_by_component_and_channel": labels_by_key,
+            "channels": sorted(auxiliary_channels),
+            "processes": sorted(processes),
+            "required_sumw2_processes": sidecar[
+                "sumw2_content_manifest"
+            ]["families"].get("njets", {}).get("required_sumw2_processes", []),
+        })
+    return view, report
 
 
 def _emit_merge_report(report_obj, report_path, out_dir):
@@ -9952,10 +10700,17 @@ def _cache_merged_histograms(merged_hists, cache_path, out_dir, merge_report=Non
     return out_fpath
 
 
-def run_with_args(args, parser):
+def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
+                  outcome_collector=None, negative_report_suffix=None):
     """Normalize CLI arguments, load histograms, and dispatch region plotting."""
 
     pkl_paths = _resolve_pkl_paths(args, parser)
+    if channel_allowlist is not None:
+        if args.region_override != "SR":
+            raise ValueError("Programmatic channel allowlist requires explicit --sr")
+        if args.variables != ["njets"]:
+            raise ValueError("Programmatic channel allowlist requires --variables njets")
+        channel_allowlist = _resolve_sr_channel_allowlist(channel_allowlist)
     uncertainty_mode = _resolve_uncertainty_mode(
         skip_syst=args.skip_syst,
         no_uncertainties=args.no_uncertainties,
@@ -10033,6 +10788,20 @@ def run_with_args(args, parser):
             normalized_variables.append(cleaned)
     selected_variables = normalized_variables if normalized_variables else None
 
+    mixed_stage_sidecars = _mixed_stage_sidecars(pkl_paths)
+    if mixed_stage_sidecars is not None:
+        if resolved_region != "SR":
+            raise ValueError(
+                "Mixed-stage nonprompt_output plus processor_output inputs "
+                "are supported only for the SR plot view."
+            )
+        if args.cache_merged_pkl:
+            raise ValueError(
+                "Mixed-stage SR plot view is in-memory and not cacheable as "
+                "a merged PKL artifact."
+            )
+
+
     # Whether or not to unit norm the plots
     unit_norm_bool = args.unit_norm
 
@@ -10040,16 +10809,26 @@ def run_with_args(args, parser):
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     save_dir_path = args.output_path
     outdir_name = args.output_name
-    auto_timestamp = bool(
-        _running_in_condor() and args.channel_output and not args.include_timestamp_tag
-    )
-    if auto_timestamp:
-        print(
-            "Condor environment detected; enabling timestamp tagging to reduce output collisions."
-        )
-    if args.include_timestamp_tag or auto_timestamp:
+    if args.include_timestamp_tag:
         outdir_name = outdir_name + "_" + timestamp_tag
     save_dir_path = os.path.join(save_dir_path,outdir_name)
+    canonical_root = Path(args.canonical_campaign_root) if args.canonical_campaign_root else None
+    if canonical_root is not None:
+        if (resolved_region != "SR" or not args.canonical_period
+                or args.channel_output != "merged" or args.output_formats != ["png"]
+                or not args.suppress_merge_report or args.cache_merged_pkl
+                or Path(save_dir_path) != canonical_period_directory(
+                    canonical_root, args.canonical_period)):
+            raise ValueError("Canonical SR campaign output arguments disagree")
+        if negative_report_suffix is None:
+            negative_report_suffix = args.negative_report_suffix or None
+        if negative_report_suffix is None:
+            raise ValueError("Canonical SR campaign requires a report identity")
+        if outcome_collector is None:
+            outcome_collector = {"planned": [], "skipped": []}
+        outcome_collector.setdefault("planned_details", [])
+    elif args.canonical_period or args.negative_report_suffix:
+        raise ValueError("Canonical period or report suffix requires a campaign root")
     dir_preexists = os.path.exists(save_dir_path)
     os.makedirs(save_dir_path, exist_ok=True)
     if dir_preexists:
@@ -10067,12 +10846,30 @@ def run_with_args(args, parser):
         print(
             f"[{load_start_time:%H:%M:%S}] Loading histograms from {len(pkl_paths)} input file(s): {preview_msg}"
         )
-    hin_dict, merge_report = load_and_merge_histogram_pkls(
-        pkl_paths,
-        require_sumw2=True,
-        year_coverage_policy=args.year_coverage_policy,
-    )
-    _emit_merge_report(merge_report, args.merge_report, save_dir_path)
+    selected_load = {}
+    if resolved_region == "SR" and selected_variables == ["njets"]:
+        selected_load = {
+            "selected_families": ["njets"],
+            "channel_patterns": _sr_njets_channel_patterns(channel_allowlist),
+        }
+    if loaded_view is not None:
+        if len(pkl_paths) != 1 or args.cache_merged_pkl or args.merge_only:
+            raise ValueError("A loaded plotting view requires one input and render-only options.")
+        hin_dict, merge_report = loaded_view
+    elif mixed_stage_sidecars is None:
+        hin_dict, merge_report = load_and_merge_histogram_pkls(
+            pkl_paths,
+            require_sumw2=True,
+            year_coverage_policy=args.year_coverage_policy,
+            **selected_load,
+        )
+    else:
+        hin_dict, merge_report = _load_mixed_stage_sr_plot_view(
+            pkl_paths, mixed_stage_sidecars, selected_load=selected_load,
+            year_coverage_policy=args.year_coverage_policy,
+        )
+    if not args.suppress_merge_report:
+        _emit_merge_report(merge_report, args.merge_report, save_dir_path)
     if args.cache_merged_pkl:
         _cache_merged_histograms(
             hin_dict, args.cache_merged_pkl, save_dir_path, merge_report
@@ -10089,7 +10886,9 @@ def run_with_args(args, parser):
         print("Merge-only mode enabled, stopping after successful merge validation.")
         return 0
 
-    if merge_report.get("schema") == "split_sibling_v1":
+    if merge_report.get("schema") in {
+        "split_sibling_v1", "sr_plot_view_composition"
+    }:
         # Plotting still performs several HistEFT-aware transforms.  Build one
         # consumer-local, non-serialized view only after schema-aware merging
         # and cache handling have completed.
@@ -10123,10 +10922,31 @@ def run_with_args(args, parser):
         report_zero_yields=args.report_zero_yields,
         rebin_plot_vars=rebin_plot_vars,
         negative_weight_report=args.negative_weight_report,
+        negative_report_suffix=negative_report_suffix,
         show_ratio_legend=args.show_ratio_legend,
         binning_mode=args.binning,
+        debug_canvas_annotations=args.debug_canvas_annotations,
+        sr_display_diagnostics=args.sr_display_diagnostics,
         output_formats=args.output_formats,
+        channel_allowlist=channel_allowlist,
+        outcome_collector=outcome_collector,
+        diagnostics_output_dir=(str(canonical_diagnostics_directory(canonical_root))
+                                if canonical_root is not None else None),
     )
+    if canonical_root is not None:
+        for relative, variable in outcome_collector["planned_details"]:
+            source = Path(save_dir_path) / relative
+            if not source.is_file():
+                continue
+            category, filename = Path(relative).parts
+            targets = canonical_plot_destinations_for_period(
+                canonical_root, args.canonical_period, category, filename, variable)
+            if source != targets[0]:
+                raise RuntimeError(f"Noncanonical plotted path: {source}")
+            for target in targets[1:]:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with source.open("rb") as input_file, target.open("xb") as output_file:
+                    shutil.copyfileobj(input_file, output_file)
     return 0
 
 

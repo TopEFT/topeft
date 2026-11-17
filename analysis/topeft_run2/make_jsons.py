@@ -636,12 +636,12 @@ central_UL17_bkg_dict = {
     },
     "UL17_DY10to50" : {
         "path" : "/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
-        "histAxisName": "DYJetsToLL_centralUL17",
+        "histAxisName": "DY10to50_centralUL17",
         "xsecName": "DYJetsToLL_M_10to50_MLM",
     },
     "UL17_DY50" : {
         "path" : "/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM",
-        "histAxisName": "DYJetsToLL_centralUL17",
+        "histAxisName": "DY50_centralUL17",
         "xsecName": "DYJetsToLL_M_50_MLM",
     },
     "UL17_ST_top_s-channel" : {

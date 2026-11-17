@@ -936,5 +936,5 @@ The empty mapping is the SM point; the nonzero point is illustrative, not an
 analysis default. Sample metadata and the direct CLI's `--wc-list` own the
 concrete coefficient set. Use [extend EFT inputs or consumers](../how_to/eft.md)
 for `topeft` treatment/filling changes and the
-[`topcoffea` extension guide](https://github.com/TopEFT/topcoffea/blob/HEAD/docs/physics_extension_guides.md)
+[`topcoffea` extension guide](https://github.com/TopEFT/topcoffea/blob/run3_test_mmerged/docs/physics_extension_guides.md)
 for algebra or `HistEFT` changes.

@@ -37,6 +37,7 @@ and is not a substitute for these current tutorials.
 
 - [Run or extend the production entrypoints](how_to/production.md)
 - [Produce and qualify SR-reco extension PKLs](how_to/sr_reco_pkl_campaign.md)
+- [Produce excluded-MC histograms](excluded_mc_production.md)
 - [Change sample roles or normalization inputs](how_to/sample_roles_and_normalization.md)
 - [Produce and recover data-driven nonprompt artifacts](how_to/nonprompt.md)
 - [Run with Work Queue](how_to/work_queue.md)
@@ -63,13 +64,14 @@ and is not a substitute for these current tutorials.
 ### Development and specialist tasks
 
 - [Run focused tests](how_to/testing.md)
+- [Inspect nominal EFT event contributions](reference/eft_event_diagnostics.md)
 - [Extract fake-tau scale factors](how_to/fake_tau_scale_factors.md)
 - [Derive Run 3 diboson jet-multiplicity scale factors](how_to/diboson_njets_scale_factors.md)
 
 ## Reference
 
-Start with the [reference index](reference/README.md) when you need an exact
-contract rather than a procedure. The corpus is divided by authority:
+Use the [reference index](reference/README.md) to look up commands, interfaces,
+configuration, schemas, defaults, and failure behavior:
 
 - [Supported wrappers and direct entrypoints](reference/entrypoints.md)
 - [Analysis processor physics map](reference/analysis_processor.md)

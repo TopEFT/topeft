@@ -69,6 +69,9 @@ def _runtime_path(value, label, *, executable=False):
 
 
 def make_manifest(args):
+    threshold = datacard_tools.validate_nominal_like_tau_shape_threshold(
+        getattr(args, "nominal_like_tau_shape_threshold", datacard_tools.DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD)
+    )
     manifest_output = runner.absolute(str(args.manifest_output), "manifest_output")
     output_root = runner.absolute(str(args.output_root), "output_root")
     control_root = runner.absolute(str(args.control_root), "control_root")
@@ -133,11 +136,14 @@ def make_manifest(args):
                 "--year-coverage-policy", "error", "--year", *years,
                 "--miss-parton-file", str(missing_parton),
                 "--merge-report", str(merge_report),
+                "--nominal-like-tau-shape-threshold", str(threshold),
             ]
             if args.unblind:
                 producer_args.append("--unblind")
             if args.enable_legacy_run3_vsmu_recovery and args.era == "run3":
                 producer_args.append("--enable-legacy-run3-vsmu-recovery")
+            if args.suppress_nominal_like_tau_shapes:
+                producer_args.append("--suppress-nominal-like-tau-shapes")
             rows.append({
                 "row_id": row_id, "logical_row_id": logical_row_id,
                 "attempt_id": args.attempt_id, "era": args.era,
@@ -171,6 +177,15 @@ def main(argv=None):
     parser.add_argument("--enable-legacy-run3-vsmu-recovery", action="store_true",
                         default=False,
                         help="Enable accepted legacy Run 3 VSmu recovery for Run 3 rows")
+    parser.add_argument("--suppress-nominal-like-tau-shapes", action="store_true",
+                        default=False,
+                        help="Forward the native paired Tau shape suppression option to every producer row")
+    parser.add_argument(
+        "--nominal-like-tau-shape-threshold",
+        type=datacard_tools.validate_nominal_like_tau_shape_threshold,
+        default=datacard_tools.DEFAULT_NOMINAL_LIKE_TAU_SHAPE_THRESHOLD,
+        help="Strict relative threshold for enabled Tau shape suppression (default: %(default)s)",
+    )
     parser.add_argument("--manifest-output", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--control-root", type=Path, required=True)
@@ -188,7 +203,8 @@ def main(argv=None):
                         help="Advanced: repeat to filter the selected profile to exact physical targets")
     parser.add_argument("--attempt-id", default="attempt_01")
     parser.add_argument("--working-directory", type=Path, default=_repository_root)
-    parser.add_argument("--unblind",action="store_true",help="If set, use real data, otherwise use asimov data", default=False)
+    parser.add_argument("--unblind", action="store_true", default=False,
+                        help="Use observed data in producer cards when explicitly requested")
     args = parser.parse_args(argv)
     manifest = make_manifest(args)
     with args.manifest_output.open("x", encoding="utf-8") as output:

@@ -296,3 +296,30 @@ def test_data_driven_application_regions_have_explicit_physical_semantics(
         "nonprompt": "nonpromptUL18" in expected_generated,
         "flips": "flipsUL18" in expected_generated,
     }
+
+
+@pytest.mark.parametrize("iterator_mode", [True, False])
+def test_phase_telemetry_does_not_change_scientific_output(
+    tmp_path, sparse_hist_axes, capsys, iterator_mode
+):
+    input_path = tmp_path / "telemetry_input.pkl.gz"
+    with gzip.open(input_path, "wb") as stream:
+        cloudpickle.dump(_build_hist_dict(sparse_hist_axes), stream)
+    results = []
+    for enabled in (False, True):
+        output_path = tmp_path / ("on.pkl.gz" if enabled else "off.pkl.gz")
+        run_data_driven._finalize_histograms(
+            str(input_path), str(output_path), only_flips=False,
+            apply_envelope=False, iterator_mode=iterator_mode,
+            quiet=True, heartbeat_seconds=0., phase_telemetry=enabled,
+        )
+        results.append(get_hist_from_pkl(str(output_path)))
+    assert set(results[0]) == set(results[1])
+    for key in results[0]:
+        off, on = results[0][key], results[1][key]
+        assert [list(axis) for axis in off.axes] == [list(axis) for axis in on.axes]
+        off_values = off.view(flow=True, as_dict=True)
+        on_values = on.view(flow=True, as_dict=True)
+        assert set(off_values) == set(on_values)
+        for category in off_values:
+            np.testing.assert_array_equal(off_values[category], on_values[category])

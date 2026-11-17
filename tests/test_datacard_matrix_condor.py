@@ -89,6 +89,152 @@ def test_material_identity_worker_command_and_no_submit(tmp_path, fake_script, f
         condor.prepare_material(path, destination, **resources)
 
 
+def test_selected_rows_keep_original_manifest_and_prepare_has_no_owner(tmp_path, fake_script, fake_query):
+    rows = [make_row(tmp_path, fake_script, name) for name in ("a", "b", "c")]
+    path, data = manifest(tmp_path, fake_script, rows)
+    original_bytes = path.read_bytes()
+    selected = condor.prepare_material(path, tmp_path / "selected", **resources,
+                                       query_executable=str(fake_query[0]), row_ids=["c", "a"])
+    assert selected["unit_ids"] == ["c", "a"]
+    assert sorted(item.name for item in (tmp_path / "selected" / "units").iterdir()) == ["a.json", "c.json"]
+    assert all(runner.read_reservation(row) is None for row in rows)
+    assert path.read_bytes() == original_bytes
+    assert all(unit["parent_integrity"] == sha(path) for unit in runner.derive_units(path))
+    with condor.submission_transaction(path, tmp_path / "selected", selected["scheduler"],
+                                       row_ids=["c", "a"]) as transaction:
+        assert [reservation["row_id"] for reservation in transaction.reservations] == ["a", "c"]
+        transaction.mark_submission_started()
+    assert runner.read_reservation(rows[1]) is None
+    assert path.read_bytes() == original_bytes
+    for row_ids in (["a", "a"], ["missing"]):
+        with pytest.raises(runner.RunnerError, match="row IDs"):
+            condor.prepare_material(path, tmp_path / ("bad_" + row_ids[0]), **resources,
+                                    query_executable=str(fake_query[0]), row_ids=row_ids)
+        assert not (tmp_path / ("bad_" + row_ids[0])).exists()
+
+
+def test_stale_runtime_rejected_before_reservation(tmp_path, fake_script, fake_query):
+    row = make_row(tmp_path, fake_script)
+    path, _ = manifest(tmp_path, fake_script, [row])
+    material = condor.prepare_material(path, tmp_path / "dispatch", **resources,
+                                       query_executable=str(fake_query[0]))
+    fake_script.write_text(fake_script.read_text() + "\n# changed producer\n")
+    with pytest.raises(runner.RunnerError) as error:
+        with condor.submission_transaction(path, tmp_path / "dispatch", material["scheduler"]):
+            pytest.fail("stale runtime acquired a reservation")
+    assert error.value.code == "runtime_contract_mismatch"
+    assert runner.read_reservation(row) is None
+    assert (tmp_path / "dispatch" / "items.txt").read_text().split()[2] == "unreserved"
+
+
+@pytest.mark.parametrize("old_observation", ["unknown", "covered_zero", "active"])
+def test_ambiguous_rescue_fences_old_worker_under_row_lease(
+        tmp_path, fake_script, fake_query, monkeypatch, old_observation):
+    row = make_row(tmp_path, fake_script)
+    path, data = manifest(tmp_path, fake_script, [row])
+    original_bytes = path.read_bytes()
+    first = condor.prepare_material(path, tmp_path / "first", **resources,
+                                    query_executable=str(fake_query[0]), row_ids=[row["row_id"]])
+    with condor.submission_transaction(path, tmp_path / "first", first["scheduler"],
+                                       row_ids=[row["row_id"]]) as transaction:
+        old_token = transaction.reservations[0]["owner_id"]
+        transaction.mark_submission_started()
+    second = condor.prepare_material(path, tmp_path / "second", **resources,
+                                     query_executable=str(fake_query[0]), row_ids=[row["row_id"]])
+
+    def observe(reservation):
+        if old_observation == "unknown":
+            raise runner.RunnerError("SCHEDULER_OBSERVABILITY_INSUFFICIENT", "synthetic unknown")
+        if old_observation == "active":
+            return {"ownership": "ACTIVE", "state": "Running"}
+        return {"ownership": "GONE", "state": "GONE",
+                "terminal_proof": {"source": "covered_zero"}}
+
+    monkeypatch.setattr(runner, "query_reservation", observe)
+    with runner.unit_lease(data, row):
+        with pytest.raises(runner.RunnerError) as held:
+            with condor.submission_transaction(path, tmp_path / "second", second["scheduler"],
+                                               row_ids=[row["row_id"]], rescue_ambiguous=True):
+                pytest.fail("rescue bypassed held producer lease")
+    assert held.value.code == "execution_lock_held"
+    assert runner.read_reservation(row)["owner_id"] == old_token
+    if old_observation == "active":
+        with pytest.raises(runner.RunnerError) as active:
+            with condor.submission_transaction(path, tmp_path / "second", second["scheduler"],
+                                               row_ids=[row["row_id"]], rescue_ambiguous=True):
+                pytest.fail("active worker was superseded")
+        assert active.value.code == "row_reserved"
+        assert runner.read_reservation(row)["owner_id"] == old_token
+        return
+    with condor.submission_transaction(path, tmp_path / "second", second["scheduler"],
+                                       row_ids=[row["row_id"]], rescue_ambiguous=True) as transaction:
+        new_token = transaction.reservations[0]["owner_id"]
+        assert new_token != old_token
+    assert runner.read_reservation(row)["owner_id"] == new_token
+    assert path.read_bytes() == original_bytes
+    job_ad = tmp_path / "old.ad"
+    monkeypatch.setenv("_CONDOR_JOB_AD", str(job_ad))
+    write_worker_ad(job_ad, row["row_id"], old_token)
+    with pytest.raises(runner.RunnerError) as fenced:
+        runner.execute_unit(data, sha(path), row, backend="condor", reservation_token=old_token)
+    assert fenced.value.code == "row_reserved"
+    assert not Path(row["output_root"]).exists()
+    write_worker_ad(job_ad, row["row_id"], new_token)
+    result = runner.execute_unit(data, sha(path), row, backend="condor", reservation_token=new_token)
+    assert result["action"] == "executed"
+    assert runner.validate_receipt(json.loads(runner.receipt_path(data, row).read_text()),
+                                   data, sha(path), row)[0]
+    assert runner.execute_unit(data, sha(path), row, backend="condor",
+                               reservation_token=new_token)["action"] == "skipped_valid_receipt"
+
+
+@pytest.mark.parametrize("outcome", ["definite_spawn_failure", "ambiguous_after_spawn"])
+def test_rescue_submission_failure_keeps_new_fence(
+        tmp_path, fake_script, fake_query, monkeypatch, outcome):
+    row = make_row(tmp_path, fake_script)
+    path, data = manifest(tmp_path, fake_script, [row])
+    first = condor.prepare_material(path, tmp_path / "first", **resources,
+                                    query_executable=str(fake_query[0]), row_ids=[row["row_id"]])
+    with condor.submission_transaction(path, tmp_path / "first", first["scheduler"],
+                                       row_ids=[row["row_id"]]) as transaction:
+        old_token = transaction.reservations[0]["owner_id"]
+        transaction.mark_submission_started()
+    second = condor.prepare_material(path, tmp_path / "second", **resources,
+                                     query_executable=str(fake_query[0]), row_ids=[row["row_id"]])
+    monkeypatch.setattr(runner, "query_reservation", lambda reservation: (_ for _ in ()).throw(
+        runner.RunnerError("SCHEDULER_OBSERVABILITY_INSUFFICIENT", "synthetic unknown")))
+    monkeypatch.setattr(runner, "scheduler_snapshot", lambda scheduler: {"observed_at": "synthetic"})
+
+    class FakeProcess:
+        returncode = 7
+
+        def communicate(self, timeout=None):
+            return "", "synthetic nonzero after possible submission"
+
+    def spawn(*args, **kwargs):
+        if outcome == "definite_spawn_failure":
+            raise OSError("synthetic no executable started")
+        return FakeProcess()
+
+    monkeypatch.setattr(condor.subprocess, "Popen", spawn)
+    result = condor.submit_material(path, tmp_path / "second", second["scheduler"],
+                                    submit_executable=str(fake_query[0]),
+                                    row_ids=[row["row_id"]], rescue_ambiguous=True)
+    assert result["submission_outcome"] == (
+        "DEFINITE_SPAWN_FAILURE" if outcome == "definite_spawn_failure"
+        else "AMBIGUOUS_SUBMISSION_OUTCOME")
+    new_token = runner.read_reservation(row)["owner_id"]
+    assert new_token != old_token
+    assert (tmp_path / "second" / "items.txt").read_text().split()[2] == new_token
+    job_ad = tmp_path / "old.ad"
+    write_worker_ad(job_ad, row["row_id"], old_token)
+    monkeypatch.setenv("_CONDOR_JOB_AD", str(job_ad))
+    with pytest.raises(runner.RunnerError) as fenced:
+        runner.execute_unit(data, sha(path), row, backend="condor", reservation_token=old_token)
+    assert fenced.value.code == "row_reserved"
+    assert not Path(row["output_root"]).exists()
+
+
 @pytest.mark.parametrize("field,value", [("request_cpus", None), ("request_cpus", 0), ("request_memory", None), ("request_memory", "1GB\nqueue 9"), ("request_disk", ""), ("max_runtime", 0), ("max_runtime", True), ("max_retries", None), ("max_retries", -1), ("max_retries", True), ("max_starts", None), ("max_starts", 0), ("max_starts", True), ("query_executable", "relative_condor_q")])
 def test_resources_are_explicit_and_fail_before_output(tmp_path, fake_script, fake_query, field, value):
     path, _ = manifest(tmp_path, fake_script, [make_row(tmp_path, fake_script)])
@@ -113,6 +259,28 @@ def test_frontend_bypasses_all_parent_producer_work(tmp_path, fake_script, fake_
     assert (tmp_path / "dispatch" / "datacards.sub").is_file()
     assert (tmp_path / "dispatch" / "items.txt").read_text().split()[2] == "unreserved"
     assert runner.read_reservation(make_row(tmp_path, fake_script)) is None
+
+
+def test_frontend_row_selection_and_invalid_rescue_are_pre_effect(
+        tmp_path, fake_script, fake_query, monkeypatch, capsys):
+    rows = [make_row(tmp_path, fake_script, name) for name in ("a", "b")]
+    path, _ = manifest(tmp_path, fake_script, rows)
+    monkeypatch.setattr(condor.shutil, "which", lambda name: str(fake_query[0]))
+    base = ["make_cards.py", "--condor", "--matrix-manifest", str(path),
+            "--condor-output", str(tmp_path / "dispatch"), "--request-cpus", "1",
+            "--request-memory", "1GB", "--request-disk", "1GB",
+            "--max-retries", "2", "--max-starts", "3"]
+    monkeypatch.setattr(sys, "argv", base + ["--prepare-only", "--row-id", "b"])
+    make_cards.main()
+    assert json.loads(capsys.readouterr().out)["unit_ids"] == ["b"]
+    assert all(runner.read_reservation(row) is None for row in rows)
+    for options in (["--row-id", "a", "--row-id", "a"],
+                    ["--rescue-ambiguous", "--row-id", "a", "--row-id", "b"],
+                    ["--rescue-ambiguous", "--row-id", "a", "--prepare-only"]):
+        monkeypatch.setattr(sys, "argv", base + options)
+        with pytest.raises(SystemExit):
+            make_cards.main()
+        assert all(runner.read_reservation(row) is None for row in rows)
 
 
 @pytest.mark.parametrize("outcome", ["success", "spawn_error", "nonzero", "timeout", "interrupted", "io_error"])
@@ -272,7 +440,7 @@ def test_worker_rejects_descriptor_mutation(tmp_path, fake_script, fake_query):
 @pytest.mark.parametrize("binning", ["fitting", "processing"])
 @pytest.mark.parametrize("skip", [False, True])
 def test_worker_preserves_canonical_producer_options(tmp_path, fake_script, fake_query, policy, binning, skip):
-    extras = ["--year-coverage-policy", policy, "--rate-syst-json", "custom/rates.json"]
+    extras = ["--year-coverage-policy", policy, "--rate-syst-json", "custom/rates.json", "--unblind"]
     if skip:
         extras.append("--skip-missing-parton-rate-syst")
     row = make_row(tmp_path, fake_script, extra=extras)
@@ -284,6 +452,7 @@ def test_worker_preserves_canonical_producer_options(tmp_path, fake_script, fake
     parent, _, selected = runner.resolve_unit(unit)
     assert runner.resolved_argv(parent, selected) == runner.resolved_argv(data, row)
     assert selected["producer_args"] == row["producer_args"]
+    assert runner.resolved_argv(parent, selected).count("--unblind") == 1
     assert "--sr-registry" not in selected["producer_args"]
     assert "--condor" not in selected["producer_args"]
 

@@ -234,9 +234,10 @@ def build_fit_input_package(
     _require(_plain_dir(output.parent), "output parent must be a plain existing directory")
     _require(not output.exists() and not output.is_symlink(), "output already exists")
     _require(not staging.exists() and not staging.is_symlink(), "staging already exists")
-    for first, second in ((package, fit_config), (package, output), (package, staging),
+    for first, second in ((package, output), (package, staging),
                           (fit_config, output), (fit_config, staging), (staging, output)):
-        _require(not _overlap(first, second), "source, config, staging, and output must not overlap")
+        _require(not _overlap(first, second),
+                 "output and staging must not overlap either input or each other")
     for field, value in (
         ("package_creation.topeft_commit", package_creation_topeft_commit),
         ("input_production.topeft_commit", input_production_topeft_commit),

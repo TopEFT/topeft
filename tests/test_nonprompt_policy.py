@@ -103,7 +103,8 @@ RUN2_CR_ONLY_ACTIVE_ALIASES = (
     "DY50_centralUL16APV",
     "DY50_centralUL16",
     "DY50_centralUL18",
-    "DYJetsToLL_centralUL17",
+    "DY10to50_centralUL17",
+    "DY50_centralUL17",
     "ST_antitop_t-channel_centralUL16APV",
     "ST_antitop_t-channel_centralUL16",
     "ST_antitop_t-channel_centralUL17",
@@ -248,7 +249,7 @@ def test_run2_cr_active_alias_universe_has_complete_explicit_policy_coverage():
         configuration_source="run2_cr_cfg_json_active_alias_universe",
     )
 
-    assert len(RUN2_CR_ACTIVE_ALIASES) == 115
+    assert len(RUN2_CR_ACTIVE_ALIASES) == 116
     assert {row.raw_process_label for row in certificate.resolutions} == set(
         RUN2_CR_ACTIVE_ALIASES
     )
@@ -257,7 +258,7 @@ def test_run2_cr_active_alias_universe_has_complete_explicit_policy_coverage():
         for row in certificate.resolutions
         if row.raw_process_label in RUN2_CR_ONLY_ACTIVE_ALIASES
     ]
-    assert len(cr_only_rows) == 35
+    assert len(cr_only_rows) == 36
     assert {row.policy_role for row in cr_only_rows} == {
         EXPLICIT_NONPROMPT_EXCLUSION
     }

@@ -627,3 +627,35 @@ def test_resolve_pkl_paths_from_file(tmp_path):
     resolved = make_cards._resolve_pkl_paths(args, parser)
 
     assert resolved == ["/tmp/a.pkl.gz", "/tmp/b.pkl.gz"]
+
+
+@pytest.mark.parametrize('value,expected', [(None, 1e-3), ('1e-5', 1e-5)])
+@pytest.mark.parametrize('enabled', [False, True])
+def test_tau_threshold_reaches_constructor(monkeypatch, value, expected, enabled):
+    captured = {}
+    class reached_constructor(Exception):
+        pass
+    def construct(**kwargs):
+        captured.update(kwargs)
+        raise reached_constructor
+    monkeypatch.setattr(make_cards.datacard_tools, 'load_and_merge_histogram_pkls',
+                        lambda *a, **k: ({}, {}))
+    monkeypatch.setattr(make_cards, '_emit_merge_report', lambda *a: None)
+    monkeypatch.setattr(make_cards.datacard_tools, 'DatacardMaker', construct)
+    argv = ['make_cards.py', 'synthetic.pkl.gz']
+    if value is not None:
+        argv += ['--nominal-like-tau-shape-threshold', value]
+    if enabled:
+        argv += ['--suppress-nominal-like-tau-shapes']
+    monkeypatch.setattr(sys, 'argv', argv)
+    with pytest.raises(reached_constructor):
+        make_cards.main()
+    assert captured['nominal_like_tau_shape_threshold'] == expected
+    assert captured['suppress_nominal_like_tau_shapes'] is enabled
+
+
+@pytest.mark.parametrize('value', ['0', '-1', 'nan', 'inf', '-inf', 'True'])
+def test_cli_rejects_invalid_tau_threshold(value):
+    with pytest.raises(SystemExit) as error:
+        make_cards.build_arg_parser().parse_args(['--nominal-like-tau-shape-threshold='+value])
+    assert error.value.code == 2

@@ -54,6 +54,22 @@ These switches change calibrated-object and systematic behavior. They are not
 executor settings. No scientific preference among the policies is asserted by
 the example.
 
+## Understand the b-tag Method1a consumer
+
+`AnalysisProcessor` calls the shared
+`topcoffea.modules.corrections.get_method1a_wgt_doublewp` separately for
+light and heavy-flavor jets, forms each `pData / pMC`, and multiplies the
+groups into `btagSF`. Nominal and b-tag SF variation calls use this helper.
+It must be paired with the intended shared-library revision.
+
+The shared fallback replaces only a negative data Loose-not-Medium interval
+with its MC interval. Its local ratio is one only for a nonzero MC interval;
+the other jet factors and the event-level zero-MC guard remain in force.
+This is not global clipping or a guarantee of nonnegative event weights or
+EFT cells. The mechanism is implemented by
+`topcoffea.modules.corrections.get_method1a_wgt_doublewp`;
+`topeft` owns the selected jets, working points, flavors and variations.
+
 ## Add or update an analysis-owned payload
 
 1. Identify the existing selector, era mapping, payload schema, and consuming
@@ -99,7 +115,7 @@ template policy must have an active caller-owned contract.
 If the required change is to a correctionlib boundary, JEC stack, corrected-
 jet/Type-1 MET mechanism, generic weight helper, or packaged shared payload,
 stop editing `topeft` and use the
-[`topcoffea` physics extension guide](https://github.com/TopEFT/topcoffea/blob/HEAD/docs/physics_extension_guides.md).
+[`topcoffea` physics extension guide](https://github.com/TopEFT/topcoffea/blob/run3_test_mmerged/docs/physics_extension_guides.md).
 After that change is validated, return here to select it explicitly for the
 analysis and update both repositories' ownership links.
 
