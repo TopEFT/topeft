@@ -1,0 +1,38 @@
+# Environment for the embedded-sumw2 (MultiCell HistEFT) migration.
+# MultiCell storage needs boost-histogram >= 1.7, which environment.yml lacks.
+#   conda env create -f environment-multicell.yml
+#   conda activate coffea-multicell-env
+#   pip install -e .
+# Install the paired topcoffea candidate editably before TOPEFT.
+# The migration status records its tested revision and publication limits.
+name: coffea-multicell-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=1.23.5
+  - coffea=0.7.21
+  - awkward=1.10.3
+  - uproot=4.3.7
+  - boost-histogram=1.7.2
+  - hist=2.10.1
+  - mplhep
+  - scipy
+  - pandas
+  # NanoEvents/awkward 1 kernels require the compatible LLVM 14 toolchain.
+  - numba=0.57.1
+  - llvmlite=0.40.1
+  - cloudpickle
+  - ndcctools
+  - conda-pack
+  - dill
+  - xrootd
+  - git
+  - pyyaml
+  - setuptools==70.3.0
+  - pytest
+  - time
+  - pip
+  - pip:
+      - correctionlib==2.7.0
+      - matplotlib==3.9.4

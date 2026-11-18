@@ -37,10 +37,11 @@ from topeft.modules.histogram_artifact import (
     write_histogram_artifact,
 )
 from topeft.modules.nominal_schema import (
-    NOMINAL_CONTAINER_LAYOUT,
+    EMBEDDED_SUMW2_LAYOUT,
+    EMBEDDED_SUMW2_SCHEMA_VERSION,
     NOMINAL_CONTAINER_SCHEMA_VERSION,
     canonicalize_nominal_keys,
-    validate_nominal_mapping,
+    validate_embedded_nominal_mapping,
 )
 from topeft.modules.nonprompt_policy import (
     certify_active_nonprompt_policy,
@@ -49,7 +50,7 @@ from topeft.modules.nonprompt_policy import (
 from topeft.modules.axes import info as axes_info
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.sumw2_policy import (
-    resolve_sumw2_storage_mode,
+    resolve_embedded_sumw2_mode,
     resolve_sumw2_storage_policy,
     sumw2_target,
 )
@@ -1899,7 +1900,7 @@ if __name__ == "__main__":
             input_paths=resolved_input_jsons,
             wrapper_identity=sample_universe_wrapper,
         )
-        sumw2_mode = resolve_sumw2_storage_mode(
+        sumw2_mode = resolve_embedded_sumw2_mode(
             sumw2_storage_config,
             sumw2_storage_present=sumw2_storage_present,
             legacy_no_sumw2_present=legacy_no_sumw2_present,
@@ -1962,60 +1963,23 @@ if __name__ == "__main__":
                     sumw2_target(dataset_key, sample["histAxisName"], family)
                 )
 
-    sumw2_policy = resolve_sumw2_storage_policy(
-        sumw2_storage_config,
-        samples=samplesdict,
-        runtime_families=runtime_histogram_families,
-        axes_info=axes_info,
-        axes_info_2d=axes_info_2d,
-        analysis_mode=analysis_mode,
-        sumw2_storage_present=sumw2_storage_present,
-        legacy_no_sumw2_present=legacy_no_sumw2_present,
-        legacy_no_sumw2_value=legacy_no_sumw2_value,
-        consumer_requirements=required_sumw2_targets,
-        implicit_production_requirements=(
-            resolved_data_driven_products.required_targets()
-        ),
-        mode_resolution=sumw2_mode,
-    )
-    try:
-        production_sample_contract = certify_production_sample_contract(
-            active_universe,
-            sumw2_policy,
-            resolved_data_driven_products,
-        )
-    except production_sample_profile_error as error:
-        raise SystemExit(str(error)) from None
-    (
-        requested_data_driven_products,
-        resolved_data_driven_contract,
-    ) = certify_data_driven_preflight(
-        resolved_data_driven_products,
-        sumw2_policy,
-    )
-    fill_sumw2 = bool(sumw2_policy.selected_families())
+    fill_sumw2 = sumw2_mode.resolved_mode != "disabled"
+    from topeft.modules.production_sample_profile import certify_embedded_sample_contract
+    from topeft.modules.data_driven_products import certify_embedded_data_driven_preflight
+    production_sample_contract = certify_embedded_sample_contract(active_universe, sumw2_mode)
+    requested_data_driven_products, resolved_data_driven_contract = certify_embedded_data_driven_preflight(
+        resolved_data_driven_products, sumw2_storage="embedded" if fill_sumw2 else "none")
     print(
-        "Resolved sumw2 storage: mode={} source={} targets={} families={}".format(
-            sumw2_policy.requested_mode,
-            sumw2_policy.source,
-            len(sumw2_policy.resolved_targets),
-            ",".join(sumw2_policy.selected_families()) or "<none>",
-        )
-    )
-    print(
-        "Certified production sample profile: profile={} wrapper={} cfgs={}".format(
-            sumw2_policy.signal_sample_profile,
-            active_universe.wrapper_identity,
-            ",".join(
-                identity["basename"]
-                for identity in active_universe.serialized_cfg_identities()
-            ),
+        "Resolved sumw2 storage: {} (sumw2_storage mode={} source={})".format(
+            "embedded" if fill_sumw2 else "none",
+            sumw2_mode.resolved_mode,
+            sumw2_mode.source,
         )
     )
     print(
         "Resolved nominal container: version={} layout={}".format(
-            NOMINAL_CONTAINER_SCHEMA_VERSION,
-            NOMINAL_CONTAINER_LAYOUT,
+            EMBEDDED_SUMW2_SCHEMA_VERSION,
+            EMBEDDED_SUMW2_LAYOUT,
         )
     )
     print(
@@ -2117,7 +2081,6 @@ if __name__ == "__main__":
         suppress_forward_eta_stochastic_jer=suppress_forward_eta_stochastic_jer,
         fwd_eta_band_pt_apply=fwd_eta_band_pt_apply,
         ttgamma_sample_role_policy=ttgamma_sample_role_policy,
-        sumw2_policy=sumw2_policy,
         record_raw_count=record_raw_count,
     )
     histogram_applicability = processor_instance.build_histogram_applicability(
@@ -2283,11 +2246,10 @@ if __name__ == "__main__":
         print("Finished running the processor...")
 
         diagnostic_phase = "nominal_mapping_validation"
-        validate_nominal_mapping(
+        validate_embedded_nominal_mapping(
             output,
             runtime_families=runtime_histogram_families,
-            schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION,
-            policy=sumw2_policy,
+            sumw2_storage=processor_instance.sumw2_storage,
             histogram_applicability=histogram_applicability,
         )
         diagnostic_phase = "nominal_key_canonicalization"
@@ -2325,10 +2287,11 @@ if __name__ == "__main__":
             out_pkl_file,
             histograms=output,
             artifact_kind="processor_output",
-            sumw2_storage_provenance=sumw2_policy.to_provenance(),
-            production_sample_contract=production_sample_contract,
+            sumw2_storage=processor_instance.sumw2_storage,
+            runtime_families=runtime_histogram_families,
             requested_data_driven_products=requested_data_driven_products,
             resolved_data_driven_contract=resolved_data_driven_contract,
+            production_sample_contract=production_sample_contract,
             histogram_applicability=histogram_applicability,
         )
         print("Done!")
@@ -2349,7 +2312,8 @@ if __name__ == "__main__":
                     out_pkl_file_name_np,
                     histograms=data_driven_histograms,
                     artifact_kind=inline_artifact_kind,
-                    sumw2_storage_provenance=sumw2_policy.to_provenance(),
+                    sumw2_storage=processor_sidecar["sumw2_storage"],
+                    runtime_families=runtime_histogram_families,
                     lineage_inputs=[lineage_input_from_sidecar(processor_sidecar)],
                     input_sidecar=processor_sidecar,
                     transformation_context=ddp.get_transformation_context(

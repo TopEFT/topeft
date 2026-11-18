@@ -1,5 +1,17 @@
 # Select or change sumw2 storage
 
+For the active v3 producer, choose `sumw2_storage: {mode: embedded}` or
+`{mode: none}` in run options. `production` and `production_central` retain
+private/central sample-profile checks and both use global embedded storage;
+`full_diagnostics` also means global embedded, and `disabled` means none.
+Legacy `no_sumw2` flags retain their explicit deprecated mapping. Rules and
+selective/full_custom/taufitter allocation are rejected on v3. DD and any
+consumer requesting uncertainty require recorded embedded Q. `none` is valid
+for supported yield-only requests and does not mean physical zero variance.
+
+The companion-selection procedure below belongs to the separate legacy stack;
+it is not a recipe for v3 selective allocation.
+
 For a weighted histogram bin, the nominal content is the sum of event weights;
 sumw2 is the sum of their squares. A selected `<family>_sumw2` companion stores
 the scalar Standard Model (`WC = 0`) statistical second moment on the same

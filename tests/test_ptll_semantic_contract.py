@@ -145,7 +145,7 @@ def test_processor_routes_exact_offz_set_to_ptll_only(all_analysis):
         assert processor._should_skip_histogram_fill("ptll", category, lep_channel) is True
 
 
-def test_processor_keeps_onz_under_ptz_and_allocates_ptll_sumw2():
+def test_processor_keeps_onz_under_ptz_and_embeds_ptll_sumw2():
     processor = analysis_processor.AnalysisProcessor(
         samples={},
         wc_names_lst=[],
@@ -158,18 +158,13 @@ def test_processor_keeps_onz_under_ptz_and_allocates_ptll_sumw2():
         assert processor._should_skip_histogram_fill("ptz", category, lep_channel) is False
         assert processor._should_skip_histogram_fill("ptll", category, lep_channel) is True
 
+    # Embedded sumw2: the moment lives inside each nominal histogram.
     assert {
         "ptz__scalar_nominal",
-        "ptz_sumw2",
         "ptll__scalar_nominal",
-        "ptll_sumw2",
     } == set(processor.accumulator)
-    assert processor._hist_sumw2_axis_mapping["ptz"] == {"ptz_sumw2": "ptz"}
-    assert processor._hist_sumw2_axis_mapping["ptll"] == {"ptll_sumw2": "ptll"}
-    assert np.array_equal(
-        processor.accumulator["ptll__scalar_nominal"].dense_axes[0].edges,
-        processor.accumulator["ptll_sumw2"].dense_axes[0].edges,
-    )
+    assert processor.accumulator["ptz__scalar_nominal"].store_sumw2
+    assert processor.accumulator["ptll__scalar_nominal"].store_sumw2
 
 
 def test_card_matrix_freezes_exact_family_membership_and_555_bins():

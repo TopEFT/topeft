@@ -35,8 +35,12 @@ from topeft.modules.nonprompt_policy import (
 )
 from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.nominal_schema import (
+    EMBEDDED_SUMW2_LAYOUT,
+    EMBEDDED_SUMW2_SCHEMA_VERSION,
     NOMINAL_CONTAINER_LAYOUT,
     NOMINAL_CONTAINER_SCHEMA_VERSION,
+    parse_sumw2_storage,
+    validate_embedded_nominal_mapping,
     eft_nominal_key,
     is_split_nominal_mapping,
     scalar_nominal_key,
@@ -1416,33 +1420,7 @@ def _normalize_certified_precanonical_data_driven_contract(
     }
 
 
-def _validate_sidecar_structure(
-    sidecar: Mapping[str, Any],
-    *,
-    pkl_path: Path,
-) -> dict[str, Any]:
-    if not isinstance(sidecar, Mapping):
-        raise histogram_sidecar_error("Histogram sidecar must be a JSON object.")
-    sidecar = copy.deepcopy(dict(sidecar))
-    common_fields = {
-        "metadata_schema_version",
-        "artifact",
-        "sumw2_storage_provenance",
-        "sumw2_content_manifest",
-        "lineage",
-    }
-    missing_common = sorted(common_fields - set(sidecar))
-    if missing_common:
-        raise histogram_sidecar_error(
-            f"Invalid histogram sidecar fields; missing={missing_common}."
-        )
-    if sidecar["metadata_schema_version"] != METADATA_SCHEMA_VERSION:
-        raise histogram_sidecar_error(
-            "Unsupported histogram metadata schema version "
-            f"{sidecar['metadata_schema_version']!r}."
-        )
-
-    artifact = sidecar["artifact"]
+def _validate_artifact_descriptor(artifact, *, pkl_path, schema_version, layout):
     if not isinstance(artifact, Mapping):
         raise histogram_sidecar_error("Histogram sidecar artifact must be an object.")
     _require_exact_keys(
@@ -1479,10 +1457,46 @@ def _validate_sidecar_structure(
         )
     if not isinstance(artifact["merged"], bool):
         raise histogram_sidecar_error("artifact.merged must be a boolean.")
-    if artifact["nominal_container_schema_version"] != NOMINAL_CONTAINER_SCHEMA_VERSION:
+    if artifact["nominal_container_schema_version"] != schema_version:
         raise histogram_sidecar_error("Artifact nominal schema version is incompatible.")
-    if artifact["nominal_container_layout"] != NOMINAL_CONTAINER_LAYOUT:
+    if artifact["nominal_container_layout"] != layout:
         raise histogram_sidecar_error("Artifact nominal container layout is incompatible.")
+
+
+
+def _validate_sidecar_structure(
+    sidecar: Mapping[str, Any],
+    *,
+    pkl_path: Path,
+) -> dict[str, Any]:
+    if not isinstance(sidecar, Mapping):
+        raise histogram_sidecar_error("Histogram sidecar must be a JSON object.")
+    sidecar = copy.deepcopy(dict(sidecar))
+    if sidecar.get("metadata_schema_version") == EMBEDDED_METADATA_SCHEMA_VERSION:
+        return _validate_embedded_sidecar_structure(sidecar, pkl_path=pkl_path)
+    common_fields = {
+        "metadata_schema_version",
+        "artifact",
+        "sumw2_storage_provenance",
+        "sumw2_content_manifest",
+        "lineage",
+    }
+    missing_common = sorted(common_fields - set(sidecar))
+    if missing_common:
+        raise histogram_sidecar_error(
+            f"Invalid histogram sidecar fields; missing={missing_common}."
+        )
+    if sidecar["metadata_schema_version"] != METADATA_SCHEMA_VERSION:
+        raise histogram_sidecar_error(
+            "Unsupported histogram metadata schema version "
+            f"{sidecar['metadata_schema_version']!r}."
+        )
+
+    _validate_artifact_descriptor(
+        sidecar["artifact"], pkl_path=pkl_path,
+        schema_version=NOMINAL_CONTAINER_SCHEMA_VERSION, layout=NOMINAL_CONTAINER_LAYOUT,
+    )
+    artifact = sidecar["artifact"]
 
     policy = resolved_policy_from_provenance(sidecar["sumw2_storage_provenance"])
     expected_sidecar_fields = set(common_fields)
@@ -2042,6 +2056,19 @@ def validate_histogram_artifact(
             "legacy_metadata_present": True,
         }
     sidecar = _validate_sidecar_structure(raw_payload, pkl_path=pkl_path)
+    if sidecar["metadata_schema_version"] == EMBEDDED_METADATA_SCHEMA_VERSION:
+        if histogram_applicability is not None and dict(histogram_applicability) != sidecar.get("histogram_applicability"):
+            raise histogram_sidecar_error("Explicit histogram applicability disagrees with embedded metadata.")
+        validate_embedded_nominal_mapping(
+            loaded, runtime_families=sidecar["runtime_histogram_families"],
+            sumw2_storage=sidecar["sumw2_storage"],
+            histogram_applicability=sidecar.get("histogram_applicability"),
+        )
+        _validate_embedded_contracts(sidecar, histograms=loaded)
+        _validate_artifact_identity(pkl_path, sidecar)
+        return {"schema": EMBEDDED_SUMW2_LAYOUT, "metadata": sidecar,
+                "legacy_metadata_present": False,
+                "histogram_applicability_source": "serialized" if "histogram_applicability" in sidecar else "unknown_legacy"}
     declared_applicability = sidecar.get("histogram_applicability")
     if histogram_applicability is not None:
         policy = resolved_policy_from_provenance(sidecar["sumw2_storage_provenance"])
@@ -2530,6 +2557,25 @@ def merge_histogram_sidecars(
     }
     if len(layouts) != 1:
         raise histogram_merge_error("Cannot merge incompatible nominal schemas/layouts.")
+    versions = {sidecar["metadata_schema_version"] for sidecar in sidecars}
+    if versions == {EMBEDDED_METADATA_SCHEMA_VERSION}:
+        storage = {sidecar["sumw2_storage"] for sidecar in sidecars}
+        if len(storage) != 1:
+            raise histogram_merge_error("Cannot merge embedded and none storage.")
+        families = list(dict.fromkeys(family for sidecar in sidecars for family in sidecar["runtime_histogram_families"]))
+        options = {}
+        for field in ("histogram_applicability", "requested_data_driven_products",
+                      "resolved_data_driven_contract", "production_sample_contract", "transformation_contract"):
+            values = [sidecar.get(field) for sidecar in sidecars]
+            if any(value != values[0] for value in values[1:]):
+                raise histogram_merge_error(f"Cannot merge incompatible embedded {field} declarations.")
+            if values[0] is not None:
+                options[field] = copy.deepcopy(values[0])
+        return {"artifact_kind": kind, "sumw2_storage": next(iter(storage)),
+                "runtime_families": families, "merged": True,
+                "lineage_inputs": [lineage_input_from_sidecar(sidecar) for sidecar in sidecars], **options}
+    if versions != {METADATA_SCHEMA_VERSION}:
+        raise histogram_merge_error("Cannot merge mixed metadata schema versions.")
     (
         provenance,
         production_sample_contract,
@@ -2916,6 +2962,115 @@ def _default_pickle_writer(path: str, histograms: Mapping[str, Any]) -> None:
         cloudpickle.dump(histograms, stream)
 
 
+# Schema v3 (embedded sumw2) sidecar. It keeps the artifact identity, lineage,
+# histogram applicability and requested data-driven products, and replaces the
+# selective v2 policy with one global storage mode and an inventory of actual
+# recorded moments. Source/sample and derived/product certificates are validated
+# independently of legacy selective allocation.
+EMBEDDED_METADATA_SCHEMA_VERSION = 3
+
+
+def _validate_embedded_sidecar_structure(sidecar, *, pkl_path):
+    required = {"metadata_schema_version", "artifact", "sumw2_storage", "runtime_histogram_families", "lineage"}
+    optional = {"histogram_applicability", "requested_data_driven_products",
+                "resolved_data_driven_contract", "production_sample_contract",
+                "sumw2_content_manifest", "transformation_contract"}
+    if not required <= set(sidecar) or set(sidecar) - required - optional:
+        raise histogram_sidecar_error("Invalid embedded histogram sidecar fields.")
+    _validate_artifact_descriptor(sidecar["artifact"], pkl_path=pkl_path,
+        schema_version=EMBEDDED_SUMW2_SCHEMA_VERSION, layout=EMBEDDED_SUMW2_LAYOUT)
+    parse_sumw2_storage(sidecar["sumw2_storage"])
+    families = sidecar["runtime_histogram_families"]
+    if not isinstance(families, list) or any(not isinstance(item, str) or not item for item in families) or len(set(families)) != len(families):
+        raise histogram_sidecar_error("Invalid embedded runtime histogram families.")
+    if not isinstance(sidecar["lineage"], Mapping) or set(sidecar["lineage"]) != {"inputs"}:
+        raise histogram_sidecar_error("Invalid embedded lineage.")
+    sidecar["lineage"]["inputs"] = _normalize_lineage_inputs(sidecar["lineage"]["inputs"])
+    if "histogram_applicability" in sidecar:
+        sidecar["histogram_applicability"] = _normalize_histogram_applicability(
+            sidecar["histogram_applicability"], runtime_families=families)
+    _validate_embedded_contracts(sidecar)
+    return sidecar
+
+
+def _build_embedded_sidecar_payload(
+    pkl_path: Path,
+    histograms: Mapping[str, Any],
+    *,
+    identity_path: Path,
+    artifact_kind: str,
+    merged: bool,
+    sumw2_storage: Any,
+    runtime_families: Iterable[str],
+    lineage_inputs: Iterable[Mapping[str, Any]],
+    requested_data_driven_products: Mapping[str, Any] | None,
+    histogram_applicability: Mapping[str, Any] | None,
+    resolved_data_driven_contract=None,
+    production_sample_contract=None,
+    input_sidecar=None,
+    transformation_context=None,
+    transformation_contract=None,
+) -> dict[str, Any]:
+    runtime_families = tuple(runtime_families)
+    storage = validate_embedded_nominal_mapping(
+        histograms,
+        runtime_families=runtime_families,
+        sumw2_storage=sumw2_storage,
+        histogram_applicability=histogram_applicability,
+    )
+    payload = {
+        "metadata_schema_version": EMBEDDED_METADATA_SCHEMA_VERSION,
+        "artifact": {
+            **_file_identity(identity_path, pkl_basename=pkl_path.name),
+            "artifact_kind": artifact_kind,
+            "merged": bool(merged),
+            "nominal_container_schema_version": EMBEDDED_SUMW2_SCHEMA_VERSION,
+            "nominal_container_layout": EMBEDDED_SUMW2_LAYOUT,
+        },
+        "sumw2_storage": storage.value,
+        "runtime_histogram_families": list(runtime_families),
+        "lineage": {"inputs": _normalize_lineage_inputs(lineage_inputs)},
+    }
+    if histogram_applicability is not None:
+        payload["histogram_applicability"] = _normalize_histogram_applicability(
+            histogram_applicability,
+            runtime_families=runtime_families,
+        )
+    if requested_data_driven_products is not None:
+        payload["requested_data_driven_products"] = copy.deepcopy(
+            dict(requested_data_driven_products)
+        )
+    from topeft.modules.nominal_schema import embedded_content_manifest
+    payload["sumw2_content_manifest"] = embedded_content_manifest(histograms, runtime_families)
+    if input_sidecar is not None:
+        from topeft.modules.data_driven_products import validate_embedded_product_input
+        validate_embedded_product_input(input_sidecar, artifact_kind=artifact_kind)
+        if payload["lineage"]["inputs"] != [lineage_input_from_sidecar(input_sidecar)]:
+            raise histogram_sidecar_error("Transformation must bind the exact source lineage.")
+        if (storage.value != input_sidecar["sumw2_storage"] or
+                list(runtime_families) != input_sidecar["runtime_histogram_families"]):
+            raise histogram_sidecar_error("Transformation must preserve source storage/families.")
+        for field in ("requested_data_driven_products", "resolved_data_driven_contract", "production_sample_contract", "histogram_applicability"):
+            if field in input_sidecar:
+                payload[field] = copy.deepcopy(input_sidecar[field])
+        _require_producer_transformation_context(transformation_context)
+        transformation_contract = copy.deepcopy(dict(transformation_context))
+        for family, roles in transformation_contract["families"].items():
+            source = input_sidecar["sumw2_content_manifest"]["families"][family]
+            if (roles["source_scalar_processes"] != source["scalar_nominal_processes"] or
+                    roles["source_eft_processes"] != source["eft_nominal_processes"]):
+                raise histogram_sidecar_error("Transformation source roles disagree with input.")
+    else:
+        for field, value in (("resolved_data_driven_contract", resolved_data_driven_contract), ("production_sample_contract", production_sample_contract)):
+            if value is not None:
+                payload[field] = copy.deepcopy(value)
+    if transformation_contract is not None:
+        payload["transformation_contract"] = copy.deepcopy(transformation_contract)
+    _validate_embedded_sidecar_structure(payload, pkl_path=pkl_path)
+    _validate_embedded_contracts(payload, histograms=histograms)
+    return payload
+
+
 def output_capacity_thresholds(min_free_bytes, min_free_inodes,
                                safety_reserve_bytes, safety_reserve_inodes):
     values = (min_free_bytes, min_free_inodes, safety_reserve_bytes, safety_reserve_inodes)
@@ -3008,7 +3163,7 @@ def write_histogram_artifact(
     pkl_path: str | os.PathLike[str],
     *,
     artifact_kind: str,
-    sumw2_storage_provenance: Mapping[str, Any],
+    sumw2_storage_provenance: Mapping[str, Any] | None = None,
     histograms: Mapping[str, Any] | None = None,
     payload_writer: Callable[[str], Mapping[str, Any] | None] | None = None,
     merged: bool = False,
@@ -3022,6 +3177,8 @@ def write_histogram_artifact(
     production_sample_contract: Mapping[str, Any] | None = None,
     nominal_reference_contract: Mapping[str, Any] | None = None,
     histogram_applicability: Mapping[str, Any] | None = None,
+    sumw2_storage: Any = None,
+    runtime_families: Iterable[str] | None = None,
     no_clobber: bool = False,
     min_free_bytes: int | None = None,
     min_free_inodes: int | None = None,
@@ -3029,10 +3186,39 @@ def write_histogram_artifact(
     safety_reserve_inodes: int | None = None,
     pending_id: str | None = None,
 ) -> dict[str, Any]:
-    """Stage, validate, and publish a PKL/sidecar pair as one logical output."""
+    """Stage, validate, and publish a PKL/sidecar pair as one logical output.
+
+    Schema v2 takes ``sumw2_storage_provenance`` (policy provenance plus the
+    sumw2 content manifest). Schema v3 takes ``sumw2_storage`` ("embedded" or
+    "none") and ``runtime_families`` instead, for source and certified derived output.
+    """
 
     if (histograms is None) == (payload_writer is None):
         raise ValueError("Provide exactly one of histograms or payload_writer.")
+    embedded_storage = None
+    if sumw2_storage is not None:
+        embedded_storage = parse_sumw2_storage(sumw2_storage)
+        if sumw2_storage_provenance is not None:
+            raise ValueError(
+                "Provide either sumw2_storage (schema v3) or "
+                "sumw2_storage_provenance (schema v2), not both."
+            )
+        if runtime_families is None:
+            raise ValueError("Schema v3 artifacts require runtime_families.")
+        v2_only = {
+            "required_sumw2_processes": required_sumw2_processes,
+            "nominal_reference_contract": nominal_reference_contract,
+        }
+        unsupported = sorted(name for name, value in v2_only.items() if value is not None)
+        if unsupported:
+            raise ValueError(
+                "Schema v3 artifacts do not accept policy-certified v2 fields: "
+                + ", ".join(unsupported)
+            )
+    elif sumw2_storage_provenance is None:
+        raise ValueError(
+            "Provide sumw2_storage (schema v3) or sumw2_storage_provenance (schema v2)."
+        )
     if artifact_kind != "processor_output":
         if merged:
             if input_sidecar is not None or transformation_context is not None:
@@ -3107,110 +3293,129 @@ def write_histogram_artifact(
             if histograms is not None
             else _load_histograms(staged_pkl)
         )
-        if input_sidecar is not None or transformation_context is not None:
-            if input_sidecar is None or transformation_context is None:
-                raise histogram_sidecar_error(
-                    "Original transformed publication requires both input_sidecar "
-                    "and transformation_context."
-                )
-            _require_immutable_input_provenance(
-                input_sidecar,
-                sumw2_storage_provenance,
-            )
-            derived_contract, derived_required = derive_transformed_required_sumw2_processes(
-                input_sidecar=input_sidecar,
-                transformation_context=transformation_context,
-                artifact_kind=artifact_kind,
-                transformed_histograms=manifest_histograms,
-            )
-            if transformation_contract is not None and dict(transformation_contract) != derived_contract:
-                raise histogram_sidecar_error(
-                    "Explicit transformation_contract disagrees with the independently "
-                    "derived original transformation contract."
-                )
-            transformation_contract = derived_contract
-            if required_sumw2_processes is not None and _normalize_required_processes(
-                required_sumw2_processes
-            ) != derived_required:
-                raise histogram_sidecar_error(
-                    "Explicit required_sumw2_processes disagree with the independently "
-                    "derived transformed requirements."
-                )
-            required_sumw2_processes = derived_required
-        if input_sidecar is not None:
-            input_requested = input_sidecar.get("requested_data_driven_products")
-            input_contract = input_sidecar.get("resolved_data_driven_contract")
-            if requested_data_driven_products is not None and dict(
-                requested_data_driven_products
-            ) != input_requested:
-                raise histogram_sidecar_error(
-                    "Transformed output must preserve requested_data_driven_products unchanged."
-                )
-            if resolved_data_driven_contract is not None and dict(
-                resolved_data_driven_contract
-            ) != input_contract:
-                raise histogram_sidecar_error(
-                    "Transformed output must preserve resolved_data_driven_contract unchanged."
-                )
-            requested_data_driven_products = input_requested
-            resolved_data_driven_contract = input_contract
-            input_production_contract = input_sidecar.get(
-                "production_sample_contract"
-            )
-            if production_sample_contract is not None and dict(
-                production_sample_contract
-            ) != input_production_contract:
-                raise histogram_sidecar_error(
-                    "Transformed output must preserve production_sample_contract unchanged."
-                )
-            production_sample_contract = input_production_contract
-            input_reference_contract = input_sidecar.get("nominal_reference_contract")
-            if nominal_reference_contract is not None and dict(
-                nominal_reference_contract
-            ) != input_reference_contract:
-                raise histogram_sidecar_error(
-                    "Transformed output must preserve nominal_reference_contract unchanged."
-                )
-            nominal_reference_contract = input_reference_contract
-            input_applicability = input_sidecar.get("histogram_applicability")
-            if (
-                histogram_applicability is not None
-                and dict(histogram_applicability) != input_applicability
-            ):
-                raise histogram_sidecar_error(
-                    "Transformed output must preserve histogram_applicability unchanged."
-                )
-            histogram_applicability = input_applicability
-        sidecar = _build_sidecar_payload(
-            pkl_path,
-            manifest_histograms,
-            identity_path=staged_pkl,
-            artifact_kind=artifact_kind,
-            merged=merged,
-            sumw2_storage_provenance=sumw2_storage_provenance,
-            lineage_inputs=lineage_inputs,
-            required_sumw2_processes=required_sumw2_processes,
-            transformation_contract=transformation_contract,
-            requested_data_driven_products=requested_data_driven_products,
-            resolved_data_driven_contract=resolved_data_driven_contract,
-            production_sample_contract=production_sample_contract,
-            nominal_reference_contract=nominal_reference_contract,
-            histogram_applicability=histogram_applicability,
-        )
-        _validate_sidecar_structure(sidecar, pkl_path=pkl_path)
-        _validate_content_manifest(pkl_path, manifest_histograms, sidecar)
-        if artifact_kind == "processor_output":
-            validate_processor_output(pkl_path, manifest_histograms, sidecar)
-        elif artifact_kind == NONPROMPT_OUTPUT_ARTIFACT_KIND:
-            validate_nonprompt_output(pkl_path, manifest_histograms, sidecar)
-        elif artifact_kind == NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND:
-            validate_nonprompt_nominal_reference_output(
+        if embedded_storage is not None:
+            sidecar = _build_embedded_sidecar_payload(
                 pkl_path,
                 manifest_histograms,
-                sidecar,
+                identity_path=staged_pkl,
+                artifact_kind=artifact_kind,
+                merged=merged,
+                sumw2_storage=embedded_storage,
+                runtime_families=runtime_families,
+                lineage_inputs=lineage_inputs,
+                requested_data_driven_products=requested_data_driven_products,
+                histogram_applicability=histogram_applicability,
+                resolved_data_driven_contract=resolved_data_driven_contract,
+                production_sample_contract=production_sample_contract,
+                input_sidecar=input_sidecar,
+                transformation_context=transformation_context,
+                transformation_contract=transformation_contract,
             )
         else:
-            validate_flips_output(pkl_path, manifest_histograms, sidecar)
+            if input_sidecar is not None or transformation_context is not None:
+                if input_sidecar is None or transformation_context is None:
+                    raise histogram_sidecar_error(
+                        "Original transformed publication requires both input_sidecar "
+                        "and transformation_context."
+                    )
+                _require_immutable_input_provenance(
+                    input_sidecar,
+                    sumw2_storage_provenance,
+                )
+                derived_contract, derived_required = derive_transformed_required_sumw2_processes(
+                    input_sidecar=input_sidecar,
+                    transformation_context=transformation_context,
+                    artifact_kind=artifact_kind,
+                    transformed_histograms=manifest_histograms,
+                )
+                if transformation_contract is not None and dict(transformation_contract) != derived_contract:
+                    raise histogram_sidecar_error(
+                        "Explicit transformation_contract disagrees with the independently "
+                        "derived original transformation contract."
+                    )
+                transformation_contract = derived_contract
+                if required_sumw2_processes is not None and _normalize_required_processes(
+                    required_sumw2_processes
+                ) != derived_required:
+                    raise histogram_sidecar_error(
+                        "Explicit required_sumw2_processes disagree with the independently "
+                        "derived transformed requirements."
+                    )
+                required_sumw2_processes = derived_required
+            if input_sidecar is not None:
+                input_requested = input_sidecar.get("requested_data_driven_products")
+                input_contract = input_sidecar.get("resolved_data_driven_contract")
+                if requested_data_driven_products is not None and dict(
+                    requested_data_driven_products
+                ) != input_requested:
+                    raise histogram_sidecar_error(
+                        "Transformed output must preserve requested_data_driven_products unchanged."
+                    )
+                if resolved_data_driven_contract is not None and dict(
+                    resolved_data_driven_contract
+                ) != input_contract:
+                    raise histogram_sidecar_error(
+                        "Transformed output must preserve resolved_data_driven_contract unchanged."
+                    )
+                requested_data_driven_products = input_requested
+                resolved_data_driven_contract = input_contract
+                input_production_contract = input_sidecar.get(
+                    "production_sample_contract"
+                )
+                if production_sample_contract is not None and dict(
+                    production_sample_contract
+                ) != input_production_contract:
+                    raise histogram_sidecar_error(
+                        "Transformed output must preserve production_sample_contract unchanged."
+                    )
+                production_sample_contract = input_production_contract
+                input_reference_contract = input_sidecar.get("nominal_reference_contract")
+                if nominal_reference_contract is not None and dict(
+                    nominal_reference_contract
+                ) != input_reference_contract:
+                    raise histogram_sidecar_error(
+                        "Transformed output must preserve nominal_reference_contract unchanged."
+                    )
+                nominal_reference_contract = input_reference_contract
+                input_applicability = input_sidecar.get("histogram_applicability")
+                if (
+                    histogram_applicability is not None
+                    and dict(histogram_applicability) != input_applicability
+                ):
+                    raise histogram_sidecar_error(
+                        "Transformed output must preserve histogram_applicability unchanged."
+                    )
+                histogram_applicability = input_applicability
+            sidecar = _build_sidecar_payload(
+                pkl_path,
+                manifest_histograms,
+                identity_path=staged_pkl,
+                artifact_kind=artifact_kind,
+                merged=merged,
+                sumw2_storage_provenance=sumw2_storage_provenance,
+                lineage_inputs=lineage_inputs,
+                required_sumw2_processes=required_sumw2_processes,
+                transformation_contract=transformation_contract,
+                requested_data_driven_products=requested_data_driven_products,
+                resolved_data_driven_contract=resolved_data_driven_contract,
+                production_sample_contract=production_sample_contract,
+                nominal_reference_contract=nominal_reference_contract,
+                histogram_applicability=histogram_applicability,
+            )
+            _validate_sidecar_structure(sidecar, pkl_path=pkl_path)
+            _validate_content_manifest(pkl_path, manifest_histograms, sidecar)
+            if artifact_kind == "processor_output":
+                validate_processor_output(pkl_path, manifest_histograms, sidecar)
+            elif artifact_kind == NONPROMPT_OUTPUT_ARTIFACT_KIND:
+                validate_nonprompt_output(pkl_path, manifest_histograms, sidecar)
+            elif artifact_kind == NONPROMPT_NOMINAL_REFERENCE_ARTIFACT_KIND:
+                validate_nonprompt_nominal_reference_output(
+                    pkl_path,
+                    manifest_histograms,
+                    sidecar,
+                )
+            else:
+                validate_flips_output(pkl_path, manifest_histograms, sidecar)
         _write_json(staged_sidecar, sidecar)
         if pending_dir is not None:
             for staged_path in (staged_pkl, staged_sidecar):
@@ -3265,3 +3470,104 @@ def write_histogram_artifact(
             staged_sidecar.unlink(missing_ok=True)
         backup_pkl.unlink(missing_ok=True)
         backup_sidecar.unlink(missing_ok=True)
+
+
+def _validate_embedded_contracts(sidecar, *, histograms=None):
+    """Recompute v3 certification from source primitives and actual payload cells."""
+    from topeft.modules.production_sample_profile import validate_embedded_sample_contract
+    from topeft.modules.data_driven_products import (
+        _validate_requested_data_driven_products, validate_generated_output_contract,
+        required_source_processes_from_generated_outputs)
+    from topeft.modules.nominal_schema import (
+        embedded_content_manifest, get_nominal_components, get_nominal_sumw2)
+    import numpy as np
+
+    sample = sidecar.get("production_sample_contract")
+    products = sidecar.get("resolved_data_driven_contract")
+    transformed = sidecar["artifact"]["artifact_kind"] != "processor_output"
+    if sample is not None:
+        validate_embedded_sample_contract(sample)
+    if products is not None:
+        if sample is None:
+            raise histogram_sidecar_error("Resolved v3 products require certified source samples.")
+        requested = sidecar.get("requested_data_driven_products")
+        _validate_requested_data_driven_products(requested)
+        validate_generated_output_contract(requested, products)
+        required = set().union(*(set(required_source_processes_from_generated_outputs(p["generated_outputs"])) for p in products["products"].values()))
+        if required - set(sample["processes"]):
+            raise histogram_sidecar_error("Resolved contributors are outside the source universe.")
+    if transformed and (sample is None or products is None or
+                        "transformation_contract" not in sidecar or not sidecar["lineage"]["inputs"]):
+        raise histogram_sidecar_error("Transformed v3 output requires source/product/lineage certification.")
+    if not transformed and "transformation_contract" in sidecar:
+        raise histogram_sidecar_error("Source output cannot carry a transformation contract.")
+    if histograms is None:
+        return
+    families = sidecar["runtime_histogram_families"]
+    actual = embedded_content_manifest(histograms, families)
+    if "sumw2_content_manifest" in sidecar and actual != sidecar["sumw2_content_manifest"]:
+        raise histogram_content_error("Embedded content manifest disagrees with actual recording support.")
+    for histogram in histograms.values():
+        for values in histogram.view(flow=True).values():
+            array = values.value if hasattr(values, "value") else values
+            if not np.all(np.isfinite(array)):
+                raise histogram_content_error("Nonfinite v3 histogram content.")
+        if sidecar["sumw2_storage"] == "embedded":
+            for moment in get_nominal_sumw2(histogram, flow=True).values():
+                if not moment.size or not np.all(np.isfinite(moment)) or np.any(moment < 0):
+                    raise histogram_content_error("Invalid recorded v3 statistical moment.")
+    if not transformed:
+        if sample is not None:
+            present = set().union(*(set(m["scalar_nominal_processes"]) | set(m["eft_nominal_processes"]) for m in actual["families"].values()))
+            if present - set(sample["processes"]):
+                raise histogram_content_error("Payload process absent from certified sample universe.")
+        return
+    context = sidecar["transformation_contract"]
+    if set(context) != {"families", "eft_prompt_projection"} or set(context["families"]) != set(families):
+        raise histogram_content_error("Invalid v3 transformation families or fields.")
+    if context["eft_prompt_projection"].get("generated_nonprompt_eft_dependence") is not False:
+        raise histogram_content_error("Nonprompt subtraction requires an SM projection.")
+    projection = context["eft_prompt_projection"]
+    expected_eft = sorted(set().union(*(set(roles["source_eft_processes"])
+        for roles in context["families"].values())) & set(products["resolved_prompt_process_set"]))
+    if sidecar["artifact"]["artifact_kind"] == FLIPS_OUTPUT_ARTIFACT_KIND:
+        expected_eft = []
+    if (set(projection) != {"mode", "required_processes", "generated_nonprompt_eft_dependence"}
+            or projection["mode"] != "sm_point" or projection["required_processes"] != expected_eft):
+        raise histogram_content_error("EFT prompt projection disagrees with certified source roles.")
+    for family, manifest in actual["families"].items():
+        roles = context["families"][family]
+        expected_fields = {"source_scalar_processes", "source_eft_processes", "retained_scalar_processes", "retained_eft_processes", "generated_nonprompt_processes", "generated_flips_processes", "source_application_regions", "applicable_products"}
+        if set(roles) != expected_fields:
+            raise histogram_content_error("Invalid transformation role fields.")
+        applicability = derive_data_driven_applicability(roles["source_application_regions"])
+        if roles["applicable_products"] != applicability:
+            raise histogram_content_error("Transformation applicability disagrees with source regions.")
+        for name in ("nonprompt", "flips"):
+            product = products["products"][name]
+            expected = set(product["output_processes"]) if product["enabled"] and applicability[name] else set()
+            if name == "nonprompt" and sidecar["artifact"]["artifact_kind"] == FLIPS_OUTPUT_ARTIFACT_KIND:
+                expected.clear()
+            if set(roles[f"generated_{name}_processes"]) != expected:
+                raise histogram_content_error(f"Incorrect generated {name} process/year set in {family}.")
+        scalar = set(roles["retained_scalar_processes"]) | set(roles["generated_nonprompt_processes"]) | set(roles["generated_flips_processes"])
+        if scalar != set(manifest["scalar_nominal_processes"]) or set(roles["retained_eft_processes"]) != set(manifest["eft_nominal_processes"]):
+            raise histogram_content_error("Transformed payload disagrees with certified output roles.")
+        if (set(roles["retained_scalar_processes"]) - set(roles["source_scalar_processes"]) or
+                set(roles["retained_eft_processes"]) - set(roles["source_eft_processes"])):
+            raise histogram_content_error("Retained output roles are absent from source components.")
+        if (set(roles["source_scalar_processes"]) | set(roles["source_eft_processes"])) - set(sample["processes"]):
+            raise histogram_content_error("Transformation contains uncertified source samples.")
+        for histogram in get_nominal_components(histograms, family, schema_version=3).values():
+            if "appl" in histogram.categorical_axes.name:
+                raise histogram_content_error("Transformed output retains an application axis.")
+            moments = get_nominal_sumw2(histogram, flow=True)
+            names = tuple(histogram.categorical_axes.name)
+            for coordinate in histogram.categorical_keys:
+                if "systematic" in names and coordinate[names.index("systematic")] != "nominal":
+                    continue
+                if coordinate not in moments:
+                    raise histogram_content_error("Transformed nominal contribution lacks recorded sumw2.")
+                q = moments[coordinate]
+                if not q.size or not np.all(np.isfinite(q)) or np.any(q < 0):
+                    raise histogram_content_error("Invalid transformed statistical moment.")

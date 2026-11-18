@@ -710,3 +710,47 @@ def require_data_driven_profile_certification(sidecar: Mapping[str, Any]) -> Non
             "certification. Regenerate the processor output with run_analysis."
         )
     validate_production_sample_contract(contract, provenance)
+
+
+def certify_embedded_sample_contract(universe, mode_resolution):
+    """Certify actual source samples independently of legacy selective Q policy."""
+    validate_active_sample_profile(universe, mode_resolution)
+    contract = {
+        "contract_version": 2,
+        "wrapper_identity": universe.wrapper_identity,
+        "cfg_identities": universe.serialized_cfg_identities(),
+        "datasets": list(universe.datasets),
+        "processes": list(universe.processes),
+        "resolved_mode": mode_resolution.resolved_mode,
+        "signal_sample_profile": mode_resolution.signal_sample_profile,
+        "active_signal_variants": _group_active_variants(universe.processes),
+    }
+    contract["contract_identity_sha256"] = _sha256_bytes(_canonical_json(contract).encode())
+    validate_embedded_sample_contract(contract)
+    return contract
+
+
+def validate_embedded_sample_contract(contract):
+    fields = {"contract_version", "wrapper_identity", "cfg_identities", "datasets",
+              "processes", "resolved_mode", "signal_sample_profile", "active_signal_variants",
+              "contract_identity_sha256"}
+    if not isinstance(contract, Mapping) or set(contract) != fields or contract["contract_version"] != 2:
+        raise production_sample_profile_error("Invalid v3 production sample contract.")
+    primitives = {key: value for key, value in contract.items() if key != "contract_identity_sha256"}
+    if _sha256_bytes(_canonical_json(primitives).encode()) != contract["contract_identity_sha256"]:
+        raise production_sample_profile_error("Sample contract identity mismatch.")
+    for field in ("datasets", "processes"):
+        values = contract[field]
+        if not isinstance(values, list) or not values or values != sorted(set(values)) or any(not isinstance(v, str) or not v for v in values):
+            raise production_sample_profile_error("Invalid sample universe " + field)
+    mode = contract["resolved_mode"]
+    from topeft.modules.sumw2_policy import resolve_embedded_sumw2_mode
+    resolution = resolve_embedded_sumw2_mode({"mode": mode}, sumw2_storage_present=True)
+    if resolution.signal_sample_profile != contract["signal_sample_profile"]:
+        raise production_sample_profile_error("Sample signal profile disagrees with mode.")
+    universe = active_sample_universe(contract["wrapper_identity"],
+        tuple(tuple(sorted(record.items())) for record in contract["cfg_identities"]),
+        tuple(contract["datasets"]), tuple(contract["processes"]))
+    validate_active_sample_profile(universe, resolution)
+    if _canonical_json(_group_active_variants(universe.processes)) != _canonical_json(contract["active_signal_variants"]):
+        raise production_sample_profile_error("Sample variants disagree with source universe.")

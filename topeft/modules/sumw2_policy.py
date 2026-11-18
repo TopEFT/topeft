@@ -695,3 +695,17 @@ def validate_policy_identity(
     )
     if first_policy.identity() != second_policy.identity():
         raise ValueError("Input files have different resolved sumw2 policy identities.")
+
+
+def resolve_embedded_sumw2_mode(storage, **kwargs):
+    """Resolve v3 global storage while retaining the production sample profile.
+
+    Legacy selective rules remain confined to resolve_sumw2_storage_policy.
+    """
+    if isinstance(storage, Mapping):
+        if "rules" in storage or storage.get("mode") in {"selective", "full_custom", "taufitter"}:
+            raise ValueError("Schema v3 supports global embedded/none; selective rules are not representable.")
+        mode = storage.get("mode")
+        if mode in {"embedded", "none"}:
+            storage = {**storage, "mode": "full_diagnostics" if mode == "embedded" else "disabled"}
+    return resolve_sumw2_storage_mode(storage, **kwargs)

@@ -10887,7 +10887,7 @@ def run_with_args(args, parser, *, channel_allowlist=None, loaded_view=None,
         return 0
 
     if merge_report.get("schema") in {
-        "split_sibling_v1", "sr_plot_view_composition"
+        "split_sibling_v1", "split_sibling_embedded_sumw2_v1", "sr_plot_view_composition"
     }:
         # Plotting still performs several HistEFT-aware transforms.  Build one
         # consumer-local, non-serialized view only after schema-aware merging

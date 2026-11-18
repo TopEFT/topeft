@@ -567,8 +567,25 @@ class YieldTools():
     #    - The hist you pass should have two axes (all other should already be integrated out)
     #    - The two axes should be the processes axis, and the dense axis (e.g. ht)
     #    - You pass a process name, and we select just that category from the process axis
-    def get_yield(self, h, proc, rwgt_pt={}):
-        h_vals = h[proc].eval(rwgt_pt)
+    def get_yield(self, h, proc, rwgt_pt={}, include_uncertainty=True):
+        selected = h[proc]
+        if getattr(selected, "_use_multicell", False):
+            from topeft.modules.nominal_schema import get_nominal_sumw2
+            yields = selected.eval(rwgt_pt)
+            if len(yields) > 1:
+                raise ValueError("YieldTools.get_yield requires one integrated process slice.")
+            value = sum(float(np.sum(v)) for v in yields.values())
+            if not include_uncertainty:
+                return [value, None]
+            if any(float(v) != 0 for v in rwgt_pt.values()):
+                raise ValueError("Embedded uncertainty is defined only at the SM point.")
+            moments = get_nominal_sumw2(selected, flow=True)
+            if set(moments) != set(yields):
+                raise RuntimeError("Requested yield uncertainty lacks recorded nominal sumw2.")
+            return [value, np.sqrt(sum(float(np.sum(q)) for q in moments.values()))]
+        h_vals = selected.eval(rwgt_pt)
+        if not include_uncertainty:
+            return [sum(float(np.sum(v)) for v in h_vals.values()), None]
         h_vals = add_sumw2_stub(h_vals)
         if len(h_vals) != 0:  # I.e. dict is not empty, this process exists in this dict
             for i, (k, v) in enumerate(h_vals.items()):
@@ -586,10 +603,17 @@ class YieldTools():
 
     # Integrates out categories, normalizes, then calls get_yield()
     def get_normalized_yield(
-        self, hin_dict, proc, cat_dict, rwgt_pt=None, h_name="ht"
+        self, hin_dict, proc, cat_dict, rwgt_pt=None, h_name="ht", include_uncertainty=True
     ):
-        # Integrate out cateogries
-        h = hin_dict[h_name]
+        from topeft.modules.nominal_schema import is_embedded_mapping, embedded_nominal_at_sm
+        if is_embedded_mapping(hin_dict) and rwgt_pt and any(float(v) != 0 for v in rwgt_pt.values()):
+            if include_uncertainty:
+                raise ValueError("Embedded uncertainty is defined only at the SM point.")
+            from topeft.modules.nominal_schema import materialize_nominal_family
+            h = materialize_nominal_family(hin_dict, h_name, schema_version=3)
+        else:
+            h = (embedded_nominal_at_sm(hin_dict, h_name)
+                 if is_embedded_mapping(hin_dict) else hin_dict[h_name])
         h = self.integrate_out_cats(h,cat_dict)
         h = h.integrate("systematic","nominal") # For now anyway...
 
@@ -597,7 +621,7 @@ class YieldTools():
         if rwgt_pt is None:
             rwgt_pt = {}
 
-        return self.get_yield(h, proc, rwgt_pt)
+        return self.get_yield(h, proc, rwgt_pt, include_uncertainty=include_uncertainty)
 
 
     # This function:
@@ -605,6 +629,12 @@ class YieldTools():
     #   - Returns a dictionary of yields for the categories in the "channel" axis
     #   - Optionally sums over njets or lep flavs
     def get_yld_dict(self,hin_dict,year=None,njets=False,lepflav=False):
+
+        from topeft.modules.nominal_schema import (
+            is_embedded_mapping, embedded_nominal_at_sm, family_from_component_key)
+        if is_embedded_mapping(hin_dict):
+            hin_dict = {family: embedded_nominal_at_sm(hin_dict, family)
+                        for family in dict.fromkeys(family_from_component_key(k) or k for k in hin_dict)}
 
         # Check for options that do not make sense
         if lepflav and not self.is_split_by_lepflav(hin_dict):

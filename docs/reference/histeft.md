@@ -1,5 +1,13 @@
 # HistEFT and SparseHist reference
 
+The active v3 chain uses MultiCell scalar/EFT siblings and global embedded/none.
+`nominal_schema` owns recorded-Q access, SM scalar projection and bounded
+nonserialized card/plot views. Coefficients, WC order and flows are preserved
+at that boundary. Older interface inventories below retain their historical
+scope; the [migration status](../../MULTICELL_MIGRATION_STATUS.md) identifies
+the paired provider and qualified consumer paths.
+
+
 ## Reader map
 
 This page separates current software lookup from non-normative design material

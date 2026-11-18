@@ -375,6 +375,7 @@ def test_sidecar_merge_composes_partial_content_manifests(monkeypatch):
 
     def sidecar(provenance):
         return {
+            "metadata_schema_version": 2,
             "artifact": {
                 "artifact_kind": "processor_output",
                 "nominal_container_schema_version": 2,
@@ -491,6 +492,7 @@ def test_make_cards_parser_accepts_explicit_year_coverage_policy(
 )
 def test_make_cards_main_propagates_resolved_year_coverage_policy(
     monkeypatch,
+    tmp_path,
     cli_args,
     expected_policy,
 ):
@@ -507,7 +509,7 @@ def test_make_cards_main_propagates_resolved_year_coverage_policy(
     monkeypatch.setattr(
         sys,
         "argv",
-        ["make_cards.py", "input.pkl.gz", "--merge-only", *cli_args],
+        ["make_cards.py", "input.pkl.gz", "--out-dir", str(tmp_path / "cards"), "--merge-only", *cli_args],
     )
 
     make_cards.main()
@@ -631,7 +633,7 @@ def test_resolve_pkl_paths_from_file(tmp_path):
 
 @pytest.mark.parametrize('value,expected', [(None, 1e-3), ('1e-5', 1e-5)])
 @pytest.mark.parametrize('enabled', [False, True])
-def test_tau_threshold_reaches_constructor(monkeypatch, value, expected, enabled):
+def test_tau_threshold_reaches_constructor(monkeypatch, tmp_path, value, expected, enabled):
     captured = {}
     class reached_constructor(Exception):
         pass
@@ -642,7 +644,7 @@ def test_tau_threshold_reaches_constructor(monkeypatch, value, expected, enabled
                         lambda *a, **k: ({}, {}))
     monkeypatch.setattr(make_cards, '_emit_merge_report', lambda *a: None)
     monkeypatch.setattr(make_cards.datacard_tools, 'DatacardMaker', construct)
-    argv = ['make_cards.py', 'synthetic.pkl.gz']
+    argv = ['make_cards.py', 'synthetic.pkl.gz', '--out-dir', str(tmp_path / 'cards')]
     if value is not None:
         argv += ['--nominal-like-tau-shape-threshold', value]
     if enabled:

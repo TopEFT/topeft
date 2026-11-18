@@ -3,7 +3,34 @@
 The maintained on-disk unit is a histogram PKL and its adjacent metadata
 sidecar. Consumers validate the pair; a PKL filename alone is not provenance.
 
-## Artifact kinds and schemas
+## Active v3 artifact contract
+
+The main producer and consumer chain use metadata/nominal schema 3 and
+`split_sibling_embedded_sumw2_v1`. `sumw2_storage` is one global `embedded` or
+`none` declaration, checked against physical MultiCell/Weight/Double storage.
+The v3 `sumw2_content_manifest` is recomputed from component support and explicit
+nominal recording evidence; it does not authorize selective allocation.
+
+`production_sample_contract` version 2 retains cfg/source sample identities,
+private/central variant checks and the active universe. Resolved product
+contracts retain canonical same-year contributors. Derived nonprompt/flips
+outputs require the exact source lineage, producer-generated transformation
+roles, recorded finite/nonnegative Q, and the SM-point EFT subtraction route.
+False layout, output-role, contributor, projection and recording declarations
+fail before publication. Older uncertified processor-v3 records remain readable
+within their original ceiling and cannot certify a new DD transformation.
+
+`write_histogram_artifact` retains the same staged/no-clobber/capacity/pending
+publication machinery. `input_sidecar` and the producer's generated context
+bind original derived publication; callers cannot supply a substitute context.
+Homogeneous merges preserve source identities and compatible declarations;
+mixed v2/v3 or embedded/none artifacts are rejected. Selective consumer loading
+checks the exact artifact identity and the selected content closure.
+
+The tables below describe the retained legacy v2 contracts. They do not require
+full-chain v2 compatibility in the new v3 consumer or convert a legacy artifact.
+
+## Legacy artifact kinds and schemas
 
 | Contract | Current owner | Current value or role |
 | --- | --- | --- |

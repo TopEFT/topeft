@@ -19,6 +19,21 @@ sumw2 policy, application-axis definitions, or card/plot selection.
 | progress | 30-second heartbeat | heartbeat, quiet, and memory-report options change diagnostics, not histogram semantics |
 | product restriction | full applicable family by default | `--only-flips` removes nonprompt output; nominal-only reference is explicitly non-card-ready |
 
+## V3 source and transformed products
+
+The main pipeline supports v3 inline and deferred DD. The source requires a
+producer-derived applicability declaration plus certified sample/product
+contracts. `embedded` is required for DD uncertainty; selected source roles and
+canonical same-year contributions are validated before transformation. The
+result retains exact source identity/lineage and generated nonprompt/flips
+roles. Streaming and materialized paths share the same transformations.
+
+No v3 companion PKLs are synthesized. Shared consumer accessors extract recorded
+nominal Q into transient numerical views for cards and plots, while yields can
+consume embedded Q directly. Absent/unrecorded Q is an error for uncertainty;
+non-nominal Weight variance is not nominal certification. Legacy companion
+references below describe that separate stack's maintained recovery contract.
+
 ## Choose inline or deferred execution
 
 For a direct `run_analysis.py` invocation:
