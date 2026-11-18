@@ -1,5 +1,11 @@
 # Run and extend CR/SR plotting
 
+The [R4 consumer evidence](../../MULTICELL_MIGRATION_STATUS.md#r4-consumer-evidence-and-limits)
+records stat/total PNG generation by the actual renderer fixture with diboson
+contributions. It qualifies output in that fixture, without a numerical
+band-width claim or qualification of the specialist legacy diboson reader.
+See [storage options](sumw2.md) for recorded SM Q requirements.
+
 Use `run_plotter.sh` for the maintained convenience interface and
 `make_cr_and_sr_plots.py` when you need the complete plotting CLI. Both consume
 existing histogram PKLs; they do not run the processor or mutate the input

@@ -77,9 +77,11 @@ correct variance would need per-event information.
   `environment.yml` (Python 3.9) resolves to boost-histogram 1.6.1, which
   lacks it.
 - topcoffea must provide MultiCell `HistEFT` with `store_sumw2`,
-  `fill(fill_sumw2=...)`, `nominal_sumw2()` and raw-count tracking. As of this
-  note that is the `feature/multicell-clean` branch (tested provider 307c15ac, on upstream
-  `run3_test_mmerged`). It has no `SparseHist.fill_with_moments` and no
+  `fill(fill_sumw2=...)`, `nominal_sumw2()` and raw-count tracking. The integrated provider and exact R4 pair are
+  recorded in the
+  [migration status](../../MULTICELL_MIGRATION_STATUS.md); use the
+  [README recipe](../../README.md#installation-orientation).
+  It has no `SparseHist.fill_with_moments` and no
   `HistEFT.yield_coefficients`; TopEFT uses neither.
 
 `tests/test_embedded_sumw2_backend_contract.py` pins the backend behaviour this

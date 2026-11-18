@@ -1,5 +1,10 @@
 # topeft documentation
 
+Choose the [paired v3 installation](../README.md#installation-orientation)
+or the [existing v2 provenance route](tutorials/histogram_artifacts.md#identify-the-stack-for-an-existing-v2-pkl)
+before following the workflows. The [migration status](../MULTICELL_MIGRATION_STATUS.md)
+records the integrated pair and bounded R4 qualification.
+
 This is the canonical map for the maintained `topeft` documentation. Current
 analysis documentation describes TOP-26-006. Material retained to reproduce or
 understand TOP-22-006 is labeled historical and is not part of the current

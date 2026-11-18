@@ -1,5 +1,41 @@
 # Histogram artifacts and HistEFT tutorial
 
+## Identify the stack for an existing v2 PKL
+
+1. Read the JSON sidecar adjacent to the **full** PKL filename:
+   `sample.pkl.gz.metadata.json` belongs to `sample.pkl.gz`.
+2. Check metadata schema 2 and nominal schema 2 / `split_sibling_v1`
+   against the [legacy layout reference](../reference/histogram_artifacts.md).
+   Match `artifact.pkl_basename`, `pkl_size_bytes` and `pkl_sha256` to the
+   actual file. Defer payload inspection until the producing stack has been
+   identified below; the name or a schema label alone is insufficient.
+3. For a derived artifact, follow `lineage.inputs` to the source identities
+   and their sidecars. Find the matching source or data-driven stage receipt
+   in the owning campaign record, checking path, hash and sidecar identity.
+4. Identify the producing attempt, not simply the campaign's latest attempt.
+   In the native campaign state, stage `attempts` carry `provenance`, including
+   `topeft_git_commit`, `topcoffea_git_commit`, `environment_file`,
+   `environment_file_sha256`, `environment_fingerprint` and `environment_mode`.
+   Follow any recorded environment-migration boundary for that stage/attempt;
+   a later attempt in the same campaign may use another environment.
+5. Recover both code revisions and that attempt's environment or frozen archive,
+   including its recorded digest when available. If the necessary record is
+   absent, ambiguous or conflicts with the artifact/lineage, report the stack
+   as **undetermined for this PKL**. Do not infer it from era or filename, and
+   do not open the payload. Once the producing stack is identified, check that
+   the declared layout/content agrees with the payload using that stack’s bound
+   legacy reader.
+
+The native [campaign implementation](../../analysis/topeft_run2/campaign_manifest.py)
+and [campaign guide](../how_to/sr_reco_pkl_campaign.md) own those records.
+The [v3 installation](../../README.md#installation-orientation) is a separate route.
+
+## Version scope
+
+The companion and scalar/HistEFT layout discussion below describes legacy v2.
+V3 uses global embedded/none storage and MultiCell scalar/EFT 1D siblings;
+see the [embedded contract](../explanation/embedded_sumw2.md).
+
 This tutorial explains what a `topeft` histogram artifact contains, how EFT
 information differs from an ordinary histogram yield, and how to inspect an
 artifact without treating its filename as proof of provenance. It complements
