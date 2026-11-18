@@ -1,5 +1,10 @@
 # Produce nonprompt and charge-flip histograms
 
+For the integrated v3 stack, [R4 consumer evidence](../../MULTICELL_MIGRATION_STATUS.md#r4-consumer-evidence-and-limits)
+records source/DD roundtrip, actual nonprompt/flips entrypoint and 2D
+streaming/materialized fixtures, including Y = 0 with Q = 14 and lineage
+readback. Use global `embedded`; see [storage options](sumw2.md).
+
 `run_data_driven.py` transforms a completed processor histogram artifact into a
 new artifact containing the applicable nonprompt and charge-flip products. It
 does not rerun NanoAOD processing, and the source PKL is not interchangeable

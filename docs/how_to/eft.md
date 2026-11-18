@@ -1,5 +1,16 @@
 # Extend EFT inputs or consumers
 
+## V3 yields and uncertainty
+
+The [R4 consumer evidence](../../MULTICELL_MIGRATION_STATUS.md#r4-consumer-evidence-and-limits)
+includes `test_v3_actual_yield_consumer` (Y = 0, uncertainty sqrt(14)) and
+`test_v3_yield_only_keeps_nonzero_wc_coefficients` (`ctG = 1` yield 6).
+`YieldTools.get_normalized_yield(..., include_uncertainty=False)` preserves
+nonzero-WC yields and returns no uncertainty. Recorded Q is only the SM-point
+second moment; retaining quadratic yield coefficients does not supply Q away
+from SM. [Global `none`](sumw2.md#global-v3-configuration) supports permitted
+yield-only requests; uncertainty needs recorded `embedded` Q.
+
 Use this guide for `topeft` sample treatment, coefficient selection, processor
 filling, SM-point consumption, or EFT-aware downstream validation. Reusable
 coefficient algebra and `HistEFT` changes belong to `topcoffea`.

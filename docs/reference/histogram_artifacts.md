@@ -1,5 +1,10 @@
 # Histogram artifacts and provenance
 
+For an existing v2 artifact, follow the [stack-identification route](../tutorials/histogram_artifacts.md#identify-the-stack-for-an-existing-v2-pkl)
+through its full filename sidecar, lineage and producing campaign attempt.
+For v3, use the [paired installation](../../README.md#installation-orientation)
+and [R4 qualification](../../MULTICELL_MIGRATION_STATUS.md#r4-consumer-evidence-and-limits).
+
 The maintained on-disk unit is a histogram PKL and its adjacent metadata
 sidecar. Consumers validate the pair; a PKL filename alone is not provenance.
 

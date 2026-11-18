@@ -1,5 +1,12 @@
 # Analysis workflow tutorial
 
+Before running examples, choose the [paired v3 installation](../../README.md#installation-orientation)
+or [identify the legacy stack of an existing v2 PKL](histogram_artifacts.md#identify-the-stack-for-an-existing-v2-pkl).
+For v3 choose global [embedded/none](../how_to/sumw2.md#global-v3-configuration);
+companion-selection descriptions belong to v2. Embedded Q is nominal at SM,
+not a nonzero-WC second moment. The [migration status](../../MULTICELL_MIGRATION_STATUS.md)
+records the bounded consumer qualification.
+
 This tutorial follows the maintained analysis workflow from sample selection to
 the artifacts handed to EFTFit and Combine, the downstream statistical tools.
 It is written for a HEP analyst who knows why events are selected and

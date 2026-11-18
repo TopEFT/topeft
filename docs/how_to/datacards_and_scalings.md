@@ -1,5 +1,11 @@
 # Create cards and build datacard packages
 
+The [R4 consumer evidence](../../MULTICELL_MIGRATION_STATUS.md#r4-consumer-evidence-and-limits)
+binds v3 qualification to the actual make-cards output and nuisance/EFT
+decomposition fixtures, which write ROOT/TXT/scalings. This does not qualify
+a production campaign. Uncertainty requests require recorded SM Q;
+see [storage options](sumw2.md).
+
 For the complete package lifecycle and fit-input handoff, use
 [build and use datacard packages](datacard_packages.md). This page covers card
 production and matrix execution in detail.

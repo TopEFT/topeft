@@ -1,5 +1,28 @@
 # Select or change sumw2 storage
 
+## Global v3 configuration
+
+From the paired [README installation](../../README.md#installation-orientation),
+pass a YAML options file to `run_analysis.py --options FILE` with one of:
+
+```yaml
+sumw2_storage:
+  mode: embedded
+```
+
+```yaml
+sumw2_storage:
+  mode: none
+```
+
+`embedded` records the nominal second moment Q at the Standard Model point
+(all Wilson coefficients zero) for data-driven use and supported statistical
+uncertainty requests. A zero yield may have nonzero Q. `none` leaves Q absent
+and supports yield-only requests where the consumer permits them. Retained
+yield coefficients do not provide a second moment away from the SM point.
+See [R4 qualification](../../MULTICELL_MIGRATION_STATUS.md#r4-consumer-evidence-and-limits)
+and the [embedded contract](../explanation/embedded_sumw2.md).
+
 For the active v3 producer, choose `sumw2_storage: {mode: embedded}` or
 `{mode: none}` in run options. `production` and `production_central` retain
 private/central sample-profile checks and both use global embedded storage;
@@ -34,7 +57,7 @@ This guide covers configuration and developer changes. See the
 model and the [sumw2 reference](../reference/sumw2.md) for exact symbols,
 serialized fields, and failure contracts.
 
-## Select an existing mode
+## Legacy v2: select a companion mode
 
 Set `sumw2_storage` in the top-level YAML mapping passed through
 `run_analysis.py --options FILE`:
